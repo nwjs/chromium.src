@@ -21,7 +21,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -600,34 +599,6 @@ public class TabCollectionTabModelImplUnitTest {
         // Without pending closures, should return model delegate's time.
         mTabModel.setPendingTabClosureManagerForTesting(null);
         assertEquals(5L, mTabModel.getMostRecentClosureTime());
-    }
-
-    @Test
-    public void testAllTabsAreClosing_closeAllTabs() {
-        @TabId int tabId = 789;
-        MockTab tab = createMockTab(tabId, mProfile);
-        tab.setIsInitialized(true);
-
-        when(mTabModelDelegate.getModel(anyBoolean())).thenReturn(mTabModel);
-
-        mTabModel.addTab(tab, 0, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
-        mTabModel.closeTabs(TabClosureParams.closeAllTabs().allowUndo(false).build());
-
-        verify(mTabModelObserver).allTabsAreClosing();
-    }
-
-    @Test
-    public void testAllTabsAreClosing_closeOneTab() {
-        when(mTabModelDelegate.getModel(anyBoolean())).thenReturn(mTabModel);
-
-        @TabId int tabId = 789;
-        MockTab tab = createMockTab(tabId, mProfile);
-        tab.setIsInitialized(true);
-        mTabModel.addTab(tab, 0, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
-        assertEquals(1, mTabModel.getCount());
-
-        mTabModel.closeTabs(TabClosureParams.closeTab(tab).allowUndo(false).build());
-        verify(mTabModelObserver).allTabsAreClosing();
     }
 
     @Test

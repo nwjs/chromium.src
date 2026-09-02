@@ -7,9 +7,9 @@
 #include <algorithm>
 #include <memory>
 
+#include "base/check.h"
 #include "base/i18n/rtl.h"
 #include "chrome/browser/ui/layout_constants.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_root_view.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_context.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
@@ -141,8 +141,9 @@ std::vector<Tab*> TabContainerImpl::AddTabs(
   }
 
   for (auto& param : tabs_params) {
-    Tab* tab_ptr = AddChildView(std::move(param.tab));
-    OrderTabSlotView(tab_ptr);
+    const size_t child_index = GetChildIndexForSlotView(param.tab.get());
+    Tab* tab_ptr = AddChildViewAt(std::move(param.tab), child_index);
+    MarkZOrderCacheDirty();
     added_tabs.push_back(tab_ptr);
   }
 
@@ -324,9 +325,9 @@ void TabContainerImpl::OnGroupCreated(const tab_groups::TabGroupId& group) {
 
 void TabContainerImpl::OnGroupEditorOpened(
     const tab_groups::TabGroupId& group) {
-  // The context menu relies on a Browser object which is not provided in
-  // TabStripTest.
-  if (tab_slot_controller_->GetBrowser()) {
+  // The context menu relies on a BrowserWindowInterface object which is not
+  // provided in TabStripTest.
+  if (tab_slot_controller_->GetBrowserWindowInterface()) {
     group_views_[group]->header()->ShowContextMenuForViewImpl(
         this, gfx::Point(), ui::mojom::MenuSourceType::kNone);
   }
@@ -734,6 +735,9 @@ void TabContainerImpl::ExitTabClosingMode() {
 void TabContainerImpl::SetTabSlotVisibility() {
   UpdateIdealBounds();
 
+  const std::optional<tab_groups::TabGroupId> focused_group =
+      controller_->GetFocusedGroup();
+
   std::set<tab_groups::TabGroupId> visibility_changed_groups;
   bool last_tab_visible = false;
   std::optional<tab_groups::TabGroupId> last_tab_group;
@@ -746,15 +750,19 @@ void TabContainerImpl::SetTabSlotVisibility() {
 
       // If we change the visibility of a group header, we must recalculate that
       // group's underline bounds.
-      if (last_tab_visible != group_view->header()->GetVisible()) {
+      bool should_header_be_visible = last_tab_visible;
+      if (focused_group.has_value() && last_tab_group != focused_group) {
+        should_header_be_visible = false;
+      }
+      if (should_header_be_visible != group_view->header()->GetVisible()) {
         visibility_changed_groups.insert(last_tab_group.value());
       }
-      group_view->header()->SetVisible(last_tab_visible);
+      group_view->header()->SetVisible(should_header_be_visible);
 
       // Hide underlines if they would underline an invisible tab, but don't
       // show underlines if they're hidden during a header drag session.
       if (!group_view->header()->dragging()) {
-        group_view->underline()->MaybeSetVisible(last_tab_visible);
+        group_view->underline()->MaybeSetVisible(should_header_be_visible);
       }
     }
 
@@ -766,13 +774,27 @@ void TabContainerImpl::SetTabSlotVisibility() {
     last_tab_visible = ShouldTabBeVisible(tab);
     last_tab_group = tab->closing() ? std::nullopt : current_group;
 
+    // Tabs outside the focused group are implicitly collapsed in focus mode,
+    // unless they are pinned.
+    bool is_collapsed_by_focus_mode = false;
+    if (focused_group.has_value()) {
+      if (!tab->data().pinned) {
+        is_collapsed_by_focus_mode =
+            !current_group.has_value() ||
+            current_group.value() != focused_group.value();
+      }
+    }
+
     // Collapsed tabs disappear once they've reached their minimum size. This
     // is different than very small non-collapsed tabs, because in that case
     // the tab (and its favicon) must still be visible.
+    const bool is_collapsed_by_group =
+        current_group.has_value() &&
+        controller_->IsGroupCollapsed(current_group.value());
+
     const bool is_collapsed =
-        (current_group.has_value() &&
-         controller_->IsGroupCollapsed(current_group.value()) &&
-         tab->bounds().width() <= tab->tab_style()->GetTabOverlap());
+        (is_collapsed_by_group || is_collapsed_by_focus_mode) &&
+        (tab->bounds().width() <= tab->tab_style()->GetTabOverlap());
     const bool should_be_visible = is_collapsed ? false : last_tab_visible;
 
     // If we change the visibility of a tab in a group, we must recalculate that
@@ -1304,26 +1326,11 @@ std::optional<int> TabContainerImpl::GetMidAnimationTrailingX() const {
     return std::nullopt;
   }
 
-  if (base::FeatureList::IsEnabled(features::kTabStripNewTabButtonFlickerFix)) {
-    // During animations not related to a drag session, we want to tightly hug
-    // our tabs. The `overall_bounds_view_` is animated smoothly to the ideal
-    // trailing X and is free from the rounding jitter of individual child
-    // views.
-    return overall_bounds_view_->bounds().right();
-  }
-
   // During animations not related to a drag session, we want to tightly hug
-  // our tabs. This allows the NTB to slide smoothly as tabs are opened and
-  // closed.
-
-  int trailing_x = 0;
-  // The visual order of the tabs can be out of sync with the logical order,
-  // so we have to check all of them to find the visually trailing-most one.
-  for (views::View* child : children()) {
-    trailing_x = std::max(trailing_x, child->bounds().right());
-  }
-
-  return trailing_x;
+  // our tabs. The `overall_bounds_view_` is animated smoothly to the ideal
+  // trailing X and is free from the rounding jitter of individual child
+  // views.
+  return overall_bounds_view_->bounds().right();
 }
 
 void TabContainerImpl::CloseTabInViewModel(int index) {
@@ -1487,9 +1494,16 @@ void TabContainerImpl::OrderTabSlotView(TabSlotView* slot_view) {
   }
 
   // `slot_view` is in the wrong place in children(). Fix it.
-  std::vector<TabSlotView*> slots = layout_helper_->GetTabSlotViews();
-  size_t target_slot_index =
-      std::ranges::find(slots, slot_view) - slots.begin();
+  ReorderChildView(slot_view, GetChildIndexForSlotView(slot_view));
+  MarkZOrderCacheDirty();
+}
+
+size_t TabContainerImpl::GetChildIndexForSlotView(
+    const TabSlotView* slot_view) const {
+  const std::vector<TabSlotView*> slots = layout_helper_->GetTabSlotViews();
+  const auto slot_it = std::ranges::find(slots, slot_view);
+  CHECK(slot_it != slots.end());
+  const size_t target_slot_index = slot_it - slots.begin();
   // Find the index in children() that corresponds to `target_slot_index`.
   size_t view_index = 0;
   for (size_t slot_index = 0; slot_index < target_slot_index; ++slot_index) {
@@ -1502,9 +1516,7 @@ void TabContainerImpl::OrderTabSlotView(TabSlotView* slot_view) {
     }
     ++view_index;
   }
-
-  ReorderChildView(slot_view, view_index);
-  MarkZOrderCacheDirty();
+  return view_index;
 }
 
 bool TabContainerImpl::IsPointInTab(

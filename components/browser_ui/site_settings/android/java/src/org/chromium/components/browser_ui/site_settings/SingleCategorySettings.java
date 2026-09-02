@@ -36,6 +36,7 @@ import android.widget.TextView;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SearchView;
 import androidx.preference.Preference;
 import androidx.preference.Preference.OnPreferenceChangeListener;
 import androidx.preference.Preference.OnPreferenceClickListener;
@@ -544,6 +545,29 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
         mSearchViewObserver = observer;
     }
 
+    private void onSearchQueryChanged(String query) {
+        boolean queryHasChanged =
+                mSearch == null ? query != null && !query.isEmpty() : !mSearch.equals(query);
+        mSearch = query;
+        if (queryHasChanged) {
+            if (mSearchRunnable != null) {
+                mSearchHandler.removeCallbacks(mSearchRunnable);
+            }
+            mSearchRunnable = () -> getInfoForOrigins();
+            mSearchHandler.postDelayed(mSearchRunnable, 200);
+        }
+    }
+
+    @Override
+    public void initSearchView(SearchView searchView) {
+        SearchUtils.initializeSearchView(
+                searchView,
+                mSearch,
+                getActivity(),
+                mSearchViewObserver,
+                this::onSearchQueryChanged);
+    }
+
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         menu.clear();
@@ -555,20 +579,7 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
                 mSearch,
                 getActivity(),
                 assumeNonNull(mSearchViewObserver),
-                (query) -> {
-                    boolean queryHasChanged =
-                            mSearch == null
-                                    ? query != null && !query.isEmpty()
-                                    : !mSearch.equals(query);
-                    mSearch = query;
-                    if (queryHasChanged) {
-                        if (mSearchRunnable != null) {
-                            mSearchHandler.removeCallbacks(mSearchRunnable);
-                        }
-                        mSearchRunnable = () -> getInfoForOrigins();
-                        mSearchHandler.postDelayed(mSearchRunnable, 200);
-                    }
-                });
+                this::onSearchQueryChanged);
 
         if (getSiteSettingsDelegate().isHelpAndFeedbackEnabled()) {
             MenuItem help =
@@ -776,12 +787,9 @@ public class SingleCategorySettings extends BaseSiteSettingsFragment
 
     private void setThirdPartyCookieSettingsPreference(@CookieControlsMode int mode) {
         assert mCategory.getType() == SiteSettingsCategory.Type.THIRD_PARTY_COOKIES;
-        getSiteSettingsDelegate().dismissPrivacySandboxSnackbar();
 
-        // Display the Privacy Sandbox snackbar whenever third-party cookies are blocked.
         if (mode == CookieControlsMode.BLOCK_THIRD_PARTY) {
             RecordUserAction.record("Settings.PrivacySandbox.Block3PCookies");
-            getSiteSettingsDelegate().maybeDisplayPrivacySandboxSnackbar();
         }
         PrefService prefService = UserPrefs.get(getBrowserContextHandle());
         prefService.setInteger(COOKIE_CONTROLS_MODE, mode);

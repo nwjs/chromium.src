@@ -850,8 +850,8 @@ WebInputEventResult WebPagePopupImpl::HandleGestureEvent(
         MainFrame().GetEventHandler().HitTestResultAtLocation(locationScroll);
     scrollable_node_ = FindFirstScroller(resultScroll.InnerNode());
     RecordScrollReasonsMetric(
-        event.SourceDevice(),
-        cc::MainThreadScrollingReason::kPopupNoThreadedInput);
+        event.SourceDevice(), {}, {},
+        {cc::MainThreadScrollingOtherReason::kPopupNoThreadedInput});
     return WebInputEventResult::kHandledSystem;
   }
   if (event.GetType() == WebInputEvent::Type::kGestureScrollUpdate) {
@@ -978,8 +978,9 @@ void WebPagePopupImpl::CheckScreenPointInOwnerWindowAndCount(
 gfx::Rect WebPagePopupImpl::OwnerWindowRectInScreen() const {
   LocalFrameView* view = popup_client_->OwnerElement().GetDocument().View();
   DCHECK(view);
-  gfx::Rect frame_rect = view->FrameRect();
-  return view->FrameToScreen(frame_rect);
+
+  return view->GetChromeClient()->LocalRootToScreenDIPs(
+      gfx::Rect(view->GetFrame().LocalFrameRoot().View()->Size()), view);
 }
 
 gfx::Rect WebPagePopupImpl::GetAnchorRectInScreen() const {

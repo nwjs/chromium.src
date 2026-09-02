@@ -321,37 +321,7 @@ NSString* const kFormInputAccessoryViewOmniboxTypingShieldAccessibilityID =
       (group != FormInputAccessoryViewSubitemGroup::kExpandButton);
   self.manualFillButton.hidden = hideManualFillButton;
 
-  if ([self isSplitViewActive]) {
-    BOOL fixedSpacing = !hideManualFillButton;
-    if (_isTabletFormFactor) {
-      // iPad:
-      // The close button is hidden for iPad. The spacing constraint isn't
-      // needed.
-      _splitViewSpacingConstraint.active = NO;
-
-      // In `kDetailedButtons` mode, the effect view's constraint that aligns to
-      // the leading edge of the keyboard accessary has to be disabled. The
-      // `_trailingViewCenteringConstraint` then centers the manual fill buttons
-      // to the center of the keyboard accessory.
-      _effectViewLeadingConstraint.active = fixedSpacing;
-      _trailingViewCenteringConstraint.active = !fixedSpacing;
-      _trailingConstraint.active = fixedSpacing;
-    } else {
-      // iPhone:
-      // The effect view is always aligned to the leading anchor of the keyboard
-      // accessory. `trailingView`, does not need to be centered or aligned to
-      // the trailing anchor of the keyboard accessory.
-      _effectViewLeadingConstraint.active = YES;
-      _trailingViewCenteringConstraint.active = NO;
-      _trailingConstraint.active = NO;
-
-      // In `kExpandButtonOnly` mode:
-      // A fixed space between `trailingView` and the close button is needed.
-      // In `kDetailedButtons` mode:
-      // The space between `trailingView` and the close button is flexible.
-      _splitViewSpacingConstraint.active = fixedSpacing;
-    }
-  }
+  [self updateSplitViewConstraints];
 }
 
 - (FormInputAccessoryViewSubitemGroup)currentGroup {
@@ -386,6 +356,42 @@ NSString* const kFormInputAccessoryViewOmniboxTypingShieldAccessibilityID =
 // Whether split view is in use.
 - (BOOL)isSplitViewActive {
   return [self isLiquidGlassEffectEnabled];
+}
+
+// Updates constraints for the split view.
+- (void)updateSplitViewConstraints {
+  if (![self isSplitViewActive]) {
+    return;
+  }
+  BOOL fixedSpacing = !self.manualFillButton.hidden;
+  if (_isTabletFormFactor) {
+    // iPad:
+    // The close button is hidden for iPad. The spacing constraint isn't
+    // needed.
+    _splitViewSpacingConstraint.active = NO;
+
+    // In `kDetailedButtons` mode, the effect view's constraint that aligns to
+    // the leading edge of the keyboard accessary has to be disabled. The
+    // `_trailingViewCenteringConstraint` then centers the manual fill buttons
+    // to the center of the keyboard accessory.
+    _effectViewLeadingConstraint.active = fixedSpacing;
+    _trailingViewCenteringConstraint.active = !fixedSpacing;
+    _trailingConstraint.active = fixedSpacing;
+  } else {
+    // iPhone:
+    // The effect view is always aligned to the leading anchor of the keyboard
+    // accessory. `trailingView`, does not need to be centered or aligned to
+    // the trailing anchor of the keyboard accessory.
+    _effectViewLeadingConstraint.active = YES;
+    _trailingViewCenteringConstraint.active = NO;
+    _trailingConstraint.active = NO;
+
+    // In `kExpandButtonOnly` mode:
+    // A fixed space between `trailingView` and the close button is needed.
+    // In `kDetailedButtons` mode:
+    // The space between `trailingView` and the close button is flexible.
+    _splitViewSpacingConstraint.active = fixedSpacing;
+  }
 }
 
 // Sets up split view.
@@ -505,9 +511,8 @@ NSString* const kFormInputAccessoryViewOmniboxTypingShieldAccessibilityID =
       _contentView.backgroundColor = [UIColor colorNamed:kBackgroundColor];
     }
     [self addSubview:_contentView];
-    AddSameConstraintsToSides(
-        self, _contentView,
-        LayoutSides::kBottom | LayoutSides::kLeading | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(self, _contentView,
+                              LayoutSides::kBottom | LayoutSides::kHorizontal);
 
     [self setOmniboxSafeTopConstraint:_contentView];
   }
@@ -543,9 +548,8 @@ NSString* const kFormInputAccessoryViewOmniboxTypingShieldAccessibilityID =
   [_contentView addSubview:leadingViewContainer];
   [leadingViewContainer addSubview:leadingView];
   if ([self isLiquidGlassEffectEnabled]) {
-    AddSameConstraintsToSides(
-        leadingViewContainer, leadingView,
-        LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(leadingViewContainer, leadingView,
+                              LayoutSides::kTop | LayoutSides::kHorizontal);
     [self setBottomAnchorForView:leadingView];
   } else {
     AddSameConstraints(leadingViewContainer, leadingView);
@@ -1009,9 +1013,8 @@ NSString* const kFormInputAccessoryViewOmniboxTypingShieldAccessibilityID =
         kFormInputAccessoryViewOmniboxTypingShieldAccessibilityID;
     [self addSubview:_omniboxTypingShield];
 
-    AddSameConstraintsToSides(
-        self, _omniboxTypingShield,
-        LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(self, _omniboxTypingShield,
+                              LayoutSides::kTop | LayoutSides::kHorizontal);
     _omniboxTypingShieldHeightConstraint =
         [_omniboxTypingShield.heightAnchor constraintEqualToConstant:0];
     _omniboxTypingShieldBottomConstraint = [_omniboxTypingShield.bottomAnchor

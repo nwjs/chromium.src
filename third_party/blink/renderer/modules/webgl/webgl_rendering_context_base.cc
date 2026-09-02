@@ -161,6 +161,7 @@
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
 #include "third_party/skia/include/core/SkColorType.h"
@@ -702,12 +703,10 @@ static String ExtractWebGLContextCreationError(
   StringBuilder builder;
   builder.Append("Could not create a WebGL context");
   FormatWebGLStatusString(
-      "VENDOR",
-      info.vendor_id ? String::Format("0x%04x", info.vendor_id) : "0xffff",
+      "VENDOR", info.vendor_id ? Format("0x{:04x}", info.vendor_id) : "0xffff",
       builder);
   FormatWebGLStatusString(
-      "DEVICE",
-      info.device_id ? String::Format("0x%04x", info.device_id) : "0xffff",
+      "DEVICE", info.device_id ? Format("0x{:04x}", info.device_id) : "0xffff",
       builder);
   FormatWebGLStatusString("GL_VENDOR", info.vendor_info, builder);
   FormatWebGLStatusString("GL_RENDERER", info.renderer_info, builder);
@@ -716,9 +715,9 @@ static String ExtractWebGLContextCreationError(
   FormatWebGLStatusString("Optimus", info.optimus ? "yes" : "no", builder);
   FormatWebGLStatusString("AMD switchable", info.amd_switchable ? "yes" : "no",
                           builder);
-  FormatWebGLStatusString(
-      "Reset notification strategy",
-      String::Format("0x%04x", info.reset_notification_strategy), builder);
+  FormatWebGLStatusString("Reset notification strategy",
+                          Format("0x{:04x}", info.reset_notification_strategy),
+                          builder);
   FormatWebGLStatusString("ErrorMessage", info.error_message, builder);
   builder.Append('.');
   return builder.ReleaseString();
@@ -6715,15 +6714,18 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
   // Orient the destination rect based on the frame's transform.
   const auto& visible_rect = media_video_frame->visible_rect();
   auto dest_rect = gfx::Rect(visible_rect.size());
-  if (transform.rotation == media::VIDEO_ROTATION_90 ||
-      transform.rotation == media::VIDEO_ROTATION_270) {
+  if (transform.IsOrthogonal()) {
     dest_rect.Transpose();
   }
 
-  const bool reinterpret_video_as_srgb = !params.unpack_colorspace_conversion;
+  const auto color_space_interpretation =
+      !params.unpack_colorspace_conversion
+          ? VideoColorSpaceInterpretation::kReinterpretAsSRGB
+          : VideoColorSpaceInterpretation::kPreserve;
 
   auto info = CreateSnapshotProviderInfoForVideoFrame(
-      *media_video_frame, dest_rect.size(), reinterpret_video_as_srgb);
+      *media_video_frame, dest_rect.size(), color_space_interpretation,
+      VideoOrientationBehavior::kHardFlip);
 
   CanvasNon2DResourceProvider* provider = nullptr;
   if (can_upload_via_gpu) {
@@ -6741,17 +6743,16 @@ void WebGLRenderingContextBase::TexImageHelperMediaVideoFrame(
   }
 
   // Since TexImageStaticBitmapImage() and TexImageGPU() don't know how to
-  // handle tagged orientation, we set |prefer_tagged_orientation| to false.
-  const bool kPreferTaggedOrientation = false;
+  // handle tagged orientation, we use VideoOrientationBehavior::kHardFlip.
   scoped_refptr<StaticBitmapImage> image;
   if (!provider) {
     image = CreateUnacceleratedImageFromVideoFrame(
         std::move(media_video_frame), info, video_renderer,
-        kPreferTaggedOrientation, reinterpret_video_as_srgb);
+        VideoOrientationBehavior::kHardFlip, color_space_interpretation);
   } else {
     image = CreateAcceleratedImageFromVideoFrame(
         std::move(media_video_frame), provider, video_renderer,
-        kPreferTaggedOrientation, reinterpret_video_as_srgb);
+        VideoOrientationBehavior::kHardFlip, color_space_interpretation);
   }
 
   if (!image) {

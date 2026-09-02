@@ -45,8 +45,7 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSourceMac
   // BeginFrameSource implementation.
   void SetVSyncDisplayID(int64_t display_id, bool force_update) override;
 
-  void UpdateVSyncDisplay(int64_t display_id,
-                          bool is_browser_vsync_supported) override;
+  void UpdateVSyncDisplay(int64_t display_id) override;
 
   // ExternalBeginFrameSourceClient implementation.
   void OnNeedsBeginFrames(bool needs_begin_frames) override;
@@ -60,6 +59,7 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSourceMac
   base::TimeDelta GetMinimumFrameInterval() override;
   base::flat_set<base::TimeDelta> GetSupportedFrameIntervals(
       base::TimeDelta interval) override;
+  void UpdateRefreshRate(float refresh_rate) override;
 
   // CVDisplayLink Callback on the Viz thread.
   void OnDisplayLinkCallback(ui::VSyncParamsMac params);
@@ -84,11 +84,6 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSourceMac
 
   void StartBeginFrame(bool display_link_keep_alive_only);
   void StopBeginFrame(bool force_stop);
-
-  // Defer `UpdateVSyncDisplay()` calls while `needs_begin_frames_` is true
-  // to ensure a jank-free transition when switching to the browser-side
-  // DisplayLink. (Used for the kCADisplayLinkInBrowser feature only).
-  void UpdateDeferredVSyncDisplayIfNeeded();
 
   void RecordFirstFrameHistograms(bool is_timer);
 
@@ -125,12 +120,6 @@ class VIZ_COMMON_EXPORT ExternalBeginFrameSourceMac
   base::TimeDelta last_interval_;
 
   bool just_started_begin_frame_ = false;
-
-  // Indicates that a VSync display update is deferred until active rendering
-  // (`needs_begin_frames_`) stops, ensuring a smooth transition to the
-  // browser-side DisplayLink. (Used for the kCADisplayLinkInBrowser feature
-  // only).
-  bool vsync_display_id_update_deferred_ = false;
 
   // To prevent the DisplayLink from constantly toggling on and off, allow it
   // to continue running for this many consecutive VSyncs after it is no longer

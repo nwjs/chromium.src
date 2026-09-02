@@ -74,6 +74,10 @@
 #include "chrome/browser/performance_manager/extension_watcher.h"
 #endif
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/performance_manager/execution_context_priority/extension_service_worker_priority_voter.h"
+#endif
+
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/performance_manager/policies/discard_page_with_crashed_subframe_policy.h"
@@ -285,6 +289,17 @@ void ChromeBrowserMainExtraPartsPerformanceManager::CreatePoliciesAndDecorators(
     voting_system
         ->AddPriorityVoter<performance_manager::execution_context_priority::
                                SidePanelLoadingVoter>();
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+    // Keeps the renderer of a navigation-blocking extension service worker out
+    // of EcoQoS. See crbug.com/484218883.
+    if (base::FeatureList::IsEnabled(
+            features::kExtensionServiceWorkerPriorityVoter)) {
+      voting_system
+          ->AddPriorityVoter<performance_manager::execution_context_priority::
+                                 ExtensionServiceWorkerPriorityVoter>();
+    }
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -323,16 +338,12 @@ void ChromeBrowserMainExtraPartsPerformanceManager::PostCreateThreads() {
 
   g_browser_process->profile_manager()->AddObserver(this);
 
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(chrome::android::kProtectedTabsAndroid)) {
-    // performance_manager::policies::DiscardEligibilityPolicy requires
-    // performance_manager::user_tuning::ProfileDiscardOptOutListHelper.
-    profile_discard_opt_out_list_helper_ = std::make_unique<
-        performance_manager::user_tuning::ProfileDiscardOptOutListHelper>();
-  }
-#else
+  // performance_manager::policies::DiscardEligibilityPolicy requires
+  // performance_manager::user_tuning::ProfileDiscardOptOutListHelper.
   profile_discard_opt_out_list_helper_ = std::make_unique<
       performance_manager::user_tuning::ProfileDiscardOptOutListHelper>();
+
+#if !BUILDFLAG(IS_ANDROID)
 
   // Only create the per-origin force foreground priority list helper if the
   // policy to force foreground priority for all tabs is disabled. If that

@@ -84,7 +84,7 @@ static void RecordScrollbarPartStats(Document& document, ScrollbarPart part) {
 }
 
 LayoutCustomScrollbarPart* LayoutCustomScrollbarPart::CreateAnonymous(
-    Document* document,
+    Document& document,
     ScrollableArea* scrollable_area,
     CustomScrollbar* scrollbar,
     ScrollbarPart part,
@@ -93,7 +93,7 @@ LayoutCustomScrollbarPart* LayoutCustomScrollbarPart::CreateAnonymous(
       MakeGarbageCollected<LayoutCustomScrollbarPart>(
           scrollable_area, scrollbar, part, suppress_use_counters);
   if (!suppress_use_counters) {
-    RecordScrollbarPartStats(*document, part);
+    RecordScrollbarPartStats(document, part);
   }
   layout_object->SetDocumentForAnonymous(document);
   return layout_object;
@@ -242,9 +242,11 @@ void LayoutCustomScrollbarPart::UpdateFromStyle() {
 void LayoutCustomScrollbarPart::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutReplaced::StyleDidChange(diff, old_style, style_change_context);
+  LayoutReplaced::StyleDidChange(diff, old_style, new_style,
+                                 style_change_context);
   if (old_style &&
       (diff.NeedsNormalPaintInvalidation() || diff.NeedsFullLayout())) {
     SetNeedsPaintInvalidation();

@@ -189,56 +189,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kBoostNonRenderBlockingStyleLoadingTaskPriority);
 
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kBrowsingTopicsBypassIPIsPubliclyRoutableCheck);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kBrowsingTopicsDocumentAPI);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kBrowsingTopicsParameters);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    base::TimeDelta,
-    kBrowsingTopicsTimePeriodPerEpoch);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsNumberOfEpochsToExpose);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsNumberOfTopTopicsPerEpoch);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsUseRandomTopicProbabilityPercent);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    base::TimeDelta,
-    kBrowsingTopicsMaxEpochIntroductionDelay);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    base::TimeDelta,
-    kBrowsingTopicsEpochRetentionDuration);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    base::TimeDelta,
-    kBrowsingTopicsMaxEpochPhaseOutTimeOffset);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsNumberOfEpochsOfObservationDataToUseForFiltering);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsMaxNumberOfApiUsageContextDomainsToKeepPerTopic);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsMaxNumberOfApiUsageContextEntriesToLoadPerEpoch);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsMaxNumberOfApiUsageContextDomainsToStorePerPageLoad);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
-                                               kBrowsingTopicsTaxonomyVersion);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    std::string,
-    kBrowsingTopicsDisabledTopicsList);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    std::string,
-    kBrowsingTopicsPrioritizedTopicsList);
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
-    base::TimeDelta,
-    kBrowsingTopicsFirstTimeoutRetryDelay);
-constexpr int kBrowsingTopicsTaxonomyVersionDefault = 2;
-
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCacheStorageCodeCacheHintHeader);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     std::string,
@@ -432,7 +382,7 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDetectZhVariants);
 // See http://crbug.com/40788570.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsImprovedNetworkError);
 
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsAllowPopoverForcing);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsAllowInterestForcing);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsWebMCPSupport);
 
@@ -456,8 +406,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
 // quietly discarded.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kDiscardInputEventsToRecentlyMovedFrames);
-
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDropInputEventsWhilePaintHolding);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kEnableDevtoolsDeepLinkViaExtensibilityApi);
@@ -512,8 +460,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFencedFramesReportEventHeaderChanges);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFencedFramesSrcPermissionsPolicy);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFetchDestinationJsonCssModules);
-
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFileHandlingIcons);
 
 // Switch to temporary turn back on file system url navigation.
 // TODO(https://crbug.com/1332598): Remove this feature.
@@ -648,6 +594,7 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
     kInlineScriptCacheEnabledForDefaultHint);
+
 // Gating the migration of Android IME cursor anchor updates from Mojo IPC to
 // RenderFrameMetadata.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kInputCursorAnchorInfoMigration);
@@ -1437,9 +1384,12 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
 // "random_anchor_sampling_period" set to 1, and
 // kNavigationPredictorNewViewportFeatures.
 // Note: The prediction will only be preloaded if the "enact_candidates" param
-// is set to true (false by default), otherwise it is only logged for metrics
-// purposes.
+// is set to true (the default outside Android is false), otherwise it is only
+// logged for metrics purposes.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPreloadingModerateViewportHeuristics);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kPreloadingModerateViewportHeuristicsEnactCandidates);
 
 // If enabled, preloading eligibility checks (e.g., data saver, battery saver)
 // are performed on the renderer side.
@@ -1516,12 +1466,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kForceProduceCompileHints);
 // compiling those functions when the same script is loaded again.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLocalCompileHints);
 
-// Whether Sec-CH-UA headers on subresource fetches that contain an empty
-// string should be quoted (`""`) as they are for navigation fetches. See
-// https://crbug.com/1416925.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kQuoteEmptySecChUaStringHeadersConsistently);
-
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kReducedReferrerGranularity);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
@@ -1595,6 +1539,9 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
 
 // Enables the Rust-based BMP image decoder.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRustyBmpFeature);
+
+// Enables the Rust-based ICO image decoder.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRustyIcoFeature);
 
 // When enabled, it adds Payto URI Scheme to the safe list for
 // registerProtocolHandler. This feature is disabled by default
@@ -1784,6 +1731,11 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(int,
                                                kLargeFrameSizePercentThreshold);
 
+// Enables throttling of the active (visible) page's throttleable task queues
+// (JS timers) to 1 Hz while it contains an effectively-fullscreen video, to
+// reduce CPU/power usage during fullscreen video playback.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kThrottleFullscreenVideoActiveTab);
+
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kUACHOverrideBlank);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
@@ -1871,6 +1823,11 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebFontsCacheAwareTimeoutAdaption);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebRtcHideLocalIpsWithMdns);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebRtcIgnoreUnspecifiedColorSpace);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebRtcUseMinMaxVEADimensions);
+
+// If enabled, WebUI renderer processes will bypass non-critical Mojo interface
+// registrations (like TimeZoneMonitor, DevicePosture, MediaDecoder, and
+// PowerMonitor).
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebUIBypassMojoConnections);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebUSBTransferSizeLimit);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebUSBWorldIsolatedCache);

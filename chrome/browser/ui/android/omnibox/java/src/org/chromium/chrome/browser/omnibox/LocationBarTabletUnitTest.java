@@ -6,14 +6,12 @@ package org.chromium.chrome.browser.omnibox;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 
 import android.app.Activity;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.view.Gravity;
 import android.view.InputDevice;
@@ -46,6 +44,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable.HairlineBehavior;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
@@ -72,14 +71,14 @@ public class LocationBarTabletUnitTest {
     private static final int MIN_TABLET_WIDTH_DP = 504;
     private static final int CENTERING_THRESHOLD_DP = 16;
 
-    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
-    private @Mock WindowAndroid mWindowAndroid;
-    private @Mock DisplayAndroid mDisplay;
-    private @Mock UrlBarCoordinator mUrlBarCoordinator;
-    private @Mock AutocompleteCoordinator mAutocompleteCoordinator;
-    private @Mock StatusCoordinator mStatusCoordinator;
-    private @Mock LocationBarDataProvider mLocationBarDataProvider;
-    private @Mock ViewOutlineProvider mOutlineProvider;
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private WindowAndroid mWindowAndroid;
+    @Mock private DisplayAndroid mDisplay;
+    @Mock private UrlBarCoordinator mUrlBarCoordinator;
+    @Mock private AutocompleteCoordinator mAutocompleteCoordinator;
+    @Mock private StatusCoordinator mStatusCoordinator;
+    @Mock private LocationBarDataProvider mLocationBarDataProvider;
+    @Mock private ViewOutlineProvider mOutlineProvider;
 
     private Activity mActivity;
     private LocationBarTablet mLocationBarTablet;
@@ -382,8 +381,9 @@ public class LocationBarTabletUnitTest {
         assertNull(mLocationBarTablet.getForeground());
 
         mLocationBarTablet.onSpecializedFuseboxModeActivated(true);
+        assertNull(mLocationBarTablet.getForeground());
         GlifStrokeDrawable glifStrokeDrawable =
-                (GlifStrokeDrawable) mLocationBarTablet.getForeground();
+                (GlifStrokeDrawable) ((FrameLayout) mLocationBarTablet.getParent()).getForeground();
         float radius =
                 mLocationBarTablet
                         .getResources()
@@ -402,6 +402,9 @@ public class LocationBarTabletUnitTest {
                                 R.dimen.location_bar_tablet_fusebox_popover_top_padding),
                 mLocationBarTablet.getPaddingTop());
         assertEquals(0, urlBar.getTranslationY(), MathUtils.EPSILON);
+
+        mLocationBarTablet.onSpecializedFuseboxModeActivated(false);
+        assertNull(((FrameLayout) mLocationBarTablet.getParent()).getForeground());
     }
 
     @Test
@@ -580,9 +583,9 @@ public class LocationBarTabletUnitTest {
         // TODO(https://crbug.com/495794043): Replace with a render test.
         mLocationBarTablet.updateVisualsForState(BrandedColorScheme.INCOGNITO);
 
-        LayerDrawable background = (LayerDrawable) mLocationBarTablet.getBackground();
-        GradientDrawable unfocusedRect =
-                (GradientDrawable) background.findDrawableByLayerId(R.id.unfocused_bg);
+        LocationBarBackgroundDrawable background =
+                (LocationBarBackgroundDrawable) mLocationBarTablet.getBackground();
+        GradientDrawable unfocusedRect = background.getBackgroundGradient();
 
         @ColorInt
         int expectedIncognitoColor =
@@ -591,8 +594,8 @@ public class LocationBarTabletUnitTest {
         assertEquals(expectedIncognitoColor, unfocusedRect.getColor().getDefaultColor());
 
         mLocationBarTablet.updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
-        background = (LayerDrawable) mLocationBarTablet.getBackground();
-        unfocusedRect = (GradientDrawable) background.findDrawableByLayerId(R.id.unfocused_bg);
+        background = (LocationBarBackgroundDrawable) mLocationBarTablet.getBackground();
+        unfocusedRect = background.getBackgroundGradient();
         @ColorInt
         int expectedAppDefaultColor =
                 OmniboxResourceProvider.getTabletToolbarTextBoxBackgroundColor(
@@ -644,15 +647,15 @@ public class LocationBarTabletUnitTest {
     public void testSetIsInStandby() {
         assertNull(mLocationBarTablet.getForeground());
         mLocationBarTablet.updateVisualsForState(BrandedColorScheme.APP_DEFAULT);
-        LayerDrawable background = (LayerDrawable) mLocationBarTablet.getBackground();
-        GradientDrawable unfocusedRect =
-                (GradientDrawable) background.findDrawableByLayerId(R.id.unfocused_bg);
+        LocationBarBackgroundDrawable background =
+                (LocationBarBackgroundDrawable) mLocationBarTablet.getBackground();
+        GradientDrawable unfocusedRect = background.getBackgroundGradient();
 
-        mLocationBarTablet.setShowStandbyRing(true);
+        mLocationBarTablet.setShowFocusRing(true);
 
-        // Verify the InsetDrawable border was applied to the foreground.
-        assertNotNull(mLocationBarTablet.getForeground());
-        assertTrue(mLocationBarTablet.getForeground() instanceof InsetDrawable);
+        // Verify the background hairline is in standby mode.
+        assertEquals(HairlineBehavior.SOLID, background.getHairlineBehaviorForTesting());
+        assertNull(mLocationBarTablet.getForeground());
 
         @ColorInt
         int expectedStandbyColor =
@@ -660,9 +663,11 @@ public class LocationBarTabletUnitTest {
                         mActivity, BrandedColorScheme.APP_DEFAULT);
         assertEquals(expectedStandbyColor, unfocusedRect.getColor().getDefaultColor());
 
-        mLocationBarTablet.setShowStandbyRing(false);
+        mLocationBarTablet.setShowFocusRing(false);
+        assertEquals(HairlineBehavior.NONE, background.getHairlineBehaviorForTesting());
         mLocationBarTablet.updateVisualsForState(BrandedColorScheme.INCOGNITO);
-        mLocationBarTablet.setShowStandbyRing(true);
+        mLocationBarTablet.setShowFocusRing(true);
+        assertEquals(HairlineBehavior.SOLID, background.getHairlineBehaviorForTesting());
         @ColorInt
         int expectedIncognitoStandbyColor =
                 OmniboxResourceProvider.getTabletToolbarTextBoxStandbyBackgroundColor(
@@ -671,17 +676,23 @@ public class LocationBarTabletUnitTest {
 
         mLocationBarTablet.onFuseboxStateChanged(FuseboxState.COMPACT);
         // Standby mode should override the fusebox state when deciding if to expand.
-        var layoutParams = (LinearLayout.LayoutParams) mHolderView.getLayoutParams();
+        LinearLayout.LayoutParams layoutParams =
+                (LinearLayout.LayoutParams) mHolderView.getLayoutParams();
         assertEquals(0, layoutParams.leftMargin);
         assertEquals(0, layoutParams.rightMargin);
         assertEquals(0, layoutParams.topMargin);
+        assertEquals(0, mLocationBarTablet.getPaddingBottom());
+
+        FrameLayout.LayoutParams tabletLayoutParams =
+                (FrameLayout.LayoutParams) mLocationBarTablet.getLayoutParams();
+        assertEquals(0, tabletLayoutParams.bottomMargin);
 
         View urlBar = mLocationBarTablet.findViewById(R.id.url_bar);
         View statusView = mLocationBarTablet.findViewById(R.id.location_bar_status);
         assertEquals(0, urlBar.getTranslationY(), MathUtils.EPSILON);
         assertEquals(0, statusView.getTranslationY(), MathUtils.EPSILON);
 
-        mLocationBarTablet.setShowStandbyRing(false);
+        mLocationBarTablet.setShowFocusRing(false);
         assertNull(mLocationBarTablet.getForeground());
         @ColorInt
         int expectedNormalColor =
@@ -714,7 +725,39 @@ public class LocationBarTabletUnitTest {
                 mLocationBarTablet
                         .getResources()
                         .getDimensionPixelSize(R.dimen.fusebox_min_tablet_width);
-        assertEquals(minWidthPx, mLocationBarTablet.getAlignmentViewTargetWidth());
+        int popoverAdditionalWidth =
+                mLocationBarTablet
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.omnibox_suggestion_popover_shift);
+        assertEquals(
+                minWidthPx + 2 * popoverAdditionalWidth,
+                mLocationBarTablet.getAlignmentViewTargetWidth());
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-xhdpi")
+    public void testPopoverAlignmentMargins() {
+        View statusView = mLocationBarTablet.findViewById(R.id.location_bar_status);
+        View activationChip = mLocationBarTablet.findViewById(R.id.fusebox_activation_chip);
+        mLocationBarTablet.setFuseboxLayoutMode(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
+        int popoverAdditionalWidth =
+                mLocationBarTablet
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.omnibox_suggestion_popover_shift);
+        int aiChipMarginEnd =
+                mLocationBarTablet
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.location_bar_desktop_popover_margin_end);
+
+        mLocationBarTablet.setReparentedToPopover(true);
+        MarginLayoutParams statusParams = (MarginLayoutParams) statusView.getLayoutParams();
+        MarginLayoutParams chipParams = (MarginLayoutParams) activationChip.getLayoutParams();
+        assertEquals(popoverAdditionalWidth, statusParams.getMarginStart());
+        assertEquals(aiChipMarginEnd, chipParams.getMarginEnd());
+
+        mLocationBarTablet.setReparentedToPopover(false);
+        assertEquals(0, statusParams.getMarginStart());
+        assertEquals(0, chipParams.getMarginEnd());
     }
 
     private void setupContainerAndMeasure(int containerWidth, int prefocusWidth, int leftPosition) {

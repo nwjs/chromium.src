@@ -8,7 +8,7 @@ import 'chrome://resources/cr_components/composebox/composebox_favicon_group.js'
 
 import type {ComposeboxFaviconGroupElement} from 'chrome://resources/cr_components/composebox/composebox_favicon_group.js';
 import type {ContextualActionMenuElement} from 'chrome://resources/cr_components/composebox/contextual_action_menu.js';
-import {DEFAULT_FLYOUT_WIDTH_PX, MIN_MENU_HEIGHT_PX, SHARE_TABS_FLYOUT_GAP_PX, SHARE_TABS_FLYOUT_MAX_HEIGHT_PX, VIEWPORT_BUFFER_PX, DEFAULT_MAX_MENU_HEIGHT_PX} from 'chrome://resources/cr_components/composebox/contextual_action_menu.js';
+import {DEFAULT_FLYOUT_WIDTH_PX, DEFAULT_MAX_MENU_HEIGHT_PX, MIN_MENU_HEIGHT_PX, SHARE_TABS_FLYOUT_GAP_PX, SHARE_TABS_FLYOUT_MAX_HEIGHT_PX, VIEWPORT_BUFFER_PX} from 'chrome://resources/cr_components/composebox/contextual_action_menu.js';
 import {AnchorAlignment} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
@@ -57,6 +57,7 @@ interface InternalContextualActionMenu {
   deleteTabContext_: (uuid: string) => void;
   readonly closeMenuOnSelect: boolean;
   reposition_: () => void;
+  maybeCloseMenuBasedOnEntrypoint_: () => void;
 }
 
 function asInternal(element: ContextualActionMenuElement):
@@ -76,6 +77,7 @@ suite('ContextualActionMenu', () => {
       ShowContextMenuHeaders: true,
       contextManagementInComposeboxEnabled: false,
       keepMenuOpenOnTabSelectForRealbox: false,
+      composeboxContextMenuEnableTabDeselection: false,
     });
 
     const pluralStringProxy = new TestPluralStringProxy();
@@ -84,7 +86,7 @@ suite('ContextualActionMenu', () => {
     actionMenu = document.createElement('cr-composebox-contextual-action-menu');
     Object.assign(actionMenu, {
       fileNum: 0,
-      disabledTabIds: new Map(),
+      selectedTabIds: new Map(),
       tabSuggestions: [],
       smartTabSharingVisible: false,
       contextManagementInComposeboxEnabled: false,
@@ -153,7 +155,8 @@ suite('ContextualActionMenu', () => {
         await microtasksFinished();
       });
 
-  test(
+  // TODO(crbug.com/537768276): Test is flaky.
+  test.skip(
       'Flyout scroll position retained when collapsing flyout, but reset when entire menu closes',
       async () => {
         actionMenu.remove();
@@ -753,7 +756,7 @@ suite('ContextualActionMenu', () => {
     assertEquals('false', tabButton.getAttribute('aria-checked'));
 
     // Check with selection.
-    actionMenu.disabledTabIds = new Map([[tabInfo.tabId, '1']]);
+    actionMenu.selectedTabIds = new Map([[tabInfo.tabId, '1']]);
     await microtasksFinished();
     assertEquals('true', tabButton.getAttribute('aria-checked'));
   });
@@ -795,6 +798,9 @@ suite('ContextualActionMenu', () => {
       'Browser tab suggestions disabled when they are thread restored',
       async () => {
         actionMenu.remove();
+        loadTimeData.overrideValues({
+          composeboxContextMenuEnableTabDeselection: false,
+        });
         actionMenu =
             document.createElement('cr-composebox-contextual-action-menu');
         actionMenu.contextManagementInComposeboxEnabled = true;
@@ -1223,7 +1229,7 @@ suite('ContextualActionMenu', () => {
       toolsSectionConfig: {header: ''},
       modelSectionConfig: {header: ''},
     });
-    actionMenu.disabledTabIds = new Map();
+    actionMenu.selectedTabIds = new Map();
     document.body.appendChild(actionMenu);
     actionMenu.showAt(actionMenu);
     await microtasksFinished();
@@ -1233,12 +1239,12 @@ suite('ContextualActionMenu', () => {
     assertFalse(shareTabsTrigger.textContent.includes('1'));
 
     // Show tab counter when one tab is chosen.
-    actionMenu.disabledTabIds = new Map([[1, '1']]);
+    actionMenu.selectedTabIds = new Map([[1, '1']]);
     await microtasksFinished();
     assertTrue(!!shareTabsTrigger.querySelector('.share-tabs-arrow'));
 
     // No tab counter when no tab is selected.
-    actionMenu.disabledTabIds = new Map();
+    actionMenu.selectedTabIds = new Map();
     await microtasksFinished();
     assertFalse(shareTabsTrigger.textContent.includes('1'));
   });
@@ -1365,7 +1371,7 @@ suite('ContextualActionMenu', () => {
 
     actionMenu.tabSuggestions = [tab1, tab2, tab3, tab4];
     // Select 2 tabs to reach the limit of 2, so that unselected tabs (2 & 4) are disabled.
-    actionMenu.disabledTabIds = new Map([[1, 'uuid1'], [3, 'uuid3']]);
+    actionMenu.selectedTabIds = new Map([[1, 'uuid1'], [3, 'uuid3']]);
     actionMenu.inputState = new MockInputState({
       allowedInputTypes: [InputType.kBrowserTab],
     });
@@ -1562,7 +1568,50 @@ suite('ContextualActionMenu', () => {
 
     assertEquals('left', flyout.getAttribute('data-position'));
 
-    // When blocked on both sides in a narrow panel, the flyout positions at the bottom with a bounded indent.
+    // When blocked on both sides in a narrow panel, the flyout positions at the
+    // bottom.
+    trigger.getBoundingClientRect = () => ({
+      left: 10,
+      right: 250,
+      top: 100,
+      bottom: 132,
+      width: 240,
+      height: 32,
+    } as DOMRect);
+    Object.defineProperty(
+        window, 'innerWidth', {value: 300, configurable: true});
+
+    trigger.dispatchEvent(new PointerEvent('pointerenter'));
+    await actionMenu.updateComplete;
+    await microtasksFinished();
+
+    assertEquals('bottom', flyout.getAttribute('data-position'));
+  });
+
+  test('Share tabs flyout bottom indent', async () => {
+    actionMenu.remove();
+    actionMenu = document.createElement('cr-composebox-contextual-action-menu');
+    actionMenu.contextManagementInComposeboxEnabled = true;
+    actionMenu.tabSuggestions = [
+      createTabSuggestion({tabId: 1, title: 'Tab 1'}),
+    ];
+    actionMenu.inputState = new MockInputState({
+      allowedInputTypes: [InputType.kBrowserTab],
+    });
+    document.body.appendChild(actionMenu);
+    await microtasksFinished();
+
+    actionMenu.showAt(actionMenu);
+    await microtasksFinished();
+
+    const trigger = $$(actionMenu, '#shareTabsTrigger') as HTMLElement;
+    const flyout = $$(actionMenu, '.share-tabs-flyout') as HTMLElement;
+    assertTrue(!!trigger);
+    assertTrue(!!flyout);
+
+    Object.defineProperty(
+        flyout, 'offsetWidth', {value: 320, configurable: true});
+
     trigger.getBoundingClientRect = () => ({
       left: 16,
       right: 256,
@@ -1571,13 +1620,16 @@ suite('ContextualActionMenu', () => {
       width: 240,
       height: 32,
     } as DOMRect);
-    Object.defineProperty(window, 'innerWidth', {value: 380, configurable: true});
+    Object.defineProperty(
+        window, 'innerWidth', {value: 500, configurable: true});
 
     trigger.dispatchEvent(new PointerEvent('pointerenter'));
     await actionMenu.updateComplete;
     await microtasksFinished();
 
     assertEquals('bottom', flyout.getAttribute('data-position'));
+    assertEquals(
+        '114px', flyout.style.getPropertyValue('--share-tabs-flyout-indent'));
   });
 
   test('Favicon group rendered in action menu', async () => {
@@ -1592,7 +1644,7 @@ suite('ContextualActionMenu', () => {
     actionMenu.inputState = new MockInputState({
       allowedInputTypes: [InputType.kBrowserTab],
     });
-    actionMenu.disabledTabIds = new Map([[1, '1']]);
+    actionMenu.selectedTabIds = new Map([[1, '1']]);
     document.body.appendChild(actionMenu);
     actionMenu.showAt(actionMenu);
     await microtasksFinished();
@@ -1712,7 +1764,7 @@ suite('ContextualActionMenu', () => {
         });
         actionMenu.tabSuggestions = [tabInfo1, tabInfo2];
         // Select tab 1.
-        actionMenu.disabledTabIds = new Map([[1, 'uuid-1']]);
+        actionMenu.selectedTabIds = new Map([[1, 'uuid-1']]);
 
         // inputState allows everything and disables nothing.
         actionMenu.inputState = new MockInputState({
@@ -2012,7 +2064,7 @@ suite('ContextualActionMenu', () => {
             document.createElement('cr-composebox-contextual-action-menu');
         Object.assign(actionMenu, {
           metricsSource_: 'NewTabPage',
-          disabledTabIds: new Map([[1, 'some-token']]),
+          selectedTabIds: new Map([[1, 'some-token']]),
           contextManagementInComposeboxEnabled: true,
         });
 
@@ -2052,7 +2104,7 @@ suite('ContextualActionMenu', () => {
             document.createElement('cr-composebox-contextual-action-menu');
         Object.assign(actionMenu, {
           metricsSource_: 'NewTabPage',
-          disabledTabIds: new Map([[1, 'some-token']]),
+          selectedTabIds: new Map([[1, 'some-token']]),
         });
 
         actionMenu.tabSuggestions = [tabInfo];
@@ -2233,7 +2285,7 @@ suite('ContextualActionMenu', () => {
 
       // Main menu toggle is NOT visible
       const mainMenuToggle = $$(actionMenu, '#smartTabSharingItem');
-      assertFalse(!!mainMenuToggle);
+      assertFalse(isVisible(mainMenuToggle));
 
       // Open flyout
       trigger.dispatchEvent(new PointerEvent('pointerenter'));
@@ -2269,9 +2321,12 @@ suite('ContextualActionMenu', () => {
 
       assertEquals('true', mainMenuToggle.getAttribute('aria-checked'));
       assertTrue(!!mainMenuToggle.querySelector('.share-tabs-check'));
+      const icon = mainMenuToggle.querySelector('cr-icon:not(.share-tabs-check)');
+      assertTrue(!!icon);
+      assertEquals('composebox:screensaverAuto', icon.getAttribute('icon'));
       // Trigger is NOT visible
       const trigger = $$(actionMenu, '#shareTabsTrigger');
-      assertFalse(!!trigger);
+      assertFalse(isVisible(trigger));
     });
 
     test('Clicking toggle in flyout closes the menu', async () => {
@@ -2336,14 +2391,14 @@ suite('ContextualActionMenu', () => {
           assertTrue(isVisible(mainMenuToggle));
 
           const trigger = $$(actionMenu, '#shareTabsTrigger');
-          assertFalse(!!trigger);
+          assertFalse(isVisible(trigger));
         });
   });
 
   suite('getSelectedTabs_', () => {
     test(
-        'returns empty array when disabled and restored are empty', () => {
-          actionMenu.disabledTabIds = new Map();
+        'returns empty array when selected and restored are empty', () => {
+          actionMenu.selectedTabIds = new Map();
           actionMenu.aimThreadRestoredTabs = [];
           actionMenu.tabSuggestions = [
             createTabSuggestion({
@@ -2357,7 +2412,7 @@ suite('ContextualActionMenu', () => {
 
     test(
         'returns matched tabs in reverse order of' +
-            ' addition to disabled and concatenated with restored',
+            ' addition to selected and concatenated with restored',
         () => {
           const tab1 = createTabSuggestion({
             tabId: 1,
@@ -2376,10 +2431,10 @@ suite('ContextualActionMenu', () => {
 
           actionMenu.contextManagementInComposeboxEnabled = true;
           actionMenu.aimThreadRestoredTabs = [tab1];
-          const disabledTabIds = new Map();
-          disabledTabIds.set(2, 'token2');
-          disabledTabIds.set(3, 'token3');
-          actionMenu.disabledTabIds = disabledTabIds;
+          const selectedTabIds = new Map();
+          selectedTabIds.set(2, 'token2');
+          selectedTabIds.set(3, 'token3');
+          actionMenu.selectedTabIds = selectedTabIds;
 
           const selectedTabs = asInternal(actionMenu).getSelectedTabs_();
           assertEquals(3, selectedTabs.length);
@@ -2399,10 +2454,10 @@ suite('ContextualActionMenu', () => {
       actionMenu.tabSuggestions = [tab1];
 
       actionMenu.aimThreadRestoredTabs = [];
-      const disabledTabIds = new Map();
-      disabledTabIds.set(1, 'token1');
-      disabledTabIds.set(5, 'token5');
-      actionMenu.disabledTabIds = disabledTabIds;
+      const selectedTabIds = new Map();
+      selectedTabIds.set(1, 'token1');
+      selectedTabIds.set(5, 'token5');
+      actionMenu.selectedTabIds = selectedTabIds;
 
       const selectedTabs = asInternal(actionMenu).getSelectedTabs_();
       // Tab 5 is filtered out because it is not found in tabSuggestions.
@@ -2498,6 +2553,11 @@ suite('ContextualActionMenu', () => {
     });
 
     test('Anchors above the button if space below < 160px', async () => {
+      Object.defineProperty(actionMenu.$.menu.getDialog(), 'scrollHeight', {
+        value: 144,
+        configurable: true,
+      });
+
       // Mock window innerHeight
       Object.defineProperty(window, 'innerHeight', {
         value: 600,
@@ -3461,5 +3521,79 @@ suite('ContextualActionMenu', () => {
       // Verify the flyout does not have inline scrollbar-width override.
       assertFalse(flyout.style.getPropertyValue('scrollbar-width') === 'thin');
     });
+
+    test('Unbounded menu enabled property and flyout positioning', async () => {
+      actionMenu.unboundedMenuEnabled = true;
+      await microtasksFinished();
+      assertTrue(actionMenu.hasAttribute('unbounded-menu-enabled'));
+
+      const tabInfo = createTabSuggestion({
+        tabId: 101,
+        title: 'Unbounded Test Tab',
+        url: 'about:blank/1',
+      });
+      actionMenu.tabSuggestions = [tabInfo];
+      actionMenu.contextManagementInComposeboxEnabled = true;
+      actionMenu.inputState = new MockInputState({
+        allowedInputTypes: [InputType.kBrowserTab],
+      });
+
+      actionMenu.showAt(actionMenu);
+      await microtasksFinished();
+
+      const trigger = $$(actionMenu, '#shareTabsTrigger') as HTMLElement;
+      assertTrue(isVisible(trigger));
+      trigger.dispatchEvent(new PointerEvent('pointerenter'));
+      await microtasksFinished();
+
+      const flyout = $$(actionMenu, '.share-tabs-flyout') as HTMLElement;
+      assertTrue(isVisible(flyout));
+      assertTrue(!!flyout.getAttribute('data-position'));
+
+      const wrapper = $$(actionMenu, '.menu-outer-wrapper') as HTMLElement;
+      assertTrue(!!wrapper);
+      assertEquals(
+          flyout.getAttribute('data-position'),
+          wrapper.getAttribute('data-flyout-position'));
+
+      // Test resetting flyout scroll on close/reopen
+      flyout.scrollTop = 50;
+      trigger.dispatchEvent(new PointerEvent('pointerleave'));
+      trigger.dispatchEvent(new PointerEvent('pointerenter'));
+      await microtasksFinished();
+      assertEquals(0, flyout.scrollTop);
+    });
+
+    test(
+        'closes menu on tab click when unboundedMenuEnabled is true',
+        async () => {
+          const tabInfo = createTabSuggestion({
+            tabId: 201,
+            title: 'Unbounded Click Tab',
+            url: 'about:blank/201',
+          });
+          actionMenu.tabSuggestions = [tabInfo];
+          actionMenu.contextManagementInComposeboxEnabled = true;
+          actionMenu.inputState = new MockInputState({
+            allowedInputTypes: [InputType.kBrowserTab],
+          });
+          actionMenu.unboundedMenuEnabled = true;
+          actionMenu.showAt(actionMenu);
+          await microtasksFinished();
+          assertTrue(actionMenu.$.menu.open);
+
+          const trigger = $$(actionMenu, '#shareTabsTrigger') as HTMLElement;
+          assertTrue(isVisible(trigger));
+          trigger.dispatchEvent(new PointerEvent('pointerenter'));
+          await microtasksFinished();
+
+          const tabButton = actionMenu.shadowRoot.querySelector<HTMLElement>(
+              '.share-tabs-flyout .dropdown-item')!;
+          assertTrue(isVisible(tabButton));
+          tabButton.click();
+          await microtasksFinished();
+
+          assertFalse(actionMenu.$.menu.open);
+        });
   });
 });

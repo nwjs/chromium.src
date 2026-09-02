@@ -10,16 +10,19 @@
 #include "base/test/values_test_util.h"
 #include "base/values.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/tools/script_tool_host.h"
 #include "chrome/browser/actor/tools/script_tool_request.h"
 #include "chrome/browser/actor/tools/tool_request.h"
 #include "chrome/browser/actor/tools/tools_test_util.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/common/actor.mojom.h"
 #include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+#include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/devtools_agent_host_client.h"
 #include "content/public/common/content_features.h"
@@ -42,7 +45,8 @@ class ActorToolsTestScriptTool : public ActorToolsTest,
   ActorToolsTestScriptTool() {
     std::vector<base::test::FeatureRef> enabled_features = {
         blink::features::kWebMCP, blink::features::kDevToolsWebMCPSupport,
-        actor::kGlicActorEnableScriptTools};
+        actor::kGlicActorEnableScriptTools,
+        actor::kActorScriptToolTransientUserActivation};
     std::vector<base::test::FeatureRef> disabled_features;
 
     if (GetParam()) {
@@ -447,6 +451,160 @@ IN_PROC_BROWSER_TEST_P(ActorToolsTestScriptTool, Histograms) {
   histogram_tester.ExpectBucketCount(
       "Actor.Tools.ScriptTool.ActionResultCode",
       mojom::ActionResultCode::kScriptToolInvalidName, 1);
+}
+
+IN_PROC_BROWSER_TEST_P(ActorToolsTestScriptTool, HasTransientUserActivation) {
+  const GURL url = embedded_test_server()->GetURL("/actor/script_tool.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    document.modelContext.registerTool({
+      execute: async () => {
+        let hasUserActivation = navigator.userActivation.isActive;
+        return hasUserActivation ? "true" : "false";
+      },
+      name: 'check_activation',
+      description: 'test',
+      inputSchema: { type: 'object', properties: {} }
+    });
+  )",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  auto action = MakeScriptToolRequest(*main_frame(), "check_activation", "{}");
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(action)), result.GetCallback());
+
+  ASSERT_TRUE(IsOk(*result.Get()[0].result));
+
+  auto results = result.Get();
+  EXPECT_EQ(results[0].result->script_tool_response->result, "true");
+}
+
+IN_PROC_BROWSER_TEST_P(ActorToolsTestScriptTool, WindowOpenTopLevelNavigate) {
+  const GURL url = embedded_test_server()->GetURL("/actor/script_tool.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(),
+                              "window.name = 'already-existing-top-level';"));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    document.modelContext.registerTool({
+      execute: async () => {
+        let w = window.open('/title1.html', 'already-existing-top-level');
+        return w ? "opened" : "blocked";
+      },
+      name: 'window_open_top',
+      description: 'test',
+      inputSchema: { type: 'object', properties: {} }
+    });
+  )",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  content::TestNavigationObserver nav_observer(web_contents());
+
+  auto action = MakeScriptToolRequest(*main_frame(), "window_open_top", "{}");
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(action)), result.GetCallback());
+  nav_observer.Wait();
+
+  EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+
+  auto results = result.Get();
+  EXPECT_EQ(results[0].result->script_tool_response->result, "opened");
+}
+
+IN_PROC_BROWSER_TEST_P(ActorToolsTestScriptTool, WindowOpenSucceeds) {
+  const GURL url = embedded_test_server()->GetURL("/actor/script_tool.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    document.modelContext.registerTool({
+      execute: async () => {
+        let w = window.open('about:blank', '_blank');
+        return w ? "opened" : "blocked";
+      },
+      name: 'window_open',
+      description: 'test',
+      inputSchema: { type: 'object', properties: {} }
+    });
+  )",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  auto original_tab_id = active_tab()->GetHandle().raw_value();
+  content::TestNavigationObserver nav_observer(nullptr);
+  nav_observer.StartWatchingNewWebContents();
+
+  auto action = MakeScriptToolRequest(*main_frame(), "window_open", "{}");
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(action)), result.GetCallback());
+  nav_observer.Wait();
+
+  auto results = result.Get();
+  EXPECT_EQ(results[0].result->script_tool_response->result, "opened");
+
+  // Validate the newly opened window is not included in the observation's tab
+  // list, but is included in the window observations.
+  base::test::TestFuture<
+      base::TimeTicks, std::vector<actor::ActionResultWithLatencyInfo>,
+      actor::TaskId, bool,
+      std::optional<page_content_annotations::ScreenshotOptions::
+                        ScreenshotCollectionOptions>,
+      std::unique_ptr<optimization_guide::proto::ActionsResult>,
+      std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>>
+      future;
+
+  actor::BuildActionsResultWithObservations(
+      *browser()->GetProfile(), /*start_time=*/base::TimeTicks::Now(), results,
+      actor_task(), /*skip_async_observation_information=*/true,
+      /*screenshot_collection_options=*/std::nullopt, future.GetCallback());
+
+  const std::unique_ptr<optimization_guide::proto::ActionsResult>&
+      actions_result = future.Get<5>();
+  ASSERT_TRUE(actions_result);
+
+  // window.open opens a new tab in the same browser window.
+  // We expect 1 window with 2 tabs in the window observations.
+  EXPECT_EQ(actions_result->windows_size(), 1);
+  EXPECT_EQ(actions_result->windows(0).tab_ids_size(), 2);
+
+  // However, only the original tab should be in the detailed tab observations.
+  EXPECT_EQ(actions_result->tabs_size(), 1);
+  EXPECT_EQ(actions_result->tabs(0).id(), original_tab_id);
+}
+
+IN_PROC_BROWSER_TEST_P(ActorToolsTestScriptTool,
+                       WindowOpenSecondAttemptBlocked) {
+  const GURL url = embedded_test_server()->GetURL("/actor/script_tool.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
+
+  ASSERT_TRUE(content::ExecJs(web_contents(), R"(
+    document.modelContext.registerTool({
+      execute: async () => {
+        let w1 = window.open('about:blank', '_blank');
+        let w2 = window.open('about:blank', '_blank');
+        return JSON.stringify({
+          first: w1 ? "opened" : "blocked",
+          second: w2 ? "opened" : "blocked"
+        });
+      },
+      name: 'window_open_twice',
+      description: 'test',
+      inputSchema: { type: 'object', properties: {} }
+    });
+  )",
+                              content::EXECUTE_SCRIPT_NO_USER_GESTURE));
+
+  content::TestNavigationObserver nav_observer(nullptr);
+  nav_observer.StartWatchingNewWebContents();
+
+  auto action = MakeScriptToolRequest(*main_frame(), "window_open_twice", "{}");
+  ActResultFuture result;
+  actor_task().Act(ToRequestList(std::move(action)), result.GetCallback());
+  nav_observer.Wait();
+
+  auto results = result.Get();
+  EXPECT_EQ(results[0].result->script_tool_response->result,
+            R"({"first":"opened","second":"blocked"})");
 }
 
 IN_PROC_BROWSER_TEST_P(ActorToolsTestScriptTool, NavigationFailed) {

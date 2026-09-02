@@ -197,9 +197,6 @@ namespace native_app_window {
 class NativeAppWindowViews;
 }
 
-namespace plus_addresses {
-class PlusAddressCreationDialogDelegate;
-}
 
 namespace remoting {
 class MessageBoxCore;
@@ -464,7 +461,6 @@ class VIEWS_EXPORT WidgetDelegate {
     friend class ::SigninViewControllerDelegateViews;
     friend class ::ash::InformedRestoreController;
     friend class ::native_app_window::NativeAppWindowViews;
-    friend class ::plus_addresses::PlusAddressCreationDialogDelegate;
     friend class ::remoting::MessageBoxCore;
     friend class DefaultWidgetDelegate;
     friend class TableViewFocusTest;
@@ -547,6 +543,12 @@ class VIEWS_EXPORT WidgetDelegate {
 
   // Returns the title to be read with screen readers.
   virtual std::u16string GetAccessibleWindowTitle() const;
+
+  // Returns the explicitly set accessible title (via SetAccessibleTitle), if
+  // any.
+  const std::u16string& GetAccessibleTitle() const {
+    return params_.accessible_title;
+  }
 
   // Returns the text to be displayed in the window title.
   virtual std::u16string GetWindowTitle() const;

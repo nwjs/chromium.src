@@ -403,12 +403,21 @@ void CorsURLLoaderFactory::CreateLoaderAndStart(
       network::mojom::RequestDestination::kWebBundle) {
     DCHECK(resource_request.web_bundle_token_params.has_value());
 
+    // Clone the COEP reporter to pass independent ownership to the WebBundle
+    // loader factory.
+    mojo::PendingRemote<mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter_remote;
+    if (coep_reporter_) {
+      coep_reporter_->Clone(
+          coep_reporter_remote.InitWithNewPipeAndPassReceiver());
+    }
+
     // TODO(crbug.com/379869738) Remove GetUnsafeValue.
     base::WeakPtr<WebBundleURLLoaderFactory> web_bundle_url_loader_factory =
         context_->GetWebBundleManager().CreateWebBundleURLLoaderFactory(
             resource_request.url, *resource_request.web_bundle_token_params,
             process_id_.GetUnsafeValue(), cross_origin_embedder_policy_,
-            coep_reporter());
+            std::move(coep_reporter_remote));
     client = web_bundle_url_loader_factory->MaybeWrapURLLoaderClient(
         std::move(client));
     if (!client) {
@@ -813,7 +822,6 @@ bool CorsURLLoaderFactory::IsValidRequest(
       case network::mojom::RequestDestination::kReport:
       case network::mojom::RequestDestination::kScript:
       case network::mojom::RequestDestination::kServiceWorker:
-      case network::mojom::RequestDestination::kSharedStorageWorklet:
       case network::mojom::RequestDestination::kSharedWorker:
       case network::mojom::RequestDestination::kSpeculationRules:
       case network::mojom::RequestDestination::kStyle:

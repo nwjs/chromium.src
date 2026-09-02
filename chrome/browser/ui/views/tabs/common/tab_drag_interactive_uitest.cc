@@ -8,7 +8,6 @@
 #include "base/functional/bind.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -16,6 +15,7 @@
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/common/root_tab_collection_node.h"
@@ -318,7 +318,7 @@ class VerticalTabDragTest
     return Do([&]() {
       BrowserWindowInterface& latest = GetLatestBrowser();
       BrowserView* browser_view =
-          BrowserView::GetBrowserViewForBrowser(static_cast<Browser*>(&latest));
+          BrowserView::GetBrowserViewForBrowser(&latest);
       views::Widget* widget = browser_view->GetWidget();
       if (!widget->IsVisible() && widget->IsMoveLoopSupported()) {
         base::RunLoop run_loop;
@@ -897,6 +897,54 @@ IN_PROC_BROWSER_TEST_F(VerticalTabDragTest, DragGroupHeader) {
           true));
 }
 
+class VerticalTabDragFocusModeTest : public VerticalTabDragTest {
+ public:
+  const std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures()
+      override {
+    auto enabled = VerticalTabDragTest::GetEnabledFeatures();
+    enabled.push_back({features::kTabGroupsFocusing, {}});
+    return enabled;
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(VerticalTabDragFocusModeTest,
+                       DragGroupHeaderInFocusModeDoesNotMoveGroup) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFourthTab);
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+  ASSERT_NE(nullptr, tab_strip_model);
+  const char kGroupToDragFrom[] = "Group to drag";
+  RunTestSequence(
+      AddInstrumentedTab(kSecondTab, GURL(chrome::kChromeUIBookmarksURL), 1),
+      AddInstrumentedTab(kThirdTab, GURL(chrome::kChromeUISettingsURL), 2),
+      AddInstrumentedTab(kFourthTab, GURL(chrome::kChromeUIVersionURL), 3),
+      AddTabsToNewGroup({1, 2}),
+      PollState(kTabOrderPoller, GetTabOrder(tab_strip_model)),
+      WaitForState(kTabOrderPoller,
+                   URLs({url::kAboutBlankURL,
+                         TabGroupURLs({chrome::kChromeUIBookmarksURL,
+                                       chrome::kChromeUISettingsURL}),
+                         chrome::kChromeUIVersionURL})),
+
+      Do([&]() {
+        const std::vector<tab_groups::TabGroupId> groups =
+            tab_strip_model->group_model()->ListTabGroups();
+        ASSERT_EQ(1u, groups.size());
+        tab_strip_model->SetFocusedGroup(groups[0]);
+      }),
+
+      NameDescendantViewByType<TabGroupHeaderView>(kBrowserViewElementId,
+                                                   kGroupToDragFrom, 0),
+      MoveMouseTo(kGroupToDragFrom),
+      DragMouseTo(kNewTabButtonElementId, CenterPoint(), /*release=*/false),
+      RunScheduledLayout(), ReleaseMouse(),
+
+      CheckResult([&]() { return GetTabOrder(tab_strip_model).Run(); },
+                  URLs({url::kAboutBlankURL,
+                        TabGroupURLs({chrome::kChromeUIBookmarksURL,
+                                      chrome::kChromeUISettingsURL}),
+                        chrome::kChromeUIVersionURL})));
+}
+
 IN_PROC_BROWSER_TEST_F(VerticalTabDragTest, DragCollapsedGroupStaysCollapsed) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFourthTab);
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
@@ -1081,6 +1129,8 @@ IN_PROC_BROWSER_TEST_F(VerticalTabDragTest,
         ASSERT_NE(nullptr, controller);
         EXPECT_TRUE(controller->IsCollapsed());
         EXPECT_EQ(kInitialWidth, controller->GetUncollapsedWidth());
+        EXPECT_EQ(1, new_browser.GetTabStripModel()->count());
+        EXPECT_EQ(2, browser()->GetTabStripModel()->count());
       }));
 }
 

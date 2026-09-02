@@ -1,4 +1,9 @@
 include_rules = [
   '+components/actor',
-  '+components/origin_gating',
 ]
+
+specific_include_rules = {
+  'glic_actor_.*browsertest\\.cc': [
+    '+components/one_time_tokens/core/browser',
+  ],
+}

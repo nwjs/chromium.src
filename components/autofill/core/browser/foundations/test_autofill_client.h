@@ -25,6 +25,7 @@
 #if !BUILDFLAG(IS_FUCHSIA)
 #include "components/variations/service/google_groups_manager.h"  // nogncheck
 #endif  // !BUILDFLAG(IS_FUCHSIA)
+#include "components/autofill/core/browser/at_memory/at_memory_manager.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/browser/crowdsourcing/mock_autofill_crowdsourcing_manager.h"
@@ -80,6 +81,8 @@
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
 #include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
 #include "components/personal_context/core/personal_context_types.h"
+#include "components/personal_context/first_run/personal_context_first_run_service.h"
+#include "components/personal_context/first_run/test_personal_context_first_run_service.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry.h"
 #include "components/prefs/pref_service.h"
@@ -205,6 +208,15 @@ class TestAutofillClientTemplate : public T {
     personal_context_access_manager_ = personal_context_access_manager;
   }
 
+  EntitySuppressionManager* GetEntitySuppressionManager() override {
+    return entity_suppression_manager_;
+  }
+
+  void set_entity_suppression_manager(
+      EntitySuppressionManager* entity_suppression_manager) {
+    entity_suppression_manager_ = entity_suppression_manager;
+  }
+
   const subscription_eligibility::SubscriptionEligibilityService*
   GetSubscriptionEligibilityService() const override {
     return &subscription_eligibility_service_;
@@ -228,12 +240,26 @@ class TestAutofillClientTemplate : public T {
     return *single_field_fill_router_;
   }
 
+  void set_autocomplete_history_manager(
+      std::unique_ptr<AutocompleteHistoryManager> manager) {
+    autocomplete_history_manager_ = std::move(manager);
+  }
+
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override {
-    return &mock_autocomplete_history_manager_;
+    return autocomplete_history_manager_ ? autocomplete_history_manager_.get()
+                                         : &mock_autocomplete_history_manager_;
   }
 
   AtMemoryQueryService* GetAtMemoryQueryService() override {
     return at_memory_query_service_.get();
+  }
+
+  AtMemoryManager* GetAtMemoryManager() override {
+    if (!at_memory_manager_ &&
+        base::FeatureList::IsEnabled(features::kAutofillAtMemory)) {
+      at_memory_manager_ = std::make_unique<AtMemoryManager>(this);
+    }
+    return at_memory_manager_.get();
   }
 
   personal_context::PersonalContextEligibilityState
@@ -562,19 +588,11 @@ class TestAutofillClientTemplate : public T {
     return test_addresses_;
   }
 
-  bool ShouldShowPersonalContextAmbientAutofillNotice() const override {
-    return should_show_personal_context_ambient_autofill_notice_;
+  personal_context::TestPersonalContextFirstRunService*
+  GetPersonalContextFirstRunService() override {
+    return &personal_context_first_run_service_;
   }
-  void set_should_show_personal_context_ambient_autofill_notice(
-      bool should_show) {
-    should_show_personal_context_ambient_autofill_notice_ = should_show;
-  }
-  void MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() override {
-    is_personal_context_ambient_autofill_notice_acknowledged_ = true;
-  }
-  bool is_personal_context_ambient_autofill_notice_acknowledged() const {
-    return is_personal_context_ambient_autofill_notice_acknowledged_;
-  }
+
 #if BUILDFLAG(IS_ANDROID)
   bool ShowAmbientAutoFillNotice(
       base::WeakPtr<TouchToFillAutofillDelegate> delegate) override {
@@ -594,19 +612,6 @@ class TestAutofillClientTemplate : public T {
     return hide_ambient_autofill_notice_called_;
   }
 #endif
-
-  bool ShouldShowPersonalContextAtMemoryNotice() const override {
-    return should_show_personal_context_at_memory_notice_;
-  }
-  void set_should_show_personal_context_at_memory_notice(bool should_show) {
-    should_show_personal_context_at_memory_notice_ = should_show;
-  }
-  void MarkPersonalContextAtMemoryNoticeAsAcknowledged() override {
-    is_personal_context_at_memory_notice_acknowledged_ = true;
-  }
-  bool is_personal_context_at_memory_notice_acknowledged() const {
-    return is_personal_context_at_memory_notice_acknowledged_;
-  }
 
   personal_context::PersonalContextEligibilityService*
   GetPersonalContextEligibilityService() const override {
@@ -809,6 +814,11 @@ class TestAutofillClientTemplate : public T {
     at_memory_query_service_ = std::move(at_memory_query_service);
   }
 
+  void set_at_memory_manager(
+      std::unique_ptr<AtMemoryManager> at_memory_manager) {
+    at_memory_manager_ = std::move(at_memory_manager);
+  }
+
   void set_identity_credential_delegate(
       std::unique_ptr<IdentityCredentialDelegate>
           identity_credential_delegate) {
@@ -881,6 +891,7 @@ class TestAutofillClientTemplate : public T {
   raw_ptr<syncer::SyncService> test_sync_service_ = nullptr;
   raw_ptr<AutofillAiPersonalContextAccessManager>
       personal_context_access_manager_ = nullptr;
+  raw_ptr<EntitySuppressionManager> entity_suppression_manager_ = nullptr;
   raw_ptr<personal_context::PersonalContextEligibilityService>
       personal_context_eligibility_service_ = nullptr;
 #if !BUILDFLAG(IS_FUCHSIA)
@@ -888,6 +899,7 @@ class TestAutofillClientTemplate : public T {
 #endif
   std::unique_ptr<OtpPhishGuardDelegate> otp_phish_guard_delegate_;
   std::unique_ptr<AtMemoryQueryService> at_memory_query_service_;
+  std::unique_ptr<AtMemoryManager> at_memory_manager_;
   personal_context::PersonalContextEligibilityState
       personal_context_eligibility_state_ =
           personal_context::PersonalContextEligibilityState::kEligible;
@@ -903,6 +915,7 @@ class TestAutofillClientTemplate : public T {
           std::make_unique<testing::NiceMock<MockAutofillAiManager>>(
               this,
               /*strike_database=*/nullptr);
+  std::unique_ptr<AutocompleteHistoryManager> autocomplete_history_manager_;
   ::testing::NiceMock<MockAutocompleteHistoryManager>
       mock_autocomplete_history_manager_;
   std::unique_ptr<one_time_tokens::SmsOtpBackend> injected_sms_otp_backend_;
@@ -967,13 +980,12 @@ class TestAutofillClientTemplate : public T {
 
   bool is_tab_in_actor_mode_ = false;
 
-  bool should_show_personal_context_ambient_autofill_notice_ = false;
-  bool is_personal_context_ambient_autofill_notice_acknowledged_ = false;
   bool show_ambient_autofill_notice_called_ = false;
   bool show_ambient_autofill_notice_result_ = false;
   bool hide_ambient_autofill_notice_called_ = false;
-  bool should_show_personal_context_at_memory_notice_ = false;
-  bool is_personal_context_at_memory_notice_acknowledged_ = false;
+
+  personal_context::TestPersonalContextFirstRunService
+      personal_context_first_run_service_;
 
   bool is_glic_enabled_ = false;
 

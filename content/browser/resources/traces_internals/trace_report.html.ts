@@ -51,16 +51,14 @@ export function getHtml(this: TraceReportElement) {
     </div>
     <div class="actions-container">
     <cr-icon-button class="action-button" title="Upload Trace"
-          iron-icon="${this.webuiRoundedIconsEnabled_
-              ? 'trace-report-icons:cloud-upload'
-              : 'trace-report-icons:cloud_upload-old'}"
+          iron-icon="trace-report-icons:cloud_upload"
           ?hidden="${!this.uploadStateEqual_(
             this.trace, ReportUploadState.kNotUploaded)}"
           ?disabled="${this.isManualUploadDisabled_(this.trace)}"
           @click="${this.onUploadTraceClick_}">
       </cr-icon-button>
       <cr-icon-button class="action-button download"
-          iron-icon="cr:file-download" title="${
+          iron-icon="cr:download" title="${
             this.getDownloadTooltip_(this.trace)}"
           @click="${this.onDownloadTraceClick_}"
           ?disabled="${this.isDownloadDisabled_(this.trace)}">

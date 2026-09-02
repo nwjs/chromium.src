@@ -95,7 +95,7 @@ void SodaComponentInstallerPolicy::UpdateSodaComponentOnDemand() {
             error != update_client::Error::UPDATE_IN_PROGRESS) {
           LOG(ERROR) << "On demand update of the SODA component failed "
                         "with error: "
-                     << static_cast<int>(error);
+                     << std::to_underlying(error);
         }
       }));
 }
@@ -131,10 +131,9 @@ SodaComponentInstallerPolicy::SetComponentDirectoryPermission(
       base::win::TakeLocalAlloc(acl_ptr);
 
   // Change the security attributes.
-  LPWSTR file_name = const_cast<LPWSTR>(install_dir.value().c_str());
-  if (::SetNamedSecurityInfo(file_name, SE_FILE_OBJECT,
-                             DACL_SECURITY_INFORMATION, nullptr, nullptr,
-                             acl.get(), nullptr) != ERROR_SUCCESS) {
+  if (::SetNamedSecurityInfo(const_cast<LPWSTR>(install_dir.value().c_str()),
+                             SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nullptr,
+                             nullptr, acl.get(), nullptr) != ERROR_SUCCESS) {
     return update_client::CrxInstaller::Result(
         update_client::InstallError::SET_PERMISSIONS_FAILED);
   }

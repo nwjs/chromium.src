@@ -304,7 +304,6 @@ Element* TreeScope::ElementForHitTest(Node* node, HitTestPointType type) const {
 CustomElementRegistry* TreeScope::customElementRegistry(
     ScriptState* script_state) const {
   if (custom_element_registry_) {
-    CHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
     DCHECK(!waiting_for_registry_);
     // A null script_state indicates an internal call that bypasses the check.
     if (script_state &&
@@ -315,8 +314,7 @@ CustomElementRegistry* TreeScope::customElementRegistry(
     return custom_element_registry_;
   }
 
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-      waiting_for_registry_) {
+  if (waiting_for_registry_) {
     return nullptr;
   }
 
@@ -339,9 +337,8 @@ CustomElementRegistry* TreeScope::customElementRegistry(
 // existing registry will fail.
 bool TreeScope::SetCustomElementRegistry(
     CustomElementRegistryAssignment assignment) {
-  if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() ||
-      (custom_element_registry_ &&
-       !custom_element_registry_->IsGlobalRegistry())) {
+  if (custom_element_registry_ &&
+      !custom_element_registry_->IsGlobalRegistry()) {
     return false;
   }
 
@@ -522,6 +519,26 @@ void TreeScope::ClearAdoptedStyleSheets() {
   adopted_style_sheets_->clear();
   for (const auto& sheet : removed) {
     StyleSheetWasRemoved(sheet);
+  }
+}
+
+void TreeScope::ReplaceAdoptedStyleSheet(CSSStyleSheet& old_sheet,
+                                         CSSStyleSheet& new_sheet) {
+  CHECK(new_sheet.IsConstructed());
+  CHECK_EQ(old_sheet.ConstructorDocument(), new_sheet.ConstructorDocument());
+  CHECK_EQ(new_sheet.ConstructorDocument(), GetDocument());
+
+  if (!HasAdoptedStyleSheets()) {
+    return;
+  }
+
+  for (auto& sheet : *adopted_style_sheets_) {
+    if (sheet == &old_sheet) {
+      StyleSheetWasRemoved(&old_sheet);
+      sheet = &new_sheet;
+      StyleSheetWasAdded(&new_sheet);
+      return;
+    }
   }
 }
 

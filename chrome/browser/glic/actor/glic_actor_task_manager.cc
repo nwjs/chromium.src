@@ -53,45 +53,45 @@
 #include "components/url_formatter/elide_url.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "ui/gfx/geometry/point.h"
 
 namespace glic {
 
 namespace {
-BASE_FEATURE(kGlicReloadAfterPerformActionsCrash,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicRetryFailedObservations, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicRequireConversationIdForActorTask,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Observations can sometimes fail due to timeouts or issues stemming from
-// high-load scenarios. When we retry, give it a few seconds to increase the
-// probability that the system will now be in a state to return a successful
-// observation. This should only ever happen very rarely so waiting a few
-// seconds should be ok.
-const base::FeatureParam<base::TimeDelta> kObservationRetryDelay{
-    &kGlicRetryFailedObservations, "delay", base::Seconds(5)};
-
-tabs::TabInterface* GetCrashedTab(actor::ActorTask& task) {
-  // TODO(b/464019189): This code only deals with the first crashed tab per
-  // Task. If there are multiple tabs that crashed we might want to figure out
-  // how to deal with that.
-  for (tabs::TabHandle tab_handle : task.GetLastActedTabs()) {
-    tabs::TabInterface* tab = tab_handle.Get();
-    if (!tab) {
-      continue;
-    }
-
-    content::WebContents* contents = tab->GetContents();
-    if (!contents) {
-      continue;
-    }
-    if (contents->IsCrashed()) {
-      return tab;
-    }
+actor::ActorTask::InterruptReason ConvertMojoInterruptReason(
+    std::optional<mojom::ActorTaskInterruptReason> mojo_reason) {
+  if (!mojo_reason.has_value()) {
+    return actor::ActorTask::InterruptReason::kUnknownReason;
   }
-
-  return nullptr;
+  switch (mojo_reason.value()) {
+    case mojom::ActorTaskInterruptReason::kUnknownReason:
+      return actor::ActorTask::InterruptReason::kUnknownReason;
+    case mojom::ActorTaskInterruptReason::kTaskComplete:
+      return actor::ActorTask::InterruptReason::kTaskComplete;
+    case mojom::ActorTaskInterruptReason::kWaitingUserInput:
+      return actor::ActorTask::InterruptReason::kWaitingUserInput;
+    case mojom::ActorTaskInterruptReason::kWaitingUserClarification:
+      return actor::ActorTask::InterruptReason::kWaitingUserClarification;
+    case mojom::ActorTaskInterruptReason::kWaitingUserConfirmation:
+      return actor::ActorTask::InterruptReason::kWaitingUserConfirmation;
+    case mojom::ActorTaskInterruptReason::kWaitingUserTakeOver:
+      return actor::ActorTask::InterruptReason::kWaitingUserTakeOver;
+    case mojom::ActorTaskInterruptReason::kWaitingIrrelevantUserInput:
+      return actor::ActorTask::InterruptReason::kWaitingIrrelevantUserInput;
+    case mojom::ActorTaskInterruptReason::kWaitingUnsafeCounterAbuseVerdict:
+      return actor::ActorTask::InterruptReason::
+          kWaitingUnsafeCounterAbuseVerdict;
+    case mojom::ActorTaskInterruptReason::
+        kWaitingForExperimentalTriggeringConsent:
+      return actor::ActorTask::InterruptReason::
+          kWaitingForExperimentalTriggeringConsent;
+    default:
+      NOTREACHED();
+  }
 }
 
 }  // namespace
@@ -306,71 +306,39 @@ void GlicActorClientSession::PerformActionsFinished(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(actor::kGlicActorTabObservationController)) {
-    actor::mojom::ActionResultCode controller_result_code =
-        actor::mojom::ActionResultCode::kOk;
-    std::optional<size_t> controller_index_of_failed_action;
-    actor::ExtractErrorResult(action_results, &controller_result_code,
-                              controller_index_of_failed_action);
-    auto journal_entry =
-        actor_keyed_service().GetJournal().CreatePendingAsyncEntry(
-            GURL(), task_id, MakeBrowserTrackUUID(task_id),
-            "TabObservationController",
-            actor::JournalDetailsBuilder()
-                .Add("result_code", base::ToString(controller_result_code))
-                .Add("skip_async_observation_information",
-                     skip_async_observation_information)
-                .Build());
+  actor::mojom::ActionResultCode controller_result_code =
+      actor::mojom::ActionResultCode::kOk;
+  std::optional<size_t> controller_index_of_failed_action;
+  actor::ExtractErrorResult(action_results, &controller_result_code,
+                            controller_index_of_failed_action);
+  auto journal_entry =
+      actor_keyed_service().GetJournal().CreatePendingAsyncEntry(
+          GURL(), task_id, MakeBrowserTrackUUID(task_id),
+          "TabObservationController",
+          actor::JournalDetailsBuilder()
+              .Add("result_code", base::ToString(controller_result_code))
+              .Add("skip_async_observation_information",
+                   skip_async_observation_information)
+              .Build());
 
-    // base::Unretained(this) is safe because `observation_controllers_` is
-    // owned by this class and the controller guarantees that it will not run
-    // the callback after its own destruction.
-    auto done_callback =
-        base::BindOnce(&GlicActorClientSession::OnPerformActionsComplete,
-                       base::Unretained(this), std::move(callback), start_time,
-                       action_results, std::move(journal_entry));
+  // base::Unretained(this) is safe because `observation_controllers_` is
+  // owned by this class and the controller guarantees that it will not run
+  // the callback after its own destruction.
+  auto done_callback =
+      base::BindOnce(&GlicActorClientSession::OnPerformActionsComplete,
+                     base::Unretained(this), std::move(callback), start_time,
+                     action_results, std::move(journal_entry));
 
-    auto controller = std::make_unique<actor::TabObservationController>(
-        &profile(), task_id, start_time, skip_async_observation_information,
-        action_results, std::move(observation_strategy),
-        std::move(done_callback));
+  auto controller = std::make_unique<actor::TabObservationController>(
+      &profile(), task_id, start_time, skip_async_observation_information,
+      action_results, std::move(observation_strategy),
+      std::move(done_callback));
 
-    controller->set_screenshot_collection_options(
-        std::move(screenshot_collection_options));
-    auto* controller_ptr = controller.get();
-    observation_controllers_.push_back(std::move(controller));
-    controller_ptr->Start();
-    return;
-  }
-
-  // TODO(b/471210832): Consider merging tab observation code into the Actor API
-  // so that all clients can share logic related to retries, crashed, tabs, and
-  // observation fetching mechanics.
-  if (base::FeatureList::IsEnabled(kGlicReloadAfterPerformActionsCrash) &&
-      !attempted_reload_after_crash_) {
-    if (tabs::TabInterface* crashed_tab = GetCrashedTab(*task)) {
-      attempted_reload_after_crash_ = true;
-
-      // We call back into PerformActionsFinished once we've reloaded the tab
-      // but ensure we respond with kRendererCrashed since the reload/crash is
-      // state-destructive.
-      auto retry_perform_actions_finished = base::BindOnce(
-          &GlicActorClientSession::PerformActionsFinished,
-          weak_ptr_factory_.GetWeakPtr(), std::move(callback), task_id,
-          start_time, skip_async_observation_information,
-          std::move(screenshot_collection_options), std::move(action_results),
-          std::move(observation_strategy));
-      ReloadCrashedTab(*crashed_tab, task->id(),
-                       std::move(retry_perform_actions_finished));
-      return;
-    }
-  }
-
-  actor::BuildActionsResultWithObservations(
-      profile(), start_time, std::move(action_results), *task,
-      skip_async_observation_information, screenshot_collection_options,
-      base::BindOnce(&GlicActorClientSession::DidFinishBuildObservation,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  controller->set_screenshot_collection_options(
+      std::move(screenshot_collection_options));
+  auto* controller_ptr = controller.get();
+  observation_controllers_.push_back(std::move(controller));
+  controller_ptr->Start();
 }
 
 void GlicActorClientSession::OnPerformActionsComplete(
@@ -380,8 +348,6 @@ void GlicActorClientSession::OnPerformActionsComplete(
     std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry> journal_entry,
     actor::TabObservationController* controller_ptr,
     std::unique_ptr<actor::ObservationResult> result) {
-  CHECK(
-      base::FeatureList::IsEnabled(actor::kGlicActorTabObservationController));
   CHECK(result);
   std::erase_if(observation_controllers_, [&](const auto& controller) {
     return controller.get() == controller_ptr;
@@ -462,88 +428,6 @@ void GlicActorClientSession::OnPerformActionsComplete(
   std::move(callback).Run(mojo_base::ProtoWrapper(response));
 }
 
-void GlicActorClientSession::DidFinishBuildObservation(
-    PerformActionsCallback callback,
-    base::TimeTicks start_time,
-    std::vector<actor::ActionResultWithLatencyInfo> action_results,
-    actor::TaskId task_id,
-    bool skip_async_observation_information,
-    std::optional<page_content_annotations::ScreenshotOptions::
-                      ScreenshotCollectionOptions>
-        screenshot_collection_options,
-    std::unique_ptr<optimization_guide::proto::ActionsResult> result,
-    std::unique_ptr<actor::AggregatedJournal::PendingAsyncEntry>
-        journal_entry) {
-  CHECK(
-      !base::FeatureList::IsEnabled(actor::kGlicActorTabObservationController));
-  CHECK(result);
-  actor::RecordTabObservationResultHistogram(*result);
-
-  if (base::FeatureList::IsEnabled(kGlicRetryFailedObservations) &&
-      !attempted_observation_retry_) {
-    using optimization_guide::proto::TabObservation;
-
-    // If any of the tab observations failed, retry observation.
-    for (const TabObservation& tab_observation : result->tabs()) {
-      CHECK(tab_observation.has_result());
-      if (tab_observation.result() != TabObservation::TAB_OBSERVATION_OK) {
-        attempted_observation_retry_ = true;
-
-        actor_keyed_service().GetJournal().Log(
-            GURL::EmptyGURL(), task_id, "Retrying failed observation",
-            actor::JournalDetailsBuilder()
-                .Add("tab_id", tab_observation.id())
-                .AddError(base::ToString(tab_observation.result()))
-                .Build());
-
-        auto retry_perform_actions_finished = base::BindOnce(
-            &GlicActorClientSession::PerformActionsFinished,
-            weak_ptr_factory_.GetWeakPtr(), std::move(callback), task_id,
-            start_time, skip_async_observation_information,
-            std::move(screenshot_collection_options), std::move(action_results),
-            actor::TabObservationStrategy());
-
-        base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-            FROM_HERE, std::move(retry_perform_actions_finished),
-            kObservationRetryDelay.Get());
-        return;
-      }
-    }
-  }
-
-  actor::RecordObservationOutcomeHistogram(*result,
-                                           attempted_observation_retry_);
-
-  std::move(callback).Run(mojo_base::ProtoWrapper(*result));
-}
-
-void GlicActorClientSession::ReloadCrashedTab(tabs::TabInterface& crashed_tab,
-                                              actor::TaskId task_id,
-                                              base::OnceClosure callback) {
-  // TODO(b/464019189): This code only deals with the first crashed tab per
-  // Task. If they are multiple tabs that crashed we might want to figure out
-  // how to deal with that.
-  content::WebContents* contents = crashed_tab.GetContents();
-  if (!contents) {
-    std::move(callback).Run();
-    return;
-  }
-  CHECK(contents->IsCrashed());
-
-  actor_keyed_service().GetJournal().Log(
-      contents->GetLastCommittedURL(), task_id,
-      "GlicActorTaskManager::ReloadCrashedTab", /*details=*/{});
-  reload_observer_ = std::make_unique<actor::ObservationDelayController>(
-      task_id, actor_keyed_service().GetJournal());
-  // TODO(b/471205189): Should `check_for_repost` be true here since a user
-  // isn't in control?
-  contents->GetController().Reload(content::ReloadType::NORMAL, true);
-  reload_observer_->Wait(
-      crashed_tab,
-      base::BindOnce(&GlicActorClientSession::ReloadObserverDone,
-                     base::Unretained(this), crashed_tab.GetHandle(),
-                     std::move(callback)));
-}
 
 void GlicActorClientSession::PerformActions(
     const std::vector<uint8_t>& actions_proto,
@@ -611,12 +495,15 @@ void GlicActorClientSession::PerformActions(
       actions.has_skip_async_observation_collection() &&
       actions.skip_async_observation_collection();
 
-  attempted_observation_retry_ = false;
+  auto wrapped_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+      std::move(callback),
+      base::unexpected(mojom::PerformActionsErrorReason::kUnknown));
+
   actor_keyed_service().PerformActions(
       task_id, std::move(requests.value()), actor::ActorTaskMetadata(actions),
       base::BindOnce(&GlicActorClientSession::PerformActionsFinished,
-                     GetWeakPtr(), std::move(callback), task_id, start_time,
-                     skip_async_observation_information,
+                     GetWeakPtr(), std::move(wrapped_callback), task_id,
+                     start_time, skip_async_observation_information,
                      actor::GetScreenshotCollectionOptions(actions)));
 }
 
@@ -882,6 +769,7 @@ void GlicActorClientSession::InterruptActorTask(
     std::optional<mojom::ActorTaskInterruptReason> interrupt_reason) {
   auto actor_task_id = actor::TaskId(task_id);
   instance_metrics().InterruptActorTask();
+
   actor::ActorTask* task = actor_keyed_service().GetTask(actor_task_id);
   if (!task) {
     actor_keyed_service().GetJournal().Log(GURL::EmptyGURL(), actor_task_id,
@@ -892,7 +780,10 @@ void GlicActorClientSession::InterruptActorTask(
                                                .Build());
     return;
   }
-  task->Interrupt();
+
+  actor::ActorTask::InterruptReason reason =
+      ConvertMojoInterruptReason(interrupt_reason);
+  task->Interrupt(/*retain_user_control=*/false, reason);
 }
 
 void GlicActorClientSession::UninterruptActorTask(int32_t task_id) {
@@ -913,6 +804,24 @@ void GlicActorClientSession::UninterruptActorTask(int32_t task_id) {
     next_state = actor::ActorTask::State::kActing;
   }
   task->Uninterrupt(next_state);
+}
+
+void GlicActorClientSession::UpdateActorTaskStepProgress(
+    int32_t task_id,
+    const std::string& step_progress) {
+  auto actor_task_id = actor::TaskId(task_id);
+  actor::ActorTask* task = actor_keyed_service().GetTask(actor_task_id);
+  if (!task) {
+    actor_keyed_service().GetJournal().Log(
+        GURL::EmptyGURL(), actor_task_id,
+        "Failed to update step progress for task",
+        actor::JournalDetailsBuilder()
+            .AddError("No such task")
+            .Add("id", task_id)
+            .Build());
+    return;
+  }
+  task->SetStepProgress(step_progress);
 }
 
 void GlicActorClientSession::CreateActorTab(
@@ -942,28 +851,6 @@ void GlicActorClientSession::CreateActorTabFinished(
   std::move(callback).Run(CreateTabData(new_tab));
 }
 
-void GlicActorClientSession::ReloadObserverDone(
-    tabs::TabHandle tab_handle,
-    base::OnceClosure callback,
-    actor::ObservationDelayController::Result result) {
-  if (current_task_id_ &&
-      result == actor::ObservationDelayController::Result::kPageNavigated) {
-    tabs::TabInterface* tab = tab_handle.Get();
-    if (tab) {
-      size_t last_navigation_count = reload_observer_->NavigationCount();
-      reload_observer_ = std::make_unique<actor::ObservationDelayController>(
-          current_task_id_, actor_keyed_service().GetJournal());
-      reload_observer_->SetNavigationCount(last_navigation_count + 1);
-      reload_observer_->Wait(
-          *tab, base::BindOnce(&GlicActorClientSession::ReloadObserverDone,
-                               base::Unretained(this), tab_handle,
-                               std::move(callback)));
-      return;
-    }
-  }
-  reload_observer_.reset();
-  std::move(callback).Run();
-}
 
 void GlicActorClientSession::CancelActiveTask() {
   if (current_task_id_) {
@@ -977,6 +864,15 @@ void GlicActorTaskManager::CancelTask() {
     return;
   }
   session_->CancelActiveTask();
+}
+
+void GlicActorTaskManager::PauseTask() {
+  if (!session_ || session_->current_task_id().is_null()) {
+    return;
+  }
+  session_->PauseActorTask(session_->current_task_id().value(),
+                           mojom::ActorTaskPauseReason::kPausedByUser,
+                           std::nullopt);
 }
 
 void GlicActorClientSession::CanActOnWebChanged(bool can_act_on_web) {
@@ -1017,8 +913,6 @@ void GlicActorClientSession::NotifyActorTaskStateChanged(
     if (manager_->delegate_) {
       manager_->delegate_->OnTaskIdChanged(std::nullopt);
     }
-    attempted_reload_after_crash_ = false;
-    reload_observer_.reset();
     actor_task_state_changed_subscription_.reset();
     manager_->MaybeNotifyActuatingChanged();
   }

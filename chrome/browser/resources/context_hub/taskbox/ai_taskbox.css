@@ -4,39 +4,121 @@
 
 /* #css_wrapper_metadata_start
  * #type=style-lit
+ * #import=//resources/cr_elements/cr_shared_vars.css.js
  * #scheme=relative
  * #css_wrapper_metadata_end */
 
 :host {
   display: block;
-  max-width: 1000px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#back-button {
+  margin-inline-start: -8px;
 }
 
 h1 {
+  color: var(--cr-primary-text-color);
   font-size: 28px;
-  font-weight: 600;
-  margin: 0 0 24px 0;
-}
-
-h2 {
-  font-size: 20px;
   font-weight: 600;
   margin: 0;
 }
 
-section {
-  margin-bottom: 40px;
+.columns-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
 }
 
-.section-header {
+.todo-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.column-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-height: 36px;
   margin-bottom: 20px;
+}
+
+h2 {
+  color: var(--cr-primary-text-color);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
 }
 
 .todo-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.completed-section {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.completed-expand-button {
+  min-height: 36px;
+  padding: 0;
+  --cr-section-min-height: 36px;
+  --cr-section-vertical-padding: 0;
+  --cr-section-padding: 0;
+}
+
+.completed-expand-button h2 {
+  color: var(--cr-primary-text-color);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.completed-todo-list {
+  padding-top: 20px;
+}
+
+.placeholder-card {
+  padding: 32px 20px;
+  border-radius: var(--cr-card-border-radius, 16px);
+  border: 1px solid var(--cr-separator-color);
+  box-shadow: none;
+  background-color: var(--cr-card-background-color);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.placeholder-text {
+  color: var(--cr-secondary-text-color);
+  font-size: 14px;
+  margin: 0;
+}
+
+.error-text {
+  color: var(--cr-destructive-color);
 }

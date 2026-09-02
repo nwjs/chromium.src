@@ -14,6 +14,7 @@
 #include "base/test/bind.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/mojom/security_context/insecure_request_policy.mojom-blink.h"
 #include "third_party/blink/public/mojom/v8_cache_options.mojom-blink.h"
 #include "third_party/blink/public/mojom/worker/dedicated_worker_host.mojom-blink.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -32,9 +33,13 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/inspector/thread_debugger_common_impl.h"
+#include "third_party/blink/renderer/core/loader/empty_clients.h"
+#include "third_party/blink/renderer/core/loader/worker_fetch_context.h"
+#include "third_party/blink/renderer/core/loader/worker_resource_timing_notifier_impl.h"
 #include "third_party/blink/renderer/core/messaging/blink_transferable_message.h"
 #include "third_party/blink/renderer/core/messaging/message_channel.h"
 #include "third_party/blink/renderer/core/messaging/message_port.h"
+#include "third_party/blink/renderer/core/offscreencanvas/offscreen_canvas.h"
 #include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/core/testing/wait_for_event.h"
@@ -52,6 +57,9 @@
 #include "third_party/blink/renderer/core/workers/worker_thread_test_helper.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
+#include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
+#include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
+#include "third_party/blink/renderer/platform/loader/testing/test_resource_fetcher_properties.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
@@ -533,6 +541,49 @@ TEST_F(DedicatedWorkerTest, UseCounter) {
   }
 }
 
+TEST_F(DedicatedWorkerTest, OffscreenCanvasTransferToWorkerUseCounter) {
+  Page::InsertOrdinaryPageForTesting(&GetPage());
+  StartWorker();
+
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kOffscreenCanvasTransferToWorker));
+
+  // Creating an OffscreenCanvas without placeholder on the main thread (window)
+  // does not count.
+  MakeGarbageCollected<OffscreenCanvas>(
+      GetDocument().domWindow(), gfx::Size(10, 10), 0, 0, kInvalidDOMNodeId);
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kOffscreenCanvasTransferToWorker));
+
+  // Creating an OffscreenCanvas with placeholder on the main thread does not
+  // count.
+  MakeGarbageCollected<OffscreenCanvas>(GetDocument().domWindow(),
+                                        gfx::Size(10, 10), 1, 1, DOMNodeId{1});
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kOffscreenCanvasTransferToWorker));
+
+  // Creating an OffscreenCanvas without placeholder on a worker thread does not
+  // count.
+  RunOnWorkerThread(
+      CrossThreadBindOnce([](ExecutionContext* execution_context) {
+        MakeGarbageCollected<OffscreenCanvas>(
+            execution_context, gfx::Size(10, 10), 0, 0, kInvalidDOMNodeId);
+      }));
+  EXPECT_FALSE(
+      GetDocument().IsUseCounted(WebFeature::kOffscreenCanvasTransferToWorker));
+
+  // Creating an OffscreenCanvas with placeholder on a worker thread (which
+  // occurs when an offscreen canvas is transferred to a worker) counts.
+  RunOnWorkerThread(
+      CrossThreadBindOnce([](ExecutionContext* execution_context) {
+        MakeGarbageCollected<OffscreenCanvas>(
+            execution_context, gfx::Size(10, 10), 1, 1, DOMNodeId{1});
+      }));
+
+  EXPECT_TRUE(
+      GetDocument().IsUseCounted(WebFeature::kOffscreenCanvasTransferToWorker));
+}
+
 TEST_F(DedicatedWorkerTest, TaskRunner) {
   base::RunLoop loop;
   StartWorker();
@@ -949,6 +1000,87 @@ TEST_F(DedicatedWorkerTest, PostCustomEventNoMessage) {
   EXPECT_EQ(event->type(), kCustomEventName);
   EXPECT_EQ(event->DataAsSerializedScriptValue(), nullptr);
   EXPECT_EQ(event->ports(), nullptr);
+}
+
+TEST_F(DedicatedWorkerTest, SubresourceWithEmbeddedCredentials) {
+  StartWorker();
+  WaitUntilWorkerIsRunning();
+
+  base::RunLoop run_loop;
+  PostCrossThreadTask(
+      *GetWorkerThread()->GetTaskRunner(TaskType::kInternalTest), FROM_HERE,
+      CrossThreadBindOnce(
+          [](DedicatedWorkerThreadForTest* worker_thread,
+             CrossThreadOnceClosure quit_closure) {
+            auto* global_scope =
+                To<WorkerGlobalScope>(worker_thread->GlobalScope());
+
+            // Set up a WorkerFetchContext whose worker URL carries embedded
+            // credentials.
+            const KURL worker_url("http://user:pass@a.test/worker.js");
+            scoped_refptr<const SecurityOrigin> origin =
+                SecurityOrigin::Create(worker_url);
+            auto* settings_object =
+                MakeGarbageCollected<FetchClientSettingsObjectSnapshot>(
+                    worker_url, worker_url, origin,
+                    mojom::blink::PolicyContainerPolicies::New(), String(),
+                    HttpsState::kNone, AllowedByNosniff::MimeTypeCheck::kStrict,
+                    mojom::blink::InsecureRequestPolicy::
+                        kLeaveInsecureRequestsAlone,
+                    FetchClientSettingsObject::InsecureNavigationsSet());
+            auto& properties =
+                MakeGarbageCollected<TestResourceFetcherProperties>(
+                    *settings_object)
+                    ->MakeDetachable();
+            auto* fetch_context = MakeGarbageCollected<WorkerFetchContext>(
+                properties, *global_scope,
+                base::MakeRefCounted<EmptyWebWorkerFetchContext>(),
+                /*subresource_filter=*/nullptr,
+                *global_scope->GetContentSecurityPolicy(),
+                *MakeGarbageCollected<NullWorkerResourceTimingNotifier>());
+
+            ResourceRequest script_request;
+            script_request.SetRequestContext(
+                mojom::blink::RequestContextType::SCRIPT);
+
+            // A same-origin URL with credentials matching the worker's URL
+            // should be allowed.
+            EXPECT_FALSE(
+                fetch_context->ShouldBlockFetchAsCredentialedSubresource(
+                    script_request, KURL("http://user:pass@a.test/script.js")));
+
+            // A same-origin URL with non-matching embedded credentials must be
+            // blocked.
+            EXPECT_TRUE(
+                fetch_context->ShouldBlockFetchAsCredentialedSubresource(
+                    script_request,
+                    KURL("http://wrong:pass@a.test/script.js")));
+
+            // A cross-origin URL must be blocked even when its credentials
+            // match the worker's URL.
+            EXPECT_TRUE(
+                fetch_context->ShouldBlockFetchAsCredentialedSubresource(
+                    script_request, KURL("http://user:pass@b.test/script.js")));
+
+            // A subresource request without embedded credentials should be
+            // allowed.
+            EXPECT_FALSE(
+                fetch_context->ShouldBlockFetchAsCredentialedSubresource(
+                    script_request, KURL("http://b.test/script.js")));
+
+            // An XMLHTTPRequest with embedded credentials should be allowed.
+            ResourceRequest xhr_request;
+            xhr_request.SetRequestContext(
+                mojom::blink::RequestContextType::XML_HTTP_REQUEST);
+            EXPECT_FALSE(
+                fetch_context->ShouldBlockFetchAsCredentialedSubresource(
+                    xhr_request, KURL("http://user:pass@b.test/script.js")));
+
+            std::move(quit_closure).Run();
+          },
+          CrossThreadUnretained(GetWorkerThread()),
+          CrossThreadOnceClosure(run_loop.QuitClosure())));
+  run_loop.Run();
 }
 
 class DedicatedWorkerDocumentPolicyTest

@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <utility>
 #include <vector>
@@ -39,7 +40,6 @@
 #include "base/trace_event/trace_event.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
-#include "base/types/zip.h"
 #include "build/build_config.h"
 #include "build/ios_buildflags.h"
 #include "components/favicon/core/favicon_backend.h"
@@ -659,35 +659,6 @@ void HistoryBackend::UpdateWithPageEndTime(ContextID context_id,
   // Will be filled with the URL ID and the visit ID of the last addition.
   VisitID visit_id = tracker_.GetLastVisit(context_id, nav_entry_id, url);
   UpdateVisitDuration(visit_id, end_ts);
-}
-
-void HistoryBackend::SetBrowsingTopicsAllowed(ContextID context_id,
-                                              int nav_entry_id,
-                                              const GURL& url) {
-  TRACE_EVENT0("browser", "HistoryBackend::SetBrowsingTopicsAllowed");
-
-  if (!db_) {
-    return;
-  }
-
-  VisitID visit_id = tracker_.GetLastVisit(context_id, nav_entry_id, url);
-  if (!visit_id) {
-    return;
-  }
-
-  // Only add to the annotations table if the visit_id exists in the visits
-  // table.
-  VisitContentAnnotations annotations;
-  if (db_->GetContentAnnotationsForVisit(visit_id, &annotations)) {
-    annotations.annotation_flags |=
-        VisitContentAnnotationFlag::kBrowsingTopicsEligible;
-    db_->UpdateContentAnnotationsForVisit(visit_id, annotations);
-  } else {
-    annotations.annotation_flags |=
-        VisitContentAnnotationFlag::kBrowsingTopicsEligible;
-    db_->AddContentAnnotationsForVisit(visit_id, annotations);
-  }
-  ScheduleCommit();
 }
 
 void HistoryBackend::SetPageLanguageForVisit(ContextID context_id,
@@ -2069,7 +2040,7 @@ std::optional<std::vector<URLID>> HistoryBackend::QueryUrlIds(
     return std::nullopt;
   }
   std::vector<URLID> result(urls.size(), 0);
-  for (auto [url, id] : base::zip(urls, result)) {
+  for (auto [url, id] : std::views::zip(urls, result)) {
     id = db_->GetRowForURL(url, nullptr);
   }
   return result;
@@ -2843,6 +2814,7 @@ void HistoryBackend::QueryHistoryBasic(const QueryOptions& options,
       continue;  // Don't report invalid URLs in case of corruption.
     }
 
+    url_result.set_visit_id(visit.visit_id);
     url_result.set_visit_time(visit.visit_time);
     url_result.set_app_id(visit.app_id);
 
@@ -2898,6 +2870,7 @@ void HistoryBackend::QueryHistoryText(const std::u16string& text_query,
 
     for (const auto& visit : visits) {
       URLResult url_result(text_match);
+      url_result.set_visit_id(visit.visit_id);
       url_result.set_visit_time(visit.visit_time);
       url_result.set_app_id(visit.app_id);
 

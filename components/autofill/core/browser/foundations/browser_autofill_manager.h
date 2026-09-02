@@ -22,7 +22,6 @@
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/at_memory/at_memory_manager.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/crowdsourcing/votes_uploader.h"
 #include "components/autofill/core/browser/data_manager/addresses/account_name_email_strike_manager.h"
@@ -234,10 +233,6 @@ class BrowserAutofillManager : public AutofillManager {
   CreditCardAccessManager* GetCreditCardAccessManager() override;
   const CreditCardAccessManager* GetCreditCardAccessManager() const override;
 
-  // Gets the `AtMemoryManager` owned by `this`. This will be used to handle
-  // queries to the `AccessibilityQueryService`.
-  AtMemoryManager& GetAtMemoryManager();
-
   // Gets the Autofill AI access manager owned by `this`.
   virtual AutofillAiAccessManager& GetAutofillAiAccessManager();
 
@@ -390,7 +385,7 @@ class BrowserAutofillManager : public AutofillManager {
                            mojom::SubmissionSource source) override;
   void OnFormWithEmailVerificationTokenSubmittedImpl(
       const FormData& form,
-      const FieldGlobalId& field_id) override;
+      const FieldGlobalId& email_field_id) override;
   void OnCaretMovedInFormFieldImpl(const FormData& form,
                                    const FieldGlobalId& field_id,
                                    const gfx::Rect& caret_bounds) override {}
@@ -404,7 +399,9 @@ class BrowserAutofillManager : public AutofillManager {
       const FieldGlobalId& field_id,
       const gfx::Rect& caret_bounds,
       AutofillSuggestionTriggerSource trigger_source,
-      std::optional<PasswordSuggestionRequest> password_request) override;
+      std::optional<PasswordSuggestionRequest> password_request,
+      base::ScopedClosureRunner scoped_on_after_ask_for_values_to_fill)
+      override;
   void OnSelectControlSelectionChangedImpl(
       const FormData& form,
       const FieldGlobalId& field_id) override;
@@ -516,6 +513,7 @@ class BrowserAutofillManager : public AutofillManager {
       AutofillSuggestionTriggerSource trigger_source,
       SuggestionsContext context,
       base::TimeTicks suggestion_generation_start_time,
+      base::ScopedClosureRunner scoped_on_after,
       std::vector<SuggestionGenerator::ReturnedSuggestions>
           returned_suggestions);
 
@@ -527,6 +525,12 @@ class BrowserAutofillManager : public AutofillManager {
       const AutofillField* trigger_autofill_field,
       const std::vector<Suggestion>& suggestions,
       AutofillSuggestionTriggerSource trigger_source);
+
+  // Shows the private inference notice on Android, if the list of suggestions
+  // has a private inference notice suggestion. The notice is shows as an
+  // message on android, unlike Desktop, where it's shown as a suggestion.
+  bool MaybeShowPrivateInferenceNotice(
+      base::span<const Suggestion> autofill_ai_suggestions);
 
   // Merges suggestions with `FillingProduct::kAddress` with the other
   // suggestions whose products supports merging with address suggestions (see
@@ -552,18 +556,21 @@ class BrowserAutofillManager : public AutofillManager {
       const FormData& form,
       const FormFieldData& field,
       AutofillSuggestionTriggerSource trigger_source,
-      base::TimeTicks suggestion_generator_start_time);
+      base::TimeTicks suggestion_generator_start_time,
+      base::ScopedClosureRunner scoped_on_after);
   void GenerateSuggestionsAndMaybeShowUIPhase2(
       const FormData& form,
       const FormFieldData& field,
       AutofillSuggestionTriggerSource trigger_source,
       base::TimeTicks suggestion_generator_start_time,
+      base::ScopedClosureRunner scoped_on_after,
       std::vector<std::string> one_time_passwords);
   void GenerateFooter(const FormData& form,
                       const FormFieldData& field,
                       AutofillSuggestionTriggerSource trigger_source,
                       const SuggestionsContext& context,
                       base::TimeTicks suggestion_generation_start_time,
+                      base::ScopedClosureRunner scoped_on_after,
                       bool show_suggestions,
                       std::vector<Suggestion> suggestions);
 
@@ -587,7 +594,12 @@ class BrowserAutofillManager : public AutofillManager {
       const SuggestionsContext& context,
       base::TimeTicks suggestion_generation_start_time,
       bool show_suggestions,
-      std::vector<Suggestion> suggestions);
+      std::vector<Suggestion> suggestions,
+      base::ScopedClosureRunner scoped_on_after);
+
+  // Logs various Autofill enabled/disabled metrics when forms are seen on a
+  // page for the first time.
+  void LogPageLoadSettingsMetrics(bool autofill_enabled);
 
   // Combines passkey suggestions and existing suggestions into a single list,
   // prioritizing existing suggestions first.
@@ -703,10 +715,6 @@ class BrowserAutofillManager : public AutofillManager {
       std::make_unique<FormFiller>(*this);
 
   std::unique_ptr<OtpManager> otp_manager_;
-
-  // The `AtMemoryManager`, used to handle queries to the
-  // `AccessibilityQueryService` and manage session-based metrics.
-  std::unique_ptr<AtMemoryManager> at_memory_manager_;
 
   std::unique_ptr<AccountNameEmailStrikeManager>
       account_name_email_strike_manager_;

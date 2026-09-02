@@ -14,6 +14,18 @@
   display: block;
   outline: none;
   pointer-events: none;
+
+  --item-container-padding-start: 14px;
+  --title-domain-padding-start: 5px;
+  --favicon-size: 24px;
+  --actor-icon-size: 16px;
+  --actor-icon-floating-offset: 6px;
+  --website-title-margin-start: 8px;
+  --critical-action-row-padding-start: 20px;
+}
+
+:host([is-critical-actions-enabled_]) {
+  --website-title-margin-start: 24px;
 }
 
 #main-container {
@@ -37,10 +49,10 @@
 }
 
 #item-container {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
   min-height: var(--item-height);
-  padding-inline-start: 14px;
+  padding-inline-start: var(--item-container-padding-start);
   pointer-events: auto;
 }
 
@@ -52,11 +64,25 @@
   padding-bottom: var(--card-first-last-item-padding);
 }
 
-#item-info {
+#checkbox-cell {
   align-items: center;
   display: flex;
+  height: var(--item-height);
+}
+
+#item-info {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
+}
+
+#item-info-row {
+  align-items: center;
+  display: flex;
+  height: var(--item-height);
+  min-width: 0;
+  width: 100%;
 }
 
 #title-and-domain {
@@ -67,11 +93,20 @@
   margin-inline-end: auto;
   overflow: hidden;
   /* Allows the link's focus outline to be shown completely. */
-  padding-inline-start: 5px;
+  padding-inline-start: var(--title-domain-padding-start);
 }
 
 #checkbox {
   margin: 0 10px;
+}
+
+.website-icon {
+  height: var(--favicon-size);
+  width: var(--favicon-size);
+}
+
+.website-title {
+  margin-inline-start: var(--website-title-margin-start);
 }
 
 /* Styling the element before cr-checkbox is defined is necessary since
@@ -86,8 +121,11 @@
 }
 
 #timeAccessed {
+  align-items: center;
   color: var(--history-item-time-color);
+  display: flex;
   font-size: 12px;
+  height: var(--item-height);
   margin-inline-start: 6px;
   min-width: 96px;
 }
@@ -103,7 +141,7 @@
 
 #menuButton {
   --cr-icon-button-margin-end: 20px;
-  --cr-icon-button-margin-start: 12px;
+  --cr-icon-button-margin-start: 0;
   --cr-icon-button-icon-size: 16px;
   --cr-icon-button-size: 24px;
 }
@@ -114,24 +152,28 @@
   padding-inline-start: 12px;
 }
 
+.website-link {
+  position: relative;
+}
+
 #title-and-domain #actor-icon {
-  --cr-icon-color: var(--color-sys-on-tonal-container,
-      var(--cr-fallback-color-on-tonal-container));
   --cr-icon-size: 12px;
+  --cr-tooltip-icon-fill-color: var(--color-sys-on-tonal-container,
+      var(--cr-fallback-color-on-tonal-container));
   align-items: center;
   background-color: var(--color-sys-surface1,
       var(--cr-fallback-color-surface1));
   border-radius: 50%;
-  color: var(--color-sys-on-tonal-container,
-      var(--cr-fallback-color-on-tonal-container));
   display: flex;
   flex: none;
-  height: 16px;
+  height: var(--actor-icon-size);
+  width: var(--actor-icon-size);
+  inset-inline-start: calc(
+      var(--favicon-size) - var(--actor-icon-size) +
+      var(--actor-icon-floating-offset));
   justify-content: center;
-  margin-inline-start: -10px;
   padding-inline-start: 0;
-  position: relative;
-  width: 16px;
+  position: absolute;
   z-index: 1;
 }
 
@@ -142,9 +184,105 @@
   --cr-icon-button-size: 32px;
 }
 
+#expand-button {
+  --cr-icon-button-icon-size: 16px;
+  --cr-icon-button-margin-start: 12px;
+  --cr-icon-button-size: 32px;
+}
+
+#collapse {
+  pointer-events: auto;
+}
+
+#expanded-container {
+  border: 0;
+  padding: 6px 0;
+}
+
+.critical-actions-title {
+  color: var(--cr-primary-text-color);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-inline-start: calc(
+    var(--title-domain-padding-start) +
+    var(--favicon-size) +
+    var(--website-title-margin-start)
+  );
+  padding-bottom: 4px;
+}
+
+.critical-actions-list {
+  display: flex;
+  flex-direction: column;
+  padding-inline-start: calc(
+    var(--title-domain-padding-start) +
+    var(--favicon-size) +
+    var(--website-title-margin-start) -
+    var(--critical-action-row-padding-start)
+  );
+}
+
+.critical-action-row {
+  align-items: center;
+  border-radius: 8px;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  height: 32px;
+  justify-content: space-between;
+  outline: none;
+  padding-inline-start: var(--critical-action-row-padding-start);
+  padding-inline-end: 16px;
+  transition: background-color 150ms ease-in-out;
+  user-select: none;
+}
+
+.critical-action-row:hover {
+  background-color: var(
+      --color-sys-state-hover-on-subtle,
+      var(--cr-hover-background-color));
+}
+
+.critical-action-row:active {
+  background-color: var(
+      --color-sys-state-pressed,
+      var(--cr-active-background-color));
+}
+
+.critical-action-row:focus-visible {
+  outline: 2px solid var(--cr-focus-outline-color);
+}
+
+.critical-action-label {
+  color: var(--cr-primary-text-color);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.critical-action-button {
+  --cr-icon-button-fill-color: var(--cr-secondary-text-color);
+  --cr-icon-button-hover-background-color: transparent;
+  --cr-icon-button-active-background-color: transparent;
+  --cr-icon-button-icon-size: 18px;
+  --cr-icon-button-size: 20px;
+}
+
+.critical-action-row:hover .critical-action-button {
+  --cr-icon-button-fill-color: var(--cr-primary-text-color);
+}
+
 #icons {
   align-items: center;
   display: flex;
+  padding-inline-end: 12px;
 }
 
 #debug-container {
@@ -219,6 +357,7 @@
 #options {
   align-items: center;
   display: flex;
+  height: var(--item-height);
 }
 
 /* Visually hide the label but still allow the screen reader to

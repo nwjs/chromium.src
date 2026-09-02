@@ -238,6 +238,9 @@ void CopyArrayBuffersToPort(v8::Isolate* isolate,
 
   for (uint32_t bus_index = 0; bus_index < audio_port.size(); ++bus_index) {
     const scoped_refptr<AudioBus>& audio_bus = audio_port[bus_index];
+    if (!audio_bus) {
+      continue;
+    }
     for (uint32_t channel_index = 0;
          channel_index < audio_bus->NumberOfChannels(); ++channel_index) {
       auto backing_store = array_buffers[bus_index][channel_index]
@@ -548,7 +551,7 @@ bool AudioWorkletProcessor::Process(
   if (!CopyParamValueMapToObject(isolate, context, param_value_map, params_)) {
     AudioWorkletProcessorErrorDetails error_details(
         AudioWorkletProcessorErrorState::kProcessError,
-        name_ + " process(): Failed to copy parameter data.",
+        StrCat({name_, " process(): Failed to copy parameter data."}),
         /*source_url=*/"",
         /*line_number=*/0,
         /*column_number=*/0,
@@ -574,7 +577,7 @@ bool AudioWorkletProcessor::Process(
         !process_v8_value->IsFunction()) {
       AudioWorkletProcessorErrorDetails error_details(
           AudioWorkletProcessorErrorState::kProcessMethodUndefinedError,
-          name_ + " process() method undefined.",
+          StrCat({name_, " process() method undefined."}),
           /*source_url=*/"",
           /*line_number=*/0,
           /*column_number=*/0,

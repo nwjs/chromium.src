@@ -398,9 +398,12 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="GeminiPro"/>
   <int value="3" label="GeminiProAutoroute"/>
   <int value="4" label="GeminiProNoGenUi"/>
+  <int value="5" label="GeminiFlashLatest"/>
+  <int value="6" label="GeminiProLatest"/>
+  <int value="7" label="GeminiPreview"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.cc:ModelMode) -->
+<!-- LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.cc:ModelMode,//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:ModelMode) -->
 
 <!-- LINT.IfChange(OmniboxPopupResultToContentReadyEarlyExitReason) -->
 
@@ -434,9 +437,10 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="DisableSuggest"/>
   <int value="9" label="Aim"/>
   <int value="10" label="AimGenPrompt"/>
+  <int value="11" label="AgentTask"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.cc:ToolMode) -->
+<!-- LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.cc:ToolMode,//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:ToolMode) -->
 
 <enum name="OmniboxWebUIRendererProcessGoneStatus">
   <int value="0" label="Normal termination"/>

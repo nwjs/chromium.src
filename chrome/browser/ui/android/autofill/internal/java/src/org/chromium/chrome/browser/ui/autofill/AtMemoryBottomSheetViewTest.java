@@ -19,6 +19,7 @@ import android.view.ContextThemeWrapper;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.constraintlayout.helper.widget.Flow;
@@ -51,6 +52,7 @@ import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.ui.widget.LoadingView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -202,6 +204,106 @@ public class AtMemoryBottomSheetViewTest {
     }
 
     @Test
+    public void testTextWithClickableLinkViewBinding() {
+        View textWithClickableLinkView =
+                android.view.LayoutInflater.from(mContext)
+                        .inflate(
+                                R.layout.at_memory_bottom_sheet_text_with_clickable_link_item,
+                                null);
+
+        Runnable linkClicked = mock(Runnable.class);
+        PropertyModel model =
+                new PropertyModel.Builder(
+                                AtMemoryBottomSheetProperties.TextWithClickableLinkProperties
+                                        .ALL_KEYS)
+                        .with(
+                                AtMemoryBottomSheetProperties.TextWithClickableLinkProperties.TEXT,
+                                "Test string with <link>link text</link>")
+                        .with(
+                                AtMemoryBottomSheetProperties.TextWithClickableLinkProperties
+                                        .ON_LINK_CLICKED,
+                                linkClicked)
+                        .build();
+
+        PropertyModelChangeProcessor.create(
+                model,
+                (AtMemoryBottomSheetTextWithClickableLinkView) textWithClickableLinkView,
+                AtMemoryBottomSheetViewBinder::bindTextWithClickableLinkView);
+
+        TextView textView = textWithClickableLinkView.findViewById(R.id.text);
+        assertNotNull(textView);
+        assertEquals("Test string with link text", textView.getText().toString());
+    }
+
+    @Test
+    public void testNoticeItemViewBinding_isLoggingDisabled() {
+        View noticeView =
+                android.view.LayoutInflater.from(mContext)
+                        .inflate(R.layout.at_memory_bottom_sheet_notice_item, null);
+
+        Runnable settingsClicked = mock(Runnable.class);
+        PropertyModel model =
+                new PropertyModel.Builder(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties.ALL_KEYS)
+                        .with(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .IS_LOGGING_ALLOWED,
+                                false)
+                        .with(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .ON_SETTINGS_CLICKED,
+                                settingsClicked)
+                        .build();
+
+        PropertyModelChangeProcessor.create(
+                model,
+                (AtMemoryBottomSheetNoticeView) noticeView,
+                AtMemoryBottomSheetViewBinder::bindNoticeItemView);
+
+        TextView noticeTextView = noticeView.findViewById(R.id.notice_text);
+        assertNotNull(noticeTextView);
+        String expectedTextWithoutSpan =
+                mContext.getString(R.string.at_memory_notice_text_no_logging)
+                        .replace("<link>", "")
+                        .replace("</link>", "");
+        assertEquals(expectedTextWithoutSpan, noticeTextView.getText().toString());
+    }
+
+    @Test
+    public void testNoticeItemViewBinding_isLoggingEnabled() {
+        View noticeView =
+                android.view.LayoutInflater.from(mContext)
+                        .inflate(R.layout.at_memory_bottom_sheet_notice_item, null);
+
+        Runnable settingsClicked = mock(Runnable.class);
+        PropertyModel model =
+                new PropertyModel.Builder(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties.ALL_KEYS)
+                        .with(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .IS_LOGGING_ALLOWED,
+                                true)
+                        .with(
+                                AtMemoryBottomSheetProperties.NoticeItemProperties
+                                        .ON_SETTINGS_CLICKED,
+                                settingsClicked)
+                        .build();
+
+        PropertyModelChangeProcessor.create(
+                model,
+                (AtMemoryBottomSheetNoticeView) noticeView,
+                AtMemoryBottomSheetViewBinder::bindNoticeItemView);
+
+        TextView noticeTextView = noticeView.findViewById(R.id.notice_text);
+        assertNotNull(noticeTextView);
+        String expectedTextWithoutSpan =
+                mContext.getString(R.string.at_memory_notice_text)
+                        .replace("<link>", "")
+                        .replace("</link>", "");
+        assertEquals(expectedTextWithoutSpan, noticeTextView.getText().toString());
+    }
+
+    @Test
     public void testFlyoutBackClickNotifiesCallback() {
         PropertyModel model =
                 new PropertyModel.Builder(FlyoutProperties.ALL_KEYS)
@@ -273,6 +375,7 @@ public class AtMemoryBottomSheetViewTest {
     @Test
     public void testHeightRatiosWhenSearchHasFocus() {
         when(mBottomSheetController.getContainerHeight()).thenReturn(1000);
+        when(mBottomSheetController.getMaxSheetWidth()).thenReturn(500);
 
         AtMemoryBottomSheetContent content =
                 new AtMemoryBottomSheetContent(mView, mBottomSheetController);
@@ -291,6 +394,7 @@ public class AtMemoryBottomSheetViewTest {
     @Test
     public void testHeightRatiosOnFlyoutScreen() {
         when(mBottomSheetController.getContainerHeight()).thenReturn(1000);
+        when(mBottomSheetController.getMaxSheetWidth()).thenReturn(500);
 
         AtMemoryBottomSheetContent content =
                 new AtMemoryBottomSheetContent(mView, mBottomSheetController);
@@ -302,12 +406,13 @@ public class AtMemoryBottomSheetViewTest {
     }
 
     @Test
-    public void testSuggestionWithDeactivatedStyle() {
+    public void testLoadingSuggestionWithDeactivatedStyle() {
         ModelList modelList = new ModelList();
         PropertyModel suggestionModel =
                 new PropertyModel.Builder(SuggestionItemProperties.ALL_KEYS)
                         .with(SuggestionItemProperties.TITLE, "Couldn't find this info")
                         .with(SuggestionItemProperties.APPLY_DEACTIVATED_STYLE, true)
+                        .with(SuggestionItemProperties.IS_LOADING, true)
                         .build();
 
         modelList.add(new ListItem(HomeProperties.ItemType.SUGGESTION, suggestionModel));
@@ -322,6 +427,12 @@ public class AtMemoryBottomSheetViewTest {
                 (AtMemoryBottomSheetSuggestionView) recyclerView.getChildAt(0);
 
         assertFalse(suggestionView.isEnabled());
+
+        ImageView icon = suggestionView.findViewById(R.id.icon_view);
+        LoadingView loadingView = suggestionView.findViewById(R.id.suggestion_loading_view);
+
+        assertEquals(View.GONE, icon.getVisibility());
+        assertEquals(View.VISIBLE, loadingView.getVisibility());
     }
 
     private List<ChipView> getChipViews(ViewGroup viewGroup) {

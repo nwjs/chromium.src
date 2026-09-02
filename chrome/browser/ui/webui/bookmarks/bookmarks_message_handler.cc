@@ -20,7 +20,6 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
@@ -340,8 +339,7 @@ void BookmarksMessageHandler::HandleSingleUploadClicked(
   BrowserWindowInterface* const browser =
       ProfileBrowserCollection::GetForProfile(profile)->GetLastActiveBrowser();
   ShowBookmarkAccountStorageUploadDialog(
-      browser ? browser->GetBrowserForMigrationOnly() : nullptr,
-      bookmarks::GetBookmarkNodeByID(model, id));
+      browser, bookmarks::GetBookmarkNodeByID(model, id));
 }
 
 void BookmarksMessageHandler::UpdateCanEditBookmarks() {
@@ -415,8 +413,7 @@ void BookmarksMessageHandler::HandleOnBatchUploadPromoClicked(
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           web_ui()->GetWebContents());
   service->OpenBatchUpload(
-      browser->GetBrowserForMigrationOnly(),
-      BatchUploadService::EntryPoint::kBookmarksManagerPromoCard);
+      browser, BatchUploadService::EntryPoint::kBookmarksManagerPromoCard);
 }
 
 void BookmarksMessageHandler::HandleOnBatchUploadPromoDismissed(

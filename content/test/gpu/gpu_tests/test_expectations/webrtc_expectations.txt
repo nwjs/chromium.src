@@ -11,7 +11,7 @@
 # Devices
 # tags: [ android-pixel-2 android-pixel-4 android-pixel-6 android-pixel-10
 #             android-shield-android-tv android-sm-a137f android-sm-a236b
-#             android-sm-s911u1
+#             android-sm-s911u1 android-sm-s926b
 #         android-brya android-corsola
 #         chromeos-board-amd64-generic chromeos-board-eve chromeos-board-jacuzzi
 #             chromeos-board-octopus
@@ -43,7 +43,8 @@
 #             intel-0x3e9b intel-0x4680 intel-0x46a8 intel-0x5912 intel-0x9bc5
 #         microsoft microsoft-0xffff
 #         nvidia nvidia-0x1cb3 nvidia-0x2184 nvidia-0x2783 nvidia-0x2c02
-#         qualcomm qualcomm-0x36333630 qualcomm-0x36334330 ]
+#         qualcomm qualcomm-0x36333630 qualcomm-0x36334330
+#         samsung-electronics-co.-ltd. ]
 # Architecture
 # tags: [ arch-arm64 arch-x86_64 ]
 # Decoder
@@ -68,6 +69,7 @@
 #         mesa_ge_24.2
 #         nvidia_ge_31.0.15.4601 nvidia_lt_31.0.15.4601
 #         nvidia_ge_32.0.15.8180 nvidia_lt_32.0.15.8180
+#         nvidia_ge_32.0.16.1074 nvidia_lt_32.0.16.1074
 #         nvidia_ge_535.183.01 nvidia_lt_535.183.01 ]
 # ASan
 # tags: [ asan no-asan ]
@@ -148,6 +150,10 @@ crbug.com/479096333 [ mac amd-0x67ef ] WebRTC_Hardware_Decode_Loopback_AV1 [ Fai
 
 crbug.com/525087041 [ mac intel-0x3e9b ] WebRTC_Hardware_Decode_Loopback_H265 [ Failure ]
 crbug.com/525087041 [ mac intel-0x3e9b ] WebRTC_Hardware_Encode_Loopback_H265 [ Failure ]
+
+crbug.com/542268655 [ linux amd-0x7480 ] WebRTC_Hardware_Decode_Loopback_AV1 [ Failure ]
+crbug.com/542268655 [ linux amd-0x7480 ] WebRTC_Hardware_Decode_Loopback_H264 [ Failure ]
+crbug.com/542268655 [ linux amd-0x7480 ] WebRTC_Hardware_Decode_Loopback_VP9 [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

@@ -70,48 +70,6 @@ TEST_P(PDFiumInkReaderTest, NoPage) {
   EXPECT_TRUE(results.empty());
 }
 
-INSTANTIATE_TEST_SUITE_P(All, PDFiumInkReaderTest, testing::Bool());
-
-class PDFiumInkReaderStrokeMarkedObjectsTests : public PDFiumInkReaderTest {
- public:
-  void ValidateStrokeMarkedObjectsCount(
-      const base::FilePath::CharType* pdf_name,
-      int expected_count) {
-    TestClient client(/*use_skia_renderer=*/GetParam());
-    std::unique_ptr<PDFiumEngine> engine = InitializeEngine(&client, pdf_name);
-    ASSERT_TRUE(engine);
-
-    std::vector<uint8_t> saved_pdf_data = engine->GetSaveData();
-    ASSERT_FALSE(saved_pdf_data.empty());
-
-    TestClient saved_client(/*use_skia_renderer=*/GetParam());
-    std::unique_ptr<PDFiumEngine> saved_engine =
-        InitializeEngineFromData(&saved_client, std::move(saved_pdf_data));
-    ASSERT_TRUE(saved_engine);
-
-    ASSERT_TRUE(saved_engine->doc());
-    EXPECT_EQ(GetPdfMarkObjCountForTesting(saved_engine->doc(),
-                                           kInkAnnotationIdentifierKeyV2),
-              expected_count);
-  }
-};
-
-TEST_P(PDFiumInkReaderStrokeMarkedObjectsTests, MarkedObjectsNoStrokeData) {
-  ValidateStrokeMarkedObjectsCount(FILE_PATH_LITERAL("blank.pdf"),
-                                   /*expected_count=*/0);
-}
-
-TEST_P(PDFiumInkReaderStrokeMarkedObjectsTests, MarkedObjectsHasStrokeData) {
-  ValidateStrokeMarkedObjectsCount(FILE_PATH_LITERAL("ink_v2.pdf"),
-                                   /*expected_count=*/1);
-}
-
-// There are no rendering concerns for counting marked objects, so only one
-// variation need be run.
-INSTANTIATE_TEST_SUITE_P(All,
-                         PDFiumInkReaderStrokeMarkedObjectsTests,
-                         testing::Values(false));
-
 TEST_P(PDFiumInkReaderTest, BasicTextAnnotation) {
   TestClient client(/*use_skia_renderer=*/GetParam());
   std::unique_ptr<PDFiumEngine> engine =
@@ -130,15 +88,24 @@ TEST_P(PDFiumInkReaderTest, BasicTextAnnotation) {
   EXPECT_EQ(0, textbox.id);
   EXPECT_EQ("Hello\n!", textbox.attributes.text);
 
-  EXPECT_THAT(textbox.attributes,
-              InkTextBoxAttributesEq(
-                  gfx::RectF(25.333334f, 125.333336f, 133.33334f, 66.66667f),
-                  SK_ColorBLACK, 10.0f, TextTypeface::kSansSerif,
-                  TextAlignment::kLeft, 0, PageOrientation::kOriginal,
-                  /*is_bold=*/true, /*is_italic=*/false, "Hello\n!"));
+  EXPECT_EQ(
+      textbox.attributes,
+      (InkTextBoxAttributes{
+          .rect = gfx::RectF(25.333334f, 125.333336f, 133.33334f, 66.66667f),
+          .color = SK_ColorBLACK,
+          .css_font_size = 10.0f,
+          .typeface = TextTypeface::kSansSerif,
+          .alignment = TextAlignment::kLeft,
+          .orientation = 0,
+          .viewport_orientation = PageOrientation::kOriginal,
+          .is_bold = true,
+          .is_italic = false,
+          .text = "Hello\n!",
+      }));
 
   // "Hello\n!" has 2 lines and should have 2 text page objects.
-  const std::vector<FPDF_PAGEOBJECT>& text_objects = results[0].text_objects;
+  const std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>>&
+      text_objects = results[0].text_objects;
   ASSERT_EQ(2u, text_objects.size());
   EXPECT_TRUE(text_objects[0]);
   EXPECT_TRUE(text_objects[1]);
@@ -182,13 +149,22 @@ TEST_P(PDFiumInkReaderTest, MultipleTextboxesOnOnePage) {
   const InkTextBox& textbox0 = results[0].textbox;
   EXPECT_EQ(0, textbox0.id);
   EXPECT_EQ("Hello", textbox0.attributes.text);
-  EXPECT_THAT(textbox0.attributes,
-              InkTextBoxAttributesEq(
-                  gfx::RectF(25.333334f, 125.333336f, 133.33334f, 66.66667f),
-                  SK_ColorBLACK, 10.0f, TextTypeface::kSansSerif,
-                  TextAlignment::kLeft, 0, PageOrientation::kOriginal,
-                  /*is_bold=*/true, /*is_italic=*/false, "Hello"));
-  const std::vector<FPDF_PAGEOBJECT>& text_objects0 = results[0].text_objects;
+  EXPECT_EQ(
+      textbox0.attributes,
+      (InkTextBoxAttributes{
+          .rect = gfx::RectF(25.333334f, 125.333336f, 133.33334f, 66.66667f),
+          .color = SK_ColorBLACK,
+          .css_font_size = 10.0f,
+          .typeface = TextTypeface::kSansSerif,
+          .alignment = TextAlignment::kLeft,
+          .orientation = 0,
+          .viewport_orientation = PageOrientation::kOriginal,
+          .is_bold = true,
+          .is_italic = false,
+          .text = "Hello",
+      }));
+  const std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>>&
+      text_objects0 = results[0].text_objects;
   ASSERT_EQ(1u, text_objects0.size());
   EXPECT_TRUE(text_objects0[0]);
 
@@ -196,15 +172,66 @@ TEST_P(PDFiumInkReaderTest, MultipleTextboxesOnOnePage) {
   const InkTextBox& textbox1 = results[1].textbox;
   EXPECT_EQ(42, textbox1.id);
   EXPECT_EQ("World", textbox1.attributes.text);
-  EXPECT_THAT(textbox1.attributes,
-              InkTextBoxAttributesEq(
-                  gfx::RectF(25.333334f, 186.66667f, 133.33334f, 66.66667f),
-                  SK_ColorBLUE, 15.0f, TextTypeface::kMonospace,
-                  TextAlignment::kLeft, 0, PageOrientation::kOriginal,
-                  /*is_bold=*/false, /*is_italic=*/true, "World"));
-  const std::vector<FPDF_PAGEOBJECT>& text_objects1 = results[1].text_objects;
+  EXPECT_EQ(
+      textbox1.attributes,
+      (InkTextBoxAttributes{
+          .rect = gfx::RectF(25.333334f, 186.66667f, 133.33334f, 66.66667f),
+          .color = SK_ColorBLUE,
+          .css_font_size = 15.0f,
+          .typeface = TextTypeface::kMonospace,
+          .alignment = TextAlignment::kLeft,
+          .orientation = 0,
+          .viewport_orientation = PageOrientation::kOriginal,
+          .is_bold = false,
+          .is_italic = true,
+          .text = "World",
+      }));
+  const std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>>&
+      text_objects1 = results[1].text_objects;
   ASSERT_EQ(1u, text_objects1.size());
   EXPECT_TRUE(text_objects1[0]);
 }
+
+INSTANTIATE_TEST_SUITE_P(All, PDFiumInkReaderTest, testing::Bool());
+
+class PDFiumInkReaderStrokeMarkedObjectsTests : public PDFiumInkReaderTest {
+ public:
+  void ValidateStrokeMarkedObjectsCount(
+      const base::FilePath::CharType* pdf_name,
+      int expected_count) {
+    TestClient client(/*use_skia_renderer=*/GetParam());
+    std::unique_ptr<PDFiumEngine> engine = InitializeEngine(&client, pdf_name);
+    ASSERT_TRUE(engine);
+
+    std::vector<uint8_t> saved_pdf_data = engine->GetSaveData();
+    ASSERT_FALSE(saved_pdf_data.empty());
+
+    TestClient saved_client(/*use_skia_renderer=*/GetParam());
+    std::unique_ptr<PDFiumEngine> saved_engine =
+        InitializeEngineFromData(&saved_client, std::move(saved_pdf_data));
+    ASSERT_TRUE(saved_engine);
+
+    ASSERT_TRUE(saved_engine->doc());
+    EXPECT_EQ(GetPdfMarkObjCountForTesting(saved_engine->doc(),
+                                           kInkAnnotationIdentifierKeyV2),
+              expected_count);
+  }
+};
+
+TEST_P(PDFiumInkReaderStrokeMarkedObjectsTests, MarkedObjectsNoStrokeData) {
+  ValidateStrokeMarkedObjectsCount(FILE_PATH_LITERAL("blank.pdf"),
+                                   /*expected_count=*/0);
+}
+
+TEST_P(PDFiumInkReaderStrokeMarkedObjectsTests, MarkedObjectsHasStrokeData) {
+  ValidateStrokeMarkedObjectsCount(FILE_PATH_LITERAL("ink_v2.pdf"),
+                                   /*expected_count=*/1);
+}
+
+// There are no rendering concerns for counting marked objects, so only one
+// variation need be run.
+INSTANTIATE_TEST_SUITE_P(All,
+                         PDFiumInkReaderStrokeMarkedObjectsTests,
+                         testing::Values(false));
 
 }  // namespace chrome_pdf

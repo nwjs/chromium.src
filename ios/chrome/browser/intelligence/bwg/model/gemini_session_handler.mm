@@ -323,6 +323,7 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   // Ensure page context is attached for a new chat.
   ios::provider::UpdatePageAttachmentState(
       ios::provider::GeminiPageContextAttachmentState::kAttached);
+  ios::provider::SetShouldShowSuggestionChips(true);
   // Record the new chat metric.
   RecordGeminiNewChatButtonTapped();
 
@@ -333,6 +334,8 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   _waitingForResponse = NO;
   _lastPromptSentTime = base::TimeTicks();
   _lastPromptHadPageContext = NO;
+
+  [self.geminiViewStateDelegate didTapNewChatButton];
 }
 
 // Called when a feedback button is tapped in the Gemini UI.
@@ -433,13 +436,11 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
       startGeminiLiveFirstRunWithBaseViewController:viewController
                                          completion:^(BOOL success) {
                                            if (!success) {
-                                             // TODO(crbug.com/535588632):
-                                             // switch directly to expanded
-                                             // floaty state once the method is
-                                             // bridged.
                                              ios::provider::SwitchToMode(
                                                  ios::provider::GeminiViewMode::
                                                      kFloaty,
+                                                 ios::provider::
+                                                     GeminiViewState::kExpanded,
                                                  /*animated=*/YES);
                                            }
                                            if (completion) {

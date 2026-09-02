@@ -53,6 +53,7 @@ import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.CallbackUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.UnownedUserDataHost;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
@@ -95,7 +96,6 @@ import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestrator;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceOrchestratorFactory;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
-import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
@@ -141,12 +141,13 @@ import java.util.List;
 @DisableFeatures({
     ChromeFeatureList.ANDROID_OPEN_INCOGNITO_AS_WINDOW,
     ChromeFeatureList.DATA_SHARING,
-    ChromeFeatureList.GLIC
+    ChromeFeatureList.GLIC,
+    ChromeFeatureList.TAB_STRIP_STOP_SPINNER_ON_LOAD_STOP
 })
 public class StripLayoutHelperManagerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private TabStripSceneLayer.Natives mTabStripSceneMock;
-    @Mock private StripTabUnderlineManager.Natives mStripTabUnderlineManagerNatives;
+    @Mock private TabUnderlineManager.Natives mTabUnderlineManagerNatives;
     @Mock private TabStripSceneLayer mTabStripTreeProvider;
     @Mock private LayerTitleCache mLayerTitleCache;
     @Mock private LayoutManagerHost mManagerHost;
@@ -220,7 +221,7 @@ public class StripLayoutHelperManagerTest {
         when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.emptyList());
         GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
         TabStripSceneLayerJni.setInstanceForTesting(mTabStripSceneMock);
-        StripTabUnderlineManagerJni.setInstanceForTesting(mStripTabUnderlineManagerNatives);
+        TabUnderlineManagerJni.setInstanceForTesting(mTabUnderlineManagerNatives);
         MultiInstanceOrchestratorFactory.setInstanceForTesting(mMultiInstanceOrchestrator);
         mActivity = Robolectric.buildActivity(Activity.class).setup().get();
         mActivity.setTheme(R.style.Theme_BrowserUI_DayNight);
@@ -461,20 +462,20 @@ public class StripLayoutHelperManagerTest {
     }
 
     @Test
-    public void testUpdateForeGroundColor() {
+    public void testOnBackgroundColorChanged() {
         initializeTest();
 
         mStripLayoutHelperManager.onAppHeaderStateChanged(new AppHeaderState());
 
         int normalColor = TabUiThemeUtil.getTabStripBackgroundColor(mActivity, false);
-        verify(mDesktopWindowStateManager).updateForegroundColor(normalColor);
+        verify(mDesktopWindowStateManager).onBackgroundColorChanged(normalColor);
 
         Mockito.reset(mDesktopWindowStateManager);
         mStripLayoutHelperManager.setIsIncognitoForTesting(true);
         mStripLayoutHelperManager.onAppHeaderStateChanged(new AppHeaderState());
 
         int incognitoColor = TabUiThemeUtil.getTabStripBackgroundColor(mActivity, true);
-        verify(mDesktopWindowStateManager).updateForegroundColor(incognitoColor);
+        verify(mDesktopWindowStateManager).onBackgroundColorChanged(incognitoColor);
     }
 
     @Test
@@ -1327,7 +1328,7 @@ public class StripLayoutHelperManagerTest {
                         mUpdateHost,
                         false,
                         false,
-                        MediaState.NONE);
+                        /* alertState= */ null);
 
         // Inject the strip tab into the helper via reflection.
         Field tabsField = StripLayoutHelper.class.getDeclaredField("mStripTabs");
@@ -1344,10 +1345,24 @@ public class StripLayoutHelperManagerTest {
         // Verify initial state.
         assertFalse("Tab should not be loading initially.", stripTab.isLoading());
 
-        // 1. Test onLoadStarted with toDifferentDocument = false (should be ignored).
+        // 1. Test onLoadStarted with toDifferentDocument = false (ignored when fix is disabled,
+        // triggers when fix is enabled or on desktop).
         observer.onLoadStarted(tab, false);
-        assertFalse(
-                "Tab should not start loading for same-document navigation.", stripTab.isLoading());
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_STRIP_STOP_SPINNER_ON_LOAD_STOP)
+                || DeviceInfo.isDesktop()) {
+            assertTrue(
+                    "Tab should start loading for same-document navigation when fix is enabled.",
+                    stripTab.isLoading());
+            // Reset state for next test.
+            observer.onLoadStopped(tab, false);
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+            assertFalse("Tab should stop loading.", stripTab.isLoading());
+        } else {
+            assertFalse(
+                    "Tab should not start loading for same-document navigation when fix is"
+                            + " disabled.",
+                    stripTab.isLoading());
+        }
 
         // 2. Test onLoadStarted with toDifferentDocument = true (should trigger).
         observer.onLoadStarted(tab, true);
@@ -1355,16 +1370,85 @@ public class StripLayoutHelperManagerTest {
                 "Tab should start loading for different-document navigation.",
                 stripTab.isLoading());
 
-        // 3. Test onLoadStopped with toDifferentDocument = false (should be ignored, so still
-        // loading).
+        // 3. Test onLoadStopped with toDifferentDocument = false (ignored when fix is disabled,
+        // stops loading when fix is enabled or on desktop).
         observer.onLoadStopped(tab, false);
-        assertTrue("Tab should still be loading after same-document stop.", stripTab.isLoading());
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.TAB_STRIP_STOP_SPINNER_ON_LOAD_STOP)
+                || DeviceInfo.isDesktop()) {
+            // Advance clock and run delayed tasks to allow TabLoadTracker's 100ms delay to expire.
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+            assertFalse(
+                    "Tab should stop loading after same-document stop when fix is enabled.",
+                    stripTab.isLoading());
+        } else {
+            assertTrue(
+                    "Tab should still be loading after same-document stop when fix is disabled.",
+                    stripTab.isLoading());
 
-        // 4. Test onLoadStopped with toDifferentDocument = true (should trigger).
-        observer.onLoadStopped(tab, true);
-        // Advance clock and run delayed tasks to allow TabLoadTracker's 100ms delay to expire.
+            // 4. Test onLoadStopped with toDifferentDocument = true (should trigger).
+            observer.onLoadStopped(tab, true);
+            // Advance clock and run delayed tasks to allow TabLoadTracker's 100ms delay to expire.
+            ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+            assertFalse(
+                    "Tab should stop loading after different-document stop.", stripTab.isLoading());
+        }
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.TAB_STRIP_STOP_SPINNER_ON_LOAD_STOP)
+    public void testLoadingStateChanged_spinnerFix() throws Exception {
+        // Setup: Create a tab and a corresponding StripLayoutTab.
+        Tab tab = mock(Tab.class);
+        int tabId = 1;
+        when(tab.getId()).thenReturn(tabId);
+        when(tab.isIncognitoBranded()).thenReturn(false);
+
+        StripLayoutHelper standardHelper = mStripLayoutHelperManager.getStripLayoutHelper(false);
+        var callback = mock(TabLoadTrackerCallback.class);
+        StripLayoutTab stripTab =
+                new StripLayoutTab(
+                        mActivity,
+                        tabId,
+                        null,
+                        null,
+                        null,
+                        null,
+                        callback,
+                        mUpdateHost,
+                        false,
+                        false,
+                        /* alertState= */ null);
+
+        Field tabsField = StripLayoutHelper.class.getDeclaredField("mStripTabs");
+        tabsField.setAccessible(true);
+        tabsField.set(standardHelper, new StripLayoutTab[] {stripTab});
+
+        Field observerField =
+                StripLayoutHelperManager.class.getDeclaredField("mTabModelSelectorTabObserver");
+        observerField.setAccessible(true);
+        TabModelSelectorTabObserver observer =
+                (TabModelSelectorTabObserver) observerField.get(mStripLayoutHelperManager);
+
+        // 1. Test onLoadProgressChanged at 1.0f stops loading.
+        observer.onLoadStarted(tab, true);
+        assertTrue(stripTab.isLoading());
+        observer.onLoadProgressChanged(tab, 1.0f);
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
-        assertFalse("Tab should stop loading after different-document stop.", stripTab.isLoading());
+        assertFalse(stripTab.isLoading());
+
+        // 2. Test onPageLoadFailed stops loading.
+        observer.onLoadStarted(tab, true);
+        assertTrue(stripTab.isLoading());
+        observer.onPageLoadFailed(tab, -1);
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        assertFalse(stripTab.isLoading());
+
+        // 3. Test onDocumentLoadedInPrimaryMainFrame stops loading.
+        observer.onLoadStarted(tab, true);
+        assertTrue(stripTab.isLoading());
+        observer.onDocumentLoadedInPrimaryMainFrame(tab);
+        ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
+        assertFalse(stripTab.isLoading());
     }
 
     @Test
@@ -1401,5 +1485,66 @@ public class StripLayoutHelperManagerTest {
         assertNull(
                 "Last hovered tab should be cleared on URL text change.",
                 activeLayoutHelper.getLastHoveredTab());
+    }
+
+    @Test
+    public void testControlsOffsetChanged_UpdatesStripVisibilityStateAndEventFilterArea() {
+        mStripLayoutHelperManager.onSizeChanged(
+                SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
+        assertTrue(
+                "Strip motion event should be handled when controls are fully visible.",
+                motionEventHandled(SCREEN_WIDTH / 2, TAB_STRIP_HEIGHT_PX / 2f));
+        assertEquals(
+                "Strip should be visible initially.",
+                StripVisibilityState.VISIBLE,
+                (int) mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
+
+        var browserControlsObserver =
+                mStripLayoutHelperManager.getBrowserControlsObserverForTesting();
+        assertNotNull("Browser controls observer should be registered.", browserControlsObserver);
+
+        // Scroll top controls off-screen (topOffset < 0).
+        browserControlsObserver.onControlsOffsetChanged(
+                /* topOffset= */ -10,
+                /* topControlsMinHeightOffset= */ 0,
+                /* topControlsMinHeightChanged= */ false,
+                /* bottomOffset= */ 0,
+                /* bottomControlsMinHeightOffset= */ 0,
+                /* bottomControlsMinHeightChanged= */ false,
+                /* requestNewFrame= */ false,
+                /* isVisibilityForced= */ false);
+
+        assertEquals(
+                "Strip should be marked as HIDDEN_BY_SCROLL.",
+                StripVisibilityState.HIDDEN_BY_SCROLL,
+                mStripLayoutHelperManager.getStripVisibilityStateSupplier().get()
+                        & StripVisibilityState.HIDDEN_BY_SCROLL);
+        assertFalse(
+                "Strip motion event should not be handled when controls are scrolled off.",
+                motionEventHandled(SCREEN_WIDTH / 2, TAB_STRIP_HEIGHT_PX / 2f));
+
+        // Scroll top controls back on-screen (topOffset == 0) without lifting touch.
+        browserControlsObserver.onControlsOffsetChanged(
+                /* topOffset= */ 0,
+                /* topControlsMinHeightOffset= */ 0,
+                /* topControlsMinHeightChanged= */ false,
+                /* bottomOffset= */ 0,
+                /* bottomControlsMinHeightOffset= */ 0,
+                /* bottomControlsMinHeightChanged= */ false,
+                /* requestNewFrame= */ false,
+                /* isVisibilityForced= */ false);
+
+        assertEquals(
+                "Strip HIDDEN_BY_SCROLL should be cleared.",
+                0,
+                mStripLayoutHelperManager.getStripVisibilityStateSupplier().get()
+                        & StripVisibilityState.HIDDEN_BY_SCROLL);
+        assertEquals(
+                "Strip should be fully VISIBLE.",
+                StripVisibilityState.VISIBLE,
+                (int) mStripLayoutHelperManager.getStripVisibilityStateSupplier().get());
+        assertTrue(
+                "Strip motion event should be handled when controls are scrolled back on.",
+                motionEventHandled(SCREEN_WIDTH / 2, TAB_STRIP_HEIGHT_PX / 2f));
     }
 }

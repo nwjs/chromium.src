@@ -3,14 +3,16 @@
 // found in the LICENSE file.
 
 import type {ViewerThumbnailBarElement, ViewerThumbnailElement} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
-import {ChangePageOrigin, PAINTED_ATTRIBUTE, PluginController} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import {ChangePageOrigin, LANDSCAPE_WIDTH, PAINTED_ATTRIBUTE, PluginController, PORTRAIT_WIDTH} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {eventToPromise, microtasksFinished, whenAttributeIs} from 'chrome://webui-test/test_util.js';
+
+// Vertical margin between thumbnails in the thumbnail bar.
+const THUMBNAIL_MARGIN_PX = 24;
 
 function createThumbnailBar(): ViewerThumbnailBarElement {
   document.body.innerHTML = '';
   const thumbnailBar = document.createElement('viewer-thumbnail-bar');
-  thumbnailBar.inTest = true;
   document.body.appendChild(thumbnailBar);
   return thumbnailBar;
 }
@@ -36,6 +38,55 @@ function whenThumbnailPainted(thumbnail: ViewerThumbnailElement):
 function whenThumbnailCleared(thumbnail: ViewerThumbnailElement):
     Promise<void> {
   return whenAttributeIs(thumbnail, PAINTED_ATTRIBUTE, null);
+}
+
+interface ScrollingThumbnailBarSetup {
+  thumbnailBar: ViewerThumbnailBarElement;
+  scroller: HTMLElement;
+  requestedPages: number[];
+  thumbnailHeight: number;
+  restore: () => void;
+}
+
+async function createScrollingThumbnailBar():
+    Promise<ScrollingThumbnailBarSetup> {
+  const pluginController = PluginController.getInstance();
+  const originalIsActive = pluginController.isActive;
+  pluginController.isActive = true;
+
+  const requestedPages: number[] = [];
+  const originalRequestThumbnail = pluginController.requestThumbnail;
+  pluginController.requestThumbnail = (pageIndex: number) => {
+    requestedPages.push(pageIndex);
+    return Promise.resolve({
+      type: 'getThumbnailReply' as const,
+      imageData: new ArrayBuffer(PORTRAIT_WIDTH * LANDSCAPE_WIDTH * 4),
+      width: PORTRAIT_WIDTH,
+      height: LANDSCAPE_WIDTH,
+    });
+  };
+
+  const thumbnailBarHeight = getTestThumbnailBarHeight();
+  const thumbnailBar = createThumbnailBar();
+  thumbnailBar.docLength = 50;
+  thumbnailBar.style.height = `${thumbnailBarHeight}px`;
+  thumbnailBar.style.display = 'block';
+
+  await microtasksFinished();
+
+  const scroller = thumbnailBar.$.thumbnails;
+  const thumbnailHeight = thumbnailBarHeight + THUMBNAIL_MARGIN_PX;
+
+  return {
+    thumbnailBar,
+    scroller,
+    requestedPages,
+    thumbnailHeight,
+    restore: () => {
+      pluginController.requestThumbnail = originalRequestThumbnail;
+      pluginController.isActive = originalIsActive;
+    },
+  };
 }
 
 // Unit tests for the viewer-thumbnail-bar element.
@@ -116,7 +167,8 @@ const tests = [
     for (let i = 2; i < 7; i++) {
       whenRequestedPaintingNext.push(whenThumbnailPainted(thumbnails[i]!));
     }
-    const thumbnailHeight = thumbnailBarHeight + 24;  // Including padding.
+    const thumbnailHeight =
+        thumbnailBarHeight + THUMBNAIL_MARGIN_PX;  // Including padding.
     scroller.scrollTop = 5 * thumbnailHeight;
     await Promise.all(whenRequestedPaintingNext);
 
@@ -265,6 +317,63 @@ const tests = [
     chrome.test.assertTrue(scroller.hidden);
     await whenThumbnailCleared(thumbnail);
     chrome.test.succeed();
+  },
+  async function testJumpScrollThumbnailRequests() {
+    const {thumbnailBar, scroller, requestedPages, thumbnailHeight, restore} =
+        await createScrollingThumbnailBar();
+
+    try {
+      // Fast scroll down to page 50.
+      const whenProcessed =
+          eventToPromise('thumbnails-processed-for-testing', thumbnailBar);
+      scroller.scrollTop = 49 * thumbnailHeight;
+      const thumbnail = thumbnailBar.getThumbnailForPage(50);
+      chrome.test.assertTrue(thumbnail !== null);
+      await whenThumbnailPainted(thumbnail);
+      await whenProcessed;
+
+      // Destination page 50 should be requested.
+      chrome.test.assertTrue(requestedPages.includes(49));
+
+      // Intermediate pages should not be requested during a direct jump.
+      chrome.test.assertTrue(
+          requestedPages.every(pageIndex => pageIndex >= 40));
+
+      chrome.test.succeed();
+    } finally {
+      restore();
+    }
+  },
+  async function testContinuousScrollThumbnailRequests() {
+    const {thumbnailBar, scroller, requestedPages, thumbnailHeight, restore} =
+        await createScrollingThumbnailBar();
+
+    try {
+      // Fast scroll through the thumbnail bar in steps of 5 pages.
+      const whenProcessed =
+          eventToPromise('thumbnails-processed-for-testing', thumbnailBar);
+      for (let page = 5; page <= 45; page += 5) {
+        scroller.scrollTop = page * thumbnailHeight;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      const thumbnail = thumbnailBar.getThumbnailForPage(45);
+      chrome.test.assertTrue(thumbnail !== null);
+      await whenThumbnailPainted(thumbnail);
+      await whenProcessed;
+
+      // Destination page near page 45 should be requested.
+      chrome.test.assertTrue(requestedPages.includes(44));
+
+      // Intermediate thumbnails scrolled past are debounced, cutting total
+      // requests down to 15 or fewer.
+      chrome.test.assertFalse(requestedPages.includes(0));
+      chrome.test.assertTrue(requestedPages.length <= 15);
+
+      chrome.test.succeed();
+    } finally {
+      restore();
+    }
   },
 ];
 

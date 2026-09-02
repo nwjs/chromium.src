@@ -71,7 +71,8 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
             std::vector<Suggestion> suggestions,
             AutofillSuggestionTriggerSource trigger_source,
             AutoselectFirstSuggestion autoselect_first_suggestion,
-            AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss) override;
+            AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss,
+            std::u16string search_bar_initial_value) override;
   std::optional<UiSessionId> GetUiSessionId() const override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
@@ -98,7 +99,9 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   void SetFilter(std::optional<SuggestionFilter> filter,
                  FilterSource source) override;
   bool HasFilteredOutSuggestions() const override;
-  bool ShouldShowNoSuggestionsMessage() const override;
+  bool ShouldShowNoSuggestionsMessage(
+      const std::optional<AutofillPopupView::SearchBarConfig>&
+          search_bar_config) const override;
   bool HandleKeyPressEvent(const input::NativeWebKeyboardEvent& event) override;
   void OnPopupPainted() override;
   void OnTabSelected(int tab_index,
@@ -186,10 +189,6 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   // If `prefer_prev_arrow_side` is `true`, the view takes prev arrow side as
   // the first preferred when recalculating the popup position.
   void OnSuggestionsChanged(bool prefer_prev_arrow_side);
-
-  // Returns the search bar configuration for the given `trigger_source`.
-  std::optional<AutofillPopupView::SearchBarConfig> GetSearchBarConfig(
-      AutofillSuggestionTriggerSource trigger_source) const;
 
   void UpdateFilteredSuggestions();
 

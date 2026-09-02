@@ -641,30 +641,6 @@ TEST_F(PasswordStoreTest, DoNotCallOnLoginsChangedIfAdditionReturnsError) {
   store->ShutdownOnUIThread();
 }
 
-TEST_F(PasswordStoreTest,
-       DoNotCallOnErrorStateChangedIfAdditionReturnsErrorAndFeatureDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      features::kPasswordStorePropagatesActionableErrors);
-
-  const StoredCredential kTestForm = MakeStoredCredential(kTestWebRealm1);
-  MockPasswordStoreObserver mock_observer;
-  auto [store, fake_backend] = CreateUnownedStoreWithOwnedFakeBackend();
-  fake_backend->ReturnErrorOnRequest(kBackendError);
-  store->Init();
-  store->AddObserver(&mock_observer);
-
-  // Expect that observers does not receive the change when backend fails.
-  EXPECT_CALL(mock_observer, OnLoginsRetained).Times(0);
-  EXPECT_CALL(mock_observer, OnLoginsChanged).Times(0);
-  EXPECT_CALL(mock_observer, OnErrorStateChanged).Times(0);
-  store->AddLogin(CloneStoredCredential(kTestForm));
-  WaitForPasswordStore();
-
-  store->RemoveObserver(&mock_observer);
-  store->ShutdownOnUIThread();
-}
-
 TEST_F(PasswordStoreTest, DoNotCallOnErrorStateChangedIfErrorStateIsIdentical) {
   const StoredCredential kTestForm = MakeStoredCredential(kTestWebRealm1);
   MockPasswordStoreObserver mock_observer;
@@ -698,6 +674,48 @@ TEST_F(PasswordStoreTest, DoNotCallOnLoginsChangedIfUpdateReturnsError) {
   EXPECT_CALL(mock_observer,
               OnErrorStateChanged(store.get(), ActionableError::kInactionable));
   store->UpdateLogin(CloneStoredCredential(kTestForm));
+  WaitForPasswordStore();
+
+  store->RemoveObserver(&mock_observer);
+  store->ShutdownOnUIThread();
+}
+
+TEST_F(PasswordStoreTest, CallOnErrorStateChangedIfGetLoginsReturnsError) {
+  PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
+                                      kTestWebRealm1, GURL(kTestWebRealm1)};
+  MockPasswordStoreObserver mock_observer;
+  MockPasswordStoreConsumer mock_consumer;
+  auto [store, fake_backend] = CreateUnownedStoreWithOwnedFakeBackend();
+  fake_backend->ReturnErrorOnRequest(kBackendError);
+  store->Init();
+  store->AddObserver(&mock_observer);
+
+  EXPECT_CALL(mock_observer,
+              OnErrorStateChanged(store.get(), ActionableError::kInactionable));
+  EXPECT_CALL(mock_consumer,
+              OnGetPasswordStoreResultsOrErrorFrom(
+                  store.get(), VariantWith<PasswordStoreBackendError>(_)));
+  store->GetLogins(observed_form, mock_consumer.GetWeakPtr());
+  WaitForPasswordStore();
+
+  store->RemoveObserver(&mock_observer);
+  store->ShutdownOnUIThread();
+}
+
+TEST_F(PasswordStoreTest, CallOnErrorStateChangedIfGetAllLoginsReturnsError) {
+  MockPasswordStoreObserver mock_observer;
+  MockPasswordStoreConsumer mock_consumer;
+  auto [store, fake_backend] = CreateUnownedStoreWithOwnedFakeBackend();
+  fake_backend->ReturnErrorOnRequest(kBackendError);
+  store->Init();
+  store->AddObserver(&mock_observer);
+
+  EXPECT_CALL(mock_observer,
+              OnErrorStateChanged(store.get(), ActionableError::kInactionable));
+  EXPECT_CALL(mock_consumer,
+              OnGetPasswordStoreResultsOrErrorFrom(
+                  store.get(), VariantWith<PasswordStoreBackendError>(_)));
+  store->GetAllLogins(mock_consumer.GetWeakPtr());
   WaitForPasswordStore();
 
   store->RemoveObserver(&mock_observer);
@@ -818,7 +836,7 @@ TEST_F(PasswordStoreTest, Unblocklisting) {
   non_blocklisted_form.signon_realm = kTestWebRealm1;
   non_blocklisted_form.url = GURL(kTestWebOrigin1);
   non_blocklisted_form.username_value = u"username";
-  non_blocklisted_form.password_value = u"password";
+  non_blocklisted_form.password_value = PasswordString(u"password");
 
   store->AddLogin(CloneStoredCredential(blocklisted_form));
   store->AddLogin(CloneStoredCredential(non_blocklisted_form));
@@ -848,13 +866,13 @@ TEST_F(PasswordStoreTest, UpdateLoginWithPrimaryKey_PasswordChanges) {
   old_cred.signon_realm = kTestWebRealm1;
   old_cred.url = GURL(kTestWebOrigin1);
   old_cred.username_value = u"username";
-  old_cred.password_value = u"password";
+  old_cred.password_value = PasswordString(u"password");
   old_cred.password_issues = {{InsecureType::kLeaked, InsecurityMetadata()},
                               {InsecureType::kPhished, InsecurityMetadata()},
                               {InsecureType::kWeak, InsecurityMetadata()}};
 
   StoredCredential new_cred = CloneStoredCredential(old_cred);
-  new_cred.password_value = u"new_password";
+  new_cred.password_value = PasswordString(u"new_password");
 
   StoredCredential expected_new_cred = CloneStoredCredential(new_cred);
   expected_new_cred.password_issues.clear();
@@ -887,7 +905,7 @@ TEST_F(PasswordStoreTest, UpdateLoginWithPrimaryKey_UsernameChanges) {
   old_cred.signon_realm = kTestWebRealm1;
   old_cred.url = GURL(kTestWebOrigin1);
   old_cred.username_value = u"username";
-  old_cred.password_value = u"password";
+  old_cred.password_value = PasswordString(u"password");
   old_cred.password_issues = {{InsecureType::kLeaked, InsecurityMetadata()},
                               {InsecureType::kPhished, InsecurityMetadata()},
                               {InsecureType::kWeak, InsecurityMetadata()}};
@@ -929,9 +947,6 @@ TEST_F(PasswordStoreTest, UpdateLoginWithPrimaryKey_UsernameChanges) {
 // ActionableError::kInactionable) to observers.
 TEST_F(PasswordStoreTest,
        OnErrorStateChangedFlowOnAndroidForegroundRefreshFailure) {
-  base::test::ScopedFeatureList feature_list(
-      features::kPasswordStorePropagatesActionableErrors);
-
   MockPasswordStoreObserver mock_observer;
   auto [store, fake_backend] = CreateUnownedStoreWithOwnedFakeBackend();
 
@@ -959,9 +974,6 @@ TEST_F(PasswordStoreTest,
 // ActionableError::kNoError to observers via OnErrorStateChanged.
 TEST_F(PasswordStoreTest,
        OnErrorStateChangedFlowOnNonAndroidRemoteChangesNullopt) {
-  base::test::ScopedFeatureList feature_list(
-      features::kPasswordStorePropagatesActionableErrors);
-
   MockPasswordStoreObserver mock_observer;
   auto [store, fake_backend] = CreateUnownedStoreWithOwnedFakeBackend();
 

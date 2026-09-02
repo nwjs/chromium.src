@@ -7,9 +7,11 @@
 #include "base/functional/callback.h"
 #include "base/logging.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
+#include "chrome/common/webui_url_constants.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/browser_context.h"
@@ -20,11 +22,12 @@
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view_class_properties.h"
+#include "url/gurl.h"
 
 namespace contextual_tasks {
 
 ContextualTasksWebView::ContextualTasksWebView(
-    content::BrowserContext* browser_context) {
+    BrowserWindowInterface* browser_window) {
   SetProperty(views::kElementIdentifierKey,
               kContextualTasksSidePanelWebViewElementId);
 
@@ -33,21 +36,29 @@ ContextualTasksWebView::ContextualTasksWebView(
         SetLayoutManager(std::make_unique<views::BoxLayout>(
             views::BoxLayout::Orientation::kVertical));
 
-    toolbar_web_view_ =
-        AddChildView(std::make_unique<views::WebView>(browser_context));
+    toolbar_web_view_ = AddChildView(
+        std::make_unique<views::WebView>(browser_window->GetProfile()));
     toolbar_web_view_->SetPreferredSize(gfx::Size(0, 40));
+    toolbar_web_view_->LoadInitialURL(
+        GURL(chrome::kChromeUIContextualTasksToolbarURL));
+    webui::SetBrowserWindowInterface(toolbar_web_view_->GetWebContents(),
+                                     browser_window);
 
-    content_web_view_ =
-        AddChildView(std::make_unique<views::WebView>(browser_context));
+    content_web_view_ = AddChildView(
+        std::make_unique<views::WebView>(browser_window->GetProfile()));
     layout->SetFlexForView(content_web_view_, 1);
   } else {
     SetLayoutManager(std::make_unique<views::FillLayout>());
-    content_web_view_ =
-        AddChildView(std::make_unique<views::WebView>(browser_context));
+    content_web_view_ = AddChildView(
+        std::make_unique<views::WebView>(browser_window->GetProfile()));
   }
 }
 
 ContextualTasksWebView::~ContextualTasksWebView() {
+  if (toolbar_web_view_ && toolbar_web_view_->web_contents()) {
+    webui::SetBrowserWindowInterface(toolbar_web_view_->GetWebContents(),
+                                     nullptr);
+  }
   SetWebContents(nullptr);
 }
 

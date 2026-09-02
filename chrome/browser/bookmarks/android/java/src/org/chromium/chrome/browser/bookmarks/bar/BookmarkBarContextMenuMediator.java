@@ -10,20 +10,28 @@ import android.content.Context;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.PluralsRes;
+import androidx.annotation.StringRes;
 
 import org.chromium.base.supplier.MonotonicObservableSupplier;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.R;
+import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarContextMenuMetrics.BookmarkBarContextMenuAction;
+import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarContextMenuMetrics.BookmarkBarContextMenuEntrypoint;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.bookmarks.BookmarkBarVisibilityState;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
 import org.chromium.ui.listmenu.BasicListMenu;
 import org.chromium.ui.listmenu.ListItemType;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
+import org.chromium.ui.listmenu.ListMenuSubmenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -40,6 +48,9 @@ class BookmarkBarContextMenuMediator {
     private final Supplier<@Nullable Tab> mCurrentTabSupplier;
     private final BookmarkBarContextMenuDelegate mContextMenuDelegate;
     private final Runnable mDismissRunnable;
+    private final NonNullObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
+
+    private @BookmarkBarContextMenuEntrypoint int mCurrentEntrypoint;
 
     /**
      * Constructs the bookmark bar context menu mediator.
@@ -49,21 +60,28 @@ class BookmarkBarContextMenuMediator {
      * @param currentTabSupplier Used to observe or retrieve the active tab.
      * @param contextMenuDelegate Delegate handling context menu actions.
      * @param dismissRunnable Runnable invoked to dismiss the popup menu.
+     * @param xrSpaceModeObservableSupplier Used to check if currently in XR full space mode.
      */
     BookmarkBarContextMenuMediator(
             Context context,
             MonotonicObservableSupplier<Profile> profileSupplier,
             Supplier<@Nullable Tab> currentTabSupplier,
             BookmarkBarContextMenuDelegate contextMenuDelegate,
-            Runnable dismissRunnable) {
+            Runnable dismissRunnable,
+            NonNullObservableSupplier<Boolean> xrSpaceModeObservableSupplier) {
         mContext = context;
         mProfileSupplier = profileSupplier;
         mCurrentTabSupplier = currentTabSupplier;
         mContextMenuDelegate = contextMenuDelegate;
         mDismissRunnable = dismissRunnable;
+        mXrSpaceModeObservableSupplier = xrSpaceModeObservableSupplier;
     }
 
-    ModelList buildContextMenuModelList(BookmarkItem item, BookmarkModel bookmarkModel) {
+    ModelList buildContextMenuModelList(
+            BookmarkItem item,
+            BookmarkModel bookmarkModel,
+            @BookmarkBarContextMenuEntrypoint int entrypoint) {
+        mCurrentEntrypoint = entrypoint;
         final Profile profile = mProfileSupplier.get();
         if (profile == null) return new ModelList();
 
@@ -81,23 +99,20 @@ class BookmarkBarContextMenuMediator {
         BookmarkId parentId = item.isFolder() ? item.getId() : item.getParentId();
 
         if (item.isFolder()) {
-            addFolderOpenOptions(
-                    listItems,
-                    bookmarkModel.getChildIds(id),
-                    bookmarkModel,
-                    isIncognito,
-                    item.getTitle());
+            addFolderOpenOptions(listItems, id, bookmarkModel, isIncognito, item.getTitle());
         } else {
             addBookmarkOpenOptions(listItems, id, isIncognito);
         }
 
         listItems.add(BasicListMenu.buildMenuDivider(isIncognito));
         addCommonActions(listItems, id, parentId, isIncognito, canEditOrMoveOrDelete);
+        addVisibilityControlActions(listItems, isIncognito);
 
         return listItems;
     }
 
     ModelList buildBookmarksBarEmptySpaceContextMenuModelList(BookmarkModel bookmarkModel) {
+        mCurrentEntrypoint = BookmarkBarContextMenuEntrypoint.EMPTY_SPACE;
         final Profile profile = mProfileSupplier.get();
         if (profile == null) return new ModelList();
 
@@ -114,10 +129,11 @@ class BookmarkBarContextMenuMediator {
         BookmarkItem parentItem = bookmarkModel.getBookmarkById(parentId);
         String parentTitle = parentItem != null ? parentItem.getTitle() : null;
         List<BookmarkId> desktopIds = BookmarkUtils.getDesktopBookmarkIds(bookmarkModel);
-        addFolderOpenOptions(listItems, desktopIds, bookmarkModel, isIncognito, parentTitle);
+        addEmptySpaceOpenOptions(listItems, desktopIds, bookmarkModel, isIncognito, parentTitle);
         listItems.add(BasicListMenu.buildMenuDivider(isIncognito));
         addCommonActions(
                 listItems, /* id= */ null, parentId, isIncognito, /* modifyEnabled= */ false);
+        addVisibilityControlActions(listItems, isIncognito);
 
         return listItems;
     }
@@ -125,77 +141,113 @@ class BookmarkBarContextMenuMediator {
     /** Adds options for opening a folder (e.g. bulk "Open all" actions). */
     private void addFolderOpenOptions(
             ModelList listItems,
-            List<BookmarkId> childIds,
+            BookmarkId folderId,
             BookmarkModel model,
             boolean isIncognito,
             @Nullable String folderTitle) {
-        List<BookmarkId> urls = new ArrayList<>();
-        for (BookmarkId id : childIds) {
-            BookmarkItem child = model.getBookmarkById(id);
-            if (child != null && !child.isFolder()) urls.add(id);
-        }
-        int count = urls.size();
-        String openAllText;
-        String openAllNewWindowText;
-        String openAllIncognitoText;
-        String openAllTabGroupText;
-
-        if (count == 0) {
-            openAllText = mContext.getString(R.string.contextmenu_open_all);
-            openAllNewWindowText = mContext.getString(R.string.contextmenu_open_all_in_new_window);
-            openAllIncognitoText =
-                    mContext.getString(R.string.contextmenu_open_all_in_incognito_window);
-            openAllTabGroupText =
-                    mContext.getString(R.string.contextmenu_open_all_in_new_tab_group);
-        } else {
-            openAllText =
-                    mContext.getResources()
-                            .getQuantityString(R.plurals.contextmenu_open_all_plural, count, count);
-            openAllNewWindowText =
-                    mContext.getResources()
-                            .getQuantityString(
-                                    R.plurals.contextmenu_open_all_in_new_window_plural,
-                                    count,
-                                    count);
-            openAllIncognitoText =
-                    mContext.getResources()
-                            .getQuantityString(
-                                    R.plurals.contextmenu_open_all_in_incognito_window_plural,
-                                    count,
-                                    count);
-            openAllTabGroupText =
-                    mContext.getResources()
-                            .getQuantityString(
-                                    R.plurals.contextmenu_open_all_in_new_tab_group_plural,
-                                    count,
-                                    count);
-        }
-
+        int count = BookmarkUtils.getChildNonFolderBookmarkCountForFolder(model, folderId);
         boolean enabled = count > 0;
+
         listItems.add(
                 buildContextMenuItem(
-                        openAllText, /* iconResId= */ 0, isIncognito, enabled, v -> openAll(urls)));
-        listItems.add(
-                buildContextMenuItem(
-                        openAllNewWindowText,
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all,
+                                R.plurals.contextmenu_open_all_plural,
+                                count),
                         /* iconResId= */ 0,
                         isIncognito,
                         enabled,
-                        v -> openAllInNewWindow(urls)));
+                        v -> openFolderInNewTabs(folderId)));
         listItems.add(
                 buildContextMenuItem(
-                        openAllIncognitoText,
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all_in_new_window,
+                                R.plurals.contextmenu_open_all_in_new_window_plural,
+                                count),
                         /* iconResId= */ 0,
                         isIncognito,
                         enabled,
-                        v -> openAllInIncognitoWindow(urls)));
+                        v -> openFolderInNewWindow(folderId)));
         listItems.add(
                 buildContextMenuItem(
-                        openAllTabGroupText,
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all_in_incognito_window,
+                                R.plurals.contextmenu_open_all_in_incognito_window_plural,
+                                count),
                         /* iconResId= */ 0,
                         isIncognito,
                         enabled,
-                        v -> openAllInNewTabGroup(urls, folderTitle)));
+                        v -> openFolderInIncognitoWindow(folderId)));
+        listItems.add(
+                buildContextMenuItem(
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all_in_new_tab_group,
+                                R.plurals.contextmenu_open_all_in_new_tab_group_plural,
+                                count),
+                        /* iconResId= */ 0,
+                        isIncognito,
+                        enabled,
+                        v -> openFolderInNewTabGroup(folderId, folderTitle)));
+    }
+
+    /** Adds options for opening a list of bookmarks (e.g. empty space context menu). */
+    private void addEmptySpaceOpenOptions(
+            ModelList listItems,
+            List<BookmarkId> ids,
+            BookmarkModel model,
+            boolean isIncognito,
+            @Nullable String folderTitle) {
+        int count = BookmarkUtils.getNonFolderBookmarkCount(model, ids);
+        boolean enabled = count > 0;
+
+        listItems.add(
+                buildContextMenuItem(
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all,
+                                R.plurals.contextmenu_open_all_plural,
+                                count),
+                        /* iconResId= */ 0,
+                        isIncognito,
+                        enabled,
+                        v -> openBookmarksInNewTabs(ids)));
+        listItems.add(
+                buildContextMenuItem(
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all_in_new_window,
+                                R.plurals.contextmenu_open_all_in_new_window_plural,
+                                count),
+                        /* iconResId= */ 0,
+                        isIncognito,
+                        enabled,
+                        v -> openBookmarksInNewWindow(ids)));
+        listItems.add(
+                buildContextMenuItem(
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all_in_incognito_window,
+                                R.plurals.contextmenu_open_all_in_incognito_window_plural,
+                                count),
+                        /* iconResId= */ 0,
+                        isIncognito,
+                        enabled,
+                        v -> openBookmarksInIncognitoWindow(ids)));
+        listItems.add(
+                buildContextMenuItem(
+                        getOpenBookmarkQuantityTitle(
+                                R.string.contextmenu_open_all_in_new_tab_group,
+                                R.plurals.contextmenu_open_all_in_new_tab_group_plural,
+                                count),
+                        /* iconResId= */ 0,
+                        isIncognito,
+                        enabled,
+                        v -> openBookmarksInNewTabGroup(ids, folderTitle)));
+    }
+
+    private String getOpenBookmarkQuantityTitle(
+            @StringRes int stringResId, @PluralsRes int pluralResId, int count) {
+        if (count == 0) {
+            return mContext.getString(stringResId);
+        }
+        return mContext.getResources().getQuantityString(pluralResId, count, count);
     }
 
     /** Adds options for opening a single bookmark item. */
@@ -254,7 +306,7 @@ class BookmarkBarContextMenuMediator {
     /**
      * Adds actions common to all bookmarks bar context menus, including folder/bookmark
      * modification options (edit, move, delete) and bar-level settings (add page, add folder, open
-     * manager, show bar).
+     * manager).
      */
     private void addCommonActions(
             ModelList listItems,
@@ -294,82 +346,194 @@ class BookmarkBarContextMenuMediator {
                         isIncognito,
                         /* enabled= */ true,
                         v -> openBookmarksManager(parentId)));
-        listItems.add(
-                buildContextMenuItem(
-                        mContext.getString(R.string.contextmenu_show_bookmarks_bar),
-                        R.drawable.material_ic_check_24dp,
+    }
+
+    /**
+     * Adds actions common to all bookmarks bar context menus that are specific to the visibility of
+     * the bookmarks bar, which may appear in different ways based on feature flags.
+     */
+    private void addVisibilityControlActions(ModelList listItems, boolean isIncognito) {
+        // When the tri-state feature flag is not enabled, we use the v1 simple toggle.
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.BOOKMARKS_BAR_NTP)) {
+            listItems.add(
+                    buildContextMenuItem(
+                            mContext.getString(R.string.contextmenu_show_bookmarks_bar),
+                            R.drawable.material_ic_check_24dp,
+                            isIncognito,
+                            /* enabled= */ true,
+                            v -> toggleBookmarksBar()));
+            return;
+        }
+
+        listItems.add(BasicListMenu.buildMenuDivider(isIncognito));
+
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.FLYOUT_IN_BOOKMARKS_BAR)) {
+            listItems.add(
+                    buildContextMenuSubmenuItem(
+                            mContext.getString(R.string.bookmark_bar_settings_title),
+                            isIncognito,
+                            /* enabled= */ true,
+                            () -> buildVisibilityStateMenuItems(isIncognito)));
+        } else {
+            for (ListItem item : buildVisibilityStateMenuItems(isIncognito)) {
+                listItems.add(item);
+            }
+        }
+    }
+
+    private List<ListItem> buildVisibilityStateMenuItems(boolean isIncognito) {
+        boolean isXrFullSpaceMode =
+                mXrSpaceModeObservableSupplier.get() != null
+                        && mXrSpaceModeObservableSupplier.get();
+        @BookmarkBarVisibilityState
+        int currentState =
+                BookmarkBarUtils.getBookmarkBarVisibilityState(
+                        mContext, mProfileSupplier.get(), isXrFullSpaceMode);
+
+        List<ListItem> items = new ArrayList<>(3);
+        items.add(
+                buildCheckableContextMenuItem(
+                        mContext.getString(R.string.contextmenu_always_hide_bookmarks_bar),
+                        currentState == BookmarkBarVisibilityState.ALWAYS_HIDE,
                         isIncognito,
                         /* enabled= */ true,
-                        v -> toggleBookmarksBar()));
+                        v -> alwaysHide()));
+        items.add(
+                buildCheckableContextMenuItem(
+                        mContext.getString(R.string.contextmenu_always_show_bookmarks_bar),
+                        currentState == BookmarkBarVisibilityState.ALWAYS_SHOW,
+                        isIncognito,
+                        /* enabled= */ true,
+                        v -> alwaysShow()));
+        items.add(
+                buildCheckableContextMenuItem(
+                        mContext.getString(R.string.contextmenu_only_show_bookmarks_bar_on_ntp),
+                        currentState == BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP,
+                        isIncognito,
+                        /* enabled= */ true,
+                        v -> onlyShowOnNTP()));
+        return items;
     }
 
     private void openInNewTab(BookmarkId id) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_TAB);
         mContextMenuDelegate.openInNewTab(id);
         mDismissRunnable.run();
     }
 
     private void openInNewWindow(BookmarkId id) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_WINDOW);
         mContextMenuDelegate.openInNewWindow(id);
         mDismissRunnable.run();
     }
 
     private void openInIncognitoWindow(BookmarkId id) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_INCOGNITO_WINDOW);
         mContextMenuDelegate.openInIncognitoWindow(id);
         mDismissRunnable.run();
     }
 
     private void editBookmark(BookmarkId id) {
+        recordAction(BookmarkBarContextMenuAction.EDIT);
         mContextMenuDelegate.editBookmark(id);
         mDismissRunnable.run();
     }
 
     private void moveBookmark(BookmarkId id) {
+        recordAction(BookmarkBarContextMenuAction.MOVE);
         mContextMenuDelegate.moveBookmark(id);
         mDismissRunnable.run();
     }
 
     private void deleteBookmark(BookmarkId id) {
+        recordAction(BookmarkBarContextMenuAction.DELETE);
         mContextMenuDelegate.deleteBookmark(id);
         mDismissRunnable.run();
     }
 
-    private void openAll(List<BookmarkId> ids) {
-        mContextMenuDelegate.openAll(ids);
+    private void openFolderInNewTabs(BookmarkId folderId) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_TAB);
+        mContextMenuDelegate.openFolderInNewTabs(folderId);
         mDismissRunnable.run();
     }
 
-    private void openAllInNewWindow(List<BookmarkId> ids) {
-        mContextMenuDelegate.openAllInNewWindow(ids);
+    private void openFolderInNewWindow(BookmarkId folderId) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_WINDOW);
+        mContextMenuDelegate.openFolderInNewWindow(folderId);
         mDismissRunnable.run();
     }
 
-    private void openAllInIncognitoWindow(List<BookmarkId> ids) {
-        mContextMenuDelegate.openAllInIncognitoWindow(ids);
+    private void openFolderInIncognitoWindow(BookmarkId folderId) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_INCOGNITO_WINDOW);
+        mContextMenuDelegate.openFolderInIncognitoWindow(folderId);
         mDismissRunnable.run();
     }
 
-    private void openAllInNewTabGroup(List<BookmarkId> ids, @Nullable String title) {
-        mContextMenuDelegate.openAllInNewTabGroup(ids, title);
+    private void openFolderInNewTabGroup(BookmarkId folderId, @Nullable String title) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_TAB_GROUP);
+        mContextMenuDelegate.openFolderInNewTabGroup(folderId, title);
+        mDismissRunnable.run();
+    }
+
+    private void openBookmarksInNewTabs(List<BookmarkId> ids) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_TAB);
+        mContextMenuDelegate.openBookmarksInNewTabs(ids);
+        mDismissRunnable.run();
+    }
+
+    private void openBookmarksInNewWindow(List<BookmarkId> ids) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_WINDOW);
+        mContextMenuDelegate.openBookmarksInNewWindow(ids);
+        mDismissRunnable.run();
+    }
+
+    private void openBookmarksInIncognitoWindow(List<BookmarkId> ids) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_INCOGNITO_WINDOW);
+        mContextMenuDelegate.openBookmarksInIncognitoWindow(ids);
+        mDismissRunnable.run();
+    }
+
+    private void openBookmarksInNewTabGroup(List<BookmarkId> ids, @Nullable String title) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_IN_NEW_TAB_GROUP);
+        mContextMenuDelegate.openBookmarksInNewTabGroup(ids, title);
         mDismissRunnable.run();
     }
 
     private void addPage(BookmarkId parentId) {
+        recordAction(BookmarkBarContextMenuAction.ADD_PAGE);
         mContextMenuDelegate.addPage(parentId);
         mDismissRunnable.run();
     }
 
     private void addFolder(BookmarkId parentId) {
+        recordAction(BookmarkBarContextMenuAction.ADD_FOLDER);
         mContextMenuDelegate.addFolder(parentId);
         mDismissRunnable.run();
     }
 
     private void openBookmarksManager(BookmarkId folderId) {
+        recordAction(BookmarkBarContextMenuAction.OPEN_BOOKMARKS_MANAGER);
         mContextMenuDelegate.openBookmarksManager(folderId);
         mDismissRunnable.run();
     }
 
     private void toggleBookmarksBar() {
         mContextMenuDelegate.toggleBookmarksBar();
+        mDismissRunnable.run();
+    }
+
+    private void alwaysHide() {
+        mContextMenuDelegate.setBookmarksBarVisibilityToAlwaysHide();
+        mDismissRunnable.run();
+    }
+
+    private void alwaysShow() {
+        mContextMenuDelegate.setBookmarksBarVisibilityToAlwaysShow();
+        mDismissRunnable.run();
+    }
+
+    private void onlyShowOnNTP() {
+        mContextMenuDelegate.setBookmarksBarVisibilityToOnlyShowOnNTP();
         mDismissRunnable.run();
     }
 
@@ -396,5 +560,67 @@ class BookmarkBarContextMenuMediator {
                     R.style.TextAppearance_TextLarge_Primary_Baseline_Light);
         }
         return new ListItem(ListItemType.MENU_ITEM, builder.build());
+    }
+
+    private ListItem buildCheckableContextMenuItem(
+            String title,
+            boolean isChecked,
+            boolean isIncognito,
+            boolean enabled,
+            View.OnClickListener listener) {
+        int endIconMarginStartPx =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.bookmarks_bar_context_menu_end_icon_padding);
+        PropertyModel.Builder builder =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.TITLE, title)
+                        .with(ListMenuItemProperties.END_ICON_MARGIN_START, endIconMarginStartPx)
+                        .with(
+                                ListMenuItemProperties.END_ICON_ID,
+                                isChecked
+                                        ? R.drawable.material_ic_check_24dp
+                                        : android.R.color.transparent)
+                        .with(ListMenuItemProperties.CHECKABLE, true)
+                        .with(ListMenuItemProperties.CHECKED, isChecked)
+                        .with(
+                                ListMenuItemProperties.ICON_TINT_COLOR_STATE_LIST_ID,
+                                isIncognito
+                                        ? R.color.default_icon_color_light
+                                        : R.color.default_icon_color_secondary_tint_list)
+                        .with(ListMenuItemProperties.ENABLED, enabled)
+                        .with(ListMenuItemProperties.CLICK_LISTENER, listener);
+        if (isIncognito) {
+            builder.with(
+                    ListMenuItemProperties.TEXT_APPEARANCE_ID,
+                    R.style.TextAppearance_TextLarge_Primary_Baseline_Light);
+        }
+        return new ListItem(ListItemType.MENU_ITEM, builder.build());
+    }
+
+    private ListItem buildContextMenuSubmenuItem(
+            String title,
+            boolean isIncognito,
+            boolean enabled,
+            Supplier<List<ListItem>> submenuSupplier) {
+        PropertyModel.Builder builder =
+                new PropertyModel.Builder(ListMenuSubmenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.TITLE, title)
+                        .with(ListMenuItemProperties.ENABLED, enabled)
+                        .with(ListMenuSubmenuItemProperties.SUBMENU_PROVIDER, submenuSupplier)
+                        .with(
+                                ListMenuItemProperties.ICON_TINT_COLOR_STATE_LIST_ID,
+                                isIncognito
+                                        ? R.color.default_icon_color_light
+                                        : R.color.default_icon_color_secondary_tint_list);
+        if (isIncognito) {
+            builder.with(
+                    ListMenuItemProperties.TEXT_APPEARANCE_ID,
+                    R.style.TextAppearance_TextLarge_Primary_Baseline_Light);
+        }
+        return new ListItem(ListItemType.MENU_ITEM_WITH_SUBMENU, builder.build());
+    }
+
+    private void recordAction(@BookmarkBarContextMenuAction int action) {
+        BookmarkBarContextMenuMetrics.recordAction(mCurrentEntrypoint, action);
     }
 }

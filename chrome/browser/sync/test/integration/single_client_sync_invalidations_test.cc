@@ -17,6 +17,7 @@
 #include "chrome/browser/sync/test/integration/sync_test.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/browser_sync/browser_sync_switches.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
 #include "components/sync/base/time.h"
@@ -268,8 +269,10 @@ class SingleClientSyncInvalidationsTest
  public:
   SingleClientSyncInvalidationsTest() : SyncTest(SINGLE_CLIENT) {
     if (GetSetupSyncMode() == SetupSyncMode::kSyncTransportOnly) {
-      scoped_feature_list_.InitAndEnableFeature(
-          syncer::kReplaceSyncPromosWithSignInPromos);
+      scoped_feature_list_.InitWithFeatures(
+          {syncer::kReplaceSyncPromosWithSignInPromos,
+           switches::kSyncEnableBookmarksInTransportMode},
+          {});
     } else {
       // Skip sync-to-signin migration for sync-the-feature tests. This is to
       // avoid the sync state changing between the PRE_ tests.
@@ -429,11 +432,12 @@ IN_PROC_BROWSER_TEST_P(
   const std::string kRemoteFCMRegistrationToken = "other_fcm_token";
 
   // Simulate the case when the server already knows another device which is
-  // not subscribed to BOOKMARKS.
-  InjectDeviceInfoEntityToServer(
-      kRemoteDeviceCacheGuid,
-      Difference(DefaultInterestedDataTypes(), {syncer::BOOKMARKS}),
-      kRemoteFCMRegistrationToken);
+  // subscribed only to NIGORI. This ensures that other data types (e.g.
+  // PREFERENCES) that may be committed alongside BOOKMARKS do not cause the
+  // remote token to be included in
+  // fcm_registration_tokens_for_interested_clients.
+  InjectDeviceInfoEntityToServer(kRemoteDeviceCacheGuid, {syncer::NIGORI},
+                                 kRemoteFCMRegistrationToken);
   ASSERT_TRUE(SetupSync());
 
   // Commit a new bookmark to check if the next commit message has FCM

@@ -56,6 +56,7 @@
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
+#include "third_party/blink/renderer/platform/weborigin/scheme_registry.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
 #include "third_party/blink/renderer/platform/wtf/text/number_parsing_options.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_to_number.h"
@@ -273,6 +274,15 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
     }
   }
 
+  if (SchemeRegistry::IsDirectLaunchScheme(url.Protocol())) {
+    opener_window.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::blink::ConsoleMessageSource::kSecurity,
+        mojom::blink::ConsoleMessageLevel::kError,
+        StrCat({"Not allowed to navigate to direct-launch scheme '",
+                url.Protocol(), "' from web contexts."})));
+    return nullptr;
+  }
+
   if (!opener_window.GetSecurityOrigin()->CanDisplay(url)) {
     opener_window.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kSecurity,
@@ -282,6 +292,8 @@ Frame* CreateNewWindow(LocalFrame& opener_frame,
   }
 
   request.SetInitiatorFrameToken(opener_frame.GetLocalFrameToken());
+  request.SetInitiatorStateToken(opener_frame.GetInitiatorStateToken());
+  request.SetInitiatorDocumentToken(opener_frame.GetDocumentToken());
   request.SetInitiatorNavigationStateKeepAliveHandle(
       opener_frame.IssueKeepAliveHandle());
 

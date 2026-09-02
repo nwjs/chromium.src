@@ -52,7 +52,9 @@
 #include "third_party/blink/public/common/service_worker/embedded_worker_status.h"
 #include "third_party/blink/public/common/service_worker/service_worker_router_rule.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
+#include "third_party/blink/public/mojom/service_worker/service_worker_ancestor_frame_type.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_event_status.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_installed_scripts_manager.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
@@ -149,6 +151,10 @@ class ServiceWorkerVersionTest
  protected:
   using FetchHandlerExistence = blink::mojom::FetchHandlerExistence;
 
+  virtual blink::mojom::AncestorFrameType GetAncestorFrameType() const {
+    return blink::mojom::AncestorFrameType::kNormalFrame;
+  }
+
   struct CachedMetadataUpdateListener : public ServiceWorkerVersion::Observer {
     CachedMetadataUpdateListener() = default;
     ~CachedMetadataUpdateListener() override = default;
@@ -175,7 +181,8 @@ class ServiceWorkerVersionTest
     blink::mojom::ServiceWorkerRegistrationOptions options;
     options.scope = scope_;
     registration_ = CreateNewServiceWorkerRegistration(
-        helper_->context()->registry(), options, GetTestStorageKey(scope_));
+        helper_->context()->registry(), options, GetTestStorageKey(scope_),
+        GetAncestorFrameType());
     version_ = CreateNewServiceWorkerVersion(
         helper_->context()->registry(), registration_.get(),
         GURL("https://www.example.com/test/service_worker.js"),
@@ -1517,6 +1524,46 @@ TEST_P(ServiceWorkerVersionTest, BadOrigin) {
             StartServiceWorker(version.get()));
 }
 
+// Test that GetClient() returns null when requested for a client with the same
+// origin but a different storage key.
+TEST_P(ServiceWorkerVersionTest, GetClientWithDifferentStorageKey) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  ScopedServiceWorkerClient service_worker_client =
+      helper_->context()
+          ->service_worker_client_owner()
+          .CreateServiceWorkerClientForWorker(
+              helper_->mock_render_process_id(),
+              ServiceWorkerClientInfo(blink::SharedWorkerToken()));
+
+  GURL client_url = scope_.Resolve("shared_worker.js");
+  auto client_origin = url::Origin::Create(client_url);
+  auto different_top_level_origin =
+      url::Origin::Create(GURL("https://www.different.com/"));
+  auto different_storage_key = blink::StorageKey::Create(
+      client_origin, net::SchemefulSite(different_top_level_origin),
+      blink::mojom::AncestorChainBit::kCrossSite,
+      /*third_party_partitioning_allowed=*/true);
+
+  service_worker_client->UpdateUrls(client_url, different_top_level_origin,
+                                    different_storage_key);
+
+  CommittedServiceWorkerClient committed_client(
+      std::move(service_worker_client));
+  committed_client->SetExecutionReady();
+
+  base::test::TestFuture<blink::mojom::ServiceWorkerClientInfoPtr> future;
+  service_worker->host()->GetClient(committed_client->client_uuid(),
+                                    future.GetCallback());
+
+  EXPECT_TRUE(future.Get().is_null());
+}
+
 TEST_P(ServiceWorkerVersionTest,
        StartWorker_ContentSettingsDisallowsServiceWorker_FeatureEnabled) {
   base::test::ScopedFeatureList feature_list;
@@ -2736,6 +2783,202 @@ TEST_P(ServiceWorkerVersionTest, OpenPaymentHandlerWindow_NoPendingEvent) {
   EXPECT_EQ(
       "Received PaymentRequestEvent#openWindow() request without a pending "
       "PaymentRequestEvent.",
+      bad_message_observer.WaitForBadMessage());
+}
+
+class ServiceWorkerVersionFencedFrameTest : public ServiceWorkerVersionTest {
+ protected:
+  blink::mojom::AncestorFrameType GetAncestorFrameType() const override {
+    return blink::mojom::AncestorFrameType::kFencedFrame;
+  }
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ServiceWorkerVersionFencedFrameTest,
+    testing::ValuesIn({StorageKeyTestCase::kFirstParty,
+                       StorageKeyTestCase::kThirdParty}),
+    [](const testing::TestParamInfo<StorageKeyTestCase>& info) {
+      switch (info.param) {
+        case (StorageKeyTestCase::kFirstParty):
+          return "FirstPartyStorageKey";
+        case (StorageKeyTestCase::kThirdParty):
+          return "ThirdPartyStorageKey";
+      }
+    });
+
+// Verifies that FocusClient() rejects calls for a service worker registered
+// in a fenced frame and reports a bad message.
+TEST_P(ServiceWorkerVersionFencedFrameTest, FocusClient_Rejected) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  base::test::TestFuture<blink::mojom::FocusResultPtr> future;
+  service_worker->host()->FocusClient("some-uuid", future.GetCallback());
+
+  EXPECT_EQ("Received WindowClient#focus() request from a fenced frame.",
+            bad_message_observer.WaitForBadMessage());
+}
+
+// Verifies that OpenNewTab() rejects calls for a service worker registered
+// in a fenced frame and reports a bad message.
+TEST_P(ServiceWorkerVersionFencedFrameTest, OpenNewTab_Rejected) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  GURL url = scope_.Resolve("new_tab.html");
+  base::test::TestFuture<bool, blink::mojom::ServiceWorkerClientInfoPtr,
+                         const std::optional<std::string>&>
+      future;
+
+  service_worker->host()->OpenNewTab(url, future.GetCallback());
+
+  EXPECT_EQ("Received Clients#openWindow() request from a fenced frame.",
+            bad_message_observer.WaitForBadMessage());
+}
+
+// Verifies that OpenPaymentHandlerWindow() rejects calls for a service worker
+// registered in a fenced frame and reports a bad message.
+TEST_P(ServiceWorkerVersionFencedFrameTest, OpenPaymentHandlerWindow_Rejected) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  GURL url = scope_.Resolve("payment_handler.html");
+  base::test::TestFuture<bool, blink::mojom::ServiceWorkerClientInfoPtr,
+                         const std::optional<std::string>&>
+      future;
+
+  service_worker->host()->OpenPaymentHandlerWindow(url, future.GetCallback());
+
+  EXPECT_EQ(
+      "Received PaymentRequestEvent#openWindow() request from a fenced frame.",
+      bad_message_observer.WaitForBadMessage());
+}
+
+// Verifies that OpenNewTab() rejects calls for a service worker that doesn't
+// have a pending event that allows window interaction, and kills the renderer.
+TEST_P(ServiceWorkerVersionTest, OpenNewTab_NoPendingEvent) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  GURL url = scope_.Resolve("page.html");
+  base::test::TestFuture<bool, ServiceWorkerClientInfoPtr,
+                         const std::optional<std::string>&>
+      future;
+
+  service_worker->host()->OpenNewTab(url, future.GetCallback());
+
+  EXPECT_EQ(
+      "Received Clients#openWindow() request without a pending event that "
+      "allows window interaction.",
+      bad_message_observer.WaitForBadMessage());
+}
+
+// Verifies that OpenNewTab() accepts calls for a service worker that has a
+// pending NOTIFICATION_CLICK event.
+TEST_P(ServiceWorkerVersionTest, OpenNewTab_WithPendingNotificationClickEvent) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  // Simulate a pending NOTIFICATION_CLICK event.
+  int request_id = version_->StartRequest(
+      ServiceWorkerMetrics::EventType::NOTIFICATION_CLICK, base::DoNothing());
+
+  GURL url = scope_.Resolve("page.html");
+  base::test::TestFuture<bool, ServiceWorkerClientInfoPtr,
+                         const std::optional<std::string>&>
+      future;
+
+  service_worker->host()->OpenNewTab(url, future.GetCallback());
+  EXPECT_TRUE(future.Wait());
+
+  EXPECT_FALSE(bad_message_observer.got_bad_message());
+
+  // Clean up the pending request.
+  version_->FinishRequest(request_id, /*was_handled=*/true);
+}
+
+// Verifies that OpenNewTab() accepts calls for a service worker that has a
+// pending BACKGROUND_FETCH_CLICK event.
+TEST_P(ServiceWorkerVersionTest,
+       OpenNewTab_WithPendingBackgroundFetchClickEvent) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  // Simulate a pending BACKGROUND_FETCH_CLICK event.
+  int request_id = version_->StartRequest(
+      ServiceWorkerMetrics::EventType::BACKGROUND_FETCH_CLICK,
+      base::DoNothing());
+
+  GURL url = scope_.Resolve("page.html");
+  base::test::TestFuture<bool, ServiceWorkerClientInfoPtr,
+                         const std::optional<std::string>&>
+      future;
+
+  service_worker->host()->OpenNewTab(url, future.GetCallback());
+  EXPECT_TRUE(future.Wait());
+
+  EXPECT_FALSE(bad_message_observer.got_bad_message());
+
+  // Clean up the pending request.
+  version_->FinishRequest(request_id, /*was_handled=*/true);
+}
+
+// Verifies that FocusClient() rejects calls for a service worker that doesn't
+// have a pending event that allows window interaction, and kills the renderer.
+TEST_P(ServiceWorkerVersionTest, FocusClient_NoPendingEvent) {
+  auto* service_worker =
+      helper_->AddNewPendingServiceWorker<FakeServiceWorker>(helper_.get());
+  ASSERT_EQ(blink::ServiceWorkerStatusCode::kOk,
+            StartServiceWorker(version_.get()));
+  service_worker->RunUntilInitializeGlobalScope();
+  version_->SetStatus(ServiceWorkerVersion::ACTIVATED);
+
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  base::test::TestFuture<blink::mojom::FocusResultPtr> future;
+  service_worker->host()->FocusClient(
+      base::Uuid::GenerateRandomV4().AsLowercaseString(), future.GetCallback());
+
+  EXPECT_EQ(
+      "Received WindowClient#focus() request without a pending event that "
+      "allows window interaction.",
       bad_message_observer.WaitForBadMessage());
 }
 

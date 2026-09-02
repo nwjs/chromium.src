@@ -19,6 +19,7 @@ source_set("model") {
   ]
   public_deps = [ "//components/sessions:session_id" ]
   deps = [
+    ":intervention_handler",
     ":tab_helper",
     "//base",
     "//components/actor/core:journal",
@@ -42,6 +43,7 @@ source_set("model") {
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
+    "//ios/chrome/browser/tab_insertion/model",
     "//ios/web/public",
     "//third_party/perfetto:libperfetto",
 
@@ -63,6 +65,18 @@ source_set("tab_helper") {
   deps = [
     "//base",
     "//ios/web/public",
+  ]
+}
+
+source_set("intervention_handler") {
+  sources = [
+    "actor_task_intervention_handler.h",
+    "actor_task_intervention_handler.mm",
+  ]
+  deps = [
+    "//base",
+    "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
+    "//ios/chrome/browser/intelligence/actor/tools/model:actor_tool_interface",
   ]
 }
 
@@ -102,6 +116,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/snapshots/model",
     "//ios/chrome/browser/snapshots/model:snapshot_source",
     "//ios/chrome/browser/snapshots/model:test_utils",
+    "//ios/chrome/browser/tab_insertion/model",
     "//ios/chrome/test:test_support",
     "//ios/web/find_in_page",
     "//ios/web/public/test",

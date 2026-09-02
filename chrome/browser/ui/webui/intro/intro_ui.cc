@@ -95,6 +95,9 @@ IntroUI::IntroUI(content::WebUI* web_ui)
       {"acceptSignInButtonTitle", IDS_FRE_ACCEPT_SIGN_IN_BUTTON_TITLE},
       {"createAccountDisclaimer", IDS_FRE_CREATE_ACCOUNT_DESCRIPTION},
       {"productLogoAltText", IDS_SHORT_PRODUCT_LOGO_ALT_TEXT},
+      // Strings for welcome subpage.
+      {"welcomeTitle", IDS_FRE_WELCOME_TITLE},
+      {"welcomeStartButtonLabel", IDS_FRE_WELCOME_START_BUTTON_LABEL},
       // Strings for default browser promo subpage.
       {"defaultBrowserTitle", IDS_FRE_DEFAULT_BROWSER_TITLE_NEW},
       {"defaultBrowserSubtitle", IDS_FRE_DEFAULT_BROWSER_SUBTITLE_NEW},
@@ -144,6 +147,12 @@ IntroUI::IntroUI(content::WebUI* web_ui)
                           IDR_SIGNIN_IMAGES_SHARED_RIGHT_BANNER_SVG);
   source->AddResourcePath("images/right_illustration_dark.svg",
                           IDR_SIGNIN_IMAGES_SHARED_RIGHT_BANNER_DARK_SVG);
+  source->AddResourcePath(
+      "images/shared_gradient_dark_background.svg",
+      IDR_SIGNIN_IMAGES_SHARED_GRADIENT_DARK_BACKGROUND_SVG);
+  source->AddResourcePath(
+      "images/shared_gradient_light_background.svg",
+      IDR_SIGNIN_IMAGES_SHARED_GRADIENT_LIGHT_BACKGROUND_SVG);
   source->AddResourcePath("tangible_sync_style_shared.css.js",
                           IDR_SIGNIN_TANGIBLE_SYNC_STYLE_SHARED_CSS_JS);
   source->AddResourcePath("signin_vars.css.js", IDR_SIGNIN_SIGNIN_VARS_CSS_JS);
@@ -157,9 +166,6 @@ IntroUI::IntroUI(content::WebUI* web_ui)
   source->AddString("accountPicturePlaceholderUrl",
                     profiles::GetPlaceholderAvatarIconUrl());
   source->AddBoolean("isDeviceManaged", is_device_managed);
-  source->AddBoolean("usePrimaryAndTonalButtonsForPromos",
-                     base::FeatureList::IsEnabled(
-                         switches::kUsePrimaryAndTonalButtonsForPromos));
   source->AddBoolean("isFirstRunDesktopRevampEnabled",
                      is_first_run_desktop_revamp_enabled);
   if (base::FeatureList::IsEnabled(
@@ -174,6 +180,12 @@ IntroUI::IntroUI(content::WebUI* web_ui)
     source->AddInteger(
         "signInPromoVariation",
         static_cast<int>(switches::kFirstRunDesktopSignInPromoVariation.Get()));
+  }
+
+  if (switches::IsPreFirstRunDesktopRefreshEnabled()) {
+    source->AddResourcePath(
+        chrome::kChromeUIIntroWelcomeSubPage,
+        IDR_INTRO_WELCOME_WELCOME_HTML);
   }
 
   // Setup chrome://intro/default-browser UI.
@@ -384,6 +396,31 @@ void IntroUI::OnFinishOrContinueChoice(FinishOrContinueChoice choice) {
   if (finish_or_continue_callback_) {
     std::move(finish_or_continue_callback_).Run(choice);
   }
+}
+
+void IntroUI::SetWelcomeCallback(base::OnceClosure callback) {
+  CHECK(callback);
+  welcome_callback_ = std::move(callback);
+}
+
+void IntroUI::BindInterface(
+    mojo::PendingReceiver<intro::mojom::WelcomePageHandlerFactory> receiver) {
+  welcome_factory_receiver_.reset();
+  welcome_factory_receiver_.Bind(std::move(receiver));
+}
+
+void IntroUI::CreateWelcomePageHandler(
+    mojo::PendingReceiver<intro::mojom::WelcomePageHandler> receiver) {
+  CHECK(receiver);
+  welcome_handler_ = std::make_unique<WelcomeHandler>(
+      base::BindOnce(&IntroUI::OnWelcomeContinue,
+                     weak_ptr_factory_.GetWeakPtr()),
+      std::move(receiver));
+}
+
+void IntroUI::OnWelcomeContinue() {
+  CHECK(welcome_callback_);
+  std::move(welcome_callback_).Run();
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(IntroUI)

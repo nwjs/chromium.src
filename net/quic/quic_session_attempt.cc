@@ -67,6 +67,7 @@ QuicSessionAttempt::QuicSessionAttempt(
     std::set<std::string> dns_aliases,
     std::unique_ptr<QuicCryptoClientConfigHandle> crypto_client_config_handle,
     MultiplexedSessionCreationInitiator session_creation_initiator,
+    QuicSessionEstablishmentReason quic_session_establishment_reason,
     std::optional<ConnectionManagementConfig> connection_management_config)
     : delegate_(delegate),
       start_time_(base::TimeTicks::Now()),
@@ -85,6 +86,7 @@ QuicSessionAttempt::QuicSessionAttempt(
       dns_aliases_(std::move(dns_aliases)),
       crypto_client_config_handle_(std::move(crypto_client_config_handle)),
       session_creation_initiator_(session_creation_initiator),
+      quic_session_establishment_reason_(quic_session_establishment_reason),
       connection_management_config_(connection_management_config) {
   CHECK(delegate_);
   DCHECK_NE(quic_version_, quic::ParsedQuicVersion::Unsupported());
@@ -99,6 +101,7 @@ QuicSessionAttempt::QuicSessionAttempt(
     std::unique_ptr<QuicChromiumClientStream::Handle> proxy_stream,
     const HttpUserAgentSettings* http_user_agent_settings,
     MultiplexedSessionCreationInitiator session_creation_initiator,
+    QuicSessionEstablishmentReason quic_session_establishment_reason,
     std::optional<ConnectionManagementConfig> connection_management_config)
     : delegate_(delegate),
       ip_endpoint_(std::move(proxy_peer_endpoint)),
@@ -112,6 +115,7 @@ QuicSessionAttempt::QuicSessionAttempt(
       http_user_agent_settings_(http_user_agent_settings),
       local_endpoint_(std::move(local_endpoint)),
       session_creation_initiator_(session_creation_initiator),
+      quic_session_establishment_reason_(quic_session_establishment_reason),
       connection_management_config_(connection_management_config) {
   CHECK(delegate_);
   DCHECK_NE(quic_version_, quic::ParsedQuicVersion::Unsupported());
@@ -132,6 +136,26 @@ int QuicSessionAttempt::Start(CompletionOnceCallback callback) {
   return rv;
 }
 
+void QuicSessionAttempt::Cancel() {
+  CHECK_NE(next_state_, State::kNone);
+
+  next_state_ = State::kNone;
+  callback_.Reset();
+  weak_ptr_factory_.InvalidateWeakPtrs();
+  net_log().EndEventWithNetErrorCode(
+      NetLogEventType::QUIC_SESSION_POOL_JOB_CONNECT, ERR_ABORTED);
+
+  if (!session_) {
+    return;
+  }
+
+  QuicChromiumClientSession* session = session_.get();
+  CHECK(!pool()->IsSessionActive(session));
+  session_ = nullptr;
+  session->CloseSessionOnError(ERR_ABORTED, quic::QUIC_CONNECTION_CANCELLED,
+                               quic::ConnectionCloseBehavior::SILENT_CLOSE);
+}
+
 void QuicSessionAttempt::PopulateNetErrorDetails(
     NetErrorDetails* details) const {
   if (session_) {
@@ -141,6 +165,25 @@ void QuicSessionAttempt::PopulateNetErrorDetails(
   } else {
     details->connection_info = connection_info_;
     details->quic_connection_error = quic_connection_error_;
+  }
+}
+
+// static
+void QuicSessionAttempt::HandleCreateSessionResult(
+    base::WeakPtr<QuicSessionAttempt> attempt,
+    base::expected<CreateSessionResult, int> result) {
+  if (attempt) {
+    attempt->OnCreateSessionComplete(std::move(result));
+    return;
+  }
+
+  // Session creation can outlive a cancelled attempt. Close a session that
+  // finished being created after its owner went away instead of leaving it in
+  // QuicSessionPool until its handshake or idle timeout.
+  if (result.has_value()) {
+    result->session->CloseSessionOnErrorLater(
+        ERR_ABORTED, quic::QUIC_CONNECTION_CANCELLED,
+        quic::ConnectionCloseBehavior::SILENT_CLOSE);
   }
 }
 
@@ -191,26 +234,29 @@ int QuicSessionAttempt::DoCreateSession() {
     // Proxied connections are not on any specific network.
     network_ = handles::kInvalidNetworkHandle;
     rv = pool()->CreateSessionOnProxyStream(
-        base::BindOnce(&QuicSessionAttempt::OnCreateSessionComplete,
+        base::BindOnce(&QuicSessionAttempt::HandleCreateSessionResult,
                        weak_ptr_factory_.GetWeakPtr()),
         key(), quic_version_, cert_verify_flags_, require_confirmation,
         std::move(local_endpoint_), std::move(ip_endpoint_),
-        std::move(proxy_stream_), std::move(user_agent), net_log(), network_);
+        std::move(proxy_stream_), std::move(user_agent), net_log(), network_,
+        quic_session_establishment_reason_);
   } else {
     if (base::FeatureList::IsEnabled(net::features::kAsyncQuicSession)) {
       return pool()->CreateSessionAsync(
-          base::BindOnce(&QuicSessionAttempt::OnCreateSessionComplete,
+          base::BindOnce(&QuicSessionAttempt::HandleCreateSessionResult,
                          weak_ptr_factory_.GetWeakPtr()),
           key(), quic_version_, cert_verify_flags_, require_confirmation,
           ip_endpoint_, metadata_, dns_resolution_start_time_,
           dns_resolution_end_time_, resolution_details_, net_log(), network_,
-          session_creation_initiator_, connection_management_config_);
+          session_creation_initiator_, quic_session_establishment_reason_,
+          connection_management_config_);
     }
     rv = pool()->CreateSessionSync(
         key(), quic_version_, cert_verify_flags_, require_confirmation,
         ip_endpoint_, metadata_, dns_resolution_start_time_,
         dns_resolution_end_time_, resolution_details_, net_log(), &session_,
-        &network_, session_creation_initiator_, connection_management_config_);
+        &network_, session_creation_initiator_,
+        quic_session_establishment_reason_, connection_management_config_);
 
     DVLOG(1) << "Created session on network: " << network_;
   }

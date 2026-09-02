@@ -27,7 +27,6 @@
 #include "chrome/browser/ash/crostini/crostini_features.h"
 #include "chrome/browser/ash/crostini/crostini_util.h"
 #include "chrome/browser/ash/guest_os/guest_os_shelf_utils.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/ash/shelf/app_service/app_service_app_window_arc_tracker.h"
@@ -138,7 +137,8 @@ void AppServiceAppWindowShelfController::ActiveUserChanged(
   // Deactivates the running app windows in InstanceRegistry for the inactive
   // user, and activates the app windows for the active user.
   for (aura::Window* window : window_list_) {
-    ash::ShelfID shelf_id = proxy_->InstanceRegistry().GetShelfId(window);
+    ash::ShelfID shelf_id =
+        app_service_instance_helper_->GetShelfId(owner()->profile(), window);
     if (!shelf_id.IsNull()) {
       RegisterWindow(window, shelf_id);
     } else {
@@ -238,13 +238,6 @@ void AppServiceAppWindowShelfController::OnWindowVisibilityChanged(
 
   RegisterWindow(window, shelf_id);
 
-  // This will match both the Plugin VM App window and installer.
-  if (shelf_id.app_id == plugin_vm::kPluginVmShelfAppId) {
-    // Plugin VM can only be used on the primary profile.
-    ash::Shell::Get()->multi_user_window_manager()->SetWindowOwner(
-        window,
-        user_manager::UserManager::Get()->GetPrimaryUser()->GetAccountId());
-  }
 }
 
 void AppServiceAppWindowShelfController::OnWindowDestroying(
@@ -527,15 +520,6 @@ void AppServiceAppWindowShelfController::RegisterWindow(
         arc_tracker_) {
       OnItemDelegateDiscarded(item_controller);
     }
-  } else if (plugin_vm::IsPluginVmAppWindow(window)) {
-    // Set an icon for the Plugin VM app window.
-    static_cast<exo::ShellSurfaceBase*>(
-        views::Widget::GetWidgetForNativeWindow(window)->widget_delegate())
-        ->SetIcon(*ui::ResourceBundle::GetSharedInstance().GetImageSkiaNamed(
-            IDR_LOGO_PLUGIN_VM_DEFAULT_192));
-    // Set fullscreen properties.
-    exo::SetShellUseImmersiveForFullscreen(window, false);
-    window->SetProperty(chromeos::kEscHoldToExitFullscreen, true);
   } else if (ash::borealis::IsBorealisWindow(window)) {
     window->SetProperty(chromeos::kUseOverviewToExitFullscreen, true);
     window->SetProperty(chromeos::kNoExitFullscreenOnLock, true);
@@ -661,10 +645,6 @@ ash::ShelfID AppServiceAppWindowShelfController::GetShelfId(
     }
   }
 
-  if (plugin_vm::IsPluginVmAppWindow(window)) {
-    return ash::ShelfID(plugin_vm::kPluginVmShelfAppId);
-  }
-
   ash::ShelfID shelf_id;
   if (arc_tracker_) {
     shelf_id = arc_tracker_->GetShelfId(window);
@@ -677,8 +657,7 @@ ash::ShelfID AppServiceAppWindowShelfController::GetShelfId(
   // If the window exists in InstanceRegistry, get the shelf id from
   // InstanceRegistry.
   for (Profile* profile : profile_list_) {
-    auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile);
-    shelf_id = proxy->InstanceRegistry().GetShelfId(window);
+    shelf_id = app_service_instance_helper_->GetShelfId(profile, window);
     if (!shelf_id.IsNull()) {
       break;
     }

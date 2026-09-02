@@ -194,10 +194,6 @@ void AddStrings(content::WebUIDataSource* html_source,
 
   html_source->AddString("managedDeviceDisclaimer",
                          GetManagedDeviceDisclaimer());
-
-  html_source->AddBoolean("usePrimaryAndTonalButtonsForPromos",
-                          base::FeatureList::IsEnabled(
-                              switches::kUsePrimaryAndTonalButtonsForPromos));
 }
 
 void AddFlags(content::WebUIDataSource* html_source,
@@ -260,10 +256,10 @@ void AddResourcePaths(content::WebUIDataSource* html_source,
       {"left_banner_dark.svg", IDR_SIGNIN_IMAGES_SHARED_LEFT_BANNER_DARK_SVG},
       {"right_banner.svg", IDR_SIGNIN_IMAGES_SHARED_RIGHT_BANNER_SVG},
       {"right_banner_dark.svg", IDR_SIGNIN_IMAGES_SHARED_RIGHT_BANNER_DARK_SVG},
-      {"profile_picker_light_background.svg",
-       IDR_SIGNIN_IMAGES_PROFILE_PICKER_LIGHT_BACKGROUND_SVG},
-      {"profile_picker_dark_background.svg",
-       IDR_SIGNIN_IMAGES_PROFILE_PICKER_DARK_BACKGROUND_SVG},
+      {"shared_gradient_light_background.svg",
+       IDR_SIGNIN_IMAGES_SHARED_GRADIENT_LIGHT_BACKGROUND_SVG},
+      {"shared_gradient_dark_background.svg",
+       IDR_SIGNIN_IMAGES_SHARED_GRADIENT_DARK_BACKGROUND_SVG},
       {"glic_banner_top_right.svg",
        glic::GetResourceID(IDR_GLIC_PROFILE_BANNER_TOP_RIGHT)},
       {"glic_banner_bottom_left.svg",

@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.omnibox;
 
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
@@ -117,6 +116,19 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
         boolean shouldFinishCompositionOnDeletion();
     }
 
+    /**
+     * Checks whether the given text contains any whitespace characters (ASCII or Unicode) without
+     * allocations.
+     */
+    private static boolean containsWhitespace(CharSequence text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private final AutocompleteState mPreBatchEditState;
     private final InputDelegate mInputDelegate;
 
@@ -196,10 +208,10 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
             if (mInputDelegate.getDeletePostfixOnNextBeginImeCommand() > len) {
                 mInputDelegate.setDeletePostfixOnNextBeginImeCommand(len);
             }
-            mInputDelegate
-                    .getAutocompleteEditTextModelBaseDelegate()
-                    .getText()
-                    .delete(len - mInputDelegate.getDeletePostfixOnNextBeginImeCommand(), len);
+            Editable editable = mInputDelegate.getAutocompleteEditTextModelBaseDelegate().getText();
+            try (var capture = new UndoStackCapture(editable)) {
+                editable.delete(len - mInputDelegate.getDeletePostfixOnNextBeginImeCommand(), len);
+            }
         }
         mInputDelegate.setDeletePostfixOnNextBeginImeCommand(0);
         mInputDelegate.getSpanCursorController().removeAutocompleteSpan();
@@ -221,7 +233,9 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
         incrementBatchEditCount(); // avoids additional notifyAutocompleteTextStateChanged()
         Editable editable =
                 mInputDelegate.getAutocompleteEditTextModelBaseDelegate().getEditableText();
-        editable.append(diff);
+        try (var capture = new UndoStackCapture(editable)) {
+            editable.append(diff);
+        }
         decrementBatchEditCount();
     }
 
@@ -238,12 +252,7 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
         mInputDelegate
                 .getAutocompleteEditTextModelBaseDelegate()
                 .setInputIsMultilineEligible(
-                        TextUtils.indexOf(
-                                        OmniboxFeatures.sWrapAutocompleteText.getValue()
-                                                ? mInputDelegate.getCurrentState().getText()
-                                                : mInputDelegate.getCurrentState().getUserText(),
-                                        ' ')
-                                >= 0);
+                        containsWhitespace(mInputDelegate.getCurrentState().getUserText()));
 
         if (!mInputDelegate.getCurrentState().isCursorAtEndOfUserText()) return false;
 
@@ -350,7 +359,17 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
     public boolean deleteSurroundingText(final int beforeLength, final int afterLength) {
         if (DEBUG) Log.i(TAG, "deleteSurroundingText [%d,%d]", beforeLength, afterLength);
         onBeginImeCommand();
-        boolean retVal = super.deleteSurroundingText(beforeLength, afterLength);
+        AutocompleteState state = mInputDelegate.getCurrentState();
+        boolean bypassUndo =
+                state.getAutocompleteText() != null
+                        && afterLength == 0
+                        && state.getUserText().length() > beforeLength;
+        Editable editable =
+                mInputDelegate.getAutocompleteEditTextModelBaseDelegate().getEditableText();
+        boolean retVal;
+        try (var capture = bypassUndo ? new UndoStackCapture(editable) : null) {
+            retVal = super.deleteSurroundingText(beforeLength, afterLength);
+        }
         onEndImeCommand();
         return retVal;
     }
@@ -384,7 +403,8 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
     }
 
     @Override
-    public ExtractedText getExtractedText(final ExtractedTextRequest request, final int flags) {
+    public @Nullable ExtractedText getExtractedText(
+            final ExtractedTextRequest request, final int flags) {
         if (DEBUG) Log.i(TAG, "getExtractedText");
         onBeginImeCommand();
         ExtractedText retVal = super.getExtractedText(request, flags);
@@ -411,7 +431,7 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
     }
 
     @Override
-    public CharSequence getSelectedText(final int flags) {
+    public @Nullable CharSequence getSelectedText(final int flags) {
         if (DEBUG) Log.i(TAG, "getSelectedText");
         onBeginImeCommand();
         CharSequence retVal = super.getSelectedText(flags);
@@ -450,7 +470,19 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
     public boolean deleteSurroundingTextInCodePoints(int beforeLength, int afterLength) {
         if (DEBUG) Log.i(TAG, "deleteSurroundingTextInCodePoints");
         onBeginImeCommand();
-        boolean retVal = super.deleteSurroundingTextInCodePoints(beforeLength, afterLength);
+        AutocompleteState state = mInputDelegate.getCurrentState();
+        int userTextCodePoints =
+                Character.codePointCount(state.getUserText(), 0, state.getUserText().length());
+        boolean bypassUndo =
+                state.getAutocompleteText() != null
+                        && afterLength == 0
+                        && userTextCodePoints > beforeLength;
+        Editable editable =
+                mInputDelegate.getAutocompleteEditTextModelBaseDelegate().getEditableText();
+        boolean retVal;
+        try (var capture = bypassUndo ? new UndoStackCapture(editable) : null) {
+            retVal = super.deleteSurroundingTextInCodePoints(beforeLength, afterLength);
+        }
         onEndImeCommand();
         return retVal;
     }

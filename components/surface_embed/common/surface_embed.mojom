@@ -41,6 +41,21 @@ interface SurfaceEmbed {
   // WebContents::Focus() in multi-level embedding setups (e.g., root -> parent
   // embed -> child embed when clicking on the child embed).
   RequestFocusOnEmbedElement() => ();
+
+  // Requests to advance focus from the <embed> element in the embedder page.
+  // When `reverse` is true, advances backward (e.g. Shift+Tab), otherwise
+  // advances forward (e.g. Tab).
+  AdvanceFocusFromEmbedElement(bool reverse);
+};
+
+// Represents the render throttling status of an embedded frame.
+// Uses the same set of parameters as RemoteFrame::UpdateRenderThrottlingStatus.
+// TODO(crbug.com/532190467): Make this a shared struct across RemoteFrame,
+// FrameWidget, and SurfaceEmbedHost.
+struct RenderThrottlingStatus {
+  bool is_throttled;
+  bool subtree_throttled;
+  bool display_locked;
 };
 
 // Implemented by SurfaceEmbedHost in the browser process.
@@ -70,5 +85,17 @@ interface SurfaceEmbedHost {
   // WebContents::Focus() on the embedded WebContents in multi-level embedding
   // setups.
   OnEmbedElementFocused(bool focused, blink.mojom.FocusType focus_type);
+
+  // Called when the render throttling status of the <embed> element changes.
+  // `SurfaceEmbedHost` will decide how this state is applied to the child
+  // WebContents (e.g. it may reject throttling when the child WebContents is
+  // being screen-captured).
+  OnEmbedElementThrottlingStatusChanged(RenderThrottlingStatus status);
+
+  // Sends the parent HTML element accessibility node ID from the render process
+  // to the browser process to stitch together accessibility trees in the
+  // browser process. This may happen during creation or later
+  // if accessibility is not yet enabled.
+  SetParentAccessibilityInfo(int32 ax_node_id);
 };
 

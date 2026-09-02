@@ -62,6 +62,7 @@ class MockVisitor : public WebTransportClientVisitor {
               (const std::optional<WebTransportCloseInfo>&),
               (override));
   MOCK_METHOD(void, OnError, (const WebTransportError&), (override));
+  MOCK_METHOD(void, OnDraining, (), (override));
 
   MOCK_METHOD0(OnIncomingBidirectionalStreamAvailable, void());
   MOCK_METHOD0(OnIncomingUnidirectionalStreamAvailable, void());
@@ -329,6 +330,48 @@ TEST_F(DedicatedWebTransportHttp3Test, CloseReason) {
   EXPECT_THAT(received_close_info, Optional(close_info));
 }
 
+TEST_F(DedicatedWebTransportHttp3Test, SessionDraining) {
+  StartServer();
+  client_ = std::make_unique<DedicatedWebTransportHttp3Client>(
+      GetURL("/session-close"), origin_, &visitor_, anonymization_key_,
+      handles::kInvalidNetworkHandle, context_.get(), WebTransportParameters());
+
+  EXPECT_CALL(visitor_, OnBeforeConnect);
+  EXPECT_CALL(visitor_, OnConnected).WillOnce(StopRunning());
+  EXPECT_CALL(visitor_, OnClosed(_)).Times(0);
+  EXPECT_CALL(visitor_, OnDraining()).WillOnce(StopRunning());
+  client_->Connect();
+  Run();
+  ASSERT_TRUE(client_->session() != nullptr);
+
+  // The "/session-close" endpoint sends a DRAIN_WEBTRANSPORT_SESSION capsule
+  // when it receives the string "DRAIN" on a stream.
+  quic::WebTransportStream* stream =
+      client_->session()->OpenOutgoingUnidirectionalStream();
+  ASSERT_TRUE(stream != nullptr);
+  EXPECT_TRUE(stream->Write("DRAIN"));
+  EXPECT_TRUE(stream->SendFin());
+
+  Run();
+}
+
+TEST_F(DedicatedWebTransportHttp3Test,
+       DrainingAfterConnectionFailureIsIgnored) {
+  StartServer();
+  client_ = std::make_unique<DedicatedWebTransportHttp3Client>(
+      GetURL("/not-found"), origin_, &visitor_, anonymization_key_,
+      handles::kInvalidNetworkHandle, context_.get(), WebTransportParameters());
+
+  EXPECT_CALL(visitor_, OnBeforeConnect);
+  EXPECT_CALL(visitor_, OnConnectionFailed).WillOnce(StopRunning());
+  EXPECT_CALL(visitor_, OnDraining()).Times(0);
+  client_->Connect();
+  Run();
+  ASSERT_EQ(client_->state(), WebTransportState::FAILED);
+
+  client_->OnSessionDraining();
+}
+
 // Test negotiation of the application protocol via
 // https://www.ietf.org/archive/id/draft-ietf-webtrans-http3-12.html#name-application-protocol-negoti
 TEST_F(DedicatedWebTransportHttp3Test, SubprotocolHeader) {
@@ -364,6 +407,87 @@ TEST_F(DedicatedWebTransportHttp3Test, SubprotocolHeader) {
   webtransport::Stream::ReadResult read_result = stream->Read(&read_buffer);
   ASSERT_TRUE(read_result.fin);
   EXPECT_EQ(read_buffer, "first");
+}
+
+// Test backend that captures request headers for inspection.
+class HeaderCapturingBackend : public quic::test::QuicTestBackend {
+ public:
+  quic::QuicSimpleServerBackend::WebTransportResponse
+  ProcessWebTransportRequest(const quiche::HttpHeaderBlock& request_headers,
+                             quic::WebTransportSession* session) override {
+    for (const auto& [name, value] : request_headers) {
+      captured_headers_.emplace_back(std::string(name), std::string(value));
+    }
+    return QuicTestBackend::ProcessWebTransportRequest(request_headers,
+                                                       session);
+  }
+
+  const std::vector<std::pair<std::string, std::string>>& captured_headers()
+      const {
+    return captured_headers_;
+  }
+
+ private:
+  std::vector<std::pair<std::string, std::string>> captured_headers_;
+};
+
+class DedicatedWebTransportHttp3HeadersTest
+    : public DedicatedWebTransportHttp3Test {
+ public:
+  ~DedicatedWebTransportHttp3HeadersTest() override {
+    if (server_ != nullptr) {
+      server_->Shutdown();
+      server_.reset();
+    }
+  }
+
+  void StartServerWithCapture() {
+    capturing_backend_.set_enable_webtransport(true);
+    server_ = std::make_unique<QuicSimpleServer>(
+        quic::test::crypto_test_utils::ProofSourceForTesting(),
+        quic::QuicConfig(), quic::QuicCryptoServerConfig::ConfigOptions(),
+        AllSupportedQuicVersions(), &capturing_backend_);
+    ASSERT_TRUE(server_->CreateUDPSocketAndListen(
+        quic::QuicSocketAddress(quiche::QuicheIpAddress::Any6(), /*port=*/0)));
+    port_ = server_->server_address().port();
+  }
+
+ protected:
+  HeaderCapturingBackend capturing_backend_;
+};
+
+// Verify that additional_headers with mixed casing are lowercased and that
+// duplicate names (differing only in case) have their values combined.
+TEST_F(DedicatedWebTransportHttp3HeadersTest,
+       AdditionalHeadersCasingAndDuplicates) {
+  StartServerWithCapture();
+  WebTransportParameters parameters;
+  parameters.additional_headers = {
+      {"X-Custom", "first"},
+      {"x-custom", "second"},
+  };
+  client_ = std::make_unique<DedicatedWebTransportHttp3Client>(
+      GetURL("/echo"), origin_, &visitor_, anonymization_key_,
+      handles::kInvalidNetworkHandle, context_.get(), parameters);
+
+  EXPECT_CALL(visitor_, OnBeforeConnect);
+  EXPECT_CALL(visitor_, OnConnected).WillOnce(StopRunning());
+  client_->Connect();
+  Run();
+  ASSERT_TRUE(client_->session() != nullptr);
+
+  // Find x-custom in the captured headers. With AppendValueOrAddHeader, both
+  // values are combined with a null separator (quiche's internal format).
+  // With operator[], only "second" would be present.
+  std::string custom_value;
+  for (const auto& [name, value] : capturing_backend_.captured_headers()) {
+    if (name == "x-custom") {
+      custom_value = value;
+      break;
+    }
+  }
+  EXPECT_THAT(custom_value, ::testing::HasSubstr("first"));
+  EXPECT_THAT(custom_value, ::testing::HasSubstr("second"));
 }
 
 }  // namespace

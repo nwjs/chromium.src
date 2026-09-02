@@ -13,6 +13,8 @@
 #include "base/check.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/containers/to_array.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -81,7 +83,8 @@ class TestNetworkContext : public network::TestNetworkContext {
           auth_handler,
       mojo::PendingRemote<network::mojom::TrustedHeaderClient> header_client,
       const std::optional<base::UnguessableToken>& throttling_profile_id,
-      const base::UnguessableToken& network_restrictions_id) override {
+      const base::UnguessableToken& network_restrictions_id,
+      network::mojom::IPAddressSpace target_address_space) override {
     CHECK(url.has_path());
 
     std::string_view path = url.path();
@@ -350,12 +353,8 @@ class TestNetworkContext : public network::TestNetworkContext {
           peer_->buffer_.clear();
           peer_->buffer_i_ = 0;
         } else {
-          const size_t new_length =
-              peer_->buffer_.size() - actually_written_bytes;
-          UNSAFE_TODO(memmove(peer_->buffer_.data(),
-                              &peer_->buffer_.data()[actually_written_bytes],
-                              new_length));
-          peer_->buffer_.resize(new_length);
+          peer_->buffer_.erase(peer_->buffer_.begin(),
+                               peer_->buffer_.begin() + actually_written_bytes);
           peer_->buffer_i_ -= actually_written_bytes;
         }
 
@@ -417,8 +416,7 @@ class TestPlatform : public authenticator::Platform {
         std::move(params->user),
         PublicKeyCredentialParams(std::move(params->public_key_parameters)));
     CHECK_EQ(request.client_data_hash.size(), params->challenge.size());
-    UNSAFE_TODO(memcpy(request.client_data_hash.data(),
-                       params->challenge.data(), params->challenge.size()));
+    base::span(request.client_data_hash).copy_from(params->challenge);
     request.resident_key_required =
         !params->authenticator_selection
             ? false
@@ -443,22 +441,18 @@ class TestPlatform : public authenticator::Platform {
     request.user_verification = params->user_verification;
 
     CHECK_EQ(request.client_data_hash.size(), params->challenge.size());
-    UNSAFE_TODO(memcpy(request.client_data_hash.data(),
-                       params->challenge.data(), params->challenge.size()));
+    base::span(request.client_data_hash).copy_from(params->challenge);
     if (params->extensions) {
       for (const auto& prf_input_from_request :
            params->extensions->prf_inputs) {
         PRFInput prf_input_to_authenticator;
         prf_input_to_authenticator.credential_id =
             std::move(prf_input_from_request->id);
-        CHECK(fido_parsing_utils::ExtractArray(
-            prf_input_from_request->first, 0,
-            &prf_input_to_authenticator.salt1));
+        prf_input_to_authenticator.salt1 =
+            base::ToArray<32>(prf_input_from_request->first);
         if (prf_input_from_request->second) {
-          prf_input_to_authenticator.salt2.emplace();
-          CHECK(fido_parsing_utils::ExtractArray(
-              *prf_input_from_request->second, 0,
-              &prf_input_to_authenticator.salt2.value()));
+          prf_input_to_authenticator.salt2 =
+              base::ToArray<32>(*prf_input_from_request->second);
         }
 
         request.prf_inputs.emplace_back(std::move(prf_input_to_authenticator));
@@ -490,9 +484,8 @@ class TestPlatform : public authenticator::Platform {
       base::span<const uint8_t, kAdvertSize> payload) override {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,
-        base::BindOnce(
-            &TestPlatform::DoSendBLEAdvert, weak_factory_.GetWeakPtr(),
-            device::fido_parsing_utils::Materialize<payload.size()>(payload)));
+        base::BindOnce(&TestPlatform::DoSendBLEAdvert,
+                       weak_factory_.GetWeakPtr(), base::ToArray(payload)));
     return std::make_unique<DummyBLEAdvert>();
   }
 
@@ -663,8 +656,8 @@ class LateLinkingDevice : public authenticator::Transaction {
             qr_secret,
             {},
             device::cablev2::DerivedValueType::kEIDKey)),
-        peer_identity_(device::fido_parsing_utils::Materialize(peer_identity)),
-        secret_(fido_parsing_utils::Materialize(qr_secret)) {
+        peer_identity_(base::ToArray(peer_identity)),
+        secret_(base::ToVector(qr_secret)) {
     websocket_client_ = std::make_unique<device::cablev2::WebSocketAdapter>(
         base::BindOnce(&LateLinkingDevice::OnTunnelReady,
                        base::Unretained(this)),
@@ -689,7 +682,8 @@ class LateLinkingDevice : public authenticator::Transaction {
         // This is a browser-internal connection for the caBLE rendezvous
         // tunnel. It does not belong to any webpage, so we bypass connection
         // allowlists.
-        /*network_restrictions_id=*/network::GetNoOpNetworkRestrictionsId());
+        /*network_restrictions_id=*/network::GetNoOpNetworkRestrictionsId(),
+        /*target_address_space=*/network::mojom::IPAddressSpace::kUnknown);
   }
 
  private:
@@ -888,7 +882,7 @@ class HandshakeErrorDevice : public authenticator::Transaction {
             qr_secret,
             {},
             device::cablev2::DerivedValueType::kEIDKey)),
-        secret_(fido_parsing_utils::Materialize(qr_secret)) {
+        secret_(base::ToVector(qr_secret)) {
     websocket_client_ = std::make_unique<device::cablev2::WebSocketAdapter>(
         base::BindOnce(&HandshakeErrorDevice::OnTunnelReady,
                        base::Unretained(this)),
@@ -913,7 +907,8 @@ class HandshakeErrorDevice : public authenticator::Transaction {
         // This is a browser-internal connection for the caBLE rendezvous
         // tunnel. It does not belong to any webpage, so we bypass connection
         // allowlists.
-        /*network_restrictions_id=*/network::GetNoOpNetworkRestrictionsId());
+        /*network_restrictions_id=*/network::GetNoOpNetworkRestrictionsId(),
+        /*target_address_space=*/network::mojom::IPAddressSpace::kUnknown);
   }
 
  private:

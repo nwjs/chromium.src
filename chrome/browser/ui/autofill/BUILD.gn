@@ -175,7 +175,6 @@ source_set("impl") {
     "autofill_client_provider.cc",
     "autofill_client_provider_factory.cc",
     "autofill_popup_hide_helper.cc",
-    "autofill_popup_view.cc",
     "autofill_suggestion_controller.cc",
     "autofill_suggestion_controller_utils.cc",
     "chrome_autofill_client.cc",
@@ -207,9 +206,10 @@ source_set("impl") {
     "//chrome/browser/password_manager/factories",
     "//chrome/browser/personal_context",
     "//chrome/browser/personal_context/first_run",
-    "//chrome/browser/plus_addresses",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/safe_browsing",
     "//chrome/browser/signin",
+    "//chrome/browser/ssl",
     "//chrome/browser/strike_database",
     "//chrome/browser/subscription_eligibility",
     "//chrome/browser/sync",
@@ -243,6 +243,9 @@ source_set("impl") {
     "//components/personal_context/core",
     "//components/personal_context/first_run",
     "//components/profile_metrics",
+    "//components/safe_browsing:buildflags",
+    "//components/safe_browsing/core/browser/db:v5_get_hash_protocol_manager",
+    "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/security_state/content",
     "//components/strings:components_strings_grit",
     "//components/unified_consent",
@@ -274,7 +277,6 @@ source_set("impl") {
       "//components/android_autofill/browser:android",
       "//components/messages/android:feature_flags",
       "//components/password_manager/core/browser/features:password_features",
-      "//components/plus_addresses/core/browser/resources/strings",
     ]
   } else {
     sources += [
@@ -309,19 +311,14 @@ source_set("impl") {
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/autofill/popup/email_verifier",
       "//chrome/browser/ui/webauthn",
       "//chrome/browser/ui/webui/signin:login_ui_service",
       "//components/autofill/core/browser",
       "//components/desktop_to_mobile_promos",
       "//components/password_manager/core/browser/features:password_features",
-      "//components/plus_addresses/core/browser/resources/strings",
       "//extensions/browser",
     ]
-
-    if (is_chrome_branded) {
-      deps +=
-          [ "//components/plus_addresses/core/browser/resources:vector_icons" ]
-    }
   }
 
   if (is_mac) {
@@ -341,10 +338,12 @@ source_set("unit_tests") {
     "autofill_client_provider_unittest.cc",
     "autofill_suggestion_controller_unittest.cc",
     "chrome_autofill_client_unittest.cc",
+    "chrome_otp_phish_guard_delegate_unittest.cc",
   ]
 
   deps = [
     ":autofill",
+    ":impl",
     ":test_support",
     ":test_support_unit",
     "//base",
@@ -358,7 +357,9 @@ source_set("unit_tests") {
     "//chrome/browser/autofill",
     "//chrome/browser/autofill:test_support",
     "//chrome/browser/glic",
+    "//chrome/browser/password_manager",
     "//chrome/browser/personal_context",
+    "//chrome/browser/safe_browsing",
     "//chrome/browser/ssl",
     "//chrome/browser/sync",
     "//chrome/browser/ui",
@@ -378,6 +379,8 @@ source_set("unit_tests") {
     "//components/password_manager/core/browser:password_form",
     "//components/password_manager/core/common",
     "//components/prefs:test_support",
+    "//components/safe_browsing:buildflags",
+    "//components/safe_browsing/core/common:safe_browsing_prefs",
     "//components/signin/public/identity_manager",
     "//components/strings:components_strings",
     "//components/sync:test_support",
@@ -505,6 +508,7 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/sync:factories",
       "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_web_contents_delegate",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/user_education",
       "//chrome/common:constants",
@@ -613,8 +617,8 @@ if (!is_android) {
       "//chrome/browser/password_manager",
       "//chrome/browser/password_manager:test_support",
       "//chrome/browser/password_manager/factories",
-      "//chrome/browser/plus_addresses",
       "//chrome/browser/signin",
+      "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/sync",
       "//chrome/browser/ui",
       "//chrome/browser/ui/browser_window",
@@ -637,8 +641,6 @@ if (!is_android) {
       "//components/password_manager/core/browser/password_store:test_support",
       "//components/password_manager/core/common",
       "//components/personal_context/core:test_support",
-      "//components/plus_addresses/core/browser:test_support",
-      "//components/plus_addresses/core/browser/resources/strings",
       "//components/signin/public/base",
       "//components/signin/public/identity_manager:test_support",
       "//components/strings:components_strings",

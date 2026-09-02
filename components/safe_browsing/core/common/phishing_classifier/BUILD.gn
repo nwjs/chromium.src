@@ -8,6 +8,10 @@ source_set("phishing_classifier") {
     "features.h",
     "flatbuffer_utils.cc",
     "flatbuffer_utils.h",
+    "phishing_classifier.cc",
+    "phishing_classifier.h",
+    "phishing_image_embedder.cc",
+    "phishing_image_embedder.h",
     "scorer.cc",
     "scorer.h",
   ]
@@ -29,6 +33,8 @@ source_set("phishing_classifier") {
     "//third_party/tflite:tflite_public_headers",
     "//third_party/tflite_support",
     "//third_party/tflite_support:tflite_support_proto",
+    "//ui/gfx",
+    "//url",
   ]
 }
 
@@ -49,6 +55,8 @@ source_set("unit_tests") {
   sources = [
     "features_unittest.cc",
     "flatbuffer_utils_unittest.cc",
+    "phishing_classifier_unittest.cc",
+    "phishing_image_embedder_unittest.cc",
     "scorer_unittest.cc",
   ]
   deps = [
@@ -63,6 +71,7 @@ source_set("unit_tests") {
     "//skia",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/gfx",
     "//url",
   ]
 }

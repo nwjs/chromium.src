@@ -11,6 +11,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
@@ -196,6 +197,7 @@ class EntryPointEligibilityManagerTest : public testing::Test {
         IdentityManagerFactory::GetForProfile(profile));
     mock_aim_service_ = mock.get();
 
+    ON_CALL(*mock, IsAimEligible()).WillByDefault(Return(true));
     ON_CALL(*mock, IsCobrowseEligible()).WillByDefault(Return(true));
 
     return mock;

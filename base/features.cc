@@ -8,6 +8,7 @@
 
 #include "base/debug/stack_trace.h"
 #include "base/files/file_path.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
 #include "base/task/thread_pool/job_task_source.h"
@@ -61,6 +62,9 @@ BASE_FEATURE(kFeatureParamWithCache, FEATURE_ENABLED_BY_DEFAULT);
 // exists to ensure that the fast implementation can be disabled quickly if
 // issues are found with it.
 BASE_FEATURE(kFastFilePathIsParent, FEATURE_ENABLED_BY_DEFAULT);
+
+// Enables residency tagging in the heap profiler.
+BASE_FEATURE(kHeapProfilerIncludeResidency, FEATURE_DISABLED_BY_DEFAULT);
 
 // Use non default low memory device threshold.
 // Value should be given via |LowMemoryDeviceThresholdMB|.
@@ -204,6 +208,10 @@ BASE_FEATURE_PARAM(bool,
 // failures. Otherwise, it returns TERMINATION_STATUS_OOM.
 BASE_FEATURE(kUseTerminationStatusMemoryExhaustion, FEATURE_ENABLED_BY_DEFAULT);
 
+// Optimize text decoding by using FindFirstNonASCII to find and copy ASCII
+// content.
+BASE_FEATURE(kUtfConversionAsciiFastPath, FEATURE_DISABLED_BY_DEFAULT);
+
 #if BUILDFLAG(IS_WIN)
 // When enabled, use ABOVE_NORMAL_PRIORITY_CLASS for Priority::kUserBlocking on
 // Windows.
@@ -241,6 +249,7 @@ bool IsReducePPMsEnabled() {
 void Init() {
   g_is_reduce_ppms_enabled.store(FeatureList::IsEnabled(kReducePPMs),
                                  std::memory_order_relaxed);
+  strings_internal::InitializeUtfStringConversionsFeatures();
 #if BUILDFLAG(IS_POSIX)
   base::Lock::InitializeFeatures();
 #endif  // BUILDFLAG(IS_POSIX)

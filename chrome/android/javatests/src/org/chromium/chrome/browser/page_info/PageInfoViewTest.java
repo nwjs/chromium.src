@@ -13,7 +13,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
 import static androidx.test.espresso.matcher.ViewMatchers.hasSibling;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static androidx.test.espresso.matcher.ViewMatchers.withContentDescription;
 import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withParent;
@@ -77,7 +76,6 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.DisableFeatures;
-import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
@@ -100,7 +98,6 @@ import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxBridgeJni;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.safe_browsing.SafeBrowsingSuspiciousSiteDialogBridge;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.chrome.browser.util.ChromeAccessibilityUtil;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
@@ -119,7 +116,6 @@ import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.content_settings.CookieControlsMode;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.location.LocationUtils;
-import org.chromium.components.page_info.PageInfoAdPersonalizationController;
 import org.chromium.components.page_info.PageInfoController;
 import org.chromium.components.page_info.PageInfoCookiesController;
 import org.chromium.components.permissions.PermissionsAndroidFeatureList;
@@ -134,6 +130,7 @@ import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.net.GURLUtils;
 import org.chromium.net.test.EmbeddedTestServerRule;
 import org.chromium.net.test.ServerCertificate;
+import org.chromium.ui.accessibility.AccessibilityStateTestHelper;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
@@ -551,8 +548,6 @@ public class PageInfoViewTest {
 
         mFakePrivacySandboxBridge = new FakePrivacySandboxBridge();
         PrivacySandboxBridgeJni.setInstanceForTesting(mFakePrivacySandboxBridge);
-
-        PageInfoAdPersonalizationController.setTopicsForTesting(Arrays.asList("Testing topic"));
     }
 
     @After
@@ -814,7 +809,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void testChromePage() throws IOException {
         loadUrlAndOpenPageInfo("chrome://version/");
         mRenderTestRule.render(getPageInfoView(), "PageInfo_InternalSite");
@@ -827,7 +821,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void testShowWithPermissionsTurnedOffForDevice() throws IOException {
         mIsSystemLocationSettingEnabled = false;
         addSomePermissions(mTestServerRule.getServer().getURL("/"));
@@ -839,7 +832,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void testShowWithPermissionsAndCookieBlocking() throws IOException {
         addSomePermissions(mTestServerRule.getServer().getURL("/"));
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
@@ -852,7 +844,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void testShowWithPermissionsAndCookieBlockingUserBypass() throws IOException {
         addSomePermissions(mTestServerRule.getServer().getURL("/"));
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
@@ -863,7 +854,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void testShowWithDefaultSettingPermissions() throws IOException {
         addDefaultSettingPermissions(mTestServerRule.getServer().getURL("/"));
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
@@ -874,7 +864,6 @@ public class PageInfoViewTest {
     @Test
     @MediumTest
     @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
     public void testShowWithHistory() throws IOException {
         addSomeHistoryEntries();
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
@@ -1302,7 +1291,7 @@ public class PageInfoViewTest {
     public void testCloseButton() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(true);
+                    AccessibilityStateTestHelper.setAccessibilityEnabledForTesting(true);
                 });
         loadUrlAndOpenPageInfo(mTestServerRule.getServer().getURL(sSimpleHtml));
         PageInfoController controller = PageInfoController.getLastPageInfoController();
@@ -1311,7 +1300,7 @@ public class PageInfoViewTest {
         assertFalse(controller.isDialogShowing());
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(null);
+                    AccessibilityStateTestHelper.uninitializeForTesting();
                 });
     }
 
@@ -1395,65 +1384,6 @@ public class PageInfoViewTest {
         int callCount = onDidStartNavigationHelper.getCallCount();
         onView(withText("www.example.com")).perform(click());
         onDidStartNavigationHelper.waitForCallback(callCount);
-    }
-
-    /** Tests PageInfo on a website with ad personalization info. */
-    @Test
-    @MediumTest
-    @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
-    public void testShowAdPersonalizationInfo() throws IOException {
-        loadUrlAndOpenPageInfo(
-                mTestServerRule.getServer().getURLWithHostName("example.com", sSimpleHtml));
-        mRenderTestRule.render(getPageInfoView(), "PageInfo_AdPersonalization");
-    }
-
-    /** Tests ad personalization subpage. */
-    @Test
-    @MediumTest
-    @Feature({"RenderTest"})
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
-    public void testShowAdPersonalizationInfoSubPageV4() throws IOException {
-        loadUrlAndOpenPageInfo(
-                mTestServerRule.getServer().getURLWithHostName("example.com", sSimpleHtml));
-        onView(withId(PageInfoAdPersonalizationController.ROW_ID))
-                .inRoot(isDialog())
-                .perform(click());
-        onViewWaiting(
-                allOf(
-                        withText(R.string.page_info_ad_privacy_subpage_manage_button),
-                        isDisplayed()));
-        mRenderTestRule.render(getPageInfoView(), "PageInfo_AdPersonalizationSubPageV4");
-    }
-
-    /** Tests opening ad personalization settings. */
-    @Test
-    @MediumTest
-    @DisableFeatures(ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION)
-    public void testOpenAdPersonalizationSettingsV4() throws IOException {
-        loadUrlAndOpenPageInfo(
-                mTestServerRule.getServer().getURLWithHostName("example.com", sSimpleHtml));
-        onView(withId(PageInfoAdPersonalizationController.ROW_ID)).perform(click());
-        onViewWaiting(
-                        allOf(
-                                withText(R.string.page_info_ad_privacy_subpage_manage_button),
-                                isDisplayed()))
-                .perform(click());
-        // Check that settings are displayed.
-        onView(withText(R.string.ad_privacy_page_topics_link_row_label))
-                .check(matches(isDisplayed()));
-        // Leave settings view.
-        onView(withContentDescription("Navigate up")).perform(click());
-        onView(withText(R.string.ad_privacy_page_topics_link_row_label)).check(doesNotExist());
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.PRIVACY_SANDBOX_AD_PRIVACY_UX_DEPRECATION})
-    public void testAdPersonalizationInfoHiddenWithDeprecationFeature() throws IOException {
-        loadUrlAndOpenPageInfo(
-                mTestServerRule.getServer().getURLWithHostName("example.com", sSimpleHtml));
-        onView(withId(PageInfoAdPersonalizationController.ROW_ID)).check(doesNotExist());
     }
 
     @Test

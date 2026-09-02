@@ -465,6 +465,12 @@ void CompositorFrameSinkSupport::ReturnResources(
     return;
   }
 
+  if (resource_return_delegate_) {
+    CHECK(base::FeatureList::IsEnabled(features::kTreesInViz));
+    resource_return_delegate_->ReceiveReturnsFromParent(std::move(resources));
+    return;
+  }
+
   if (layer_context_) {
     // Resource management is delegated to LayerContext when it's in use.
     layer_context_->ReceiveReturnsFromParent(std::move(resources));
@@ -772,6 +778,7 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
     }
     std::vector<ui::LatencyInfo>().swap(frame.metadata.latency_info);
   }
+
   for (ui::LatencyInfo& latency : frame.metadata.latency_info) {
     if (latency.latency_components().size() > 0) {
       latency.AddLatencyNumberWithTimestamp(
@@ -898,13 +905,9 @@ SubmitResult CompositorFrameSinkSupport::MaybeSubmitCompositorFrame(
     // If that happens, we will rely on the GC of the current surface to remove
     // the reference.
     if (has_copy_request_against_prev_surface) {
-      using ResultDestination = CopyOutputRequest::ResultDestination;
-      auto destination =
-          features::IsBackForwardTransitionsSameDocSharedImageEnabled()
-              ? ResultDestination::kSharedImage
-              : ResultDestination::kSystemMemory;
       auto copy_request = std::make_unique<CopyOutputRequest>(
-          CopyOutputRequest::ResultFormat::RGBA, destination,
+          CopyOutputRequest::ResultFormat::RGBA,
+          CopyOutputResult::Destination::kSharedImage,
           base::BindOnce(
               &RemoveSurfaceReferenceAndDispatchCopyOutputRequestCallback,
               frame_sink_manager_->GetWeakPtr(), surface_info.id(),

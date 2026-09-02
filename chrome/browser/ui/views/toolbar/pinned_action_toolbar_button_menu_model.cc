@@ -21,7 +21,6 @@
 #include "chrome/browser/ui/customize_chrome/side_panel_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
-#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/common/pref_names.h"
@@ -176,7 +175,8 @@ bool PinnedActionToolbarButtonMenuModel::IsEnabledAt(size_t index) const {
     // ActionItem's enabled property.
     tabs::TabInterface* tab = browser_->GetTabStripModel()->GetActiveTab();
     customize_chrome::SidePanelController* side_panel_controller =
-        tab->GetTabFeatures()->customize_chrome_side_panel_controller();
+        customize_chrome::SidePanelController::Get(
+            tab->GetUnownedUserDataHost());
     return side_panel_controller &&
            side_panel_controller->IsCustomizeChromeEntryAvailable();
   }
@@ -261,7 +261,8 @@ void PinnedActionToolbarButtonMenuModel::AddActionSpecificItems() {
         // Adding all ActionItems as Command types here, if the ActionItem
         // should be displayed as Checked that is handled in `GetTypeAt` which
         // will evaluated the ActionItem's checked state when the menu is run.
-        items_.emplace_back(*child_item->GetActionId(), TYPE_COMMAND);
+        auto* child_action_item = child_item->GetActionItem();
+        items_.emplace_back(*child_action_item->GetActionId(), TYPE_COMMAND);
       }
       items_.emplace_back(TYPE_SEPARATOR);
     }
@@ -271,7 +272,7 @@ void PinnedActionToolbarButtonMenuModel::AddActionSpecificItems() {
 actions::ActionItem* PinnedActionToolbarButtonMenuModel::GetActionItemFor(
     actions::ActionId id) const {
   return actions::ActionManager::Get().FindAction(
-      id, browser_->GetActions()->root_action_item());
+      id, BrowserActions::From(browser_)->root_action_item());
 }
 
 bool PinnedActionToolbarButtonMenuModel::IsPinnable() const {

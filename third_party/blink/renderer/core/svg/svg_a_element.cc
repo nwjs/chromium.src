@@ -93,15 +93,7 @@ void SVGAElement::SvgAttributeChanged(const SvgAttributeChangedParams& params) {
   // SVGURIReference changes as none of the other properties changes the linking
   // behaviour for our <a> element.
   if (SVGURIReference::IsKnownAttribute(params.name)) {
-    bool was_link = IsLink();
-    SetIsLink(!HrefString().IsNull());
-
-    if (was_link || IsLink()) {
-      PseudoStateChanged(CSSSelector::kPseudoLink);
-      PseudoStateChanged(CSSSelector::kPseudoVisited);
-      PseudoStateChanged(CSSSelector::kPseudoWebkitAnyLink);
-      PseudoStateChanged(CSSSelector::kPseudoAnyLink);
-    }
+    AnchorElementUtils::UpdateHref(*this, AtomicString(HrefString()));
     return;
   }
 
@@ -170,8 +162,6 @@ void SVGAElement::DefaultEventHandler(Event& event) {
       AnchorElementUtils::HandleReferrerPolicyAttribute(
           request, FastGetAttribute(svg_names::kReferrerpolicyAttr),
           link_relations_, GetDocument());
-
-      request.SetHasUserGesture(LocalFrame::HasTransientUserActivation(frame));
 
       // Respect the download attribute only if we can read the content, and the
       // event is not an alt-click or similar.

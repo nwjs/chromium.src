@@ -88,7 +88,9 @@ import org.chromium.chrome.browser.customtabs.content.CustomTabIntentHandlingStr
 import org.chromium.chrome.browser.customtabs.content.DefaultCustomTabIntentHandlingStrategy;
 import org.chromium.chrome.browser.customtabs.content.TabCreationMode;
 import org.chromium.chrome.browser.customtabs.content.TabObserverRegistrar;
+import org.chromium.chrome.browser.customtabs.features.CustomTabNavigationBarController;
 import org.chromium.chrome.browser.customtabs.features.ImmersiveModeController;
+import org.chromium.chrome.browser.customtabs.features.WebappInsetsConsumer;
 import org.chromium.chrome.browser.customtabs.features.desktop_popup_header.DesktopPopupHeaderUtils;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizationManagerHolder;
 import org.chromium.chrome.browser.customtabs.features.minimizedcustomtab.CustomTabMinimizeDelegate;
@@ -191,6 +193,8 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
     private WebappDeferredStartupWithStorageHandler mWebappDeferredStartupWithStorageHandler;
     private TrustedWebActivityModel mTrustedWebActivityModel;
     private SharedActivityCoordinator mSharedActivityCoordinator;
+    private @Nullable ImmersiveModeController mImmersiveModeController;
+    private @Nullable WebappInsetsConsumer mWebappInsetsConsumer;
     private TrustedWebActivityBrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
     private @Nullable AppHeaderCoordinator mAppHeaderCoordinator;
     private @Nullable BrowserServicesThemeColorProvider mBrowserServicesThemeColorProvider;
@@ -318,21 +322,8 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
 
     @Override
     protected boolean wrapContentWithEdgeToEdgeLayout() {
-        if (!super.wrapContentWithEdgeToEdgeLayout()) {
-            return false;
-        }
-
-        // Webapp/WebAPK display-cutout handling uses its own window-level edge-to-edge flow.
-        // Wrapping the content view in EdgeToEdgeLayoutCoordinator adds system-bar padding that
-        // prevents standalone/fullscreen webapp content from filling the viewport on newer
-        // Android versions.
-        if (ChromeFeatureList.sWebAppShortEdgesCutoutMode.isEnabled()
-                && mIntentDataProvider.isWebappOrWebApkActivity()) {
-            return false;
-        }
-
         // TODO(crbug.com/392774038): Enable for e2e everywhere for PCCT.
-        return !mIntentDataProvider.isPartialCustomTab();
+        return super.wrapContentWithEdgeToEdgeLayout() && !mIntentDataProvider.isPartialCustomTab();
     }
 
     @Override
@@ -608,6 +599,21 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         }
 
         InstalledWebappDataRegister.prefetchPreferences();
+
+        if (ChromeFeatureList.sWebAppShortEdgesCutoutMode.isEnabled()
+                && mIntentDataProvider.isWebappOrWebApkActivity()) {
+            // The window's edge-to-edge state is owned by token holders (display cutout
+            // controller, immersive mode). While any token is held, withhold system bar and
+            // display cutout insets from the edge-to-edge root layout so the web app content
+            // draws under zero-height bars; releasing the last token restores the fitted
+            // layout, e.g. with the CCT toolbar below the status bar after an off-origin
+            // navigation.
+            mWebappInsetsConsumer = new WebappInsetsConsumer(getInsetObserver());
+            assumeNonNull(getEdgeToEdgeManager())
+                    .getEdgeToEdgeStateProvider()
+                    .getSupplier()
+                    .addSyncObserverAndCallIfNonNull(mWebappInsetsConsumer::drawEdgeToEdge);
+        }
 
         mClientPackageNameProvider =
                 new ClientPackageNameProvider(
@@ -902,6 +908,11 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
             mCustomTabSessionHandler = null;
         }
 
+        if (mWebappInsetsConsumer != null) {
+            mWebappInsetsConsumer.destroy();
+            mWebappInsetsConsumer = null;
+        }
+
         if (mFullscreenManager != null) {
             mFullscreenManager.removeObserver(mFullscreenObserver);
             mFullscreenManager = null;
@@ -999,9 +1010,65 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         }
         if (!getIntentDataProvider().isWebappOrWebApkActivity()) {
             getCustomTabActivityTabController().finishNativeInitialization();
+        } else {
+            // Webapp/WebAPK activities don't run CustomTabActivity#performPreInflationStartup,
+            // which is where CCT applies its navigation bar color. Apply it here so installed web
+            // apps color the navigation bar from the manifest theme color. This runs post-native
+            // because the color depends on a feature flag.
+            updateNavigationBarColor();
+            // In edge-to-edge the navigation buttons render over page content; follow dynamic
+            // page theme-color changes and edge-to-edge transitions so the buttons stay
+            // readable, e.g. dark buttons over a page that switches its theme color to white.
+            getBrowserServicesThemeColorProvider()
+                    .addThemeColorObserver((color, shouldAnimate) -> updateNavigationBarColor());
+            if (getEdgeToEdgeManager() != null) {
+                getEdgeToEdgeManager()
+                        .getEdgeToEdgeStateProvider()
+                        .getSupplier()
+                        .addSyncObserver(drawingEdgeToEdge -> updateNavigationBarColor());
+            }
         }
 
         super.finishNativeInitialization();
+    }
+
+    /**
+     * Applies the navigation bar color (and divider) for the current activity based on the intent /
+     * manifest theme color and the current edge-to-edge state.
+     */
+    protected void updateNavigationBarColor() {
+        // Webapp/WebAPK activities draw edge-to-edge through window-level tokens on the
+        // EdgeToEdgeStateProvider rather than through the tab's EdgeToEdgeController.
+        boolean windowDrawsEdgeToEdge =
+                getEdgeToEdgeManager() != null
+                        && Boolean.TRUE.equals(
+                                getEdgeToEdgeManager()
+                                        .getEdgeToEdgeStateProvider()
+                                        .getSupplier()
+                                        .get());
+        boolean drawEdgeToEdge =
+                windowDrawsEdgeToEdge
+                        || (mEdgeToEdgeControllerSupplier.get() != null
+                                && mEdgeToEdgeControllerSupplier.get().isDrawingToEdge()
+                                && mEdgeToEdgeControllerSupplier.get().isPageOptedIntoEdgeToEdge());
+        var systemBarColorHelper =
+                getEdgeToEdgeManager() != null
+                        ? getEdgeToEdgeManager().getEdgeToEdgeSystemBarColorHelper()
+                        : null;
+        Integer edgeToEdgeContentColor =
+                drawEdgeToEdge ? getBrowserServicesThemeColorProvider().getThemeColor() : null;
+        CustomTabNavigationBarController.update(
+                getWindow(),
+                getIntentDataProvider(),
+                this,
+                drawEdgeToEdge,
+                systemBarColorHelper,
+                edgeToEdgeContentColor);
+    }
+
+    @Override
+    protected boolean maybeApplyCustomizedColors() {
+        return false;
     }
 
     @Override
@@ -1502,12 +1569,16 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
         return mCustomTabOrientationController;
     }
 
-    private ImmersiveModeController createImmersiveModeController() {
-        return new ImmersiveModeController(
-                this,
-                getWindowAndroid(),
-                assumeNonNull(getEdgeToEdgeManager()).getEdgeToEdgeStateProvider(),
-                getLifecycleDispatcher());
+    private ImmersiveModeController getImmersiveModeController() {
+        if (mImmersiveModeController == null) {
+            mImmersiveModeController =
+                    new ImmersiveModeController(
+                            this,
+                            getWindowAndroid(),
+                            assumeNonNull(getEdgeToEdgeManager()).getEdgeToEdgeStateProvider(),
+                            getLifecycleDispatcher());
+        }
+        return mImmersiveModeController;
     }
 
     private CustomTabToolbarColorController getCustomTabToolbarColorController() {
@@ -1687,7 +1758,7 @@ public abstract class BaseCustomTabActivity extends ChromeActivity {
                             getCurrentPageVerifier(),
                             controlsVisibilityManager,
                             getCustomTabStatusBarColorProvider(),
-                            this::createImmersiveModeController,
+                            this::getImmersiveModeController,
                             getIntentDataProvider(),
                             getCustomTabOrientationController(),
                             getCustomTabActivityNavigationController(),

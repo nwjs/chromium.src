@@ -29,7 +29,6 @@
 #include "chrome/browser/ui/lens/lens_overlay_colors.h"
 #include "chrome/browser/ui/lens/lens_overlay_gen204_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_languages_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_translate_options.h"
 #include "chrome/browser/ui/lens/lens_query_flow_router.h"
 #include "chrome/browser/ui/lens/overlay_base_controller.h"
@@ -436,6 +435,10 @@ class LensOverlayController : public OverlayBaseController,
   // on the live page.
   void ReshowOverlay() override;
 
+  // OverlayBaseController overrides allowed for testing:
+  bool IsResultsSidePanelShowing() override;
+  bool ShouldWaitForSidePanelReflow() override;
+
  private:
   // Data class for constructing overlay and storing overlay state for
   // kSuspended state.
@@ -594,11 +597,13 @@ class LensOverlayController : public OverlayBaseController,
   // Returns true if the searchbox is a CONTEXTUAL_SEARCHBOX.
   bool IsContextualSearchbox();
 
+  // Returns true if the current query flow is in region-only mode.
+  bool IsSelectedRegionOnlyMode();
+
   // Returns true if the CoBrowse panel with Lens overlay is enabled.
   bool CoBrowsePanelWithLensOverlayEnabled() const;
 
   // OverlayBaseController overrides:
-  bool IsResultsSidePanelShowing() override;
   void RequestSyncClose(DismissalSource source) override;
   GURL GetInitialURL() override;
   void NotifyIsOverlayShowing(bool is_showing) override;

@@ -33,8 +33,8 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_manager_service.h"
-#include "chrome/browser/ui/browser_manager_service_factory.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
@@ -195,8 +195,7 @@ class PrintPreviewDialogControllerBrowserTest : public printing::PrintPreviewBro
     browsers_.clear();
 
     for (Browser* browser : local_browsers) {
-      BrowserManagerServiceFactory::GetForProfile(browser->GetProfile())
-          ->DeleteBrowser(browser);
+      BrowserManagerService::SynchronouslyDestroyBrowser(browser);
     }
 
     printing::PrintPreviewBrowserTest::TearDownOnMainThread();
@@ -213,9 +212,11 @@ class PrintPreviewDialogControllerBrowserTest : public printing::PrintPreviewBro
 
  protected:
   Browser* CreateBrowser(std::unique_ptr<BrowserWindow> window) {
-    Browser::CreateParams params(browser()->GetProfile(), true);
+    BrowserWindowCreateParams params(browser()->GetProfile(),
+                                     /*from_user_gesture=*/true);
     params.window = window.release();
-    Browser* browser = Browser::Create(params);
+    Browser* browser =
+        CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
     browsers_.push_back(browser);
     return browser;
   }
@@ -822,8 +823,7 @@ IN_PROC_BROWSER_TEST_F(PrintPreviewDialogControllerBrowserTest,
   EXPECT_EQ(3, tab_strip_model->count());
 
   // Close `web_contents_1`'s tab
-  int tab_1_index = tab_strip_model->GetIndexOfWebContents(web_contents_1);
-  tab_strip_model->CloseWebContentsAt(tab_1_index, 0);
+  tab_strip_model->CloseWebContents(web_contents_1, 0);
   EXPECT_EQ(2, tab_strip_model->count());
 
   // Simulate a crash of the render process host for `web_contents_2`. Print

@@ -9,7 +9,9 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
+#include "components/device_signals/core/common/signals_features.h"
 #include "components/enterprise/browser/reporting/report_type.h"
+#include "components/enterprise/browser/reporting/report_util.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
 #include "components/policy/core/common/policy_logger.h"
 #include "components/policy/proto/device_management_backend.pb.h"
@@ -18,17 +20,6 @@ namespace em = enterprise_management;
 
 namespace enterprise_reporting {
 namespace {
-// Retry starts with 1 minute delay and is doubled with every failure.
-const net::BackoffEntry::Policy kDefaultReportUploadBackoffPolicy = {
-    0,  // Number of initial errors to ignore before applying
-        // exponential back-off rules.
-    base::Minutes(2).InMilliseconds(),  // Initial delay
-    2,     // Factor by which the waiting time will be multiplied.
-    0.1,   // Fuzzing percentage.
-    -1,    // No maximum delay.
-    -1,    // It's up to the caller to reset the backoff time.
-    false  // Do not always use initial delay.
-};
 
 void RecordReportResponseMetrics(ReportResponseMetricsStatus status) {
   base::UmaHistogramEnumeration("Enterprise.CloudReportingResponse", status);
@@ -109,14 +100,26 @@ void RecordProfilePolicyStatus(const em::ChromeProfileReportRequest& request,
       request.browser_report().chrome_user_profile_infos_size());
 }
 
+const net::BackoffEntry::Policy* g_backoff_policy_for_testing = nullptr;
+
 }  // namespace
+
+// static
+void ReportUploader::SetBackoffPolicyForTesting(  // IN-TEST
+    const net::BackoffEntry::Policy* backoff_policy) {
+  g_backoff_policy_for_testing = backoff_policy;
+}
 
 ReportUploader::ReportUploader(policy::CloudPolicyClient* client,
                                int maximum_number_of_retries)
     : client_(client),
-      backoff_entry_(&kDefaultReportUploadBackoffPolicy),
+      backoff_entry_(g_backoff_policy_for_testing
+                         ? g_backoff_policy_for_testing
+                         : &kDefaultReportUploadBackoffPolicy),
       maximum_number_of_retries_(maximum_number_of_retries) {}
-ReportUploader::~ReportUploader() = default;
+ReportUploader::~ReportUploader() {
+  CHECK(!listener_);
+}
 
 void ReportUploader::SetRequestAndUpload(const ReportGenerationConfig& config,
                                          ReportRequestQueue requests,
@@ -236,16 +239,53 @@ void ReportUploader::OnRequestFinished(
   }
 }
 
+void ReportUploader::SetListener(Listener* listener) {
+  CHECK(!listener_);
+  listener_ = listener;
+}
+
+void ReportUploader::RemoveListener(Listener* listener) {
+  if (listener_ != listener) {
+    CHECK(!listener_);
+    return;
+  }
+  listener_ = nullptr;
+  backoff_request_timer_.Stop();
+}
+
+bool ReportUploader::HasListener(Listener* listener) const {
+  return listener_ == listener;
+}
+
 void ReportUploader::Retry() {
   backoff_entry_.InformOfRequest(false);
-  // We have retried enough, time to give up.
   if (HasRetriedTooOften()) {
     SendResponse(ReportStatus::kTransientError);
     return;
   }
   backoff_request_timer_.Start(
       FROM_HERE, backoff_entry_.GetTimeUntilRelease(),
-      base::BindOnce(&ReportUploader::Upload, weak_ptr_factory_.GetWeakPtr()));
+      base::BindOnce(&ReportUploader::OnRetryTimerFired,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ReportUploader::NotifyReportWillRetry(
+    const ReportGenerationConfig& config) {
+  if (listener_) {
+    // The listener is responsible for resending the request by calling
+    // `SetRequestAndUpload` again.
+    Listener* listener = listener_;
+    listener_ = nullptr;
+    listener->OnReportWillRetry(config);
+  }
+}
+
+void ReportUploader::OnRetryTimerFired() {
+  if (!listener_) {
+    Upload();
+    return;
+  }
+  NotifyReportWillRetry(config_);
 }
 
 bool ReportUploader::HasRetriedTooOften() {
@@ -253,7 +293,10 @@ bool ReportUploader::HasRetriedTooOften() {
 }
 
 void ReportUploader::SendResponse(const ReportStatus status) {
-  std::move(callback_).Run(status);
+  listener_ = nullptr;
+  if (callback_) {
+    std::move(callback_).Run(status);
+  }
 }
 
 void ReportUploader::NextRequest() {

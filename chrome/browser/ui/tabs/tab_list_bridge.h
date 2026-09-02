@@ -78,6 +78,8 @@ class TabListBridge : public TabListInterface, public TabStripModelObserver {
   gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
   std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) override;
+  std::optional<split_tabs::SplitTabId> CreateSplit(
+      const std::vector<tabs::TabHandle>& tabs) override;
   void SetTabGroupVisualData(
       tab_groups::TabGroupId group_id,
       const tab_groups::TabGroupVisualData& visual_data) override;
@@ -85,6 +87,7 @@ class TabListBridge : public TabListInterface, public TabStripModelObserver {
       std::optional<tab_groups::TabGroupId> group_id,
       const std::set<tabs::TabHandle>& tabs) override;
   void Ungroup(const std::set<tabs::TabHandle>& tabs) override;
+  void Unsplit(split_tabs::SplitTabId split_id) override;
   void MoveGroupTo(tab_groups::TabGroupId group_id, int index) override;
   void MoveTabToWindow(tabs::TabHandle tab,
                        SessionID destination_window_id,

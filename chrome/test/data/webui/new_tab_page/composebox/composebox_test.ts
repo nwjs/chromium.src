@@ -2,14 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ComposeboxElement, SubmitButtonIconType} from 'chrome://new-tab-page/lazy_load.js';
-import {$$} from 'chrome://new-tab-page/new_tab_page.js';
-import {InputType, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import {ComposeboxElement, NtpComposeboxElement, SubmitButtonIconType} from 'chrome://new-tab-page/lazy_load.js';
+import {$$, InputSource, QueryActionOverride} from 'chrome://new-tab-page/new_tab_page.js';
+import {InputType, ModelMode, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
+import type {ComposeboxToolChipElement} from 'chrome://resources/cr_components/composebox/composebox_tool_chip.js';
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import {WindowProxy as CrWindowProxy} from 'chrome://resources/cr_components/composebox/window_proxy.js';
 import type {SearchAnimatedGlowElement} from 'chrome://resources/cr_components/search/animated_glow.js';
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
@@ -42,7 +45,8 @@ suite(`NewTabPageComposeboxTest`, () => {
     testProxy.element.searchboxLayoutMode = 'Compact';
     await microtasksFinished();
 
-    testProxy.element.getInputElement().$.input.value = 'test';
+    (testProxy.element.getInputElement().$.input as HTMLTextAreaElement).value =
+        'test';
     testProxy.element.getInputElement().$.input.dispatchEvent(
         new Event('input'));
     await microtasksFinished();
@@ -59,7 +63,8 @@ suite(`NewTabPageComposeboxTest`, () => {
     testProxy.element.searchboxLayoutMode = 'Compact';
     await microtasksFinished();
 
-    testProxy.element.getInputElement().$.input.value = 'test';
+    (testProxy.element.getInputElement().$.input as HTMLTextAreaElement).value =
+        'test';
     testProxy.element.getInputElement().$.input.dispatchEvent(
         new Event('input'));
     await microtasksFinished();
@@ -108,7 +113,8 @@ suite(`NewTabPageComposeboxTest`, () => {
             'cr-composebox-submit'));
 
         // Add input and files.
-        testProxy.element.getInputElement().$.input.value = 'test';
+        (testProxy.element.getInputElement().$.input as HTMLTextAreaElement)
+            .value = 'test';
         testProxy.element.getInputElement().$.input.dispatchEvent(
             new Event('input'));
         const dataTransfer = new DataTransfer();
@@ -230,7 +236,8 @@ suite(`NewTabPageComposeboxTest`, () => {
           searchboxNextEnabled: true,
         });
         testProxy.element.searchboxLayoutMode = 'Compact';
-        testProxy.element.getInputElement().$.input.value = 'test';
+        (testProxy.element.getInputElement().$.input as HTMLTextAreaElement)
+            .value = 'test';
         testProxy.element.getInputElement().$.input.dispatchEvent(
             new Event('input'));
         await microtasksFinished();
@@ -248,7 +255,8 @@ suite(`NewTabPageComposeboxTest`, () => {
           searchboxNextEnabled: true,
         });
         testProxy.element.searchboxLayoutMode = 'Compact';
-        testProxy.element.getInputElement().$.input.value = '';
+        (testProxy.element.getInputElement().$.input as HTMLTextAreaElement)
+            .value = '';
         testProxy.element.getInputElement().$.input.dispatchEvent(
             new Event('input'));
         await microtasksFinished();
@@ -270,7 +278,8 @@ suite(`NewTabPageComposeboxTest`, () => {
         testProxy.searchboxHandler.getCallCount('openAutocompleteMatch'), 0);
 
     // Arrange.
-    testProxy.element.getInputElement().$.input.value = 'test';
+    (testProxy.element.getInputElement().$.input as HTMLTextAreaElement).value =
+        'test';
     testProxy.element.getInputElement().$.input.dispatchEvent(
         new Event('input'));
     const matches =
@@ -302,7 +311,8 @@ suite(`NewTabPageComposeboxTest`, () => {
         testProxy.searchboxHandler.getCallCount('openAutocompleteMatch'), 0);
 
     // Arrange.
-    testProxy.element.getInputElement().$.input.value = 'test';
+    (testProxy.element.getInputElement().$.input as HTMLTextAreaElement).value =
+        'test';
     testProxy.element.getInputElement().$.input.dispatchEvent(
         new Event('input'));
     const matches =
@@ -399,6 +409,74 @@ suite(`NewTabPageComposeboxTest`, () => {
     assertTrue(openMenuCalled);
   });
 
+  test(
+      'tool chip uses Clank layout for ImageGen and Canvas on Android',
+      async () => {
+        createComposeboxElement(testProxy, {
+          searchboxNextEnabled: true,
+        });
+        testProxy.element.searchboxLayoutMode = 'Compact';
+        testProxy.element.inToolMode = true;
+
+        try {
+          // Guard off: ImageGen renders the legacy layout.
+          loadTimeData.overrideValues({isAndroid: false});
+          testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+              new MockInputState({activeTool: ToolMode.kImageGen}));
+          await testProxy.searchboxCallbackRouterRemote.$.flushForTesting();
+          await microtasksFinished();
+
+          let chip = testProxy.element.shadowRoot
+                         .querySelector<ComposeboxToolChipElement>(
+                             '#toolChipsContainer cr-composebox-tool-chip');
+          assertTrue(
+              !!chip!.shadowRoot.querySelector('#leftCloseIcon'),
+              'ImageGen should render the legacy layout when isAndroid is' +
+                  ' false');
+          assertEquals(
+              'composebox:nanoBanana-custom',
+              chip!.shadowRoot.querySelector<CrIconElement>('.tool-icon')!.icon,
+              'ImageGen should keep the legacy banana icon when isAndroid is' +
+                  ' false');
+
+          // Guard on: ImageGen and Canvas render the Clank layout.
+          loadTimeData.overrideValues({isAndroid: true});
+          testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+              new MockInputState({activeTool: ToolMode.kImageGen}));
+          await testProxy.searchboxCallbackRouterRemote.$.flushForTesting();
+          await microtasksFinished();
+
+          chip = testProxy.element.shadowRoot
+                     .querySelector<ComposeboxToolChipElement>(
+                         '#toolChipsContainer cr-composebox-tool-chip');
+          assertTrue(
+              !!chip!.shadowRoot.querySelector('.chip-close-icon'),
+              'ImageGen should render the Clank close icon when isAndroid is' +
+                  ' true');
+          assertEquals(
+              'composebox:nanoBanana-clank',
+              chip!.shadowRoot
+                  .querySelector<CrIconElement>('.chip-leading-icon')!.icon,
+              'ImageGen should use the Clank banana icon when isAndroid is' +
+                  ' true');
+
+          testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+              new MockInputState({activeTool: ToolMode.kCanvas}));
+          await testProxy.searchboxCallbackRouterRemote.$.flushForTesting();
+          await microtasksFinished();
+
+          chip = testProxy.element.shadowRoot
+                     .querySelector<ComposeboxToolChipElement>(
+                         '#toolChipsContainer cr-composebox-tool-chip');
+          assertTrue(
+              !!chip!.shadowRoot.querySelector('.chip-close-icon'),
+              'Canvas should render the Clank close icon when isAndroid is' +
+                  ' true');
+        } finally {
+          loadTimeData.overrideValues({isAndroid: false});
+        }
+      });
+
   // Required to test how the voice chips are integrated into NTP html
   // (event listeners, id's, classes, etc.):
   suite('voice search', () => {
@@ -426,6 +504,32 @@ suite(`NewTabPageComposeboxTest`, () => {
       await testProxy.element.updateComplete;
     });
 
+    test(
+        'background is opaque when energy effect is enabled during voice search',
+        async () => {
+          // Enter voice search mode with static energy effect enabled.
+          testProxy.element.energyEffectEnabled = true;
+          testProxy.element.energyEffectAnimationEnabled = false;
+          testProxy.element.isListening = true;
+          testProxy.element.inVoiceSearchMode = true;
+          await testProxy.element.updateComplete;
+
+          const animatedGlow = testProxy.element.shadowRoot
+                                   .querySelector<SearchAnimatedGlowElement>(
+                                       'search-animated-glow');
+          assertTrue(!!animatedGlow);
+          await animatedGlow.updateComplete;
+
+          // Verify that search-animated-glow preserves 'display: contents' and
+          // isn't forced to 'display: block' / 'position: absolute'
+          const computedStyle = window.getComputedStyle(animatedGlow);
+          assertEquals(
+              'contents', computedStyle.display,
+              'search-animated-glow should be display: contents during voice search to preserve layout');
+          assertNotEquals(
+              'absolute', computedStyle.position,
+              'search-animated-glow should not be absolute during voice search');
+        });
 
     test(
         'voice search button tab order precedes cancel button' +
@@ -872,6 +976,225 @@ suite(`NewTabPageComposeboxTest`, () => {
               window.getComputedStyle(voiceSearchContainer).position);
         });
   });
+
+  test('handleFuseboxAction applies and resets action state', async () => {
+    const composebox = new NtpComposeboxElement();
+    const inputStateRequested =
+        testProxy.searchboxHandler.whenCalled('getInputState');
+    document.body.appendChild(composebox);
+    await inputStateRequested;
+    await microtasksFinished();
+
+    await composebox.handleFuseboxAction({
+      suggestion: 'paste suggestion',
+      files: [],
+      fuseboxAction: {
+        preselectedTool: ToolMode.kDeepSearch,
+        preferredInventory: SuggestInventory.kBrainstorm,
+        preselectedModel: ModelMode.kGeminiPro,
+        queryActionOverride: QueryActionOverride.kPaste,
+        preselectedInputSource: null,
+        searchboxOverride: null,
+      },
+    });
+    await microtasksFinished();
+    await composebox.updateComplete;
+
+    assertEquals('paste suggestion', composebox.input);
+    assertEquals(SuggestInventory.kBrainstorm, composebox.suggestInventory);
+    assertEquals(
+        1, testProxy.searchboxHandler.getCallCount('setActiveToolMode'));
+    assertEquals(
+        ToolMode.kDeepSearch,
+        testProxy.searchboxHandler.getArgs('setActiveToolMode')[0][0]);
+    assertEquals(
+        1, testProxy.searchboxHandler.getCallCount('setActiveModelMode'));
+    assertEquals(
+        ModelMode.kGeminiPro,
+        testProxy.searchboxHandler.getArgs('setActiveModelMode')[0][0]);
+
+    await composebox.handleFuseboxAction({
+      suggestion: 'second suggestion',
+      files: [],
+      fuseboxAction: {
+        preselectedTool: null,
+        preferredInventory: null,
+        preselectedModel: null,
+        queryActionOverride: QueryActionOverride.kPaste,
+        preselectedInputSource: null,
+        searchboxOverride: null,
+      },
+    });
+    await microtasksFinished();
+    await composebox.updateComplete;
+
+    assertEquals('second suggestion', composebox.input);
+    assertEquals(null, composebox.suggestInventory);
+    assertEquals(
+        1, testProxy.searchboxHandler.getCallCount('setActiveToolMode'));
+    assertEquals(
+        2, testProxy.searchboxHandler.getCallCount('setActiveModelMode'));
+    assertEquals(
+        ModelMode.kUnspecified,
+        testProxy.searchboxHandler.getArgs('setActiveModelMode')[1][0]);
+  });
+
+  test(
+      'handleFuseboxAction triggers imageInput click for kInputSourceGallery',
+      async () => {
+        const composebox = new NtpComposeboxElement();
+        document.body.appendChild(composebox);
+        await microtasksFinished();
+
+        let imageInputClicked = false;
+        const imageInput =
+            composebox.$.fileInputs.shadowRoot.querySelector<HTMLInputElement>(
+                '#imageInput')!;
+        imageInput.addEventListener('click', (e: Event) => {
+          e.preventDefault();
+          imageInputClicked = true;
+        });
+
+        await composebox.handleFuseboxAction({
+          suggestion: '',
+          files: [],
+          fuseboxAction: {
+            preselectedTool: null,
+            preferredInventory: null,
+            preselectedModel: null,
+            queryActionOverride: null,
+            preselectedInputSource: InputSource.kInputSourceGallery,
+            searchboxOverride: null,
+          },
+        });
+        await microtasksFinished();
+
+        assertTrue(imageInputClicked);
+      });
+
+  test(
+      'handleFuseboxAction triggers fileInput click for kInputSourceFilePicker',
+      async () => {
+        const composebox = new NtpComposeboxElement();
+        document.body.appendChild(composebox);
+        await microtasksFinished();
+
+        let fileInputClicked = false;
+        const fileInput =
+            composebox.$.fileInputs.shadowRoot.querySelector<HTMLInputElement>(
+                '#fileInput')!;
+        fileInput.addEventListener('click', (e: Event) => {
+          e.preventDefault();
+          fileInputClicked = true;
+        });
+
+        await composebox.handleFuseboxAction({
+          suggestion: '',
+          files: [],
+          fuseboxAction: {
+            preselectedTool: null,
+            preferredInventory: null,
+            preselectedModel: null,
+            queryActionOverride: null,
+            preselectedInputSource: InputSource.kInputSourceFilePicker,
+            searchboxOverride: null,
+          },
+        });
+        await microtasksFinished();
+
+        assertTrue(fileInputClicked);
+      });
+
+  test(
+      'handleFuseboxAction opens tab picker for kInputSourceTabPicker',
+      async () => {
+        const composebox = new NtpComposeboxElement();
+        composebox.contextMenuEnabled = true;
+        document.body.appendChild(composebox);
+        await microtasksFinished();
+
+        await composebox.handleFuseboxAction({
+          suggestion: '',
+          files: [],
+          fuseboxAction: {
+            preselectedTool: null,
+            preferredInventory: null,
+            preselectedModel: null,
+            queryActionOverride: null,
+            preselectedInputSource: InputSource.kInputSourceTabPicker,
+            searchboxOverride: null,
+          },
+        });
+        await microtasksFinished();
+
+        assertTrue(composebox.shareTabsFlyoutOpen);
+      });
+
+  test(
+      'handleFuseboxAction triggers voice search for kInputSourceVoice',
+      async () => {
+        const composebox = new NtpComposeboxElement();
+        document.body.appendChild(composebox);
+        await microtasksFinished();
+
+        let voiceSearchClicked = false;
+        composebox.onVoiceSearchButtonClick = () => {
+          voiceSearchClicked = true;
+        };
+
+        await composebox.handleFuseboxAction({
+          suggestion: '',
+          files: [],
+          fuseboxAction: {
+            preselectedTool: null,
+            preferredInventory: null,
+            preselectedModel: null,
+            queryActionOverride: null,
+            preselectedInputSource: InputSource.kInputSourceVoice,
+            searchboxOverride: null,
+          },
+        });
+        await microtasksFinished();
+
+        assertTrue(voiceSearchClicked);
+      });
+
+  test(
+      'hint action sets the placeholder and survives input state updates',
+      async () => {
+        const composebox = new NtpComposeboxElement();
+        document.body.appendChild(composebox);
+        await microtasksFinished();
+        await composebox.updateComplete;
+        await composebox.getInputElement().updateComplete;
+        const input = composebox.getInputElement().$.input;
+
+        await composebox.handleFuseboxAction({
+          suggestion: 'chip hint',
+          files: [],
+          fuseboxAction: {
+            preselectedTool: null,
+            preferredInventory: null,
+            preselectedModel: null,
+            queryActionOverride: QueryActionOverride.kHint,
+            preselectedInputSource: null,
+            searchboxOverride: null,
+          },
+        });
+        await composebox.updateComplete;
+        await composebox.getInputElement().updateComplete;
+        assertEquals('chip hint', input.getAttribute('placeholder'));
+
+        // An asynchronous input state update carrying its own hint must not
+        // clobber the active chip hint.
+        testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
+            new MockInputState({hintText: 'server hint'}));
+        await testProxy.searchboxCallbackRouterRemote.$.flushForTesting();
+        await microtasksFinished();
+        await composebox.updateComplete;
+        await composebox.getInputElement().updateComplete;
+        assertEquals('chip hint', input.getAttribute('placeholder'));
+      });
 });
 
 // ==========================================================

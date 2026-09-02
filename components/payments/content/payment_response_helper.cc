@@ -19,9 +19,11 @@
 #include "components/autofill/core/browser/geo/phone_number_i18n.h"
 #include "components/payments/content/payment_request_spec.h"
 #include "components/payments/core/features.h"
+#include "components/payments/core/journey_logger.h"
 #include "components/payments/core/method_strings.h"
 #include "components/payments/core/payment_request_data_util.h"
 #include "components/payments/core/payment_request_delegate.h"
+#include "components/payments/core/payment_request_metrics.h"
 #include "content/public/common/content_features.h"
 
 namespace payments {
@@ -33,12 +35,14 @@ PaymentResponseHelper::PaymentResponseHelper(
     base::WeakPtr<PaymentRequestDelegate> payment_request_delegate,
     autofill::AutofillProfile* selected_shipping_profile,
     autofill::AutofillProfile* selected_contact_profile,
+    base::WeakPtr<JourneyLogger> journey_logger,
     base::WeakPtr<Delegate> delegate)
     : app_locale_(std::move(app_locale)),
       is_waiting_for_shipping_address_normalization_(false),
       is_waiting_for_instrument_details_(false),
       spec_(spec),
       delegate_(delegate),
+      journey_logger_(journey_logger),
       selected_app_(selected_app),
       payment_request_delegate_(payment_request_delegate),
       selected_contact_profile_(selected_contact_profile) {
@@ -68,7 +72,12 @@ PaymentResponseHelper::PaymentResponseHelper(
   selected_app_->InvokePaymentApp(weak_ptr_factory_.GetWeakPtr());
 }
 
-PaymentResponseHelper::~PaymentResponseHelper() = default;
+PaymentResponseHelper::~PaymentResponseHelper() {
+  if (is_waiting_for_user_gesture_ && journey_logger_) {
+    journey_logger_->RecordPaymentHandlerPausedResolutionOutcome(
+        PaymentHandlerPausedResolutionOutcome::kWindowClosed);
+  }
+}
 
 void PaymentResponseHelper::OnInstrumentDetailsReady(
     const std::string& method_name,
@@ -86,13 +95,16 @@ void PaymentResponseHelper::OnInstrumentDetailsReady(
   payer_data_from_app_.selected_shipping_option_id =
       payer_data.selected_shipping_option_id;
   is_waiting_for_instrument_details_ = false;
-
-  if (selected_app_->type() == PaymentApp::Type::SERVICE_WORKER_APP &&
-      base::FeatureList::IsEnabled(
-          features::kPaymentRequestMandatoryPaymentAppUi) &&
-      !WasPaymentHandlerWindowInteractedWith()) {
-    is_waiting_for_user_gesture_ = true;
-    return;
+  if (selected_app_->type() == PaymentApp::Type::SERVICE_WORKER_APP) {
+    if (journey_logger_) {
+      journey_logger_->RecordRespondWithResolvedStatus();
+    }
+    if (base::FeatureList::IsEnabled(
+            features::kPaymentRequestMandatoryPaymentAppUi) &&
+        !WasPaymentHandlerWindowInteractedWith()) {
+      is_waiting_for_user_gesture_ = true;
+      return;
+    }
   }
 
   if (!is_waiting_for_shipping_address_normalization_) {
@@ -107,6 +119,11 @@ void PaymentResponseHelper::OnUserInteractionCaptured() {
 
   is_waiting_for_user_gesture_ = false;
 
+  if (journey_logger_) {
+    journey_logger_->RecordPaymentHandlerPausedResolutionOutcome(
+        PaymentHandlerPausedResolutionOutcome::kUserInteracted);
+  }
+
   if (!is_waiting_for_shipping_address_normalization_) {
     GeneratePaymentResponse();
   }
@@ -120,6 +137,13 @@ void PaymentResponseHelper::OnInstrumentDetailsError(
 
   is_waiting_for_instrument_details_ = false;
   is_waiting_for_shipping_address_normalization_ = false;
+
+  if (selected_app_->type() == PaymentApp::Type::SERVICE_WORKER_APP &&
+      error == mojom::PaymentEventResponseType::PAYMENT_EVENT_REJECT &&
+      journey_logger_) {
+    journey_logger_->RecordRespondWithRejectedStatus();
+  }
+
   delegate_->OnPaymentResponseError(error, error_message);
 }
 

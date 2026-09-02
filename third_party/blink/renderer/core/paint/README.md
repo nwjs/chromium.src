@@ -559,6 +559,16 @@ like layout, hit testing, accessibility, etc. See the
     `IsCanvasOrInCanvasSubtree()` and `IsInCanvasSubtree()` to easily identify
     elements participating in this feature.
 
+### Canvas Transform
+*   **Canvas transform**: `getCanvasTransform()` and `setCanvasTransform()` on
+    `Element` define a transform mapping the element's border box, before CSS
+    transforms, to the canvas coordinate space.
+*   **PaintLayer transform**: When present, the canvas transform is
+    pre-concatenated before CSS transforms in `PaintLayer::UpdateTransform()`.
+*   **Property tree node**: An `ElementCanvasTransform` node is inserted
+    between `AnchorPositionScrollTranslation` and `Translate` so canvas
+    transforms apply before CSS transforms in `GeometryMapper`.
+
 ### Painting
 *   **Special paint flags**: When painting the children of a `layoutsubtree`
     canvas in `PaintLayerPainter::PaintChildren`, we apply special paint flags:

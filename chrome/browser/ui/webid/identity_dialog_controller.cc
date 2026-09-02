@@ -25,10 +25,13 @@
 #include "components/segmentation_platform/public/features.h"
 #include "components/segmentation_platform/public/result.h"
 #include "components/segmentation_platform/public/segmentation_platform_service.h"
+#include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/browser/webid/identity_credential_source.h"
 #include "third_party/blink/public/mojom/webid/federated_request.mojom-shared.h"
+#include "third_party/blink/public/mojom/webid/federated_request.mojom.h"
+#include "url/origin.h"
 
 // We add nognchecks on these includes so that Android bots do not fail
 // dependency checks.
@@ -434,6 +437,28 @@ void IdentityDialogController::OnAccountsDisplayed() {
   std::move(on_accounts_displayed_).Run();
 }
 
+void IdentityDialogController::OnNativeAppResult(const std::string& token) {
+  on_dismiss_.Reset();
+  if (on_native_result_) {
+    std::move(on_native_result_)
+        .Run(content::IdentityRequestDialogController::NativeAppResult{
+            content::IdentityRequestDialogController::NativeAppResult::Type::
+                kToken,
+            token});
+  }
+}
+
+void IdentityDialogController::OnNativeAppLoginFinished() {
+  on_dismiss_.Reset();
+  if (on_native_result_) {
+    std::move(on_native_result_)
+        .Run(content::IdentityRequestDialogController::NativeAppResult{
+            content::IdentityRequestDialogController::NativeAppResult::Type::
+                kLoginFinished,
+            ""});
+  }
+}
+
 void IdentityDialogController::OnAccountSelected(
     const GURL& idp_config_url,
     const std::string& account_id,
@@ -477,6 +502,7 @@ void IdentityDialogController::OnDismiss(DismissReason dismiss_reason) {
   }
 
   on_account_selection_.Reset();
+  on_native_result_.Reset();
   std::move(on_dismiss_).Run(dismiss_reason);
 
   // Do not access member variables from this point onwards because
@@ -513,8 +539,10 @@ content::WebContents* IdentityDialogController::ShowModalDialog(
     blink::mojom::RpMode rp_mode,
     DismissCallback dismiss_callback,
     content::IdentityRequestDialogController::ShownModalAsyncCallback
-        on_shown_async) {
+        on_shown_async,
+    NativeAppResultCallback native_result_callback) {
   on_dismiss_ = std::move(dismiss_callback);
+  on_native_result_ = std::move(native_result_callback);
   rp_mode_ = rp_mode;
   if (!TrySetAccountView()) {
     NotifyEmbedderOfResult(FederatedLoginResult::kFrameNotActive);

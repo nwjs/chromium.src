@@ -16,6 +16,7 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -27,10 +28,8 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
-import org.chromium.chrome.test.transit.ChromeTriggers;
 import org.chromium.chrome.test.transit.bookmarks.BookmarksPhoneStation;
 import org.chromium.chrome.test.transit.bookmarks.BookmarksTabletStation;
-import org.chromium.chrome.test.transit.hub.RegularTabSwitcherStation;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageAppMenuFacility;
 import org.chromium.chrome.test.transit.ntp.IncognitoNewTabPageStation;
 import org.chromium.chrome.test.transit.ntp.RegularNewTabPageAppMenuFacility;
@@ -94,6 +93,7 @@ public class TabbedAppMenuPTTest {
     @Test
     @LargeTest
     @Restriction(DeviceFormFactor.TABLET_OR_DESKTOP)
+    @DisabledTest(message = "https://crbug.com/539895864")
     public void testOpenBookmarksTablet() {
         WebPageStation pageStation = mCtaTestRule.startOnBlankPage();
 
@@ -120,6 +120,7 @@ public class TabbedAppMenuPTTest {
     /** Tests that "Settings" opens the SettingsActivity. */
     @Test
     @LargeTest
+    @DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB) // crbug.com/521895796
     public void testOpenSettings() {
         WebPageStation pageStation = mCtaTestRule.startOnBlankPage();
         Tab tab = pageStation.loadedTabElement.value();
@@ -227,6 +228,7 @@ public class TabbedAppMenuPTTest {
     @LargeTest
     @Feature({"RenderTest"})
     @EnableFeatures({ChromeFeatureList.HOME_BUTTON_REMOVAL + ":keep_home_button_on_ntp/true"})
+    @DisabledTest(message = "https://crbug.com/540904292")
     public void testWebPageIncognitoAppMenuItems_withHomeButtonRemovalKeepOnNtp()
             throws IOException {
         String appMenuGoldenId =
@@ -251,26 +253,5 @@ public class TabbedAppMenuPTTest {
 
         // Clean up for next tests in batch
         menu.clickOutsideToClose();
-    }
-
-    /** Tests that entering the Tab Switcher causes the app menu to close. */
-    @Test
-    @LargeTest
-    public void testHideMenuOnToggleOverview() {
-        WebPageStation page = mCtaTestRule.startOnBlankPage();
-
-        page.openRegularTabAppMenu();
-
-        // Go to Tab Switcher programmatically because the App Menu covers the button.
-        RegularTabSwitcherStation tabSwitcher =
-                RegularTabSwitcherStation.from(page.getTabModelSelector());
-        ChromeTriggers.showTabSwitcherLayoutTo(page).arriveAt(tabSwitcher);
-
-        tabSwitcher.openAppMenu();
-
-        // Go to a Web Page programmatically because tapping outside the app menu causes it to
-        // capture the event and close.
-        ChromeTriggers.showBrowsingLayoutTo(tabSwitcher)
-                .arriveAt(WebPageStation.newBuilder().initFrom(page).build());
     }
 }

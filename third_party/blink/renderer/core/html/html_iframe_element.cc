@@ -393,28 +393,6 @@ void HTMLIFrameElement::ParseAttribute(
                           WebFeature::kSharedStorageAPI_Iframe_Attribute);
       }
     }
-  } else if (name == html_names::kSharedstoragewritableAttr &&
-             GetExecutionContext() &&
-             RuntimeEnabledFeatures::SharedStorageAPIEnabled(
-                 GetExecutionContext())) {
-    if (!GetExecutionContext()->IsSecureContext()) {
-      GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-          mojom::blink::ConsoleMessageSource::kOther,
-          mojom::blink::ConsoleMessageLevel::kError,
-          String("sharedStorageWritable: sharedStorage operations "
-                 "are only available in secure contexts.")));
-    } else {
-      if (params.new_value.IsNull() != params.old_value.IsNull()) {
-        should_call_did_change_attributes = true;
-      }
-      if (!params.new_value.IsNull()) {
-        UseCounter::Count(GetDocument(),
-                          WebFeature::kSharedStorageAPI_Iframe_Attribute);
-        Deprecation::CountDeprecation(
-            GetExecutionContext(),
-            mojom::blink::WebFeature::kSharedStorageAPIAll);
-      }
-    }
   } else if (name == html_names::kCredentiallessAttr &&
              RuntimeEnabledFeatures::AnonymousIframeEnabled()) {
     bool new_value = !value.IsNull();
@@ -724,12 +702,6 @@ void HTMLIFrameElement::DidChangeAttributes() {
       ParseConnectionAllowlistAttribute(required_connection_allowlist_);
   attributes->credentialless = credentialless_;
 
-
-  if (RuntimeEnabledFeatures::SharedStorageAPIEnabled(GetExecutionContext()) &&
-      GetExecutionContext()->IsSecureContext()) {
-    attributes->shared_storage_writable_opted_in =
-        FastHasAttribute(html_names::kSharedstoragewritableAttr);
-  }
 
   attributes->id = ConvertToReportValue(id_);
   attributes->name = ConvertToReportValue(name_);

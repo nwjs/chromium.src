@@ -24,6 +24,10 @@ glic::mojom::SkillSource SyncPbToGlicMojomSkillSource(
       return glic::mojom::SkillSource::kUserCreated;
     case sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_FIRST_PARTY:
       return glic::mojom::SkillSource::kDerivedFromFirstParty;
+    case sync_pb::SkillSource::SKILL_SOURCE_ENTERPRISE:
+      return glic::mojom::SkillSource::kEnterprise;
+    case sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_ENTERPRISE:
+      return glic::mojom::SkillSource::kDerivedFromEnterprise;
   }
   NOTREACHED();
 }
@@ -39,6 +43,10 @@ sync_pb::SkillSource GlicMojomToSyncPbSkillSource(
       return sync_pb::SkillSource::SKILL_SOURCE_USER_CREATED;
     case glic::mojom::SkillSource::kDerivedFromFirstParty:
       return sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_FIRST_PARTY;
+    case glic::mojom::SkillSource::kEnterprise:
+      return sync_pb::SkillSource::SKILL_SOURCE_ENTERPRISE;
+    case glic::mojom::SkillSource::kDerivedFromEnterprise:
+      return sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_ENTERPRISE;
   }
   NOTREACHED();
 }
@@ -54,10 +62,18 @@ glic::mojom::SkillPreviewPtr SkillToGlicMojomSkillPreview(
   if (!skill->curated_by.empty()) {
     curated_by = skill->curated_by;
   }
+  std::optional<std::string> category;
+  if (!skill->category.empty()) {
+    category = skill->category;
+  }
+  std::optional<base::Time> creation_time;
+  if (!skill->creation_time.is_null()) {
+    creation_time = skill->creation_time;
+  }
   return glic::mojom::SkillPreview::New(
       skill->id, skill->name, skill->icon,
       SyncPbToGlicMojomSkillSource(skill->source), skill->description,
-      curated_by, image_url);
+      curated_by, image_url, category, creation_time);
 }
 
 }  // namespace skills

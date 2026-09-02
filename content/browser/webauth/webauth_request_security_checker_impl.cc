@@ -33,6 +33,7 @@
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "third_party/blink/public/mojom/webauthn/authenticator.mojom.h"
@@ -159,6 +160,23 @@ WebAuthRequestSecurityCheckerImpl::ValidateDomainAndRelyingPartyID(
     RequestType request_type,
     const std::optional<url::Origin>& remote_desktop_client_override_origin,
     base::OnceCallback<void(blink::mojom::AuthenticatorStatus)> callback) {
+  if (remote_desktop_client_override_origin.has_value()) {
+    // SECURITY: `remote_desktop_client_override_origin` comes from the renderer
+    // process and should not be trusted by default. We only allow its use when
+    // the `caller_origin` is explicitly allowlisted through device level
+    // enterprise policy.
+    if (!GetContentClient()
+             ->browser()
+             ->GetWebAuthenticationDelegate()
+             ->OriginMayUseRemoteDesktopClientOverride(
+                 render_frame_host_->GetBrowserContext(), caller_origin)) {
+      std::move(callback).Run(
+          blink::mojom::AuthenticatorStatus::
+              REMOTE_DESKTOP_CLIENT_OVERRIDE_NOT_AUTHORIZED);
+      return nullptr;
+    }
+  }
+
 #if !BUILDFLAG(IS_ANDROID)
   // Extensions are not supported on Android.
   if (GetContentClient()
@@ -188,24 +206,8 @@ WebAuthRequestSecurityCheckerImpl::ValidateDomainAndRelyingPartyID(
     return nullptr;
   }
 
-  url::Origin relying_party_origin = caller_origin;
-  if (remote_desktop_client_override_origin.has_value()) {
-    // SECURITY: `remote_desktop_client_override_origin` comes from the renderer
-    // process and should not be trusted by default. We only allow its use when
-    // the `caller_origin` is explicitly allowlisted through device level
-    // enterprise policy.
-    if (!GetContentClient()
-             ->browser()
-             ->GetWebAuthenticationDelegate()
-             ->OriginMayUseRemoteDesktopClientOverride(
-                 render_frame_host_->GetBrowserContext(), caller_origin)) {
-      std::move(callback).Run(
-          blink::mojom::AuthenticatorStatus::
-              REMOTE_DESKTOP_CLIENT_OVERRIDE_NOT_AUTHORIZED);
-      return nullptr;
-    }
-    relying_party_origin = remote_desktop_client_override_origin.value();
-  }
+  url::Origin relying_party_origin =
+      remote_desktop_client_override_origin.value_or(caller_origin);
 
   if (webauthn::OriginIsAllowedToClaimRelyingPartyId(relying_party_id,
                                                      relying_party_origin)) {
@@ -222,9 +224,20 @@ WebAuthRequestSecurityCheckerImpl::ValidateDomainAndRelyingPartyID(
   std::optional<GURL> remote_validation_url =
       webauthn::GetRemoteValidationUrl(relying_party_id);
 
+  network::mojom::NetworkContext* network_context =
+      render_frame_host_->GetProcess()
+          ->GetStoragePartition()
+          ->GetNetworkContext();
+  net::NetworkAnonymizationKey network_anonymization_key =
+      render_frame_host_->GetIsolationInfoForSubresources()
+          .network_anonymization_key();
+  std::optional<base::UnguessableToken> reporting_source =
+      render_frame_host_->GetReportingSource();
+
   if (remote_validation_url.has_value() &&
       !ConnectionAllowlistAllowsUrlAndReportIfNeeded(
-          policy_container_host->policies(), *remote_validation_url)) {
+          policy_container_host->policies(), *remote_validation_url,
+          network_context, network_anonymization_key, reporting_source)) {
     std::move(callback).Run(
         blink::mojom::AuthenticatorStatus::NOT_ALLOWED_ERROR);
     return nullptr;

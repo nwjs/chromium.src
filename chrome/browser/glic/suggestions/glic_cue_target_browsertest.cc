@@ -30,13 +30,17 @@ class GlicCueTargetBrowserTest : public GlicApiBrowserTest {
 
   void SetUpOnMainThread() override {
     GlicApiBrowserTest::SetUpOnMainThread();
-    GlicEnabling::SetBypassEnablementChecksForTesting(true);
+    scoped_glic_bypass_.emplace();
   }
 
   void TearDownOnMainThread() override {
-    GlicEnabling::SetBypassEnablementChecksForTesting(false);
+    scoped_glic_bypass_.reset();
     GlicApiBrowserTest::TearDownOnMainThread();
   }
+
+ private:
+  std::optional<GlicEnabling::ScopedBypassEnablementChecksForTesting>
+      scoped_glic_bypass_;
 };
 
 class GlicCueTargetBrowserTestAutoSubmitEnabled
@@ -62,6 +66,14 @@ class GlicCueTargetBrowserTestAutoSubmitDisabled
   base::test::ScopedFeatureList features_;
 };
 
+IN_PROC_BROWSER_TEST_F(GlicCueTargetBrowserTest, testAllTestsAreRegistered) {
+  AssertAllTestsRegistered({
+      "GlicCueTargetBrowserTest",
+      "GlicCueTargetBrowserTestAutoSubmitEnabled",
+      "GlicCueTargetBrowserTestAutoSubmitDisabled",
+  });
+}
+
 IN_PROC_BROWSER_TEST_F(GlicCueTargetBrowserTest, testIsEligible) {
   GlicCueTarget target(*service(), nullptr,
                        *GetTabListInterface()->GetActiveTab());
@@ -81,15 +93,8 @@ IN_PROC_BROWSER_TEST_F(GlicCueTargetBrowserTest, testIsEligible) {
   GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip, false);
   EXPECT_FALSE(target.IsEligible());
 
-  // Ineligible if tab context sharing is disabled.
-  GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip, true);
-  GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicDefaultTabContextEnabled,
-                                       false);
-  EXPECT_FALSE(target.IsEligible());
-
   // Clean up.
-  GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicDefaultTabContextEnabled,
-                                       true);
+  GetProfile()->GetPrefs()->SetBoolean(prefs::kGlicPinnedToTabstrip, true);
   EXPECT_TRUE(target.IsEligible());
 }
 

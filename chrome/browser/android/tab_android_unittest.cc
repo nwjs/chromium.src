@@ -17,11 +17,10 @@
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/actor_util.h"
-#include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
+#include "chrome/browser/actor/ui/test_support/mock_actor_ui_tab_controller.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/android/tab_features.h"
 #include "chrome/browser/android/tab_group_android.h"
-#include "chrome/browser/android/tab_interface_android.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
@@ -43,37 +42,13 @@
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_renderer_host.h"
+#include "content/public/test/test_utils.h"
 #include "net/http/http_response_headers.h"
 #include "services/network/public/mojom/web_sandbox_flags.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace {
 constexpr int kTabId = 1;
-
-class MockActorUiTabController
-    : public actor::ui::ActorUiTabControllerInterface {
- public:
-  explicit MockActorUiTabController(tabs::TabInterface& tab)
-      : ActorUiTabControllerInterface(tab) {}
-  ~MockActorUiTabController() override = default;
-
-  // ActorUiTabControllerInterface:
-  void OnUiTabStateChange(const actor::ui::UiTabState& ui_tab_state,
-                          actor::ui::UiResultCallback callback) override {
-    std::move(callback).Run(true);
-  }
-  void SetActorTaskPaused() override {}
-  void SetActorTaskResume() override {}
-  base::WeakPtr<ActorUiTabControllerInterface> GetWeakPtr() override {
-    return weak_ptr_factory_.GetWeakPtr();
-  }
-  actor::ui::UiTabState GetCurrentUiTabState() const override {
-    return actor::ui::UiTabState();
-  }
-
- private:
-  base::WeakPtrFactory<MockActorUiTabController> weak_ptr_factory_{this};
-};
 }  // namespace
 
 class TabAndroidTest : public testing::Test {
@@ -148,10 +123,12 @@ TEST_F(TabAndroidTest, PinnedCollectionParent) {
 
   std::unique_ptr<tabs::PinnedTabCollection> pinned_collection =
       std::make_unique<tabs::PinnedTabCollection>();
-  pinned_collection->AddTab(std::make_unique<TabInterfaceAndroid>(tab_android_),
-                            0);
+  pinned_collection->AddTab(tabs::ScopedTab(tab_android_), 0);
 
   EXPECT_TRUE(tab_android_->IsPinned());
+  tabs::ScopedTab removed_pinned_tab =
+      pinned_collection->MaybeRemoveTab(tab_android_);
+  EXPECT_EQ(removed_pinned_tab.get(), tab_android_);
 }
 
 TEST_F(TabAndroidTest, TabGroupTabCollectionParent) {
@@ -163,10 +140,12 @@ TEST_F(TabAndroidTest, TabGroupTabCollectionParent) {
   std::unique_ptr<tabs::TabGroupTabCollection> tab_group_collection =
       std::make_unique<tabs::TabGroupTabCollection>(factory, tab_group_id,
                                                     visual_data);
-  tab_group_collection->AddTab(
-      std::make_unique<TabInterfaceAndroid>(tab_android_), 0);
+  tab_group_collection->AddTab(tabs::ScopedTab(tab_android_), 0);
 
   EXPECT_EQ(tab_group_id, *(tab_android_->GetGroup()));
+  tabs::ScopedTab removed_group_tab =
+      tab_group_collection->MaybeRemoveTab(tab_android_);
+  EXPECT_EQ(removed_group_tab.get(), tab_android_);
 }
 
 TEST_F(TabAndroidTest, WebUIEmbeddingContext) {
@@ -250,7 +229,7 @@ TEST_F(GlicTabAndroidTest, IsWebContentsCreationOverridden_GlicSandboxCheck) {
   ASSERT_NE(nullptr, task);
 
   // Add the tab to the task.
-  MockActorUiTabController mock_controller(*tab);
+  actor::ui::MockActorUiTabController mock_controller(*tab);
   actor::AddTabToTask(*tab, *task);
 
   // Ensure HasActorTaskPreventingNewWebContents returns true.
@@ -283,10 +262,9 @@ TEST_F(GlicTabAndroidTest, IsWebContentsCreationOverridden_GlicSandboxCheck) {
 }
 
 TEST_F(TabAndroidTest, Getters) {
-  TabInterfaceAndroid tab_interface(tab_android_);
-  EXPECT_EQ(u"about:blank", tab_interface.GetTitle());
-  EXPECT_EQ(GURL("about:blank"), tab_interface.GetURL());
-  base::Time last_active_time = tab_interface.GetLastActiveTime();
+  EXPECT_EQ(u"about:blank", tab_android_->GetTitle());
+  EXPECT_EQ(GURL("about:blank"), tab_android_->GetURL());
+  base::Time last_active_time = tab_android_->GetLastActiveTime();
   EXPECT_LT(base::Time::UnixEpoch(), last_active_time);
 }
 
@@ -389,6 +367,56 @@ TEST_F(TabAndroidTest, GracefulShutdownNavigationObserverSafety) {
   EXPECT_TRUE(test_observer.did_start_called_);
 
   task_environment_.RunUntilIdle();
+}
+
+TEST_F(TabAndroidTest,
+       DestroyWebContentsSlowShutdown_ImmediateDestructionOnProfileShutdown) {
+  content::RenderViewHostTestEnabler rvh_test_enabler;
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      chrome::android::kTabAndroidGracefulShutdown);
+
+  Profile* otr_profile =
+      profile_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  std::unique_ptr<content::WebContents> web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(otr_profile));
+  content::WebContents* raw_web_contents = web_contents.get();
+  content::WebContentsDestroyedWatcher watcher(raw_web_contents);
+
+  std::unique_ptr<TabAndroid> tab = TabAndroid::CreateForTesting(
+      otr_profile, kTabId + 1, std::move(web_contents));
+
+  // Perform slow shutdown.
+  tab->DestroyWebContentsSlowShutdownForTesting();
+  EXPECT_FALSE(watcher.IsDestroyed());
+
+  // Release the tab before destroying the profile to avoid dangling pointer
+  // warnings.
+  tab.reset();
+  EXPECT_FALSE(watcher.IsDestroyed());
+
+  // Initiating OffTheRecord profile destruction during slow shutdown should
+  // immediately destroy the WebContents without advancing mock time.
+  profile_->DestroyOffTheRecordProfile(otr_profile);
+  EXPECT_TRUE(watcher.IsDestroyed());
+}
+
+TEST_F(TabAndroidTest, CollectionDestructionClearsParentPointer) {
+  EXPECT_EQ(tab_android_->GetParentCollection(), nullptr);
+
+  auto pinned_collection = std::make_unique<tabs::PinnedTabCollection>();
+  tabs::TabCollection* pinned_collection_ptr = pinned_collection.get();
+  pinned_collection->AddTab(tabs::ScopedTab(tab_android_), 0);
+  EXPECT_EQ(tab_android_->GetParentCollection(), pinned_collection_ptr);
+
+  // Destroy the collection holding the tab.
+  pinned_collection.reset();
+
+  // The TabAndroid parent pointer should be cleanly cleared to nullptr,
+  // and subsequent destruction in TearDown() will not hit
+  // CHECK(!parent_collection_).
+  EXPECT_EQ(tab_android_->GetParentCollection(), nullptr);
 }
 
 DEFINE_JNI(TabAndroidTestHelper)

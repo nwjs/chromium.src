@@ -17,10 +17,10 @@
 #include "chrome/browser/extensions/extension_ui_util.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
 #include "chrome/browser/ui/extensions/extensions_menu_view_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
@@ -270,6 +270,9 @@ void ExtensionsMenuDelegateDesktop::OnActionRemoved(
   auto* main_page = GetMainPage(current_page_.view());
   CHECK(main_page);
   main_page->RemoveMenuEntry(index);
+  if (main_page->GetMenuEntries().empty()) {
+    CloseBubble();
+  }
 }
 
 void ExtensionsMenuDelegateDesktop::OnActionUpdated(
@@ -406,6 +409,10 @@ void ExtensionsMenuDelegateDesktop::OpenMainPage() {
   auto main_page = std::make_unique<ExtensionsMenuMainPageView>(browser_, this);
   UpdateMainPage(main_page.get());
   PopulateMainPage(main_page.get());
+  if (main_page->GetMenuEntries().empty()) {
+    CloseBubble();
+    return;
+  }
 
   SwitchToPage(std::move(main_page));
 }

@@ -23,6 +23,7 @@
 #include "chrome/browser/glic/browser_ui/tab_underline_controller.h"
 #include "chrome/browser/glic/browser_ui/tab_underline_view.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
+#include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -37,11 +38,13 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/event_utils.h"
+#include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/browser_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
+#include "chrome/browser/ui/views/tabs/tab/glow_hover_controller.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_accessibility.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
@@ -63,6 +66,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/base/pointer/touch_ui_controller.h"
+#include "ui/base/theme_provider.h"
 #include "ui/compositor/clip_recorder.h"
 #include "ui/compositor/compositor.h"
 #include "ui/gfx/animation/tween.h"
@@ -159,6 +163,118 @@ class TabStyleHighlightPathGenerator : public views::HighlightPathGenerator {
   const raw_ptr<TabStyleViews, AcrossTasksDanglingUntriaged> tab_style_views_;
 };
 
+class TabStyleViewDelegateImpl : public TabStyleViewDelegate {
+ public:
+  explicit TabStyleViewDelegateImpl(const Tab* tab) : tab_(tab) { CHECK(tab_); }
+  ~TabStyleViewDelegateImpl() override = default;
+
+  const views::View* GetView() const override { return tab_; }
+  bool IsActive() const override { return tab_->IsActive(); }
+  bool IsSelected() const override { return tab_->IsSelected(); }
+  bool IsHovering() const override { return tab_->IsHovering(); }
+  bool IsClosing() const override { return tab_->closing(); }
+  std::optional<tab_groups::TabGroupId> GetGroup() const override {
+    return tab_->group();
+  }
+  std::optional<SkColor> GetGroupColor() const override {
+    return tab_->GetGroupColor();
+  }
+  bool IsInFocusedGroup() const override {
+    const std::optional<tab_groups::TabGroupId> group = tab_->group();
+    return group.has_value() && tab_->controller()->GetFocusedGroup() == group;
+  }
+  bool IsSplit() const override { return tab_->split().has_value(); }
+  std::optional<split_tabs::SplitTabId> GetSplit() const override {
+    return tab_->split();
+  }
+  int GetTabCount() const override { return tab_->controller()->GetTabCount(); }
+
+  bool IsLeftSplitTab() const override {
+    if (!tab_->split().has_value()) {
+      return false;
+    }
+    const std::vector<Tab*>& tabs_in_split =
+        tab_->controller()->GetTabsInSplit(tab_);
+    if (tabs_in_split.size() < 2) {
+      return true;
+    }
+    return tab_ ==
+           tabs_in_split[base::i18n::IsRTL() ? tabs_in_split.size() - 1 : 0];
+  }
+
+  bool IsRightSplitTab() const override {
+    if (!tab_->split().has_value()) {
+      return false;
+    }
+    const std::vector<Tab*>& tabs_in_split =
+        tab_->controller()->GetTabsInSplit(tab_);
+    if (tabs_in_split.size() < 2) {
+      return true;
+    }
+    return tab_ ==
+           tabs_in_split[base::i18n::IsRTL() ? 0 : tabs_in_split.size() - 1];
+  }
+
+  const TabStyleViewDelegate* GetAdjacentTab(bool leading) const override {
+    const Tab* adjacent =
+        tab_->controller()->GetAdjacentTab(tab_, leading ? -1 : 1);
+    return (adjacent && adjacent->tab_style_views())
+               ? adjacent->tab_style_views()->delegate()
+               : nullptr;
+  }
+
+  float GetHoverAnimationValue() const override {
+    return tab_->GetHoverAnimationValue();
+  }
+
+  float GetHoverOpacity() const override { return tab_->GetHoverOpacity(); }
+
+  bool IsHoverAnimationActive() const override {
+    return tab_->IsHoverAnimationActive();
+  }
+
+  bool IsGlassFrame() const override {
+    return tab_->controller()->IsGlassFrame();
+  }
+
+  bool IsPinned() const override { return tab_->data().pinned; }
+
+  bool ShouldPaintTabBackgroundColor() const override {
+    return tab_->should_fill_background_tab_color();
+  }
+
+  int GetStrokeThickness() const override {
+    return tab_->controller()->GetStrokeThickness();
+  }
+
+  GlowHoverController* GetHoverControllerForTesting() override {
+    return const_cast<Tab*>(tab_.get())
+        ->GetHoverControllerForTesting();  // IN-TEST
+  }
+
+  BrowserFrameView* GetBrowserFrameView() const override {
+    BrowserWindowInterface* browser_window_interface =
+        tab_->controller()->GetBrowserWindowInterface();
+    if (!browser_window_interface) {
+      CHECK_IS_TEST();
+      return nullptr;
+    }
+    BrowserView* browser_view =
+        BrowserView::GetBrowserViewForBrowser(browser_window_interface);
+    if (!browser_view || !browser_view->browser_widget()) {
+      return nullptr;
+    }
+    return browser_view->browser_widget()->GetFrameView();
+  }
+
+  BrowserWindowInterface* GetBrowserWindowInterface() const override {
+    return tab_->controller()->GetBrowserWindowInterface();
+  }
+
+ private:
+  const raw_ptr<const Tab> tab_;
+};
+
 }  // namespace
 
 // Helper class that observes the tab's close button.
@@ -218,11 +334,15 @@ Tab::Tab(tabs::TabHandle handle, TabSlotController* controller)
     : HoverCardAnchorTarget(this),
       tab_handle_(handle),
       controller_(controller),
+      hover_controller_(gfx::Animation::ShouldRenderRichAnimation()
+                            ? std::make_unique<GlowHoverController>(this)
+                            : nullptr),
       title_(new TabTitle()),
       title_animation_(this) {
   DCHECK(controller);
 
-  tab_style_views_ = TabStyleViews::CreateForTab(this);
+  tab_style_views_ = TabStyleViews::Create(CreateStyleDelegate(this),
+                                           TabStripOrientation::kHorizontal);
 
   // So we get don't get enter/exit on children and don't prematurely stop the
   // hover.
@@ -512,6 +632,13 @@ void Tab::Layout(PassKey) {
 }
 
 bool Tab::OnKeyPressed(const ui::KeyEvent& event) {
+#if BUILDFLAG(IS_MAC)
+  if (event.key_code() == ui::VKEY_RETURN && event.IsControlDown()) {
+    ShowContextMenu(GetKeyboardContextMenuLocation(),
+                    ui::mojom::MenuSourceType::kKeyboard);
+    return true;
+  }
+#endif
   if (event.key_code() == ui::VKEY_RETURN && !IsSelected()) {
     controller_->SelectTab(this, event);
     return true;
@@ -583,10 +710,14 @@ bool Tab::OnMousePressed(const ui::MouseEvent& event) {
                                    parent());
     if (event.IsShiftDown() && IsSelectionModifierDown(event)) {
       controller_->AddSelectionFromAnchorTo(this);
+      base::RecordAction(
+          UserMetricsAction("TabMultiSelect_AddSelectionFromAnchorTo"));
     } else if (event.IsShiftDown()) {
       controller_->ExtendSelectionTo(this);
+      base::RecordAction(UserMetricsAction("TabMultiSelect_ExtendSelectionTo"));
     } else if (IsSelectionModifierDown(event)) {
       controller_->ToggleSelected(this);
+      base::RecordAction(UserMetricsAction("TabMultiSelect_ToggleSelected"));
       if (!IsSelected()) {
         // Don't allow dragging non-selected tabs.
         return false;
@@ -808,6 +939,10 @@ void Tab::OnBlur() {
 
 void Tab::OnThemeChanged() {
   TabSlotView::OnThemeChanged();
+  if (auto* theme_provider = GetThemeProvider()) {
+    should_fill_background_tab_color_ = theme_provider->GetDisplayProperty(
+        ThemeProperties::SHOULD_FILL_BACKGROUND_TAB_COLOR);
+  }
   UpdateForegroundColors();
 }
 
@@ -872,7 +1007,8 @@ void Tab::SetClosing(bool closing) {
 }
 
 std::optional<SkColor> Tab::GetGroupColor() const {
-  if (closing_ || !group().has_value()) {
+  if (closing_ || !group().has_value() ||
+      controller_->GetFocusedGroup() == group()) {
     return std::nullopt;
   }
 
@@ -960,26 +1096,119 @@ void Tab::StepLoadingAnimation(const base::TimeDelta& elapsed_time) {
   icon_->SetCanPaintToLayer(controller_->CanPaintThrobberToLayer());
 }
 
-void Tab::CreateFreezingVote(content::WebContents* contents) {
-  if (!freezing_vote_.has_value()) {
-    freezing_vote_.emplace(contents);
+void Tab::CreateFreezingVote(FreezingVoteReason reason,
+                             content::WebContents* contents) {
+  auto& vote = GetFreezingVote(reason);
+  if (!vote.has_value()) {
+    vote.emplace(contents);
   }
 }
 
-void Tab::ReleaseFreezingVote() {
-  freezing_vote_.reset();
+void Tab::ReleaseFreezingVote(FreezingVoteReason reason) {
+  GetFreezingVote(reason).reset();
+}
+
+bool Tab::HasFreezingVote(FreezingVoteReason reason) const {
+  switch (reason) {
+    case FreezingVoteReason::kCollapsedGroup:
+      return collapsed_freezing_vote_.has_value();
+    case FreezingVoteReason::kFocusedGroup:
+      return focus_mode_freezing_vote_.has_value();
+  }
+  NOTREACHED();
+}
+
+bool Tab::HasFreezingVote() const {
+  return collapsed_freezing_vote_.has_value() ||
+         focus_mode_freezing_vote_.has_value();
 }
 
 void Tab::ShowHover(TabStyle::ShowHoverStyle style) {
-  tab_style_views()->ShowHover(style);
+  if (hover_controller_) {
+    if (style == TabStyle::ShowHoverStyle::kSubtle) {
+      hover_controller_->SetSubtleOpacityScale(
+          controller()->GetHoverOpacityForRadialHighlight());
+    }
+    hover_controller_->Show(style);
+  }
   UpdateForegroundColors();
   DeprecatedLayoutImmediately();
 }
 
 void Tab::HideHover(TabStyle::HideHoverStyle style) {
-  tab_style_views()->HideHover(style);
+  if (hover_controller_) {
+    hover_controller_->Hide(style);
+  }
   UpdateForegroundColors();
   DeprecatedLayoutImmediately();
+}
+
+double Tab::GetHoverAnimationValue() const {
+  if (!hover_controller_) {
+    return IsHoverAnimationActive() ? 1.0 : 0.0;
+  }
+  return hover_controller_->GetAnimationValue();
+}
+
+float Tab::GetHoverOpacity() const {
+  const float range_start =
+      static_cast<float>(tab_style()->GetStandardWidth(/*is_split*/ false));
+  constexpr float kWidthForMaxHoverOpacity = 32.0f;
+  const float value_in_range = static_cast<float>(width());
+  const float t = std::clamp(
+      (value_in_range - range_start) / (kWidthForMaxHoverOpacity - range_start),
+      0.0f, 1.0f);
+  return controller()->GetHoverOpacityForTab(t * t);
+}
+
+bool Tab::IsHoverAnimationActive() const {
+  return IsHovering() || (hover_controller_ && hover_controller_->ShouldDraw());
+}
+
+bool Tab::IsHovering() const {
+  if (mouse_hovered()) {
+    return true;
+  }
+
+  return std::ranges::any_of(controller()->GetTabsInSplit(this),
+                             [](const Tab* split_tab) {
+                               return split_tab && split_tab->mouse_hovered();
+                             });
+}
+
+float Tab::GetZValue() const {
+  // This will return values so that inactive tabs can be sorted in the
+  // following order:
+  //
+  // o Unselected tabs, in ascending hover animation value order.
+  // o The single unselected tab being hovered by the mouse, if present.
+  // o Selected tabs, in ascending hover animation value order.
+  // o The single selected tab being hovered by the mouse, if present.
+  //
+  // Representing the above groupings is accomplished by adding a "weight" to
+  // the current hover animation value.
+  //
+  // 0.0 == z-value         Unselected/non hover animating.
+  // 0.0 <  z-value <= 1.0  Unselected/hover animating.
+  // 2.0 <= z-value <= 3.0  Unselected/mouse hovered tab.
+  // 4.0 == z-value         Selected/non hover animating.
+  // 4.0 <  z-value <= 5.0  Selected/hover animating.
+  // 6.0 <= z-value <= 7.0  Selected/mouse hovered tab.
+  //
+  // This function doesn't handle active tabs, as they are normally painted by a
+  // different code path (with z-value infinity).
+  float sort_value = GetHoverAnimationValue();
+  if (IsSelected()) {
+    sort_value += 4.f;
+  }
+  if (IsHovering()) {
+    sort_value += 2.f;
+  }
+
+  DCHECK_GE(sort_value, 0.0f);
+  DCHECK_LE(sort_value, TabStyle::kMaximumZValue);
+
+  return sort_value;
 }
 
 // static
@@ -1095,50 +1324,27 @@ void Tab::UpdateIconVisibility() {
       available_width >= (touch_ui ? kTouchMinimumContentsWidthForCloseButtons
                                    : kMinimumContentsWidthForCloseButtons);
 
+  const bool declutter_eligible =
+      features::IsTabStripDeclutterEnabled() &&
+      !(mouse_hovered_ || HasFocus() ||
+        (close_button_ && close_button_->HasFocus()));
+
 #if BUILDFLAG(IS_CHROMEOS)
+  // Hide tab close button for OnTask if locked. Only applicable for non-web
+  // browser scenarios.
   const bool should_show_close_button =
       !IsLockedForOnTask(controller_->GetBrowserWindowInterface());
+#else
+  const bool should_show_close_button = true;
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   if (IsActive()) {
-#if BUILDFLAG(IS_CHROMEOS)
-    // Hide tab close button for OnTask if locked. Only applicable for non-web
-    // browser scenarios.
-    showing_close_button_ = should_show_close_button;
-#else
-    // Close button is shown on active tabs regardless of the size.
-    showing_close_button_ = true;
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
-    if (features::IsTabStripDeclutterEnabled() && showing_close_button_) {
-      const bool alert_fits_without_close =
-          has_alert_icon && alert_icon_width <= available_width;
-      const bool favicon_fits_without_close =
-          has_favicon &&
-          favicon_width <= (available_width -
-                            (alert_fits_without_close ? alert_icon_width : 0));
-
-      const int width_with_close = available_width - close_button_width;
-      const bool alert_fits_with_close =
-          has_alert_icon && alert_icon_width <= width_with_close;
-      const bool favicon_fits_with_close =
-          has_favicon &&
-          favicon_width <= (width_with_close -
-                            (alert_fits_with_close ? alert_icon_width : 0));
-
-      const bool alert_hidden_by_close =
-          alert_fits_without_close && !alert_fits_with_close;
-      const bool favicon_hidden_by_close =
-          favicon_fits_without_close && !favicon_fits_with_close;
-
-      if (alert_hidden_by_close || favicon_hidden_by_close) {
-        showing_close_button_ = mouse_hovered_ || HasFocus() ||
-                                (close_button_ && close_button_->HasFocus());
+    if (!declutter_eligible) {
+      // Close button is shown on active tabs regardless of the size.
+      showing_close_button_ = should_show_close_button;
+      if (showing_close_button_) {
+        available_width -= close_button_width;
       }
-    }
-
-    if (showing_close_button_) {
-      available_width -= close_button_width;
     }
 
     showing_alert_indicator_ =
@@ -1150,6 +1356,15 @@ void Tab::UpdateIconVisibility() {
     showing_icon_ = has_favicon && favicon_width <= available_width;
     if (showing_icon_) {
       available_width -= favicon_width;
+    }
+
+    if (declutter_eligible) {
+      showing_close_button_ =
+          should_show_close_button && ((!has_alert_icon && !has_favicon) ||
+                                       close_button_width <= available_width);
+      if (showing_close_button_) {
+        available_width -= close_button_width;
+      }
     }
   } else {
     showing_alert_indicator_ =
@@ -1163,16 +1378,11 @@ void Tab::UpdateIconVisibility() {
       available_width -= favicon_width;
     }
 
-    const bool is_decluttered =
-        features::IsTabStripDeclutterEnabled() &&
-        available_width <= TabStyle::kTabStripDeclutterMaxTabWidthForCloseHide;
     showing_close_button_ =
-#if BUILDFLAG(IS_CHROMEOS)
-        should_show_close_button &&
-#endif
-        large_enough_for_close_button &&
-        (!is_decluttered || mouse_hovered_ || HasFocus() ||
-         (close_button_ && close_button_->HasFocus()));
+        should_show_close_button && large_enough_for_close_button &&
+        !(declutter_eligible &&
+          available_width <=
+              TabStyle::kTabStripDeclutterMaxTabWidthForCloseHide);
     if (showing_close_button_) {
       available_width -= close_button_width;
     }
@@ -1386,6 +1596,22 @@ void Tab::OnTabDataChanged(TabChangeType tab_change_type,
 
   DeprecatedLayoutImmediately();
   SchedulePaint();
+}
+
+// static
+std::unique_ptr<TabStyleViewDelegate> Tab::CreateStyleDelegate(const Tab* tab) {
+  return std::make_unique<TabStyleViewDelegateImpl>(tab);
+}
+
+std::optional<performance_manager::freezing::FreezingVote>&
+Tab::GetFreezingVote(FreezingVoteReason reason) {
+  switch (reason) {
+    case FreezingVoteReason::kCollapsedGroup:
+      return collapsed_freezing_vote_;
+    case FreezingVoteReason::kFocusedGroup:
+      return focus_mode_freezing_vote_;
+  }
+  NOTREACHED();
 }
 
 BEGIN_METADATA(Tab)

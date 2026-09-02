@@ -19,8 +19,8 @@ namespace {
 
 #define MAP_ACTION_E1(action)
 #define MAP_ACTION_E2(action, idc) {idc, action},
-#define MAP_ACTION_E3(action, idc, scope) {idc, action},
-#define MAP_ACTION_E4(action, idc, val, scope) {idc, action},
+#define MAP_ACTION_E3(action, idc, scope) {idc, scope::action},
+#define MAP_ACTION_E4(action, idc, val, scope) {idc, scope::action},
 
 #define GET_MAP_ACTION_E(_1, _2, _3, _4, macro_name, ...) macro_name
 #define E(...)                                                               \
@@ -86,19 +86,11 @@ bool CommandActionUpdater::IsCommandEnabled(int id) const {
   return false;
 }
 
-bool CommandActionUpdater::ExecuteCommandImpl(
-    int id,
-    base::TimeTicks time_stamp,
-    std::optional<actions::ActionInvocationContext> context) {
-  return ExecuteCommandWithDispositionImpl(
-      id, WindowOpenDisposition::CURRENT_TAB, time_stamp, std::move(context));
-}
-
-bool CommandActionUpdater::ExecuteCommandWithDispositionImpl(
+bool CommandActionUpdater::ExecuteCommandWithDispositionAndContext(
     int id,
     WindowOpenDisposition disposition,
-    base::TimeTicks time_stamp,
-    std::optional<actions::ActionInvocationContext> context) {
+    std::optional<actions::ActionInvocationContext> context,
+    base::TimeTicks time_stamp) {
   if (SupportsCommand(id) && IsCommandEnabled(id)) {
     if (auto action_id = GetActionId(id)) {
       ExecuteAction(*action_id, disposition, std::move(context));

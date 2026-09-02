@@ -520,7 +520,9 @@ std::vector<ManualFillCredentialAndPasswordForm> GetFilteredCredentials(
 
   for (const auto& credential : credentials) {
     std::vector<PasswordForm> correspondingPasswordForms =
-        _savedPasswordsPresenter->GetCorrespondingPasswordForms(credential);
+        password_manager::ToPasswordForms(
+            _savedPasswordsPresenter->GetCorrespondingStoredCredentials(
+                credential));
     passwordforms.insert(passwordforms.end(),
                          correspondingPasswordForms.begin(),
                          correspondingPasswordForms.end());
@@ -668,11 +670,15 @@ std::vector<ManualFillCredentialAndPasswordForm> GetFilteredCredentials(
 
 - (void)userDidPickContent:(NSString*)content
              passwordField:(BOOL)passwordField
-             requiresHTTPS:(BOOL)requiresHTTPS {
+             requiresHTTPS:(BOOL)requiresHTTPS
+           jumpToNextField:(BOOL)jumpToNextField
+                actionType:(autofill::mojom::FieldActionType)actionType {
   [self.delegate manualFillCredentialsMediatorWillInjectContent:self];
   [self.contentInjector userDidPickContent:content
                              passwordField:passwordField
-                             requiresHTTPS:requiresHTTPS];
+                             requiresHTTPS:requiresHTTPS
+                           jumpToNextField:jumpToNextField
+                                actionType:actionType];
 }
 
 - (void)autofillFormWithCredential:(ManualFillCredential*)credential
@@ -718,9 +724,11 @@ std::vector<ManualFillCredentialAndPasswordForm> GetFilteredCredentials(
     _webAuthnDelegate = delegate ? delegate->AsWeakPtr() : nullptr;
   }
   if (_activeFieldIsObfuscated !=
-      (params.field_type == autofill::kObfuscatedFieldType)) {
+      (params.field_type ==
+       autofill::FormActivityParams::FieldType::kObfuscated)) {
     _activeFieldIsObfuscated =
-        params.field_type == autofill::kObfuscatedFieldType;
+        params.field_type ==
+        autofill::FormActivityParams::FieldType::kObfuscated;
     [self postActionsToConsumer];
   }
 }

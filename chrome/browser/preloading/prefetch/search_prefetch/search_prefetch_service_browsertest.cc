@@ -35,8 +35,9 @@
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ssl/chrome_security_state_util.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -54,7 +55,6 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/search_engines/template_url_service.h"
-#include "components/security_state/content/security_state_tab_helper.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -72,6 +72,14 @@
 #include "content/public/test/preloading_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_interceptor.h"
+#include "extensions/buildflags/buildflags.h"
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "extensions/browser/background_script_executor.h"
+#include "extensions/common/extension.h"
+#include "extensions/test/extension_test_message_listener.h"
+#include "extensions/test/test_extension_dir.h"
+#endif
 #include "net/base/features.h"
 #include "net/base/network_interfaces.h"
 #include "net/base/url_util.h"
@@ -648,7 +656,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchXGeoEnabledBrowserTest,
 // dissemination, omitting the X-Geo header from prefetch payloads.
 IN_PROC_BROWSER_TEST_F(SearchPrefetchXGeoEnabledBrowserTest,
                        PrefetchNoXGeoHeader_Incognito) {
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   auto* search_prefetch_service = SearchPrefetchServiceFactory::GetForProfile(
       incognito_browser->GetProfile());
   EXPECT_TRUE(search_prefetch_service);
@@ -667,7 +675,7 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchXGeoEnabledBrowserTest,
 
   EXPECT_TRUE(search_prefetch_service->MaybePrefetchURL(
       prefetch_url,
-      incognito_browser->tab_strip_model()->GetActiveWebContents()));
+      incognito_browser->GetTabStripModel()->GetActiveWebContents()));
 
   // Custom wait loop for Incognito service.
   EXPECT_TRUE(base::test::RunUntil([&]() {
@@ -1555,7 +1563,6 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
                attempt_ukm_entries, expected_attempt_entries);
   }
 }
-
 
 enum class NVSDiskCacheEnabled {
   kDisableAll = 0,
@@ -2500,8 +2507,6 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
   EXPECT_TRUE(autocomplete_controller->done());
   GURL canonical_search_url = GetCanonicalSearchURL(
       autocomplete_controller->result().match_at(0).destination_url);
-  SecurityStateTabHelper* helper =
-      SecurityStateTabHelper::FromWebContents(GetWebContents());
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kCanBeServed);
   location_bar->GetOmniboxController()->edit_model()->OpenCurrentSelection();
@@ -2518,7 +2523,8 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
   // Check we are on the prefetched page, and the security level is correct.
   EXPECT_FALSE(inner_html.contains("regular"));
   EXPECT_TRUE(inner_html.contains("prefetch"));
-  EXPECT_EQ(helper->GetSecurityLevel(), security_state::SECURE);
+  EXPECT_EQ(chrome_security_state::GetSecurityLevel(GetWebContents()),
+            security_state::SECURE);
 }
 
 IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
@@ -2543,8 +2549,6 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
   EXPECT_TRUE(autocomplete_controller->done());
   GURL canonical_search_url = GetCanonicalSearchURL(
       autocomplete_controller->result().match_at(0).destination_url);
-  SecurityStateTabHelper* helper =
-      SecurityStateTabHelper::FromWebContents(GetWebContents());
   WaitUntilStatusChangesTo(canonical_search_url,
                            SearchPrefetchStatus::kCanBeServed);
 
@@ -2567,7 +2571,8 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
   // correct.
   EXPECT_TRUE(inner_html.contains("regular"));
   EXPECT_FALSE(inner_html.contains("prefetch"));
-  EXPECT_EQ(helper->GetSecurityLevel(), security_state::SECURE);
+  EXPECT_EQ(chrome_security_state::GetSecurityLevel(GetWebContents()),
+            security_state::SECURE);
 }
 
 IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
@@ -3114,6 +3119,112 @@ void RunFirstParam(base::RepeatingClosure closure,
   ASSERT_EQ(status, blink::ServiceWorkerStatusCode::kOk);
   closure.Run();
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
+                       ServiceWorkerServedPrefetchVisibleToWebRequest) {
+  const GURL worker_url = GetSearchServerQueryURLWithNoQuery(kServiceWorkerUrl);
+  const std::string kEnableNavigationPreloadScript = R"(
+      self.addEventListener('activate', event => {
+          event.waitUntil(self.registration.navigationPreload.enable());
+        });
+      self.addEventListener('fetch', event => {
+          if (event.preloadResponse !== undefined) {
+            event.respondWith(
+              (async function() {
+                const response = await event.preloadResponse;
+                if (response) return response;
+                return fetch(event.request);
+              })()
+            );
+          }
+        });
+      )";
+  std::string search_terms = "prefetch_content";
+
+  auto [prefetch_url, search_url] =
+      GetSearchPrefetchAndNonPrefetch(search_terms);
+  GURL canonical_search_url = GetCanonicalSearchURL(prefetch_url);
+
+  RegisterStaticFile(kServiceWorkerUrl, kEnableNavigationPreloadScript,
+                     "text/javascript");
+
+  extensions::TestExtensionDir test_extension_dir;
+  test_extension_dir.WriteManifest(
+      R"({
+           "name": "WebRequest Monitor",
+           "manifest_version": 3,
+           "version": "0.1",
+           "permissions": ["webRequest"],
+           "host_permissions": ["*://*/*"],
+           "background": { "service_worker": "background.js" }
+         })");
+  test_extension_dir.WriteFile(FILE_PATH_LITERAL("background.js"),
+                               R"(
+        var observed_main_frame = false;
+        chrome.webRequest.onBeforeRequest.addListener(function(details) {
+          if (details.type === 'main_frame' && details.tabId >= 0 &&
+              details.url.indexOf('prefetch_content') !== -1) {
+            observed_main_frame = true;
+          }
+        }, {urls: ["*://*/*"]});
+        chrome.test.sendMessage('ready');
+      )");
+
+  ExtensionTestMessageListener ready_listener("ready");
+  extensions::ChromeTestExtensionLoader extension_loader(
+      browser()->GetProfile());
+  scoped_refptr<const extensions::Extension> extension =
+      extension_loader.LoadExtension(test_extension_dir.UnpackedPath());
+  ASSERT_TRUE(extension);
+  ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
+
+  auto* service_worker_context = browser()
+                                     ->GetProfile()
+                                     ->GetDefaultStoragePartition()
+                                     ->GetServiceWorkerContext();
+
+  base::RunLoop run_loop;
+  blink::mojom::ServiceWorkerRegistrationOptions options(
+      GetSearchServerQueryURLWithNoQuery("/"),
+      blink::mojom::ScriptType::kClassic,
+      blink::mojom::ServiceWorkerUpdateViaCache::kImports);
+  const blink::StorageKey key =
+      blink::StorageKey::CreateFirstParty(url::Origin::Create(options.scope));
+  service_worker_context->RegisterServiceWorker(
+      worker_url, key, options, content::GlobalRenderFrameHostId(),
+      base::BindOnce(&RunFirstParam, run_loop.QuitClosure()));
+  run_loop.Run();
+
+  auto* search_prefetch_service =
+      SearchPrefetchServiceFactory::GetForProfile(browser()->GetProfile());
+  EXPECT_NE(nullptr, search_prefetch_service);
+
+  EXPECT_TRUE(search_prefetch_service->MaybePrefetchURL(prefetch_url,
+                                                        GetWebContents()));
+  WaitUntilStatusChangesTo(canonical_search_url,
+                           SearchPrefetchStatus::kComplete);
+
+  auto prefetch_status =
+      search_prefetch_service->GetSearchPrefetchStatusForTesting(
+          canonical_search_url);
+  ASSERT_TRUE(prefetch_status.has_value());
+  EXPECT_EQ(SearchPrefetchStatus::kComplete, prefetch_status.value());
+
+  ASSERT_TRUE(content::NavigateToURL(GetWebContents(), search_url));
+
+  auto inner_html = GetDocumentInnerHTML();
+  EXPECT_FALSE(inner_html.contains("regular"));
+  EXPECT_TRUE(inner_html.contains("prefetch"));
+
+  ExtensionTestMessageListener check_listener;
+  extensions::BackgroundScriptExecutor::ExecuteScriptAsync(
+      browser()->GetProfile(), extension->id(),
+      "chrome.test.sendMessage(observed_main_frame ? 'seen' : 'not_seen');");
+  EXPECT_TRUE(check_listener.WaitUntilSatisfied());
+  EXPECT_EQ("seen", check_listener.message());
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
                        ServiceWorkerServedPrefetchWithPreload) {
@@ -3753,7 +3864,6 @@ class SearchPrefetchServiceNavigationPrefetchBrowserTest
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> test_ukm_recorder_;
 };
-
 
 IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceNavigationPrefetchBrowserTest,
                        NavigationPrefetchIsServedMouseDown) {

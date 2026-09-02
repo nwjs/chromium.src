@@ -278,54 +278,15 @@ class KeyboardAccessoryMediator
         return retainedItems;
     }
 
-    /**
-     * Next to the regular suggestion that we always want to show, there is a number of special
-     * suggestions which we want to suppress (e.g. replaced entry points, old warnings, separators).
-     *
-     * @param suggestion This {@link AutofillSuggestion} will be checked for usefulness.
-     * @return True iff the suggestion should be displayed.
-     */
-    private boolean shouldShowSuggestion(AutofillSuggestion suggestion) {
-        switch (suggestion.getSuggestionType()) {
-            case SuggestionType.INSECURE_CONTEXT_PAYMENT_DISABLED_MESSAGE:
-            // The insecure context warning has a replacement in the fallback sheet.
-            case SuggestionType.TITLE:
-            case SuggestionType.SEPARATOR:
-            case SuggestionType.UNDO_OR_CLEAR:
-            case SuggestionType.ALL_SAVED_PASSWORDS_ENTRY:
-            case SuggestionType.AUTOFILL_AI_PRIVATE_INFERENCE_NOTICE:
-            case SuggestionType.GENERATE_PASSWORD_ENTRY:
-            case SuggestionType.MANAGE_ADDRESS:
-            case SuggestionType.MANAGE_AUTOFILL_AI:
-            case SuggestionType.MANAGE_AUTOFILL_AI_IDENTITY_DOCS:
-            case SuggestionType.MANAGE_AUTOFILL_AI_TRAVEL:
-            case SuggestionType.MANAGE_AUTOFILL_AI_SHOPPING:
-            case SuggestionType.MANAGE_CREDIT_CARD:
-            case SuggestionType.MANAGE_IBAN:
-            case SuggestionType.MANAGE_LOYALTY_CARD:
-            case SuggestionType.AUTOFILL_AI_OTHER_ORDERS:
-            case SuggestionType.AUTOFILL_AI_OTHER_SHIPMENTS:
-                return false;
-            case SuggestionType.AUTOCOMPLETE_ENTRY:
-            case SuggestionType.PASSWORD_ENTRY:
-            case SuggestionType.DATALIST_ENTRY:
-            case SuggestionType.SCAN_CREDIT_CARD:
-            case SuggestionType.ACCOUNT_STORAGE_PASSWORD_ENTRY:
-                return true;
-        }
-        return true; // If it's not a special id, show the regular suggestion!
-    }
-
     private List<AutofillBarItem> toBarItems(
             List<AutofillSuggestion> suggestions, AutofillDelegate delegate) {
         List<AutofillBarItem> barItems = new ArrayList<>(suggestions.size());
-        for (int position = 0; position < suggestions.size(); ++position) {
-            AutofillSuggestion suggestion = suggestions.get(position);
-            if (!shouldShowSuggestion(suggestion)) continue;
+        for (AutofillSuggestion suggestion : suggestions) {
             barItems.add(
                     new AutofillBarItem(
                             suggestion,
-                            createAutofillAction(delegate, position, suggestion),
+                            createAutofillAction(
+                                    delegate, suggestion.getOriginalIndex(), suggestion),
                             mProfile));
         }
 
@@ -370,7 +331,7 @@ class KeyboardAccessoryMediator
                     if (suggestion.showLoadingOnAcceptance()) {
                         showLoadingUIOnSuggestion(suggestion);
                     }
-                    delegate.suggestionSelected(pos, suggestion.showLoadingOnAcceptance());
+                    delegate.suggestionAccepted(pos, suggestion.showLoadingOnAcceptance());
                 },
                 result -> {
                     if (maybeShowDialogOnLongPress(delegate, suggestion)) {
@@ -463,16 +424,16 @@ class KeyboardAccessoryMediator
     }
 
     private void updateListState(
-            ListModel<BarItem> list, @Nullable AutofillSuggestion clickedSuggestion) {
+            ListModel<BarItem> list, @Nullable AutofillSuggestion acceptedSuggestion) {
         for (int i = 0; i < list.size(); i++) {
             BarItem barItem = list.get(i);
-            barItem.updateStateOnItemSelection(clickedSuggestion);
+            barItem.updateStateOnItemAcceptance(acceptedSuggestion);
             list.update(i, barItem);
         }
     }
 
-    private void showLoadingUIOnSuggestion(AutofillSuggestion clickedSuggestion) {
-        updateListState(mModel.get(BAR_ITEMS), clickedSuggestion);
+    private void showLoadingUIOnSuggestion(AutofillSuggestion acceptedSuggestion) {
+        updateListState(mModel.get(BAR_ITEMS), acceptedSuggestion);
         updateListState(mModel.get(BAR_ITEMS_FIXED), null);
     }
 

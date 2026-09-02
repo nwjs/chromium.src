@@ -29,6 +29,10 @@ struct EnumTraits<skills::mojom::SkillSource, sync_pb::SkillSource> {
         return skills::mojom::SkillSource::kUserCreated;
       case sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_FIRST_PARTY:
         return skills::mojom::SkillSource::kDerivedFromFirstParty;
+      case sync_pb::SkillSource::SKILL_SOURCE_ENTERPRISE:
+        return skills::mojom::SkillSource::kEnterprise;
+      case sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_ENTERPRISE:
+        return skills::mojom::SkillSource::kDerivedFromEnterprise;
     }
     NOTREACHED();
   }
@@ -43,6 +47,10 @@ struct EnumTraits<skills::mojom::SkillSource, sync_pb::SkillSource> {
         return sync_pb::SkillSource::SKILL_SOURCE_USER_CREATED;
       case skills::mojom::SkillSource::kDerivedFromFirstParty:
         return sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_FIRST_PARTY;
+      case skills::mojom::SkillSource::kEnterprise:
+        return sync_pb::SkillSource::SKILL_SOURCE_ENTERPRISE;
+      case skills::mojom::SkillSource::kDerivedFromEnterprise:
+        return sync_pb::SkillSource::SKILL_SOURCE_DERIVED_FROM_ENTERPRISE;
     }
     NOTREACHED();
   }
@@ -80,6 +88,12 @@ struct StructTraits<skills::mojom::SkillDataView, skills::Skill> {
       return std::nullopt;
     }
     return skill.image_url;
+  }
+  static std::optional<std::string> category(const skills::Skill& skill) {
+    if (skill.category.empty()) {
+      return std::nullopt;
+    }
+    return skill.category;
   }
   static base::Time creation_time(const skills::Skill& skill) {
     return skill.creation_time;

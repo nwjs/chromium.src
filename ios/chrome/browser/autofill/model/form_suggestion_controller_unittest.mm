@@ -29,6 +29,8 @@
 using autofill::FieldRendererId;
 using autofill::FillingProduct;
 using autofill::FormRendererId;
+using ActivityType = autofill::FormActivityParams::ActivityType;
+using FieldType = autofill::FormActivityParams::FieldType;
 
 // Test provider that records invocations of its interface methods.
 @interface TestSuggestionProvider : NSObject <FormSuggestionProvider>
@@ -357,8 +359,8 @@ TEST_P(FormSuggestionControllerTest,
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.input_missing = false;
   test_form_activity_tab_helper_.FormActivityRegistered(main_frame.get(),
@@ -387,8 +389,8 @@ TEST_P(FormSuggestionControllerTest,
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.input_missing = false;
   test_form_activity_tab_helper_.FormActivityRegistered(main_frame.get(),
@@ -430,8 +432,8 @@ TEST_P(
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.input_missing = false;
 
@@ -464,8 +466,8 @@ TEST_P(FormSuggestionControllerTest,
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.input_missing = false;
 
@@ -535,8 +537,8 @@ TEST_P(
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.input_missing = false;
 
@@ -596,8 +598,8 @@ TEST_P(
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.input_missing = false;
 
@@ -659,8 +661,8 @@ TEST_P(FormSuggestionControllerTest, SelectingSuggestionShouldNotifyDelegate) {
   autofill::FormActivityParams params;
   params.form_name = "form";
   params.field_identifier = "field_id";
-  params.field_type = "text";
-  params.type = "type";
+  params.field_type = FieldType::kText;
+  params.type = ActivityType::kFocus;
   params.value = "value";
   params.frame_id = "frame_id";
   params.input_missing = false;

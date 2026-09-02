@@ -10,6 +10,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -47,6 +48,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
@@ -60,10 +62,12 @@ import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.search.SettingsSearchCoordinator;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.settings.search.PreferenceParser;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler.BackPressResult;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -97,6 +101,7 @@ public class SettingsPageFragmentDelegateImplTest {
     @Mock private MultiColumnSettings mMultiColumnSettings;
     @Mock private View mFragmentView;
     @Mock private LinearLayout mTitleContainer;
+    @Mock private Tab mTab;
 
     private SettingsPageFragmentDelegateImpl mDelegate;
     private View mInflatedSettingsView;
@@ -112,8 +117,10 @@ public class SettingsPageFragmentDelegateImplTest {
         when(mActivity.getModalDialogManagerSupplier()).thenReturn(modalDialogSupplier);
 
         when(mActivity.getSupportFragmentManager()).thenReturn(mFragmentManager);
+        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
+                .thenReturn(mMockSettingsHostFragment);
         when(mFragmentManager.beginTransaction()).thenReturn(mFragmentTransaction);
-        when(mFragmentTransaction.add(anyInt(), any(Fragment.class), anyString()))
+        when(mFragmentTransaction.add(any(Fragment.class), anyString()))
                 .thenReturn(mFragmentTransaction);
         when(mFragmentTransaction.remove(any(Fragment.class))).thenReturn(mFragmentTransaction);
         when(mContainerView.getId()).thenReturn(CONTAINER_ID);
@@ -163,6 +170,8 @@ public class SettingsPageFragmentDelegateImplTest {
 
         SettingsContainmentHelper mockContainmentHelper = mock(SettingsContainmentHelper.class);
         when(mMockSettingsHostFragment.getContainmentHelper()).thenReturn(mockContainmentHelper);
+        when(mMockSettingsHostFragment.containsChild(mMultiColumnSettings)).thenReturn(true);
+        when(mTab.getId()).thenReturn(TAB_ID);
 
         mDelegate =
                 new SettingsPageFragmentDelegateImpl(
@@ -173,7 +182,7 @@ public class SettingsPageFragmentDelegateImplTest {
                         mSnackbarManager,
                         mBottomSheetController,
                         mModalDialogManager,
-                        TAB_ID);
+                        mTab);
     }
 
     @After
@@ -201,7 +210,7 @@ public class SettingsPageFragmentDelegateImplTest {
     public void testInitSettings_registersDependencyProviderAndAddsFragment() {
         when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         // Verify FragmentDependencyProvider is not registered on mFragmentManager.
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
@@ -214,9 +223,13 @@ public class SettingsPageFragmentDelegateImplTest {
                     callback instanceof FragmentDependencyProvider);
         }
 
-        // Verify fragment creation and addition.
-        verify(mFragmentTransaction)
-                .add(eq(CONTAINER_ID), any(SettingsHostFragment.class), eq(EXPECTED_TAG));
+        // Verify fragment creation and addition with dependency provider set.
+        ArgumentCaptor<SettingsHostFragment> hostCaptor =
+                ArgumentCaptor.forClass(SettingsHostFragment.class);
+        verify(mFragmentTransaction).add(hostCaptor.capture(), eq(EXPECTED_TAG));
+        assertNotNull(
+                "Dependency provider should be set on host fragment before transaction",
+                hostCaptor.getValue().getDependencyProviderForTesting());
         verify(mFragmentTransaction).commitAllowingStateLoss();
     }
 
@@ -224,7 +237,7 @@ public class SettingsPageFragmentDelegateImplTest {
     public void testInitSettings_removesSheetAndDialogContainers() {
         when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         assertNotNull(mInflatedSettingsView);
 
@@ -235,10 +248,26 @@ public class SettingsPageFragmentDelegateImplTest {
     }
 
     @Test
+    public void testInitSettings_setsTopPaddingOnAppBarLayout() {
+        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
+
+        mDelegate.initSettings(mContainerView, "");
+
+        assertNotNull(mInflatedSettingsView);
+        View appBarLayout = mInflatedSettingsView.findViewById(R.id.app_bar_layout);
+        assertNotNull(appBarLayout);
+        int expectedTopPadding =
+                ApplicationProvider.getApplicationContext()
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.settings_top_padding);
+        assertEquals(expectedTopPadding, appBarLayout.getPaddingTop());
+    }
+
+    @Test
     public void testInitSettings_inflatesSettingsViewWithChromiumSettingsTheme() {
         when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         assertNotNull(mInflatedSettingsView);
         TypedValue tv = new TypedValue();
@@ -252,10 +281,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testInitSettings_reusesExistingFragment() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         // Verify we registered the callback but did NOT add a new fragment
         verify(mFragmentManager, atLeastOnce()).registerFragmentLifecycleCallbacks(any(), eq(true));
@@ -267,7 +293,7 @@ public class SettingsPageFragmentDelegateImplTest {
         when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
 
         // Initialize first so the delegate has callbacks and fragment references.
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         // Retrieve the registered callbacks to verify they get unregistered.
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
@@ -291,9 +317,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testGetMainFragment() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         Fragment mockFragment = mock(Fragment.class);
         when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
@@ -304,9 +328,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testGetMultiColumnSettings() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
         when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
@@ -323,9 +345,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testInitSettings_createsTitleUpdater() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
         triggerFragmentViewCreated();
 
         ArgumentCaptor<MultiColumnTitleUpdater> observerCaptor =
@@ -339,12 +359,10 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testDestroySettings_destroysTitleUpdater() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
         when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
         when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
         triggerFragmentViewCreated();
 
         ArgumentCaptor<MultiColumnTitleUpdater> observerCaptor =
@@ -360,9 +378,6 @@ public class SettingsPageFragmentDelegateImplTest {
     @Test
     public void
             testInitSettings_withSavedInstanceState_passesInitialBreadcrumbPathToTitleUpdater() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-
         Bundle savedState = new Bundle();
         ArrayList<SettingsIndexData.Entry> entries =
                 new ArrayList<>(
@@ -374,7 +389,7 @@ public class SettingsPageFragmentDelegateImplTest {
                 SettingsBreadcrumbUtil.KEY_INITIAL_BREADCRUMB_PATH, entries);
         when(mActivity.getSavedInstanceState()).thenReturn(savedState);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
         triggerFragmentViewCreated();
 
         ArgumentCaptor<MultiColumnTitleUpdater> captor =
@@ -385,9 +400,6 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testInitSettings_withIntent_passesInitialBreadcrumbPathToTitleUpdater() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-
         SettingsIndexData indexData = SettingsIndexData.createInstance();
         indexData.resetNeedsIndexing();
 
@@ -416,7 +428,7 @@ public class SettingsPageFragmentDelegateImplTest {
         when(mActivity.getIntent()).thenReturn(intent);
         when(mActivity.getSavedInstanceState()).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
         triggerFragmentViewCreated();
 
         ArgumentCaptor<MultiColumnTitleUpdater> captor =
@@ -432,9 +444,6 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testOnSaveInstanceState_savesInitialBreadcrumbPath() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-
         Bundle savedState = new Bundle();
         ArrayList<SettingsIndexData.Entry> entries =
                 new ArrayList<>(
@@ -446,7 +455,7 @@ public class SettingsPageFragmentDelegateImplTest {
                 SettingsBreadcrumbUtil.KEY_INITIAL_BREADCRUMB_PATH, entries);
         when(mActivity.getSavedInstanceState()).thenReturn(savedState);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         Bundle outState = new Bundle();
         mDelegate.onSaveInstanceState(outState);
@@ -459,9 +468,7 @@ public class SettingsPageFragmentDelegateImplTest {
     @Test
     public void testIsTwoColumnSettingsVisible() {
         // Setup mSettingsHostFragment.
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
         when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
 
         // Case 1: getMultiColumnSettings() is null.
@@ -481,9 +488,7 @@ public class SettingsPageFragmentDelegateImplTest {
     @Test
     public void testFinishCurrentSettings() {
         // Setup mSettingsHostFragment.
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         Fragment fragment = mock(Fragment.class);
 
@@ -495,9 +500,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testInitSettings_createsSearchCoordinator() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         // Capture all registered FragmentLifecycleCallbacks.
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
@@ -523,9 +526,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testDestroySettings_destroysSearchCoordinator() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         // Capture lifecycle callbacks.
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
@@ -557,25 +558,19 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testInitSettings_reusesExistingRestoredSettingsHostFragment() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         verify(mFragmentTransaction, never()).add(anyInt(), any(), anyString());
         verify(mMockSettingsHostFragment).setDependencyProvider(any());
     }
 
     @Test
-    public void
-            testInitSettings_withExistingMultiColumnSettings_initializesTitleUpdaterAndSearchCoordinator() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
+    public void testInitSettings_withMultiColumn_initializesTitleUpdaterAndSearchCoordinator() {
         when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
         when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
         when(mMultiColumnSettings.getView()).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
                 ArgumentCaptor.forClass(FragmentManager.FragmentLifecycleCallbacks.class);
@@ -598,9 +593,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testTitleUpdaterLifecycleCallbacks_unregistersAfterViewCreated() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
                 ArgumentCaptor.forClass(FragmentManager.FragmentLifecycleCallbacks.class);
@@ -623,9 +616,7 @@ public class SettingsPageFragmentDelegateImplTest {
 
     @Test
     public void testOnHeaderLayoutUpdated_updatesNavigationIcon() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         Toolbar toolbar = mInflatedSettingsView.findViewById(R.id.action_bar);
         assertNotNull(toolbar);
@@ -633,26 +624,82 @@ public class SettingsPageFragmentDelegateImplTest {
         when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
         when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
 
-        // Single-column mode -> back button navigation icon and description.
-        when(mMultiColumnSettings.isTwoColumn()).thenReturn(false);
-        mDelegate.onHeaderLayoutUpdated();
-        assertEquals(
-                ApplicationProvider.getApplicationContext().getString(R.string.back),
-                toolbar.getNavigationContentDescription());
-
         // Two-column mode -> app icon navigation icon and description.
         when(mMultiColumnSettings.isTwoColumn()).thenReturn(true);
         mDelegate.onHeaderLayoutUpdated();
         assertEquals(
                 ApplicationProvider.getApplicationContext().getString(R.string.app_name),
                 toolbar.getNavigationContentDescription());
+
+        // Single-column mode + main settings -> app icon navigation icon and description.
+        when(mMultiColumnSettings.isTwoColumn()).thenReturn(false);
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+        mDelegate.onHeaderLayoutUpdated();
+        assertEquals(
+                ApplicationProvider.getApplicationContext().getString(R.string.app_name),
+                toolbar.getNavigationContentDescription());
+
+        // Single-column mode + detail settings -> back button navigation icon and description.
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(true);
+        mDelegate.onHeaderLayoutUpdated();
+        assertEquals(
+                ApplicationProvider.getApplicationContext().getString(R.string.back),
+                toolbar.getNavigationContentDescription());
+    }
+
+    @Test
+    public void testInitSettings_setsNavigationIconSynchronously() {
+        mDelegate.initSettings(mContainerView, "");
+
+        Toolbar toolbar = mInflatedSettingsView.findViewById(R.id.action_bar);
+        assertNotNull(toolbar);
+
+        // Verify navigation icon is immediately set when top-level main settings is initialized.
+        // It doesn't wait for async tasks.
+        assertEquals(
+                ApplicationProvider.getApplicationContext().getString(R.string.app_name),
+                toolbar.getNavigationContentDescription());
+    }
+
+    @Test
+    public void testUpdateNavigationIcon_singleColumnInSearch_hidesNavigationIcon() {
+        mDelegate.initSettings(mContainerView, "");
+
+        Toolbar toolbar = mInflatedSettingsView.findViewById(R.id.action_bar);
+        assertNotNull(toolbar);
+
+        when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
+        when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
+        when(mMultiColumnSettings.isTwoColumn()).thenReturn(false);
+        when(mMultiColumnSettings.isLayoutOpen()).thenReturn(false);
+
+        // Before search: Chrome logo is shown.
+        mDelegate.onHeaderLayoutUpdated();
+        assertEquals(
+                ApplicationProvider.getApplicationContext().getString(R.string.app_name),
+                toolbar.getNavigationContentDescription());
+
+        // When search coordinator indicates navigation icon should be hidden (single-column in
+        // search mode):
+        SettingsSearchCoordinator mockSearchCoordinator = mock(SettingsSearchCoordinator.class);
+        when(mockSearchCoordinator.shouldShowNavigationIcon()).thenReturn(false);
+        mDelegate.setSearchCoordinatorForTesting(mockSearchCoordinator);
+
+        // During slide animation / header updates while in search mode, navigation icon must stay
+        // hidden.
+        mDelegate.onSlideStateUpdated(MultiColumnSettings.SlideState.OPENING);
+        assertNull(toolbar.getNavigationIcon());
+
+        mDelegate.onHeaderLayoutUpdated();
+        assertNull(toolbar.getNavigationIcon());
+
+        mDelegate.onTitleUpdated();
+        assertNull(toolbar.getNavigationIcon());
     }
 
     @Test
     public void testInitSettings_registersSelfAsMultiColumnSettingsObserver() {
-        when(mFragmentManager.findFragmentByTag(EXPECTED_TAG))
-                .thenReturn(mMockSettingsHostFragment);
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
                 ArgumentCaptor.forClass(FragmentManager.FragmentLifecycleCallbacks.class);
@@ -680,7 +727,7 @@ public class SettingsPageFragmentDelegateImplTest {
     public void testInitSettings_registersSaveInstanceStateObserver() {
         when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
 
         verify(mLifecycleDispatcher).register(mDelegate);
     }
@@ -689,9 +736,117 @@ public class SettingsPageFragmentDelegateImplTest {
     public void testDestroySettings_unregistersSaveInstanceStateObserver() {
         when(mFragmentManager.findFragmentByTag(EXPECTED_TAG)).thenReturn(null);
 
-        mDelegate.initSettings(mContainerView);
+        mDelegate.initSettings(mContainerView, "");
         mDelegate.destroySettings();
 
         verify(mLifecycleDispatcher).unregister(mDelegate);
+    }
+
+    @Test
+    public void testHandleBackPress_multiColumnSettingsBackStack() {
+        mDelegate.initSettings(mContainerView, "");
+        when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
+        when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
+        when(mMultiColumnSettings.getBackStackEntryCount()).thenReturn(1);
+
+        // Ensure layout updates are handled before processing the back press.
+        ShadowLooper.idleMainLooper();
+        assertEquals(BackPressResult.SUCCESS, mDelegate.handleBackPress());
+        verify(mMultiColumnSettings).popBackStack();
+    }
+
+    @Test
+    public void testHandleBackPress_settingsHostFragmentBackStack() {
+        mDelegate.initSettings(mContainerView, "");
+        when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
+        when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(null);
+        when(mMockSettingsHostFragment.getBackStackEntryCount()).thenReturn(1);
+
+        // Ensure layout updates are handled before processing the back press.
+        ShadowLooper.idleMainLooper();
+        assertEquals(BackPressResult.SUCCESS, mDelegate.handleBackPress());
+        verify(mMockSettingsHostFragment).popBackStack();
+    }
+
+    @Test
+    public void testHandleBackPress_cannotHandle() {
+        mDelegate.initSettings(mContainerView, "");
+        when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
+        when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
+        when(mMultiColumnSettings.getBackStackEntryCount()).thenReturn(0);
+
+        // Ensure layout updates are handled before processing the back press.
+        ShadowLooper.idleMainLooper();
+        assertEquals(BackPressResult.FAILURE, mDelegate.handleBackPress());
+    }
+
+    @Test
+    public void testUpdateBackPressState() {
+        mDelegate.initSettings(mContainerView, "");
+        when(mMockSettingsHostFragment.isAttachedToActivity()).thenReturn(true);
+        when(mMockSettingsHostFragment.getActiveFragment()).thenReturn(mMultiColumnSettings);
+
+        when(mMultiColumnSettings.getBackStackEntryCount()).thenReturn(0);
+        mDelegate.onHeaderLayoutUpdated();
+        ShadowLooper.idleMainLooper();
+        assertFalse(mDelegate.getHandleBackPressChangedSupplier().get());
+
+        when(mMultiColumnSettings.getBackStackEntryCount()).thenReturn(1);
+        mDelegate.onHeaderLayoutUpdated();
+        ShadowLooper.idleMainLooper();
+        assertTrue(mDelegate.getHandleBackPressChangedSupplier().get());
+    }
+
+    /** Regression test for crash due to activity recreation. http://crbug.com/542023392 */
+    @Test
+    public void testInitSettings_withNullContainmentHelper_delaysSearchCoordinatorCreation() {
+        SettingsContainmentHelper mockContainmentHelper = mock(SettingsContainmentHelper.class);
+        when(mMockSettingsHostFragment.getContainmentHelper()).thenReturn(null);
+
+        mDelegate.initSettings(mContainerView, "");
+
+        ArgumentCaptor<FragmentManager.FragmentLifecycleCallbacks> callbackCaptor =
+                ArgumentCaptor.forClass(FragmentManager.FragmentLifecycleCallbacks.class);
+        verify(mFragmentManager, atLeastOnce())
+                .registerFragmentLifecycleCallbacks(callbackCaptor.capture(), anyBoolean());
+
+        when(mFragmentView.findViewById(R.id.settings_title_in_detailed_pane))
+                .thenReturn(mTitleContainer);
+
+        for (FragmentManager.FragmentLifecycleCallbacks callback :
+                new ArrayList<>(callbackCaptor.getAllValues())) {
+            callback.onFragmentViewCreated(
+                    mFragmentManager, mMultiColumnSettings, mFragmentView, null);
+        }
+
+        // Search coordinator creation is delayed because containmentHelper is null.
+        assertNull(mDelegate.getSearchCoordinator());
+
+        // Now mock containmentHelper becoming available upon fragment attachment.
+        when(mMockSettingsHostFragment.getContainmentHelper()).thenReturn(mockContainmentHelper);
+
+        // Capture newly registered callbacks (the non-recursive attached listener).
+        verify(mFragmentManager, atLeastOnce())
+                .registerFragmentLifecycleCallbacks(callbackCaptor.capture(), eq(false));
+
+        for (FragmentManager.FragmentLifecycleCallbacks callback :
+                new ArrayList<>(callbackCaptor.getAllValues())) {
+            callback.onFragmentAttached(
+                    mFragmentManager,
+                    mMockSettingsHostFragment,
+                    ApplicationProvider.getApplicationContext());
+        }
+
+        SettingsSearchCoordinator searchCoordinator = mDelegate.getSearchCoordinator();
+        assertNotNull(searchCoordinator);
+        verify(mMultiColumnSettings).addObserver(searchCoordinator);
+        verify(mockContainmentHelper).getItemDecorations();
+    }
+
+    @Test
+    public void testOnHeaderLayoutUpdated_updatesContainment() {
+        mDelegate.initSettings(mContainerView, "");
+        mDelegate.onHeaderLayoutUpdated();
+        verify(mMockSettingsHostFragment).updateContainmentForAttachedFragments();
     }
 }

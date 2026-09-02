@@ -63,9 +63,16 @@ Patch* Patch::Prepare(ContainerNode* scope,
     return nullptr;
   }
 
-  if (auto* parent_template = DynamicTo<HTMLTemplateElement>(scope)) {
+  while (auto* parent_template = DynamicTo<HTMLTemplateElement>(scope)) {
+    if (auto* parent_patch = parent_template->GetPatch()) {
+      if (!parent_patch->is_buffered()) {
+        scope = parent_patch->parent_;
+        continue;
+      }
+    }
     scope = parent_template->InsertionTarget();
-  } else if (scope == scope->GetDocument().body()) {
+  }
+  if (scope == scope->GetDocument().body()) {
     scope = scope->GetDocument().documentElement();
   }
 

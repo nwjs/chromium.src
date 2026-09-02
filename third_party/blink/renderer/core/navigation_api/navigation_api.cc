@@ -302,7 +302,7 @@ void NavigationApi::UpdateForNavigation(HistoryItem& item,
 
   if (auto* routemap = RouteMap::Get(window_->document())) {
     if (transition_) {
-      routemap->OnNavigationCommitted();
+      routemap->SetCommitted();
     }
   }
 
@@ -872,18 +872,25 @@ NavigationApi::DispatchResult NavigationApi::DispatchNavigateEvent(
   CHECK(!ongoing_navigate_event_);
   ongoing_navigate_event_ = navigate_event;
 
-  if (auto* routemap = RouteMap::Get(window_->document())) {
-    routemap->OnNavigationStart(window_->Url(), params->url,
-                                params->source_element);
-    if (params->frame_load_type == WebFrameLoadType::kBackForward &&
-        routemap->HasHistoryRules() && destination_entry) {
-      int previous_index = GetIndexFor(currentEntry());
-      int next_index = GetIndexFor(destination_entry);
-      NavigationState::HistoryTraverseType direction =
-          next_index < previous_index ? NavigationState::kBack
-                                      : NavigationState::kForward;
-      routemap->OnNavigationTraverse(direction);
+  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+    auto& state = NavigationState::Create(*window_->document(), window_->Url(),
+                                          params->url, params->source_element);
+    if (params->frame_load_type == WebFrameLoadType::kBackForward) {
+      if (destination_entry) {
+        int previous_index = GetIndexFor(currentEntry());
+        int next_index = GetIndexFor(destination_entry);
+        NavigationState::HistoryTraverseType direction =
+            next_index < previous_index ? NavigationState::kBack
+                                        : NavigationState::kForward;
+        state.SetTraverseType(direction);
+      }
+    } else if (IsReloadLoadType(params->frame_load_type)) {
+      state.SetTraverseType(NavigationState::kReload);
     }
+  }
+
+  if (auto* routemap = RouteMap::Get(window_->document())) {
+    routemap->SetNavigationStarted();
   }
 
   has_dropped_navigation_ = false;
@@ -1051,8 +1058,9 @@ void NavigationApi::DidAbort(ScriptValue value) {
       ErrorEvent::Create(ToCoreStringWithNullCheck(isolate, message->Get()),
                          location, value, &DOMWrapperWorld::MainWorld(isolate));
   event->SetType(event_type_names::kNavigateerror);
-  if (auto* routemap = RouteMap::Get(window_->document())) {
-    routemap->OnNavigationDone();
+
+  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+    NavigationState::AttemptFinishNavigationAndDestroy(window_->document());
   }
   DispatchEvent(*event);
 
@@ -1082,8 +1090,8 @@ void NavigationApi::DidFinishOngoingNavigation() {
     ongoing_api_method_tracker_ = nullptr;
   }
 
-  if (auto* routemap = RouteMap::Get(window_->document())) {
-    routemap->OnNavigationDone();
+  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+    NavigationState::AttemptFinishNavigationAndDestroy(window_->document());
   }
   DispatchEvent(*Event::Create(event_type_names::kNavigatesuccess));
 

@@ -285,10 +285,7 @@ bool IsValidTurnURL(const KURL& url) {
 
 // Determines if the current context disallows WebRTC. Corresponds to the
 // algorithm in https://www.w3.org/TR/CSP3/#should-block-rtc-connection.
-// To avoid redundant Reporting API triggers and UMA pings, we only set
-// send_report when constructing an actual RTCPeerConnection.
-bool AreIceCandidatesAdministrativelyProhibited(ExecutionContext* context,
-                                                bool send_report = false) {
+bool AreIceCandidatesAdministrativelyProhibited(ExecutionContext* context) {
   const network::ConnectionAllowlists& connection_allowlists =
       context->GetPolicyContainer()->GetPolicies().connection_allowlists;
 
@@ -728,8 +725,7 @@ RTCPeerConnection::RTCPeerConnection(
       encoded_insertable_streams_(encoded_insertable_streams) {
   LocalDOMWindow* window = To<LocalDOMWindow>(context);
 
-  if (AreIceCandidatesAdministrativelyProhibited(context,
-                                                 /*send_report=*/true)) {
+  if (AreIceCandidatesAdministrativelyProhibited(context)) {
     are_ice_candidates_administratively_prohibited_ = true;
   }
   MaybeReportConnectionAllowlistViolation(context);
@@ -1443,14 +1439,14 @@ RTCConfiguration* RTCPeerConnection::getConfiguration(
     url_vector.reserve(
         base::checked_cast<wtf_size_t>(webrtc_server.urls.size()));
     for (const auto& url : webrtc_server.urls) {
-      url_vector.emplace_back(url.c_str());
+      url_vector.emplace_back(url);
     }
     auto* urls = MakeGarbageCollected<V8UnionStringOrStringSequence>(
         std::move(url_vector));
 
     ice_server->setUrls(urls);
-    ice_server->setUsername(webrtc_server.username.c_str());
-    ice_server->setCredential(webrtc_server.password.c_str());
+    ice_server->setUsername(String(webrtc_server.username));
+    ice_server->setCredential(String(webrtc_server.password));
     ice_servers.push_back(ice_server);
   }
   result->setIceServers(ice_servers);
@@ -2036,15 +2032,6 @@ std::optional<webrtc::RtpTransceiverInit> ValidateRtpTransceiverInit(
     ExceptionState& exception_state,
     const RTCRtpTransceiverInit* init,
     const String kind) {
-  if (init->hasSendEncodings()) {
-    for (const auto& encoding : init->sendEncodings()) {
-      if (encoding->hasMaxBitrate() && encoding->maxBitrate() == 0) {
-        exception_state.ThrowRangeError("maxBitrate must be greater than 0.");
-        return std::nullopt;
-      }
-    }
-  }
-
   auto webrtc_init = ToRtpTransceiverInit(execution_context, init, kind);
   // Validate sendEncodings.
   for (auto& encoding : webrtc_init.send_encodings) {

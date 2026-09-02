@@ -166,6 +166,14 @@ interface PreloadPage {
   SetProfileReadyState(ProfileReadyState ready_state);
 };
 
+// State of the web client running inside the webview.
+enum WebClientState {
+  kUninitialized,
+  kResponsive,
+  kUnresponsive,
+  kError,
+};
+
 // Functions provided by the WebUI page.
 interface Page {
   // Called before the page is shown.
@@ -182,6 +190,9 @@ interface Page {
 
   // Notifies the page to adjust the zoom level of its hosted webview.
   Zoom(ZoomAction action);
+
+  // Notifies the page when the web client state changes.
+  WebClientStateChanged(WebClientState state);
 };
 
 // Page handler for pre-loading tasks.
@@ -314,7 +325,7 @@ enum HelpCenterTopic {
   kIneligibleAccount,
 };
 
-// Page handler for the glic WebUI.
+// Page handler for the glic WebUI, implemented by the browser.
 interface PageHandler {
   // Creates a WebClientHandler, for use by a single web client instance.
   CreateWebClient(pending_receiver<WebClientHandler> web_client_receiver);
@@ -356,7 +367,7 @@ interface PageHandler {
   EnableDragResize(bool enabled);
 
   // Notifies the PageHandler that the state of the WebUI has changed.
-  WebUiStateChanged(WebUiState new_state);
+  OnWebUiStateChanged(WebUiState new_state);
 };
 
 // @generate glic_api
@@ -455,6 +466,8 @@ enum ActorTaskInterruptReason {
   kWaitingIrrelevantUserInput = 6,
   // Actor task was waiting for user to respond to unsafe counter-abuse verdict.
   [MinVersion=1] kWaitingUnsafeCounterAbuseVerdict = 7,
+  // Actor task was waiting for user to consent on experimental triggering.
+  [MinVersion=2] kWaitingForExperimentalTriggeringConsent = 8,
 };
 
 // @generate glic_api
@@ -885,6 +898,7 @@ struct SuggestionContent {
 };
 
 // @generate glic_api
+// Next version: 3
 // Enum to specify the source of the Skill.
 // LINT.IfChange(SkillSource)
 [Stable, Extensible]
@@ -896,6 +910,10 @@ enum SkillSource {
   kUserCreated = 2,
   // Skill derived from a first party skill.
   [MinVersion=1] kDerivedFromFirstParty = 3,
+  // Skill sourced from the EnterprisePublishedSkills enterprise policy.
+  [MinVersion=2] kEnterprise = 4,
+  // Skill derived from an enterprise skill.
+  [MinVersion=2] kDerivedFromEnterprise = 5,
 };
 
 // LINT.ThenChange(//components/skills/public/skill.mojom:SkillSource,
@@ -919,6 +937,10 @@ struct SkillPreview {
   string? curated_by;
   // The image URL to show when rendering this skill.
   url.mojom.Url? image_url;
+  // The category of the skill.
+  string? category;
+  // The time when the skill was created.
+  mojo_base.mojom.Time? creation_time;
 };
 
 // @generate glic_api
@@ -1270,6 +1292,9 @@ interface ActorHandler {
   // No-op if the task is not in the interrupted state.
   UninterruptActorTask(int32 task_id);
 
+  // Updates the progress of a step for an actor task with the given ID.
+  UpdateActorTaskStepProgress(int32 task_id, string step_progress);
+
   // Creates a new tab for an actor task to act in. The initiator tab and window
   // are used to place the new tab in the window the task was started from,
   // regardless of whether context from that initial tab was shared or not.
@@ -1393,8 +1418,8 @@ interface SkillsClient {
   // Notify that a skill has been deleted.
   NotifySkillDeleted(string skill_id);
 
-  // Notify that the skill to invoke has changed.
-  NotifySkillToInvokeChanged(Skill skill);
+  // The skills enablement state has changed at runtime.
+  NotifySkillsEnabledChanged(bool enabled);
 };
 
 // @generate glic_api
@@ -1439,6 +1464,10 @@ interface WebClientHandler {
   // Creates the skills handler.
   CreateSkillsHandler(pending_receiver<SkillsHandler> receiver,
                       pending_remote<SkillsClient> client);
+
+  // Creates the zero state suggestions handler.
+  CreateZeroStateSuggestionsHandler(
+      pending_receiver<ZeroStateSuggestionsHandler> receiver);
 
   // Creates a new tab. `url` must have a http or https protocol.
   // `tab_data` is null if the tab could not be created, which may happen if the
@@ -1689,14 +1718,6 @@ interface WebClientHandler {
   // Get the status of the OS Microphone permission currently granted to Chrome.
   GetOsMicrophonePermissionStatus() => (bool enabled);
 
-  // If is_live==true this will return the zero state suggestions for the
-  // currently shared content. Suggestions will continue to emit via
-  // NotifyZeroStateSuggestionsChanged until this is called with the same
-  // options but with is_live == false.
-  GetZeroStateSuggestionsAndSubscribe(
-      bool is_live, ZeroStateSuggestionsOptions options)
-      => (ZeroStateSuggestionsV2? zero_state_suggestions);
-
   // Returns zero-state suggestions from the currently active tab.
   GetZeroStateSuggestionsForFocusedTab(bool? is_first_run)
       => (ZeroStateSuggestions? suggestions);
@@ -1736,6 +1757,24 @@ interface WebClientHandler {
   // closed, or if the tab is not found.
   SubscribeToTabFavicon(
       int32 tab_id, pending_remote<TabFaviconHandler> receiver);
+};
+
+// Accesses zero state suggestions from the web client.
+interface ZeroStateSuggestionsHandler {
+  // If client is not null, this will return the zero state suggestions for the
+  // currently shared content. Suggestions will continue to emit via
+  // NotifyZeroStateSuggestionsChanged until this is called with a null client.
+  GetZeroStateSuggestionsAndSubscribe(
+      pending_remote<ZeroStateSuggestionsClient>? client,
+      ZeroStateSuggestionsOptions options)
+      => (ZeroStateSuggestionsV2? zero_state_suggestions);
+};
+
+// Notifies the web client of changes to the zero state suggestions.
+interface ZeroStateSuggestionsClient {
+  // The zero state suggestions have changed.
+  NotifyZeroStateSuggestionsChanged(ZeroStateSuggestionsV2 suggestions,
+                                    ZeroStateSuggestionsOptions options);
 };
 
 // Receives updates for a specific tab.
@@ -1953,6 +1992,8 @@ enum InvocationSource {
   [MinVersion=26] kReshowInactive = 40,
   // From the tab context menu.
   [MinVersion=27] kTabContextMenu = 41,
+  // From Web Continuity.
+  [MinVersion=28] kWebContinuity = 42,
 };
 
 // LINT.ThenChange(
@@ -1981,6 +2022,20 @@ enum ActuationTarget {
 };
 
 // @generate glic_api
+// Payload for invoking a skill.
+struct SkillsPayload {
+  // Skill ID to trigger.
+  string skill_id;
+
+  // Skill name to show in the Glic client. Empty string is the null state.
+  string skill_name;
+
+  // Skill icon (emoji) to show in the Glic client.
+  // Empty string is the null state.
+  string skill_icon;
+};
+
+// @generate glic_api
 // Payload for Universal Cart invocation.
 struct UniversalCartPayload {
   // This metadata is received from the same Google endpoint we receive the
@@ -1991,6 +2046,9 @@ struct UniversalCartPayload {
 
 union InvocationPayload {
   UniversalCartPayload universal_cart;
+
+  [MinVersion=3]
+  SkillsPayload skills_payload;
 };
 
 // @generate glic_api
@@ -2019,6 +2077,7 @@ struct InvokeOptions {
   bool disable_zero_state_suggestions;
 
   // Skill ID to trigger.
+  // Deprecated: Use payload.skills_payload.skill_id instead.
   string? skill_id;
 
   // Configuration to override the default ZSS behavior for the invocation.
@@ -2260,6 +2319,10 @@ interface ExperimentalTriggeringClient {
 
 // Access from the browser to the Glic web client by proxy of the WebUI page.
 interface WebClient {
+  // Lightweight check sent by C++ browser process to verify guest JS event-loop
+  // responsiveness.
+  CheckResponsive() => ();
+
   // Informs the web client that the panel will open. Chrome will wait to open
   // the panel until after this returns, and will use the data in the returned
   // `OpenPanelInfo` to setup the opening panel.
@@ -2329,10 +2392,6 @@ interface WebClient {
 
   // Notify that the TabData for a pinned tab has changed.
   NotifyPinnedTabDataChanged(TabData tab_data);
-
-  // Informs the client that the zero state suggestions have changed.
-  NotifyZeroStateSuggestionsChanged(ZeroStateSuggestionsV2? suggestions,
-                                    ZeroStateSuggestionsOptions options);
 
   // Informs the client that the metadata tags have changed.
   // Contents from meta tags are passed unsanitized from the renderer.

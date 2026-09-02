@@ -142,6 +142,13 @@ if (is_win) {
 }
 
 if (is_android) {
+  # Weak definitions needed because standalone tools (e.g. device_forwarder,
+  # devil_utils, sandbox_linux_unittests) depend on various //base libraries.
+  # As non-Java-using binaries, it doesn't really make sense for them to have
+  # a generate_final_jni() step. These binaries link JNI calls, but don't
+  # actually execute them (since doing so would crash).
+  use_weak_called_by_natives = true
+
   config("android_system_libs") {
     libs = [
       "android",
@@ -318,6 +325,7 @@ component("base") {
     "containers/span_reader.h",
     "containers/span_writer.h",
     "containers/stack.h",
+    "containers/to_array.h",
     "containers/to_value_list.h",
     "containers/to_vector.h",
     "containers/transparent_hash.h",
@@ -487,6 +495,8 @@ component("base") {
     "memory/writable_shared_memory_region.h",
     "memory_coordinator/async_memory_consumer_registration.cc",
     "memory_coordinator/async_memory_consumer_registration.h",
+    "memory_coordinator/dummy_memory_consumer_registry.cc",
+    "memory_coordinator/dummy_memory_consumer_registry.h",
     "memory_coordinator/memory_consumer.cc",
     "memory_coordinator/memory_consumer.h",
     "memory_coordinator/memory_consumer_registry.cc",
@@ -1012,7 +1022,6 @@ component("base") {
     "types/to_address.h",
     "types/token_type.h",
     "types/variant_util.h",
-    "types/zip.h",
     "unguessable_token.cc",
     "unguessable_token.h",
     "uuid.cc",
@@ -1933,6 +1942,7 @@ component("base") {
       "win/dark_mode_support.h",
       "win/default_apps_util.cc",
       "win/default_apps_util.h",
+      "win/delayload_helpers.cc",
       "win/delayload_helpers.h",
       "win/elevation_util.cc",
       "win/elevation_util.h",
@@ -2007,6 +2017,8 @@ component("base") {
       "win/scoped_windows_thread_environment.h",
       "win/scoped_winrt_initializer.cc",
       "win/scoped_winrt_initializer.h",
+      "win/scoped_wintrust_data.cc",
+      "win/scoped_wintrust_data.h",
       "win/security_descriptor.cc",
       "win/security_descriptor.h",
       "win/security_util.cc",
@@ -2020,6 +2032,8 @@ component("base") {
       "win/sid.h",
       "win/startup_information.cc",
       "win/startup_information.h",
+      "win/trust_util.cc",
+      "win/trust_util.h",
       "win/variant_conversions.h",
       "win/variant_vector.cc",
       "win/variant_vector.h",
@@ -2059,6 +2073,7 @@ component("base") {
 
     libs += [
       "cfgmgr32.lib",
+      "crypt32.lib",
       "ntdll.lib",
       "onecore.lib",
       "pdh.lib",
@@ -2070,6 +2085,7 @@ component("base") {
       "userenv.lib",
       "wbemuuid.lib",
       "winmm.lib",
+      "wintrust.lib",
     ]
     all_dependent_configs += [
       ":base_win_linker_flags",
@@ -2644,6 +2660,7 @@ group("base_rust") {
     ":file_path",
     ":run_loop",
     ":sequenced_task_runner",
+    ":unguessable_token",
   ]
 }
 
@@ -2759,6 +2776,17 @@ rust_static_library("feature") {
   cxx_bindings = [ "feature.rs" ]
   allow_unsafe = true
   deps = [ "//base" ]
+}
+
+rust_static_library("unguessable_token") {
+  sources = [ "unguessable_token.rs" ]
+  crate_root = "unguessable_token.rs"
+  cxx_bindings = [ "unguessable_token.rs" ]
+  allow_unsafe = true
+  deps = [
+    "//base",
+    "//third_party/rust/subtle/v2:lib",
+  ]
 }
 
 rust_static_library("sequenced_task_runner") {
@@ -3191,7 +3219,6 @@ component("i18n") {
     ":base",
     "//base/i18n:base_i18n_export",
     "//base/i18n:language_tag",
-    "//base/i18n:language_tag_value_converters",
     "//base/i18n:time_formatting_types",
     "//base/i18n:timezone",
     "//base/i18n/icubridge",
@@ -3692,6 +3719,7 @@ test("base_unittests") {
     "containers/span_reader_unittest.cc",
     "containers/span_unittest.cc",
     "containers/span_writer_unittest.cc",
+    "containers/to_array_unittest.cc",
     "containers/to_value_list_unittest.cc",
     "containers/to_vector_unittest.cc",
     "containers/transparent_hash_unittest.cc",
@@ -4028,7 +4056,6 @@ test("base_unittests") {
     "types/to_address_unittest.cc",
     "types/token_type_unittest.cc",
     "types/variant_util_unittest.cc",
-    "types/zip_unittest.cc",
     "unguessable_token_unittest.cc",
     "unsafe_buffers_unittest.cc",
     "uuid_unittest.cc",
@@ -4066,6 +4093,12 @@ test("base_unittests") {
     "Base64UrlTest.FuzzBase64UrlDecode",
     "Base64UrlTest.FuzzBase64UrlEncode",
     "JSONReaderTest.CanParseAnythingWithoutCrashing",
+    "UTFStringConversionsTest.UTF16ToUTF8FastPathMatchesLegacy",
+    "UTFStringConversionsTest.UTF16ToWideFastPathMatchesLegacy",
+    "UTFStringConversionsTest.UTF8ToUTF16FastPathMatchesLegacy",
+    "UTFStringConversionsTest.UTF8ToWideFastPathMatchesLegacy",
+    "UTFStringConversionsTest.WideToUTF8FastPathMatchesLegacy",
+    "UTFStringConversionsTest.WideToUTF16FastPathMatchesLegacy",
   ]
 
   defines = []
@@ -4108,6 +4141,23 @@ test("base_unittests") {
     # TODO(crbug.com/40158212): Move partition_alloc tests into its repository.
     "allocator/partition_allocator/src/partition_alloc:test_support",
   ]
+
+  # TODO(https://crbug.com/532647976): Add test coverage to ChromeOS and Fuchsia
+  # after fixing linking errors found by
+  # https://ci.chromium.org/ui/p/chrome/builders/try/chromeos-betty-chrome-gtest/80753/overview
+  # (can be fixed by disabling remote linking in `build/config/siso/rust.star`
+  # and by
+  # https://ci.chromium.org/ui/p/chromium/builders/try/fuchsia-x64-cast-receiver-rel/1591660/overview
+  # (not diagnosed yet).
+  if (!is_chromeos && !is_fuchsia) {
+    deps += [ "//build/rust/tests" ]
+  }
+
+  # TODO(https://crbug.com/405379314): This fails to build on some iOS ASAN
+  # builders.
+  if (!is_ios || !is_asan) {
+    deps += [ "//testing/rust_gtest_interop:unittests" ]
+  }
 
   # TODO(crbug.com/40158212): Move partition_alloc tests into its repository.
   #
@@ -4249,6 +4299,7 @@ test("base_unittests") {
       "win/shortcut_unittest.cc",
       "win/sid_unittest.cc",
       "win/startup_information_unittest.cc",
+      "win/trust_util_unittest.cc",
       "win/variant_conversions_unittest.cc",
       "win/variant_vector_unittest.cc",
       "win/vector_unittest.cc",
@@ -4639,6 +4690,7 @@ test("base_unittests") {
     "trace_event/trace_arguments_unittest.cc",
     "trace_event/trace_config_unittest.cc",
     "trace_event/trace_event_unittest.cc",
+    "trace_event/trace_session_observer_unittest.cc",
     "trace_event/traced_value_support_unittest.cc",
     "trace_event/traced_value_unittest.cc",
     "tracing/perfetto_task_runner_unittest.cc",
@@ -4764,6 +4816,7 @@ if (enable_nocompile_tests) {
       "containers/fixed_flat_set_nocompile.nc",
       "containers/heap_array_nocompile.nc",
       "containers/span_nocompile.nc",
+      "containers/to_array_nocompile.nc",
       "containers/to_value_list_nocompile.nc",
       "containers/to_vector_nocompile.nc",
       "debug/crash_logging_nocompile.nc",
@@ -4804,7 +4857,6 @@ if (enable_nocompile_tests) {
       "unsafe_buffers_nocompile.nc",
       "values_nocompile.nc",
     ]
-    sources += [ "containers/adapters_nocompile.nc" ]
     deps = [
       ":base",
       "//base/i18n:language_tag",
@@ -5371,6 +5423,17 @@ if (is_android) {
     deps = [
       ":lifetime_java",
       ":tasks_java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+    ]
+  }
+
+  android_library("tristate_java") {
+    sources = [
+      "android/java/src/org/chromium/base/TriState.java",
+      "android/java/src/org/chromium/base/TriStateUtils.java",
+    ]
+    deps = [
+      "//build/android:build_java",
       "//third_party/androidx:androidx_annotation_annotation_java",
     ]
   }
@@ -6166,6 +6229,7 @@ if (is_android) {
       "android/junit/src/org/chromium/base/TimeUtilsTest.java",
       "android/junit/src/org/chromium/base/TokenUnitTest.java",
       "android/junit/src/org/chromium/base/TraceEventTest.java",
+      "android/junit/src/org/chromium/base/TriStateUtilsTest.java",
       "android/junit/src/org/chromium/base/UnownedUserDataHostTest.java",
       "android/junit/src/org/chromium/base/UnownedUserDataKeyTest.java",
       "android/junit/src/org/chromium/base/ValueChangedCallbackTest.java",
@@ -6225,6 +6289,7 @@ if (is_android) {
       ":jni_callbacks_junit_tests_java",
       ":location_junit_tests",
       ":task_executor_java",
+      ":tristate_java",
       "//base/test:leak_canary_java",
       "//base/test:public_transit_robolectric_tests_java",
       "//base/test:test_support_java",

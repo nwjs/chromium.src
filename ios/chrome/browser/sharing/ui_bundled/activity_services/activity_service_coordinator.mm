@@ -6,7 +6,10 @@
 
 #import <LinkPresentation/LinkPresentation.h>
 
+#import "base/strings/sys_string_conversions.h"
 #import "components/bookmarks/browser/bookmark_model.h"
+#import "components/signin/public/identity_manager/account_info.h"
+#import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
@@ -14,8 +17,13 @@
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
+#import "ios/chrome/browser/shared/public/commands/qr_generation_commands.h"
+#import "ios/chrome/browser/shared/public/commands/send_tab_to_self_commands.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -32,6 +40,8 @@
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/share_to_data.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/share_to_data_builder.h"
 #import "ios/chrome/browser/sharing/ui_bundled/sharing_params.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/web/public/web_state.h"
 #import "net/base/apple/url_conversions.h"
@@ -48,9 +58,6 @@ constexpr CGFloat kAppIconPointSize = 80;
 }  // namespace
 
 @interface ActivityServiceCoordinator ()
-
-@property(nonatomic, weak) id<BrowserCoordinatorCommands, FindInPageCommands>
-    handler;
 
 @property(nonatomic, strong) ActivityServiceMediator* mediator;
 
@@ -112,32 +119,57 @@ constexpr CGFloat kAppIconPointSize = 80;
                         name:UIApplicationDidEnterBackgroundNotification
                       object:nil];
 
-  self.handler =
-      static_cast<id<BrowserCoordinatorCommands, FindInPageCommands>>(
-          self.browser->GetCommandDispatcher());
+  CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+  id<BrowserCoordinatorCommands> browserHandler =
+      HandlerForProtocol(dispatcher, BrowserCoordinatorCommands);
+  id<FindInPageCommands> findInPageHandler =
+      HandlerForProtocol(dispatcher, FindInPageCommands);
+  id<SendTabToSelfCommands> sendTabToSelfHandler =
+      HandlerForProtocol(dispatcher, SendTabToSelfCommands);
 
   ProfileIOS* profile = self.profile;
   self.incognito = profile->IsOffTheRecord();
   bookmarks::BookmarkModel* bookmarkModel =
       ios::BookmarkModelFactory::GetForProfile(profile);
-  id<BookmarksCommands> bookmarksHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), BookmarksCommands);
-  id<HelpCommands> helpHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
+  id<BookmarksCommands> bookmarksHandler =
+      HandlerForProtocol(dispatcher, BookmarksCommands);
+  id<HelpCommands> helpHandler = HandlerForProtocol(dispatcher, HelpCommands);
   WebNavigationBrowserAgent* agent =
       WebNavigationBrowserAgent::FromBrowser(self.browser);
   ReadingListBrowserAgent* readingListBrowserAgent =
       ReadingListBrowserAgent::FromBrowser(self.browser);
-  self.mediator =
-      [[ActivityServiceMediator alloc] initWithHandler:self.handler
-                                      bookmarksHandler:bookmarksHandler
-                                           helpHandler:helpHandler
-                                   qrGenerationHandler:self.scopedHandler
-                                           prefService:profile->GetPrefs()
-                                         bookmarkModel:bookmarkModel
-                                    baseViewController:self.baseViewController
-                                       navigationAgent:agent
-                               readingListBrowserAgent:readingListBrowserAgent];
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(profile);
+  NSString* userGivenName = nil;
+  if (identityManager) {
+    AccountInfo accountInfo = identityManager->FindExtendedAccountInfo(
+        identityManager->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin));
+    std::optional<std::string_view> givenName = accountInfo.GetGivenName();
+    if (givenName && !givenName->empty()) {
+      userGivenName = base::SysUTF8ToNSString(*givenName);
+    } else {
+      std::optional<std::string_view> fullName = accountInfo.GetFullName();
+      if (fullName && !fullName->empty()) {
+        userGivenName = base::SysUTF8ToNSString(*fullName);
+      }
+    }
+  }
+
+  self.mediator = [[ActivityServiceMediator alloc]
+        initWithBrowserHandler:browserHandler
+             findInPageHandler:findInPageHandler
+          sendTabToSelfHandler:sendTabToSelfHandler
+              bookmarksHandler:bookmarksHandler
+                   helpHandler:helpHandler
+           qrGenerationHandler:self.scopedHandler
+                   prefService:profile->GetPrefs()
+                 bookmarkModel:bookmarkModel
+            baseViewController:self.baseViewController
+               navigationAgent:agent
+       readingListBrowserAgent:readingListBrowserAgent
+      sendTabToSelfSyncService:SendTabToSelfSyncServiceFactory::GetForProfile(
+                                   profile)
+                 userGivenName:userGivenName];
 
   SceneState* sceneState = self.browser->GetSceneState();
   self.mediator.promoScheduler = [NonModalDefaultBrowserPromoSchedulerSceneAgent

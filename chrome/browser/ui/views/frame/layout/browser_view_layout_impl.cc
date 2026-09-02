@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/custom_corners_background.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_delegate.h"
+#include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/views/view.h"
 
@@ -125,19 +126,12 @@ std::string BrowserViewLayoutImpl::ProposedLayout::ToString(int depth) const {
 
 BrowserViewLayoutImpl::BrowserViewLayoutImpl(
     std::unique_ptr<BrowserViewLayoutDelegate> delegate,
-    Browser* browser,
     BrowserViewLayoutViews views)
-    : BrowserViewLayout(std::move(delegate), browser, std::move(views)) {
-#if BUILDFLAG(IS_MAC)
-  if (auto* const glass_frame_service = GlassFrameService::GetInstance()) {
-    in_glass_mode_ = glass_frame_service->IsBrowserWindowEligible(browser);
-    glass_mode_subscription_ =
-        glass_frame_service->RegisterGlassFrameEligibilityChangedCallback(
-            browser, base::BindRepeating(
-                         &BrowserViewLayoutImpl::OnGlassModeChangedCallback,
-                         base::Unretained(this)));
-  }
-#endif
+    : BrowserViewLayout(std::move(delegate), std::move(views)) {
+  glass_mode_subscription_ = this->delegate().AddOnGlassModeChangedCallback(
+      base::BindRepeating(&BrowserViewLayoutImpl::OnGlassModeChangedCallback,
+                          base::Unretained(this)),
+      /*current_state_out=*/&in_glass_mode_);
 }
 
 BrowserViewLayoutImpl::~BrowserViewLayoutImpl() = default;
@@ -369,7 +363,7 @@ int BrowserViewLayoutImpl::GetDialogTop(const ProposedLayout& layout) const {
 int BrowserViewLayoutImpl::GetDialogBottom(const ProposedLayout& layout) const {
   const auto* const browser_view = views().browser_view.get();
   if (const auto contents_rect =
-          layout.GetBoundsFor(views().contents_container, browser_view)) {
+          layout.GetBoundsFor(views().multi_contents_view, browser_view)) {
     return contents_rect->bottom();
   }
   return browser_view->height();

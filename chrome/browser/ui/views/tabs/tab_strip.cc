@@ -558,6 +558,11 @@ class TabStrip::TabDragContextImpl : public TabDragContext,
     }
     CHECK(first_dragged_tab_model_index.has_value());
 
+    if (!can_insert_into_groups &&
+        GetTabStripModel()->GetFocusedGroup().has_value()) {
+      return first_dragged_tab_model_index.value();
+    }
+
     const int index = CalculateInsertionIndex(
         dragged_bounds, first_dragged_tab_model_index.value(), num_dragged_tabs,
         can_insert_into_groups);
@@ -1203,10 +1208,11 @@ void TabStrip::NewTabButtonPressed(const ui::Event& event) {
   new_tab_button_pressed_start_time_ = base::TimeTicks::Now();
 
   base::RecordAction(base::UserMetricsAction("NewTab_Button"));
-  GetBrowser()->GetProfile()->SetUserData(
+  BrowserWindowInterface* const browser = GetBrowserWindowInterface();
+  browser->GetProfile()->SetUserData(
       NewTabGroupingUserData::kNewTabGroupingUserDataKey,
       std::make_unique<NewTabGroupingUserData>(
-          GetBrowser()->tab_strip_model()->GetActiveTab()->GetGroup()));
+          browser->GetTabStripModel()->GetActiveTab()->GetGroup()));
   if (event.IsMouseEvent()) {
     // Prevent the hover card from popping back in immediately. This forces a
     // normal fade-in.
@@ -1216,7 +1222,7 @@ void TabStrip::NewTabButtonPressed(const ui::Event& event) {
 
     const ui::MouseEvent& mouse = static_cast<const ui::MouseEvent&>(event);
     if (mouse.IsOnlyMiddleMouseButton()) {
-      chrome::NewTabFromClipboardURL(GetBrowser());
+      chrome::NewTabFromClipboardURL(browser);
       return;
     }
   }
@@ -1740,8 +1746,7 @@ void TabStrip::CloseTab(Tab* tab, CloseTabSource source) {
       tab_container_->GetModelIndexOfFirstNonClosingTab(tab);
   if (index_to_close.has_value() && IsValidModelIndex(index_to_close.value())) {
     auto callback =
-        base::BindOnce(&TabStrip::CloseTabInternal, base::Unretained(this),
-                       index_to_close.value());
+        base::BindOnce(&TabStrip::CloseTabInternal, base::Unretained(this));
     controller_->OnCloseTab(index_to_close.value(), source,
                             std::move(callback));
   }
@@ -1772,8 +1777,11 @@ void TabStrip::MoveTabFirst(Tab* tab) {
     return;
   }
 
+  std::optional<tab_groups::TabGroupId> focused_group = GetFocusedGroup();
   int target_index = 0;
-  if (!controller_->IsTabPinned(start_index.value())) {
+  if (focused_group.has_value() && tab->group() == focused_group) {
+    target_index = controller_->ListTabsInGroup(focused_group.value()).start();
+  } else if (!controller_->IsTabPinned(start_index.value())) {
     while (target_index < start_index &&
            controller_->IsTabPinned(target_index)) {
       ++target_index;
@@ -1784,14 +1792,14 @@ void TabStrip::MoveTabFirst(Tab* tab) {
     return;
   }
 
-  if (target_index != start_index) {
+  if (target_index != start_index.value()) {
     controller_->MoveTab(start_index.value(), target_index);
   }
 
   // The tab may unintentionally land in the first group in the tab strip, so we
   // remove the group to ensure consistent behavior. Even if the tab is already
   // at the front, it should "move" out of its current group.
-  if (tab->group().has_value()) {
+  if (tab->group().has_value() && tab->group() != focused_group) {
     controller_->RemoveTabFromGroup(target_index);
   }
 
@@ -1811,8 +1819,12 @@ void TabStrip::MoveTabLast(Tab* tab) {
 
   const int start_index = maybe_start_index.value();
 
+  std::optional<tab_groups::TabGroupId> focused_group = GetFocusedGroup();
   int target_index;
-  if (controller_->IsTabPinned(start_index)) {
+  if (focused_group.has_value() && tab->group() == focused_group) {
+    target_index =
+        controller_->ListTabsInGroup(focused_group.value()).end() - 1;
+  } else if (controller_->IsTabPinned(start_index)) {
     int temp_index = start_index + 1;
     while (temp_index < GetTabCount() && controller_->IsTabPinned(temp_index)) {
       ++temp_index;
@@ -1833,7 +1845,7 @@ void TabStrip::MoveTabLast(Tab* tab) {
   // The tab may unintentionally land in the last group in the tab strip, so we
   // remove the group to ensure consistent behavior. Even if the tab is already
   // at the back, it should "move" out of its current group.
-  if (tab->group().has_value()) {
+  if (tab->group().has_value() && tab->group() != focused_group) {
     controller_->RemoveTabFromGroup(target_index);
   }
 
@@ -2116,10 +2128,6 @@ void TabStrip::ShiftGroupRight(const tab_groups::TabGroupId& group) {
   ShiftGroupRelative(group, 1);
 }
 
-Browser* TabStrip::GetBrowser() {
-  return controller_->GetBrowserWindowInterface()->GetBrowserForMigrationOnly();
-}
-
 BrowserWindowInterface* TabStrip::GetBrowserWindowInterface() {
   return controller_->GetBrowserWindowInterface();
 }
@@ -2267,7 +2275,7 @@ const Tab* TabStrip::GetLastVisibleTab() const {
   return nullptr;
 }
 
-void TabStrip::CloseTabInternal(int model_index, CloseTabSource source) {
+void TabStrip::CloseTabInternal(CloseTabSource source) {
   if (!tab_container_->InTabClose() && IsAnimatingInTabStrip()) {
     // Cancel any current animations. We do this as remove uses the current
     // ideal bounds and we need to know ideal bounds is in a good state.
@@ -2282,20 +2290,6 @@ void TabStrip::CloseTabInternal(int model_index, CloseTabSource source) {
   }
 
   UpdateHoverCard(nullptr, HoverCardUpdateType::kTabRemoved);
-  if (tab_at(model_index)->group().has_value()) {
-    base::RecordAction(base::UserMetricsAction("CloseGroupedTab"));
-
-    if (controller_->GetCount() == 1) {
-      // Prevent the browser from closing when the last grouped tab is closed
-      // from the browser by adding a new tab.
-      controller_->CreateNewTab(NewTabTypes::kNoUserAction);
-      // In some situations the new tab is assigned a group. So if it is in a
-      // group, we remove it from the group so that after closing the tab at
-      // `model_index`, the browser shows a tab without a group.
-      controller_->RemoveTabFromGroup(1);
-    }
-  }
-  controller_->CloseTab(model_index);
 }
 
 void TabStrip::UpdateContrastRatioValues() {
@@ -2327,12 +2321,13 @@ void TabStrip::ShiftTabRelative(Tab* tab, int offset) {
   }
 
   const auto old_group = tab->group();
+  std::optional<tab_groups::TabGroupId> focused_group = GetFocusedGroup();
   if (!IsValidModelIndex(target_index) ||
       controller_->IsTabPinned(start_index) !=
           controller_->IsTabPinned(target_index)) {
     // Even if we've reached the boundary of where the tab could go, it may
     // still be able to "move" out of its current group.
-    if (old_group.has_value()) {
+    if (old_group.has_value() && old_group != focused_group) {
       AnnounceTabRemovedFromGroup(old_group.value());
       controller_->RemoveTabFromGroup(start_index);
     }
@@ -2344,6 +2339,12 @@ void TabStrip::ShiftTabRelative(Tab* tab, int offset) {
   std::optional<tab_groups::TabGroupId> target_group =
       tab_at(target_index)->group();
   if (old_group != target_group) {
+    // Do not allow tabs to enter or exit the focused tab group.
+    if (focused_group.has_value() &&
+        (old_group == focused_group || target_group == focused_group)) {
+      return;
+    }
+
     if (old_group.has_value()) {
       AnnounceTabRemovedFromGroup(old_group.value());
       controller_->RemoveTabFromGroup(start_index);
@@ -2383,6 +2384,10 @@ void TabStrip::ShiftTabRelative(Tab* tab, int offset) {
 
 void TabStrip::ShiftGroupRelative(const tab_groups::TabGroupId& group,
                                   int offset) {
+  if (GetFocusedGroup() == group) {
+    return;
+  }
+
   CHECK_EQ(1, std::abs(offset))
       << "Offset must be 1 or -1 to shift the group left or right.";
   gfx::Range tabs_in_group = controller_->ListTabsInGroup(group);

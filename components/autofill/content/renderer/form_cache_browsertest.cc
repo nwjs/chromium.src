@@ -96,8 +96,10 @@ class FormCacheBrowserTest : public test::AutofillRendererTest {
                                         kCallTimerStateDummy);
   }
 
+  void ClearCache() { form_cache_->ClearCache(); }
+
   size_t num_extracted_forms() {
-    return std::ranges::count_if(form_cache_->extracted_forms(),
+    return std::ranges::count_if(form_cache_->extracted_forms_unsafe(),
                                  [](const auto& id_and_form) {
                                    const auto& [id, form] = id_and_form;
                                    return form != nullptr;
@@ -475,7 +477,7 @@ TEST_F(FormCacheBrowserTest, DoNotStoreEmptyForms) {
   EXPECT_TRUE(forms.updated_forms.empty());
   EXPECT_TRUE(forms.removed_forms.empty());
 
-  EXPECT_EQ(1u, GetDocument().GetTopLevelForms().size());
+  EXPECT_EQ(1u, GetDocument().GetOutermostForms().size());
   EXPECT_EQ(0u, num_extracted_forms());
 }
 
@@ -495,7 +497,8 @@ TEST_F(FormCacheBrowserTest, FormCacheSizeUpperBound) {
   EXPECT_EQ(forms.updated_forms.size(), kMaxExtractableFields);
   EXPECT_TRUE(forms.removed_forms.empty());
 
-  EXPECT_EQ(kMaxExtractableFields + 1, GetDocument().GetTopLevelForms().size());
+  EXPECT_EQ(kMaxExtractableFields + 1,
+            GetDocument().GetOutermostForms().size());
   EXPECT_EQ(kMaxExtractableFields, num_extracted_forms());
 }
 
@@ -508,7 +511,8 @@ TEST_F(FormCacheBrowserTest, FieldLimit) {
   }
   LoadHTML(html);
 
-  ASSERT_EQ(kMaxExtractableFields + 1, GetDocument().GetTopLevelForms().size());
+  ASSERT_EQ(kMaxExtractableFields + 1,
+            GetDocument().GetOutermostForms().size());
 
   FormCache::UpdateFormCacheResult forms = UpdateFormCache();
 
@@ -526,7 +530,7 @@ TEST_F(FormCacheBrowserTest, FrameLimit) {
   LoadHTML(html);
 
   ASSERT_EQ(kMaxExtractableChildFrames + 1,
-            GetDocument().GetTopLevelForms().size());
+            GetDocument().GetOutermostForms().size());
 
   FormCache::UpdateFormCacheResult forms = UpdateFormCache();
 
@@ -600,6 +604,22 @@ TEST_F(FormCacheBrowserTest, UpdateFormCacheMeasuresTotalTime) {
                                     2);
   histogram_tester.ExpectTotalCount(
       "Autofill.TimingPrecise.ExtractFormData.UpdateFormCache", 1);
+}
+
+TEST_F(FormCacheBrowserTest, ClearCache) {
+  LoadHTML(R"(<form id="f"><input></form>)");
+  FormCache::UpdateFormCacheResult result1 = UpdateFormCache();
+  EXPECT_THAT(result1.updated_forms, SizeIs(1));
+
+  // Running UpdateFormCache again without DOM changes returns no updated forms.
+  FormCache::UpdateFormCacheResult result2 = UpdateFormCache();
+  EXPECT_THAT(result2.updated_forms, IsEmpty());
+
+  // After ClearCache, UpdateFormCache returns the form again as updated.
+  ClearCache();
+  FormCache::UpdateFormCacheResult result3 = UpdateFormCache();
+  EXPECT_THAT(result3.updated_forms, SizeIs(1));
+  EXPECT_THAT(result3.removed_forms, IsEmpty());
 }
 
 }  // namespace

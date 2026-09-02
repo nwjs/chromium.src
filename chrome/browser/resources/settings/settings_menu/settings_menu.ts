@@ -44,6 +44,24 @@ export interface SettingsMenuElement {
   };
 }
 
+const pathToActionMap: Map<string, string> = new Map([
+  ['/people', 'SettingsMenu_PeopleClicked'],
+  ['/autofill', 'SettingsMenu_AutofillClicked'],
+  ['/privacy', 'SettingsMenu_PrivacyClicked'],
+  ['/performance', 'SettingsMenu_PerformanceClicked'],
+  ['/ai', 'SettingsMenu_AiPageEntryPointClicked'],
+  ['/appearance', 'SettingsMenu_AppearanceClicked'],
+  ['/search', 'SettingsMenu_SearchClicked'],
+  ['/defaultBrowser', 'SettingsMenu_DefaultBrowserClicked'],
+  ['/onStartup', 'SettingsMenu_OnStartupClicked'],
+  ['/languages', 'SettingsMenu_LanguagesClicked'],
+  ['/downloads', 'SettingsMenu_DownloadsClicked'],
+  ['/accessibility', 'SettingsMenu_AccessibilityClicked'],
+  ['/system', 'SettingsMenu_SystemClicked'],
+  ['/reset', 'SettingsMenu_ResetClicked'],
+  ['/help', 'SettingsMenu_AboutClicked'],
+]);
+
 const SettingsMenuElementBase = RouteObserverMixin(PolymerElement);
 
 export class SettingsMenuElement extends SettingsMenuElementBase {
@@ -69,33 +87,17 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
         type: Boolean,
         value: () => loadTimeData.getBoolean('showAiPage'),
       },
-
-      enableYourSavedInfoSettingsPage_: {
-        type: Boolean,
-        value: () => {
-          return loadTimeData.getBoolean('enableYourSavedInfoSettingsPage');
-        },
-      },
     };
   }
 
   declare private pageVisibility_?: PageVisibility;
   declare private showAiPage_: boolean;
-  declare private enableYourSavedInfoSettingsPage_: boolean;
   private metricsBrowserProxy_: MetricsBrowserProxy =
       MetricsBrowserProxyImpl.getInstance();
 
   private showAiPageMenuItem_(): boolean {
     return this.showAiPage_ &&
         (!this.pageVisibility_ || this.pageVisibility_.ai !== false);
-  }
-
-  private showAutofillMenuItem_(): boolean {
-    const showYourSavedInfo = this.enableYourSavedInfoSettingsPage_ &&
-        this.pageVisibility_?.yourSavedInfo !== false;
-    const showAutofill = !this.enableYourSavedInfoSettingsPage_ &&
-        this.pageVisibility_?.autofill !== false;
-    return showYourSavedInfo || showAutofill;
   }
 
   override currentRouteChanged(newRoute: Route) {
@@ -145,6 +147,11 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
     const path = event.detail.selected;
     this.setSelectedPath_(path);
 
+    const action = pathToActionMap.get(path);
+    if (action) {
+      this.metricsBrowserProxy_.recordAction(action);
+    }
+
     const route = Router.getInstance().getRouteForPath(path);
     assert(route, `settings-menu encountered invalid path '${path}'`);
     Router.getInstance().navigateTo(
@@ -157,16 +164,9 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
   }
 
   private onAutofillClick_() {
-    const metricName = this.enableYourSavedInfoSettingsPage_ ?
-        'Autofill.YourSavedInfoSettingsPage.VisitReferrer' :
-        'Autofill.AutofillAndPasswordsSettingsPage.VisitReferrer';
     this.metricsBrowserProxy_.recordAutofillSettingsReferrer(
-        metricName, AutofillSettingsReferrer.SETTINGS_MENU);
-  }
-
-  private onAiPageClick_() {
-    this.metricsBrowserProxy_.recordAction(
-        'SettingsMenu_AiPageEntryPointClicked');
+        'Autofill.YourSavedInfoSettingsPage.VisitReferrer',
+        AutofillSettingsReferrer.SETTINGS_MENU);
   }
 
   private hideBottomMenuSeparator_(): boolean {

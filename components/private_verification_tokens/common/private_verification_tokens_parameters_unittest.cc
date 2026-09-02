@@ -13,11 +13,19 @@ TEST(PrivateVerificationTokensParametersTest, GetParametersForVersion1) {
   ASSERT_TRUE(params.has_value());
   EXPECT_EQ(params->min_batch_size, 2);
   EXPECT_EQ(params->max_batch_size, 20);
+  EXPECT_EQ(params->max_number_of_redeemers, 2);
+  EXPECT_EQ(params->num_buckets, 2);
+  EXPECT_EQ(params->single_request_size, 36u);
+  EXPECT_EQ(params->blinded_request_size, 33u);
 }
 
 TEST(PrivateVerificationTokensParametersTest, GetParametersForUnknownVersion) {
   auto params = GetParametersForVersion(2);
   EXPECT_FALSE(params.has_value());
+}
+
+TEST(PrivateVerificationTokensParametersTest, AthmTokenType) {
+  EXPECT_EQ(PrivateVerificationTokensParameters::kAthmTokenType, 0xC07E);
 }
 
 }  // namespace private_verification_tokens

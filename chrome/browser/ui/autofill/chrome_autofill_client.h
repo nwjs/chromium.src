@@ -60,6 +60,10 @@ namespace optimization_guide {
 class RemoteModelExecutor;
 }
 
+namespace personal_context {
+class PersonalContextFirstRunService;
+}
+
 namespace tabs {
 class TabInterface;
 }
@@ -73,7 +77,6 @@ class AutofillAiSaveUpdateEntityFlowManager;
 class SaveUpdateAddressProfileFlowManager;
 class AutofillMessageController;
 class AutofillDialogController;
-class AtMemoryBottomSheetBridge;
 class TouchToFillAutofillController;
 #endif
 
@@ -153,13 +156,12 @@ class ChromeAutofillClient : public ContentAutofillClient {
   EntityDataManager* GetEntityDataManager() final;
   WalletPassAccessManager* GetWalletPassAccessManager() final;
   SingleFieldFillRouter& GetSingleFieldFillRouter() final;
-  bool ShouldShowPersonalContextAmbientAutofillNotice() const override;
-  void MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() override;
-  bool ShouldShowPersonalContextAtMemoryNotice() const override;
-  void MarkPersonalContextAtMemoryNoticeAsAcknowledged() override;
+  personal_context::PersonalContextFirstRunService*
+  GetPersonalContextFirstRunService() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() final;
   AutofillComposeDelegate* GetComposeDelegate() final;
   AtMemoryQueryService* GetAtMemoryQueryService() override;
+  AtMemoryManager* GetAtMemoryManager() override;
   personal_context::PersonalContextEligibilityState
   GetPersonalContextEligibilityState() const override;
   personal_context::PersonalContextEligibilityService*
@@ -170,6 +172,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
   AutofillAiManager* GetAutofillAiManager() final;
   AutofillAiPersonalContextAccessManager*
   GetAutofillAiPersonalContextAccessManager() final;
+  EntitySuppressionManager* GetEntitySuppressionManager() final;
   AutofillAiModelCache* GetAutofillAiModelCache() final;
   AutofillAiModelExecutor* GetAutofillAiModelExecutor() final;
   consent_auditor::ConsentAuditor* GetConsentAuditor() final;
@@ -252,17 +255,17 @@ class ChromeAutofillClient : public ContentAutofillClient {
   // on Android.
   AutofillSnackbarControllerImpl* GetAutofillSnackbarController() final;
 
+  // Notifies the user that their data is being fetched from the server to fill
+  // the form.
+  void ShowAutofillAiLoadingDialog() final;
+
+  // Closes the dialog that informs the user that their data is being fetched
+  // from the server to fill the form.
+  void DismissAutofillAiLoadingDialog() final;
+
   bool ShowAmbientAutoFillNotice(
       base::WeakPtr<TouchToFillAutofillDelegate> delegate) override;
   void HideAmbientAutoFillNotice() override;
-
-  void ShowAtMemoryBottomSheet(
-      base::span<const Suggestion> suggestions,
-      base::WeakPtr<AutofillSuggestionDelegate> delegate) final;
-  void HideAtMemoryBottomSheet() final;
-
-  // Returns the AtMemoryBottomSheetBridge for the current tab.
-  AtMemoryBottomSheetBridge* GetOrCreateAtMemoryBottomSheetBridge();
 
   // The AutofillMessageController is used to show native Android messages via
   // the messages API.
@@ -299,6 +302,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
   void ShowAutofillAiLocalSaveNotification() final;
   void ShowAutofillAiSaveToWalletFailureNotification() final;
   void ShowAutofillAiFetchEntityFailureNotification() final;
+  void ShowAtMemoryFetchFailureNotification(
+      std::optional<std::u16string> message_override) final;
   void ShowAutofillAiPreFetchFailureNotification() final;
   void ShowAutofillAiPrivateInferenceNotice() final;
   void ShowEmailVerifiedToast(const GURL& issuer) final;
@@ -306,7 +311,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
       const gfx::RectF& element_bounds,
       const net::SchemefulSite& issuer_site,
       const std::u16string& email,
-      base::OnceCallback<void(EmailVerificationPermissionUiResult)> callback)
+      base::OnceCallback<void(EmailVerificationPermissionUiStatus)> callback)
       final;
 
   // TODO(crbug.com/407666146): Create a test API.
@@ -368,6 +373,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
     void OnTextCopiedToClipboard(content::RenderFrameHost* render_frame_host,
                                  const std::u16string& copied_text) override;
     void OnPaste() override;
+    void DidGetUserInteraction(const blink::WebInputEvent& event) override;
 
    private:
     const base::raw_ref<ChromeAutofillClient> client_;
@@ -387,7 +393,8 @@ class ChromeAutofillClient : public ContentAutofillClient {
   void ShowAutofillSuggestionsImpl(
       SuggestionUiSessionId session_id,
       const PopupOpenArgs& open_args,
-      base::WeakPtr<AutofillSuggestionDelegate> delegate);
+      base::WeakPtr<AutofillSuggestionDelegate> delegate,
+      FieldGlobalId expected_field_id);
 
   // Called when an actor task is created or an existing one changes state. It
   // may be called for actors unrelated to the current tab. If an update is
@@ -402,6 +409,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
       this};
 
   std::unique_ptr<AutofillAiManager> autofill_ai_manager_;
+  std::unique_ptr<AtMemoryManager> at_memory_manager_;
 
   // These members are initialized lazily in their respective getters.
   // Therefore, do not access the members directly.
@@ -431,7 +439,6 @@ class ChromeAutofillClient : public ContentAutofillClient {
       save_update_address_profile_flow_manager_;
   std::unique_ptr<AutofillSnackbarControllerImpl>
       autofill_snackbar_controller_impl_;
-  std::unique_ptr<AtMemoryBottomSheetBridge> at_memory_bottom_sheet_bridge_;
   std::unique_ptr<TouchToFillAutofillController>
       touch_to_fill_autofill_controller_;
 #else   // BUILDFLAG(IS_ANDROID)

@@ -5,26 +5,17 @@
 #ifndef COMPONENTS_ACTOR_CORE_ACTOR_FEATURES_H_
 #define COMPONENTS_ACTOR_CORE_ACTOR_FEATURES_H_
 
-#include <string>
-
-#include "base/feature_list.h"
+#include "base/feature.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
 #include "components/page_content_annotations/core/page_content_annotations_enums.h"
 
 namespace actor {
 
-BASE_DECLARE_FEATURE(kGlicActionAllowlist);
-
-BASE_DECLARE_FEATURE_PARAM(std::string, kAllowlist);
-BASE_DECLARE_FEATURE_PARAM(std::string, kAllowlistExact);
-BASE_DECLARE_FEATURE_PARAM(bool, kAllowlistOnly);
-
 BASE_DECLARE_FEATURE(kGlicActionUseOptimizationGuide);
 BASE_DECLARE_FEATURE(kActorBypassTOUValidationForGuestView);
 
 BASE_DECLARE_FEATURE(kGlicExternalProtocolActionResultCode);
-BASE_DECLARE_FEATURE(kGlicGranularBlockingActionResultCodes);
 
 BASE_DECLARE_FEATURE(kGlicBlockNavigationToDangerousContentTypes);
 
@@ -102,6 +93,10 @@ BASE_DECLARE_FEATURE(kGlicActorSkipScreenshot);
 
 BASE_DECLARE_FEATURE(kActorRestartObservationDelayControllerOnNavigate);
 
+BASE_DECLARE_FEATURE(kActorLoginObservationStartDelay);
+extern const base::FeatureParam<base::TimeDelta>
+    kActorLoginObservationStartDelayDuration;
+
 // Kill switch to disable sending a browser signal (which is used for user
 // interaction) before sending action to renderer.
 BASE_DECLARE_FEATURE(kActorSendBrowserSignalForAction);
@@ -127,13 +122,12 @@ extern const base::FeatureParam<int> kActorScriptToolDelayObservationMillis;
 // interrupt-with-user-control.
 BASE_DECLARE_FEATURE(kActorFormScriptToolInterrupt);
 
-BASE_DECLARE_FEATURE(kGlicActorTabObservationController);
-
 BASE_DECLARE_FEATURE(kActorObserveScreenshotDefault);
 BASE_DECLARE_FEATURE(kActorObservePageContentDefault);
 
 BASE_DECLARE_FEATURE(kActorScriptToolSkipScreenshot);
 BASE_DECLARE_FEATURE(kActorScriptToolSkipPageContent);
+BASE_DECLARE_FEATURE(kActorScriptToolTransientUserActivation);
 
 // Guards the new Actor Task invocation source completion metrics.
 BASE_DECLARE_FEATURE(kActorRecordInvocationSourceCompletionMetrics);

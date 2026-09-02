@@ -1369,6 +1369,12 @@
     "module_scheme": "gtest",
     "skip_usage_check": True,
   },
+  "ios_web_content_unittests": {
+    "label": "//ios/web/content:ios_web_content_unittests",
+    "type": "generated_script",
+    "module_scheme": "gtest",
+    "skip_usage_check": True,
+  },
   "ios_web_inttests": {
     "label": "//ios/web:ios_web_inttests",
     "type": "generated_script",
@@ -1557,6 +1563,16 @@
     "module_scheme": "junit",
     "skip_usage_check": True,
   },
+  "mojo_legacy_unittests": {
+    "label": "//chromeos/ash/components/mojo_proxy/mojo_core:mojo_legacy_unittests",
+    "type": "console_test_launcher",
+    "module_scheme": "gtest",
+  },
+  "mojo_proxy_unittests": {
+    "label": "//chromeos/ash/components/mojo_proxy/service:mojo_proxy_unittests",
+    "type": "console_test_launcher",
+    "module_scheme": "gtest",
+  },
   "mojo_python_unittests": {
     "label": "//mojo/public/tools:mojo_python_unittests",
     "type": "script",
@@ -1651,11 +1667,6 @@
     "type": "console_test_launcher",
     "module_scheme": "gtest",
     "skip_usage_check": True,
-  },
-  "opt_target_coverage_test": {
-    "label": "//components/optimization_guide/internal/testing:opt_target_coverage_test",
-    "type": "generated_script",
-    "module_scheme": "flat",
   },
   "optimization_guide_gpu_unittests": {
     "label": "//components/optimization_guide/internal:optimization_guide_gpu_unittests",
@@ -2268,6 +2279,21 @@
       "views_perftests",
     ],
   },
+  "views_perftests_fuchsia": {
+    "label": "//ui/views:views_perftests_fuchsia",
+    "type": "script",
+    "module_scheme": "gtest",
+    "script": "//build/fuchsia/test/run_test.py",
+    "skip_usage_check": True,
+    "args": [
+      "perf_gtest",
+      "bin/run_views_perftests_fuchsia",
+      "--out-dir",
+      ".",
+      "--non-telemetry=true",
+      "--gtest-benchmark-name=views_perftests",
+    ],
+  },
   "views_unittests": {
     "label": "//ui/views:views_unittests",
     "type": "windowed_test_launcher",
@@ -2373,6 +2399,11 @@
     "label": "//chrome/android/webapk/shell_apk:webapk_shell_apk_junit_tests",
     "type": "generated_script",
     "module_scheme": "junit",
+    "skip_usage_check": True,
+  },
+  "webdriver_bidi_e2e_tests": {
+    "label": "//third_party/chromium-bidi:webdriver_bidi_e2e_tests",
+    "type": "generated_script",
     "skip_usage_check": True,
   },
   "webdriver_bidi_unittests": {

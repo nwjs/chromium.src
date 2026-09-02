@@ -11,6 +11,11 @@ import type {GetPoliciesReason} from './policy.mojom-webui.js';
 const policyPageMojoMigrationEnabled =
     loadTimeData.getBoolean('policyPageMojoMigrationEnabled');
 
+export interface CustomCommandLineArguments {
+  hasCustomArgs: boolean;
+  commandLineArgs: string;
+}
+
 export class BrowserProxy {
   handler: PolicyPageHandlerRemote;
   callbackRouter: PolicyPageClientCallbackRouter;

@@ -65,6 +65,9 @@ class OverlayBaseController : public content::WebContentsDelegate,
     // screenshot.
     kClosingOpenedSidePanel,
 
+    // Waiting for reflow after opening side panel before taking a screenshot.
+    kWaitingForOpeningSidePanelReflow,
+
     // In the process of taking a screenshot to transition to kOverlay.
     kScreenshot,
 
@@ -159,6 +162,7 @@ class OverlayBaseController : public content::WebContentsDelegate,
   void RenderProcessExited(
       content::RenderProcessHost* host,
       const content::ChildProcessTerminationInfo& info) override;
+  void RenderProcessHostDestroyed(content::RenderProcessHost* host) override;
 
   // Called when the UI needs to create the view to show in the overlay.
   raw_ptr<views::View> CreateViewForOverlay();
@@ -214,6 +218,10 @@ class OverlayBaseController : public content::WebContentsDelegate,
   // Whether the side panel should be closed if it doesn't match
   // the desired type.
   virtual bool ShouldCloseSidePanel() = 0;
+
+  // Whether the overlay should wait for the side panel reflow before
+  // taking a screenshot, even if it is not closing the side panel.
+  virtual bool ShouldWaitForSidePanelReflow();
 
   // Start the flow for collecting the screenshot. After the concrete
   // class has prepared the screenshot `InitializeScreenshot` should be called.
@@ -408,6 +416,11 @@ class OverlayBaseController : public content::WebContentsDelegate,
   base::ScopedObservation<ImmersiveModeController,
                           ImmersiveModeController::Observer>
       immersive_mode_observer_{this};
+
+  // Observer to get notifications when the overlay's renderer process exits.
+  base::ScopedObservation<content::RenderProcessHost,
+                          content::RenderProcessHostObserver>
+      render_process_host_observation_{this};
 
   // Layer delegate that handles blurring the background behind the WebUI.
   std::unique_ptr<lens::LensOverlayBlurLayerDelegate>

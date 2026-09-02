@@ -4,6 +4,8 @@
 
 module iwa_dev.mojom;
 
+import "mojo/public/mojom/base/empty.mojom";
+import "mojo/public/mojom/base/error.mojom";
 import "mojo/public/mojom/base/file_path.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
@@ -29,13 +31,62 @@ struct IwaDevModeAppInfo {
   string installed_version;
 };
 
+// Mimics web_app::UpdateManifest::VersionEntry.
+struct VersionEntry {
+  string version;
+  url.mojom.Url src;
+  array<string> channels;
+};
+
+// Mimics web_app::UpdateManifest::ChannelMetadata.
+struct ChannelMetadata {
+  string channel;
+  string display_name;
+};
+
+// Mimics web_app::UpdateManifest.
+struct UpdateManifest {
+  array<VersionEntry> versions;
+  array<ChannelMetadata> channels;
+};
+
 // Interface for the WebUI page to communicate with the browser.
 interface PageHandler {
   // Returns information about installed dev mode IWAs.
   GetInstalledAppsInfo() => (array<IwaDevModeAppInfo> apps);
 
+  // Installs an IWA from a local proxy server.
+  InstallAppFromDevProxy(url.mojom.Url url)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Installs an IWA from an update manifest URL.
+  InstallAppFromUpdateManifest(url.mojom.Url web_bundle_url,
+                               UpdateInfo update_info)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Attempts to fetch and parse an IWA update manifest from the provided url.
+  ParseUpdateManifestFromUrl(url.mojom.Url update_manifest_url)
+      => result<UpdateManifest, mojo_base.mojom.Error>;
+
+  // Opens a file picker for the user to select a Web Bundle and installs it.
+  SelectAndInstallAppFromLocalWebBundle()
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Opens a file picker for the user to select a Web Bundle and
+  // updates the app.
+  SelectAndUpdateAppFromLocalWebBundle(string app_id)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
   // Uninstalls an IWA with a given ID.
   UninstallApp(string app_id) => (bool success);
+
+  // Triggers an update for an app installed through dev proxy.
+  UpdateDevProxyInstalledApp(string app_id)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
+
+  // Triggers an update for a manifest-installed dev mode app.
+  UpdateManifestInstalledApp(string app_id)
+      => result<mojo_base.mojom.Empty, mojo_base.mojom.Error>;
 };
 
 // Interface for the browser to push events to the WebUI page.

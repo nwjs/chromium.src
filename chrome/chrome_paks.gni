@@ -125,30 +125,22 @@ template("chrome_extra_paks") {
       "$root_gen_dir/chrome/chrome_unscaled_resources.pak",
       "$root_gen_dir/chrome/common_resources.pak",
       "$root_gen_dir/chrome/contextual_tasks_resources.pak",
+      "$root_gen_dir/chrome/glic_experimental_opt_in_resources.pak",
       "$root_gen_dir/chrome/glic_resources.pak",
       "$root_gen_dir/chrome/saved_tab_groups_unsupported_resources.pak",
-      "$root_gen_dir/chrome/segmentation_internals_resources.pak",
       "$root_gen_dir/components/autofill/core/browser/geo/autofill_address_rewriter_resources.pak",
       "$root_gen_dir/components/autofill/core/browser/geo/autofill_alternative_state_name_map_resources.pak",
-      "$root_gen_dir/components/autofill_and_password_manager_internals_resources.pak",
       "$root_gen_dir/components/chrome_urls_resources.pak",
       "$root_gen_dir/components/components_resources.pak",
-      "$root_gen_dir/components/connectors_internals_resources.pak",
       "$root_gen_dir/components/crashes_resources.pak",
       "$root_gen_dir/components/flags_ui_resources.pak",
-      "$root_gen_dir/components/gcm_internals_resources.pak",
       "$root_gen_dir/components/internal_debug_pages_disabled_resources.pak",
       "$root_gen_dir/components/metrics/metrics_server_urls.pak",
-      "$root_gen_dir/components/net_export_resources.pak",
-      "$root_gen_dir/components/regional_capabilities_internals_resources.pak",
       "$root_gen_dir/components/safe_browsing_resources.pak",
-      "$root_gen_dir/components/translate_internals_resources.pak",
       "$root_gen_dir/components/user_actions_ui_resources.pak",
       "$root_gen_dir/components/version_ui_resources.pak",
       "$root_gen_dir/content/content_resources.pak",
       "$root_gen_dir/content/histograms_resources.pak",
-      "$root_gen_dir/content/indexed_db_resources.pak",
-      "$root_gen_dir/content/quota_internals_resources.pak",
       "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
       "$root_gen_dir/net/net_resources.pak",
       "$root_gen_dir/services/device/public/cpp/usb/usb_ids_resources.pak",
@@ -233,7 +225,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/drive_picker_host_untrusted_resources.pak",
         "$root_gen_dir/chrome/feedback_resources.pak",
         "$root_gen_dir/chrome/gaia_auth_host_resources.pak",
-        "$root_gen_dir/chrome/glic_experimental_opt_in_resources.pak",
         "$root_gen_dir/chrome/glic_untrusted_resources.pak",
         "$root_gen_dir/chrome/history_resources.pak",
         "$root_gen_dir/chrome/indigo_resources.pak",
@@ -245,6 +236,7 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/new_tab_footer_resources.pak",
         "$root_gen_dir/chrome/omnibox_everywhere_resources.pak",
         "$root_gen_dir/chrome/omnibox_popup_resources.pak",
+        "$root_gen_dir/chrome/organizer_panel_resources.pak",
         "$root_gen_dir/chrome/password_manager_resources.pak",
         "$root_gen_dir/chrome/profile_internals_resources.pak",
         "$root_gen_dir/chrome/search_engine_choice_resources.pak",
@@ -260,7 +252,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/chrome/side_panel_shared_resources.pak",
         "$root_gen_dir/chrome/side_panel_tabs_from_other_devices_resources.pak",
         "$root_gen_dir/chrome/signin_resources.pak",
-        "$root_gen_dir/chrome/suggest_internals_resources.pak",
         "$root_gen_dir/chrome/support_tool_resources.pak",
         "$root_gen_dir/chrome/tab_group_home_resources.pak",
         "$root_gen_dir/chrome/tab_search_resources.pak",
@@ -337,7 +328,6 @@ template("chrome_extra_paks") {
         "$root_gen_dir/ash/webui/ash_os_feedback_untrusted_resources.pak",
         "$root_gen_dir/ash/webui/ash_personalization_app_resources.pak",
         "$root_gen_dir/ash/webui/ash_print_management_resources.pak",
-        "$root_gen_dir/ash/webui/ash_print_preview_cros_app_resources.pak",
         "$root_gen_dir/ash/webui/ash_projector_app_untrusted_resources.pak",
         "$root_gen_dir/ash/webui/ash_projector_common_resources.pak",
         "$root_gen_dir/ash/webui/ash_sanitize_app_resources.pak",
@@ -440,7 +430,6 @@ template("chrome_extra_paks") {
         "//ash/webui/os_feedback_ui/untrusted_resources:resources",
         "//ash/webui/personalization_app/resources",
         "//ash/webui/print_management/resources",
-        "//ash/webui/print_preview_cros/resources",
         "//ash/webui/projector_app/resources/app/untrusted:resources",
         "//ash/webui/recorder_app_ui/resources",
         "//ash/webui/resources:boca_app_bundle_resources",
@@ -506,21 +495,13 @@ template("chrome_extra_paks") {
     }
 
     if (is_win || is_mac || is_linux || is_chromeos || is_android) {
-      sources += [
-        "$root_gen_dir/chrome/management_resources.pak",
-      ]
-      deps += [
-        "//chrome/browser/resources/management:resources",
-      ]
+      sources += [ "$root_gen_dir/chrome/management_resources.pak" ]
+      deps += [ "//chrome/browser/resources/management:resources" ]
     }
 
     if (is_win || is_mac || is_linux || is_chromeos || is_desktop_android) {
-      sources += [
-        "$root_gen_dir/chrome/discards_resources.pak",
-      ]
-      deps += [
-        "//chrome/browser/resources/discards:resources",
-      ]
+      sources += [ "$root_gen_dir/chrome/discards_resources.pak" ]
+      deps += [ "//chrome/browser/resources/discards:resources" ]
     }
 
     if (is_win || is_mac || is_linux || is_chromeos) {
@@ -537,12 +518,14 @@ template("chrome_extra_paks") {
     if (enable_extensions_core) {
       sources += [
         "$root_gen_dir/chrome/aim_eligibility_extension_resources.pak",
+        "$root_gen_dir/chrome/contextual_tasks_extension_resources.pak",
         "$root_gen_dir/chrome/extensions_resources.pak",
         "$root_gen_dir/extensions/extensions_renderer_generated_resources.pak",
         "$root_gen_dir/extensions/extensions_renderer_resources.pak",
         "$root_gen_dir/extensions/extensions_resources.pak",
       ]
       deps += [
+        "//chrome/browser/resources/contextual_tasks/extension:resources",
         "//chrome/browser/resources/extensions:resources",
         "//chrome/browser/resources/omnibox/aim_eligibility_extension:resources",
         "//extensions:extensions_resources",

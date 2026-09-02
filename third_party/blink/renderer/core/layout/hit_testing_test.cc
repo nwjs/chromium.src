@@ -16,6 +16,7 @@
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 
 namespace blink {
 
@@ -170,12 +171,10 @@ TEST_F(HitTestingTest, HitTestWithCallback) {
   const int div_height = static_cast<int>(
       GetLayoutObjectByElementId("target")->StyleRef().Height().Pixels());
   occluder_1->SetInlineStyleProperty(CSSPropertyID::kMarginTop, "-10px");
-  occluder_2->SetInlineStyleProperty(
-      CSSPropertyID::kMarginTop,
-      String::Format("%dpx", (-div_height * 1) - 10));
-  occluder_3->SetInlineStyleProperty(
-      CSSPropertyID::kMarginTop,
-      String::Format("%dpx", (-div_height * 2) - 10));
+  occluder_2->SetInlineStyleProperty(CSSPropertyID::kMarginTop,
+                                     Format("{}px", (-div_height * 1) - 10));
+  occluder_3->SetInlineStyleProperty(CSSPropertyID::kMarginTop,
+                                     Format("{}px", (-div_height * 2) - 10));
   UpdateAllLifecyclePhasesForTest();
 
   // Set up HitNodeCb helper, and the HitNodeCb expectations.
@@ -482,6 +481,44 @@ TEST_F(HitTestingTest, OcclusionHitTestWith3DTransform) {
   UpdateAllLifecyclePhasesForTest();
   result = HitTestForOcclusion(*target);
   EXPECT_EQ(result.InnerNode(), target);
+}
+
+TEST_F(HitTestingTest, OcclusionHitTestWithFlattenedPreserve3DOccluder) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+    div {
+      position: absolute;
+      width: 100px;
+      height: 100px;
+    }
+    #target {
+      background: green;
+    }
+    #occluder {
+      background: red;
+      transform: translateZ(-10px);
+      transform-style: preserve-3d;
+    }
+    </style>
+    <div id=target></div>
+    <div id=occluder></div>
+  )HTML");
+
+  Element* target = GetElementById("target");
+  Element* occluder = GetElementById("occluder");
+
+  // The occluder paints on top of the target because the parent stacking
+  // context is flat (its translateZ is flattened away, and it comes later in
+  // DOM order).
+  HitTestResult result = HitTestForOcclusion(*target);
+  EXPECT_EQ(result.InnerNode(), occluder);
+
+  // Same with a positive z offset.
+  occluder->SetInlineStyleProperty(CSSPropertyID::kTransform,
+                                   "translateZ(10px)");
+  UpdateAllLifecyclePhasesForTest();
+  result = HitTestForOcclusion(*target);
+  EXPECT_EQ(result.InnerNode(), occluder);
 }
 
 }  // namespace blink

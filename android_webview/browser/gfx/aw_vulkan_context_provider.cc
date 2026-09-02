@@ -7,9 +7,13 @@
 #include <algorithm>
 #include <utility>
 
+#include "android_webview/common/aw_features.h"
 #include "android_webview/common/gfx/aw_gr_context_options_provider.h"
 #include "android_webview/public/browser/draw_fn.h"
+#include "base/check.h"
+#include "base/check_op.h"
 #include "base/compiler_specific.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -34,6 +38,8 @@ namespace android_webview {
 AwVulkanContextProvider::Globals* AwVulkanContextProvider::g_globals = nullptr;
 
 namespace {
+
+AwVulkanContextProvider* g_shared_provider = nullptr;
 
 bool InitVulkanForWebView(VkInstance instance,
                           VkPhysicalDevice physical_device,
@@ -180,17 +186,65 @@ bool AwVulkanContextProvider::Globals::Initialize(
 // static
 scoped_refptr<AwVulkanContextProvider> AwVulkanContextProvider::Create(
     AwDrawFn_InitVkParams* params) {
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewSingleSharedContextState)) {
+    if (g_shared_provider) {
+      CHECK_EQ(params->device,
+               g_shared_provider->GetDeviceQueue()->GetVulkanDevice());
+      CHECK_EQ(params->queue,
+               g_shared_provider->GetDeviceQueue()->GetVulkanQueue());
+      return base::WrapRefCounted(g_shared_provider);
+    }
+  }
+
   auto provider = base::WrapRefCounted(new AwVulkanContextProvider);
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewSingleSharedContextState)) {
+    CHECK(!g_shared_provider);
+    g_shared_provider = provider.get();
+  }
+
   if (!provider->Initialize(params))
     return nullptr;
 
   return provider;
 }
 
+AwVulkanContextProvider::ScopedSecondaryCBDraw::ScopedSecondaryCBDraw(
+    AwVulkanContextProvider* provider,
+    sk_sp<GrVkSecondaryCBDrawContext> draw_context)
+    : provider_(provider) {
+  state_.draw_context = std::move(draw_context);
+  // Attach this draw's state to the provider for the duration of Viz recording.
+  provider_->SecondaryCBDrawBegin(&state_);
+}
+
+AwVulkanContextProvider::ScopedSecondaryCBDraw::~ScopedSecondaryCBDraw() {
+  // Ensure we detach from provider if RecordingFinished() was not called yet.
+  RecordingFinished();
+  // Hand over accumulated semaphores, post-submit tasks, and draw context
+  // to the provider for cleanup on HWUI submission.
+  provider_->SecondaryCBDrawSubmitted(std::move(state_));
+}
+
+void AwVulkanContextProvider::ScopedSecondaryCBDraw::RecordingFinished() {
+  if (recording_active_) {
+    recording_active_ = false;
+    // Detach from provider so other WebViews can record on this shared
+    // provider.
+    provider_->SecondaryCBDrawRecordingFinished(&state_);
+  }
+}
+
 AwVulkanContextProvider::AwVulkanContextProvider() = default;
 
 AwVulkanContextProvider::~AwVulkanContextProvider() {
-  draw_context_.reset();
+  CHECK(!active_draw_state_);
+  if (base::FeatureList::IsEnabled(
+          features::kWebViewSingleSharedContextState)) {
+    CHECK_EQ(g_shared_provider, this);
+    g_shared_provider = nullptr;
+  }
 }
 
 gpu::VulkanImplementation* AwVulkanContextProvider::GetVulkanImplementation() {
@@ -207,19 +261,24 @@ GrDirectContext* AwVulkanContextProvider::GetGrContext() {
 
 GrVkSecondaryCBDrawContext*
 AwVulkanContextProvider::GetGrSecondaryCBDrawContext() {
-  return draw_context_.get();
+  CHECK(active_draw_state_);
+  return active_draw_state_->draw_context.get();
 }
 
 void AwVulkanContextProvider::EnqueueSecondaryCBSemaphores(
     std::vector<VkSemaphore> semaphores) {
-  post_submit_semaphores_.reserve(post_submit_semaphores_.size() +
-                                  semaphores.size());
-  std::ranges::copy(semaphores, std::back_inserter(post_submit_semaphores_));
+  CHECK(active_draw_state_);
+  active_draw_state_->post_submit_semaphores.reserve(
+      active_draw_state_->post_submit_semaphores.size() + semaphores.size());
+  std::ranges::copy(
+      semaphores,
+      std::back_inserter(active_draw_state_->post_submit_semaphores));
 }
 
 void AwVulkanContextProvider::EnqueueSecondaryCBPostSubmitTask(
     base::OnceClosure closure) {
-  post_submit_tasks_.push_back(std::move(closure));
+  CHECK(active_draw_state_);
+  active_draw_state_->post_submit_tasks.push_back(std::move(closure));
 }
 
 std::optional<uint32_t> AwVulkanContextProvider::GetSyncCpuMemoryLimit() const {
@@ -240,35 +299,41 @@ bool AwVulkanContextProvider::InitializeGrContext(
 }
 
 void AwVulkanContextProvider::SecondaryCBDrawBegin(
-    sk_sp<GrVkSecondaryCBDrawContext> draw_context) {
-  DCHECK(draw_context);
-  DCHECK(!draw_context_);
-  DCHECK(post_submit_tasks_.empty());
-  draw_context_ = draw_context;
+    SecondaryCBDrawState* state) {
+  CHECK(state);
+  CHECK(state->draw_context);
+  CHECK(!active_draw_state_);
+  active_draw_state_ = state;
 }
 
-void AwVulkanContextProvider::SecondaryCMBDrawSubmitted() {
-  DCHECK(draw_context_);
-  auto draw_context = std::move(draw_context_);
+void AwVulkanContextProvider::SecondaryCBDrawRecordingFinished(
+    SecondaryCBDrawState* state) {
+  CHECK_EQ(active_draw_state_, state);
+  active_draw_state_ = nullptr;
+}
+
+void AwVulkanContextProvider::SecondaryCBDrawSubmitted(
+    SecondaryCBDrawState state) {
+  CHECK(state.draw_context);
 
   auto* fence_helper = globals_->device_queue->GetFenceHelper();
   VkFence vk_fence = VK_NULL_HANDLE;
   auto result = fence_helper->GetFence(&vk_fence);
-  DCHECK(result == VK_SUCCESS);
-  gpu::SubmitSignalVkSemaphores(queue(), post_submit_semaphores_, vk_fence);
+  CHECK_EQ(result, VK_SUCCESS);
+  gpu::SubmitSignalVkSemaphores(queue(), state.post_submit_semaphores,
+                                vk_fence);
 
-  post_submit_semaphores_.clear();
   fence_helper->EnqueueCleanupTaskForSubmittedWork(base::BindOnce(
       [](sk_sp<GrVkSecondaryCBDrawContext> context,
          gpu::VulkanDeviceQueue* device_queue, bool device_lost) {
         context->releaseResources();
-        DCHECK(context->unique());
+        CHECK(context->unique());
         context = nullptr;
       },
-      std::move(draw_context)));
-  for (auto& closure : post_submit_tasks_)
+      std::move(state.draw_context)));
+  for (auto& closure : state.post_submit_tasks) {
     std::move(closure).Run();
-  post_submit_tasks_.clear();
+  }
 
   fence_helper->EnqueueFence(vk_fence);
   fence_helper->ProcessCleanupTasks();

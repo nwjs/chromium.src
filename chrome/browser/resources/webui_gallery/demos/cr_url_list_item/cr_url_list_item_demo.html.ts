@@ -44,10 +44,10 @@ export function getHtml(this: CrUrlListItemDemoElement) {
         title="Google"
         description="google.com">
     <div class="badge" slot="badges">
-      <cr-icon icon="cr:error-outline"></cr-icon> Badge 1
+      <cr-icon icon="cr:error"></cr-icon> Badge 1
     </div>
     <div class="badge" slot="badges">
-      <cr-icon icon="cr:insert-drive-file"></cr-icon> Badge 2
+      <cr-icon icon="cr:draft-filled"></cr-icon> Badge 2
     </div>
     <cr-icon-button iron-icon="cr:check-circle" slot="suffix">
     </cr-icon-button>
@@ -77,10 +77,10 @@ export function getHtml(this: CrUrlListItemDemoElement) {
   <cr-url-list-item url="http://www.google.com" size="compact"
       title="Google" description="google.com">
     <div class="badge" slot="badges">
-      <cr-icon icon="cr:error-outline"></cr-icon> Badge 1
+      <cr-icon icon="cr:error"></cr-icon> Badge 1
     </div>
     <div class="badge" slot="badges">
-      <cr-icon icon="cr:insert-drive-file"></cr-icon> Badge 2
+      <cr-icon icon="cr:draft-filled"></cr-icon> Badge 2
     </div>
   </cr-url-list-item>
 
@@ -105,10 +105,10 @@ export function getHtml(this: CrUrlListItemDemoElement) {
   <cr-url-list-item url="http://www.google.com" size="large"
       title="Google" description="google.com" description-meta="2 mins">
     <div class="badge" slot="badges">
-      <cr-icon icon="cr:error-outline"></cr-icon> Badge 1
+      <cr-icon icon="cr:error"></cr-icon> Badge 1
     </div>
     <div class="badge" slot="badges">
-      <cr-icon icon="cr:insert-drive-file"></cr-icon> Badge 2
+      <cr-icon icon="cr:draft-filled"></cr-icon> Badge 2
     </div>
   </cr-url-list-item>
   <cr-url-list-item count="31" size="large" title="All bookmarks">

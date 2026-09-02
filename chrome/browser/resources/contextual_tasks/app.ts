@@ -4,10 +4,11 @@
 
 // <if expr="not is_android">
 import './banner_promo.js';
-import './lens_search_tooltip.js';
+import './info_tooltip.js';
+import {TooltipState} from './info_tooltip.js';
 import type {ContextualActionMenuElement} from '//resources/cr_components/composebox/contextual_action_menu.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
-import type {ContextualTasksLensSearchTooltipElement} from './lens_search_tooltip.js';
+import type {ContextualTasksInfoTooltipElement} from './info_tooltip.js';
 // </if>
 
 // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
@@ -20,23 +21,22 @@ import type {ContextualTasksComposeboxElement} from './composebox.js';
 import type {ContextualTasksOnboardingTooltipElement} from './onboarding_tooltip.js';
 // </if>
 
+
+
 import '//resources/cr_elements/cr_button/cr_button.js';
 import './error_dialog.js';
 import './error_page.js';
 import './ghost_loader.js';
 import './top_toolbar.js';
+import {WindowManager} from './window_manager.js';
 
-import {isFullWebView} from './web_view_type.js';
-import type {LoadAbortEvent, LoadEvent, NewWindowEvent, PermissionRequestEvent, WebViewType} from './web_view_type.js';
 import type {ChromeEvent} from '/tools/typescript/definitions/chrome_event.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {EventTracker} from 'chrome://resources/js/event_tracker.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
-
 import type {Uuid} from 'chrome://resources/mojo/mojo/public/mojom/base/uuid.mojom-webui.js';
-import {WindowOpenDisposition} from 'chrome://resources/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js';
 import type {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {getCss} from './app.css.js';
@@ -46,11 +46,11 @@ import type {BrowserProxy} from './contextual_tasks_browser_proxy.js';
 import {BrowserProxyImpl} from './contextual_tasks_browser_proxy.js';
 import {PostMessageHandler} from './post_message_handler.js';
 import type {Rect} from './post_message_handler.js';
-import {getNonOccludedClipPath} from './utils/clip_path.js';
 import {recordAction} from './utils.js';
-// <if expr="not is_android">
-import {WindowManager} from './window_manager.js';
-// </if>
+import {getNonOccludedClipPath} from './utils/clip_path.js';
+import {isFullWebView} from './web_view_type.js';
+import type {LoadAbortEvent, LoadEvent, NewWindowEvent, PermissionRequestEvent, WebViewType} from './web_view_type.js';
+
 
 // <if expr="is_android and not enable_webui_contextual_tasks_composebox">
 // ContextualTasksComposeboxElement and ContextualTasksOnboardingTooltipElement
@@ -112,7 +112,7 @@ export interface ContextualTasksAppElement {
     // </if>
     onboardingTooltip?: ContextualTasksOnboardingTooltipElement,
     // <if expr="not is_android">
-    lensSearchTooltip?: ContextualTasksLensSearchTooltipElement,
+    lensSearchTooltip?: ContextualTasksInfoTooltipElement,
     // </if>
   };
 }
@@ -260,15 +260,11 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       friendlyZeroStateTitle: {type: String},
       friendlyZeroStateSubtitle: {type: String},
       occluders_: {type: Array},
-      showOnboardingTooltip_: {
-        type: Boolean,
-        value: loadTimeData.getBoolean('showOnboardingTooltip'),
-      },
-      showLensSearchTooltip_: {
-        type: Boolean,
-        value: loadTimeData.getBoolean('askGCoBrowseEnabled'),
-      },
-      lensSearchTooltipShowing_: {type: Boolean},
+      showOnboardingTooltip_: {type: Boolean},
+      showLensSearchTooltip_: {type: Boolean},
+      lensSearchTooltipTarget_: {type: Object},
+      askGTooltipTarget_: {type: Object},
+      composeboxElement_: {type: Object},
       energyEffectEnabled_: {
         type: Boolean,
         reflect: true,
@@ -293,6 +289,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       },
       onboardingTooltipShowing_: {type: Boolean},
       guestWidth_: {type: Number},
+      entryPoint_: {type: String},
     };
   }
 
@@ -302,7 +299,9 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
       loadTimeData.getBoolean('showOnboardingTooltip');
   protected accessor showLensSearchTooltip_: boolean =
       loadTimeData.getBoolean('askGCoBrowseEnabled');
-  protected accessor lensSearchTooltipShowing_: boolean = false;
+  protected accessor lensSearchTooltipTarget_: Element|null = null;
+  protected accessor askGTooltipTarget_: Element|null = null;
+  protected accessor composeboxElement_: Element|null = null;
 
   protected accessor showSmartTabSharingTryItIph_: boolean = false;
   protected accessor showSmartTabSharingDefaultOnIph_: boolean = false;
@@ -314,6 +313,22 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   protected accessor friendlyZeroStateTitleAfterName_: string =
       loadTimeData.getString('friendlyZeroStateTitleAfterName');
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
+
+  // <if expr="not is_android">
+  private lensTooltipState_ = new TooltipState(
+      loadTimeData.getBoolean('isLensSearchTooltipDismissCountBelowCap'),
+      loadTimeData.getInteger('lensSearchTooltipSessionImpressionCap'), () => {
+        this.browserProxy_.handler.lensSearchTooltipDismissed();
+        this.updateTooltipVisibility_();
+      });
+  private askGTooltipState_ = new TooltipState(
+      loadTimeData.getBoolean('isAskGTooltipDismissCountBelowCap'),
+      loadTimeData.getInteger('askGTooltipSessionImpressionCap'),
+      () => {
+        this.browserProxy_.handler.askGTooltipDismissed();
+        this.updateTooltipVisibility_();
+      });
+  // </if>
   // Whether basic mode is enabled. If disabled, isInBasicMode_,
   // isNavigatingFromAiPage_, and pendingBasicMode_ will not be updated.
   protected accessor enableBasicMode_: boolean =
@@ -336,6 +351,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   // Indicates if in tab mode. Most start in a tab.
   protected accessor isShownInTab_: boolean =
       loadTimeData.getBoolean('isShownInTab');
+  protected accessor entryPoint_: string = loadTimeData.getString('entryPoint');
   protected accessor darkMode_: boolean = loadTimeData.getBoolean('darkMode');
   protected accessor isErrorDialogVisible_: boolean = false;
   private pendingUrl_: string = '';
@@ -442,7 +458,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     this.updateBackgroundColor_();
     this.updateCommonSearchParams();
   }
-  private get composebox_(): ContextualTasksComposeboxElement|null {
+  protected get composebox_(): ContextualTasksComposeboxElement|null {
     // <if expr="not is_android or enable_webui_contextual_tasks_composebox">
     return this.$.composebox || null;
     // </if>
@@ -668,7 +684,10 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     // Setup the webview request overrides before loading the first URL.
     this.setupWebviewRequestOverrides();
 
-    this.configureNewWindowEventHandler();
+    // Handle newwindow events with mock webviews.
+    if (loadTimeData.getBoolean('windowTrackingEnabled')) {
+      new WindowManager(this.$.threadFrame);
+    }
 
     // Check if the URL that loaded this page has a task attached to it. If it
     // does, we'll use the tasks URL to load the embedded page.
@@ -757,6 +776,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   }
 
   override firstUpdated() {
+    this.composeboxElement_ = this.composebox_;
     this.postMessageHandler_ =
         new PostMessageHandler(this.$.threadFrame, this.browserProxy_);
 
@@ -864,55 +884,120 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
   }
   // </if>
 
+  private get isAskGEntryPointEligible_(): boolean {
+    return !this.isShownInTab_ &&
+        (this.entryPoint_ === 'omnibox_tab_search' ||
+         this.entryPoint_ === 'omnibox_action' ||
+         this.entryPoint_ === 'omnibox_contextual_suggestion');
+  }
+
+  // <if expr="not is_android">
+  private get isLensEntryPointEligible_(): boolean {
+    return !this.isShownInTab_ && this.entryPoint_ === 'omnibox_action';
+  }
+
+  private get isAskGEligible_(): boolean {
+    return loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled') &&
+        this.isAskGEntryPointEligible_;
+  }
+  // </if>
+
   private updateTooltipVisibility_() {
     const onboardingTooltip =
         this.shadowRoot?.querySelector<ContextualTasksOnboardingTooltipElement>(
             '#onboardingTooltip') || null;
-    // <if expr="not is_android">
-    const lensSearchTooltip =
-        this.shadowRoot?.querySelector<ContextualTasksLensSearchTooltipElement>(
-            '#lensSearchTooltip') || null;
-    // </if>
+    const composeboxContainer = this.composebox_;
+    const crComposebox = composeboxContainer?.getComposebox() || null;
 
     const isComposeboxHidden = this.isComposeboxHidden_() ||
         (this.enableBasicMode_ && this.isInBasicMode_);
 
-    const composeboxContainer = this.composebox_;
-    const crComposebox = composeboxContainer?.getComposebox() || null;
+    const isComposeboxAvailable =
+        !!composeboxContainer && !!crComposebox && !isComposeboxHidden;
 
-    if (onboardingTooltip) {
-      const hasToken = !isComposeboxHidden &&
-          !!crComposebox?.getHasAutomaticActiveTabChipToken();
-      const isCoinsEnabled = loadTimeData.getBoolean('tabFaviconChipsToCoinsEnabled');
-      const target = crComposebox ? (isCoinsEnabled ?
-          crComposebox.getContextEntrypointElement() :
-          crComposebox.getAutomaticActiveTabChipElement()) : null;
-
-      onboardingTooltip.updateTooltipVisibility(
-          hasToken, target, composeboxContainer || undefined);
-      this.onboardingTooltipShowing_ = onboardingTooltip.shouldShow;
+    if (!isComposeboxAvailable) {
+      this.askGTooltipTarget_ = null;
+      this.lensSearchTooltipTarget_ = null;
+      if (onboardingTooltip) {
+        onboardingTooltip.updateTooltipVisibility(false, null);
+        this.onboardingTooltipShowing_ = false;
+      }
+      return;
     }
+
+    const isCoinsEnabled =
+        loadTimeData.getBoolean('tabFaviconChipsToCoinsEnabled');
+    const activeTabChipTarget = isCoinsEnabled ?
+        crComposebox.getContextEntrypointElement() :
+        crComposebox.getAutomaticActiveTabChipElement();
 
     // <if expr="not is_android">
-    if (lensSearchTooltip) {
-      if (isComposeboxHidden || !composeboxContainer || !crComposebox) {
-        lensSearchTooltip.hide();
-        this.lensSearchTooltipShowing_ = false;
-      } else {
-        lensSearchTooltip.updateTooltipVisibility(composeboxContainer, crComposebox);
-        this.lensSearchTooltipShowing_ = lensSearchTooltip.shouldShow;
-      }
-    }
+    const lensSearchTooltip =
+        this.shadowRoot?.querySelector<ContextualTasksInfoTooltipElement>(
+            '#lensSearchTooltip') ||
+        null;
+    const askGTooltip =
+        this.shadowRoot?.querySelector<ContextualTasksInfoTooltipElement>(
+            '#askGTooltip') ||
+        null;
+
+    // 1. Calculate AskG tooltip (Prioritized)
+    this.askGTooltipTarget_ = this.updateInfoTooltip_(
+        this.askGTooltipState_, this.isAskGEligible_, activeTabChipTarget,
+        askGTooltip);
+    const askGActive = this.askGTooltipTarget_ !== null;
+
+    // 2. Calculate Lens tooltip
+    const askGDismissed =
+        !loadTimeData.getBoolean('isAskGTooltipDismissCountBelowCap');
+    const lensDependency = loadTimeData.getBoolean('askGCoBrowseEnabled') &&
+        this.isLensEntryPointEligible_ && askGDismissed && !askGActive;
+
+    const lensButton = crComposebox.getLensButtonElement() || null;
+    this.lensSearchTooltipTarget_ = this.updateInfoTooltip_(
+        this.lensTooltipState_, lensDependency, lensButton, lensSearchTooltip);
     // </if>
+
+    // 3. Calculate Onboarding tooltip (Suppressed if AskG is eligible)
+    if (onboardingTooltip) {
+      const suppressOnboarding =
+          loadTimeData.getBoolean('webUIOmniboxAskGAboutThisPageEnabled') &&
+          this.isAskGEntryPointEligible_;
+      const hasToken = crComposebox.getHasAutomaticActiveTabChipToken() &&
+          !suppressOnboarding;
+      onboardingTooltip.updateTooltipVisibility(
+          hasToken, activeTabChipTarget, composeboxContainer);
+      this.onboardingTooltipShowing_ = onboardingTooltip.shouldShow;
+    }
   }
 
   protected onOnboardingTooltipDismissed_() {
     this.onboardingTooltipShowing_ = false;
+    this.updateTooltipVisibility_();
+  }
+
+  // <if expr="not is_android">
+  private updateInfoTooltip_(
+      state: TooltipState, dependency: boolean, target: Element|null,
+      tooltipElement: ContextualTasksInfoTooltipElement|null): Element|null {
+    const canShow = state.shouldShow(dependency);
+    if (canShow && target) {
+      if (tooltipElement) {
+        tooltipElement.updatePosition();
+      }
+      return target;
+    }
+    return null;
+  }
+
+  protected onAskGTooltipDismissed_() {
+    this.askGTooltipState_.dismiss();
   }
 
   protected onLensSearchTooltipDismissed_() {
-    this.lensSearchTooltipShowing_ = false;
+    this.lensTooltipState_.dismiss();
   }
+  // </if>
 
 
   private playZeroStateAnimations_() {
@@ -1404,20 +1489,32 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
 
     const frameRect = this.$.threadFrame.getBoundingClientRect();
     let scale = 1.0;
+    let boundsScale = 1.0;
     // <if expr="is_android">
     scale = (this.guestWidth_ && this.guestWidth_ > 0) ?
         (frameRect.width / this.guestWidth_) :
         1.0;
+    boundsScale = (this.forcedComposeboxBounds_ != null) ? scale : 1.0;
     // </if>
     const scaledBounds = composeboxBounds ? {
-      top: composeboxBounds.top * scale,
-      left: composeboxBounds.left * scale,
-      width: composeboxBounds.width * scale,
-      height: composeboxBounds.height * scale,
-      right: composeboxBounds.right * scale,
-      bottom: composeboxBounds.bottom * scale,
+      top: composeboxBounds.top * boundsScale,
+      left: composeboxBounds.left * boundsScale,
+      width: composeboxBounds.width * boundsScale,
+      height: composeboxBounds.height * boundsScale,
+      right: composeboxBounds.right * boundsScale,
+      bottom: composeboxBounds.bottom * boundsScale,
     } :
                                             null;
+
+    const scaledOccluders =
+        this.occluders_.map(occluder => ({
+                              top: occluder.top * scale,
+                              left: occluder.left * scale,
+                              width: occluder.width * scale,
+                              height: occluder.height * scale,
+                              right: occluder.right * scale,
+                              bottom: occluder.bottom * scale,
+                            }));
 
     // If occluders are present, set the clip path and a z-index that ensures
     // the thread frame is above the occluders.
@@ -1427,7 +1524,7 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
         roundedClipPathEnabled ? COMPOSEBOX_BORDER_RADIUS_PX : 0;
 
     const result = getNonOccludedClipPath(
-                       scaledBounds, this.occluders_, OCCLUDER_EXTRA_PADDING_PX,
+                       scaledBounds, scaledOccluders, OCCLUDER_EXTRA_PADDING_PX,
                        frameRect.width, frameRect.height, borderRadius) +
         'z-index: 100;';
     return result;
@@ -1538,25 +1635,6 @@ export class ContextualTasksAppElement extends ContextualTasksAppElementBase {
     this.updateBackgroundColor_();
     this.commonSearchParams_ = params;
     this.maybeLoadPendingUrl_();
-  }
-
-  private configureNewWindowEventHandler() {
-    // <if expr="not is_android">
-    if (loadTimeData.getBoolean('windowTrackingEnabled')) {
-      // Handle newwindow events with mock webviews.
-      new WindowManager(this.$.threadFrame);
-      return;
-    }
-    // </if>
-
-    // On platforms without window tracking, register a fallback listener that
-    // routes the URL to the browser process via `openUrl`.
-    this.eventTracker_.add(this.$.threadFrame, 'newwindow', (e: Event) => {
-      const newWindowEvent = e as NewWindowEvent;
-      newWindowEvent.preventDefault();
-      this.browserProxy_.handler.openUrl(
-          newWindowEvent.targetUrl, WindowOpenDisposition.NEW_FOREGROUND_TAB);
-    });
   }
 
   private setupWebviewRequestOverrides() {

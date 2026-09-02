@@ -2,8 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
+
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
@@ -15,7 +18,6 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/location_bar/webui_location_bar.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
@@ -44,6 +46,7 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_monitor.h"
 #include "ui/base/clipboard/clipboard_observer.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/ime/init/input_method_factory.h"
 #include "ui/base/ime/mock_input_method.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -69,21 +72,11 @@ const WebContentsInteractionTestUtil::DeepQuery kOmniboxInlineAutocomplete = {
     "toolbar-app", "location-bar", "readonly-omnibox", "#inlineAutocomplete"};
 const WebContentsInteractionTestUtil::DeepQuery kSearchKeywordText = {
     "toolbar-app", "location-bar", "selected-keyword", "#long"};
+const WebContentsInteractionTestUtil::DeepQuery kAIMButtonOuter = {
+    "toolbar-app", "location-bar", "page-action-icons", "page-action-icon"};
 const WebContentsInteractionTestUtil::DeepQuery kAIMButton = {
     "toolbar-app", "location-bar", "page-action-icons", "page-action-icon",
-    "cr-icon-button"};
-
-const WebContentsInteractionTestUtil::DeepQuery kClassicMatchText0 = {
-    "omnibox-popup-app", "cr-searchbox-dropdown",
-    "cr-searchbox-match[match-index=\"0\"]", "#suggestion"};
-const WebContentsInteractionTestUtil::DeepQuery kClassicMatchText1 = {
-    "omnibox-popup-app", "cr-searchbox-dropdown",
-    "cr-searchbox-match[match-index=\"1\"]", "#suggestion"};
-const WebContentsInteractionTestUtil::DeepQuery kClassicMatchText2 = {
-    "omnibox-popup-app", "cr-searchbox-dropdown",
-    "cr-searchbox-match[match-index=\"2\"]", "#suggestion"};
-const WebContentsInteractionTestUtil::DeepQuery kDropdownContent = {
-    "omnibox-popup-app", "cr-searchbox-dropdown", "#content"};
+    "toolbar-chip-button"};
 
 class ViewWidthObserver
     : public ui::test::
@@ -231,13 +224,27 @@ class WebUILocationBarInteractiveUiTest : public TestBase {
     // OS.
     ASSERT_TRUE(base::test::RunUntil([browser = browser()]() {
       InitialWebUIManager* manager = InitialWebUIManager::From(browser);
-      return !manager || !manager->IsShowPending();
+      return !manager || !manager->IsInitialWebUIPending();
     }));
   }
 
   void TearDownOnMainThread() override {
     TestBase::TearDownOnMainThread();
     url_loader_interceptor_.reset();
+  }
+
+  ui::ElementIdentifier PopupWebContents() { return kClassicPopupWebViewId; }
+
+  WebContentsInteractionTestUtil::DeepQuery DropdownContent() {
+    return WebContentsInteractionTestUtil::DeepQuery(
+        {"omnibox-popup-app", "cr-searchbox-dropdown", "#content"});
+  }
+
+  WebContentsInteractionTestUtil::DeepQuery MatchText(int num) {
+    return WebContentsInteractionTestUtil::DeepQuery(
+        {"omnibox-popup-app", "cr-searchbox-dropdown",
+         base::StringPrintf("cr-searchbox-match[match-index=\"%d\"]", num),
+         "#suggestion"});
   }
 
   views::WebView* GetToolbarWebView() {
@@ -296,6 +303,11 @@ class WebUILocationBarInteractiveUiTest : public TestBase {
                  InSameContext(ClickMouse()),
                  InAnyContext(WaitForHide(
                      OmniboxPopupPresenterBase::kRoundedResultsFrame)));
+  }
+
+  auto EnsureNoPopup() {
+    return InAnyContext(
+        EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame));
   }
 
   auto FakeKeyDownAt(ui::ElementIdentifier webcontents_id,
@@ -491,6 +503,33 @@ class WebUILocationBarInteractiveUiTest : public TestBase {
     return step;
   }
 
+  auto GrabPopupWidthAndView() {
+    return Steps(InAnyContext(WithElement(
+                     OmniboxPopupPresenterBase::kRoundedResultsFrame,
+                     [this](ui::TrackedElement* element) {
+                       popup_initial_width_ =
+                           element->GetScreenBounds().width();
+                     })),
+                 InSameContext(WithView(
+                     OmniboxPopupPresenterBase::kRoundedResultsFrame,
+                     [this](views::View* view) { popup_frame_ = view; })));
+  }
+
+  auto StartWatchingPopupWidth() {
+    return Steps(InAnyContext(
+        ObserveState(kViewWidth, [this]() { return popup_frame_; })));
+  }
+
+  auto WaitTillPopupShrunkBy100() {
+    return Steps(InAnyContext(WaitForState(
+        kViewWidth, [this]() { return this->popup_initial_width_ - 100; })));
+  }
+
+  auto StopWatchingPopupWidth() {
+    return Steps(StopObservingState(kViewWidth),
+                 Do([this]() { this->popup_frame_ = nullptr; }));
+  }
+
   // We synthesize double-clicks by using the content API to inject an event.
   // Using Kombucha ClickMouse(); ClickMouse() turns into two single-clicks in
   // slow environments (e.g. ASAN bots) and doesn't work on Mac.
@@ -559,6 +598,9 @@ class WebUILocationBarInteractiveUiTest : public TestBase {
 
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<content::URLLoaderInterceptor> url_loader_interceptor_;
+
+  int popup_initial_width_ = -1;
+  raw_ptr<views::View> popup_frame_ = nullptr;
 };
 
 class WebUILocationBarIMEInteractiveUiTest
@@ -597,13 +639,10 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, ShowHidePopup) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text, it should show up.
       EnterText(kOmniboxElementId, u"input"), WaitForClassicPopupReady(),
       // Removing the focus should hide the popup.
@@ -615,21 +654,19 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, ShowHideAIPopup) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text, it should show up.
       EnterText(kOmniboxElementId, u"i"), WaitForClassicPopupReady(),
       WaitTillOmniboxViewText("i"),
       // Clear it.
       SendKeyPress(kWebUIToolbarId, ui::VKEY_BACK), WaitTillOmniboxViewText(""),
       // Since text is empty, we should be able to see the AI mode button.
-      WaitForJsResultAt(kWebUIToolbarId, kAIMButton,
-                        "(el) => el.title === 'Ask AI Mode in Google Search'"),
+      WaitForJsResultAt(
+          kWebUIToolbarId, kAIMButton,
+          "(el) => el.tooltip === 'Ask AI Mode in Google Search'"),
       // Click it.
       ClickElement(kWebUIToolbarId, kAIMButton),
       // Should hide classic popup, show AIM one.
@@ -644,34 +681,63 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, ShowHideAIPopup) {
           WaitForHide(OmniboxPopupPresenterBase::kRoundedResultsFrame)));
 }
 
-// Test that the popup shrinks when the browser window does.
-IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, Resize) {
-  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  int initial_width = -1;
-  views::View* frame_view = nullptr;
+// Test tabbing over to the AIM button, make sure typing when it's active still
+// works and that activating it triggers an AI-mode search and not a regular
+// one.
+IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, TabAIButton) {
+  const char kCheckForceFocusRing[] =
+      "(el) => "
+      "el.shadowRoot.querySelector('#button').hasAttribute('force-focus-ring')";
+
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
+      WaitTillOmniboxViewText("about:blank"),
+      ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
+      // Shouldn't have a popup visible yet.
+      EnsureNoPopup(), EnterText(kOmniboxElementId, u"inp"),
+      WaitForClassicPopupReady(), WaitTillOmniboxViewText("inp"),
+      // Press tab to "focus" AIM button.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_TAB),
+      WaitForJsResultAt(kWebUIToolbarId, kAIMButtonOuter, kCheckForceFocusRing),
+      // Typing still goes to the input (and that clears the fake focus)
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_U),
+      WaitForJsResultAt(kWebUIToolbarId, kAIMButtonOuter, kCheckForceFocusRing,
+                        false),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_T),
+      WaitTillOmniboxViewText("input"),
+      // Focus the AIM button again.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_TAB),
+      WaitForJsResultAt(kWebUIToolbarId, kAIMButtonOuter, kCheckForceFocusRing),
+
+      // Enter on the button, should trigger an AI-mode search.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_RETURN),
+      WaitForWebContentsNavigation(kTabId));
+
+  GURL url = browser()->GetTabStripModel()->GetWebContentsAt(0)->GetURL();
+  // AI mode search should have an aep parameter;
+  EXPECT_THAT(url.GetQuery(), testing::HasSubstr("aep="));
+}
+
+// Test that the popup shrinks when the browser window does.
+IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, Resize) {
+  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      EnsureNoPopup(),
       WaitForElementToRender(kWebUIToolbarId, kOmniboxInputDeepQuery),
       FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text, it should show up.
       EnterText(kOmniboxElementId, u"input"), WaitForClassicPopupReady(),
-      WaitForElementToRender(kClassicPopupWebViewId, kDropdownContent),
-      InSameContext(WithElement(OmniboxPopupPresenterBase::kRoundedResultsFrame,
-                                [&](ui::TrackedElement* element) {
-                                  initial_width =
-                                      element->GetScreenBounds().width();
-                                })),
-      InAnyContext(WithView(OmniboxPopupPresenterBase::kRoundedResultsFrame,
-                            [&](views::View* view) { frame_view = view; })),
+      WaitForElementToRender(PopupWebContents(), DropdownContent()),
+      GrabPopupWidthAndView(),
       // Start watching the width.
-      ObserveState(kViewWidth, [&]() { return frame_view; }),
+      StartWatchingPopupWidth(),
       // Shrink the window horizontally.
       Do([&]() {
         auto* browser_widget = browser_view->GetWidget();
@@ -680,9 +746,7 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, Resize) {
         browser_widget->SetSize(size);
       }),
 
-      InSameContext(
-          WaitForState(kViewWidth, [&]() { return initial_width - 100; })),
-      StopObservingState(kViewWidth));
+      WaitTillPopupShrunkBy100(), StopWatchingPopupWidth());
 }
 
 // Use arrow keys to select between various suggestions.
@@ -690,47 +754,61 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, NavigateSuggestions) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text, it should show up.
       EnterText(kOmniboxElementId, u"input"), WaitForClassicPopupReady(),
       // Should have an entry for just searching for "input", as well as the
       // two suggestions from our interceptor. Note that the https://
       // gets dropped for pretty-printing by the popup.
-      WaitForVerbatimMatch(kClassicPopupWebViewId, kClassicMatchText0, "input"),
-      WaitForMatch(kClassicPopupWebViewId, kClassicMatchText1,
-                   "local.test/input/"),
-      WaitForMatch(kClassicPopupWebViewId, kClassicMatchText2,
+      WaitForVerbatimMatch(PopupWebContents(), MatchText(0), "input"),
+      WaitForMatch(PopupWebContents(), MatchText(1), "local.test/input/"),
+      WaitForMatch(PopupWebContents(), MatchText(2),
                    "developer.mozilla.org/en-US/docs/Web/API/InputEvent"),
 
       // Press keydown to select the next suggestion.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "ArrowDown"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_DOWN),
       WaitTillOmniboxViewText("https://local.test/input/"),
 
       // And again.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "ArrowDown"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_DOWN),
       WaitTillOmniboxViewText(
           "https://developer.mozilla.org/en-US/docs/Web/API/InputEvent"),
 
       // Now go up.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "ArrowUp"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_UP),
       WaitTillOmniboxViewText("https://local.test/input/"),
 
       // Escape resets to the default suggestion.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "Escape"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_ESCAPE),
       WaitTillOmniboxViewText("input"),
 
       // Now down again to local.test.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "ArrowDown"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_DOWN),
       WaitTillOmniboxViewText("https://local.test/input/"),
 
-      // And press enter to accept.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "Enter"),
+      // PageDown to MDN one.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_NEXT),
+      WaitTillOmniboxViewText(
+          "https://developer.mozilla.org/en-US/docs/Web/API/InputEvent"),
+
+      // PageUp to default suggestion.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_PRIOR),
+      WaitTillOmniboxViewText("input"),
+
+      // PageDown to MDN again.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_NEXT),
+      WaitTillOmniboxViewText(
+          "https://developer.mozilla.org/en-US/docs/Web/API/InputEvent"),
+
+      // And up to local.test
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_UP),
+      WaitTillOmniboxViewText("https://local.test/input/"),
+
+      // Press enter to accept.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_RETURN),
 
       // This should navigate to the page (or rather the 404 added by our
       // interceptor).
@@ -740,9 +818,60 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, NavigateSuggestions) {
       RemoveFocusFromPopup());
 }
 
-// Use an inline suggestion. Since we can't actually fake keyboard input, this
-// is limited to things which the JS impl directly does in response to events
-// and not things done as normal <input> interactions.
+// Use tab key to navigate suggestions, including the delete buttons, and
+// pressing space on one to delete an entry, as well as deleting an entry
+// via Shift-Delete.
+IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest,
+                       NavigateSuggestionsTab) {
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfile(this->browser()->GetProfile(),
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  GURL url("https://local.test/");
+  history_service->AddPage(url, base::Time::Now(), history::SOURCE_BROWSED);
+  history_service->AddPage(GURL("https://local.test/1"),
+                           base::Time::Now() - base::Minutes(1),
+                           history::SOURCE_BROWSED);
+  history_service->AddPage(GURL("https://local.test/2"),
+                           base::Time::Now() - base::Minutes(2),
+                           history::SOURCE_BROWSED);
+  ui_test_utils::WaitForHistoryToLoad(history_service);
+
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
+      ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
+      // Shouldn't have a popup visible yet.
+      EnsureNoPopup(),
+      // Type some text, it should show up.
+      EnterText(kOmniboxElementId, u"https://local"),
+      WaitForClassicPopupReady(),
+      WaitTillInlineComplete("https://local", ".test"),
+      // Should have a bunch of suggestions.
+      WaitForMatch(PopupWebContents(), MatchText(0), "https://local.test"),
+      WaitForVerbatimMatch(PopupWebContents(), MatchText(1), "https://local"),
+      WaitForMatch(PopupWebContents(), MatchText(2), "https://local.test/1"),
+      WaitForMatch(PopupWebContents(), MatchText(3), "https://local.test/2"),
+      // Make the first navigation with arrow keys, to not care about any AIM
+      // button.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_DOWN),
+      WaitTillOmniboxViewText("https://local"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_TAB),
+      WaitTillOmniboxViewText("https://local.test/1"),
+      // Tab again will be the delete button, so the text won't change.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_TAB),
+      WaitTillOmniboxViewText("https://local.test/1"),
+      // Space will delete the entry, so now
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_SPACE),
+      // Should now be at /2, and that should also be the [2]nd suggestion
+      WaitTillOmniboxViewText("https://local.test/2"),
+      WaitForMatch(PopupWebContents(), MatchText(2), "https://local.test/2"),
+      // Delete via key shortcut.
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_DELETE, ui::EF_SHIFT_DOWN),
+      WaitTillOmniboxViewText("https://local"));
+}
+
+// Use an inline suggestion.
 IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, InlineSuggestion) {
   history::HistoryService* history_service =
       HistoryServiceFactory::GetForProfile(this->browser()->GetProfile(),
@@ -754,28 +883,25 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, InlineSuggestion) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text, it should show up.
       EnterText(kOmniboxElementId, u"https://local"),
       WaitForClassicPopupReady(),
       WaitTillInlineComplete("https://local", ".test"),
 
       // Enter . to advance completion.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "."),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_OEM_PERIOD),
       WaitTillInlineComplete("https://local.", "test"),
 
       // Likewise for t.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "t"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_T),
       WaitTillInlineComplete("https://local.t", "est"),
 
       // Accept it.
-      FakeKeyDownAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "Enter"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_RETURN),
       WaitForWebContentsNavigation(kTabId, GURL("https://local.test")),
       WaitTillOmniboxViewText("local.test"),
 
@@ -847,13 +973,10 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarIMEInteractiveUiTest,
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Clear the box.
       EnterText(kOmniboxElementId, u""),
 
@@ -902,7 +1025,11 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, AdditionalText) {
       WaitTillOmniboxViewFocus(), EnterText(kOmniboxElementId, u"ne"),
       WaitForClassicPopupReady(), SendKeyPress(kWebUIToolbarId, ui::VKEY_W),
       WaitTillInlineComplete("new", "s weather"),
-      WaitTillAdditionalText(" - www.cnn.com/index.html"));
+      WaitTillAdditionalText(" - www.cnn.com/index.html"),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_BACK),
+      WaitTillOmniboxViewText("new"), WaitTillAdditionalText(""),
+      SendKeyPress(kWebUIToolbarId, ui::VKEY_BACK),
+      WaitTillOmniboxViewText("ne"), WaitTillAdditionalText(""));
 }
 
 // Use Ctrl-Alt-Enter to append www. and .com to URL and open it in new tab.
@@ -910,13 +1037,10 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, Modifiers) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text, it should show up. We include the schema to make
       // sure we always end up with https://.
       EnterText(kOmniboxElementId, u"https://google"),
@@ -950,14 +1074,11 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, SearchAtKeyword) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       WaitTillOmniboxViewFocus(),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text.
       EnterText(kOmniboxElementId, u"@tab"), WaitForClassicPopupReady(),
       WaitTillOmniboxViewText("@tab"),
@@ -983,14 +1104,11 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, SearchKeyword) {
   RunTestSequence(
       InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
       InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
-      FocusWebContents(kWebUIToolbarId),
+      EnsureNoPopup(), FocusWebContents(kWebUIToolbarId),
       ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
       WaitTillOmniboxViewFocus(),
       // Shouldn't have a popup visible yet.
-      InAnyContext(
-          EnsureNotPresent(OmniboxPopupPresenterBase::kRoundedResultsFrame)),
+      EnsureNoPopup(),
       // Type some text.
       EnterText(kOmniboxElementId, u"google.com"), WaitForClassicPopupReady(),
       WaitTillOmniboxViewText("google.com"),
@@ -1360,4 +1478,26 @@ IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, MAYBE_ContextMenu2) {
       WaitForShow(OmniboxContextMenuMixinBase::kShowFullUrlsMenuItem),
       SelectMenuItem(OmniboxContextMenuMixinBase::kShowFullUrlsMenuItem),
       WaitTillOmniboxViewText("https://local.test"));
+}
+
+IN_PROC_BROWSER_TEST_F(WebUILocationBarInteractiveUiTest, PasteSanitizesText) {
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kCopyPaste);
+    writer.WriteText(u"  javascript:javascript:alert(1)\r\nhello world\n");
+  }
+
+  ui::Accelerator paste_accel(ui::VKEY_V,
+#if BUILDFLAG(IS_MAC)
+                              ui::EF_COMMAND_DOWN
+#else
+                              ui::EF_CONTROL_DOWN
+#endif
+  );
+
+  RunTestSequence(
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      FocusWebContents(kWebUIToolbarId),
+      ExecuteJsAt(kWebUIToolbarId, kOmniboxInputDeepQuery, "el => el.focus()"),
+      SendAccelerator(kWebUIToolbarId, paste_accel),
+      WaitTillOmniboxViewText("alert(1) hello world"));
 }

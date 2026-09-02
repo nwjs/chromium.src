@@ -38,9 +38,9 @@ IN_PROC_BROWSER_TEST_F(IdentityProviderServiceTest, FetchData) {
   ASSERT_TRUE(connected.Get());
 
   base::test::TestFuture<const std::optional<std::string>&> response;
-  idp_service->Fetch(response.GetCallback());
+  idp_service->Fetch("test request", std::nullopt, {}, response.GetCallback());
   ASSERT_TRUE(response.Get().has_value());
-  ASSERT_EQ("Hello? Hello world!", response.Get().value());
+  ASSERT_EQ("test requestHello world!", response.Get().value());
 
   base::test::TestFuture<void> disconnected;
   idp_service->Disconnect(disconnected.GetCallback());
@@ -72,9 +72,9 @@ IN_PROC_BROWSER_TEST_F(IdentityProviderServiceTest, ResolveAndConnect) {
   ASSERT_TRUE(connected.Get());
 
   base::test::TestFuture<const std::optional<std::string>&> response;
-  idp_service->Fetch(response.GetCallback());
+  idp_service->Fetch("test request", std::nullopt, {}, response.GetCallback());
   ASSERT_TRUE(response.Get().has_value());
-  ASSERT_EQ("Hello? Hello world!", response.Get().value());
+  ASSERT_EQ("test requestHello world!", response.Get().value());
 
   base::test::TestFuture<void> disconnected;
   idp_service->Disconnect(disconnected.GetCallback());
@@ -135,6 +135,36 @@ IN_PROC_BROWSER_TEST_F(IdentityProviderServiceTest, ConnectsTwice) {
                        "org.chromium.chrome.browser.webid.TestIdP",
                        connected2.GetCallback());
   ASSERT_TRUE(connected2.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(IdentityProviderServiceTest,
+                       OnDisconnectedResolvesInFlightConnect) {
+  auto idp_service = std::make_unique<IdentityProviderService>();
+  base::test::TestFuture<bool> connected;
+  idp_service->Connect("org.chromium.android_browsertests_apk",
+                       "org.chromium.chrome.browser.webid.TestIdP",
+                       connected.GetCallback());
+  idp_service->OnDisconnected(nullptr);
+  ASSERT_TRUE(connected.IsReady());
+  EXPECT_FALSE(connected.Get());
+}
+
+IN_PROC_BROWSER_TEST_F(IdentityProviderServiceTest,
+                       OnDisconnectedResolvesInFlightFetch) {
+  auto idp_service = std::make_unique<IdentityProviderService>();
+  base::test::TestFuture<bool> connected;
+  idp_service->Connect("org.chromium.android_browsertests_apk",
+                       "org.chromium.chrome.browser.webid.TestIdP",
+                       connected.GetCallback());
+  ASSERT_TRUE(connected.Get());
+
+  base::test::TestFuture<const std::optional<std::string>&> response;
+  // TestIdP does not reply to /no_reply, keeping the request in flight.
+  idp_service->Fetch("https://idp.example/fedcm/no_reply", std::nullopt, {},
+                     response.GetCallback());
+  idp_service->OnDisconnected(nullptr);
+  ASSERT_TRUE(response.IsReady());
+  EXPECT_FALSE(response.Get().has_value());
 }
 
 }  // namespace content::webid

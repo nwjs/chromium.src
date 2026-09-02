@@ -281,6 +281,34 @@ TEST_F(SandboxedRarAnalyzerTest, AnalyzeEncryptedRarWithIncorrectPassword) {
             EncryptionInfo::kKnownIncorrect);
 }
 
+TEST_F(SandboxedRarAnalyzerTest, AnalyzeEncryptedRarMaxIterationCount) {
+  // Can quickly enumerate entries in an archive whose encrypted file headers
+  // specify the maximum permitted KDF iteration count, even though no
+  // password is supplied. Key derivation is unnecessary in this case because
+  // there is no candidate password to verify.
+  // encrypted_high_kdf.rar contains: e0.dat .. e7.dat (encrypted), payload.exe
+  base::FilePath path;
+  ASSERT_NO_FATAL_FAILURE(path = GetFilePath("encrypted_high_kdf.rar"));
+
+  safe_browsing::ArchiveAnalyzerResults results;
+  AnalyzeFile(path, &results);
+
+  ASSERT_TRUE(results.success);
+  EXPECT_TRUE(results.has_executable);
+  ASSERT_EQ(results.archived_binary.size(), 9);
+  EXPECT_EQ(results.archived_binary[0].file_path(), "e0.dat");
+  EXPECT_TRUE(results.archived_binary[0].is_encrypted());
+  EXPECT_EQ(results.archived_binary[7].file_path(), "e7.dat");
+  EXPECT_TRUE(results.archived_binary[7].is_encrypted());
+  EXPECT_EQ(results.archived_binary[8].file_path(), "payload.exe");
+  EXPECT_TRUE(results.archived_binary[8].is_executable());
+  EXPECT_FALSE(results.archived_binary[8].is_encrypted());
+
+  EXPECT_TRUE(results.encryption_info.is_encrypted);
+  EXPECT_EQ(results.encryption_info.password_status,
+            EncryptionInfo::kKnownIncorrect);
+}
+
 TEST_F(SandboxedRarAnalyzerTest, AnalyzeRarWithPasswordMultipleFiles) {
   // Can list files inside an archive that has password protected data.
   // passwd1234_two_files.rar contains 2 files: signed.exe and text.txt
@@ -300,6 +328,22 @@ TEST_F(SandboxedRarAnalyzerTest, AnalyzeRarWithPasswordMultipleFiles) {
   EXPECT_FALSE(results.archived_binary[1].is_executable());
   EXPECT_FALSE(results.archived_binary[1].is_archive());
   EXPECT_TRUE(results.archived_archive_filenames.empty());
+}
+
+TEST_F(SandboxedRarAnalyzerTest, AnalyzeRar4WithManyEncryptedEntries) {
+  // v4_many_encrypted.rar is a RAR 4.x archive containing 500 zero-length
+  // encrypted entries, each with a distinct salt. Analysis should enumerate
+  // every entry without spending unbounded time on key derivation.
+  base::FilePath path;
+  ASSERT_NO_FATAL_FAILURE(path = GetFilePath("v4_many_encrypted.rar"));
+
+  safe_browsing::ArchiveAnalyzerResults results;
+  AnalyzeFile(path, &results);
+
+  ASSERT_TRUE(results.success);
+  EXPECT_TRUE(results.has_executable);
+  EXPECT_EQ(500, results.archived_binary.size());
+  EXPECT_TRUE(results.encryption_info.is_encrypted);
 }
 
 TEST_F(SandboxedRarAnalyzerTest, AnalyzeRarContainingExecutable) {
@@ -458,6 +502,34 @@ TEST_F(SandboxedRarAnalyzerTest, AnalyzeRarWithAsterisk) {
           testing::Property(
               &safe_browsing::ClientDownloadRequest_ArchivedBinary::file_path,
               testing::Eq("*")),
+          testing::Property(
+              &safe_browsing::ClientDownloadRequest_ArchivedBinary::file_path,
+              testing::Eq("evil.exe"))));
+}
+
+TEST_F(SandboxedRarAnalyzerTest, AnalyzeRarWithLargeDictionaryEntry) {
+  // Verifies that an entry whose declared dictionary size exceeds UnRAR's
+  // default limit doesn't cause subsequent entries to be skipped.
+  // large_dictionary.rar contains: "readme.txt", "dummy.bin" (declares an
+  // 8 GiB dictionary), "evil.exe".
+  base::FilePath path;
+  ASSERT_NO_FATAL_FAILURE(path = GetFilePath("large_dictionary.rar"));
+
+  safe_browsing::ArchiveAnalyzerResults results;
+  AnalyzeFile(path, &results);
+
+  ASSERT_TRUE(results.success);
+  EXPECT_TRUE(results.has_executable);
+  // All three entries should be enumerated.
+  EXPECT_THAT(
+      results.archived_binary,
+      testing::UnorderedElementsAre(
+          testing::Property(
+              &safe_browsing::ClientDownloadRequest_ArchivedBinary::file_path,
+              testing::Eq("readme.txt")),
+          testing::Property(
+              &safe_browsing::ClientDownloadRequest_ArchivedBinary::file_path,
+              testing::Eq("dummy.bin")),
           testing::Property(
               &safe_browsing::ClientDownloadRequest_ArchivedBinary::file_path,
               testing::Eq("evil.exe"))));

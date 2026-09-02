@@ -182,11 +182,11 @@ std::string ListDisplayNames(const std::vector<EnumType>& enum_types) {
 }
 
 bool IsCommandLineSwitchEnabled(base::CommandLine* command_line,
-                                const std::string& switch_name) {
+                                std::string_view switch_name) {
   if (command_line->GetSwitchValueASCII(switch_name) == "1") {
     return true;
   }
-  if (command_line->HasSwitch(std::string("enable-") + switch_name)) {
+  if (command_line->HasSwitch(base::StrCat({"enable-", switch_name}))) {
     return true;
   }
   return false;
@@ -417,15 +417,15 @@ std::string SimpleFeature::GetAvailabilityMessage(
           name(), version_info::GetChannelString(channel).data(),
           version_info::GetChannelString(GetCurrentChannel()).data());
     case AvailabilityResult::kMissingCommandLineSwitch:
-      DCHECK(command_line_switch_);
+      DCHECK(command_line_switch_.has_value());
       return base::StringPrintf(
           "'%s' requires the '%s' command line switch to be enabled.", name(),
-          command_line_switch_->c_str());
+          command_line_switch_.string_view());
     case AvailabilityResult::kFeatureFlagDisabled:
-      DCHECK(feature_flag_);
+      DCHECK(feature_flag_.has_value());
       return base::StringPrintf(
           "'%s' requires the '%s' feature flag to be enabled.", name(),
-          *feature_flag_);
+          feature_flag_.string_view());
     case AvailabilityResult::kRequiresDeveloperMode:
       return base::StringPrintf(
           "'%s' requires the user to have developer mode enabled.", name());
@@ -510,7 +510,7 @@ bool SimpleFeature::IsIdInAllowlist(const HashedExtensionId& hashed_id) const {
 
 // static
 bool SimpleFeature::IsIdInList(const HashedExtensionId& hashed_id,
-                               const std::vector<std::string>& list) {
+                               base::span<const std::string_view> list) {
   if (!IsValidHashedExtensionId(hashed_id))
     return false;
 
@@ -597,38 +597,34 @@ bool SimpleFeature::IsValidHashedExtensionId(
   return hashed_id.value().length() == 40;
 }
 
-void SimpleFeature::set_blocklist(
-    std::initializer_list<const char* const> blocklist) {
-  blocklist_.assign(blocklist.begin(), blocklist.end());
+void SimpleFeature::set_blocklist(StaticSpan<std::string_view> blocklist) {
+  blocklist_ = blocklist.span();
 }
 
-void SimpleFeature::set_command_line_switch(
-    std::string_view command_line_switch) {
-  command_line_switch_ = std::string(command_line_switch);
+void SimpleFeature::set_command_line_switch(StaticCString command_line_switch) {
+  command_line_switch_ = command_line_switch;
 }
 
-void SimpleFeature::set_contexts(
-    std::initializer_list<mojom::ContextType> contexts) {
-  contexts_ = contexts;
+void SimpleFeature::set_contexts(StaticSpan<mojom::ContextType> contexts) {
+  contexts_.emplace(contexts.span());
 }
 
 void SimpleFeature::set_dependencies(
-    std::initializer_list<const char* const> dependencies) {
-  dependencies_.assign(dependencies.begin(), dependencies.end());
+    StaticSpan<std::string_view> dependencies) {
+  dependencies_ = dependencies.span();
 }
 
-void SimpleFeature::set_extension_types(
-    std::initializer_list<Manifest::Type> types) {
-  extension_types_ = types;
+void SimpleFeature::set_extension_types(StaticSpan<Manifest::Type> types) {
+  extension_types_ = types.span();
 }
 
-void SimpleFeature::set_feature_flag(std::string_view feature_flag) {
-  feature_flag_ = std::string(feature_flag);
+void SimpleFeature::set_feature_flag(StaticCString feature_flag) {
+  feature_flag_ = feature_flag;
 }
 
 void SimpleFeature::set_session_types(
-    std::initializer_list<mojom::FeatureSessionType> types) {
-  session_types_ = types;
+    StaticSpan<mojom::FeatureSessionType> types) {
+  session_types_ = types.span();
 }
 
 void SimpleFeature::set_matches(StaticSpan<std::string_view> matches) {
@@ -643,13 +639,12 @@ bool SimpleFeature::MatchesURL(const GURL& url) const {
   });
 }
 
-void SimpleFeature::set_platforms(std::initializer_list<Platform> platforms) {
-  platforms_ = platforms;
+void SimpleFeature::set_platforms(StaticSpan<Platform> platforms) {
+  platforms_ = platforms.span();
 }
 
-void SimpleFeature::set_allowlist(
-    std::initializer_list<const char* const> allowlist) {
-  allowlist_.assign(allowlist.begin(), allowlist.end());
+void SimpleFeature::set_allowlist(StaticSpan<std::string_view> allowlist) {
+  allowlist_ = allowlist.span();
 }
 
 Feature::Availability SimpleFeature::GetEnvironmentAvailability(
@@ -674,13 +669,16 @@ Feature::Availability SimpleFeature::GetEnvironmentAvailability(
                                 *channel_);
   }
 
-  if (command_line_switch_ &&
-      !IsCommandLineSwitchEnabled(command_line, *command_line_switch_)) {
+  if (command_line_switch_.has_value() &&
+      !IsCommandLineSwitchEnabled(command_line,
+                                  command_line_switch_.string_view())) {
     return CreateAvailability(AvailabilityResult::kMissingCommandLineSwitch);
   }
 
-  if (feature_flag_ && !IsFeatureFlagEnabled(*feature_flag_))
+  if (feature_flag_.has_value() &&
+      !IsFeatureFlagEnabled(feature_flag_.string_view())) {
     return CreateAvailability(AvailabilityResult::kFeatureFlagDisabled);
+  }
 
   if (!MatchesSessionTypes(session_type))
     return CreateAvailability(AvailabilityResult::kInvalidSessionType,

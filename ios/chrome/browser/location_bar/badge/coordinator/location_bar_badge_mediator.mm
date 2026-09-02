@@ -39,6 +39,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_panel_entrypoint_iph_commands.h"
 #import "ios/chrome/browser/shared/public/commands/contextual_sheet_commands.h"
+#import "ios/chrome/browser/shared/public/commands/custom_leading_view_type.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -322,6 +323,10 @@ constexpr base::TimeDelta kStartCollapseTransitionTime = base::Seconds(5);
   [self.consumer showUnreadBadge:unread];
 }
 
+- (void)setBadgeCustomLeadingViewType:(CustomLeadingViewType)type {
+  // No-op.
+}
+
 #pragma mark - LocationBarBadgeMutator
 
 - (void)dismissIPHAnimated:(BOOL)animated {
@@ -339,7 +344,8 @@ constexpr base::TimeDelta kStartCollapseTransitionTime = base::Seconds(5);
       GeminiStartupState* state = [[GeminiStartupState alloc]
           initWithEntryPoint:gemini::EntryPoint::OmniboxChip];
       state.prepopulatedPrompt = prompt;
-      [self.geminiHandler startGeminiFlowWithStartupState:state];
+      [self.delegate locationBarBadgeMediator:self
+          startGeminiEntryFlowWithStartupState:state];
       _tracker->NotifyEvent(
           feature_engagement::events::kIOSGeminiContextualCueChipUsed);
 
@@ -838,20 +844,8 @@ constexpr base::TimeDelta kStartCollapseTransitionTime = base::Seconds(5);
   NSString* accessibilityLabel =
       base::SysUTF8ToNSString(config->accessibility_label);
 
-  UIImage* image;
-  CGFloat symbolPointSize = kBadgeSymbolPointSize;
-  switch (config->image_type) {
-    case ContextualPanelItemConfiguration::EntrypointImageType::SFSymbol:
-      image = DefaultSymbolWithPointSize(
-          base::SysUTF8ToNSString(config->entrypoint_image_name),
-          symbolPointSize);
-      break;
-    case ContextualPanelItemConfiguration::EntrypointImageType::Image:
-      image = CustomSymbolWithPointSize(
-          base::SysUTF8ToNSString(config->entrypoint_image_name),
-          symbolPointSize);
-      break;
-  }
+  UIImage* image =
+      SymbolWithPointSize(config->entrypoint_symbol, kBadgeSymbolPointSize);
 
   LocationBarBadgeConfiguration* badgeConfig =
       [[LocationBarBadgeConfiguration alloc]

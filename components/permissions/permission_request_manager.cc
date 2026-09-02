@@ -30,9 +30,11 @@
 #include "components/back_forward_cache/back_forward_cache_disable.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
+#include "components/content_settings/core/browser/permission_settings_registry.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/permissions/constants.h"
+#include "components/permissions/embedded_permission_prompt_flow_model.h"
 #include "components/permissions/features.h"
 #include "components/permissions/origin_keyed_permission_action_service.h"
 #include "components/permissions/permission_actions_history.h"
@@ -354,8 +356,11 @@ void PermissionRequestManager::AddRequest(
 }
 
 bool PermissionRequestManager::ReprioritizeCurrentRequestIfNeeded() {
+  // Use `ShouldCurrentRequestUsePermissionElementSecondaryUI` to also include
+  // allowlisted surfaces.
   if (!IsRequestInProgress() ||
-      IsCurrentRequestEmbeddedPermissionElementInitiated() ||
+      PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
+          this, web_contents()) ||
       !can_preempt_current_request_) {
     return true;
   }
@@ -605,7 +610,7 @@ void PermissionRequestManager::OnVisibilityChanged(
 }
 
 const std::vector<std::unique_ptr<PermissionRequest>>&
-PermissionRequestManager::Requests() {
+PermissionRequestManager::Requests() const {
   return requests_;
 }
 
@@ -775,28 +780,43 @@ void PermissionRequestManager::Ignore(const PromptOptions& prompt_options) {
 
 void PermissionRequestManager::FinalizeCurrentRequests() {
   CHECK(IsRequestInProgress());
-  ResetViewStateForCurrentRequest();
-  base::AutoReset<bool> block_preempt(&can_preempt_current_request_, false);
-
-  //  Erase the request from |validated_requests_| before its destruction
-  //  during requests_.clear() at the end of this function.
-  for (const auto& request : requests_) {
-    std::erase(validated_requests_, *request);
-    request_sources_map_.erase(base::raw_ref(*request));
-    FinishRequestIncludingDuplicates(request.get());
+  std::vector<std::unique_ptr<PermissionRequest>> postponed_requests;
+  if (embedded_prompt_flow_model_) {
+    postponed_requests = embedded_prompt_flow_model_->TakePostponedRequests();
   }
+  ResetViewStateForCurrentRequest();
 
-  // No need to execute the preignore logic as we canceling currently active
-  // requests anyway.
-  preignore_timer_.Stop();
+  {
+    base::AutoReset<bool> block_preempt(&can_preempt_current_request_, false);
 
-  // We have no need to block preemption anymore.
-  std::ignore = std::move(block_preempt);
+    //  Erase the request from |validated_requests_| before its destruction
+    //  during requests_.clear() at the end of this function.
+    for (const auto& request : requests_) {
+      std::erase(validated_requests_, *request);
+      request_sources_map_.erase(base::raw_ref(*request));
+      FinishRequestIncludingDuplicates(request.get());
+    }
+
+    // No need to execute the preignore logic as we canceling currently active
+    // requests anyway.
+    preignore_timer_.Stop();
+  }
 
   requests_.clear();
 
   for (Observer& observer : observer_list_) {
     observer.OnRequestsFinalized();
+  }
+
+  // If there are any postponed requests from an embedded permission prompt,
+  // make sure they are resolved.
+  if (!postponed_requests.empty()) {
+    for (auto& request : postponed_requests) {
+      StorePermissionActionForUMA(request->requesting_origin(),
+                                  request->request_type(),
+                                  PermissionAction::DISMISSED);
+      FinalizeAndCancelRequest(*request);
+    }
   }
   ScheduleDequeueRequestIfNeeded();
 }
@@ -886,6 +906,18 @@ bool PermissionRequestManager::RecreateView() {
   const bool should_do_auto_response_for_testing =
       (current_request_prompt_disposition_ ==
        PermissionPromptDisposition::MAC_OS_PROMPT);
+  // Check that a request is filed, and the surface is allowlisted or
+  // has an initiated permission prompt. If a flow model is not created even
+  // though a permission prompt has been requested, it will cause a crash.
+  if (PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
+          this, web_contents())) {
+    if (!embedded_prompt_flow_model_) {
+      embedded_prompt_flow_model_ =
+          std::make_unique<EmbeddedPermissionPromptFlowModel>(web_contents(),
+                                                              this);
+    }
+    CalculateCurrentVariantForEmbeddedPrompt();
+  }
   view_ = view_factory_.Run(web_contents(), this);
   if (!view_) {
     current_request_prompt_disposition_ =
@@ -893,14 +925,17 @@ bool PermissionRequestManager::RecreateView() {
     if (ShouldDropCurrentRequestIfCannotShowQuietly()) {
       CurrentRequestsDecided(PermissionAction::IGNORED,
                              /*prompt_options=*/std::monostate());
-    } else if (IsCurrentRequestEmbeddedPermissionElementInitiated() ||
+      // Use `ShouldCurrentRequestUsePermissionElementSecondaryUI` to also
+      // include allowlisted surfaces.
+    } else if (PermissionUtil::
+                   ShouldCurrentRequestUsePermissionElementSecondaryUI(
+                       this, web_contents()) ||
                IsCurrentRequestExclusiveAccess()) {
       Ignore(/*prompt_options=*/std::monostate());
     }
     NotifyPromptRecreateFailed();
     return false;
   }
-
   current_request_prompt_disposition_ = view_->GetPromptDisposition();
   current_request_pepc_prompt_position_ = view_->GetPromptPosition();
   SetCurrentRequestsInitialStatuses();
@@ -919,15 +954,51 @@ const PermissionPrompt* PermissionRequestManager::GetCurrentPrompt() const {
   return view_.get();
 }
 
+EmbeddedPermissionPromptFlowModel*
+PermissionRequestManager::GetEmbeddedPromptFlowModel() const {
+  return embedded_prompt_flow_model_.get();
+}
+
+void PermissionRequestManager::CalculateCurrentVariantForEmbeddedPrompt() {
+  CHECK(embedded_prompt_flow_model_);
+  embedded_prompt_flow_model_->CalculateCurrentVariant(requests_);
+}
+
+void PermissionRequestManager::AdvanceOrFinalizeEmbeddedPromptFlow() {
+  CHECK(embedded_prompt_flow_model_);
+
+  CalculateCurrentVariantForEmbeddedPrompt();
+  using Variant = EmbeddedPermissionPromptFlowModel::Variant;
+  const Variant variant = embedded_prompt_flow_model_->prompt_variant();
+  if (variant != Variant::kPreviouslyGranted &&
+      variant != Variant::kUninitialized) {
+    if (view_) {
+      DeletePrompt();
+    }
+    RecreateView();
+    return;
+  }
+
+  // Make sure all request callbacks run. If a request was already accepted,
+  // this won't do anything for that request.
+  for (const std::unique_ptr<PermissionRequest>& request : requests_) {
+    request->Cancelled(/*is_final_decision=*/false);
+  }
+  FinalizeCurrentRequests();
+}
+
 GeolocationAccuracy
 PermissionRequestManager::GetInitialGeolocationAccuracySelection() const {
   static constexpr GeolocationAccuracy kDefaultAccuracy =
       GeolocationAccuracy::kPrecise;
+  // `current_request_ui_to_use_` is not yet populated when the WebContents is
+  // destroyed while the asynchronous `PermissionUiSelector` evaluations were
+  // still in flight.
   if (!base::FeatureList::IsEnabled(
-          features::kPermissionPredictionsGeolocationAccuracy)) {
+          features::kPermissionPredictionsGeolocationAccuracy) ||
+      !current_request_ui_to_use_.has_value()) {
     return kDefaultAccuracy;
   }
-  CHECK(current_request_ui_to_use_.has_value());
   switch (current_request_ui_to_use_->geolocation_accuracy) {
     case PermissionUiSelector::GeolocationAccuracy::kUnspecified:
       return kDefaultAccuracy;
@@ -944,12 +1015,6 @@ std::optional<GeolocationPromptType>
 PermissionRequestManager::GetGeolocationPromptType() const {
   CHECK_EQ(requests_.size(), 1u);
   return requests_[0]->GetGeolocationPromptType();
-}
-
-bool PermissionRequestManager::
-    IsCurrentRequestEmbeddedPermissionElementInitiated() const {
-  return IsRequestInProgress() &&
-         requests_[0]->IsEmbeddedPermissionElementInitiated();
 }
 
 std::optional<gfx::Rect>
@@ -1280,6 +1345,7 @@ void PermissionRequestManager::ResetViewStateForCurrentRequest() {
   if (view_) {
     DeletePrompt();
   }
+  embedded_prompt_flow_model_.reset();
 }
 
 bool PermissionRequestManager::ShouldRecordUmaForCurrentPrompt() const {
@@ -1396,9 +1462,16 @@ void PermissionRequestManager::CurrentRequestsDecided(
     }
   }
 
-  if (ShouldFinalizeRequestAfterDecided(permission_action)) {
-    FinalizeCurrentRequests();
+  if (auto_response_for_test_ == NONE && embedded_prompt_flow_model_ &&
+      (permission_action == PermissionAction::GRANTED ||
+       permission_action == PermissionAction::GRANTED_ONCE)) {
+    // If an embedded permission prompt was granted, we might need to display
+    // additional variants of the prompt for the same requests.
+    AdvanceOrFinalizeEmbeddedPromptFlow();
+    return;
   }
+
+  FinalizeCurrentRequests();
 }
 
 void PermissionRequestManager::CleanUpRequests() {
@@ -1557,7 +1630,10 @@ void PermissionRequestManager::RemoveObserver(Observer* observer) {
 }
 
 bool PermissionRequestManager::ShouldCurrentRequestUseQuietUI() const {
-  if (IsCurrentRequestEmbeddedPermissionElementInitiated()) {
+  // Use `ShouldCurrentRequestUsePermissionElementSecondaryUI` to include
+  // allowlisted surfaces.
+  if (PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
+          this, web_contents())) {
     return false;
   }
   // ContentSettingImageModel might call into this method if the user switches
@@ -1836,22 +1912,6 @@ bool PermissionRequestManager::IsCurrentRequestExclusiveAccess() const {
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 }
 
-bool PermissionRequestManager::ShouldFinalizeRequestAfterDecided(
-    PermissionAction action) const {
-  // If the action is IGNORED, it is not coming from the prompt itself but
-  // rather from external circumstance (like tab switching) and therefore
-  // |view_->ShouldFinalizeRequestAfterDecided| is not queried.
-
-  // If there is an autoresponse set, or there is no |view_|, finalize the
-  // request since there won't be a separate |FinalizeCurrentRequests()| call.
-  if (action == PermissionAction::IGNORED || auto_response_for_test_ != NONE ||
-      !view_) {
-    return true;
-  }
-
-  return view_->ShouldFinalizeRequestAfterDecided();
-}
-
 PermissionEmbargoStatus
 PermissionRequestManager::RecordActionAndGetEmbargoStatus(
     content::BrowserContext* browser_context,
@@ -1984,7 +2044,7 @@ void PermissionRequestManager::OnTabWillDiscardContents(
     content::WebContents* new_contents) {
   // Runs on the manager of old_contents — the only object that exists
   // before the swap and is subscribed to the tab. The replacement's manager
-  // already exists (TabStripModel::DiscardWebContentsAt() attaches tab
+  // already exists (TabStripModel::DiscardWebContents() attaches tab
   // helpers before the swap) but cannot discover the TabInterface itself:
   // the TabLookupFromWebContents entry moves over only after this
   // notification returns. Hand it over explicitly.

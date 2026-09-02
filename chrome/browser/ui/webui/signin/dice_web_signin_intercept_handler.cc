@@ -23,6 +23,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
+#include "chrome/browser/ui/signin/account_preview_utils.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -47,7 +48,7 @@ namespace {
 BASE_FEATURE(kSigninInterceptSimpleButtons, base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr char kEnterprizeBadgeSource[] = "cr:domain";
-constexpr char kSupervisedBadgeSource[] = "cr:kite";
+constexpr char kSupervisedBadgeSource[] = "cr:family-link";
 
 // Returns true if the account capabilities are marked as supervised.
 bool IsSupervisedUser(const AccountCapabilities& capabilities) {
@@ -358,6 +359,16 @@ std::string DiceWebSigninInterceptHandler::GetChromeSigninSubtitle() {
     return l10n_util::GetStringUTF8(
         IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_SUBTITLE_SUPERVISED);
   }
+
+  if (bubble_parameters_.account_preview_preference.has_value()) {
+    if (std::optional<std::string> subtitle =
+            signin::GetAccountPreviewPromoSubtitle(
+                *bubble_parameters_.account_preview_preference);
+        subtitle.has_value() && !subtitle->empty()) {
+      return *subtitle;
+    }
+  }
+
   return l10n_util::GetStringUTF8(
       syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
           ? IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_SUBTITLE_WITH_BOOKMARKS
@@ -415,6 +426,20 @@ std::string DiceWebSigninInterceptHandler::GetBodyText() {
         IDS_SIGNIN_DICE_WEB_INTERCEPT_CREATE_BUBBLE_DESC_SUPERVISED,
         base::UTF8ToUTF16(intercepted_account().GetEmail()));
   }
+
+  if (bubble_parameters_.interception_type ==
+          WebSigninInterceptor::SigninInterceptionType::kMultiUser &&
+      bubble_parameters_.account_preview_preference.has_value()) {
+    if (std::optional<std::string> subtitle =
+            signin::GetAccountPreviewProfileSeparationSubtitle(
+                primary_account().GetGivenName().value_or(""),
+                intercepted_account().GetEmail(),
+                *bubble_parameters_.account_preview_preference);
+        subtitle.has_value() && !subtitle->empty()) {
+      return *subtitle;
+    }
+  }
+
   return l10n_util::GetStringFUTF8(
       IDS_SIGNIN_DICE_WEB_INTERCEPT_CREATE_BUBBLE_DESC,
       base::UTF8ToUTF16(primary_account().GetGivenName().value_or("")),

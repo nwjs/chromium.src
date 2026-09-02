@@ -93,13 +93,6 @@ BASE_FEATURE(kSegmentationPlatformPasswordManagerUser,
 BASE_FEATURE(kSegmentationPlatformTabResumptionRanker,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSegmentationPlatformIosModuleRanker,
-#if BUILDFLAG(IS_IOS)
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 BASE_FEATURE(kSegmentationPlatformAndroidHomeModuleRanker,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -122,13 +115,6 @@ BASE_FEATURE(kSegmentationPlatformComposePromotion,
 
 BASE_FEATURE(kSegmentationPlatformUmaFromSqlDb,
 #if !BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-BASE_FEATURE(kSegmentationPlatformIosModuleRankerSplitBySurface,
-#if BUILDFLAG(IS_IOS)
              base::FEATURE_ENABLED_BY_DEFAULT);
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -262,10 +248,10 @@ constexpr base::FeatureParam<bool> kEnableRecentTabsTip{
     &kAndroidTipsNotificationsV2, "enable_recent_tabs_tip",
     /*default_value=*/true};
 
-BASE_FEATURE(kNewTabPageCustomizationV2, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNewTabPageCustomizationV2, base::FEATURE_ENABLED_BY_DEFAULT);
 constexpr base::FeatureParam<bool> kNewTabPageCustomizationV2ShowPromo{
     &kNewTabPageCustomizationV2, "show_promo",
-    /*default_value=*/false};
+    /*default_value=*/true};
 constexpr base::FeatureParam<int>
     kNewTabPageCustomizationV2PromoDisplayIntervalDays{
         &kNewTabPageCustomizationV2, "promo_display_interval_days",

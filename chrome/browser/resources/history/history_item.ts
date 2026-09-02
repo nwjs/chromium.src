@@ -9,12 +9,13 @@ import './searched_label.js';
 import './shared_icons.html.js';
 import '/strings.m.js';
 import 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
+import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 import 'chrome://resources/cr_elements/policy/cr_tooltip_icon.js';
 
 import {HistoryResultType} from 'chrome://resources/cr_components/history/constants.js';
-import type {HistoryEntry} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
+import type {CriticalAction, HistoryEntry} from 'chrome://resources/cr_components/history/history.mojom-webui.js';
 import type {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {FocusRowMixinLit} from 'chrome://resources/cr_elements/focus_row_mixin_lit.js';
@@ -85,12 +86,24 @@ export class HistoryItemElement extends HistoryItemElementBase {
 
       // Search term used to obtain this history-item.
       searchTerm: {type: String},
+
+      isExpanded_: {
+        type: Boolean,
+        reflect: true,
+      },
+
+      isCriticalActionsEnabled_: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
   private isShiftKeyDown_: boolean = false;
   protected accessor selectionNotAllowed_: boolean =
       !loadTimeData.getBoolean('allowDeletingHistory');
+  protected accessor isCriticalActionsEnabled_: boolean =
+      loadTimeData.getBoolean('isCriticalActionsEnabled');
   private eventTracker_: EventTracker = new EventTracker();
   accessor item: HistoryEntry|undefined;
   accessor hasTimeGap: boolean = false;
@@ -100,6 +113,7 @@ export class HistoryItemElement extends HistoryItemElementBase {
   accessor isCardEnd: boolean = false;
   accessor numberOfItems: number = 0;
   accessor selected: boolean = false;
+  accessor isExpanded_: boolean = false;
 
   override connectedCallback() {
     super.connectedCallback();
@@ -121,6 +135,7 @@ export class HistoryItemElement extends HistoryItemElementBase {
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
     if (changedProperties.has('item')) {
+      this.isExpanded_ = false;
       this.itemChanged_();
       this.fire('iron-resize');
     }
@@ -149,7 +164,8 @@ export class HistoryItemElement extends HistoryItemElementBase {
     for (let i = 0; i < path.length; i++) {
       const elem = path[i] as HTMLElement;
       if (elem.id !== 'checkbox' &&
-          (elem.nodeName === 'A' || elem.nodeName === 'CR-ICON-BUTTON')) {
+          (elem.nodeName === 'A' || elem.nodeName === 'CR-ICON-BUTTON' ||
+           elem.id === 'collapse')) {
         return;
       }
 
@@ -167,6 +183,10 @@ export class HistoryItemElement extends HistoryItemElementBase {
       index: this.index,
       shiftKey: e.shiftKey,
     });
+  }
+
+  protected onCollapseClick_(e: Event) {
+    e.stopPropagation();
   }
 
   /**
@@ -233,21 +253,52 @@ export class HistoryItemElement extends HistoryItemElementBase {
   }
 
   protected shouldShowActorTooltip_(): boolean {
-    if (this.isCriticalActionsEnabled_()) {
+    if (this.isCriticalActionsEnabled_) {
       return false;
     }
     return !!this.item?.isActorVisit;
   }
 
   protected shouldShowActorIconNextToFavicon_(): boolean {
-    if (!this.isCriticalActionsEnabled_()) {
+    if (!this.isCriticalActionsEnabled_) {
       return false;
     }
     return !!this.item?.isActorVisit;
   }
 
-  private isCriticalActionsEnabled_(): boolean {
-    return loadTimeData.getBoolean('isCriticalActionsEnabled');
+  protected isExpandable_(): boolean {
+    return this.isCriticalActionsEnabled_ && !!this.item?.isActorVisit &&
+        (this.item?.criticalActions?.length ?? 0) > 0;
+  }
+
+  protected getExpandIcon_(): string {
+    return this.isExpanded_ ? 'cr:keyboard-arrow-up' : 'cr:keyboard-arrow-down';
+  }
+
+  protected onExpandClick_(e: Event) {
+    e.stopPropagation();
+    this.isExpanded_ = !this.isExpanded_;
+    this.fire('iron-resize');
+  }
+
+  protected getCriticalActions_(): CriticalAction[] {
+    return this.item?.criticalActions || [];
+  }
+
+  protected onCriticalActionClick_(e: Event) {
+    e.stopPropagation();
+    const index = Number((e.currentTarget as HTMLElement).dataset['index']);
+    const action = this.getCriticalActions_()[index];
+    if (action?.linkoutUrl) {
+      window.open(action.linkoutUrl, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  protected onCriticalActionKeydown_(e: KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      this.onCriticalActionClick_(e);
+    }
   }
 
   /**

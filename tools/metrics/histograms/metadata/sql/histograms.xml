@@ -33,7 +33,6 @@ chromium-metrics-reviews@google.com.
   <variant name="AccessibilityAnnotator" summary="AccessibilityAnnotator"/>
   <variant name="Activity" summary="Activity"/>
   <variant name="Affiliation" summary="Affiliation"/>
-  <variant name="AggregationService" summary="AggregationService"/>
   <variant name="AnnotationStorage" summary="AnnotationStorage"/>
   <variant name="BackgroundRequestQueue" summary="BackgroundRequestQueue"/>
   <variant name="BrowsingTopics" summary="BrowsingTopics"/>
@@ -110,7 +109,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="Sql.Database.DatabaseCloseTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-11-29">
+    units="microseconds" expires_after="2027-02-07">
   <owner>jpgravel@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>
   <summary>
@@ -123,7 +122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.DatabaseOpenTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-11-29">
+    units="microseconds" expires_after="2027-01-31">
   <owner>olivierli@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -172,7 +171,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Raze.FailureReason.{DatabaseTag}"
-    enum="RazeDatabaseFailedReason" expires_after="2026-12-06">
+    enum="RazeDatabaseFailedReason" expires_after="2027-02-07">
   <owner>etienneb@chromium.org</owner>
   <owner>grt@chromium.org</owner>
   <summary>
@@ -183,7 +182,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Raze.UnhandledErrorCode.{DatabaseTag}"
-    enum="SqliteResultCode" expires_after="2026-12-06">
+    enum="SqliteResultCode" expires_after="2027-02-07">
   <owner>etienneb@chromium.org</owner>
   <owner>jpgravel@chromium.org</owner>
   <summary>
@@ -194,7 +193,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.RazeTime.{DatabaseTag}" units="microseconds"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>etienneb@chromium.org</owner>
   <owner>grt@chromium.org</owner>
   <summary>
@@ -207,7 +206,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Statement.Error.{DatabaseTag}"
-    enum="SqliteErrorCode" expires_after="2026-12-06">
+    enum="SqliteErrorCode" expires_after="2027-02-07">
   <owner>etienneb@chromium.org</owner>
   <owner>grt@chromium.org</owner>
   <summary>
@@ -218,7 +217,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Success.OpenInternalTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-11-29">
+    units="microseconds" expires_after="2027-01-31">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -231,7 +230,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.Success.SqliteOpenTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-11-29">
+    units="microseconds" expires_after="2027-02-07">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -245,7 +244,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Sql.Database.{CheckpointType}Checkpoint.FrameCount.{DatabaseTag}"
-    units="frames" expires_after="2026-12-09">
+    units="frames" expires_after="2027-02-07">
   <owner>grt@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -258,7 +257,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.{CheckpointType}Checkpoint.Result.{DatabaseTag}"
-    enum="SqliteLoggedResultCode" expires_after="2026-12-09">
+    enum="SqliteLoggedResultCode" expires_after="2027-02-07">
   <owner>grt@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -270,7 +269,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Database.{CheckpointType}Checkpoint.Time.{DatabaseTag}"
-    units="microseconds" expires_after="2026-12-09">
+    units="microseconds" expires_after="2027-02-07">
   <owner>grt@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -331,7 +330,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Statement.ExecutionTime.{DatabaseTag}"
-    units="microseconds" expires_after="2026-11-29">
+    units="microseconds" expires_after="2027-01-31">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -346,7 +345,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Statement.StepTime.{DatabaseTag}" units="microseconds"
-    expires_after="2026-11-29">
+    expires_after="2027-01-31">
   <owner>anthonyvd@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <summary>
@@ -359,7 +358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Sql.Statement.{DatabaseTag}.VMSteps" units="count"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>etienneb@chromium.org</owner>
   <owner>estade@chromium.org</owner>
   <owner>chrome-catan@google.com</owner>

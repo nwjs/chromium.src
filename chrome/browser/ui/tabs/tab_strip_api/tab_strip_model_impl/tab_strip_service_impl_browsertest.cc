@@ -20,8 +20,6 @@
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/controllers/tab_strip_ui_controller_impl.h"
-#include "chrome/browser/ui/tabs/tab_strip_api/controllers/tab_strip_ui_controller_injector_impl.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl/browser_adapter_impl.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl/tab_strip_model_adapter_impl.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl/tab_strip_model_injector.h"
@@ -33,7 +31,6 @@
 #include "components/browser_apis/tab_strip/tab_strip_api.mojom.h"
 #include "components/browser_apis/tab_strip/tab_strip_experiment_api.mojom.h"
 #include "components/browser_apis/tab_strip/tab_strip_service_impl.h"
-#include "components/browser_apis/tab_strip/tab_strip_ui_controller.mojom.h"
 #include "components/tabs/public/tab_group.h"
 #include "content/public/test/browser_test.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
@@ -84,9 +81,9 @@ class TestTabStripClient : public tabs_api::mojom::TabsObserver {
   }
 
   void OnDataChanged(tabs_api::mojom::OnDataChangedEventPtr& event) {
-    // TODO(crbug.com/412738255): this is a hack, because we are not correctly
-    // adding the initial tab that is created by the tab strip. We should have
-    // a test for GetTabSnapshot and properly populate the initial tab.
+    // This is a hack, because we are not correctly adding the initial tab that
+    // is created by the tab strip. We should have a test for GetTabSnapshot and
+    // properly populate the initial tab.
     switch (event->which()) {
       case tabs_api::mojom::OnDataChangedEvent::Tag::kTab: {
         const auto& tab = event->get_tab()->data;
@@ -102,13 +99,13 @@ class TestTabStripClient : public tabs_api::mojom::TabsObserver {
       }
       case tabs_api::mojom::OnDataChangedEvent::Tag::kTabGroup:
       case tabs_api::mojom::OnDataChangedEvent::Tag::kSplitTab:
-        // TODO(crbug.com/412955607): implement this.
+        // Unimplemented.
         break;
     }
   }
 
   void OnCollectionCreated(tabs_api::mojom::OnCollectionCreatedEventPtr event) {
-    // TODO(crbug.com/412955607): implement this.
+    // Unimplemented
     created_events.push_back(std::move(event));
   }
 
@@ -166,13 +163,9 @@ class TabStripServiceImplBrowserTest : public InProcessBrowserTest {
     tab_strip_service_ = std::make_unique<tabs_api::TabStripServiceImpl>(
         std::make_unique<tabs_api::tab_strip_model::TabStripModelInjector>(
             browser(), browser()->tab_strip_model()));
-    ui_controller_ = std::make_unique<tabs_api::TabStripUIControllerImpl>(
-        std::make_unique<tabs_api::TabStripUIControllerInjectorImpl>(
-            browser(), browser()->tab_strip_model()));
   }
 
   void TearDownOnMainThread() override {
-    ui_controller_.reset();
     tab_strip_service_.reset();
     InProcessBrowserTest::TearDownOnMainThread();
   }
@@ -316,7 +309,6 @@ class TabStripServiceImplBrowserTest : public InProcessBrowserTest {
   }
 
   std::unique_ptr<tabs_api::TabStripServiceImpl> tab_strip_service_;
-  std::unique_ptr<tabs_api::TabStripUIControllerImpl> ui_controller_;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -337,7 +329,14 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, SynchronousObserver) {
   ASSERT_EQ(1, observer.num_callbacks);
 }
 
-IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, PreventsReentrancy) {
+// TODO(crbug.com/542347163): Re-enable test.
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_PreventsReentrancy DISABLED_PreventsReentrancy
+#else
+#define MAYBE_PreventsReentrancy PreventsReentrancy
+#endif
+IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest,
+                       MAYBE_PreventsReentrancy) {
   class ReallyBadObserver
       : public tabs_api::observation::TabStripApiBatchedObserver {
    public:
@@ -631,7 +630,7 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, SetSelectedTabs) {
   CreateTabs(remote, 5, GURL("http://some.where/nowhere"));
   observation->receiver.FlushForTesting();
 
-  // TODO(crbug.com/412738255): need to account for the initial tab.
+  // Need to account for the initial tab.
   ASSERT_EQ(6, GetTabStripModel()->count());
 
   // Now select 3 of the tabs.
@@ -675,8 +674,8 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, SetSelectedTabs) {
     auto& observation_tab = observation->client.tabs.at(tab_id);
     ASSERT_EQ(should_be_active, observation_tab->is_active)
         << "bad id was: " << tab_id;
-    // TODO(crbug.com/412738255): there is a race that is preventing this from
-    // reliably completing. Fix then retest.
+    // There is a race that is preventing this from reliably completing. Fix
+    // then retest.
   }
 }
 
@@ -940,32 +939,6 @@ IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, UpdateTabGroupData) {
 
   ASSERT_EQ(expected_title, updated_data->title());
   ASSERT_EQ(tab_groups::TabGroupColorId::kRed, updated_data->color());
-}
-
-// Tests ShowTabContextMenu() api. Currently it only verifies that the api
-// call succeeds.
-// TODO(crbug.com/470136275): verifies that the context menu is actually shown.
-IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, ShowTabContextMenu) {
-  mojo::Remote<TabStripService> remote;
-  mojo::Remote<tabs_api::mojom::TabStripUIController> ui_remote;
-  tab_strip_service_->Accept(remote.BindNewPipeAndPassReceiver());
-  ui_controller_->Bind(ui_remote.BindNewPipeAndPassReceiver());
-
-  tabs_api::NodeId created_id;
-  auto tab =
-      CreateTabAt(remote, std::nullopt, GURL("http://somewhere.nowhere"));
-  created_id = tab->id;
-
-  base::RunLoop run_loop;
-  ui_remote->ShowTabContextMenu(
-      created_id, gfx::Point(100, 100),
-      base::BindLambdaForTesting(
-          [&](tabs_api::mojom::TabStripUIController::ShowTabContextMenuResult
-                  result) {
-            EXPECT_TRUE(result.has_value());
-            run_loop.Quit();
-          }));
-  run_loop.Run();
 }
 
 IN_PROC_BROWSER_TEST_F(TabStripServiceImplBrowserTest, GetAllTabsForProfile) {

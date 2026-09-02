@@ -13,6 +13,7 @@
 
 #include "base/check_op.h"
 #include "base/containers/span.h"
+#include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "pdf/page_orientation.h"
 #include "pdf/pdf_ink_constants.h"
@@ -263,12 +264,18 @@ std::optional<InkTextBoxAttributes> ExtractAttributesFromMark(
 
   const bool is_bold = bold.value() != 0;
   const bool is_italic = italic.value() != 0;
-  return InkTextBoxAttributes(bounds, SkColorSetRGB(r, g, b), css_font_size,
-                              static_cast<TextTypeface>(typeface.value()),
-                              static_cast<TextAlignment>(alignment.value()),
-                              orientation.value(), PageOrientation::kOriginal,
-                              is_bold, is_italic,
-                              base::UTF16ToUTF8(text.value()));
+  return InkTextBoxAttributes{
+      .rect = bounds,
+      .color = SkColorSetRGB(r, g, b),
+      .css_font_size = css_font_size,
+      .typeface = static_cast<TextTypeface>(typeface.value()),
+      .alignment = static_cast<TextAlignment>(alignment.value()),
+      .orientation = orientation.value(),
+      .viewport_orientation = PageOrientation::kOriginal,
+      .is_bold = is_bold,
+      .is_italic = is_italic,
+      .text = base::UTF16ToUTF8(text.value()),
+  };
 }
 
 }  // namespace
@@ -318,8 +325,10 @@ std::optional<ink::Mesh> CreateInkMeshFromPolylineForTesting(  // IN-TEST
   return CreateInkMeshFromPolyline(polyline);
 }
 
-ReadInkTextResult::ReadInkTextResult(InkTextBox textbox,
-                                     std::vector<FPDF_PAGEOBJECT> text_objects)
+ReadInkTextResult::ReadInkTextResult(
+    InkTextBox textbox,
+    std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>>
+        text_objects)
     : textbox(std::move(textbox)), text_objects(std::move(text_objects)) {}
 
 ReadInkTextResult::ReadInkTextResult(ReadInkTextResult&&) noexcept = default;
@@ -346,7 +355,8 @@ bool PageContainsInkTextAnnotation(FPDF_PAGE page) {
 std::vector<ReadInkTextResult> ReadInkTextAnnotationsFromPage(FPDF_PAGE page) {
   struct TextboxData {
     std::optional<InkTextBoxAttributes> attributes;
-    std::vector<FPDF_PAGEOBJECT> page_objects;
+    std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>>
+        page_objects;
     FPDF_PAGEOBJECTMARK mark = nullptr;
   };
 

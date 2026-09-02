@@ -70,7 +70,6 @@ class TabMenuBridge : public TabStripModelObserver {
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
   void OnTabChangedAt(tabs::TabInterface* tab,
-                      int index,
                       TabChangeType change_type) override;
   void OnTabGroupChanged(const TabGroupChange& change) override;
   void TabGroupedStateChanged(TabStripModel* tab_strip_model,
@@ -93,6 +92,9 @@ class TabMenuBridge : public TabStripModelObserver {
   // This allows activating the correct tab even if the menu becomes stale
   // (e.g., a tab is closed or reordered while the menu is open).
   std::map<NSMenuItem*, raw_ptr<tabs::TabInterface>> menu_item_to_tab_;
+
+  // Maps each TabInterface to the NSMenuItem that was created for it.
+  std::map<raw_ptr<tabs::TabInterface>, NSMenuItem*> tab_to_menu_item_;
 
   // Flag when set forces the menu to be immediately rebuilt on modal change
   // instead of only doing so during menu show.

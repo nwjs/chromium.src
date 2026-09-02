@@ -57,9 +57,9 @@ class SystemDnsConfigChangeNotifierTest : public TestWithTaskEnvironment {
   // expected sequence.
   class TestObserver : public SystemDnsConfigChangeNotifier::Observer {
    public:
-    void OnSystemDnsConfigChanged(std::optional<DnsConfig> config) override {
+    void OnSystemDnsConfigChanged(const DnsConfig& config) override {
       DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-      configs_received_.push_back(std::move(config));
+      configs_received_.push_back(config);
 
       DCHECK_GT(notifications_remaining_, 0);
       if (--notifications_remaining_ == 0)
@@ -82,15 +82,13 @@ class SystemDnsConfigChangeNotifierTest : public TestWithTaskEnvironment {
       EXPECT_TRUE(configs_received_.empty());
     }
 
-    std::vector<std::optional<DnsConfig>>& configs_received() {
-      return configs_received_;
-    }
+    std::vector<DnsConfig>& configs_received() { return configs_received_; }
 
    private:
     int notifications_remaining_ = 0;
     std::unique_ptr<base::RunLoop> run_loop_ =
         std::make_unique<base::RunLoop>();
-    std::vector<std::optional<DnsConfig>> configs_received_;
+    std::vector<DnsConfig> configs_received_;
     SEQUENCE_CHECKER(sequence_checker_);
   };
 
@@ -129,8 +127,7 @@ TEST_F(SystemDnsConfigChangeNotifierTest, ReceiveNotification) {
                      base::Unretained(test_config_service_), kConfig));
   observer.WaitForNotification();
 
-  EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig)));
+  EXPECT_THAT(observer.configs_received(), testing::ElementsAre(kConfig));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
@@ -151,8 +148,7 @@ TEST_F(SystemDnsConfigChangeNotifierTest, ReceiveNotification_Multiple) {
   observer.WaitForNotifications(2);
 
   EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig),
-                                   testing::Optional(kConfig2)));
+              testing::ElementsAre(kConfig, kConfig2));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
@@ -167,8 +163,7 @@ TEST_F(SystemDnsConfigChangeNotifierTest, ReceiveInitialNotification) {
   notifier_->AddObserver(&observer);
   observer.WaitForNotification();
 
-  EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig)));
+  EXPECT_THAT(observer.configs_received(), testing::ElementsAre(kConfig));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
@@ -184,8 +179,7 @@ TEST_F(SystemDnsConfigChangeNotifierTest, ReceiveInitialNotification_Multiple) {
   notifier_->AddObserver(&observer);
   observer.WaitForNotification();
 
-  EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig2)));
+  EXPECT_THAT(observer.configs_received(), testing::ElementsAre(kConfig2));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
@@ -227,8 +221,27 @@ TEST_F(SystemDnsConfigChangeNotifierTest, UnchangedConfigs) {
       base::BindOnce(&TestDnsConfigService::OnConfigRead,
                      base::Unretained(test_config_service_), kConfig2));
   observer.WaitForNotification();
+  EXPECT_THAT(observer.configs_received(), testing::ElementsAre(kConfig2));
+  observer.ExpectNoMoreNotifications();
+
+  notifier_->RemoveObserver(&observer);
+}
+
+TEST_F(SystemDnsConfigChangeNotifierTest, ReceiveNotification_EmptyNameservers) {
+  TestObserver observer;
+  DnsConfig empty_nameservers_config;
+  empty_nameservers_config.search = {"example.com"};
+
+  notifier_->AddObserver(&observer);
+  notifier_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(&TestDnsConfigService::OnConfigRead,
+                     base::Unretained(test_config_service_),
+                     empty_nameservers_config));
+  observer.WaitForNotification();
+
   EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig2)));
+              testing::ElementsAre(empty_nameservers_config));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
@@ -248,14 +261,14 @@ TEST_F(SystemDnsConfigChangeNotifierTest, UnloadedConfig) {
   observer.WaitForNotification();
 
   EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig), std::nullopt));
+              testing::ElementsAre(kConfig, DnsConfig()));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
 }
 
-// All invalid configs are considered the same for notifications, so only expect
-// a single notification on multiple config invalidations.
+// All invalid/empty configs are considered the same for notifications, so only
+// expect a single notification on multiple config invalidations.
 TEST_F(SystemDnsConfigChangeNotifierTest, UnloadedConfig_Multiple) {
   LoadConfig(kConfig);
 
@@ -273,13 +286,13 @@ TEST_F(SystemDnsConfigChangeNotifierTest, UnloadedConfig_Multiple) {
   observer.WaitForNotification();  // Only 1 notification expected.
 
   EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig), std::nullopt));
+              testing::ElementsAre(kConfig, DnsConfig()));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
 }
 
-TEST_F(SystemDnsConfigChangeNotifierTest, InitialConfigInvalid) {
+TEST_F(SystemDnsConfigChangeNotifierTest, InitialConfigEmpty) {
   // Add and invalidate a config (using an extra observer to wait for
   // invalidation to complete).
   LoadConfig(kConfig);
@@ -295,8 +308,9 @@ TEST_F(SystemDnsConfigChangeNotifierTest, InitialConfigInvalid) {
   TestObserver observer;
   notifier_->AddObserver(&observer);
 
-  // No notification expected until first valid config.
-  observer.ExpectNoMoreNotifications();
+  // Initial notification receives DnsConfig().
+  observer.WaitForNotification();
+  EXPECT_THAT(observer.configs_received(), testing::ElementsAre(DnsConfig()));
 
   // Notification on new config.
   notifier_task_runner_->PostTask(
@@ -305,7 +319,7 @@ TEST_F(SystemDnsConfigChangeNotifierTest, InitialConfigInvalid) {
                      base::Unretained(test_config_service_), kConfig));
   observer.WaitForNotification();
   EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig)));
+              testing::ElementsAre(DnsConfig(), kConfig));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);
@@ -320,8 +334,7 @@ TEST_F(SystemDnsConfigChangeNotifierTest, RefreshConfig) {
   notifier_->RefreshConfig();
   observer.WaitForNotification();
 
-  EXPECT_THAT(observer.configs_received(),
-              testing::ElementsAre(testing::Optional(kConfig)));
+  EXPECT_THAT(observer.configs_received(), testing::ElementsAre(kConfig));
   observer.ExpectNoMoreNotifications();
 
   notifier_->RemoveObserver(&observer);

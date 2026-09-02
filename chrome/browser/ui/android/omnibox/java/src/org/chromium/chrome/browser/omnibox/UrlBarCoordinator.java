@@ -20,7 +20,6 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
-import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.TextSelection;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -90,7 +89,6 @@ public class UrlBarCoordinator
         mModel =
                 new PropertyModel.Builder(UrlBarProperties.ALL_KEYS)
                         .with(UrlBarProperties.ACTION_MODE_CALLBACK, actionModeCallback)
-                        .with(UrlBarProperties.ALLOW_MULTILINE_INPUT, false)
                         .with(UrlBarProperties.DELEGATE, delegate)
                         .with(UrlBarProperties.INCOGNITO_COLORS_ENABLED, isIncognitoBranded)
                         .with(UrlBarProperties.LONG_CLICK_LISTENER, onLongClickListener)
@@ -121,8 +119,8 @@ public class UrlBarCoordinator
     }
 
     /** Signals that the Omnibox input session has begun. */
-    public void beginInput(AutocompleteInput input) {
-        mMediator.beginInput(input);
+    public void beginInput(FuseboxSessionState sessionState) {
+        mMediator.beginInput(sessionState);
     }
 
     /** Signals that the Omnibox input session has ended. */
@@ -206,28 +204,10 @@ public class UrlBarCoordinator
     }
 
     /**
-     * @see UrlBarMediator#setAllowMultilineInput(boolean)
-     */
-    public void setAllowMultilineInput(boolean allowMultilineInput) {
-        mMediator.setAllowMultilineInput(allowMultilineInput);
-    }
-
-    /**
      * @see UrlBarMediator#setUrlDirectionListener(Callback<Integer>)
      */
     public void setUrlDirectionListener(Callback<Integer> listener) {
         mMediator.setUrlDirectionListener(listener);
-    }
-
-    /**
-     * @see UrlBarMediator#setIsInCct(boolean)
-     */
-    public void setIsInCct(boolean isInCct) {
-        // TODO(crbug.com/495455140): remove this entirely when the ALLOW_MULTILINE_INPUT is
-        // updated from the Fusebox. This is already redundant as-is, because text wrapping
-        // is only applied when the UrlBar has focus.
-        if (!isInCct) return;
-        setAllowMultilineInput(false);
     }
 
     /** Sets whether this {@link UrlBar} should enable bounds ellipsis. */

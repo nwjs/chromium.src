@@ -101,6 +101,7 @@ ManagedUserProfileNoticeHandler::ManagedUserProfileNoticeHandler(
       type_(type),
       profile_creation_required_by_policy_(
           create_param->profile_creation_required_by_policy),
+      is_modal_dialog_(create_param->is_device_signals_disclaimer_modal),
 #if !BUILDFLAG(IS_CHROMEOS)
       show_link_data_option_(create_param->show_link_data_option),
 #endif
@@ -145,12 +146,9 @@ ManagedUserProfileNoticeHandler::ManagedUserProfileNoticeHandler(
         std::move(std::get<signin::DeviceSignalsDisclaimerCallback>(
             create_param->process_user_choice_callback));
   }
-  CHECK(
-      browser_ ||
-      (type_ !=
-           ManagedUserProfileNoticeUI::ScreenType::kEnterpriseAccountCreation ||
-       // TODO(crbug.com/490053225): Clean this "||" up
-       type_ == ManagedUserProfileNoticeUI::ScreenType::kProfilePicker));
+  CHECK(browser_ ||
+        type_ !=
+            ManagedUserProfileNoticeUI::ScreenType::kEnterpriseAccountCreation);
   if (browser_) {
     browser_did_close_subscription_ = browser_->RegisterBrowserDidClose(
         base::BindRepeating(&ManagedUserProfileNoticeHandler::OnBrowserDidClose,
@@ -221,7 +219,7 @@ void ManagedUserProfileNoticeHandler::OnBrowserDidClose(
 
 void ManagedUserProfileNoticeHandler::OnExtendedAccountInfoUpdated(
     const AccountInfo& info) {
-  if (info.account_id == account_id_ && !info.account_image.IsEmpty()) {
+  if (info.account_id == account_id_ && info.GetAvatarImage().has_value()) {
     UpdateProfileInfo(profile_path_);
   }
 }
@@ -417,7 +415,7 @@ void ManagedUserProfileNoticeHandler::HandleLearnMoreClicked(
   auto* service = ProfileManagementDisclaimerServiceFactory::GetForProfile(
       Profile::FromWebUI(web_ui()));
   if (service) {
-    service->OpenPrivacyPolicyArticlePopUp();
+    service->OpenPrivacyPolicyArticlePopUp(is_modal_dialog_);
   }
 }
 

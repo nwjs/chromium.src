@@ -9,15 +9,20 @@
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/custom_tab_bar_view.h"
+#include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
+#include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
-#include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
@@ -241,7 +246,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFrameViewBrowserTest, IncognitoIsCorrectColor) {
 IN_PROC_BROWSER_TEST_F(BrowserFrameViewBrowserTest,
                        FullscreenForTabTitlebarHeight) {
   InstallAndLaunchBookmarkApp();
-  static_cast<content::WebContentsDelegate*>(app_browser_)
+  BrowserWebContentsDelegate::From(app_browser_)
       ->EnterFullscreenModeForTab(web_contents_->GetPrimaryMainFrame(), {});
 
   EXPECT_EQ(GetAppFrameView()->GetTopInset(false), 0);
@@ -263,7 +268,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFrameViewBrowserTest,
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(app_browser_, GURL("http://example.com")));
 
-  static_cast<content::WebContentsDelegate*>(app_browser_)
+  BrowserWebContentsDelegate::From(app_browser_)
       ->EnterFullscreenModeForTab(web_contents_->GetPrimaryMainFrame(), {});
 
   EXPECT_TRUE(app_browser_view_->toolbar()->custom_tab_bar()->IsDrawn());
@@ -422,9 +427,12 @@ IN_PROC_BROWSER_TEST_F(BrowserFrameViewBrowserTest, DISABLED_SaveCardIcon) {
   nav_observer.Wait();
   offer_observer.Wait();
 
-  PageActionIconView* icon =
-      app_browser_view_->toolbar_button_provider()->GetPageActionIconView(
-          PageActionIconType::kSaveCard);
+  page_actions::PageActionViewInterface* page_action_interface =
+      app_browser_view_->toolbar_button_provider()->GetPageActionViewInterface(
+          kActionShowPaymentsBubbleOrPage);
+  ASSERT_TRUE(page_action_interface);
+  views::View* icon =
+      page_action_interface->GetIconLabelBubbleViewNotMigrated();
   EXPECT_TRUE(GetAppFrameView()->Contains(icon));
   EXPECT_TRUE(icon->GetVisible());
 }
@@ -438,3 +446,84 @@ IN_PROC_BROWSER_TEST_F(BrowserFrameViewBrowserTest, BrowserFrameWindowMask) {
   EXPECT_TRUE(path.isEmpty());
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+using BrowserFrameViewPopupTest = InProcessBrowserTest;
+
+// TODO(crbug.com/41478509): Flaky on Linux TSAN and ASAN.
+#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && \
+    (defined(ADDRESS_SANITIZER) || defined(THREAD_SANITIZER))
+#define MAYBE_HitTestPopupTopChrome DISABLED_HitTestPopupTopChrome
+#else
+#define MAYBE_HitTestPopupTopChrome HitTestPopupTopChrome
+#endif
+IN_PROC_BROWSER_TEST_F(BrowserFrameViewPopupTest, MAYBE_HitTestPopupTopChrome) {
+  Browser* popup_browser = CreateBrowserForPopup(browser()->GetProfile());
+  BrowserView* popup_browser_view =
+      BrowserView::GetBrowserViewForBrowser(popup_browser);
+  BrowserFrameView* frame_view =
+      popup_browser_view->browser_widget()->GetFrameView();
+
+  constexpr gfx::Rect kLeftOfFrame(-1, 4, 1, 1);
+  EXPECT_FALSE(frame_view->HitTestRect(kLeftOfFrame));
+
+  constexpr gfx::Rect kAboveFrame(4, -1, 1, 1);
+  EXPECT_FALSE(frame_view->HitTestRect(kAboveFrame));
+
+  const int top_inset = frame_view->GetTopInset(false);
+  const gfx::Rect in_browser_view(4, top_inset, 1, 1);
+  EXPECT_TRUE(frame_view->HitTestRect(in_browser_view));
+}
+
+using BrowserFrameViewTabbedTest = InProcessBrowserTest;
+
+// TODO(crbug.com/40101869): Flaky on Linux TSAN.
+#if (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)) && defined(THREAD_SANITIZER)
+#define MAYBE_HitTestTabstrip DISABLED_HitTestTabstrip
+#else
+#define MAYBE_HitTestTabstrip HitTestTabstrip
+#endif
+
+IN_PROC_BROWSER_TEST_F(BrowserFrameViewTabbedTest, MAYBE_HitTestTabstrip) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL("about:blank")));
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  BrowserFrameView* frame_view = browser_view->browser_widget()->GetFrameView();
+
+  const gfx::Rect frame_bounds = frame_view->bounds();
+
+  gfx::RectF tabstrip_bounds_in_frame_coords(
+      browser_view->horizontal_tab_strip_for_testing()->GetLocalBounds());
+  views::View::ConvertRectToTarget(
+      browser_view->horizontal_tab_strip_for_testing(), frame_view,
+      &tabstrip_bounds_in_frame_coords);
+  const gfx::Rect tabstrip_bounds =
+      gfx::ToEnclosingRect(tabstrip_bounds_in_frame_coords);
+  EXPECT_FALSE(tabstrip_bounds.IsEmpty());
+
+  // Completely outside the frame's bounds.
+  EXPECT_FALSE(frame_view->HitTestRect(
+      gfx::Rect(frame_bounds.x() - 1, frame_bounds.y() + 1, 1, 1)));
+  EXPECT_FALSE(frame_view->HitTestRect(
+      gfx::Rect(frame_bounds.x() + 1, frame_bounds.y() - 1, 1, 1)));
+
+  // Hits client portions of the tabstrip (near the bottom left corner of the
+  // first tab).
+  EXPECT_TRUE(frame_view->HitTestRect(gfx::Rect(
+      tabstrip_bounds.x() + 10, tabstrip_bounds.bottom() - 10, 1, 1)));
+  EXPECT_TRUE(browser_view->HitTestRect(gfx::Rect(
+      tabstrip_bounds.x() + 10, tabstrip_bounds.bottom() - 10, 1, 1)));
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  // Hits non-client portions of the tab strip (the top left corner of the
+  // first tab).
+  EXPECT_TRUE(frame_view->HitTestRect(
+      gfx::Rect(tabstrip_bounds.x(), tabstrip_bounds.y(), 1, 1)));
+#endif
+
+  // Hits tab strip and the browser-client area.
+  EXPECT_TRUE(frame_view->HitTestRect(gfx::Rect(
+      tabstrip_bounds.x() + 1,
+      tabstrip_bounds.bottom() -
+          GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap) - 1,
+      100, 100)));
+}

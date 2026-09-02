@@ -57,7 +57,7 @@ export function getHtml(this: UserEducationInternalsElement) {
   <div id="main">
     <cr-toast id="errorMessageToast" duration="5000">
       <cr-icon id="errorMessageIcon" class="error-outline"
-          icon="cr:error-outline">
+          icon="cr:error">
       </cr-icon>
       <span id="errorMessage">${this.featurePromoErrorMessage_}</span>
     </cr-toast>
@@ -79,7 +79,7 @@ export function getHtml(this: UserEducationInternalsElement) {
         </p>
       </div>
       <cr-page-selector ?hidden="${!this.initialized_}"
-                        .selected="${this.selectedTabIndex_}" show-all="true"
+                        .selected="${this.selectedTabIndex}" show-all="true"
                         id="selector">
         <div id="iph" class="promo-list">
           <h2>Feature Promos</h2>

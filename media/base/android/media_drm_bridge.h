@@ -9,10 +9,12 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "base/android/scoped_java_ref.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
@@ -53,11 +55,14 @@ namespace media {
 class MEDIA_EXPORT MediaDrmBridge : public ContentDecryptionModule,
                                     public CdmContext {
  public:
-  // TODO(ddorwin): These are specific to Widevine. http://crbug.com/459400
+  // See android.media.MediaDrm.SecurityLevel.
   enum SecurityLevel {
-    SECURITY_LEVEL_DEFAULT = 0,
-    SECURITY_LEVEL_1 = 1,
-    SECURITY_LEVEL_3 = 3,
+    SECURITY_LEVEL_UNKNOWN = 0,
+    SECURITY_LEVEL_SW_SECURE_CRYPTO = 1,
+    SECURITY_LEVEL_SW_SECURE_DECODE = 2,
+    SECURITY_LEVEL_HW_SECURE_CRYPTO = 3,
+    SECURITY_LEVEL_HW_SECURE_DECODE = 4,
+    SECURITY_LEVEL_HW_SECURE_ALL = 5,
   };
 
   // MediaDrm system codes. These are used to keep track of failures in
@@ -123,6 +128,13 @@ class MEDIA_EXPORT MediaDrmBridge : public ContentDecryptionModule,
   static bool IsKeySystemSupportedWithType(
       const std::string& key_system,
       const std::string& container_mime_type);
+
+  using SupportedContainers = base::flat_set<std::string>;
+
+  // Returns the supported container MIME types (e.g. "video/webm", "video/mp4")
+  // for the specified |key_system|.
+  static SupportedContainers GetSupportedContainers(
+      const std::string& key_system);
 
   // Returns true if this device supports per-application provisioning, false
   // otherwise.
@@ -385,12 +397,14 @@ class MEDIA_EXPORT MediaDrmBridge : public ContentDecryptionModule,
   base::android::ScopedJavaGlobalRef<jobject> j_media_drm_;
 
   // Java MediaCrypto instance. Possible values are:
-  // !j_media_crypto_:
-  //   MediaCrypto creation has not been notified via NotifyMediaCryptoReady().
-  //   Or: MediaCrypto creation failed and it has been notified.
-  // !j_media_crypto_.is_null():
+  // `!j_media_crypto_.has_value()`:
+  //   MediaCrypto creation has not been notified via
+  //   `NotifyMediaCryptoReady()`.
+  // `j_media_crypto_.has_value() && j_media_crypto_->is_null()`:
+  //   MediaCrypto creation failed and it has been notified.
+  // `j_media_crypto_.has_value() && !j_media_crypto_->is_null()`:
   //   MediaCrypto creation succeeded and it has been notified.
-  base::android::ScopedJavaGlobalRef<jobject> j_media_crypto_;
+  std::optional<base::android::ScopedJavaGlobalRef<jobject>> j_media_crypto_;
 
   // The callback to create a ProvisionFetcher.
   CreateFetcherCB create_fetcher_cb_;
@@ -416,6 +430,9 @@ class MEDIA_EXPORT MediaDrmBridge : public ContentDecryptionModule,
 
   // Default task runner.
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
+
+  // The security level of the MediaDrmBridge.
+  const SecurityLevel security_level_;
 
   MediaCryptoContextImpl media_crypto_context_;
 

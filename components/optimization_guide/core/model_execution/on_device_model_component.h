@@ -10,7 +10,6 @@
 #include <string>
 
 #include "base/byte_size.h"
-#include "base/containers/enum_set.h"
 #include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
@@ -46,6 +45,20 @@ namespace optimization_guide {
 
 inline constexpr std::string_view kOnDeviceModelCrxId =
     "fklghjjljmnfjoepjmlobpekiapffcja";
+
+// Files expected to be in the on device model bundle.
+inline constexpr base::FilePath::CharType kWeightsFile[] =
+    FILE_PATH_LITERAL("weights.bin");
+inline constexpr base::FilePath::CharType kWeightCacheFile[] =
+    FILE_PATH_LITERAL("cache.bin");
+inline constexpr base::FilePath::CharType kEncoderCacheFile[] =
+    FILE_PATH_LITERAL("encoder_cache.bin");
+inline constexpr base::FilePath::CharType kAdapterCacheFile[] =
+    FILE_PATH_LITERAL("adapter_cache.bin");
+inline constexpr base::FilePath::CharType kProgramCacheFile[] =
+    FILE_PATH_LITERAL("program_cache.bin");
+inline constexpr base::FilePath::CharType kOnDeviceModelExecutionConfigFile[] =
+    FILE_PATH_LITERAL("on_device_model_execution_config.pb");
 
 class UsageTracker;
 
@@ -91,18 +104,6 @@ std::ostream& operator<<(std::ostream& out, OnDeviceModelStatus status);
 // Identifies a specific on-device base model and the performance hint that
 // it will be used with.
 struct OnDeviceBaseModelSpec {
-  using PerformanceHints =
-      base::EnumSet<proto::OnDeviceModelPerformanceHint,
-                    proto::OnDeviceModelPerformanceHint_MIN,
-                    proto::OnDeviceModelPerformanceHint_MAX>;
-
-  OnDeviceBaseModelSpec(
-      const std::string& model_name,
-      const std::string& model_version,
-      proto::OnDeviceModelPerformanceHint selected_performance_hint);
-  ~OnDeviceBaseModelSpec();
-  OnDeviceBaseModelSpec(const OnDeviceBaseModelSpec&);
-
   bool operator==(const OnDeviceBaseModelSpec& other) const;
 
   // The name of the base model currently available on-device.
@@ -110,7 +111,8 @@ struct OnDeviceBaseModelSpec {
   // The version of the base model currently available on-device.
   std::string model_version;
   // The selected performance hint for this device and base model.
-  proto::OnDeviceModelPerformanceHint selected_performance_hint;
+  proto::OnDeviceModelPerformanceHint selected_performance_hint =
+      proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_UNSPECIFIED;
 };
 
 // State of the on-device model component.

@@ -46,19 +46,20 @@ bool IsTrackableReplacedElement(const Element& element) {
 }
 
 // Resolves `abstract_range` to an EphemeralRange for geometry queries. When the
-// OpaqueRange feature is enabled and the range is opaque, this builds its inner
-// value-geometry range and returns std::nullopt if that can't be built.
+// OpaqueRange feature is enabled and the range is opaque, this resolves its
+// value offsets to positions in the inner editor and returns std::nullopt if
+// they can't be resolved.
 std::optional<EphemeralRange> ResolveEphemeralRange(
     AbstractRange* abstract_range,
     Document* document) {
   if (RuntimeEnabledFeatures::OpaqueRangeEnabled(
           document->GetExecutionContext())) {
     if (auto* opaque_range = DynamicTo<OpaqueRange>(abstract_range)) {
-      Range* inner_range = opaque_range->BuildValueGeometryContext();
-      if (!inner_range) {
+      EphemeralRange value_range = opaque_range->GetRangeForValue();
+      if (value_range.IsNull()) {
         return std::nullopt;
       }
-      return EphemeralRange(inner_range);
+      return value_range;
     }
   }
   auto* node_range = DynamicTo<NodeRange>(abstract_range);
@@ -79,7 +80,7 @@ HighlightRegistry* HighlightRegistry::From(LocalDOMWindow& window) {
 }
 
 HighlightRegistry::HighlightRegistry(LocalDOMWindow& window)
-    : Supplement<LocalDOMWindow>(window), frame_(window.GetFrame()) {}
+    : Supplement<LocalDOMWindow>(window) {}
 
 HighlightRegistry::~HighlightRegistry() = default;
 
@@ -87,12 +88,20 @@ const char HighlightRegistry::kSupplementName[] = "HighlightRegistry";
 
 void HighlightRegistry::Trace(blink::Visitor* visitor) const {
   visitor->Trace(highlights_);
-  visitor->Trace(frame_);
   visitor->Trace(active_iterators_);
   visitor->Trace(active_highlights_in_node_);
   visitor->Trace(active_highlights_in_replaced_element_);
   ScriptWrappable::Trace(visitor);
   Supplement<LocalDOMWindow>::Trace(visitor);
+}
+
+LocalFrame* HighlightRegistry::GetFrame() const {
+  return GetSupplementable()->GetFrame();
+}
+
+Document* HighlightRegistry::GetDocument() const {
+  LocalFrame* frame = GetFrame();
+  return frame ? frame->GetDocument() : nullptr;
 }
 
 HighlightRegistry* HighlightRegistry::GetHighlightRegistry(const Node* node) {
@@ -139,7 +148,7 @@ bool HighlightRegistry::IsAbstractRangePaintable(AbstractRange* abstract_range,
 // Deletes all HighlightMarkers and rebuilds them with the contents of
 // highlights_.
 void HighlightRegistry::ValidateHighlightMarkers() {
-  Document* document = frame_->GetDocument();
+  Document* document = GetDocument();
   if (!document)
     return;
 
@@ -322,26 +331,37 @@ const HashSet<AtomicString>& HighlightRegistry::GetActiveHighlights(
 }
 
 void HighlightRegistry::ScheduleRepaint() {
+  LocalFrame* frame = GetFrame();
+  if (!frame) {
+    return;
+  }
   force_markers_validation_ = true;
-  if (LocalFrameView* local_frame_view = frame_->View()) {
+  if (LocalFrameView* local_frame_view = frame->View()) {
     local_frame_view->ScheduleVisualUpdateForVisualOverflowIfNeeded();
   }
 }
 
 void HighlightRegistry::SetForTesting(AtomicString highlight_name,
                                       Highlight* highlight) {
+  // Register before deregistering the Highlight being replaced, so the
+  // registration count doesn't transiently drop to zero when a name is set to
+  // the Highlight it already maps to.
+  highlight->RegisterIn(this);
   auto highlights_iterator = GetMapIterator(highlight_name);
   if (highlights_iterator != highlights_.end()) {
-    highlights_iterator->Get()->highlight->DeregisterFrom(this);
-    // It's necessary to delete it and insert a new entry to the registry
-    // instead of just modifying the existing one so the insertion order is
-    // preserved.
-    NotifyIteratorsWillRemoveEntry(highlights_iterator->Get());
-    highlights_.erase(highlights_iterator);
+    // Map semantics: setting an existing key replaces the value without
+    // changing the entry's position, so the entry is updated in place instead
+    // of being erased and reinserted (which would move it to the end of the
+    // iteration order). The registration position is still updated so the
+    // highlight keeps stacking above the previously registered ones.
+    HighlightRegistryMapEntry* entry = highlights_iterator->Get();
+    entry->highlight->DeregisterFrom(this);
+    entry->highlight = highlight;
+    entry->registration_position = highlights_registered_++;
+  } else {
+    highlights_.insert(MakeGarbageCollected<HighlightRegistryMapEntry>(
+        highlight_name, highlight, highlights_registered_++));
   }
-  highlights_.insert(MakeGarbageCollected<HighlightRegistryMapEntry>(
-      highlight_name, highlight, highlights_registered_++));
-  highlight->RegisterIn(this);
   ScheduleRepaint();
 }
 
@@ -473,7 +493,8 @@ HeapVector<Member<HighlightHitResult>> HighlightRegistry::highlightsFromPoint(
     float x,
     float y,
     const HighlightsFromPointOptions* options) {
-  Document* document = frame_->GetDocument();
+  LocalFrame* frame = GetFrame();
+  Document* document = frame ? frame->GetDocument() : nullptr;
   if (!document || !document->GetLayoutView()) {
     return HeapVector<Member<HighlightHitResult>>();
   }
@@ -550,7 +571,7 @@ HeapVector<Member<HighlightHitResult>> HighlightRegistry::highlightsFromPoint(
   // |x| and |y| are in CSS pixels, which need to be converted to physical
   // pixels to determine if they're inside layout rectangles.
   gfx::PointF hit_point(x, y);
-  hit_point.Scale(frame_->DevicePixelRatio());
+  hit_point.Scale(frame->DevicePixelRatio());
 
   HeapVector<Member<HighlightHitResult>> highlight_hit_results;
   for (const AtomicString& highlight_name : highlight_names_at_hit_node) {

@@ -48,6 +48,7 @@
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/restore_type.h"
+#include "content/public/browser/web_ui_controller.h"
 #include "content/public/common/bindings_policy.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_constants.h"
@@ -880,6 +881,7 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
       ongoing_navigation_request->IsRendererInitiated() ==
           request->IsRendererInitiated() &&
       request->GetURL() == ongoing_navigation_request->GetURL() &&
+      request->GetURL().SchemeIsHTTPOrHTTPS() &&
       request->common_params().method == "GET" &&
       ongoing_navigation_request->common_params().method == "GET" &&
       request->GetInitiatorFrameToken() ==
@@ -1153,15 +1155,19 @@ void Navigator::RequestOpenURL(
   params.source_render_process_id =
       render_frame_host->GetProcess()->GetDeprecatedID();
 
-  if (render_frame_host->web_ui()) {
+  if (WebUI* web_ui = render_frame_host->web_ui()) {
     // Note that we hide the referrer for Web UI pages. We don't really want
     // web sites to see a referrer of "chrome://blah" (and some chrome: URLs
     // might have search terms or other stuff we don't want to send to the
     // site), so we send no referrer.
     params.referrer = Referrer();
 
-    // Navigations in Web UI pages count as browser-initiated navigations.
-    params.is_renderer_initiated = false;
+    // Navigations in trusted Web UI pages count as browser-initiated
+    // navigations.
+    if (web_ui->GetController()->GetTrustPolicy() ==
+        WebUIController::TrustPolicy::kTrusted) {
+      params.is_renderer_initiated = false;
+    }
   }
 
   params.blob_url_loader_factory = std::move(blob_url_loader_factory);
@@ -1208,22 +1214,27 @@ void Navigator::NavigateFromFrameProxy(
   // With MPArch there may be multiple main frames and so is_main_frame should
   // not be used to identify outermost main frames.
   if (!delegate_->ShouldAllowRendererInitiatedCrossProcessNavigation(
-          render_frame_host->IsOutermostMainFrame()))
+          render_frame_host, render_frame_host->IsOutermostMainFrame())) {
     return;
+  }
 
   // TODO(creis): Determine if this transfer started as a browser-initiated
   // navigation.  See https://crbug.com/495161.
   bool is_renderer_initiated = true;
   Referrer referrer_to_use(referrer);
-  if (render_frame_host->web_ui()) {
+  if (WebUI* web_ui = render_frame_host->web_ui()) {
     // Note that we hide the referrer for Web UI pages. We don't really want
     // web sites to see a referrer of "chrome://blah" (and some chrome: URLs
     // might have search terms or other stuff we don't want to send to the
     // site), so we send no referrer.
     referrer_to_use = Referrer();
 
-    // Navigations in Web UI pages count as browser-initiated navigations.
-    is_renderer_initiated = false;
+    // Navigations in trusted Web UI pages count as browser-initiated
+    // navigations.
+    if (web_ui->GetController()->GetTrustPolicy() ==
+        WebUIController::TrustPolicy::kTrusted) {
+      is_renderer_initiated = false;
+    }
   }
 
   if (is_renderer_initiated &&

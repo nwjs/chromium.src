@@ -77,7 +77,6 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/websockets/websocket_quic_spdy_stream.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
-#include "third_party/boringssl/src/pki/signature_algorithm.h"
 #include "url/origin.h"
 #include "url/scheme_host_port.h"
 
@@ -280,7 +279,7 @@ base::DictValue NetLogQuicMigrationFailureParams(
     quic::QuicConnectionId connection_id,
     std::string_view reason) {
   return base::DictValue()
-      .Set("connection_id", connection_id.ToString())
+      .Set("default_path_connection_id", connection_id.ToString())
       .Set("reason", reason);
 }
 
@@ -458,14 +457,19 @@ void LogProbeResultToHistogram(MigrationCause cause, bool success) {
           histogram_name, base::HistogramBase::kUmaTargetedHistogramFlag));
 }
 
-void LogSessionCreationInitiatorToHistogram(
+void LogSessionMetricsToHistogram(
     MultiplexedSessionCreationInitiator session_creation,
+    QuicSessionEstablishmentReason establishment_reason,
     bool is_used) {
-  std::string histogram_name =
-      base::StrCat({"Net.QuicSession.GoogleSearch.SessionCreationInitiator",
-                    is_used ? ".Used" : ".Unused"});
+  const std::string_view suffix = is_used ? ".Used" : ".Unused";
 
-  base::UmaHistogramEnumeration(histogram_name, session_creation);
+  std::string initiator_histogram_name = base::StrCat(
+      {"Net.QuicSession.GoogleSearch.SessionCreationInitiator", suffix});
+  base::UmaHistogramEnumeration(initiator_histogram_name, session_creation);
+
+  std::string reason_histogram_name = base::StrCat(
+      {"Net.QuicSession.GoogleSearch.EstablishmentReason", suffix});
+  base::UmaHistogramEnumeration(reason_histogram_name, establishment_reason);
 }
 
 EchMode GetEchModeForHost(SSLConfigService* ssl_config_service,
@@ -897,14 +901,8 @@ void QuicChromiumClientSession::ConnectionMigrationValidationResultDelegate::
 void QuicChromiumClientSession::ConnectionMigrationValidationResultDelegate::
     OnPathValidationFailure(
         std::unique_ptr<quic::QuicPathValidationContext> context) {
-  session_->connection()->OnPathValidationFailureAtClient(
-      /*is_multi_port=*/false, *context);
-  // Note that socket, packet writer, and packet reader in |context| will be
-  // discarded.
-  auto* chrome_context =
-      static_cast<QuicChromiumPathValidationContext*>(context.get());
-  session_->OnProbeFailed(chrome_context->network(),
-                          chrome_context->peer_address());
+  session_->LogPathValidationFailure(
+      static_cast<QuicChromiumPathValidationContext*>(context.get()));
 }
 
 QuicChromiumClientSession::PortMigrationValidationResultDelegate::
@@ -926,14 +924,8 @@ void QuicChromiumClientSession::PortMigrationValidationResultDelegate::
 void QuicChromiumClientSession::PortMigrationValidationResultDelegate::
     OnPathValidationFailure(
         std::unique_ptr<quic::QuicPathValidationContext> context) {
-  session_->connection()->OnPathValidationFailureAtClient(
-      /*is_multi_port=*/false, *context);
-  // Note that socket, packet writer, and packet reader in |context| will be
-  // discarded.
-  auto* chrome_context =
-      static_cast<QuicChromiumPathValidationContext*>(context.get());
-  session_->OnProbeFailed(chrome_context->network(),
-                          chrome_context->peer_address());
+  session_->LogPathValidationFailure(
+      static_cast<QuicChromiumPathValidationContext*>(context.get()));
 }
 
 QuicChromiumClientSession::ServerPreferredAddressValidationResultDelegate::
@@ -956,14 +948,8 @@ void QuicChromiumClientSession::ServerPreferredAddressValidationResultDelegate::
 void QuicChromiumClientSession::ServerPreferredAddressValidationResultDelegate::
     OnPathValidationFailure(
         std::unique_ptr<quic::QuicPathValidationContext> context) {
-  session_->connection()->OnPathValidationFailureAtClient(
-      /*is_multi_port=*/false, *context);
-  // Note that socket, packet writer, and packet reader in |context| will be
-  // discarded.
-  auto* chrome_context =
-      static_cast<QuicChromiumPathValidationContext*>(context.get());
-  session_->OnProbeFailed(chrome_context->network(),
-                          chrome_context->peer_address());
+  session_->LogPathValidationFailure(
+      static_cast<QuicChromiumPathValidationContext*>(context.get()));
 }
 
 QuicChromiumClientSession::QuicChromiumPathValidationWriterDelegate::
@@ -1053,7 +1039,8 @@ QuicChromiumClientSession::QuicChromiumClientSession(
     bool enable_origin_frame,
     bool allow_server_preferred_address,
     MultiplexedSessionCreationInitiator session_creation_initiator,
-    const NetLogWithSource& net_log)
+    const NetLogWithSource& net_log,
+    QuicSessionEstablishmentReason quic_session_establishment_reason)
     : quic::QuicSpdyClientSessionBase(connection,
                                       /*visitor=*/nullptr,
                                       config,
@@ -1112,7 +1099,8 @@ QuicChromiumClientSession::QuicChromiumClientSession(
       ech_mode_(GetEchModeForHost(ssl_config_service, session_key_.host())),
       trust_anchor_ids_(metadata.trust_anchor_ids),
       allow_server_preferred_address_(allow_server_preferred_address),
-      session_creation_initiator_(session_creation_initiator) {
+      session_creation_initiator_(session_creation_initiator),
+      quic_session_establishment_reason_(quic_session_establishment_reason) {
   default_network_ = default_network;
   auto* socket_raw = socket.get();
   packet_readers_.push_back(std::make_unique<QuicChromiumPacketReader>(
@@ -1193,8 +1181,9 @@ QuicChromiumClientSession::~QuicChromiumClientSession() {
                           num_total_streams_);
 
   if (IsGoogleHostWithAlpnH3(session_key_.host())) {
-    LogSessionCreationInitiatorToHistogram(session_creation_initiator_,
-                                           num_total_streams_ > 0);
+    LogSessionMetricsToHistogram(session_creation_initiator_,
+                                 quic_session_establishment_reason_,
+                                 num_total_streams_ > 0);
   }
 
   if (!OneRttKeysAvailable()) {
@@ -1755,8 +1744,10 @@ quic::QuicSSLConfig QuicChromiumClientSession::GetSSLConfig() const {
       // Explicitly listed to ensure the switch is exhaustive, forcing compiler
       // errors if new EchModes are added in the future.
       break;
-    case EchMode::kOpportunistic:
     case EchMode::kStrict:
+      config.reject_unusable_ech_config = true;
+      [[fallthrough]];
+    case EchMode::kOpportunistic:
       // kStrict must fail on empty ech_config_list. But GetSSLConfig cannot
       // propagate errors, so kStrict is enforced in CryptoConnect instead.
       config.ech_grease_enabled = true;
@@ -2353,13 +2344,9 @@ int QuicChromiumClientSession::HandleWriteError(
   // Post a task to migrate the session onto a new network.
   task_runner_->PostTask(
       FROM_HERE,
-      base::BindOnce(
-          &QuicChromiumClientSession::MigrateSessionOnWriteError,
-          weak_factory_.GetWeakPtr(), error_code,
-          // UnsafeDanglingUntriaged triggered by test:
-          // QuicSessionPoolTest.MigrateSessionOnSyncWriteErrorPauseBeforeConnected
-          // TODO(crbug.com/40061562): Remove `UnsafeDanglingUntriaged`
-          base::UnsafeDanglingUntriaged(connection()->writer())));
+      base::BindOnce(&QuicChromiumClientSession::MigrateSessionOnWriteError,
+                     weak_factory_.GetWeakPtr(), error_code,
+                     packet_writer_generation_));
 
   ignore_read_error_ = true;
 
@@ -2371,11 +2358,11 @@ int QuicChromiumClientSession::HandleWriteError(
 
 void QuicChromiumClientSession::MigrateSessionOnWriteError(
     int error_code,
-    quic::QuicPacketWriter* writer) {
+    uint64_t writer_generation) {
   DCHECK(migrate_session_on_network_change_v2_);
-  // If |writer| is no longer actively in use, or a session migration has
+  // If the writer is no longer actively in use, or a session migration has
   // started from MigrateNetworkImmediately, abort this migration attempt.
-  if (writer != connection()->writer() ||
+  if (writer_generation != packet_writer_generation_ ||
       pending_migrate_network_immediately_) {
     return;
   }
@@ -3121,100 +3108,12 @@ static std::vector<std::vector<uint8_t>> ServerTrustAnchorIDs(SSL* ssl) {
       UNSAFE_BUFFERS(base::span(peer_trust_anchors, peer_trust_anchors_len)));
 }
 
-constexpr uint8_t kMtcExperimentBaseId[] = {0x82, 0xda, 0x4b, 0x30, 0x07};
-
 // Generates histogram names for histograms that have variants split by
 // session resumption.
 static std::string HistogramNameForResumptionVariant(std::string_view prefix,
                                                      bool is_resumption) {
   return base::StrCat(
       {prefix, is_resumption ? ".Resumption" : ".NewConnection"});
-}
-
-// Logs the Net.QuicSession.MTCResult and Net.QuicSession.MTCLandmarkDelta
-// histograms.
-static void LogMTCCertVerifyMetrics(
-    const std::vector<std::vector<uint8_t>>& client_mtc_tais,
-    const std::vector<std::vector<uint8_t>>& server_tais,
-    const ProofVerifyDetailsChromium* verify_details,
-    int64_t mtc_update_time_seconds) {
-  std::optional<uint64_t> client_landmark;
-  std::optional<uint64_t> server_landmark;
-  for (const auto& id : client_mtc_tais) {
-    auto landmark =
-        x509_util::LastOidComponentFromBase(id, kMtcExperimentBaseId);
-    if (landmark.has_value()) {
-      client_landmark = landmark;
-      break;
-    }
-  }
-  for (const auto& id : server_tais) {
-    auto landmark =
-        x509_util::LastOidComponentFromBase(id, kMtcExperimentBaseId);
-    if (landmark.has_value()) {
-      server_landmark = landmark;
-      break;
-    }
-  }
-  bool have_landmark_delta = false;
-  bool old_client = false;
-  if (client_landmark.has_value() && server_landmark.has_value()) {
-    have_landmark_delta = true;
-    if (*server_landmark > *client_landmark) {
-      old_client = true;
-      UMA_HISTOGRAM_COUNTS_1000("Net.QuicSession.MTCLandmarkDelta2.OldClient",
-                                *server_landmark - *client_landmark);
-    } else {
-      UMA_HISTOGRAM_COUNTS_1000(
-          "Net.QuicSession.MTCLandmarkDelta2.CurrentClient",
-          *client_landmark - *server_landmark);
-    }
-  }
-  if (mtc_update_time_seconds != 0) {
-    base::TimeDelta landmark_age =
-        base::Time::Now() -
-        base::Time::FromSecondsSinceUnixEpoch(mtc_update_time_seconds);
-    // The MTCMetadata is only useful for a max of 7 days. The histogram logs
-    // thru 10 days so that if clients are out of date, we have somewhat of an
-    // idea of how out of date they are.
-    UMA_HISTOGRAM_CUSTOM_TIMES("Net.QuicSession.MTCMetadataAge2", landmark_age,
-                               base::Seconds(1), base::Days(10), 100);
-    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HasMTCMetadata2", true);
-  } else {
-    UMA_HISTOGRAM_BOOLEAN("Net.QuicSession.HasMTCMetadata2", false);
-  }
-
-  bool cert_is_mtc =
-      verify_details->cert_verify_result.verified_cert->signature_algorithm() ==
-      bssl::SignatureAlgorithm::kMtcProofDraftDavidben08;
-
-  MTCResult result;
-  if (cert_is_mtc) {
-    if (!IsCertStatusError(verify_details->cert_verify_result.cert_status)) {
-      result = MTCResult::kValidMTC;
-    } else {
-      result = MTCResult::kInvalidMTC;
-    }
-  } else {
-    // Classical cert
-    if (!have_landmark_delta) {
-      result = MTCResult::kClassicalCertUnknownLandmarkDelta;
-    } else if (old_client) {
-      result = MTCResult::kClassicalCertOldClient;
-    } else {
-      result = MTCResult::kClassicalCertExpectedMTC;
-    }
-  }
-  UMA_HISTOGRAM_ENUMERATION("Net.QuicSession.MTCResult2", result);
-
-  base::UmaHistogramSparse(
-      "Net.QuicSession.CertVerificationResult.MTCAdvertised2",
-      -verify_details->cert_verify_net_error_for_metrics_only);
-  if (cert_is_mtc) {
-    base::UmaHistogramSparse(
-        "Net.QuicSession.CertVerificationResult.MTCReceived2",
-        -verify_details->cert_verify_net_error_for_metrics_only);
-  }
 }
 
 void QuicChromiumClientSession::OnProofVerifyDetailsAvailable(
@@ -3228,63 +3127,6 @@ void QuicChromiumClientSession::OnProofVerifyDetailsAvailable(
   logger_->OnCertificateVerified(*cert_verify_result_, server_tais);
   pkp_bypassed_ = verify_details_chromium->pkp_bypassed;
   is_fatal_cert_error_ = verify_details_chromium->is_fatal_cert_error;
-
-  for (const auto& id : server_tais) {
-    // 44363.48.7 encoded as a relative OID
-    if (x509_util::LastOidComponentFromBase(id, kMtcExperimentBaseId) !=
-        std::nullopt) {
-      server_supports_mtc_tai_ = true;
-    }
-  }
-  if (verify_details_chromium->cert_verify_result.verified_cert
-          ->signature_algorithm() ==
-      bssl::SignatureAlgorithm::kMtcProofDraftDavidben08) {
-    server_supports_mtc_tai_ = true;
-  }
-
-  bool verify_mtcs_enabled = false;
-#if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
-  verify_mtcs_enabled =
-      base::FeatureList::IsEnabled(net::features::kVerifyMTCs);
-#endif
-  // This function runs as part of the cert verify callback. That callback runs
-  // in 2 conditions: When receiving a Certificate message from the server (as
-  // part of a full handshake), and if we are attempting resumption, it runs (at
-  // some point during the handshake) using the cached cert in the SSL_SESSION.
-  // If no resumption is attempted, or if resumption is attempted and accepted,
-  // it runs once per handshake. However, if resumption is attempted and
-  // rejected, it runs twice.
-  //
-  // To ensure that metrics reflect what we observe in a certificate from a
-  // server (and that they're only logged once per connection), the following
-  // detects whether this function is running as part of a reverify_on_resume.
-  // If it is part of a reverification, then the cert is cached rather than sent
-  // from the server on this connection and we shouldn't log metrics.
-
-  // Reverifies only happen on resumption attempts.
-  bool is_resumption_attempt = crypto_stream_->ResumptionAttempted();
-  // If SSL_session_reused says this connection is a resumption handshake, then
-  // we're definitely in a reverify call.
-  bool is_resumption = SSL_session_reused(crypto_stream_->GetSsl());
-  // If we're in a 0-RTT resumption attempt, the reverify runs before sending
-  // any early data, so ssl->s3->session_reused hasn't been set yet.
-  // SSL_session_reused will return true if that is true or SSL_in_early_data
-  // returns true, but due to the ordering of calls in BoringSSL, cert
-  // reverification happens before in_early_data is set. We can exploit the
-  // nature of this timing difference by looking at the ssl_early_data_reason_t,
-  // which also doesn't get set until after the early cert reverify call.
-  bool early_data_reason_unknown =
-      crypto_stream_->EarlyDataReason() == ssl_early_data_unknown;
-  bool is_reverify =
-      is_resumption_attempt && (is_resumption || early_data_reason_unknown);
-  if (!is_reverify && server_supports_mtc_tai_ && verify_mtcs_enabled) {
-    auto client_mtc_tais =
-        ssl_config_service_->GetSSLContextConfig().mtc_trust_anchor_ids;
-    int64_t mtc_update_time_seconds =
-        ssl_config_service_->GetSSLContextConfig().mtc_update_time_seconds;
-    LogMTCCertVerifyMetrics(client_mtc_tais, server_tais,
-                            verify_details_chromium, mtc_update_time_seconds);
-  }
 }
 
 void QuicChromiumClientSession::StartReading() {
@@ -3961,6 +3803,50 @@ void QuicChromiumClientSession::HistogramAndLogMigrationSuccess(
   LogMigrationResultToHistogram(MIGRATION_STATUS_SUCCESS);
 }
 
+void QuicChromiumClientSession::LogPathValidationFailure(
+    QuicChromiumPathValidationContext* context) {
+  connection()->OnPathValidationFailureAtClient(
+      /*is_multi_port=*/false, *context);
+  // Note that socket, packet writer, and packet reader in |context| will be
+  // discarded.
+  QuicConnectionMigrationStatus status;
+  const char* reason;
+  using enum quic::PathValidationFailure::Reason;
+  switch (context->failure_reason().value_or(kUnknown)) {
+    case kUnknown:
+      status = MIGRATION_STATUS_INTERNAL_ERROR;
+      reason = "Unknown";
+      break;
+    case kStatelessReset:
+      status = MIGRATION_STATUS_STATELESS_RESET;
+      reason = "Received Stateless Reset";
+      break;
+    case kNewerValidation:
+      status = MIGRATION_STATUS_CANCELED_BY_NEWER_VALIDATION;
+      reason = "New migration, canceling old validation";
+      break;
+    case kRetryTimeout:
+      status = MIGRATION_STATUS_TIMEOUT;
+      reason = "Retry Timeout";
+      break;
+    case kNotConnected:
+      status = MIGRATION_STATUS_DISCONNECTING;
+      reason = "Disconnecting, abandoning validation";
+      break;
+    default:
+      status = MIGRATION_STATUS_INTERNAL_ERROR;
+      reason = "Unknown";
+      break;
+  }
+  // TODO(crbug.com/539527142): connection_id() returns the default path server
+  // connection ID. It might be more correct to use the alternate path
+  // connection ID. Add the probe connection ID to the Path Validation Context,
+  // or add a member to QuicConnection to return the alternate path connection
+  // ID.
+  OnProbeFailed(context->network(), context->peer_address());
+  HistogramAndLogMigrationFailure(status, connection_id(), reason);
+}
+
 base::DictValue QuicChromiumClientSession::GetInfoAsValue(
     const std::set<HostPortPair>& aliases) {
   base::DictValue dict;
@@ -4106,24 +3992,6 @@ void QuicChromiumClientSession::OnCryptoHandshakeComplete() {
   UMA_HISTOGRAM_TIMES("Net.QuicSession.HandshakeConfirmedTime",
                       handshake_confirmed_time);
   const bool is_resumption = SSL_session_reused(crypto_stream_->GetSsl());
-  if (server_supports_mtc_tai_) {
-    UMA_HISTOGRAM_TIMES("Net.QuicSession.HandshakeConfirmedTime.MTC",
-                        handshake_confirmed_time);
-    base::UmaHistogramTimes(
-        HistogramNameForResumptionVariant(
-            "Net.QuicSession.HandshakeConfirmedTime.MTC", is_resumption),
-        handshake_confirmed_time);
-
-    size_t handshake_bytes = crypto_stream_->crypto_bytes_read() +
-                             crypto_stream_->crypto_bytes_written();
-    base::UmaHistogramCustomCounts("Net.QuicSession.TLSHandshakeBytes.MTC2",
-                                   handshake_bytes, /*min=*/1,
-                                   /*exclusive_max=*/8000, /*buckets=*/100);
-    base::UmaHistogramCustomCounts(
-        HistogramNameForResumptionVariant(
-            "Net.QuicSession.TLSHandshakeBytes.MTC2", is_resumption),
-        handshake_bytes, /*min=*/1, /*exclusive_max=*/8000, /*buckets=*/100);
-  }
 
   if (SSL_server_sent_requested_padding(crypto_stream_->GetSsl())) {
     UMA_HISTOGRAM_TIMES("Net.QuicSession.HandshakeConfirmedTime.ServerPadding",
@@ -4364,6 +4232,7 @@ bool QuicChromiumClientSession::MigrateToSocket(
   int rv = MigratePath(self_address, peer_address, writer_moved.release(),
                        /*owns_writer=*/true);
   RegisterQuicConnectionClosePayload();
+  ++packet_writer_generation_;
   if (!rv) {
     HistogramAndLogMigrationFailure(MIGRATION_STATUS_NO_UNUSED_CONNECTION_ID,
                                     connection_id(),

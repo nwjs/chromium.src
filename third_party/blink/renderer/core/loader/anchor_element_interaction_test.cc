@@ -67,39 +67,52 @@ class MockAnchorElementInteractionHost
     std::optional<bool> is_mouse_pointer;
     std::optional<double> mouse_velocity;
     std::optional<bool> is_eager;
+    bool renderer_enacted = false;
   };
   std::vector<Call> calls_;
 
  private:
-  void OnPointerDown(const KURL& target) override {
-    calls_.push_back({.url = target, .type = PointerEventType::kOnPointerDown});
+  void OnPointerDown(const KURL& target, bool renderer_enacted) override {
+    calls_.push_back({.url = target,
+                      .type = PointerEventType::kOnPointerDown,
+                      .renderer_enacted = renderer_enacted});
   }
-  void OnPointerHoverEager(
-      const KURL& target,
-      mojom::blink::AnchorElementPointerDataPtr mouse_data) override {
+  void OnPointerHoverEager(const KURL& target,
+                           mojom::blink::AnchorElementPointerDataPtr mouse_data,
+                           bool renderer_enacted) override {
     calls_.push_back({.url = target,
                       .type = PointerEventType::kOnPointerHover,
                       .is_mouse_pointer = mouse_data->is_mouse_pointer,
                       .mouse_velocity = mouse_data->mouse_velocity,
-                      .is_eager = true});
+                      .is_eager = true,
+                      .renderer_enacted = renderer_enacted});
   }
   void OnPointerHoverModerate(
       const KURL& target,
-      mojom::blink::AnchorElementPointerDataPtr mouse_data) override {
+      mojom::blink::AnchorElementPointerDataPtr mouse_data,
+      bool renderer_enacted) override {
     calls_.push_back({.url = target,
                       .type = PointerEventType::kOnPointerHover,
                       .is_mouse_pointer = mouse_data->is_mouse_pointer,
                       .mouse_velocity = mouse_data->mouse_velocity,
-                      .is_eager = false});
+                      .is_eager = false,
+                      .renderer_enacted = renderer_enacted});
   }
-  void OnModerateViewportHeuristicTriggered(const KURL& target) override {
-    calls_.push_back(
-        {.url = target, .type = PointerEventType::kNone, .is_eager = false});
+  void OnModerateViewportHeuristicTriggered(const KURL& target,
+                                            bool renderer_enacted) override {
+    calls_.push_back({.url = target,
+                      .type = PointerEventType::kNone,
+                      .is_eager = false,
+                      .renderer_enacted = renderer_enacted});
   }
-  void OnEagerViewportHeuristicTriggered(const Vector<KURL>& targets) override {
-    for (const KURL& url : targets) {
-      calls_.push_back(
-          {.url = url, .type = PointerEventType::kNone, .is_eager = true});
+  void OnEagerViewportHeuristicTriggered(
+      Vector<mojom::blink::AnchorElementInteractionTargetPtr> targets)
+      override {
+    for (const auto& target : targets) {
+      calls_.push_back({.url = KURL(target->url),
+                        .type = PointerEventType::kNone,
+                        .is_eager = true,
+                        .renderer_enacted = target->renderer_enacted});
     }
   }
 
@@ -412,6 +425,53 @@ TEST_F(AnchorElementInteractionTest, ShorterThanEagerMouseHover) {
 
   ASSERT_EQ(hosts_.size(), 1u);
   EXPECT_EQ(hosts_[0]->calls_.size(), 0u);
+}
+
+class AnchorElementInteractionRendererSideHeuristicsTest
+    : public AnchorElementInteractionTest {
+ public:
+  AnchorElementInteractionRendererSideHeuristicsTest() {
+    feature_list_.InitWithFeatures(
+        {features::kSpeculationRulesRendererSideHeuristics},
+        {features::kPreloadingEagerHoverHeuristics});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(AnchorElementInteractionRendererSideHeuristicsTest,
+       ModerateHoverStillNotifiesBrowser) {
+  String source("https://example.com/p1");
+  SimRequest main_resource(source, "text/html");
+  LoadURL(source);
+  main_resource.Complete(R"HTML(
+    <a href='https://anchor1.example/'>
+      <div style='padding: 0px; width: 400px; height: 400px;'></div>
+    </a>
+  )HTML");
+
+  auto task_runner = base::MakeRefCounted<scheduler::FakeTaskRunner>();
+  GetDocument().GetAnchorElementInteractionTracker()->SetTaskRunnerForTesting(
+      task_runner, task_runner->GetMockTickClock());
+
+  gfx::PointF coordinates(100, 100);
+  WebMouseEvent event(WebInputEvent::Type::kMouseMove, coordinates, coordinates,
+                      WebPointerProperties::Button::kNoButton, 0,
+                      WebInputEvent::kNoModifiers,
+                      WebInputEvent::GetStaticTimeStampForTests());
+  GetDocument().GetFrame()->GetEventHandler().HandleMouseMoveEvent(
+      event, Vector<WebMouseEvent>(), Vector<WebMouseEvent>());
+
+  task_runner->AdvanceTimeAndRun(GetLongerThanModerateHoverDwellTime());
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return hosts_.size() == 1u && hosts_[0]->calls_.size() == 1u; }));
+
+  ASSERT_EQ(hosts_.size(), 1u);
+  ASSERT_EQ(hosts_[0]->calls_.size(), 1u);
+  EXPECT_EQ(hosts_[0]->calls_[0].url, KURL("https://anchor1.example/"));
+  EXPECT_EQ(hosts_[0]->calls_[0].type, PointerEventType::kOnPointerHover);
+  EXPECT_FALSE(hosts_[0]->calls_[0].is_eager.value());
 }
 
 class AnchorElementInteractionEagerHeuristicsTest
@@ -752,7 +812,9 @@ class AnchorElementInteractionViewportHeuristicsTest
          {features::kPreloadingEagerViewportHeuristics,
           {{"viewport_present_time", "100ms"}}},
          {features::kPreloadingEligibilityCheckOnRenderer, {}}},
-        {});
+        // These tests cover the browser-notification path, which is bypassed
+        // when the renderer selects and enacts candidates itself.
+        {features::kSpeculationRulesRendererSideHeuristics});
     config_scope_ =
         std::make_unique<ModerateViewportHeuristicConfigTestingScope>();
   }
@@ -1107,6 +1169,48 @@ TEST_F(AnchorElementInteractionViewportHeuristicsTest,
   EXPECT_NE(moderate_viewport_call_it, hosts_[0]->calls_.end());
   EXPECT_EQ(moderate_viewport_call_it->url, KURL("https://example.com/foo"));
   EXPECT_EQ(moderate_viewport_call_it->type, PointerEventType::kNone);
+}
+
+// With renderer-side heuristics the renderer enacts the matching candidate
+// itself, but the browser must still be told the heuristic fired so it can
+// record the preloading prediction for it.
+class AnchorElementInteractionViewportHeuristicsRendererSideTest
+    : public AnchorElementInteractionViewportHeuristicsTest {
+ public:
+  AnchorElementInteractionViewportHeuristicsRendererSideTest() {
+    feature_list_.InitAndEnableFeature(
+        features::kSpeculationRulesRendererSideHeuristics);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(AnchorElementInteractionViewportHeuristicsRendererSideTest,
+       BrowserIsStillNotified) {
+  String body = R"HTML(
+    <body style="margin: 0px">
+      <div style="height: 100px"></div>
+      <a href="https://example.com/foo"
+        style="display: block; height: 40px;">foo</a>
+      <a href="https://example.com/bar"
+        style="display: block; height: 20px;">bar</a>
+      <div style="height: 400px"></div>
+    </body>
+  )HTML";
+  RunBasicTestFixture({.main_resource_body = body,
+                       .pointer_down_location = gfx::PointF(100, 150),
+                       .scroll_delta = -25});
+
+  ASSERT_EQ(hosts_.size(), 1u);
+  const auto moderate_viewport_call_it = std::ranges::find_if(
+      hosts_[0]->calls_,
+      [](const MockAnchorElementInteractionHost::Call& call) {
+        return call.type == PointerEventType::kNone &&
+               call.is_eager.has_value() && !call.is_eager.value();
+      });
+  ASSERT_NE(moderate_viewport_call_it, hosts_[0]->calls_.end());
+  EXPECT_EQ(moderate_viewport_call_it->url, KURL("https://example.com/foo"));
 }
 
 TEST_F(AnchorElementInteractionViewportHeuristicsTest, MultipleAnchors) {

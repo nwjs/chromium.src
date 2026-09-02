@@ -25,6 +25,9 @@ source_set("enterprise") {
     "encryption/cache_encryption_provider_impl.h",
     "identifiers/profile_id_delegate_impl.h",
     "identifiers/profile_id_service_factory.h",
+    "net/enterprise_network_auth_service_factory.h",
+    "net/enterprise_proxy_error_service_factory.h",
+    "net/enterprise_proxy_service_factory.h",
     "profile_management/saml_response_parser.h",
     "reporting/cloud_profile_reporting_service.h",
     "reporting/cloud_profile_reporting_service_factory.h",
@@ -33,6 +36,8 @@ source_set("enterprise") {
     "reporting/legacy_tech/legacy_tech_service.h",
     "reporting/prefs.h",
     "reporting/profile_report_generator_delegate_base.h",
+    "reporting/real_time_report_controller_delegate.h",
+    "reporting/real_time_report_generator_delegate.h",
     "signals/profile_signals_collector.h",
     "signin/interstitials/managed_profile_required_controller_client.h",
     "signin/interstitials/managed_profile_required_page.h",
@@ -64,6 +69,7 @@ source_set("enterprise") {
     "//components/enterprise/data_protection",
     "//components/enterprise/encryption/cache",
     "//components/enterprise/isolated_mode",
+    "//components/enterprise/net",
     "//components/enterprise/watermarking",
     "//components/keyed_service/content",
     "//components/keyed_service/core",
@@ -93,14 +99,6 @@ source_set("enterprise") {
     "//url",
   ]
 
-  if (enterprise_proxy && is_android) {
-    public += [
-      "net/enterprise_network_auth_service_factory.h",
-      "net/enterprise_proxy_service_factory.h",
-    ]
-    public_deps += [ "//components/enterprise/net" ]
-  }
-
   if (!is_android) {
     public_deps += [
       "//chrome/browser/ui/browser_window",
@@ -113,9 +111,6 @@ source_set("enterprise") {
     public += [
       "data_protection/data_protection_ui_controller.h",
       "reporting/browser_report_generator_desktop.h",
-      "reporting/profile_report_generator_desktop.h",
-      "reporting/real_time_report_controller_desktop.h",
-      "reporting/real_time_report_generator_desktop.h",
       "reporting/report_generator_desktop.h",
       "reporting/report_scheduler_desktop.h",
       "reporting/reporting_delegate_factory_desktop.h",
@@ -142,8 +137,6 @@ source_set("enterprise") {
     public += [
       "platform_auth/entra_provider_android.h",
       "reporting/browser_report_generator_android.h",
-      "reporting/profile_report_generator_android.h",
-      "reporting/real_time_report_controller_android.h",
       "reporting/report_scheduler_android.h",
       "reporting/reporting_delegate_factory_android.h",
     ]
@@ -256,33 +249,21 @@ source_set("enterprise") {
 
   if (is_linux || is_win || is_mac || is_chromeos) {
     public += [
-      "connectors/device_trust/attestation/browser/attestation_switches.h",
-      "connectors/device_trust/attestation/browser/attester.h",
-      "connectors/device_trust/attestation/browser/browser_attestation_service.h",
-      "connectors/device_trust/attestation/browser/crypto_utility.h",
-      "connectors/device_trust/attestation/browser/google_keys.h",
-      "connectors/device_trust/attestation/browser/profile_attester.h",
-      "connectors/device_trust/device_trust_connector_service.h",
       "connectors/device_trust/device_trust_connector_service_factory.h",
-      "connectors/device_trust/device_trust_service.h",
       "connectors/device_trust/device_trust_service_factory.h",
       "connectors/device_trust/navigation_throttle.h",
       "connectors/device_trust/signals/decorators/common/context_signals_decorator.h",
-      "connectors/device_trust/signals/signals_filterer.h",
       "connectors/device_trust/signals/signals_service_factory.h",
-      "connectors/device_trust/signals/signals_service_impl.h",
     ]
     public_deps += [
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common/proto:attestation_ca_proto",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common/proto:google_key_proto",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common/proto:interface_proto",
-      "//chrome/browser/enterprise/connectors/device_trust/common",
       "//chrome/browser/enterprise/connectors/device_trust/signals",
       "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
       "//components/device_signals/core/browser",
       "//components/device_signals/core/common",
       "//components/enterprise/device_trust",
+      "//components/enterprise/device_trust/core:device_trust_connector_service",
+      "//components/enterprise/device_trust/core:metrics",
+      "//components/enterprise/device_trust/core/attestation",
     ]
   }
 
@@ -322,7 +303,6 @@ source_set("enterprise") {
 
   if (is_linux || is_win || is_mac) {
     public += [
-      "connectors/device_trust/attestation/browser/device_attester.h",
       "connectors/device_trust/browser/signing_key_policy_observer.h",
       "connectors/device_trust/signals/decorators/browser/browser_signals_decorator.h",
       "idle/dialog_manager.h",
@@ -424,7 +404,7 @@ static_library("browser_launch_reporting") {
       ":enterprise",
       "//base",
       "//chrome/browser:browser_process",
-      "//chrome/browser/enterprise/connectors/reporting:reporting",
+      "//chrome/browser/enterprise/connectors/reporting",
       "//chrome/browser/profiles:profile",
       "//components/enterprise",
       "//components/enterprise/common/proto:browser_events_proto",
@@ -458,7 +438,11 @@ source_set("impl") {
     "encryption/cache_encryption_provider_impl.cc",
     "identifiers/profile_id_delegate_impl.cc",
     "identifiers/profile_id_service_factory.cc",
+    "net/enterprise_network_auth_service_factory.cc",
+    "net/enterprise_proxy_error_service_factory.cc",
+    "net/enterprise_proxy_service_factory.cc",
     "profile_management/saml_response_parser.cc",
+    "remote_commands/job_profile_picker.cc",
     "reporting/cloud_profile_reporting_service.cc",
     "reporting/cloud_profile_reporting_service_factory.cc",
     "reporting/legacy_tech/legacy_tech_report_generator.cc",
@@ -466,6 +450,8 @@ source_set("impl") {
     "reporting/legacy_tech/legacy_tech_service.cc",
     "reporting/prefs.cc",
     "reporting/profile_report_generator_delegate_base.cc",
+    "reporting/real_time_report_controller_delegate.cc",
+    "reporting/real_time_report_generator_delegate.cc",
     "signals/profile_signals_collector.cc",
     "signin/interstitials/managed_profile_required_controller_client.cc",
     "signin/interstitials/managed_profile_required_page.cc",
@@ -496,6 +482,7 @@ source_set("impl") {
     "//chrome/browser/enterprise/connectors/reporting:impl",
     "//chrome/browser/enterprise/core",
     "//chrome/browser/enterprise/platform_auth:features",
+    "//chrome/browser/glic",
     "//chrome/browser/image_fetcher",
     "//chrome/browser/interstitials",
     "//chrome/browser/invalidation",
@@ -506,6 +493,7 @@ source_set("impl") {
     "//chrome/browser/profiles:profile_util",
     "//chrome/browser/safe_browsing",
     "//chrome/browser/signin",
+    "//chrome/browser/ui:managed_ui",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/navigator",
@@ -529,6 +517,7 @@ source_set("impl") {
     "//components/enterprise/core",
     "//components/enterprise/data_protection",
     "//components/enterprise/encryption/cache",
+    "//components/enterprise/net",
     "//components/guest_view/browser",
     "//components/image_fetcher/core",
     "//components/policy/proto",
@@ -553,9 +542,6 @@ source_set("impl") {
     sources += [
       "data_protection/data_protection_ui_controller.cc",
       "reporting/browser_report_generator_desktop.cc",
-      "reporting/profile_report_generator_desktop.cc",
-      "reporting/real_time_report_controller_desktop.cc",
-      "reporting/real_time_report_generator_desktop.cc",
       "reporting/report_generator_desktop.cc",
       "reporting/report_scheduler_desktop.cc",
       "reporting/reporting_delegate_factory_desktop.cc",
@@ -572,6 +558,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/webui/signin:signin_utils",
+      "//chrome/browser/ui/window_feature_controller",
       "//chrome/common/themes:autogenerated_theme_util",
       "//components/constrained_window",
       "//components/web_modal",
@@ -582,8 +569,6 @@ source_set("impl") {
     sources += [
       "platform_auth/entra_provider_android.cc",
       "reporting/browser_report_generator_android.cc",
-      "reporting/profile_report_generator_android.cc",
-      "reporting/real_time_report_controller_android.cc",
       "reporting/report_scheduler_android.cc",
       "reporting/reporting_delegate_factory_android.cc",
       "util/data_protection_bridge.cc",
@@ -622,9 +607,6 @@ source_set("impl") {
       "//chrome/browser/ash/profiles",
       "//chrome/browser/ash/settings",
       "//chrome/browser/enterprise/connectors/device_trust/attestation/ash",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common/proto:attestation_ca_proto",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common/proto:google_key_proto",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common/proto:interface_proto",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/install_attributes",
       "//chromeos/ash/components/network",
@@ -640,7 +622,6 @@ source_set("impl") {
     sources += [
       "groups/enterprise_groups_handler_factory.cc",
       "remote_commands/clear_browsing_data_job.cc",
-      "remote_commands/job_profile_picker.cc",
       "remote_commands/user_remote_commands_factory.cc",
       "remote_commands/user_remote_commands_service.cc",
       "remote_commands/user_remote_commands_service_factory.cc",
@@ -733,50 +714,35 @@ source_set("impl") {
     }
   }
 
-  if (enterprise_proxy && is_android) {
-    sources += [
-      "net/enterprise_network_auth_service_factory.cc",
-      "net/enterprise_proxy_service_factory.cc",
-    ]
-    deps += [ "//components/enterprise/net" ]
-  }
-
   if (is_linux || is_win || is_mac || is_chromeos || is_android) {
     sources += [
       "signals/user_delegate_impl.cc",
       "signals/user_permission_service_factory.cc",
     ]
-    deps += [ "//chrome/browser/enterprise/connectors/device_trust/common" ]
+    deps += [ "//components/enterprise/device_trust/core:metrics" ]
   }
 
   if (is_linux || is_win || is_mac || is_chromeos) {
     sources += [
-      "connectors/device_trust/attestation/browser/attestation_switches.cc",
-      "connectors/device_trust/attestation/browser/browser_attestation_service.cc",
-      "connectors/device_trust/attestation/browser/crypto_utility.cc",
-      "connectors/device_trust/attestation/browser/google_keys.cc",
-      "connectors/device_trust/attestation/browser/profile_attester.cc",
-      "connectors/device_trust/device_trust_connector_service.cc",
       "connectors/device_trust/device_trust_connector_service_factory.cc",
-      "connectors/device_trust/device_trust_service.cc",
       "connectors/device_trust/device_trust_service_factory.cc",
       "connectors/device_trust/navigation_throttle.cc",
       "connectors/device_trust/signals/decorators/common/context_signals_decorator.cc",
-      "connectors/device_trust/signals/signals_filterer.cc",
       "connectors/device_trust/signals/signals_service_factory.cc",
-      "connectors/device_trust/signals/signals_service_impl.cc",
     ]
     deps += [
       "//chrome/browser/enterprise/connectors/device_trust:features",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common",
-      "//chrome/browser/enterprise/connectors/device_trust/attestation/common:types",
-      "//chrome/browser/enterprise/connectors/device_trust/common",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core/persistence",
       "//chrome/browser/enterprise/connectors/device_trust/signals",
       "//chrome/browser/enterprise/connectors/device_trust/signals/decorators/common",
+      "//chrome/browser/ui/views/device_signals_consent",
       "//components/device_signals/core/browser",
       "//components/device_signals/core/common",
       "//components/enterprise/device_trust",
+      "//components/enterprise/device_trust/core:device_trust_connector_service",
+      "//components/enterprise/device_trust/core:metrics",
+      "//components/enterprise/device_trust/core/attestation",
+      "//components/enterprise/device_trust/core/attestation:types",
     ]
   }
 
@@ -835,18 +801,18 @@ source_set("impl") {
       "reporting/saas_usage/saas_usage_reporting_controller_factory.cc",
       "reporting/saas_usage/saas_usage_reporting_delegate_factory_desktop.cc",
     ]
+
+    deps += [ "//components/enterprise/device_trust/core:device_trust_service" ]
   }
 
   if (is_linux || is_win || is_mac) {
     sources += [
-      "connectors/device_trust/attestation/browser/device_attester.cc",
       "connectors/device_trust/browser/signing_key_policy_observer.cc",
       "connectors/device_trust/signals/decorators/browser/browser_signals_decorator.cc",
       "idle/dialog_manager.cc",
       "profile_management/oidc_auth_response_capture_navigation_throttle.cc",
       "profile_management/profile_management_features.cc",
       "profile_management/profile_management_navigation_throttle.cc",
-      "remote_commands/extension_update_check_job.cc",
       "remote_commands/rotate_attestation_credential_job.cc",
       # NW: already built in the browser_launch_reporting static_library which
       # impl deps on; the whole-archive solink for libnw.so pulls in both copies
@@ -878,6 +844,7 @@ source_set("impl") {
     deps += [
       "//chrome/browser/enterprise/connectors/device_trust/key_management/browser",
       "//chrome/browser/enterprise/connectors/device_trust/key_management/core",
+      "//chrome/browser/ui/browser_window:create_browser_window",
       "//chrome/services/system_signals/public/cpp/browser",
     ]
   }
@@ -892,6 +859,7 @@ source_set("impl") {
 
   if (enable_extensions_core) {
     sources += [
+      "remote_commands/extension_update_check_job.cc",
       "reporting/extension_info.cc",
       "reporting/extension_request/extension_request_notification.cc",
       "reporting/extension_request/extension_request_observer.cc",
@@ -939,6 +907,7 @@ if (!is_android) {
       "//base",
       "//chrome/browser/policy:test_support",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/browser_window",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/enterprise:test_support",

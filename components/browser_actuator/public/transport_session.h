@@ -10,6 +10,10 @@
 #include "base/types/expected.h"
 #include "components/browser_actuator/public/common.h"
 
+namespace google::protobuf {
+class MessageLite;
+}  // namespace google::protobuf
+
 namespace browser_actuator {
 
 enum class SendMessageError {
@@ -25,11 +29,13 @@ class TransportSession {
   virtual std::string_view GetSessionId() const = 0;
 
   // Sends a message upstream.
-  // TODO(crbug.com/532660606): Replace this raw payload with a structured
-  // type once outgoing payload protos are finalized.
   virtual base::expected<void, SendMessageError> SendMessage(
       PayloadType payload_type,
-      std::string_view payload) = 0;
+      const google::protobuf::MessageLite& message) = 0;
+
+  // Dispatches an incoming message to handlers registered for payload_type.
+  virtual void OnMessage(PayloadType payload_type,
+                         const google::protobuf::MessageLite& message) = 0;
 };
 
 }  // namespace browser_actuator

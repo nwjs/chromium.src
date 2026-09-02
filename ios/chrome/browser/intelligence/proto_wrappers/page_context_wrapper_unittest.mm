@@ -99,6 +99,15 @@
 
 // TODO(crbug.com/475577435): Extend test coverage for Rich Extraction.
 
+@interface PageContextWrapper (Testing)
+- (void)encodeImageAndSetTabScreenshotForTesting:(UIImage*)image;
+- (void)setBoxesToRedactForTesting:(const std::vector<CGRect>&)boxes;
+- (const std::vector<CGRect>&)boxesToRedactForTesting;
+- (optimization_guide::proto::PageContext*)pageContextForTesting;
+- (BOOL)shouldRedactDecisionForScreenshot:
+    (optimization_guide::proto::RedactionDecision)decision;
+@end
+
 namespace {
 
 const char kMainPagePath[] = "/main.html";
@@ -151,6 +160,17 @@ testing::AssertionResult VerifyGeometry(
   }
 
   return testing::AssertionSuccess();
+}
+
+void AppendAnnotatedText(const optimization_guide::proto::ContentNode& node,
+                         std::vector<std::string>& texts) {
+  if (node.content_attributes().attribute_type() ==
+      optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT) {
+    texts.push_back(node.content_attributes().text_data().text_content());
+  }
+  for (const auto& child : node.children_nodes()) {
+    AppendAnnotatedText(child, texts);
+  }
 }
 
 }  // namespace
@@ -562,6 +582,72 @@ TEST_P(PageContextWrapperTest, PopulatePageContext) {
             optimization_guide::proto::CONTENT_ATTRIBUTE_TEXT);
   EXPECT_EQ(iframe2_text_node.content_attributes().text_data().text_content(),
             "Child frame 2 text");
+}
+
+// Tests that page content extraction pierces open Shadow DOM (including nested
+// shadow roots) for both inner text and annotated page content, while leaving
+// closed shadow roots untouched. Content inside an open shadow root is not
+// reflected by light-DOM APIs (Element.innerText / TreeWalker), so extraction
+// must explicitly traverse the shadow boundary; closed shadow roots are
+// inaccessible from script and must be excluded.
+// TODO(crbug.com/545131048): fails on iOS27 builders. Fix and re-enable.
+TEST_P(PageContextWrapperTest, DISABLED_PopulatePageContextWithShadowDom) {
+  auto page_structure =
+      HtmlPage("Shadow", RawHtml("<p>light-dom text</p>"
+                                 "<div id=\"open-host\" role=\"region\">"
+                                 "open host light text</div>"
+                                 "<div id=\"closed-host\"></div>"
+                                 "<div id=\"nested-host\"></div>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  // Attach the shadow roots after the page has loaded:
+  //  * an open shadow root, whose content must be extracted,
+  //  * a closed shadow root, whose content must never be extracted, and
+  //  * a nested open shadow root (a shadow host inside another shadow tree),
+  //    which must be traversed recursively.
+  web::test::ExecuteJavaScript(
+      @"const open = document.getElementById('open-host')."
+      @"attachShadow({mode: 'open'});"
+      @"open.innerHTML = 'direct shadow text<p>open shadow text</p>';"
+      @"const closed = document.getElementById('closed-host')."
+      @"attachShadow({mode: 'closed'});"
+      @"closed.innerHTML = '<p>closed shadow text</p>';"
+      @"const outer = document.getElementById('nested-host')."
+      @"attachShadow({mode: 'open'});"
+      @"outer.innerHTML = '<p>outer shadow text</p><div id=\"inner\"></div>';"
+      @"const inner = outer.querySelector('#inner')."
+      @"attachShadow({mode: 'open'});"
+      @"inner.innerHTML = '<p>inner shadow text</p>';",
+      web_state());
+
+  PageContextWrapperCallbackResponse response =
+      RunPageContextWrapper(web_state(), ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+        wrapper.shouldGetInnerText = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+
+  ASSERT_TRUE(page_context);
+  ASSERT_TRUE(page_context->has_inner_text());
+  ASSERT_TRUE(page_context->has_annotated_page_content());
+
+  // Inner text keeps the existing light DOM text first, then appends open
+  // shadow text in traversal order.
+  const auto& inner_text = page_context->inner_text();
+  EXPECT_EQ(inner_text,
+            "light-dom text\n\n\ndirect shadow text\n"
+            "open shadow text\nouter shadow text\ninner shadow text");
+
+  const auto& root_node = page_context->annotated_page_content().root_node();
+  std::vector<std::string> annotated_texts;
+  AppendAnnotatedText(root_node, annotated_texts);
+  EXPECT_THAT(annotated_texts, testing::ElementsAre(inner_text));
 }
 
 // Tests that the completion callback is called even when no async fields are
@@ -7495,6 +7581,127 @@ TEST_P(PageContextWrapperTest,
       password_input.content_attributes().geometry().has_outer_bounding_box());
 }
 
+// Test that the global kPageContextScreenshotSensitivePaymentRedaction feature
+// flag overrides any local config setting for redaction geometry extraction.
+// Configures a test page with a checkbox and a credit card number field with
+// actionable mode off and include_sensitive_payments_for_redaction false,
+// and verifies that enabling the feature flag forces geometry extraction.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_SensitivePaymentRedactionGeometry_FeatureFlag) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kPageContextScreenshotSensitivePaymentRedaction);
+
+  auto page_structure =
+      HtmlPage("Sensitive Payment Geometry Test",
+               RawHtml("<form>"
+                       "  <input type='checkbox' id='normal_checkbox'>"
+                       "  <input type='number' id='credit_card_field'>"
+                       "</form>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRichExtractionWithActionable(false)
+          .SetIncludeSensitivePaymentsForRedaction(false)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+  ASSERT_TRUE(page_context);
+
+  const auto& actual_apc = page_context->annotated_page_content();
+  const auto& root = actual_apc.root_node();
+
+  ASSERT_GE(root.children_nodes_size(), 1);
+  const auto& form = root.children_nodes(0);
+  ASSERT_EQ(form.children_nodes_size(), 2);
+
+  const auto& payment_input = form.children_nodes(1);
+  EXPECT_TRUE(
+      payment_input.content_attributes().geometry().has_outer_bounding_box());
+  EXPECT_TRUE(
+      payment_input.content_attributes().geometry().has_visible_bounding_box());
+}
+
+// Test that the global kPageContextAutofillOtpRedactions feature flag enables
+// redaction geometry extraction for OTP-eligible fields even when actionable
+// mode is off. Configures a test page with a checkbox and a text input with
+// actionable mode off, and verifies that enabling the feature flag forces
+// geometry extraction for the text field while omitting geometry for the
+// checkbox.
+TEST_P(PageContextWrapperTest,
+       PopulatePageContext_OtpRedactionGeometry_FeatureFlag) {
+  if (!IsRefactored()) {
+    return;
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kPageContextAutofillOtpRedactions);
+
+  auto page_structure =
+      HtmlPage("OTP Geometry Test",
+               RawHtml("<form>"
+                       "  <input type='checkbox' id='normal_checkbox'>"
+                       "  <input type='text' id='otp_field'>"
+                       "</form>"));
+
+  std::string main_html = page_helper_->Build(page_structure);
+  web::test::LoadHtml(base::SysUTF8ToNSString(main_html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  PageContextWrapperConfig config =
+      PageContextWrapperConfigBuilder()
+          .SetUseRichExtraction(true)
+          .SetUseRichExtractionWithActionable(false)
+          .SetIncludeSensitivePaymentsForRedaction(false)
+          .Build();
+
+  PageContextWrapperCallbackResponse response = RunPageContextWrapperWithConfig(
+      web_state(), config, ^(PageContextWrapper* wrapper) {
+        wrapper.shouldGetAnnotatedPageContent = YES;
+      });
+
+  ASSERT_TRUE(response.has_value());
+  std::unique_ptr<optimization_guide::proto::PageContext> page_context =
+      std::move(response.value());
+  ASSERT_TRUE(page_context);
+
+  const auto& actual_apc = page_context->annotated_page_content();
+  const auto& root = actual_apc.root_node();
+
+  ASSERT_GE(root.children_nodes_size(), 1);
+  const auto& form = root.children_nodes(0);
+  ASSERT_EQ(form.children_nodes_size(), 2);
+
+  // Non-sensitive form controls like checkboxes do not have bounding box
+  // geometry extracted in non-actionable mode, while OTP-eligible fields do
+  // when OTP redaction is enabled.
+  const auto& checkbox_input = form.children_nodes(0);
+  EXPECT_FALSE(
+      checkbox_input.content_attributes().geometry().has_outer_bounding_box());
+
+  const auto& otp_input = form.children_nodes(1);
+  EXPECT_TRUE(
+      otp_input.content_attributes().geometry().has_outer_bounding_box());
+  EXPECT_TRUE(
+      otp_input.content_attributes().geometry().has_visible_bounding_box());
+}
+
 // Tests that the version and mode fields are correctly populated in the
 // AnnotatedPageContent proto based on the configured extraction mode.
 TEST_P(PageContextWrapperTest, PopulatePageContext_ApcVersionAndMode) {
@@ -7809,6 +8016,90 @@ TEST_P(PageContextWrapperTest, ExtractPageContext_SameSiteOnlyDisabled) {
 
     ASSERT_EQ(root_node.children_nodes_size(), 3);
   }
+}
+
+UIImage* CreateTestImage(CGSize size, CGFloat scale) {
+  UIGraphicsImageRendererFormat* format =
+      [UIGraphicsImageRendererFormat defaultFormat];
+  format.scale = scale;
+  UIGraphicsImageRenderer* renderer =
+      [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+  return [renderer imageWithActions:^(UIGraphicsImageRendererContext* context) {
+    [[UIColor whiteColor] setFill];
+    [context fillRect:CGRectMake(0, 0, size.width, size.height)];
+  }];
+}
+
+// Test that screenshot redaction masking handles empty bounding box lists
+// without error. Configures a wrapper with no redaction boxes, encodes a
+// synthetic test image, and verifies that a valid base64-encoded PNG screenshot
+// is produced.
+TEST_P(PageContextWrapperTest, ImageRedaction_EmptyArray) {
+  PageContextWrapper* wrapper = [[PageContextWrapper alloc]
+        initWithWebState:web_state()
+                  config:PageContextWrapperConfigBuilder().Build()
+      completionCallback:base::BindOnce(
+                             [](PageContextWrapperCallbackResponse response) {
+                             })];
+  [wrapper setBoxesToRedactForTesting:{}];
+
+  UIImage* test_image = CreateTestImage(CGSizeMake(100, 100), 2.0);
+
+  [wrapper encodeImageAndSetTabScreenshotForTesting:test_image];
+
+  EXPECT_TRUE([wrapper boxesToRedactForTesting].empty());
+
+  optimization_guide::proto::PageContext* page_context =
+      [wrapper pageContextForTesting];
+  ASSERT_TRUE(page_context->has_tab_screenshot());
+  std::string screenshot_data;
+  ASSERT_TRUE(
+      base::Base64Decode(page_context->tab_screenshot(), &screenshot_data));
+  EXPECT_GT(screenshot_data.length(), 0u);
+}
+
+// Test that redaction bounding boxes extending outside image boundaries do not
+// crash. Configures negative coordinates and boxes larger than the test image,
+// and verifies that the renderer safely clips drawing operations without error.
+TEST_P(PageContextWrapperTest, ImageRedaction_OutOfBoundsClippingSafety) {
+  PageContextWrapper* wrapper = [[PageContextWrapper alloc]
+        initWithWebState:web_state()
+                  config:PageContextWrapperConfigBuilder().Build()
+      completionCallback:base::BindOnce(
+                             [](PageContextWrapperCallbackResponse response) {
+                             })];
+
+  std::vector<CGRect> boxes = {CGRectMake(-10, -10, 50, 50),
+                               CGRectMake(80, 80, 100, 100)};
+  [wrapper setBoxesToRedactForTesting:boxes];
+
+  UIImage* test_image = CreateTestImage(CGSizeMake(50, 50), 1.0);
+
+  [wrapper encodeImageAndSetTabScreenshotForTesting:test_image];
+  EXPECT_TRUE([wrapper boxesToRedactForTesting].empty());
+}
+
+// Test that `shouldRedactDecisionForScreenshot:` returns YES for OTP fields and
+// NO for password fields when OTP screenshot redaction is enabled.
+TEST_P(PageContextWrapperTest, ImageRedaction_AutofillOTP) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kPageContextAutofillOtpRedactions},
+      /*disabled_features=*/{});
+
+  PageContextWrapper* wrapper = [[PageContextWrapper alloc]
+        initWithWebState:web_state()
+                  config:PageContextWrapperConfigBuilder().Build()
+      completionCallback:base::BindOnce(
+                             [](PageContextWrapperCallbackResponse response) {
+                             })];
+
+  EXPECT_TRUE([wrapper
+      shouldRedactDecisionForScreenshot:
+          optimization_guide::proto::REDACTION_DECISION_REDACTED_IS_OTP]);
+  EXPECT_FALSE([wrapper shouldRedactDecisionForScreenshot:
+                            optimization_guide::proto::
+                                REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD]);
 }
 
 INSTANTIATE_TEST_SUITE_P(,

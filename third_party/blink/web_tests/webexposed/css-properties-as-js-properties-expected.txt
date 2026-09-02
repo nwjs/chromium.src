@@ -359,6 +359,7 @@ mathDepth
 mathShift
 mathStyle
 maxBlockSize
+maxContentSizing
 maxHeight
 maxInlineSize
 maxLines
@@ -402,6 +403,7 @@ overscrollBehaviorBlock
 overscrollBehaviorInline
 overscrollBehaviorX
 overscrollBehaviorY
+overscrollContainerType
 pad
 padding
 paddingBlock
@@ -559,6 +561,7 @@ textBoxTrim
 textCombineUpright
 textDecoration
 textDecorationColor
+textDecorationInset
 textDecorationLine
 textDecorationSkipInk
 textDecorationSkipSpaces

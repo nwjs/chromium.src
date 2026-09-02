@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -279,7 +280,7 @@ Browser* AuthSessionRequest::CreateBrowser(
 
   // Check if browser creation is possible before attempting to create it.
   // This prevents crashes when the profile is in an unsuitable state.
-  if (Browser::GetCreationStatusForProfile(profile) !=
+  if (GetBrowserWindowCreationStatusForProfile(*profile) !=
       Browser::CreationStatus::kOk) {
     return nullptr;
   }
@@ -306,9 +307,11 @@ Browser* AuthSessionRequest::CreateBrowser(
   // this code; if it were restored it would not have the AuthSessionRequest and
   // would not behave correctly.
 
-  Browser::CreateParams params(Browser::TYPE_POPUP, profile, true);
+  BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_POPUP, profile,
+                                   /*from_user_gesture=*/true);
   params.omit_from_session_restore = true;
-  Browser* browser = Browser::Create(params);
+  Browser* browser =
+      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
   chrome::AddTabAt(browser, GURL("about:blank"), -1, true);
   browser->GetWindow()->Show();
 

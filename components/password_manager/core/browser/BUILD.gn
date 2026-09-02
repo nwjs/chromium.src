@@ -9,6 +9,7 @@ import("//third_party/libprotobuf-mutator/fuzzable_proto_library.gni")
 
 if (is_android) {
   import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
 }
 
 config("password_reuse_detection_config") {
@@ -293,6 +294,19 @@ source_set("password_switches") {
   public_deps = [ "//base" ]
 }
 
+source_set("password_string") {
+  sources = [
+    "password_string.cc",
+    "password_string.h",
+  ]
+  public_deps = [ "//crypto" ]
+  deps = [
+    "//base",
+    "//components/password_manager/core/browser/features:password_features",
+  ]
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+}
+
 # PasswordForm is an extremely common struct used by many sub-components and
 # sub-directories. Having its own target makes it possible to break up several
 # cyclic dependencies.
@@ -530,6 +544,8 @@ source_set("unit_tests") {
     "password_reuse_detector_impl_unittest.cc",
     "password_reuse_manager_impl_unittest.cc",
     "password_save_manager_impl_unittest.cc",
+    "password_store/password_store_util_unittest.cc",
+    "password_string_unittest.cc",
     "password_suggestion_generator_unittest.cc",
     "password_sync_util_unittest.cc",
     "password_ui_utils_unittest.cc",

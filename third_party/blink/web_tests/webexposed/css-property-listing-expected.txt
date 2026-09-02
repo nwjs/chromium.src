@@ -292,6 +292,7 @@ All changes to this list should go through Blink's feature review process: http:
     math-shift
     math-style
     max-block-size
+    max-content-sizing
     max-height
     max-inline-size
     max-lines
@@ -328,6 +329,7 @@ All changes to this list should go through Blink's feature review process: http:
     overscroll-behavior-inline
     overscroll-behavior-x
     overscroll-behavior-y
+    overscroll-container-type
     padding-block-end
     padding-block-start
     padding-bottom
@@ -430,6 +432,7 @@ All changes to this list should go through Blink's feature review process: http:
     text-box-trim
     text-combine-upright
     text-decoration-color
+    text-decoration-inset
     text-decoration-line
     text-decoration-skip-ink
     text-decoration-skip-spaces

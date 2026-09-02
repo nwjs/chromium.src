@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/background/glic/glic_launcher_configuration.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
@@ -32,6 +33,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -62,6 +64,7 @@
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_icon.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
+#include "chrome/browser/ui/views/translate/translate_bubble_view.h"
 #include "chrome/browser/ui/views/user_education/autofill_help_bubble_factory.h"
 #include "chrome/browser/ui/views/user_education/browser_help_bubble.h"
 #include "chrome/browser/ui/views/user_education/browser_ntp_promos.h"
@@ -101,8 +104,6 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/lens/lens_features.h"
 #include "components/pdf/browser/pdf_document_helper.h"
-#include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
-#include "components/plus_addresses/core/common/features.h"
 #include "components/safe_browsing/core/common/safebrowsing_referral_methods.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/send_tab_to_self/features.h"
@@ -141,10 +142,6 @@
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/vector_icons.h"
 #include "ui/views/view_utils.h"
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "components/plus_addresses/core/browser/resources/vector_icons.h"
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/user_education/views/help_bubble_factory_views_ash.h"
@@ -682,7 +679,7 @@ void MaybeRegisterChromeFeaturePromos(
                   content::WebContents* web_contents =
                       tab_strip_model->GetActiveWebContents();
                   if (web_contents &&
-                      web_contents->GetURL() != browser->GetNewTabURL()) {
+                      web_contents->GetURL() != chrome::GetNewTabURL(browser)) {
                     NavigateParams params(browser->GetProfile(),
                                           chrome::ChromeUINewTabPageURLAsGURL(),
                                           ui::PAGE_TRANSITION_LINK);
@@ -830,12 +827,6 @@ void MaybeRegisterChromeFeaturePromos(
   }
 #endif
 
-  // kIPHLiveCaptionFeature:
-  registry.RegisterFeature(FeaturePromoSpecification::CreateForToastPromo(
-      feature_engagement::kIPHLiveCaptionFeature, kToolbarMediaButtonElementId,
-      IDS_LIVE_CAPTION_PROMO, IDS_LIVE_CAPTION_PROMO_SCREENREADER,
-      FeaturePromoSpecification::AcceleratorInfo()));
-
   // kIPHTabAudioMutingFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForToastPromo(
@@ -873,8 +864,8 @@ void MaybeRegisterChromeFeaturePromos(
                 }
                 if (auto* glic_service =
                         glic::GlicKeyedService::Get(browser->GetProfile())) {
-                  glic_service->ToggleUI(browser, /*prevent_close=*/true,
-                                         glic::mojom::InvocationSource::kIph);
+                  glic_service->ShowUI(browser,
+                                       glic::mojom::InvocationSource::kIph);
                 }
               }))
           .SetBubbleTitleText(IDS_GLIC_TRYIT_TITLE)
@@ -1043,7 +1034,7 @@ void MaybeRegisterChromeFeaturePromos(
                 for (auto* contents_web_view : contents_web_views) {
                   auto* pdf_doc_helper =
                       pdf::PDFDocumentHelper::MaybeGetForWebContents(
-                          contents_web_view->GetWebContents());
+                          *contents_web_view->GetWebContents());
                   if (pdf_doc_helper && pdf_doc_helper->SearchifyStarted()) {
                     return elements[0];
                   }
@@ -1666,6 +1657,20 @@ void MaybeRegisterChromeFeaturePromos(
           .SetMetadata(108, "agale@chromium.org",
                        "Triggered when device is low on memory.")));
 
+  // kIPHPdfTranslateBubbleFeature
+  registry.RegisterFeature(std::move(
+      FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHPdfTranslateBubbleFeature,
+          TranslateBubbleView::kIdentifier, IDS_PDF_TRANSLATE_PROMO_TEXT,
+          IDS_PDF_TRANSLATE_PROMO_ACCESSIBLE_TEXT,
+          FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleArrow(HelpBubbleArrow::kTopCenter)
+          .SetBubbleIcon(&kMenuBookIcon)
+          .SetBubbleTitleText(IDS_PDF_TRANSLATE_PROMO_TITLE)
+          .SetMetadata(153, "danft@chromium.org",
+                       "Shows an IPH when a user translates a PDF for the "
+                       "first time.")));
+
   // kIPHDiscardRingFeature:
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForCustomAction(
@@ -1954,7 +1959,8 @@ void MaybeRegisterChromeFeaturePromos(
 #if BUILDFLAG(IS_WIN)
   // kIPHSearchPromotionFeature:
   // Query the Finch experiment arm at registration time to decide which
-  // localized strings (Arm A or Arm B) should populate this promo bubble.
+  // localized strings (Arm A promo only vs Arms B, C, D promo and install)
+  // should populate this promo bubble.
   //
   // TODO(b/467255671): Re-evaluate tracking feature usage to suppress
   // the promo once experiments are complete. Similarly if launch
@@ -1966,7 +1972,9 @@ void MaybeRegisterChromeFeaturePromos(
   int dismiss_id = IDS_SEARCH_PROMOTION_IPH_DISMISS_ARM_A;
   int title_id = IDS_SEARCH_PROMOTION_IPH_TITLE_ARM_A;
 
-  if (arm_str == feature_engagement::kSearchPromotionArmB) {
+  if (arm_str == feature_engagement::kSearchPromotionArmB ||
+      arm_str == feature_engagement::kSearchPromotionArmC ||
+      arm_str == feature_engagement::kSearchPromotionArmD) {
     body_id = IDS_SEARCH_PROMOTION_IPH_BODY_ARM_B;
     cta_id = IDS_SEARCH_PROMOTION_IPH_CTA_ARM_B;
     dismiss_id = IDS_SEARCH_PROMOTION_IPH_DISMISS_ARM_B;
@@ -2003,6 +2011,22 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered when user performs Google searches and is "
                        "eligible for the promo.")));
 #endif  // BUILDFLAG(IS_WIN)
+
+  // kIPHSplitViewHorizontalIndirectAccessFeature:
+  if (tabs::IsSplitViewHorizontalIndirectAccessEnabled()) {
+    registry.RegisterFeature(std::move(
+        FeaturePromoSpecification::CreateForSnoozePromo(
+            feature_engagement::kIPHSplitViewHorizontalIndirectAccessFeature,
+            kToolbarSplitTabsToolbarButtonElementId,
+            IDS_SPLIT_VIEW_HORIZONTAL_INDIRECT_ACCESS_IPH_BODY)
+            .SetBubbleTitleText(
+                IDS_SPLIT_VIEW_HORIZONTAL_INDIRECT_ACCESS_IPH_TITLE)
+            .SetBubbleArrow(HelpBubbleArrow::kTopLeft)
+            .SetMetadata(152, "charlesmeng@chromium.org",
+                         "Triggered when the split view horizontal feature is "
+                         "enabled with the direct access feature param off, "
+                         "and the user creates a side by side split.")));
+  }
 }
 
 void MaybeRegisterChromeFeaturePromos(
@@ -2436,19 +2460,6 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
       user_education::Metadata(126, "jdonnelly@google.com, dfried@google.com",
                                "Shown in app and web context menus.")));
 
-  registry.RegisterFeature(user_education::NewBadgeSpecification(
-      plus_addresses::features::kPlusAddressFallbackFromContextMenu,
-      user_education::Metadata(
-          128, "jkeitel@google.com",
-          "Shown in the autofill section of the context menu where manual "
-          "fallback for plus addresses is offered.")));
-
-  registry.RegisterFeature(user_education::NewBadgeSpecification(
-      plus_addresses::features::kPlusAddressesEnabled,
-      user_education::Metadata(128, "jkeitel@google.com",
-                               "Shown in the autofill popup for suggestions to "
-                               "create a new plus address.")));
-
   // This is a custom UI new badge that uses a small help bubble to annotate the
   // element instead of a badge.
   registry.RegisterFeature(user_education::NewBadgeSpecification(
@@ -2502,6 +2513,12 @@ void MaybeRegisterChromeNewBadges(user_education::NewBadgeRegistry& registry) {
       user_education::Metadata(
           153, "mtatarski@google.com",
           "Show the new badge on Send to Your Devices context menu items.")));
+
+  registry.RegisterFeature(user_education::NewBadgeSpecification(
+      features::kReadAnythingLineFocus,
+      user_education::Metadata(
+          153, "kristislee@google.com",
+          "Shown on the Line Focus menu item in Reading Mode settings menu.")));
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   registry.RegisterFeature(user_education::NewBadgeSpecification(

@@ -85,6 +85,12 @@ async function isManualTest() {
   return options.manualTest;
 }
 
+function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 async function hasOffscreenDocument() {
   const offscreenUrl = chrome.runtime.getURL(OFFSCREEN_PATH);
   const existingContexts = await chrome.runtime.getContexts({
@@ -166,6 +172,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       type === chrome.dictationPrivate.TranscriptionType.FINAL ||
       type === chrome.dictationPrivate.TranscriptionType.PARTIAL) {
     chrome.dictationPrivate.updateTranscription({streamId, type, data});
+
+    // Simulate speech audio level changes as the transcription updates.
+    chrome.dictationPrivate.updateAudioLevel(1.0);
+    setTimeout(() => {
+      chrome.dictationPrivate.updateAudioLevel(0.0);
+    }, 250);
   }
 });
 
@@ -192,6 +204,10 @@ chrome.dictationPrivate.onEndStream.addListener(async (details) => {
   }
 
   const {streamId} = details;
+
+  const optionsItems =
+      await chrome.storage.local.get({streamFinalizationDelay: 0});
+  await delay(optionsItems.streamFinalizationDelay);
 
   await endStream(streamId);
   chrome.dictationPrivate.setStreamState(

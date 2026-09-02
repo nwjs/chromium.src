@@ -10,20 +10,6 @@
 
 namespace default_browser {
 
-TEST(DefaultBrowserFeaturesTest, IsDefaultBrowserFrameworkEnabled) {
-  EXPECT_FALSE(IsDefaultBrowserFrameworkEnabled());
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndEnableFeature(kDefaultBrowserFramework);
-    EXPECT_TRUE(IsDefaultBrowserFrameworkEnabled());
-  }
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitAndDisableFeature(kDefaultBrowserFramework);
-    EXPECT_FALSE(IsDefaultBrowserFrameworkEnabled());
-  }
-}
-
 TEST(DefaultBrowserFeaturesTest, IsDefaultBrowserPromptSurfacesEnabled) {
   {
     base::test::ScopedFeatureList feature_list;
@@ -55,6 +41,64 @@ TEST(DefaultBrowserFeaturesTest, IsDefaultBrowserChangedOsNotificationEnabled) {
     base::test::ScopedFeatureList feature_list;
     feature_list.InitAndDisableFeature(kDefaultBrowserChangedOsNotification);
     EXPECT_FALSE(IsDefaultBrowserChangedOsNotificationEnabled());
+  }
+}
+
+// Tests for GetDefaultBrowserPromptSurface behavior with prompt surfaces and
+// setter selection.
+TEST(DefaultBrowserFeaturesTest, GetDefaultBrowserPromptSurface) {
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeaturesAndParameters(
+        {{kDefaultBrowserPromptSurfaces,
+          {{"prompt_surface", "modal_dialog_with_settings_illustration"}}},
+         {kDefaultBrowserSetterSelection, {{"setter_option", "visual_guide"}}}},
+        {});
+#if BUILDFLAG(IS_WIN)
+    EXPECT_EQ(
+        GetDefaultBrowserPromptSurface(),
+        DefaultBrowserPromptSurface::kModalDialogWithoutSettingsIllustration);
+#else
+    EXPECT_EQ(GetDefaultBrowserPromptSurface(),
+              DefaultBrowserPromptSurface::kInfobar);
+#endif
+  }
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeaturesAndParameters(
+        {{kDefaultBrowserPromptSurfaces,
+          {{"prompt_surface", "modal_dialog_with_settings_illustration"}}},
+         {kDefaultBrowserSetterSelection,
+          {{"setter_option", "shell_integration"}}}},
+        {});
+#if BUILDFLAG(IS_WIN)
+    DefaultBrowserPromptSurface surface = GetDefaultBrowserPromptSurface();
+    EXPECT_TRUE(
+        surface ==
+            DefaultBrowserPromptSurface::kModalDialogWithSettingsIllustration ||
+        surface == DefaultBrowserPromptSurface::
+                       kModalDialogWithoutSettingsIllustration);
+#else
+    EXPECT_EQ(GetDefaultBrowserPromptSurface(),
+              DefaultBrowserPromptSurface::kInfobar);
+#endif
+  }
+
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitWithFeaturesAndParameters(
+        {{kDefaultBrowserPromptSurfaces,
+          {{"prompt_surface", "modal_dialog_without_settings_illustration"}}}},
+        {});
+#if BUILDFLAG(IS_WIN)
+    EXPECT_EQ(
+        GetDefaultBrowserPromptSurface(),
+        DefaultBrowserPromptSurface::kModalDialogWithoutSettingsIllustration);
+#else
+    EXPECT_EQ(GetDefaultBrowserPromptSurface(),
+              DefaultBrowserPromptSurface::kInfobar);
+#endif
   }
 }
 

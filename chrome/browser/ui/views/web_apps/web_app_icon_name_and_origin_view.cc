@@ -85,10 +85,6 @@ WebAppIconNameAndOriginView::WebAppIconNameAndOriginView(
                      },
                      [](const base::Version& version) {
                        return web_app::CreateVersionLabel(version);
-                     },
-                     [](const ParentAppTitle& parent_app_title) {
-                       return web_app::CreateParentNameLabel(
-                           parent_app_title.value());
                      }},
       app_info);
   app_info_label->SetProperty(views::kElementIdentifierKey,

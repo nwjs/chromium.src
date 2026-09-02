@@ -30,7 +30,6 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/foundations/autofill_client.h"
-#include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_personal_context_enablement_utils.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
@@ -275,7 +274,7 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
     case AutofillAiAction::kLogToMqls:
       return !is_enabled(features::kAutofillAiUsePrivateAi);
     case AutofillAiAction::kEnableOrDisable:
-      return is_enabled(features::kAutofillAiAvailableByDefault);
+      return IsAutofillAiDefaultAvailabilityEnabled();
     case AutofillAiAction::kAmbientAutofill:
     case AutofillAiAction::kShowAmbientAutofillInSettings:
     case AutofillAiAction::kTypeSupportsAmbientAutofillData:
@@ -352,10 +351,10 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus);
   const bool autofill_ai_available =
       GetAutofillAiOptInStatus(prefs, identity_manager) ||
-      base::FeatureList::IsEnabled(features::kAutofillAiAvailableByDefault);
+      IsAutofillAiDefaultAvailabilityEnabled();
   // Note that the policy can become disabled even after a user has opted in.
   const bool is_allowed_by_opt_in_or_default =
-      base::FeatureList::IsEnabled(features::kAutofillAiAvailableByDefault) ||
+      IsAutofillAiDefaultAvailabilityEnabled() ||
       (policy_pref_enabled && autofill_ai_available);
   switch (action) {
     case AutofillAiAction::kLogToMqls:
@@ -422,14 +421,30 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
       return policy_pref_enabled;
     case AutofillAiAction::kWalletDataSharingPromotion:
       return !is_wallet_public_pass_storage_enabled &&
-             (policy_pref_enabled ||
-              base::FeatureList::IsEnabled(
-                  features::kAutofillAiAvailableByDefault));
+             (policy_pref_enabled || IsAutofillAiDefaultAvailabilityEnabled());
     case AutofillAiAction::kEnableOrDisable:
     case AutofillAiAction::kListEntityInstancesInSettings:
       return true;
   }
   NOTREACHED();
+}
+
+// Returns the set of eligible subscription tiers configured by feature
+// parameters for Ambient Autofill.
+base::flat_set<int32_t> GetAutofillAmbientAutofillEligibleTiers() {
+  const std::string tier_list =
+      features::kAutofillAmbientAutofillEligibleTiers.Get();
+  const std::vector<std::string_view> tier_pieces = base::SplitStringPiece(
+      tier_list, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  base::flat_set<int32_t> eligible_tiers;
+  eligible_tiers.reserve(tier_pieces.size());
+  for (std::string_view piece : tier_pieces) {
+    int32_t tier_id = 0;
+    if (base::StringToInt(piece, &tier_id)) {
+      eligible_tiers.insert(tier_id);
+    }
+  }
+  return eligible_tiers;
 }
 
 // Checks whether all requirements for `IdentityManager` state are
@@ -477,48 +492,40 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
       const AccountCapabilities& capabilities =
           account_info.GetAccountCapabilities();
       if (base::FeatureList::IsEnabled(
-              features::kAutofillAiWalletPrivatePassesCapability) &&
-          capabilities.supports_wallet_private_passes_in_autofill() !=
-              signin::Tribool::kTrue) {
-        MaybeOutputReason(
-            debug_message,
-            "Account doesn't support private passes in Autofill.");
-        return false;
-      }
-      // For private passes, underaged users are not allowed to save.
-      // TODO(crbug.com/495779639): Using can_use_model_execution_features() is
-      // a very hacky way to check whether the user is underaged. Instead, the
-      // minor check should be integrated into
-      // supports_wallet_private_passes_in_autofill().
-      if (capabilities.can_use_model_execution_features() !=
-          signin::Tribool::kTrue) {
-        MaybeOutputReason(debug_message, "User is underaged.");
-        return false;
+              features::kAutofillAiWalletPrivatePassesCapability)) {
+        if (capabilities.supports_wallet_private_passes_in_autofill() !=
+            signin::Tribool::kTrue) {
+          MaybeOutputReason(
+              debug_message,
+              "Account doesn't support private passes in Autofill.");
+          return false;
+        }
+      } else {
+        // For private passes, underaged users are not allowed to save. When
+        // AutofillAiWalletPrivatePassesCapability is enabled, the
+        // supports_wallet_private_passes_in_autofill() capability covers this
+        // requirement. Before, it was hackily implemented by relying on another
+        // capability.
+        if (capabilities.can_use_model_execution_features() !=
+            signin::Tribool::kTrue) {
+          MaybeOutputReason(debug_message, "User is underaged.");
+          return false;
+        }
       }
       break;
     }
     case AutofillAiAction::kAmbientAutofill:
     case AutofillAiAction::kShowAmbientAutofillInSettings:
     case AutofillAiAction::kTypeSupportsAmbientAutofillData: {
-      if (base::FeatureList::IsEnabled(
-              features::debug::kAutofillAmbientAutofillSkipEligibilityChecks)) {
-        return true;
-      }
-      if (!subscription_service) {
-        MaybeOutputReason(debug_message,
-                          "Subscription eligibility service not available.");
+      if (!IsDeviceOrSubscriptionTierEligibleForAmbientAutofill(
+              subscription_service)) {
+        MaybeOutputReason(
+            debug_message,
+            "User subscription tier is not eligible and device is "
+            "not eligible.");
         return false;
       }
-      const int32_t tier = subscription_service->GetAiSubscriptionTier();
-      if (GetAutofillAmbientAutofillEligibleTiers().contains(tier) ||
-          IsAndroidDeviceEligibleForAmbientAutofill()) {
-        break;
-      }
-
-      MaybeOutputReason(debug_message,
-                        "User subscription tier is not eligible and device is "
-                        "not eligible.");
-      return false;
+      break;
     }
     case AutofillAiAction::kOptIn: {
       if (!GetAccountGaiaIdHash(identity_manager).has_value()) {
@@ -698,6 +705,22 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
   return true;
 }
 
+// Returns whether the current Android hardware model is configured as eligible
+// for Ambient Autofill by feature parameters.
+[[nodiscard]] bool IsAndroidDeviceEligibleForAmbientAutofill() {
+#if BUILDFLAG(IS_ANDROID)
+  const std::string model_name = base::SysInfo::HardwareModelName();
+  const std::string enabled_devices_str =
+      features::kAutofillAmbientAutofillEnabledDevices.Get();
+  return std::ranges::contains(
+      base::SplitStringPiece(enabled_devices_str, ",", base::TRIM_WHITESPACE,
+                             base::SPLIT_WANT_NONEMPTY),
+      model_name);
+#else
+  return false;
+#endif
+}
+
 }  // namespace
 
 bool MayPerformAutofillAiAction(const AutofillClient& client,
@@ -801,8 +824,22 @@ bool GetAutofillAiOptInStatus(const PrefService* prefs,
     return prefs->GetBoolean(prefs::kAutofillAiPrivateInferenceOptInStatus) &&
            !prefs
                 ->GetTime(
-                    prefs::kAutofillAiPrivateInferenceNoticeFirstShownTimestamp)
+                    prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp)
                 .is_null();
+  }
+
+  return GetObsoleteAutofillAiOptInStatus(prefs, identity_manager);
+}
+
+bool GetObsoleteAutofillAiOptInStatus(
+    const PrefService* prefs,
+    const signin::IdentityManager* identity_manager) {
+  if (!prefs) {
+    return false;
+  }
+
+  if (base::FeatureList::IsEnabled(features::debug::kAutofillAiForceOptIn)) {
+    return true;
   }
 
   const std::optional<GaiaIdHash> signed_in_hash =
@@ -856,13 +893,23 @@ bool SetAutofillAiOptInStatus(
     return false;
   }
 
-  const std::optional<GaiaIdHash> signed_in_hash =
-      GetAccountGaiaIdHash(identity_manager);
-  // Guaranteed by MayPerformAutofillAiAction(kOptIn).
-  CHECK(signed_in_hash.has_value());
-  syncer::SetAccountKeyedPrefValue(
-      prefs, prefs::kAutofillAiOptInStatus, *signed_in_hash,
-      base::Value(opt_in_status == AutofillAiOptInStatus::kOptedIn));
+  if (base::FeatureList::IsEnabled(features::kAutofillAiUsePrivateAi)) {
+    // If the user manually opted-in or out it is because they manually
+    // navigated to the settings UI and were shown privacy information about the
+    // feature. Therefore, later displaying the the notice is unnecessary.
+    prefs->SetTime(prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp,
+                   base::Time::Now());
+    prefs->SetBoolean(prefs::kAutofillAiPrivateInferenceOptInStatus,
+                      opt_in_status == AutofillAiOptInStatus::kOptedIn);
+  } else {
+    const std::optional<GaiaIdHash> signed_in_hash =
+        GetAccountGaiaIdHash(identity_manager);
+    // Guaranteed by MayPerformAutofillAiAction(kOptIn).
+    CHECK(signed_in_hash.has_value());
+    syncer::SetAccountKeyedPrefValue(
+        prefs, prefs::kAutofillAiOptInStatus, *signed_in_hash,
+        base::Value(opt_in_status == AutofillAiOptInStatus::kOptedIn));
+  }
 
   base::UmaHistogramEnumeration("Autofill.Ai.OptIn.Change", opt_in_status);
   return true;
@@ -922,6 +969,24 @@ bool IsAutofillAiEntityTypeBlockedByPolicy(const AutofillClient& client,
              optimization_guide::prefs::
                  kAutofillPredictionImprovementsEnterprisePolicyAllowed) ==
          kAutofillPredictionSettingsAllow;
+}
+
+bool IsAutofillAiDefaultAvailabilityEnabled() {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  return base::FeatureList::IsEnabled(features::kAutofillAiAvailableByDefault);
+#else
+  return true;
+#endif
+}
+
+[[nodiscard]] bool IsDeviceOrSubscriptionTierEligibleForAmbientAutofill(
+    const subscription_eligibility::SubscriptionEligibilityService*
+        subscription_eligibility_service) {
+  const bool tier_eligible =
+      subscription_eligibility_service &&
+      GetAutofillAmbientAutofillEligibleTiers().contains(
+          subscription_eligibility_service->GetAiSubscriptionTier());
+  return tier_eligible || IsAndroidDeviceEligibleForAmbientAutofill();
 }
 
 }  // namespace autofill

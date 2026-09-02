@@ -12,6 +12,7 @@
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/net/convert_explicitly_allowed_network_ports_pref.h"
@@ -44,6 +45,8 @@
 #endif
 
 #if BUILDFLAG(IS_LINUX)
+#include "base/environment.h"
+#include "base/nix/xdg_util.h"
 #include "ui/linux/linux_ui.h"
 #endif
 
@@ -206,25 +209,29 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
   prefs->caret_browsing_enabled =
       pref_service->GetBoolean(prefs::kCaretBrowsingEnabled);
 
-  const base::DictValue& autofill_trigger_info =
-      pref_service->GetDict(autofill::prefs::kAutofillAtMemoryTriggerInfo);
-  if (autofill_trigger_info.FindBool("is_shortcut").value_or(false)) {
-    if (const std::string* trigger_string =
-            autofill_trigger_info.FindString("trigger")) {
-      ui::Accelerator accelerator =
-          ui::Command::StringToAccelerator(*trigger_string);
-      prefs->autofill_shortcut_key_code = accelerator.key_code();
-      prefs->autofill_shortcut_modifiers = accelerator.modifiers();
-      prefs->autofill_trigger_string = "";
-    }
-  } else {
-    prefs->autofill_shortcut_key_code = ui::VKEY_UNKNOWN;
-    prefs->autofill_shortcut_modifiers = 0;
-    if (const std::string* trigger_string =
-            autofill_trigger_info.FindString("trigger")) {
-      prefs->autofill_trigger_string = *trigger_string;
+  // Trigger strings (e.g. "@@") and keyboard shortcuts for AtMemory are not
+  // supported on Android.
+  if constexpr (!BUILDFLAG(IS_ANDROID)) {
+    const base::DictValue& autofill_trigger_info =
+        pref_service->GetDict(autofill::prefs::kAutofillAtMemoryTriggerInfo);
+    if (autofill_trigger_info.FindBool("is_shortcut").value_or(false)) {
+      if (const std::string* trigger_string =
+              autofill_trigger_info.FindString("trigger")) {
+        ui::Accelerator accelerator =
+            ui::Command::StringToAccelerator(*trigger_string);
+        prefs->autofill_shortcut_key_code = accelerator.key_code();
+        prefs->autofill_shortcut_modifiers = accelerator.modifiers();
+        prefs->autofill_trigger_string = u"";
+      }
     } else {
-      prefs->autofill_trigger_string = "";
+      prefs->autofill_shortcut_key_code = ui::VKEY_UNKNOWN;
+      prefs->autofill_shortcut_modifiers = 0;
+      if (const std::string* trigger_string =
+              autofill_trigger_info.FindString("trigger")) {
+        prefs->autofill_trigger_string = base::UTF8ToUTF16(*trigger_string);
+      } else {
+        prefs->autofill_trigger_string = u"";
+      }
     }
   }
 
@@ -240,6 +247,16 @@ void UpdateFromSystemSettings(blink::RendererPreferences* prefs,
 
   prefs->view_source_line_wrap_enabled =
       pref_service->GetBoolean(prefs::kViewSourceLineWrappingEnabled);
+
+#if BUILDFLAG(IS_LINUX)
+  // Check the session type from the environment variable (XDG_SESSION_TYPE)
+  // instead of the Ozone platform, because XWayland sessions still require
+  // the portal eye dropper for reliable screen capture.
+  static const bool is_wayland =
+      base::nix::GetSessionType(*base::Environment::Create()) ==
+      base::nix::SessionType::kWayland;
+  prefs->system_color_chooser_is_modal = is_wayland;
+#endif
 
   std::string user_agent;
   if (nw::GetUserAgentFromManifest(&user_agent)) {

@@ -7,10 +7,16 @@ include_rules = [
   "+components/supervised_user/core/common/buildflags.h",
   "+components/sync/base/data_type.h",
   "+mojo/public",
+  "+components/sync/base/time.h",
+  "+components/sync/protocol",
+  "+components/sync/service/sync_service.h",
 ]
 
 specific_include_rules = {
   "mirror_account_reconcilor_delegate.cc": [
     "+components/sync/base/features.h"
+  ],
+  ".*unittest\\.cc": [
+    "+components/sync/test",
   ],
 }

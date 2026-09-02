@@ -39,14 +39,16 @@
     "LensOverlayResults")                                                     \
   V(kMerchantTrust, kActionSidePanelShowMerchantTrust, "MerchantTrust")       \
   V(kComments, kActionSidePanelShowComments, "Comments")                      \
+  V(kGeic, kActionSidePanelShowGeic, "Geic")                                  \
   V(kGlic, kActionSidePanelShowGlic, "Glic")                                  \
   V(kTabsFromOtherDevices, kActionSidePanelShowTabsFromOtherDevices,          \
     "TabsFromOtherDevices")                                                   \
   V(kSidePanelDev, std::nullopt, "SidePanelDev")                              \
+  V(kTestTabScopedEntry, std::nullopt, "TestTabScopedEntry")                  \
   /* Extensions (nothing more should be added below here) */                  \
   V(kExtension, std::nullopt, "Extension")
 
-// LINT.ThenChange(//tools/metrics/actions/actions.xml:SidePanelEntry,//tools/metrics/histograms/metadata/browser/histograms.xml:SidePanelEntry)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/browser/histograms.xml:SidePanelEntry)
 
 // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.ui.side_panel
 // GENERATED_JAVA_PREFIX_TO_STRIP: k

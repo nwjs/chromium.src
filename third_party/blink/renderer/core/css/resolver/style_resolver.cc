@@ -166,6 +166,7 @@ bool IsPseudoElementWithUAStyle(PseudoId pseudo_id) {
     case kPseudoIdViewTransitionImagePair:
     case kPseudoIdViewTransitionOld:
     case kPseudoIdViewTransitionNew:
+    case kPseudoIdSkeleton:
       return true;
     default:
       return false;
@@ -1072,8 +1073,10 @@ bool IsInMediaUAShadow(const Element& element) {
   return outer_root->host().IsMediaElement();
 }
 
-void SetZoomedInitialBorderAndOutlineWidths(ComputedStyleBuilder& builder,
-                                            float zoom) {
+}  // namespace
+
+void StyleResolver::SetZoomedInitialLineWidths(float zoom,
+                                               ComputedStyleBuilder& builder) {
   builder.SetBorderTopWidth(StyleBuilderConverter::ClampLineWidth(
       ComputedStyleInitialValues::InitialBorderTopWidth() * zoom));
   builder.SetBorderRightWidth(StyleBuilderConverter::ClampLineWidth(
@@ -1084,9 +1087,16 @@ void SetZoomedInitialBorderAndOutlineWidths(ComputedStyleBuilder& builder,
       ComputedStyleInitialValues::InitialBorderLeftWidth() * zoom));
   builder.SetOutlineWidth(StyleBuilderConverter::ClampLineWidth(
       ComputedStyleInitialValues::InitialOutlineWidth() * zoom));
+  builder.SetColumnRuleWidthInternal(
+      GapDataList<int>(StyleBuilderConverter::ClampLineWidth(
+          ComputedStyleInitialValues::InitialColumnRuleWidth()
+              .GetLegacyValue() *
+          zoom)));
+  builder.SetRowRuleWidthInternal(
+      GapDataList<int>(StyleBuilderConverter::ClampLineWidth(
+          ComputedStyleInitialValues::InitialRowRuleWidth().GetLegacyValue() *
+          zoom)));
 }
-
-}  // namespace
 
 template <typename Functor>
 void StyleResolver::ForEachUARulesForElement(const Element& element,
@@ -1824,11 +1834,6 @@ void StyleResolver::ApplyBaseStyleNoCache(
       state, style_request, match_result, element_type_for_cache);
   ComputedStyleBuilder& builder = state.StyleBuilder();
 
-  if (style_recalc_context.is_ensuring_style &&
-      style_recalc_context.is_outside_flat_tree) {
-    builder.SetIsEnsuredOutsideFlatTree();
-  }
-
   Element* element_if_not_pseudo =
       IsForPseudoElement(*element, style_request) ? nullptr : element;
   if (cache_success.IsHit()) {
@@ -2374,7 +2379,7 @@ float StyleResolver::InitialZoom() const {
 
 const ComputedStyle* StyleResolver::CreateInitialStyle() const {
   ComputedStyleBuilder builder(*ComputedStyle::GetInitialStyleSingleton());
-  SetZoomedInitialBorderAndOutlineWidths(builder, InitialZoom());
+  SetZoomedInitialLineWidths(InitialZoom(), builder);
   return builder.TakeStyle();
 }
 
@@ -2477,7 +2482,8 @@ Element* StyleResolver::FindContainerForElement(
   Element* start_candidate = FlatTreeTraversal::ParentElement(*element);
   if (PseudoElement* pseudo_element = DynamicTo<PseudoElement>(element)) {
     if (pseudo_element->IsLayoutSiblingOfOriginatingElement() &&
-        container_selector.SelectsSizeContainers()) {
+        (container_selector.SelectsSizeContainers() ||
+         pseudo_element->GetPseudoId() == kPseudoIdSkeleton)) {
       start_candidate = FlatTreeTraversal::ParentElement(*start_candidate);
     }
   }
@@ -2854,14 +2860,14 @@ StyleResolver::CacheSuccess StyleResolver::ApplyMatchedCache(
     InitStyle(element, style_request, InitialStyle(), state.ParentStyle(),
               state.OriginatingElementStyle(), state);
 
-    // Initial border/outline widths come from `InitialStyle()` zoomed by
+    // Initial <line-width>s come from `InitialStyle()` zoomed by
     // `InitialZoom()`. Re-zoom them for an inherited effective zoom (e.g. from
     // an ancestor's CSS zoom). Highlights clone the parent style instead, and
     // the element's own zoom is handled later in the cascade.
     if (!state.IsForHighlight() &&
         state.ParentStyle()->EffectiveZoom() != InitialZoom()) {
-      SetZoomedInitialBorderAndOutlineWidths(
-          state.StyleBuilder(), state.ParentStyle()->EffectiveZoom());
+      SetZoomedInitialLineWidths(state.ParentStyle()->EffectiveZoom(),
+                                 state.StyleBuilder());
     }
 
     ExpandInheritedVisitedProperties(state);
@@ -2981,6 +2987,16 @@ bool StyleResolver::CanReuseBaseComputedStyle(const StyleResolverState& state) {
     return false;
   }
 
+  // If the base style was generated for 'display: none', resources (StyleImage
+  // etc) may still be pending. Animating the 'display' property in such a case
+  // can produce a computed style with pending resources. See also comment in
+  // `StyleResolverState::LoadPendingResources`.
+  if (base_style->Display() == EDisplay::kNone) {
+    if (CSSAnimations::IsAnimatingDisplayProperty(element_animations)) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -2997,6 +3013,16 @@ const CSSValue* StyleResolver::ComputeValue(
     const CSSPropertyName& property_name,
     const CSSValue& value,
     CSSToLengthConversionData::Flags& flags) {
+  bool has_random = false;
+  return ComputeValue(element, property_name, value, flags, has_random);
+}
+
+const CSSValue* StyleResolver::ComputeValue(
+    Element* element,
+    const CSSPropertyName& property_name,
+    const CSSValue& value,
+    CSSToLengthConversionData::Flags& flags,
+    bool& has_random) {
   Document& document = element->GetDocument();
   document.GetStyleEngine().UpdateViewportSize();
   const ComputedStyle* base_style = element->GetComputedStyle();
@@ -3031,6 +3057,10 @@ const CSSValue* StyleResolver::ComputeValue(
     }
   }
 
+  if (resolved_value && resolved_value->HasRandomFunctions()) {
+    has_random = true;
+  }
+
   auto* set =
       MakeGarbageCollected<MutableCSSPropertyValueSet>(state.GetParserMode());
   set->SetProperty(property_name, *resolved_value);
@@ -3047,8 +3077,12 @@ const CSSValue* StyleResolver::ComputeValue(
   CSSPropertyRef property_ref(&property_name, document);
   flags = state.TakeLengthConversionFlags();
   const ComputedStyle* style = state.TakeStyle();
-  return ComputedStyleUtils::ComputedPropertyValue(property_ref.GetProperty(),
-                                                   *style);
+  const CSSValue* computed_value = ComputedStyleUtils::ComputedPropertyValue(
+      property_ref.GetProperty(), *style);
+  if (computed_value && computed_value->HasRandomFunctions()) {
+    has_random = true;
+  }
+  return computed_value;
 }
 
 const CSSValue* StyleResolver::ResolveValue(

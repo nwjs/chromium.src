@@ -33,13 +33,16 @@
 mod arc_or_weak;
 mod control_messages;
 mod endpoint_registry;
-mod handle;
+#[allow(clippy::module_inception)]
+mod multiplex_router;
+mod multiplex_router_handle;
 mod response_sender;
-mod router;
+mod router_handle;
 
 // Needed to call `MultiplexRouterHandle` methods
 pub(crate) use endpoint_registry::{EndpointInfo, InterfaceId};
-pub(crate) use handle::MultiplexRouterHandle;
+pub(crate) use multiplex_router_handle::MultiplexRouterHandle;
+pub(crate) use router_handle::{AssociatedRouterHandle, RouterHandle};
 
 #[doc(hidden)]
 pub use response_sender::ResponseSender;

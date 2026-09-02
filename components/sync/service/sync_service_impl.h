@@ -165,6 +165,8 @@ class SyncServiceImpl : public SyncService,
   void GetAllNodesForDebugging(
       base::OnceCallback<void(base::ListValue)> callback) override;
   DataTypeDownloadStatus GetDownloadStatusFor(DataType type) const override;
+  base::flat_set<std::string> GetCurrentDeviceCacheGuidsForAllGaiaIds()
+      const override;
   void GetTypesWithUnsyncedData(
       DataTypeSet requested_types,
       base::OnceCallback<void(absl::flat_hash_map<DataType, size_t>)> callback)
@@ -194,6 +196,8 @@ class SyncServiceImpl : public SyncService,
   void OnBackedOffTypesChanged() override;
   void OnInvalidationStatusChanged() override;
   void OnNewInvalidatedDataTypes() override;
+  void FetchAccessToken(
+      base::OnceCallback<void(signin::AccessTokenInfo)> callback) override;
 
   // DataTypeManagerObserver implementation.
   void OnConfigureDone(const DataTypeManager::ConfigureResult& result) override;
@@ -242,7 +246,7 @@ class SyncServiceImpl : public SyncService,
   std::unique_ptr<DeviceStatisticsRequest> CreateDeviceStatisticsRequest(
       const CoreAccountInfo&,
       const GURL&) override;
-  std::vector<std::string> GetCurrentDeviceCacheGuidsForDeviceStatistics()
+  base::flat_set<std::string> GetCurrentDeviceCacheGuidsForDeviceStatistics()
       override;
 
   // Similar to OnAccountsInCookieUpdated() but with a callback that will be

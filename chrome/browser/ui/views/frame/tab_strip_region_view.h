@@ -21,6 +21,7 @@ struct TabData;
 
 class TabDragContext;
 class TabDragTarget;
+class TabHoverCardController;
 class TabStripObserver;
 
 class ExpandOnHoverLock {
@@ -66,9 +67,10 @@ class TabStripRegionView : public views::AccessiblePaneView,
   virtual const tabs::TabData& GetTabData(const tabs::TabHandle& tab) = 0;
   virtual views::View* GetTabStripView() = 0;
   virtual bool IsPositionInWindowCaption(const gfx::Point& point) = 0;
+  virtual TabHoverCardController* GetHoverCardController() = 0;
 
   // -- UI anchoring --
-  virtual views::View* GetTabAnchorViewAt(int tab_index) = 0;
+  virtual views::View* GetTabAnchorView(const tabs::TabHandle& tab) = 0;
   virtual views::View* GetTabGroupAnchorView(
       const tab_groups::TabGroupId& group) = 0;
 

@@ -34,6 +34,7 @@
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 
 namespace blink {
 
@@ -110,6 +111,8 @@ class MockModelContextHost : public mojom::blink::ModelContextHost {
       ExecuteRemoteScriptToolCallback callback) override {
     std::move(callback).Run(String(), false);
   }
+  void CancelRemoteScriptTool(
+      const base::UnguessableToken& invocation_id) override {}
 
   const Vector<String>& registered_tools() const { return registered_tools_; }
 
@@ -1293,6 +1296,153 @@ TEST_F(ModelContextTest, CancelToolReentrancy) {
   run_loop.Run();
 }
 
+TEST_F(ModelContextTest, CancelToolNonExistent) {
+  SimRequest main_resource("https://example.com/", "text/html");
+  LoadURL("https://example.com/");
+  main_resource.Complete(R"(<body></body>)");
+
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
+  base::UnguessableToken invocation_id = base::UnguessableToken::Create();
+  // Cancel invocation that has not been executed.
+  EXPECT_FALSE(model_context->CancelTool(invocation_id));
+}
+
+TEST_F(ModelContextTest, CancelToolAfterFinished) {
+  SimRequest main_resource("https://example.com/", "text/html");
+  LoadURL("https://example.com/");
+
+  main_resource.Complete(R"(
+    <body>
+    <script>
+    document.modelContext.registerTool({
+      execute: async (obj) => "done",
+      name: "echo",
+      description: "echo",
+    });
+  </script>
+)");
+
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
+  base::RunLoop run_loop;
+
+  base::UnguessableToken invocation_id = base::UnguessableToken::Create();
+  bool success = model_context->ExecuteTool(
+      invocation_id, "echo", "{}",
+      base::BindLambdaForTesting(
+          [&](base::expected<String, ScriptToolError> res) {
+            EXPECT_TRUE(res.has_value());
+            EXPECT_EQ(res.value(), "done");
+            run_loop.Quit();
+          }));
+
+  ASSERT_TRUE(success);
+  run_loop.Run();  // Wait for tool to finish successfully.
+
+  // Now that the tool has completed, it is no longer in pending_executions_.
+  // CancelTool should return false.
+  EXPECT_FALSE(model_context->CancelTool(invocation_id));
+}
+
+TEST_F(ModelContextTest, CancelToolUnregistered) {
+  SimRequest main_resource("https://example.com/", "text/html");
+  LoadURL("https://example.com/");
+
+  main_resource.Complete(R"(
+    <body>
+    <script>
+    async function hang(obj) {
+      return new Promise(() => {});
+    }
+
+    document.modelContext.registerTool({
+      execute: hang,
+      name: "hang",
+      description: "never resolves",
+    });
+  </script>
+)");
+
+  auto* model_context = ModelContextSupplement::modelContext(GetDocument());
+  base::RunLoop run_loop;
+
+  base::UnguessableToken invocation_id = base::UnguessableToken::Create();
+  bool success = model_context->ExecuteTool(
+      invocation_id, "hang", "{}",
+      base::BindLambdaForTesting(
+          [&](base::expected<String, ScriptToolError> res) {
+            EXPECT_FALSE(res.has_value());
+            EXPECT_EQ(res.error(), ScriptToolErrorCode::kToolCancelled);
+            run_loop.Quit();
+          }));
+
+  ASSERT_TRUE(success);
+
+  // Unregister the tool while execution is pending.
+  model_context->UnregisterTool("hang");
+
+  // Attempting to cancel should still succeed and clean up the pending
+  // execution.
+  EXPECT_TRUE(model_context->CancelTool(invocation_id));
+  run_loop.Run();
+}
+
+TEST_F(ModelContextTest, CancelToolDetachesDocument) {
+  SimRequest main_resource("https://example.com/", "text/html");
+  SimRequest iframe_resource("https://example.com/iframe.html", "text/html");
+  LoadURL("https://example.com/");
+
+  main_resource.Complete(R"(
+    <body>
+    <iframe id="test_iframe" src="iframe.html"></iframe>
+    </body>
+  )");
+
+  iframe_resource.Complete(R"(
+    <body>
+    <script>
+    async function hang(obj) {
+      return new Promise(() => {});
+    }
+
+    document.modelContext.registerTool({
+      execute: hang,
+      name: "hang",
+      description: "never resolves",
+    });
+
+    window.addEventListener('toolcancel', () => {
+      // Detach this document by removing the iframe from the parent document.
+      parent.document.querySelector('#test_iframe').remove();
+    });
+    </script>
+    </body>
+  )");
+
+  // Get the subframe's Document.
+  auto* child_frame =
+      To<LocalFrame>(GetDocument().GetFrame()->Tree().FirstChild());
+  ASSERT_TRUE(child_frame);
+  Document* child_doc = child_frame->GetDocument();
+  ASSERT_TRUE(child_doc);
+
+  auto* child_model_context = ModelContextSupplement::modelContext(*child_doc);
+  ASSERT_TRUE(child_model_context);
+
+  base::UnguessableToken invocation_id = base::UnguessableToken::Create();
+
+  bool success = child_model_context->ExecuteTool(invocation_id, "hang", "{}",
+                                                  base::DoNothing());
+
+  ASSERT_TRUE(success);
+
+  // Trigger cancellation, which will synchronously detach the frame during
+  // toolcancel event. This must not crash.
+  child_model_context->CancelTool(invocation_id);
+
+  // Verify the child frame is now detached.
+  EXPECT_FALSE(GetDocument().GetFrame()->Tree().FirstChild());
+}
+
 class MockDeclarativeTool : public GarbageCollected<MockDeclarativeTool>,
                             public DeclarativeWebMCPTool {
  public:
@@ -1301,6 +1451,8 @@ class MockDeclarativeTool : public GarbageCollected<MockDeclarativeTool>,
       String input_arguments,
       base::OnceCallback<void(base::expected<String, ScriptToolError>)>
           done_callback) override {}
+
+  void CancelTool() override {}
 
   String ToolName() const override { return "test_tool"; }
   String ToolDescription() const override { return "description"; }
@@ -1503,11 +1655,11 @@ TEST_F(ModelContextMetricsTest, RecordToolCountHistogram) {
   task_environment().FastForwardBy(base::Seconds(2));
   for (int i = 2; i <= 4; i++) {
     // clang-format off
-    EvalJsString(String::Format(R"JS(document.modelContext.registerTool({
+    EvalJsString(Format(R"JS(document.modelContext.registerTool({{
       execute: () => "true",
-      name: "tool%d",
-      description: "Tool%d",
-    }))JS", i, i).Utf8());
+      name: "tool{}",
+      description: "Tool{}",
+    }}))JS", i, i).Utf8());
     // clang-format on
   }
 
@@ -1574,9 +1726,9 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_ToolChangeOnNameChange) {
 
   int mutation_count = EvalJsInteger("window.testMutations.length");
   for (int i = 0; i < mutation_count; ++i) {
-    String script = String::Format(
+    String script = Format(
         "window.toolchangeCount = 0;"
-        "var m = window.testMutations[%d];"
+        "var m = window.testMutations[{}];"
         "var el = document.getElementById(m.id);"
         "eval(m.script);",
         i);
@@ -1586,9 +1738,8 @@ TEST_F(ModelContextTest, ExecuteDeclarativeFormTool_ToolChangeOnNameChange) {
       return EvalJsInteger("window.toolchangeCount") == 2;
     })) << "Failed on mutation "
         << i << ": "
-        << EvalJsString(String::Format("window.testMutations[%d].script", i)
-                            .Utf8()
-                            .c_str());
+        << EvalJsString(
+               Format("window.testMutations[{}].script", i).Utf8().c_str());
   }
 }
 

@@ -278,6 +278,14 @@ void TestRenderFrameHost::SimulateUserActivation() {
       blink::mojom::UserActivationNotificationType::kTest);
 }
 
+void TestRenderFrameHost::SimulateFocusedElementChanged(
+    bool is_editable_element,
+    bool is_richly_editable_element) {
+  FocusedElementChanged(is_editable_element, is_richly_editable_element,
+                        gfx::Rect(), blink::mojom::FocusType::kNone,
+                        blink::DOMNodeIdType());
+}
+
 const std::vector<std::string>& TestRenderFrameHost::GetConsoleMessages() {
   return console_messages_;
 }
@@ -475,8 +483,10 @@ void TestRenderFrameHost::SendRendererInitiatedNavigationRequest(
 
   blink::mojom::BeginNavigationParamsPtr begin_params =
       blink::mojom::BeginNavigationParams::New(
-          std::nullopt /* initiator_frame_token */, std::string() /* headers */,
-          net::LOAD_NORMAL, false /* skip_service_worker */,
+          std::nullopt /* initiator_frame_token */,
+          current_initiator_state_token(), GetDocumentToken(),
+          std::string() /* headers */, net::LOAD_NORMAL,
+          false /* skip_service_worker */,
           blink::mojom::RequestContextType::HYPERLINK,
           blink::mojom::MixedContentContextType::kBlockable,
           false /* is_form_submission */,

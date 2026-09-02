@@ -127,7 +127,6 @@ MATCHER_P(IsDataEncryptedWith, key_params, "") {
   return encrypted_data.key_name() == nigori->GetKeyName();
 }
 
-
 syncer::CrossUserSharingKeys GenerateNewKeyPair() {
   syncer::CrossUserSharingKeys cross_user_sharing_keys =
       syncer::CrossUserSharingKeys::CreateEmpty();
@@ -254,8 +253,10 @@ class SingleClientNigoriSyncTest
  public:
   SingleClientNigoriSyncTest() : SyncTest(SINGLE_CLIENT) {
     if (GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly) {
-      scoped_feature_list_.InitAndEnableFeature(
-          syncer::kReplaceSyncPromosWithSignInPromos);
+      scoped_feature_list_.InitWithFeatures(
+          {syncer::kReplaceSyncPromosWithSignInPromos,
+           switches::kSyncEnableBookmarksInTransportMode},
+          {});
     } else {
       // Skip sync-to-signin migration for sync-the-feature tests. This is to
       // avoid the sync state changing between the PRE_ tests.
@@ -429,7 +430,6 @@ INSTANTIATE_TEST_SUITE_P(
     SingleClientNigoriCrossUserSharingPublicPrivateKeyPairSyncTest,
     GetSyncTestModes(),
     testing::PrintToStringParamName());
-
 
 IN_PROC_BROWSER_TEST_P(SingleClientNigoriSyncTest,
                        ShouldCommitKeystoreNigoriWhenReceivedDefault) {
@@ -1441,13 +1441,19 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriWithWebApiAndDialogUIParamTest,
   std::optional<message_center::Notification> notification =
       display_service.GetNotification(notification_id);
   ASSERT_TRUE(notification);
+  int expected_title_id =
+      GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly
+          ? IDS_SYNC_ERROR_BUBBLE_VIEW_TITLE_2
+          : IDS_SYNC_ERROR_PASSWORDS_BUBBLE_VIEW_TITLE;
+  int expected_message_id =
+      GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly
+          ? IDS_SYNC_NEEDS_KEYS_FOR_PASSWORDS_ERROR_BUBBLE_VIEW_MESSAGE_2
+          : IDS_SYNC_NEEDS_KEYS_FOR_PASSWORDS_ERROR_BUBBLE_VIEW_MESSAGE;
+
   EXPECT_THAT(notification->title(),
-              Eq(l10n_util::GetStringUTF16(
-                  IDS_SYNC_ERROR_PASSWORDS_BUBBLE_VIEW_TITLE)));
-  EXPECT_THAT(
-      notification->message(),
-      Eq(l10n_util::GetStringUTF16(
-          IDS_SYNC_NEEDS_KEYS_FOR_PASSWORDS_ERROR_BUBBLE_VIEW_MESSAGE)));
+              Eq(l10n_util::GetStringUTF16(expected_title_id)));
+  EXPECT_THAT(notification->message(),
+              Eq(l10n_util::GetStringUTF16(expected_message_id)));
 
   // Mimic the user clickling on the system notification, which opens up a
   // tab where the user can interact with the retrieval flow.
@@ -1503,13 +1509,19 @@ IN_PROC_BROWSER_TEST_P(
   std::optional<message_center::Notification> notification =
       display_service.GetNotification(notification_id);
   ASSERT_TRUE(notification);
+  int expected_title_id =
+      GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly
+          ? IDS_SYNC_ERROR_BUBBLE_VIEW_TITLE_2
+          : IDS_SYNC_NEEDS_VERIFICATION_BUBBLE_VIEW_TITLE;
+  int expected_message_id =
+      GetSetupSyncMode() == SyncTest::SetupSyncMode::kSyncTransportOnly
+          ? IDS_SYNC_RECOVERABILITY_DEGRADED_FOR_PASSWORDS_ERROR_BUBBLE_VIEW_MESSAGE_2
+          : IDS_SYNC_RECOVERABILITY_DEGRADED_FOR_PASSWORDS_ERROR_BUBBLE_VIEW_MESSAGE;
+
   EXPECT_THAT(notification->title(),
-              Eq(l10n_util::GetStringUTF16(
-                  IDS_SYNC_NEEDS_VERIFICATION_BUBBLE_VIEW_TITLE)));
-  EXPECT_THAT(
-      notification->message(),
-      Eq(l10n_util::GetStringUTF16(
-          IDS_SYNC_RECOVERABILITY_DEGRADED_FOR_PASSWORDS_ERROR_BUBBLE_VIEW_MESSAGE)));
+              Eq(l10n_util::GetStringUTF16(expected_title_id)));
+  EXPECT_THAT(notification->message(),
+              Eq(l10n_util::GetStringUTF16(expected_message_id)));
 
   // Mimic the user clickling on the system notification, which opens up a
   // tab where the user can interact with the degraded recoverability flow.
@@ -1593,7 +1605,7 @@ IN_PROC_BROWSER_TEST_P(SingleClientNigoriWithWebApiTest,
   base::RunLoop run_loop;
   static_cast<trusted_vault::StandaloneTrustedVaultClient*>(
       GetSyncTrustedVaultClient())
-      ->WaitForFlushForTesting(run_loop.QuitClosure());
+      ->WaitForIdleForTesting(run_loop.QuitClosure());
   run_loop.Run();
 }
 
@@ -1628,7 +1640,7 @@ IN_PROC_BROWSER_TEST_P(
     PRE_ShouldClearEncryptionKeysFromTheWebWhenSigninCookiesCleared) {
   // TODO(crbug.com/40276245): TrustedVaultKeysChangedStateChecker may be not
   // sufficient and redundant in this test, consider rewriting it using
-  // StandaloneTrustedVaultClient::WaitForFlushForTesting().
+  // StandaloneTrustedVaultClient::WaitForIdleForTesting().
   ASSERT_TRUE(SetupClients());
 
   // Explicitly add signin cookie (normally it would be done during the keys
@@ -1887,7 +1899,7 @@ IN_PROC_BROWSER_TEST_P(
   base::RunLoop run_loop;
   static_cast<trusted_vault::StandaloneTrustedVaultClient*>(
       GetSyncTrustedVaultClient())
-      ->WaitForFlushForTesting(run_loop.QuitClosure());
+      ->WaitForIdleForTesting(run_loop.QuitClosure());
   run_loop.Run();
 }
 

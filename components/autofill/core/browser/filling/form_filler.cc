@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -30,6 +31,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/memory/stack_allocated.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
@@ -42,7 +44,6 @@
 #include "base/types/expected.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
-#include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
@@ -314,6 +315,9 @@ DenseSet<FieldFillingSkipReason> GetIgnorableSkipReasons(
 
 // Like FillingPayload, but may carry additional data needed for filling.
 struct FormFiller::AugmentedFillingPayload {
+  STACK_ALLOCATED();
+
+ public:
   using EntityPayload = std::pair<const EntityInstance*,
                                   std::vector<AutofillFieldWithAttributeType>>;
   using Variant = std::variant<const AutofillProfile*,
@@ -825,7 +829,7 @@ void FormFiller::UndoAutofill(mojom::ActionPersistence action_persistence,
   manager_->driver().ApplyFormAction(
       mojom::FormActionType::kUndo, action_persistence, result_fields,
       FillId::Create(), /*supports_refill=*/false, url::Origin(),
-      /*field_type_map=*/{}, /*section_for_clear_form_on_ios=*/Section());
+      /*field_type_map=*/{});
 }
 
 void FormFiller::FillOrPreviewField(mojom::ActionPersistence action_persistence,
@@ -905,7 +909,8 @@ void FormFiller::FillOrPreviewForm(
       });
   absl::flat_hash_map<FieldGlobalId, FieldType> filled_field_types;
 
-  for (auto [result_field, field] : base::zip(result_fields, form.fields())) {
+  for (auto [result_field, field] :
+       std::views::zip(result_fields, form.fields())) {
     if (!skip_reasons[field->global_id()].empty()) {
       continue;
     }
@@ -934,10 +939,8 @@ void FormFiller::FillOrPreviewForm(
   base::flat_set<FieldGlobalId> safe_filled_field_ids =
       manager_->driver().ApplyFormAction(
           mojom::FormActionType::kFill, action_persistence, result_fields,
-          fill_id,
-          /*supports_refill=*/may_refill_in_future, trigger_field.origin(),
-          filled_field_types,
-          /*section_for_clear_form_on_ios=*/trigger_field.section());
+          fill_id, /*supports_refill=*/may_refill_in_future,
+          trigger_field.origin(), filled_field_types);
 
   // This will hold the cached version of `result_fields`.
   std::vector<const AutofillField*> safe_filled_fields =

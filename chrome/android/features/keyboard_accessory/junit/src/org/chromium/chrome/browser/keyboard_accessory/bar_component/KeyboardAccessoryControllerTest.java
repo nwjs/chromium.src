@@ -133,6 +133,7 @@ public class KeyboardAccessoryControllerTest {
     @Mock private PersonalDataManager mMockPersonalDataManager;
     @Mock private EntityDataManager mMockEntityDataManager;
     @Mock private EdgeToEdgeController mEdgeToEdgeController;
+    @Mock private KeyboardAccessoryCoordinator.AtMemoryDelegate mMockAtMemoryDelegate;
     @Mock private InsetObserver mInsetObserver;
     @Mock private FillingProductBridgeJni mMockFillingProductBridgeJni;
     @Mock private Supplier<Boolean> mMockIsLargeFormFactorSupplier;
@@ -174,6 +175,7 @@ public class KeyboardAccessoryControllerTest {
                         SuggestionType.FILL_AUTOFILL_AI))
                 .thenReturn(FillingProduct.AUTOFILL_AI);
 
+        when(mMockButtonGroup.getAtMemoryDelegate()).thenReturn(mMockAtMemoryDelegate);
         mCoordinator =
                 new KeyboardAccessoryCoordinator(
                         ApplicationProvider.getApplicationContext(),
@@ -194,7 +196,7 @@ public class KeyboardAccessoryControllerTest {
     @Test
     public void testSetsAtMemoryCallback() {
         mCoordinator.setAtMemoryCallback(mMockAtMemoryCallback);
-        verify(mMockButtonGroup).setAtMemoryCallback(mMockAtMemoryCallback);
+        verify(mMockAtMemoryDelegate).setAtMemoryCallback(mMockAtMemoryCallback);
     }
 
     @Test
@@ -436,7 +438,7 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testSuggestionSelectionUpdatesViewState() {
+    public void testSuggestionAcceptanceUpdatesViewState() {
         when(mMockIsLargeFormFactorSupplier.get()).thenReturn(false);
 
         AutofillSuggestion suggestion1 =
@@ -466,11 +468,30 @@ public class KeyboardAccessoryControllerTest {
         // Simulate a click on the first suggestion.
         barItems.get(0).getAction().getCallback().onResult(barItems.get(0).getAction());
 
-        verify(mMockAutofillDelegate).suggestionSelected(0, true);
+        verify(mMockAutofillDelegate).suggestionAccepted(0, true);
 
         barItems = flattenItemGroups();
         assertThat(barItems.get(0).getViewState(), is(ActionBarItem.ViewState.LOADING));
         assertThat(barItems.get(1).getViewState(), is(ActionBarItem.ViewState.DEACTIVATED));
+    }
+
+    @Test
+    public void testSuggestionSelectionUsesOriginalIndex() {
+        AutofillSuggestion suggestion =
+                new AutofillSuggestion.Builder()
+                        .setLabel("Password Suggestion")
+                        .setSubLabel("")
+                        .setSuggestionType(SuggestionType.PASSWORD_ENTRY)
+                        .setOriginalIndex(5)
+                        .build();
+
+        mCoordinator.setSuggestions(List.of(suggestion), mMockAutofillDelegate);
+
+        List<ActionBarItem> barItems = flattenItemGroups();
+        barItems.get(0).getAction().getCallback().onResult(barItems.get(0).getAction());
+
+        // Verify that suggestionAccepted was called with originalIndex 5 instead of loop index 0.
+        verify(mMockAutofillDelegate).suggestionAccepted(5, false);
     }
 
     private void verifyLongPressOnPersonalContextSuggestionOpensSettings(
@@ -592,7 +613,7 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testSuggestionSelectionWithoutLoadingKeepsViewStateEnabled() {
+    public void testSuggestionAcceptanceWithoutLoadingKeepsViewStateEnabled() {
         when(mMockIsLargeFormFactorSupplier.get()).thenReturn(false);
 
         AutofillSuggestion suggestion1 =
@@ -622,7 +643,7 @@ public class KeyboardAccessoryControllerTest {
         // Simulate a click on the first suggestion, which does not require loading.
         barItems.get(0).getAction().getCallback().onResult(barItems.get(0).getAction());
 
-        verify(mMockAutofillDelegate).suggestionSelected(0, false);
+        verify(mMockAutofillDelegate).suggestionAccepted(0, false);
 
         // The ViewState should remain ENABLED because showLoadingUIOnSuggestion is not called.
         barItems = flattenItemGroups();
@@ -631,7 +652,7 @@ public class KeyboardAccessoryControllerTest {
     }
 
     @Test
-    public void testSuggestionSelectionUpdatesSheetOpenerViewState() {
+    public void testSuggestionAcceptanceUpdatesSheetOpenerViewState() {
         when(mMockIsLargeFormFactorSupplier.get()).thenReturn(false);
 
         AutofillSuggestion suggestion1 =

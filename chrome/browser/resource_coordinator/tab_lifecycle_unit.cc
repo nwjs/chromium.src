@@ -311,17 +311,14 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
 
   AttemptFastKillForDiscard(old_contents, discard_reason);
 
-  // Replace the discarded tab with the null version.
-  const int index = tab_strip_model_->GetIndexOfWebContents(old_contents);
-  DCHECK_NE(index, TabStripModel::kNoTab);
-
   // This ensures that on reload after discard, the document has
   // "WasDiscarded" set to true.
   // The "WasDiscarded" state is also sent to tab_strip_model.
   null_contents->SetWasDiscarded(true);
 
   std::unique_ptr<content::WebContents> old_contents_deleter =
-      tab_strip_model_->DiscardWebContentsAt(index, std::move(null_contents));
+      tab_strip_model_->DiscardWebContents(old_contents,
+                                           std::move(null_contents));
   DCHECK_EQ(web_contents(), raw_null_contents);
 
   // Discard the old tab's renderer.
@@ -335,9 +332,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::FinishDiscard(
   DCHECK_EQ(GetLoadingState(), LifecycleUnitLoadingState::UNLOADED);
 
   web_contents()->NotifyWasDiscarded();
-  tab_strip_model_->UpdateWebContentsStateAt(
-      tab_strip_model_->GetIndexOfWebContents(web_contents()),
-      TabChangeType::kAll);
+  tab_strip_model_->UpdateWebContentsState(web_contents(), TabChangeType::kAll);
 }
 
 void TabLifecycleUnitSource::TabLifecycleUnit::
@@ -356,9 +351,7 @@ void TabLifecycleUnitSource::TabLifecycleUnit::
                                 NowTicks() - start_time);
       },
       discard_start_time));
-  tab_strip_model_->UpdateWebContentsStateAt(
-      tab_strip_model_->GetIndexOfWebContents(web_contents()),
-      TabChangeType::kAll);
+  tab_strip_model_->UpdateWebContentsState(web_contents(), TabChangeType::kAll);
 
   is_discarded_ = true;
   RecomputeLifecycleUnitState();

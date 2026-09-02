@@ -47,8 +47,10 @@
 #import "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
+#import "components/personal_context/core/personal_context_eligibility_service.h"
 #import "components/personal_context/first_run/personal_context_first_run_service.h"
 #import "components/security_state/ios/security_state_utils.h"
+#import "components/subscription_eligibility/subscription_eligibility_service.h"
 #import "components/sync/service/sync_service.h"
 #import "components/translate/core/browser/translate_manager.h"
 #import "components/ukm/ios/ukm_url_recorder.h"
@@ -86,6 +88,7 @@
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/passwords/model/ios_password_field_classification_model_handler_factory.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
+#import "ios/chrome/browser/personal_context/model/ios_personal_context_eligibility_service_factory.h"
 #import "ios/chrome/browser/personal_context/model/ios_personal_context_first_run_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
@@ -93,6 +96,7 @@
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/subscription_eligibility/model/subscription_eligibility_service_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
 #import "ios/chrome/browser/webdata_services/model/web_data_service_factory.h"
@@ -116,8 +120,8 @@ ChromeAutofillClientIOS::ChromeAutofillClientIOS(
     : AutofillClientIOS(web_state, bridge),
       pref_service_(profile->GetPrefs()),
       sync_service_(SyncServiceFactory::GetForProfile(profile)),
-      personal_data_manager_(PersonalDataManagerFactory::GetForProfile(
-          profile->GetOriginalProfile())),
+      personal_data_manager_(
+          PersonalDataManagerFactory::GetForProfile(profile)),
       autocomplete_history_manager_(
           AutocompleteHistoryManagerFactory::GetForProfile(profile)),
       profile_(profile),
@@ -250,14 +254,14 @@ SingleFieldFillRouter& ChromeAutofillClientIOS::GetSingleFieldFillRouter() {
   return single_field_fill_router_;
 }
 
+personal_context::PersonalContextFirstRunService*
+ChromeAutofillClientIOS::GetPersonalContextFirstRunService() {
+  return IOSPersonalContextFirstRunServiceFactory::GetForProfile(profile_);
+}
+
 AutocompleteHistoryManager*
 ChromeAutofillClientIOS::GetAutocompleteHistoryManager() {
   return autocomplete_history_manager_;
-}
-
-autofill::AtMemoryQueryService*
-ChromeAutofillClientIOS::GetAtMemoryQueryService() {
-  return IOSAtMemoryQueryServiceFactory::GetForProfile(profile_);
 }
 
 void ChromeAutofillClientIOS::GetAiPageContent(
@@ -315,6 +319,25 @@ AutofillAiModelExecutor* ChromeAutofillClientIOS::GetAutofillAiModelExecutor() {
 optimization_guide::RemoteModelExecutor*
 ChromeAutofillClientIOS::GetRemoteModelExecutor() {
   return OptimizationGuideServiceFactory::GetForProfile(profile_);
+}
+
+autofill::AtMemoryQueryService*
+ChromeAutofillClientIOS::GetAtMemoryQueryService() {
+  return IOSAtMemoryQueryServiceFactory::GetForProfile(profile_);
+}
+
+personal_context::PersonalContextEligibilityState
+ChromeAutofillClientIOS::GetPersonalContextEligibilityState() const {
+  personal_context::PersonalContextEligibilityService* service =
+      GetPersonalContextEligibilityService();
+  return service ? service->GetEligibilityState()
+                 : personal_context::PersonalContextEligibilityState::
+                       kDisabledNotEligible;
+}
+
+personal_context::PersonalContextEligibilityService*
+ChromeAutofillClientIOS::GetPersonalContextEligibilityService() const {
+  return IOSPersonalContextEligibilityServiceFactory::GetForProfile(profile_);
 }
 
 PrefService* ChromeAutofillClientIOS::GetPrefs() {
@@ -413,6 +436,11 @@ GeoIpCountryCode ChromeAutofillClientIOS::GetVariationConfigCountryCode()
   return GeoIpCountryCode(GetCountryCodeFromVariations());
 }
 
+const subscription_eligibility::SubscriptionEligibilityService*
+ChromeAutofillClientIOS::GetSubscriptionEligibilityService() const {
+  return SubscriptionEligibilityServiceFactory::GetForProfile(profile_);
+}
+
 void ChromeAutofillClientIOS::ShowAutofillSettings(
     SuggestionType suggestion_type) {
   NOTREACHED();
@@ -465,27 +493,6 @@ ChromeAutofillClientIOS::ShowAutofillSuggestions(
     base::WeakPtr<AutofillSuggestionDelegate> delegate) {
   active_suggestion_delegate_ = std::move(delegate);
 
-  // TODO(crbug.com/538597989): This manual suggestions-based notice triggering
-  // check is a temporary workaround. Replace it with the shared
-  // cross-platform logic once verified.
-  bool has_autofill_ai_suggestion = std::ranges::any_of(
-      open_args.suggestions, [](const Suggestion& suggestion) {
-        return suggestion.type == SuggestionType::kFillAutofillAi;
-      });
-
-  if (has_autofill_ai_suggestion) {
-    PrefService* prefs = GetPrefs();
-    bool should_show_notice =
-        prefs
-            ->GetTime(
-                autofill::prefs::
-                    kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp)
-            .is_null();
-    if (should_show_notice &&
-        base::FeatureList::IsEnabled(features::kAutofillAiUsePrivateAi)) {
-      ShowAutofillAiPrivateInferenceNotice();
-    }
-  }
 
   [bridge_ showAutofillPopup:open_args.suggestions
           suggestionDelegate:active_suggestion_delegate_];
@@ -510,7 +517,7 @@ void ChromeAutofillClientIOS::HideSuggestions(
   active_suggestion_delegate_.reset();
   [bridge_ hideAutofillPopup];
   if (reason == SuggestionHidingReason::kAcceptSuggestion) {
-    [commands_handler_ resetAutofillSuggestionsLoadingStates];
+    [commands_handler_ legacyResetAutofillSuggestionsLoadingStates];
   }
 }
 
@@ -796,7 +803,7 @@ void ChromeAutofillClientIOS::ShowAutofillAiPrivateInferenceNotice() {
   }
 
   GetPrefs()->SetTime(
-      autofill::prefs::kAutofillAiPrivateInferenceNoticeFirstShownTimestamp,
+      autofill::prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp,
       base::Time::Now());
 
   auto delegate =
@@ -830,22 +837,6 @@ void ChromeAutofillClientIOS::ShowAutofillAiSaveUpdateUI() {
 
   SaveEntityParams params = delegate->ExtractParams();
   [commands_handler_ showSaveEntityDialog:std::move(params)];
-}
-
-bool ChromeAutofillClientIOS::ShouldShowPersonalContextAmbientAutofillNotice()
-    const {
-  personal_context::PersonalContextFirstRunService* service =
-      IOSPersonalContextFirstRunServiceFactory::GetForProfile(profile_);
-  return service && service->ShouldShowPersonalContextAmbientAutofillNotice();
-}
-
-void ChromeAutofillClientIOS::
-    MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() {
-  personal_context::PersonalContextFirstRunService* service =
-      IOSPersonalContextFirstRunServiceFactory::GetForProfile(profile_);
-  if (service) {
-    service->MarkPersonalContextAmbientAutofillNoticeAsAcknowledged();
-  }
 }
 
 }  // namespace autofill

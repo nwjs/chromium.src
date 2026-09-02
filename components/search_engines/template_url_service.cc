@@ -227,7 +227,10 @@ TemplateURLData MergeEnterpriseSearchEngines(TemplateURLData existing_data,
   merged_data.suggestions_url = new_values.suggestions_url();
   merged_data.featured_by_policy = new_values.featured_by_policy();
   if (existing_data.policy_origin ==
-      TemplateURLData::PolicyOrigin::kSearchAggregator) {
+          TemplateURLData::PolicyOrigin::kSearchAggregator ||
+      (existing_data.policy_origin ==
+           TemplateURLData::PolicyOrigin::kSiteSearch &&
+       existing_data.url() != new_values.url())) {
     merged_data.favicon_url = new_values.favicon_url();
   }
   merged_data.enforced_by_policy = new_values.enforced_by_policy();
@@ -1619,6 +1622,33 @@ void TemplateURLService::RepairStarterPackEngines() {
            actions.added_engines.begin();
        i < actions.added_engines.end(); ++i) {
     Add(std::make_unique<TemplateURL>(*i));
+  }
+}
+
+void TemplateURLService::RemoveUserAddedTemplateURLs() {
+  DCHECK(loaded());
+
+  Scoper scoper(this);
+
+  const TemplateURL* default_provider = GetDefaultSearchProvider();
+
+  std::vector<const TemplateURL*> to_remove;
+  for (const auto& turl : template_urls_) {
+    if (turl.get() == default_provider) {
+      continue;
+    }
+    if (turl->prepopulate_id() == 0 &&
+        turl->starter_pack_id() ==
+            template_url_starter_pack_data::StarterPackId::kNone &&
+        turl->policy_origin() == TemplateURLData::PolicyOrigin::kNoPolicy &&
+        turl->type() != TemplateURL::Type::OMNIBOX_API_EXTENSION &&
+        turl->type() != TemplateURL::Type::NORMAL_CONTROLLED_BY_EXTENSION) {
+      to_remove.push_back(turl.get());
+    }
+  }
+
+  for (const auto* turl : to_remove) {
+    Remove(turl);
   }
 }
 

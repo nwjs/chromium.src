@@ -203,7 +203,6 @@ BASE_FEATURE(kNtpOutlookCalendarModule,
 BASE_FEATURE(kNtpScaledActionChips, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, scaled merchandising action chips will be in a smaller format.
-// Requires #ntp-scaled-action-chips to be enabled too.
 BASE_FEATURE(kNtpScaledActionChipsSmall, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, sharepoint module will be shown.
@@ -217,6 +216,9 @@ BASE_FEATURE(kNtpSharepointModule,
 // If enabled, shortcuts will be shown.
 // This is a kill switch. Keep indefinitely.
 BASE_FEATURE(kNtpShortcuts, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, high-DPI favicons are fetched for Most Visited tiles.
+BASE_FEATURE(kNtpMostVisitedHighDpiFavicons, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, the Tab Resumption module will be shown.
 BASE_FEATURE(kNtpMostRelevantTabResumptionModule,
@@ -435,6 +437,14 @@ const base::FeatureParam<int> kNtpMaxSmallChips(
     &ntp_features::kNtpScaledActionChipsSmall,
     "kNtpMaxSmallChips",
     6);
+const base::FeatureParam<bool> kNtpScaledActionChipsSmallInTestMode(
+    &ntp_features::kNtpScaledActionChipsSmall,
+    "kNtpScaledActionChipsSmallInTestMode",
+    false);
+const base::FeatureParam<bool> kNtpScaledActionChipsShowFallback(
+    &ntp_features::kNtpScaledActionChips,
+    "kNtpScaledActionChipsShowFallback",
+    false);
 
 const base::FeatureParam<int> kNtpCustomizeChromeAutoShownMaxCount(
     &ntp_features::kNtpCustomizeChromeAutoOpen,

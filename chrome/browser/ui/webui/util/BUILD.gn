@@ -32,6 +32,7 @@ source_set("impl") {
   deps = [
     ":util",
     "//base",
+    "//chrome/browser/picture_in_picture",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
@@ -52,4 +53,15 @@ source_set("impl") {
       "//ui/webui/resources:code_cache_resources",
     ]
   }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "webui_util_desktop_unittest.cc" ]
+  deps = [
+    ":impl",
+    ":util",
+    "//testing/gtest",
+    "//ui/base",
+  ]
 }

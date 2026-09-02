@@ -39,6 +39,7 @@ enum WrappablePointerTag : uint16_t {
   kGamepadControllerBindings,        // content::GameControllerBindings
   kGCController,                     // content::GCController
   kGinJavaBridgeObject,              // content::GinJavaBridgeObject
+  kGinPerContextData,                // gin::PerContextData
   kGinPort,                          // extensions::GinPort
   kGpuBenchmarking,                  // content::GpuBenchmarking
   kIndigoContext,                    // indigo::IndigoContext
@@ -63,6 +64,7 @@ enum WrappablePointerTag : uint16_t {
   kPostMessageScriptableObject,  // extensions::(anonymous)::ScriptableObject
   kReadAnythingAppController,    // ReadAnythingAppController
   kRemoteObject,                 // blink::RemoteObject
+  kScriptState,                  // blink::ScriptState
   kSearchBoxBindings,            // SearchBoxBindings
   kSecurityInterstitialPageController,  // SecurityInterstitialPageController
   kSessionStorageArea,                  // extensions::SessionStorageArea

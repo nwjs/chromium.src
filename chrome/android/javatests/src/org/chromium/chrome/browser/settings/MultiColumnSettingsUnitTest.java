@@ -20,6 +20,7 @@ import android.util.TypedValue;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
+import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
@@ -33,6 +34,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
 import org.chromium.base.FeatureOverrides;
+import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
@@ -61,7 +63,6 @@ import org.chromium.components.sync.SyncService;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -81,8 +82,8 @@ public class MultiColumnSettingsUnitTest {
                     new ParameterSet().value(true).name("IdentityManagerSource"));
 
     @Rule
-    public SettingsActivityTestRule<MainSettings> mSettingsActivityTestRule =
-            new SettingsActivityTestRule<>(MainSettings.class);
+    public SettingsTestRule<MainSettings> mSettingsTestRule =
+            new SettingsTestRule<>(MainSettings.class);
 
     @Rule
     public BaseActivityTestRule<BlankUiTestActivity> mBlankUiActivityTestRule =
@@ -90,8 +91,8 @@ public class MultiColumnSettingsUnitTest {
 
     @After
     public void tearDown() {
-        if (mSettingsActivityTestRule.getActivity() != null) {
-            mSettingsActivityTestRule.getActivity().finish();
+        if (mSettingsTestRule.getActivity() != null) {
+            mSettingsTestRule.getActivity().finish();
         }
         if (mBlankUiActivityTestRule.getActivity() != null) {
             mBlankUiActivityTestRule.getActivity().finish();
@@ -173,7 +174,7 @@ public class MultiColumnSettingsUnitTest {
     @SmallTest
     @UiThreadTest
     public void testFragmentTracker() {
-        List<MultiColumnSettings.Observer> observers = new ArrayList<>();
+        ObserverList<MultiColumnSettings.Observer> observers = new ObserverList<>();
         var fragmentManager = new TestFragmentManager();
 
         var fragmentTracker = new MultiColumnSettings.FragmentTracker(observers);
@@ -273,10 +274,8 @@ public class MultiColumnSettingsUnitTest {
         ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
     })
     public void testSinglePane() {
-        startSettings();
-
-        SettingsActivity activity = mSettingsActivityTestRule.getActivity();
-        MultiColumnSettings settings = activity.getMultiColumnSettings();
+        SettingsActivityInterface activity = startSettings();
+        MultiColumnSettings settings = (MultiColumnSettings) activity.getMultiColumnSettings();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -297,9 +296,7 @@ public class MultiColumnSettingsUnitTest {
         ChromeFeatureList.YOUR_SAVED_INFO_SETTINGS_PAGE_ANDROID
     })
     public void testTwoPane() {
-        startSettings();
-
-        SettingsActivity activity = mSettingsActivityTestRule.getActivity();
+        SettingsActivityInterface activity = startSettings();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -308,7 +305,7 @@ public class MultiColumnSettingsUnitTest {
 
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
 
-        MultiColumnSettings settings = activity.getMultiColumnSettings();
+        MultiColumnSettings settings = (MultiColumnSettings) activity.getMultiColumnSettings();
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -334,13 +331,34 @@ public class MultiColumnSettingsUnitTest {
         @Override
         public void onCreatePreferences(
                 @Nullable Bundle savedInstanceState, @Nullable String rootKey) {
-            setPreferenceScreen(getPreferenceManager().createPreferenceScreen(requireContext()));
+            // Populate screen with a placeholder preference header targeting TestFragment.
+            // PreferenceHeaderFragmentCompat.onCreateInitialDetailFragment() inspects category 0
+            // in this screen to determine and instantiate the default detail pane fragment.
+            var screen = getPreferenceManager().createPreferenceScreen(requireContext());
+            var pref = new Preference(requireContext());
+            pref.setFragment(TestFragment.class.getName());
+            screen.addPreference(pref);
+            setPreferenceScreen(screen);
         }
     }
 
     public static class TestMultiColumnSettings extends MultiColumnSettings {
         private final MainSettings mMainSettings = new TestMainSettings();
         private Fragment mInitialDetailFragment;
+        private boolean mInitialDetailFragmentCreated;
+        private @Nullable Boolean mIsTwoColumnForTesting;
+
+        void setIsTwoColumnForTesting(@Nullable Boolean isTwoColumn) {
+            mIsTwoColumnForTesting = isTwoColumn;
+        }
+
+        @Override
+        boolean isTwoColumn() {
+            if (mIsTwoColumnForTesting != null) {
+                return mIsTwoColumnForTesting;
+            }
+            return super.isTwoColumn();
+        }
 
         @Override
         public PreferenceFragmentCompat onCreatePreferenceHeader() {
@@ -349,8 +367,10 @@ public class MultiColumnSettingsUnitTest {
 
         @Override
         public Fragment onCreateInitialDetailFragment() {
-            if (mInitialDetailFragment == null) {
+            if (!mInitialDetailFragmentCreated) {
+                // Note that this may legitimately return null.
                 mInitialDetailFragment = super.onCreateInitialDetailFragment();
+                mInitialDetailFragmentCreated = true;
             }
             return mInitialDetailFragment;
         }
@@ -471,7 +491,57 @@ public class MultiColumnSettingsUnitTest {
                 });
     }
 
-    private void startSettings() {
-        mSettingsActivityTestRule.startSettingsActivity();
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testOnCreateInitialDetailFragment_SettingsInTab_TwoColumnMode() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TestMultiColumnSettings settings = new TestMultiColumnSettings();
+                    settings.setIsTwoColumnForTesting(true);
+
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    assertNotNull(
+                            "In two-column mode, onCreateInitialDetailFragment should return"
+                                    + " default detail fragment",
+                            settings.onCreateInitialDetailFragment());
+                });
+    }
+
+    @Test
+    @SmallTest
+    @Restriction({DeviceFormFactor.TABLET_OR_DESKTOP})
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testOnCreateInitialDetailFragment_SettingsInTab_SingleColumnMode() {
+        mBlankUiActivityTestRule.launchActivity(null);
+        BlankUiTestActivity activity = mBlankUiActivityTestRule.getActivity();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    TestMultiColumnSettings settings = new TestMultiColumnSettings();
+                    settings.setIsTwoColumnForTesting(false);
+
+                    activity.getSupportFragmentManager()
+                            .beginTransaction()
+                            .add(android.R.id.content, settings)
+                            .commitNow();
+
+                    assertNull(
+                            "In single-column mode, onCreateInitialDetailFragment should return"
+                                    + " null",
+                            settings.onCreateInitialDetailFragment());
+                });
+    }
+
+    private SettingsActivityInterface startSettings() {
+        return mSettingsTestRule.startSettingsActivity();
     }
 }

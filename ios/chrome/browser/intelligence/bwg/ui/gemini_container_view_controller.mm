@@ -43,15 +43,24 @@
     self.view.keyboardLayoutGuide.usesBottomSafeArea = NO;
 
     // Anchor on top of the keyboard.
-    AddSameConstraintsToSides(
-        _geminiViewController.view, self.view,
-        LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(_geminiViewController.view, self.view,
+                              LayoutSides::kTop | LayoutSides::kHorizontal);
     [NSLayoutConstraint activateConstraints:@[
       [_geminiViewController.view.bottomAnchor
           constraintEqualToAnchor:self.view.keyboardLayoutGuide.topAnchor]
     ]];
     [_geminiViewController didMoveToParentViewController:self];
   }
+}
+
+#pragma mark - GeminiContainerConsumer
+
+- (void)setZeroState:(BOOL)zeroState {
+  // Hide/unhide UI elements based on the state requested by the mediator.
+}
+
+- (void)dismissKeyboard {
+  [self.view endEditing:YES];
 }
 
 #pragma mark - Private

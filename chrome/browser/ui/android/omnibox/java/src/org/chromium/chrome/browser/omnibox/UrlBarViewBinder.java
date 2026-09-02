@@ -40,8 +40,6 @@ class UrlBarViewBinder {
             view.setCustomSelectionActionModeCallback(callback);
         } else if (UrlBarProperties.ALLOW_FOCUS.equals(propertyKey)) {
             view.setAllowFocus(model.get(UrlBarProperties.ALLOW_FOCUS));
-        } else if (UrlBarProperties.ALLOW_MULTILINE_INPUT.equals(propertyKey)) {
-            view.setAllowMultilineInput(model.get(UrlBarProperties.ALLOW_MULTILINE_INPUT));
         } else if (UrlBarProperties.AUTOCOMPLETE_TEXT.equals(propertyKey)) {
             AutocompleteText autocomplete = model.get(UrlBarProperties.AUTOCOMPLETE_TEXT);
             boolean shouldAutocomplete = view.shouldAutocomplete();
@@ -175,7 +173,7 @@ class UrlBarViewBinder {
         final Drawable textSelectHandleLeft = assumeNonNull(view.getTextSelectHandleLeft());
         final Drawable textSelectHandleRight = assumeNonNull(view.getTextSelectHandleRight());
 
-        final int color =
+        final @ColorInt int color =
                 useIncognitoColors
                         ? view.getContext().getColor(R.color.default_control_color_active_dark)
                         : MaterialColors.getColor(view, R.attr.colorPrimary);

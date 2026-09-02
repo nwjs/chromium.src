@@ -809,9 +809,11 @@ void View::RemoveLayerFromRegions(ui::Layer* old_layer) {
   RemoveLayerFromRegionsKeepInLayerTree(old_layer);
 
   // Note that |old_layer| may have already been removed from its parent.
-  ui::Layer* parent_layer = layer()->parent();
-  if (parent_layer && parent_layer == old_layer->parent()) {
-    parent_layer->Remove(old_layer);
+  if (layer()) {
+    ui::Layer* parent_layer = layer()->parent();
+    if (parent_layer && parent_layer == old_layer->parent()) {
+      parent_layer->Remove(old_layer);
+    }
   }
 
   CreateOrDestroyLayer();
@@ -829,9 +831,8 @@ void View::RemoveLayerFromRegionsKeepInLayerTree(ui::Layer* old_layer) {
         old_layer->RemoveObserver(this);
         return true;
       };
-  const bool layer_removed =
-      remove_layer(layers_below_) || remove_layer(layers_above_);
-  DCHECK(layer_removed) << "Attempted to remove a layer that was never added.";
+  remove_layer(layers_below_);
+  remove_layer(layers_above_);
 }
 
 std::vector<ui::Layer*> View::GetLayersInOrder(ViewLayer view_layer) {
@@ -2979,19 +2980,33 @@ void View::HandlePropertyChangeEffects(PropertyEffects effects) {
 }
 
 void View::AfterPropertyChange(const void* key, int64_t old_value) {
-  if (key == kElementIdentifierKey) {
-    const ui::ElementIdentifier old_element_id =
-        ui::ElementIdentifier::FromRawValue(
-            base::checked_cast<intptr_t>(old_value));
-    if (old_element_id) {
-      views::ElementTrackerViews::GetInstance()->UnregisterView(old_element_id,
+  if (life_cycle_state_ == LifeCycleState::kAlive) {
+    // Only care about changes to identifiers while the view is alive; when the
+    // view is being destroyed it will naturally be removed from the tracker.
+    if (key == kElementIdentifierKey) {
+      const ui::ElementIdentifier old_element_id =
+          ui::ElementIdentifier::FromRawValue(
+              base::checked_cast<intptr_t>(old_value));
+      if (old_element_id) {
+        views::ElementTrackerViews::GetInstance()->UnregisterView(
+            old_element_id, this);
+      }
+      const ui::ElementIdentifier new_element_id =
+          GetProperty(kElementIdentifierKey);
+      if (new_element_id) {
+        views::ElementTrackerViews::GetInstance()->RegisterView(new_element_id,
                                                                 this);
-    }
-    const ui::ElementIdentifier new_element_id =
-        GetProperty(kElementIdentifierKey);
-    if (new_element_id) {
-      views::ElementTrackerViews::GetInstance()->RegisterView(new_element_id,
-                                                              this);
+      }
+    } else if (key == kElementSecondaryIdentifierKey) {
+      const auto primary_id = GetProperty(kElementIdentifierKey);
+      if (primary_id) {
+        // Since for a tracked element the ids are immutable, need to recreate
+        // it.
+        views::ElementTrackerViews::GetInstance()->UnregisterView(primary_id,
+                                                                  this);
+        views::ElementTrackerViews::GetInstance()->RegisterView(primary_id,
+                                                                this);
+      }
     }
   }
   observers_.Notify(&ViewObserver::OnViewPropertyChanged, this, key, old_value);

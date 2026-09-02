@@ -78,11 +78,12 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   bool IsSubscript() const;
   bool IsSuperscript() const;
   bool IsTableHeader() const;
-  bool IsTextSelectable() const;
 
-  // Returns true if this node acts as a selection boundary that blocks
-  // selections from crossing into or out of its sub-hierarchy.
-  bool IsSelectionContextBoundary() const;
+  // This property tells Android if the node can be selected using text offsets.
+  // In Blink, WebAXObject::SetSelection() treats offsets as text offsets only
+  // when the target node is a text object (IsTextObject()) or an atomic text
+  // field (IsAtomicTextField()), otherwise it treats them as child indices.
+  bool IsTextSelectable() const;
   bool IsVisibleToUser() const;
   bool ShouldUsePaneTitle() const;
 
@@ -137,6 +138,12 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   // tree tests as "name" in the ...-android.txt files, but as "text" in the
   // ...-android-external.txt files. On other platforms this may be ::GetName().
   std::u16string GetTextContentUTF16() const override;
+
+  // Returns true if this node or its subtree has text content.
+  // Fast because passing min_length=1 allows GetSubstringTextContentUTF16 to
+  // short-circuit as soon as the first character of text is found, avoiding
+  // full subtree traversal and string allocations.
+  bool HasTextContent() const;
   std::u16string GetValueForControl() const override;
   int GetTextContentLengthUTF16() const override;
 
@@ -196,7 +203,7 @@ class CONTENT_EXPORT BrowserAccessibilityAndroid
   std::u16string GetComboboxExpandedTextFallback() const;
 
   std::u16string GetMultiselectableStateDescription() const;
-  std::u16string GetToggleStateDescription() const;
+  std::u16string GetSwitchStateDescription() const;
   std::u16string GetCheckboxStateDescription() const;
   std::u16string GetAriaCurrentStateDescription() const;
   std::u16string GetRadioButtonStateDescription() const;

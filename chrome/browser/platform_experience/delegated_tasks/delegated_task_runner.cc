@@ -7,6 +7,7 @@
 #include <windows.h>
 
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "base/check.h"
@@ -15,8 +16,10 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/process/launch.h"
 #include "base/process/process.h"
+#include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -62,12 +65,19 @@ DelegatedTaskRunner::~DelegatedTaskRunner() {
 }
 
 void DelegatedTaskRunner::Run(std::unique_ptr<DelegatedTask> task,
+                              std::string_view min_version,
                               DelegatedTaskCompletionCallback callback) {
   CHECK(task_start_time_.is_null());
 
   task_ = std::move(task);
   task_start_time_ = base::TimeTicks::Now();
   completion_callback_ = std::move(callback);
+  min_version_ = base::Version(min_version);
+  if (!min_version_.IsValid()) {
+    CleanupAndReturnResult(
+        base::unexpected(DelegatedTaskStatus::kUnsupportedVersion));
+    return;
+  }
 
   // Start the timeout timer from task initialization so the timeout duration
   // and recorded `execution_time` track the same time slice from task start.
@@ -78,7 +88,6 @@ void DelegatedTaskRunner::Run(std::unique_ptr<DelegatedTask> task,
                      base::unexpected(DelegatedTaskStatus::kTaskTimeout)),
       task_->GetTimeout());
 
-  // TODO(b/525018453): Verify the binary after fetching the path.
   peh_launcher_.AsyncCall(&PehLauncher::GetBinaryPath)
       .Then(base::BindOnce(&DelegatedTaskRunner::OnBinaryPathRetrieved,
                            weak_factory_.GetWeakPtr()));
@@ -88,6 +97,36 @@ void DelegatedTaskRunner::OnBinaryPathRetrieved(
     const base::FilePath& peh_binary_path) {
   if (peh_binary_path.empty()) {
     CleanupAndReturnResult(base::unexpected(DelegatedTaskStatus::kPehNotFound));
+    return;
+  }
+
+  peh_launcher_.AsyncCall(&PehLauncher::IsBinaryVerified)
+      .WithArgs(peh_binary_path)
+      .Then(base::BindOnce(&DelegatedTaskRunner::OnBinaryVerificationComplete,
+                           weak_factory_.GetWeakPtr(), peh_binary_path));
+}
+
+void DelegatedTaskRunner::OnBinaryVerificationComplete(
+    const base::FilePath& peh_binary_path,
+    bool is_verified) {
+  if (!is_verified) {
+    CleanupAndReturnResult(
+        base::unexpected(DelegatedTaskStatus::kPehValidationFailure));
+    return;
+  }
+
+  peh_launcher_.AsyncCall(&PehLauncher::GetBinaryVersion)
+      .WithArgs(peh_binary_path)
+      .Then(base::BindOnce(&DelegatedTaskRunner::OnBinaryVersionRetrieved,
+                           weak_factory_.GetWeakPtr(), peh_binary_path));
+}
+
+void DelegatedTaskRunner::OnBinaryVersionRetrieved(
+    const base::FilePath& peh_binary_path,
+    const base::Version& version) {
+  if (!version.IsValid() || version < min_version_) {
+    CleanupAndReturnResult(
+        base::unexpected(DelegatedTaskStatus::kUnsupportedVersion));
     return;
   }
 
@@ -158,15 +197,32 @@ void DelegatedTaskRunner::CleanupAndReturnResult(
   }
 
   weak_factory_.InvalidateWeakPtrs();
-  task_.reset();
 
   CHECK(completion_callback_);
   base::TimeDelta execution_time = base::TimeTicks::Now() - task_start_time_;
+
+  if (task_) {
+    std::string_view task_name = task_->GetTaskName();
+    // Tasks returning any exit code (standard 0 or custom non-zero exit codes)
+    // are logged as kSuccess since process execution completed successfully.
+    DelegatedTaskStatus status = exit_code_or_status.has_value()
+                                     ? DelegatedTaskStatus::kSuccess
+                                     : exit_code_or_status.error();
+    base::UmaHistogramEnumeration(
+        base::StrCat({"Windows.PlatformExperienceHelper.DelegatedTasks.",
+                      task_name, ".Status"}),
+        status);
+    base::UmaHistogramMediumTimes(
+        base::StrCat({"Windows.PlatformExperienceHelper.DelegatedTasks.",
+                      task_name, ".Duration"}),
+        execution_time);
+  }
+
+  task_.reset();
+
   ReturnTaskCompletionStatusAsync(std::move(exit_code_or_status),
                                   execution_time,
                                   std::move(completion_callback_));
-
-  // TODO(b/525017787): Add UMA telemetry to log task result.
 }
 
 }  // namespace platform_experience

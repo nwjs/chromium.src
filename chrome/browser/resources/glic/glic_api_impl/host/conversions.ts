@@ -12,7 +12,7 @@
 
 import type {BigBuffer} from '//resources/mojo/mojo/public/mojom/base/big_buffer.mojom-webui.js';
 import type {ProtoWrapper} from '//resources/mojo/mojo/public/mojom/base/proto_wrapper.mojom-webui.js';
-import type {TimeDelta} from '//resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
+import type {Time, TimeDelta} from '//resources/mojo/mojo/public/mojom/base/time.mojom-webui.js';
 import type {BitmapN32} from '//resources/mojo/skia/public/mojom/bitmap.mojom-webui.js';
 import {AlphaType} from '//resources/mojo/skia/public/mojom/image_info.mojom-webui.js';
 import type {Origin} from '//resources/mojo/url/mojom/origin.mojom-webui.js';
@@ -20,9 +20,9 @@ import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import type {PageMetadata as PageMetadataMojo} from '../../ai_page_content_metadata.mojom-webui.js';
 import {enumFromClient, enumToClient} from '../../enum_conversions.js';
-import type {AdditionalContext as AdditionalContextMojo, AdditionalContextPart as AdditionalContextPartMojo, AnnotatedPageData as AnnotatedPageDataMojo, CaptureRegionResult as CaptureRegionResultMojo, ContextData as ContextDataMojo, ConversationInfo as ConversationInfoMojo, CounterAbuseVerdict as CounterAbuseVerdictMojo, FileUploadPolicyState as FileUploadPolicyStateMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, HostCapability as HostCapabilityMojo, ImageBytesResult as ImageBytesResultMojo, ImageInfo as ImageInfoMojo, InvocationPayload as InvocationPayloadMojo, InvokeOptions as InvokeOptionsMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PdfDocumentData as PdfDocumentDataMojo, PinTabsOptions as PinTabsOptionsMojo, Screenshot as ScreenshotMojo, ScreenshotCollectionOptions as ScreenshotCollectionOptionsMojo, SkillPreview as SkillPreviewMojo, SubscriberObservationType as SubscriberObservationTypeMojo, TabContextOptions as TabContextOptionsMojo, TabContextResult as TabContextResultMojo, TabData as TabDataMojo, UnpinTabsOptions as UnpinTabsOptionsMojo, WebPageData as WebPageDataMojo, ZeroStateSuggestionsV2 as ZeroStateSuggestionsV2Mojo, ZssConfig as ZssConfigMojo} from '../../glic.mojom-webui.js';
+import type {AdditionalContext as AdditionalContextMojo, AdditionalContextPart as AdditionalContextPartMojo, AnnotatedPageData as AnnotatedPageDataMojo, CaptureRegionResult as CaptureRegionResultMojo, ContextData as ContextDataMojo, ConversationInfo as ConversationInfoMojo, CounterAbuseVerdict as CounterAbuseVerdictMojo, FileUploadPolicyState as FileUploadPolicyStateMojo, FocusedTabData as FocusedTabDataMojo, GetPinCandidatesOptions as GetPinCandidatesOptionsMojo, HostCapability as HostCapabilityMojo, ImageBytesResult as ImageBytesResultMojo, ImageInfo as ImageInfoMojo, InvocationPayload as InvocationPayloadMojo, InvokeOptions as InvokeOptionsMojo, PanelOpeningData as PanelOpeningDataMojo, PanelState as PanelStateMojo, PdfDocumentData as PdfDocumentDataMojo, PinTabsOptions as PinTabsOptionsMojo, Screenshot as ScreenshotMojo, ScreenshotCollectionOptions as ScreenshotCollectionOptionsMojo, SkillPreview as SkillPreviewMojo, SkillsPayload as SkillsPayloadMojo, SubscriberObservationType as SubscriberObservationTypeMojo, TabContextOptions as TabContextOptionsMojo, TabContextResult as TabContextResultMojo, TabData as TabDataMojo, UnpinTabsOptions as UnpinTabsOptionsMojo, WebPageData as WebPageDataMojo, ZeroStateSuggestionsV2 as ZeroStateSuggestionsV2Mojo, ZssConfig as ZssConfigMojo} from '../../glic.mojom-webui.js';
 import {MicrophoneStatus as MicrophoneStatusMojo, PinTrigger as PinTriggerMojo, ScreenshotCompressionQuality as ScreenshotCompressionQualityMojo, ScreenshotImageFormat as ScreenshotImageFormatMojo, UnpinTrigger as UnpinTriggerMojo, WebClientMode as WebClientModeMojo} from '../../glic.mojom-webui.js';
-import type {CaptureRegionResult, ConversationInfo, CounterAbuseVerdict, FileUploadPolicyState as FileUploadPolicyStateApi, GetPinCandidatesOptions, HostCapability, InvocationPayload, PageMetadata, PanelOpeningData, PanelState, PinTabsOptions, PinTrigger, Screenshot, ScreenshotCollectionOptions, SkillPreview, TabContextOptions, UnpinTabsOptions, UnpinTrigger, WebPageData, ZeroStateSuggestionsV2, ZssConfig} from '../../glic_api/glic_api.js';
+import type {CaptureRegionResult, ConversationInfo, CounterAbuseVerdict, FileUploadPolicyState as FileUploadPolicyStateApi, GetPinCandidatesOptions, HostCapability, InvocationPayload, PageMetadata, PanelOpeningData, PanelState, PinTabsOptions, PinTrigger, Screenshot, ScreenshotCollectionOptions, SkillPreview, SkillsPayload, TabContextOptions, UnpinTabsOptions, UnpinTrigger, WebPageData, ZeroStateSuggestionsV2, ZssConfig} from '../../glic_api/glic_api.js';
 import {DEFAULT_INNER_TEXT_BYTES_LIMIT, DEFAULT_PDF_SIZE_LIMIT, MicrophoneStatus, Platform, WebClientMode} from '../../glic_api/glic_api.js';
 import type {ResponseExtras} from '../transport/messaging.js';
 
@@ -255,6 +255,24 @@ export function tabDataToClient(
   };
 }
 
+// Microseconds between Windows epoch (1601-01-01 00:00:00 UTC) used by
+// base::Time / mojo_base.mojom.Time and Unix epoch (1970-01-01 00:00:00 UTC)
+// used by JS Date.
+// See also:
+// - chrome/browser/resources/new_tab_page/modules/calendar/common.ts
+// - chrome/browser/resources/context_hub/memory_banks/memory_banks.ts
+// - ui/webui/resources/cr_components/history_clusters/clusters.ts
+export const WINDOWS_TO_UNIX_EPOCH_OFFSET_US: bigint = 11644473600000000n;
+
+export function timeToClient(time: Time|null|undefined): Date|undefined {
+  if (!time || time.internalValue === 0n) {
+    return undefined;
+  }
+  const unixEpochMs =
+      Number((time.internalValue - WINDOWS_TO_UNIX_EPOCH_OFFSET_US) / 1000n);
+  return new Date(unixEpochMs);
+}
+
 export function skillPreviewToClient(s: SkillPreviewMojo): SkillPreview {
   return {
     id: s.id,
@@ -264,6 +282,8 @@ export function skillPreviewToClient(s: SkillPreviewMojo): SkillPreview {
     description: s.description,
     curatedBy: s.curatedBy || undefined,
     imageUrl: urlToClient(s.imageUrl),
+    category: optionalToClient(s.category),
+    creationTime: timeToClient(s.creationTime),
   };
 }
 
@@ -551,6 +571,15 @@ export function zssConfigToClient(zssConfig: ZssConfigMojo): ZssConfig {
   };
 }
 
+export function skillsPayloadToClient(payload: SkillsPayloadMojo):
+    SkillsPayload {
+  return {
+    skillId: payload.skillId || '',
+    skillName: payload.skillName,
+    skillIcon: payload.skillIcon,
+  };
+}
+
 export function invokeOptionsToClient(
     options: InvokeOptionsMojo, extras: ResponseExtras): InvokeOptionsPrivate {
   return {
@@ -590,6 +619,11 @@ export function invocationPayloadToClient(
       universalCart: {
         serializedMetadata: buffer,
       },
+    };
+  }
+  if (payload.skillsPayload) {
+    return {
+      skillsPayload: skillsPayloadToClient(payload.skillsPayload),
     };
   }
   throw new Error('Unknown payload type');

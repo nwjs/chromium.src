@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_tabs_menu_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
+#include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/groups/tab_group_editor_bubble_view.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
@@ -57,6 +58,7 @@
 #include "components/search/ntp_features.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
+#include "components/tabs/public/tab_collection_types.h"
 #include "components/tabs/public/tab_group.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/navigation_entry.h"
@@ -208,6 +210,35 @@ class SavedTabGroupInteractiveTestBase
       EXPECT_FALSE(group->local_group_id());
     });
   }
+
+  auto NameTabCloseButtonAt(const std::string_view name, int index) {
+    return Steps(
+        FinishTabstripAnimations(),
+        NameDescendantView(
+            kBrowserViewElementId, name,
+            base::BindRepeating(
+                [](int target_index, Browser* browser,
+                   const views::View* view) -> bool {
+                  if (const auto* tab_close_button =
+                          views::AsViewClass<TabCloseButton>(view)) {
+                    if (const auto* tab_view = views::AsViewClass<TabView>(
+                            tab_close_button->parent())) {
+                      const tabs::TabInterface* tab_interface =
+                          std::get<tabs::ConstDanglingUntriagedTabInterface>(
+                              tab_view->collection_node()->GetNodeData());
+                      return browser->tab_strip_model()->GetIndexOfTab(
+                                 tab_interface) == target_index;
+                    }
+                    if (const auto* tab = views::AsViewClass<Tab>(
+                            tab_close_button->parent())) {
+                      return browser->tab_strip_model()->GetIndexOfTab(
+                                 tab->tab_handle().Get()) == target_index;
+                    }
+                  }
+                  return false;
+                },
+                index, browser())));
+  }
 };
 
 class SavedTabGroupInteractiveTest
@@ -217,14 +248,12 @@ class SavedTabGroupInteractiveTest
   void SetUp() override {
     if (GetParam()) {
       scoped_feature_list_.InitWithFeatures(
-          {features::kBookmarkTabGroupConversion,
-           data_sharing::features::kDataSharingFeature},
+          {data_sharing::features::kDataSharingFeature},
           {data_sharing::features::kDataSharingJoinOnly});
     } else {
       scoped_feature_list_.InitWithFeatures(
-          {features::kBookmarkTabGroupConversion},
-          {data_sharing::features::kDataSharingFeature,
-           data_sharing::features::kDataSharingJoinOnly});
+          {}, {data_sharing::features::kDataSharingFeature,
+               data_sharing::features::kDataSharingJoinOnly});
     }
 
     SavedTabGroupInteractiveTestBase::SetUp();
@@ -397,13 +426,9 @@ class SavedTabGroupInteractiveTest
       views::SubmenuView* submenu = menu_item_view->GetSubmenu();
       CHECK(submenu);
 
-      // There are 5 or 6 menu items in the menu not including the separator or
-      // tabs: Open, move, unpin, delete, [convert to bookmark], and the tabs
-      // title
+      // There are 5 menu items in the menu not including the separator or
+      // tabs: Open, move, unpin, delete, and the tabs title
       int num_non_tab_items_in_menu = 5;
-      if (features::IsBookmarkTabGroupConversionEnabled()) {
-        num_non_tab_items_in_menu++;
-      }
       const int total_items = submenu->GetMenuItems().size();
       const int num_tabs = total_items - num_non_tab_items_in_menu;
       EXPECT_EQ(num_tabs, expected_count);
@@ -508,19 +533,6 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
             "Check all groups is empty."));
 }
 
-IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
-                       ConvertGroupToBookmarkFromButtonMenu) {
-  browser()->tab_strip_model()->AddToNewGroup({0});
-
-  RunTestSequence(FinishTabstripAnimations(), ShowBookmarksBar(),
-                  EnsurePresent(kSavedTabGroupButtonElementId),
-                  FinishTabstripAnimations(), OpenTabGroupContextMenu(),
-                  EnsurePresent(STGTabsMenuModel::kConvertToBookmarkMenuItem),
-                  SelectMenuItem(STGTabsMenuModel::kConvertToBookmarkMenuItem),
-                  WaitForShow(kBookmarkEditorId),
-                  PressButton(kBookmarkEditorOkButtonId),
-                  WaitForHide(kSavedTabGroupButtonElementId));
-}
 
 IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest, UnpinGroupFromButtonMenu) {
   // Add 1 tab into the browser. And verify there are 2 tabs (The tab when you
@@ -575,7 +587,6 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       EnsurePresent(STGTabsMenuModel::kMoveGroupToNewWindowMenuItem),
       EnsurePresent(STGTabsMenuModel::kToggleGroupPinStateMenuItem),
       EnsurePresent(STGTabsMenuModel::kDeleteGroupMenuItem),
-      EnsurePresent(STGTabsMenuModel::kConvertToBookmarkMenuItem),
       EnsurePresent(STGTabsMenuModel::kTabsTitleItem));
 }
 
@@ -597,7 +608,6 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       EnsurePresent(STGTabsMenuModel::kMoveGroupToNewWindowMenuItem),
       EnsurePresent(STGTabsMenuModel::kToggleGroupPinStateMenuItem),
       EnsurePresent(STGTabsMenuModel::kDeleteGroupMenuItem),
-      EnsurePresent(STGTabsMenuModel::kConvertToBookmarkMenuItem),
       EnsurePresent(STGTabsMenuModel::kTabsTitleItem),
       EnsurePresent(STGTabsMenuModel::kTab));
 }
@@ -1073,10 +1083,7 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
   browser()->tab_strip_model()->AddToNewGroup({0});
   RunTestSequence(
       FinishTabstripAnimations(), SelectTab(kTabStripElementId, 0),
-      NameViewRelative(kTabStripElementId, kTabCloseButton,
-                       [](TabStrip* tab_strip) {
-                         return tab_strip->tab_at(0)->close_button().get();
-                       }),
+      NameTabCloseButtonAt(kTabCloseButton, 0),
       // Close the last tab in the browser which.
       PressButton(kTabCloseButton), PressButton(kDeletionDialogOkButtonId),
       // Ensure the saved group was deleted.
@@ -1160,37 +1167,8 @@ IN_PROC_BROWSER_TEST_P(SavedTabGroupInteractiveTest,
       EnsureNotPresent(STGEverythingMenu::kTabGroup));
 }
 
-class SavedTabGroupEverythingMenuMoreEntryPointsFeature
-    : public SavedTabGroupInteractiveTestBase {
- public:
-  SavedTabGroupEverythingMenuMoreEntryPointsFeature() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kTabGroupMenuMoreEntryPoints}, {});
-  }
 
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
 
-IN_PROC_BROWSER_TEST_F(SavedTabGroupEverythingMenuMoreEntryPointsFeature,
-                       CheckCreateNewTabGroupInEverythingMenuHasSubmenu) {
-  browser()->tab_strip_model()->AddToNewGroup({0});
-
-  RunTestSequence(
-      // Show the bookmarks bar where the buttons will be displayed.
-      FinishTabstripAnimations(), ShowBookmarksBar(),
-      // Ensure the group was saved when created.
-      EnsurePresent(kSavedTabGroupButtonElementId), FinishTabstripAnimations(),
-      EnsurePresent(kSavedTabGroupOverflowButtonElementId),
-      PressButton(kSavedTabGroupOverflowButtonElementId),
-      SelectMenuItem(STGEverythingMenu::kTabGroup),
-      EnsurePresent(STGTabsMenuModel::kOpenGroup),
-      EnsurePresent(STGTabsMenuModel::kMoveGroupToNewWindowMenuItem),
-      EnsurePresent(STGTabsMenuModel::kToggleGroupPinStateMenuItem),
-      EnsurePresent(STGTabsMenuModel::kDeleteGroupMenuItem),
-      EnsurePresent(STGTabsMenuModel::kTabsTitleItem),
-      EnsurePresent(STGTabsMenuModel::kTab));
-}
 
 
 #if !BUILDFLAG(IS_CHROMEOS)

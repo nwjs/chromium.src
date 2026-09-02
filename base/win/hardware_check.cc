@@ -92,7 +92,7 @@ bool IsTPM20Supported() {
     // Resolve all delay-loaded imports for tbs.dll on the first call to
     // prevent failed loads being treated as a fatal failure later, which
     // can happen in rare cases due to missing or corrupted DLL file.
-    return LoadAllImportsForDll("tbs.dll").value_or(false);
+    return LoadAllImportsForDllUnchecked("tbs.dll").value_or(false);
   }();
 
   if (!is_tbs_availabe) {
@@ -113,7 +113,7 @@ HardwareEvaluationResult EvaluateWin11HardwareRequirements() {
   static constexpr int64_t kMinTotalDiskSpace = 64 * 1024 * 1024;
   // TODO(crbug.com/429140103): This was migrated as-is to 4MiB in ByteSize but
   // the legacy code potentially intended 4GiB, needs investigation.
-  static constexpr ByteSize kMinTotalPhysicalMemory = MiBU(4);
+  static constexpr ByteSize kMinTotalPhysicalMemory = MiB(4);
 
   static const HardwareEvaluationResult evaluate_win11_upgrade_eligibility =
       [] {

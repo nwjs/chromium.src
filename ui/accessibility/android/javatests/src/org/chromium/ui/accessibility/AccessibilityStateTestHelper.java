@@ -4,131 +4,90 @@
 
 package org.chromium.ui.accessibility;
 
-import android.accessibilityservice.AccessibilityServiceInfo;
-import android.content.Context;
-import android.provider.Settings;
-import android.text.TextUtils;
-import android.view.accessibility.AccessibilityManager;
-
-import org.mockito.Mockito;
-import org.robolectric.annotation.Implementation;
-import org.robolectric.annotation.Implements;
-import org.robolectric.Shadows;
-import org.robolectric.shadows.ShadowAccessibilityManager;
-import org.robolectric.shadow.api.Shadow;
-
-import java.util.List;
-
-/**
- * Helper for testing AccessibilityState.
- */
+/** Helper for tests to interact with stubbed out {@link AccessibilityState}. */
 public class AccessibilityStateTestHelper {
-    public static class BuilderForTests {
-        private String mId = "com.example.google/app.accessibility.AccessibilityService";
-        private int mEventTypes;
-        private int mFeedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC;
-        private int mFlags;
-        private int mCapabilities;
-
-        public BuilderForTests setId(String id) {
-            this.mId = id;
-            return this;
-        }
-
-        public BuilderForTests setEventTypes(int eventTypes) {
-            this.mEventTypes = eventTypes;
-            return this;
-        }
-
-        public BuilderForTests setFeedbackType(int feedbackType) {
-            this.mFeedbackType = feedbackType;
-            return this;
-        }
-
-        public BuilderForTests setFlags(int flags) {
-            this.mFlags = flags;
-            return this;
-        }
-
-        public BuilderForTests setCapabilities(int capabilities) {
-            this.mCapabilities = capabilities;
-            return this;
-        }
-
-        public AccessibilityServiceInfo build() {
-            AccessibilityServiceInfo service = new AccessibilityServiceInfo();
-            service.eventTypes = mEventTypes;
-            service.feedbackType = mFeedbackType;
-            service.flags = mFlags;
-
-            ShadowAccessibilityServiceInfo shadow = Shadow.extract(service);
-            shadow.mCapabilities = mCapabilities;
-            shadow.mId = mId;
-
-            return service;
-        }
+    public static void setIsComplexUserInteractionServiceEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsComplexUserInteractionServiceEnabled(enabled);
+        delegate.notifyStateChange();
     }
 
-    @Implements(AccessibilityServiceInfo.class)
-    public static class ShadowAccessibilityServiceInfo {
-        public int mCapabilities;
-        public String mId;
-
-        @Implementation
-        protected int getCapabilities() {
-            return mCapabilities;
-        }
-
-        @Implementation
-        protected String getId() {
-            return mId;
-        }
-
-        @Implementation
-        protected boolean isAccessibilityTool() {
-            return false;
-        }
+    public static void setIsTouchExplorationEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsTouchExplorationEnabled(enabled);
+        delegate.notifyStateChange();
     }
 
-    /**
-     * Sets the enabled accessibility services list in ShadowAccessibilityManager and also updates
-     * the Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES setting.
-     */
-    public static void setEnabledAccessibilityServiceList(
-            Context context, List<AccessibilityServiceInfo> services) {
-        ShadowAccessibilityManager shadowManager =
-                Shadows.shadowOf(
-                        (AccessibilityManager)
-                                context.getSystemService(Context.ACCESSIBILITY_SERVICE));
-        shadowManager.setEnabledAccessibilityServiceList(services);
+    public static void setIsPerformGesturesEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsPerformGesturesEnabled(enabled);
+        delegate.notifyStateChange();
+    }
 
-        StringBuilder sb = new StringBuilder();
-        for (AccessibilityServiceInfo service : services) {
-            String id = service.getId();
-            if (!TextUtils.isEmpty(id)) {
-                if (sb.length() > 0) {
-                    sb.append(":");
-                }
-                sb.append(id);
-            }
+    public static void setIsAnyAccessibilityServiceEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsAnyAccessibilityServiceEnabled(enabled);
+        delegate.notifyStateChange();
+    }
+
+    public static void setIsAccessibilityToolPresentForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsAccessibilityToolPresent(enabled);
+        delegate.notifyStateChange();
+    }
+
+    public static void setIsTextShowPasswordEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsTextShowPasswordEnabled(enabled);
+        delegate.notifyStateChange();
+    }
+
+    public static void setIsOnlyAutofillRunningForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsOnlyAutofillRunning(enabled);
+        delegate.notifyStateChange();
+    }
+
+    public static void setIsOnlyPasswordManagersEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsOnlyPasswordManagersEnabled(enabled);
+        delegate.notifyStateChange();
+    }
+
+    public static void setIsKnownScreenReaderEnabledForTesting(boolean enabled) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setIsKnownScreenReaderEnabled(enabled);
+        delegate.notifyStateChange();
+    }
+
+    public static void setEventMaskForTesting(int eventMask) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setEventMask(eventMask);
+        delegate.notifyStateChange();
+    }
+
+    public static void setServiceIdsForTesting(String newServiceId, boolean isAccessibilityTool) {
+        FakeAccessibilityStateDelegate delegate = getOrCreateDelegateForTesting();
+        delegate.setServiceIds(newServiceId, isAccessibilityTool);
+        delegate.notifyStateChange();
+    }
+
+    private static FakeAccessibilityStateDelegate getOrCreateDelegateForTesting() {
+        AccessibilityStateDelegate delegate = AccessibilityState.getDelegate();
+        if (!(delegate instanceof FakeAccessibilityStateDelegate)) {
+            delegate = new FakeAccessibilityStateDelegate(() -> AccessibilityState.getListeners());
+            AccessibilityState.setDelegateForTesting(delegate);
+            ((FakeAccessibilityStateDelegate) delegate).notifyStateChange();
         }
-        Settings.Secure.putString(
-                context.getContentResolver(),
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-                sb.length() > 0 ? sb.toString() : null);
+        return (FakeAccessibilityStateDelegate) delegate;
     }
 
-    /**
-     * Updates the cached accessibility services in {@link AccessibilityState}.
-     */
-    public static void updateAccessibilityServices() {
-        AccessibilityState.getDelegate().updateAccessibilityServices();
+    public static void setAccessibilityEnabledForTesting(boolean isEnabled) {
+        setIsPerformGesturesEnabledForTesting(isEnabled);
+        setIsTouchExplorationEnabledForTesting(isEnabled);
     }
 
-    /**
-     * Sets the JNI instance for AccessibilityState.
-     */
-    public static void mockAccessibilityStateJni() {
-        AccessibilityStateJni.setInstanceForTesting(Mockito.mock(AccessibilityState.Natives.class));
+    public static void uninitializeForTesting() {
+        AccessibilityState.setDelegateForTesting(null);
     }
 }

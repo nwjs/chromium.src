@@ -82,6 +82,10 @@ class PKIMetadataComponentInstallerService final {
   [[nodiscard]] bool WriteCTDataForTesting(const base::FilePath& path,
                                            const std::string& contents);
 
+  // If set to true, allows older CT log list updates to override newer CT log
+  // list updates.
+  void AllowOldCTUpdateForTesting(bool allowed);
+
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
   [[nodiscard]] bool WriteCRSDataForTesting(const base::FilePath& path,
                                             const std::string& contents);
@@ -130,10 +134,13 @@ class PKIMetadataComponentInstallerService final {
   // (https://tlswg.org/tls-trust-anchor-ids/draft-ietf-tls-trust-anchor-ids.html)
   void UpdateTrustAnchorIDsImpl();
 
-  // Updates the network service with the Trust Anchor IDs in
-  // `chrome_root_store`.
-  void UpdateCRSTrustAnchorIDs(
+  // Updates the cached TAI data with the Trust Anchor IDs in
+  // `chrome_root_store`. Returns true if updated.
+  bool UpdateCRSTrustAnchorIDs(
       const mojo_base::ProtoWrapper& chrome_root_store);
+  // Updates the cached TAI data with the Trust Anchor IDs in
+  // `mtc_config`. Returns true if updated.
+  bool UpdateSignerSetTrustAnchorIDs(const mojo_base::ProtoWrapper& mtc_config);
 
   // Updates the network service with the Trust Anchor IDs in `mtc_metadata`,
   // and returns true on success. A false returns indicates a problem with the
@@ -163,23 +170,25 @@ class PKIMetadataComponentInstallerService final {
   // from both the CRS and MTC Metadata need to be merged together but are
   // updated separately, so the latest necessary data from each is cached.
   std::vector<std::vector<uint8_t>> crs_trust_anchor_ids_;
-  absl::flat_hash_set<std::vector<uint8_t>> crs_trusted_mtc_logids_;
+  absl::flat_hash_set<std::vector<uint8_t>> crs_trusted_mtc_ca_ids_;
 
-  struct MtcLogIdAndLandmarkTrustAnchorId {
-    MtcLogIdAndLandmarkTrustAnchorId();
-    ~MtcLogIdAndLandmarkTrustAnchorId();
-    MtcLogIdAndLandmarkTrustAnchorId(const MtcLogIdAndLandmarkTrustAnchorId&);
-    MtcLogIdAndLandmarkTrustAnchorId(MtcLogIdAndLandmarkTrustAnchorId&&);
+  struct MtcCaIdAndLandmarkTrustAnchorIds {
+    MtcCaIdAndLandmarkTrustAnchorIds();
+    ~MtcCaIdAndLandmarkTrustAnchorIds();
+    MtcCaIdAndLandmarkTrustAnchorIds(const MtcCaIdAndLandmarkTrustAnchorIds&);
+    MtcCaIdAndLandmarkTrustAnchorIds(MtcCaIdAndLandmarkTrustAnchorIds&&);
 
-    std::vector<uint8_t> anchor_log_id;
-    std::vector<uint8_t> landmark_trust_anchor_id;
+    std::vector<uint8_t> ca_id;
+    std::vector<std::vector<uint8_t>> landmark_trust_anchor_ids;
   };
-  std::vector<MtcLogIdAndLandmarkTrustAnchorId>
-      mtc_log_id_landmark_trust_anchor_ids_;
+  std::vector<MtcCaIdAndLandmarkTrustAnchorIds>
+      mtc_ca_id_landmark_trust_anchor_ids_;
 
   // The time (as seconds since the unix epoch) that the latest MtcMetadata
   // was generated.
   int64_t mtc_metadata_update_time_seconds_ = 0;
+
+  bool allow_old_ct_log_list_updates_for_testing_ = false;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

@@ -72,16 +72,19 @@ export class CpuCardElement extends CpuCardElementBase {
         type: Boolean,
       },
 
+      memoryUsage: {
+        type: Object,
+      },
     };
   }
 
   declare testSuiteStatus: TestSuiteStatus;
   declare isActive: boolean;
-  declare private routines: RoutineType[];
-  declare private cpuUsage: CpuUsage;
-  declare private cpuChipInfo: string;
-  private memoryUsage: MemoryUsage;
-  private systemDataProvider: SystemDataProviderInterface =
+  declare protected routines: RoutineType[];
+  declare protected cpuUsage: CpuUsage;
+  declare protected cpuChipInfo: string;
+  declare protected memoryUsage: MemoryUsage;
+  private readonly systemDataProvider: SystemDataProviderInterface =
       getSystemDataProvider();
   private cpuUsageObserverReceiver: CpuUsageObserverReceiver|null = null;
   private memoryUsageObserverReceiver: MemoryUsageObserverReceiver|null = null;

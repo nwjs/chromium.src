@@ -153,6 +153,17 @@ void TabHelper::SetReloadRequired(
   }
 }
 
+void TabHelper::SetReloadRequired(
+    const std::vector<const Extension*>& extensions) {
+  reload_required_ = true;
+  for (const auto* extension : extensions) {
+    if (!std::ranges::contains(reload_extensions_, extension)) {
+      reload_extensions_.push_back(extension);
+    }
+  }
+  ShowReloadBubbleIfVisible();
+}
+
 bool TabHelper::IsReloadRequired() {
   return reload_required_;
 }
@@ -175,7 +186,12 @@ void TabHelper::InvokeForContentRulesRegistries(const Func& func) {
   RulesRegistryService* rules_registry_service =
       RulesRegistryService::Get(profile_);
   if (rules_registry_service) {
-    func(rules_registry_service->content_rules_registry());
+    // The service can remain accessible after its registries are released
+    // during profile teardown.
+    if (ContentRulesRegistry* content_rules_registry =
+            rules_registry_service->content_rules_registry()) {
+      func(content_rules_registry);
+    }
     if (profile_->IsOffTheRecord()) {
       // The original profile's content rules registry handles rules for
       // spanning extensions in incognito profiles, so invoke it also.
@@ -184,7 +200,11 @@ void TabHelper::InvokeForContentRulesRegistries(const Func& func) {
       DCHECK_NE(rules_registry_service,
                 original_profile_rules_registry_service);
       if (original_profile_rules_registry_service) {
-        func(original_profile_rules_registry_service->content_rules_registry());
+        if (ContentRulesRegistry* original_content_rules_registry =
+                original_profile_rules_registry_service
+                    ->content_rules_registry()) {
+          func(original_content_rules_registry);
+        }
       }
     }
   }
@@ -244,6 +264,7 @@ void TabHelper::DidFinishNavigation(
   // Reset the `reload_required_` data member, since a page navigation acts as a
   // page refresh.
   reload_required_ = false;
+  reload_extensions_.clear();
 }
 
 void TabHelper::UpdateDraggableRegions(
@@ -257,7 +278,9 @@ void TabHelper::UpdateDraggableRegions(
           : nullptr;
   if (!browser)
     return;
-  browser->GetBrowserView().UpdateDraggableRegions(regions);
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
+  if (browser_view)
+    browser_view->UpdateDraggableRegions(regions);
 }
 
 void TabHelper::DidCloneToNewWebContents(WebContents* old_web_contents,
@@ -267,6 +290,22 @@ void TabHelper::DidCloneToNewWebContents(WebContents* old_web_contents,
   // TODO(jamescook): Do we still need to do this if we're not copying any
   // state?
   CreateForWebContents(new_web_contents);
+}
+
+void TabHelper::OnVisibilityChanged(content::Visibility visibility) {
+  ShowReloadBubbleIfVisible();
+}
+
+void TabHelper::ShowReloadBubbleIfVisible() {
+  if (web_contents()->GetVisibility() == content::Visibility::VISIBLE &&
+      reload_required_ && !reload_extensions_.empty()) {
+    std::vector<const Extension*> raw_extensions;
+    for (const auto& ext : reload_extensions_) {
+      raw_extensions.push_back(ext.get());
+    }
+    extension_action_runner_->ShowReloadPageBubble(raw_extensions);
+    reload_extensions_.clear();
+  }
 }
 
 void TabHelper::WebContentsDestroyed() {
@@ -295,12 +334,16 @@ void TabHelper::OnExtensionUnloaded(content::BrowserContext* browser_context,
   // side effects of loading/unloading the extension.
   web_contents()->GetController().GetBackForwardCache().Flush();
 
-  // Technically, the refresh is no longer needed if the unloaded extension was
-  // the only one causing `refresh_required`. However, we would need to track
-  // which are the extensions causing the reload, and sometimes it is not
-  // specific to an extensions. Also, this is a very edge case  (site settings
-  // changed and then extension is installed externally), so it's fine to not
-  // handle it.
+  // If the unloaded extension was pending a reload on this tab, remove it
+  // and clear reload_required_ if no other extensions require a reload.
+  if (!reload_extensions_.empty()) {
+    std::erase_if(reload_extensions_, [extension](const auto& ext) {
+      return ext.get() == extension;
+    });
+    if (reload_extensions_.empty()) {
+      reload_required_ = false;
+    }
+  }
 }
 
 void TabHelper::SetTabId(content::RenderFrameHost* render_frame_host) {

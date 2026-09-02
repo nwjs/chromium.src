@@ -18,9 +18,15 @@ BASE_DECLARE_FEATURE(kCentralizedInfoBarFramework);
 
 BASE_DECLARE_FEATURE_PARAM(bool, kEnableAll);
 BASE_DECLARE_FEATURE_PARAM(bool, kMigratedCollectedCookies);
+BASE_DECLARE_FEATURE_PARAM(bool, kMigratedGoogleApiKeys);
 BASE_DECLARE_FEATURE_PARAM(bool, kMigratedInstallerDownloader);
+BASE_DECLARE_FEATURE_PARAM(bool, kMigratedKnownInterceptionDisclosure);
 BASE_DECLARE_FEATURE_PARAM(bool, kMigratedPageInfo);
 BASE_DECLARE_FEATURE_PARAM(bool, kMigratedPdf);
+BASE_DECLARE_FEATURE_PARAM(bool, kMigratedChromeForTesting);
+BASE_DECLARE_FEATURE_PARAM(bool, kMigratedObsoleteSystem);
+BASE_DECLARE_FEATURE_PARAM(bool, kMigratedPinInfoBar);
+BASE_DECLARE_FEATURE_PARAM(bool, kMigratedLocalTestPolicies);
 
 // Returns true if the centralization framework is enabled and the specified
 // infobar is configured to be migrated.

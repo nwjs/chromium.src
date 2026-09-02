@@ -18,6 +18,7 @@
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/time/time.h"
+#include "chrome/common/pref_names.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/history/core/test/history_service_test_util.h"
 #include "components/page_content_annotations/core/page_content_annotations_service.h"
@@ -35,12 +36,14 @@
 
 namespace {
 
+using ::base::test::InvokeFuture;
 using ::base::test::RunOnceCallback;
 using ::page_content_annotations::HistoryVisit;
 using ::page_content_annotations::PageContentAnnotationsResult;
 using ::testing::_;
 using ::testing::AllOf;
 using ::testing::ElementsAre;
+using ::testing::NiceMock;
 using ::testing::WithArg;
 using ::visited_url_ranking::ResultStatus;
 using ::visited_url_ranking::URLVisitsMetadata;
@@ -122,10 +125,42 @@ class AuxiliarySearchDonationServiceTest : public testing::Test {
   signin::IdentityTestEnvironment identity_test_env_;
 };
 
+class MockDelegate : public AuxiliarySearchDonationService::Delegate {
+ public:
+  MockDelegate() = default;
+  ~MockDelegate() override = default;
+
+  MOCK_METHOD(void,
+              DonateHistoryEntries,
+              (std::vector<AuxiliarySearchDonationService::HistoryData>,
+               CoreAccountInfo),
+              (override));
+  MOCK_METHOD(void, SetBrowsingDataDonationEnabled, (bool), (override));
+};
+
+TEST_F(AuxiliarySearchDonationServiceTest, BrowsingDataDonationPrefChanged) {
+  base::test::TestFuture<bool> future;
+  auto delegate = std::make_unique<MockDelegate>();
+  EXPECT_CALL(*delegate, SetBrowsingDataDonationEnabled(_))
+      .WillRepeatedly(InvokeFuture(future));
+  AuxiliarySearchDonationService service(
+      page_content_annotations_service(), mock_ranking_service(),
+      identity_manager(), test_pref_service(), std::move(delegate));
+
+  test_pref_service()->SetBoolean(
+      prefs::kAuxiliarySearchBrowsingDataDonationEnabled, false);
+  EXPECT_FALSE(future.Take());
+
+  test_pref_service()->SetBoolean(
+      prefs::kAuxiliarySearchBrowsingDataDonationEnabled, true);
+  EXPECT_TRUE(future.Take());
+}
+
 TEST_F(AuxiliarySearchDonationServiceTest, IgnoresRemoteVisits) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
 
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(0);
 
@@ -134,13 +169,44 @@ TEST_F(AuxiliarySearchDonationServiceTest, IgnoresRemoteVisits) {
   service.OnPageContentAnnotated(remote_visit, CreateAnnotationsResult());
 }
 
+TEST_F(AuxiliarySearchDonationServiceTest,
+       IgnoresVisitsWhenBrowsingDataDonationDisabled) {
+  test_pref_service()->SetBoolean(
+      prefs::kAuxiliarySearchBrowsingDataDonationEnabled, false);
+  AuxiliarySearchDonationService service(
+      page_content_annotations_service(), mock_ranking_service(),
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
+
+  EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(0);
+
+  service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
+  task_environment().FastForwardBy(service.GetDonationDelay());
+}
+
+TEST_F(AuxiliarySearchDonationServiceTest,
+       DisablingBrowsingDataDonationCancelsDonationTimer) {
+  AuxiliarySearchDonationService service(
+      page_content_annotations_service(), mock_ranking_service(),
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
+
+  EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(0);
+
+  service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
+  test_pref_service()->SetBoolean(
+      prefs::kAuxiliarySearchBrowsingDataDonationEnabled, false);
+  task_environment().FastForwardBy(service.GetDonationDelay());
+}
+
 TEST_F(AuxiliarySearchDonationServiceTest, FetchesLocalVisitAfterDelay) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
   base::test::TestFuture<void> future;
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _))
-      .WillOnce(base::test::InvokeFuture(future));
+      .WillOnce(InvokeFuture(future));
 
   service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
   base::TimeTicks before = task_environment().NowTicks();
@@ -154,7 +220,8 @@ TEST_F(AuxiliarySearchDonationServiceTest,
        MultipleAnnotationsFetchesOnlyOnceAfterDelay) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
   service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
 
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(1);
@@ -168,7 +235,8 @@ TEST_F(AuxiliarySearchDonationServiceTest,
        MultipleAnnotationsFetchesAgainAfterDelay) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
 
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(2);
 
@@ -182,7 +250,8 @@ TEST_F(AuxiliarySearchDonationServiceTest,
 TEST_F(AuxiliarySearchDonationServiceTest, FirstFetchUsesDefaultBeginTime) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
 
   base::Time begin_time;
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _))
@@ -201,7 +270,8 @@ TEST_F(AuxiliarySearchDonationServiceTest, FirstFetchUsesDefaultBeginTime) {
 TEST_F(AuxiliarySearchDonationServiceTest, FetchUsesLastTime) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
 
   // First fetch returns the fake visit time as metadata. The second fetch
   // should use the provided fake visit time (plus 1us to ensure that the same
@@ -226,7 +296,8 @@ TEST_F(AuxiliarySearchDonationServiceTest, FetchUsesLastTime) {
 TEST_F(AuxiliarySearchDonationServiceTest, FetchDoesNotFetchTooFarBack) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
   // First fetch returns the fake visit time as metadata. The second fetch
   // should not use the provided fake visit time because it is too far back.
   const base::Time fake_visit_time = base::Time::Now() - base::Hours(1);
@@ -251,7 +322,8 @@ TEST_F(AuxiliarySearchDonationServiceTest, FetchDoesNotFetchTooFarBack) {
 TEST_F(AuxiliarySearchDonationServiceTest, FetchDoesNotUpdateBeginTimeOnError) {
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
 
   // First fetch returns a fake visit time as metadata. The second fetch
   // returns an error, but includes a different fake visit time. The third fetch
@@ -297,7 +369,8 @@ TEST_F(AuxiliarySearchDonationServiceTest, LastFetchTimePersistsInPrefs) {
   {
     AuxiliarySearchDonationService service(
         page_content_annotations_service(), mock_ranking_service(),
-        identity_manager(), test_pref_service(), base::DoNothing());
+        identity_manager(), test_pref_service(),
+        std::make_unique<NiceMock<MockDelegate>>());
     service.OnPageContentAnnotated(CreateLocalVisit(),
                                    CreateAnnotationsResult());
     task_environment().FastForwardBy(service.GetDonationDelay());
@@ -305,7 +378,8 @@ TEST_F(AuxiliarySearchDonationServiceTest, LastFetchTimePersistsInPrefs) {
   {
     AuxiliarySearchDonationService service(
         page_content_annotations_service(), mock_ranking_service(),
-        identity_manager(), test_pref_service(), base::DoNothing());
+        identity_manager(), test_pref_service(),
+        std::make_unique<NiceMock<MockDelegate>>());
     service.OnPageContentAnnotated(CreateLocalVisit(),
                                    CreateAnnotationsResult());
     task_environment().FastForwardBy(service.GetDonationDelay());
@@ -321,7 +395,8 @@ TEST_F(AuxiliarySearchDonationServiceTest,
       future.GetRepeatingCallback());
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
   service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
 
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(1);
@@ -338,7 +413,8 @@ TEST_F(AuxiliarySearchDonationServiceTest,
       future.GetRepeatingCallback());
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), base::DoNothing());
+      identity_manager(), test_pref_service(),
+      std::make_unique<NiceMock<MockDelegate>>());
 
   EXPECT_CALL(*mock_ranking_service(), FetchURLVisitAggregates(_, _)).Times(0);
 
@@ -366,9 +442,12 @@ TEST_F(AuxiliarySearchDonationServiceTest,
   base::test::TestFuture<
       std::vector<AuxiliarySearchDonationService::HistoryData>, CoreAccountInfo>
       future;
+  auto delegate = std::make_unique<MockDelegate>();
+  EXPECT_CALL(*delegate, DonateHistoryEntries(_, _))
+      .WillOnce(InvokeFuture(future));
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), future.GetRepeatingCallback());
+      identity_manager(), test_pref_service(), std::move(delegate));
 
   service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
   task_environment().FastForwardBy(service.GetDonationDelay());
@@ -410,9 +489,12 @@ TEST_F(AuxiliarySearchDonationServiceTest, DonatesHistoryEntriesWithAccount) {
   base::test::TestFuture<
       std::vector<AuxiliarySearchDonationService::HistoryData>, CoreAccountInfo>
       future;
+  auto delegate = std::make_unique<MockDelegate>();
+  EXPECT_CALL(*delegate, DonateHistoryEntries(_, _))
+      .WillOnce(InvokeFuture(future));
   AuxiliarySearchDonationService service(
       page_content_annotations_service(), mock_ranking_service(),
-      identity_manager(), test_pref_service(), future.GetRepeatingCallback());
+      identity_manager(), test_pref_service(), std::move(delegate));
 
   service.OnPageContentAnnotated(CreateLocalVisit(), CreateAnnotationsResult());
   task_environment().FastForwardBy(service.GetDonationDelay());

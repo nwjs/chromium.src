@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/frame/local_frame_mojo_handler.h"
 
+#include "base/command_line.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/time/time.h"
@@ -18,6 +19,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/frame/frame_owner_element_type.h"
 #include "third_party/blink/public/common/page_state/page_state.h"
+#include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame_owner_properties.mojom-blink.h"
@@ -75,6 +77,7 @@
 #include "third_party/blink/renderer/core/script_tools/model_context_supplement.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
 #include "third_party/blink/renderer/core/view_transition/page_swap_event.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition_skip_reason.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_timing_utils.h"
 #include "third_party/blink/renderer/platform/widget/frame_widget.h"
@@ -428,6 +431,12 @@ mojom::blink::DevicePostureType LocalFrameMojoHandler::GetDevicePosture() {
     return current_device_posture_;
   }
 
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          blink::switches::kTopChromeWebUI) &&
+      base::FeatureList::IsEnabled(features::kWebUIBypassMojoConnections)) {
+    return current_device_posture_;
+  }
+
   auto task_runner = frame_->GetTaskRunner(TaskType::kInternalDefault);
   DevicePostureProvider()->AddListenerAndGetCurrentPosture(
       device_posture_receiver_.BindNewPipeAndPassRemote(task_runner),
@@ -574,7 +583,7 @@ void LocalFrameMojoHandler::NotifyVirtualKeyboardOverlayRect(
                         keyboard_rect.width() / scale_factor,
                         keyboard_rect.height() / scale_factor);
 
-  frame_->NotifyVirtualKeyboardOverlayRectObservers(scaled_rect);
+  frame_->SetVirtualKeyboardOverlayGeometry(scaled_rect);
 }
 
 void LocalFrameMojoHandler::ShowInterestInElement(int nodeID) {
@@ -971,7 +980,8 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestInIsolatedWorld(
       wants_result
           ? mojom::blink::WantResultOption::kWantResultDateAndRegExpAllowed
           : mojom::blink::WantResultOption::kNoResult,
-      mojom::blink::PromiseResultOption::kDoNotWait);
+      mojom::blink::PromiseResultOption::kDoNotWait,
+      /*is_injected_extension_script=*/false);
 }
 
 void LocalFrameMojoHandler::InvokeScriptToolForInspector(
@@ -1414,7 +1424,8 @@ void LocalFrameMojoHandler::NotifyViewTransitionAbortedToOldDocument() {
   if (auto* transition =
           ViewTransitionUtils::GetOutgoingCrossDocumentTransition(
               *frame_->GetDocument())) {
-    transition->SkipTransition();
+    transition->SkipTransition(ViewTransition::PromiseResponse::kRejectAbort,
+                               ViewTransitionSkipReason::kNavigationAborted);
   }
 }
 

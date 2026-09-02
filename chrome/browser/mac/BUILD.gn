@@ -94,14 +94,13 @@ source_set("impl") {
     "//chrome/browser/prefs",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/common:channel_info",
     "//chrome/common:constants",
     "//components/policy/core/common",
     "//components/version_info",
   ]
 }
-
-verify_dynamic_libraries = !is_component_build && !is_asan && !is_ubsan_any
 
 source_set("unit_tests") {
   testonly = true
@@ -121,12 +120,15 @@ source_set("unit_tests") {
     "//build:branding_buildflags",
     "//chrome/common:non_code_constants",
     "//content/test:test_support",
+    "//sandbox/mac:seatbelt",
+    "//sandbox/policy",
+    "//sandbox/policy/mojom",
     "//testing/gtest",
   ]
-  data_deps = [ "//chrome/test:aperitif_test_helper" ]
-  if (verify_dynamic_libraries) {
-    data_deps += [ "//chrome/test:verify_libraries_aperitif_test_helper" ]
-  }
+  data_deps = [
+    "//chrome",
+    "//chrome:chrome_helper_app_aperitif",
+  ]
   configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 

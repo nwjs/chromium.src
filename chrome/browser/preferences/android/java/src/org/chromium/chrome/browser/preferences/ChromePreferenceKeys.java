@@ -65,10 +65,6 @@ public final class ChromePreferenceKeys {
     public static final String AI_ASSISTANT_WEB_SUMMARIZATION_AVAILABILITY =
             "Chrome.AiAssistant.WebSummarizationAvailability";
 
-    public static final String APPEARANCE_SETTINGS_CLICKED = "Chrome.Appearance.SettingsClicked";
-    public static final String APPEARANCE_SETTINGS_VIEW_COUNT =
-            "Chrome.Appearance.SettingsViewCount";
-
     /** The language code to override application language with. */
     public static final String APPLICATION_OVERRIDE_LANGUAGE =
             "Chrome.Language.ApplicationOverrideLanguage";
@@ -203,11 +199,15 @@ public final class ChromePreferenceKeys {
     public static final String CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED =
             "Chrome.ContextMenu.ShopImageWithGoogleLensClicked";
 
+    @Deprecated
     public static final String CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX =
             "Chrome.CrossDeviceImport.FinishedBottomOmnibox";
 
     public static final String CROSS_DEVICE_IMPORTED_ALL_SETTINGS =
             "Chrome.CrossDeviceImport.FinishedAllSettings";
+
+    public static final String CROSS_DEVICE_IMPORTED_NON_NTP_SETTINGS =
+            "Chrome.CrossDeviceImport.FinishedNonNtpSettings";
 
     public static final String NTP_CUSTOMIZATION_BACKGROUND_ENABLED =
             "Chrome.Policy.NtpCustomBackgroundEnabled";
@@ -1120,6 +1120,13 @@ public final class ChromePreferenceKeys {
     public static final String VERTICAL_TABS_ENABLED_TIMESTAMP =
             "Chrome.VerticalTabs.EnabledTimestamp";
 
+    /**
+     * Stores the impression count for displaying the "New" badge on the "Show tabs vertically" menu
+     * item.
+     */
+    public static final String VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT =
+            "Chrome.VerticalTabs.LayoutToggleViewCount";
+
     /** Key for deferred recording of list of uninstalled WebAPK packages. */
     public static final String WEBAPK_UNINSTALLED_PACKAGES = "webapk_uninstalled_packages";
 
@@ -1183,8 +1190,6 @@ public final class ChromePreferenceKeys {
                 AI_ASSISTANT_ANALYZE_ATTACHMENT_AVAILABILITY,
                 AI_ASSISTANT_AVAILABILITY_CHECK_TIMESTAMP_MS,
                 AI_ASSISTANT_WEB_SUMMARIZATION_AVAILABILITY,
-                APPEARANCE_SETTINGS_CLICKED,
-                APPEARANCE_SETTINGS_VIEW_COUNT,
                 AUTOFILL_ASSISTANT_FIRST_TIME_LITE_SCRIPT_USER,
                 AUTOFILL_ASSISTANT_PROACTIVE_HELP_ENABLED,
                 AUTOFILL_THIRD_PARTY_MODE_STATE,
@@ -1211,6 +1216,7 @@ public final class ChromePreferenceKeys {
                 CONTEXT_MENU_SEARCH_TAB_WITH_GOOGLE_LENS_CLICKED,
                 CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
                 CROSS_DEVICE_IMPORTED_BOTTOM_OMNIBOX,
+                CROSS_DEVICE_IMPORTED_NON_NTP_SETTINGS,
                 CROSS_DEVICE_IMPORTED_ALL_SETTINGS,
                 NTP_CUSTOMIZATION_BACKGROUND_ENABLED,
                 NTP_CUSTOMIZATION_BACKGROUND_TYPE,
@@ -1386,6 +1392,7 @@ public final class ChromePreferenceKeys {
                 VERTICAL_TABS_COLLAPSED,
                 VERTICAL_TABS_ENABLED,
                 VERTICAL_TABS_ENABLED_TIMESTAMP,
+                VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT,
                 WEB_SIGNIN_ACCOUNT_PICKER_ACTIVE_DISMISSAL_COUNT,
                 WINDOW_CONTROLS_OVERLAY_ENABLED_PACKAGES);
     }

@@ -11,6 +11,8 @@
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_button_visibility.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_buttons_utils.h"
+#import "ios/chrome/browser/toolbar/ui/buttons/toolbar_element_with_background.h"
+#import "ios/chrome/browser/toolbar/ui/buttons/toolbar_navigation_buttons_container.h"
 #import "ios/chrome/browser/toolbar/ui/buttons/toolbar_tab_grid_badge_button.h"
 #import "ios/chrome/browser/toolbar/ui/toolbar_constants.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -47,7 +49,9 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 
 - (ToolbarButton*)makeForwardButton {
   ToolbarButton* button = [self toolbarButtonForSymbol:SymbolForward];
-  button.visibilityMask = ToolbarButtonVisibility::kWhenEnabled;
+  button.visibilityMask = IsNextOldDesignEnabled()
+                              ? ToolbarButtonVisibility::kAlways
+                              : ToolbarButtonVisibility::kWhenEnabled;
   button.accessibilityIdentifier = kToolbarForwardButtonIdentifier;
   button.accessibilityLabel = l10n_util::GetNSString(IDS_ACCNAME_FORWARD);
   button.accessibilityHint =
@@ -55,58 +59,13 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
   return button;
 }
 
-- (UIView*)makeConjoinedBackButton:(ToolbarButton*)backButton
-                     forwardButton:(ToolbarButton*)forwardButton {
-  CHECK(backButton);
-  CHECK(forwardButton);
-  UIView* buttonsContainer = [[UIView alloc] init];
-  buttonsContainer.translatesAutoresizingMaskIntoConstraints = NO;
-  [buttonsContainer
-      setContentCompressionResistancePriority:UILayoutPriorityRequired
-                                      forAxis:UILayoutConstraintAxisHorizontal];
-  [buttonsContainer setContentHuggingPriority:UILayoutPriorityRequired
-                                      forAxis:UILayoutConstraintAxisHorizontal];
-
-  UIView* backgroundView = [[UIView alloc] init];
-  backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
-  backgroundView.backgroundColor = ToolbarElementBackgroundColor(_incognito);
-  [buttonsContainer addSubview:backgroundView];
-  AddSameConstraints(backgroundView, buttonsContainer);
-
-  // Internal stack view to handle dynamic resizing when the forward button
-  // visibility changes.
-  UIStackView* buttonsStack = [[UIStackView alloc]
-      initWithArrangedSubviews:@[ backButton, forwardButton ]];
-  buttonsStack.translatesAutoresizingMaskIntoConstraints = NO;
-  buttonsStack.axis = UILayoutConstraintAxisHorizontal;
-  buttonsStack.distribution = UIStackViewDistributionFill;
-  buttonsStack.alignment = UIStackViewAlignmentFill;
-
-  [backgroundView addSubview:buttonsStack];
-  AddSameConstraints(buttonsStack, backgroundView);
-
-  [NSLayoutConstraint activateConstraints:@[
-    [buttonsContainer.heightAnchor
-        constraintEqualToAnchor:backButton.heightAnchor]
-  ]];
-
-  ConfigureCornerRadiusForToolbarButtonContainer(
-      backgroundView, buttonsContainer.traitCollection);
-  backgroundView.clipsToBounds = YES;
-  ConfigureShadowForToolbarElement(buttonsContainer);
-
-  // Remove effects from the standalone buttons in the container
-  ConfigureShadowForToolbarElement(backButton, /*remove_shadow*/ YES);
-  ConfigureShadowForToolbarElement(forwardButton, /*remove_shadow*/ YES);
-
-  [buttonsContainer
-      registerForTraitChanges:
-          @[ UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class ]
-                  withHandler:^(id<UITraitEnvironment>, UITraitCollection*) {
-                    ConfigureCornerRadiusForToolbarButtonContainer(
-                        backgroundView, buttonsContainer.traitCollection);
-                  }];
-  return buttonsContainer;
+- (UIView<ToolbarElementWithBackground>*)
+    makeConjoinedBackButton:(ToolbarButton*)backButton
+              forwardButton:(ToolbarButton*)forwardButton {
+  return [[ToolbarNavigationButtonsContainer alloc]
+      initWithBackButton:backButton
+           forwardButton:forwardButton
+               incognito:_incognito];
 }
 
 - (ToolbarButton*)makeReloadButton {
@@ -180,8 +139,6 @@ constexpr CGFloat kLegacySymbolPointSize = 24;
 }
 
 - (ToolbarButton*)makeAssistantButton {
-  /// TODO(crbug.com/493956100): Update the icon for the Assistant button in the
-  /// toolbar.
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
   Symbol symbol = SymbolGeminiBrandedLogo;
 #else

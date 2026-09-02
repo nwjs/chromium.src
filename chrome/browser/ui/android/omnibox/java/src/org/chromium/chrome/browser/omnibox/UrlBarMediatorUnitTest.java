@@ -11,7 +11,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -25,8 +24,12 @@ import android.text.Selection;
 import android.text.SpannableStringBuilder;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
@@ -37,15 +40,14 @@ import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.search_engines.settings.SearchEngineSettings;
 import org.chromium.chrome.browser.search_engines.settings.SiteSearchSettings;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
-import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.OmniboxFeatureList;
 import org.chromium.components.omnibox.OmniboxUrlEmphasizer;
 import org.chromium.components.omnibox.OmniboxUrlEmphasizer.UrlEmphasisColorSpan;
 import org.chromium.components.omnibox.TextSelection;
-import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyObservable.PropertyObserver;
 import org.chromium.url.GURL;
@@ -54,6 +56,10 @@ import org.chromium.url.GURL;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class UrlBarMediatorUnitTest {
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private PropertyObserver mPropertyObserver;
+    @Mock private SettingsNavigation mSettingsNavigation;
+    @Mock private UrlBarDelegate mUrlBarDelegate;
     Context mContext;
     PropertyModel mModel;
     UrlBarMediator mMediator;
@@ -77,7 +83,7 @@ public class UrlBarMediatorUnitTest {
                         return text.trim();
                     }
                 };
-        mDelegate = mock(UrlBarDelegate.class);
+        mDelegate = mUrlBarDelegate;
         mModel.set(UrlBarProperties.DELEGATE, mDelegate);
     }
 
@@ -110,9 +116,8 @@ public class UrlBarMediatorUnitTest {
                 mMediator.setUrlBarData(
                         baseData, UrlBar.ScrollType.SCROLL_TO_TLD, TextSelection.SELECT_END));
 
-        PropertyObserver<PropertyKey> observer = mock(PropertyObserver.class);
-        mModel.addObserver(observer);
-        reset(observer);
+        mModel.addObserver(mPropertyObserver);
+        reset(mPropertyObserver);
 
         assertTrue(
                 mMediator.setUrlBarData(
@@ -130,7 +135,7 @@ public class UrlBarMediatorUnitTest {
                         UrlBar.ScrollType.SCROLL_TO_BEGINNING,
                         TextSelection.SELECT_END));
 
-        verify(observer, times(3)).onPropertyChanged(mModel, UrlBarProperties.TEXT_STATE);
+        verify(mPropertyObserver, times(3)).onPropertyChanged(mModel, UrlBarProperties.TEXT_STATE);
     }
 
     @Test
@@ -155,9 +160,8 @@ public class UrlBarMediatorUnitTest {
                 mMediator.setUrlBarData(
                         data1, UrlBar.ScrollType.SCROLL_TO_TLD, TextSelection.SELECT_END));
 
-        PropertyObserver<PropertyKey> observer = mock(PropertyObserver.class);
-        mModel.addObserver(observer);
-        reset(observer);
+        mModel.addObserver(mPropertyObserver);
+        reset(mPropertyObserver);
 
         assertFalse(
                 mMediator.setUrlBarData(
@@ -166,7 +170,7 @@ public class UrlBarMediatorUnitTest {
                 mMediator.setUrlBarData(
                         data2, UrlBar.ScrollType.SCROLL_TO_TLD, TextSelection.SELECT_END));
 
-        verifyNoMoreInteractions(observer);
+        verifyNoMoreInteractions(mPropertyObserver);
     }
 
     @Test
@@ -231,6 +235,17 @@ public class UrlBarMediatorUnitTest {
                         UrlBarData.create(null, spannable("Test"), 0, 0, "Blah"),
                         UrlBarData.create(null, spannable("Test"), 0, 0, "Blah")));
 
+        // Equal plain string display text
+        assertTrue(
+                UrlBarMediator.isNewTextEquivalentToExistingText(
+                        UrlBarData.forNonUrlText("Test"), UrlBarData.forNonUrlText("Test")));
+
+        // Spanned (with no emphasis spans) vs plain string display text
+        assertTrue(
+                UrlBarMediator.isNewTextEquivalentToExistingText(
+                        UrlBarData.create(null, spannable("Test"), 0, 0, null),
+                        UrlBarData.create(null, "Test", 0, 0, null)));
+
         // Equal complex display text and editing text
         SpannableStringBuilder text1 = spannable("Test");
         text1.setSpan(new UrlEmphasisColorSpan(3), 0, 3, 0);
@@ -272,6 +287,14 @@ public class UrlBarMediatorUnitTest {
                 UrlBarMediator.isNewTextEquivalentToExistingText(
                         UrlBarData.create(null, spannable("Test"), 0, 0, null),
                         UrlBarData.create(null, "Test2", 0, 0, null)));
+
+        // Spanned with emphasis spans vs plain string display text
+        SpannableStringBuilder textWithSpan = spannable("Test");
+        textWithSpan.setSpan(new UrlEmphasisColorSpan(3), 0, 3, 0);
+        assertFalse(
+                UrlBarMediator.isNewTextEquivalentToExistingText(
+                        UrlBarData.create(null, textWithSpan, 0, 0, null),
+                        UrlBarData.create(null, "Test", 0, 0, null)));
 
         // Equal display text, different editing text
         assertFalse(
@@ -382,7 +405,7 @@ public class UrlBarMediatorUnitTest {
 
     @Test
     public void hintVisibility() {
-        var input = new AutocompleteInput();
+        var sessionState = new FuseboxSessionState();
         UrlBarData baseData =
                 UrlBarData.create(
                         new GURL("http://www.example.com"),
@@ -394,7 +417,7 @@ public class UrlBarMediatorUnitTest {
         assertTrue(mModel.get(UrlBarProperties.SHOW_HINT_TEXT));
         doReturn(baseData).when(mDelegate).getUrlBarDataForCurrentInput();
 
-        mMediator.beginInput(input);
+        mMediator.beginInput(sessionState);
         mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("");
 
         assertTrue(mModel.get(UrlBarProperties.SHOW_HINT_TEXT));
@@ -488,21 +511,25 @@ public class UrlBarMediatorUnitTest {
     @Test
     @EnableFeatures(OmniboxFeatureList.OMNIBOX_SITE_SEARCH)
     public void testManageSearchEnginesCallback_featureEnabled() {
-        SettingsNavigation settingsNavigation = mock(SettingsNavigation.class);
-        SettingsNavigationFactory.setInstanceForTesting(settingsNavigation);
+        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
 
         Runnable callback = mModel.get(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK);
         assertNotNull(callback);
 
         callback.run();
-        verify(settingsNavigation).startSettings(eq(mContext), eq(SiteSearchSettings.class));
+        verify(mSettingsNavigation).startSettings(eq(mContext), eq(SiteSearchSettings.class));
     }
 
     @Test
     @DisableFeatures(OmniboxFeatureList.OMNIBOX_SITE_SEARCH)
     public void testManageSearchEnginesCallback_featureDisabled() {
+        SettingsNavigationFactory.setInstanceForTesting(mSettingsNavigation);
+
         Runnable callback = mModel.get(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK);
-        assertNull(callback);
+        assertNotNull(callback);
+
+        callback.run();
+        verify(mSettingsNavigation).startSettings(eq(mContext), eq(SearchEngineSettings.class));
     }
 
     @Test
@@ -510,11 +537,73 @@ public class UrlBarMediatorUnitTest {
         UrlBarData mockData = UrlBarData.forNonUrlText("Text");
         doReturn(mockData).when(mDelegate).getUrlBarDataForCurrentInput();
 
-        var input = new AutocompleteInput();
-        mMediator.beginInput(input);
+        var sessionState = new FuseboxSessionState();
+        mMediator.beginInput(sessionState);
 
         verify(mDelegate).getUrlBarDataForCurrentInput();
         assertEquals("Text", mModel.get(UrlBarProperties.TEXT_STATE).text.toString());
+    }
+
+    @Test
+    public void onTextChanged_synchronizesUrlBarDataInInputSession() {
+        UrlBarData initialData = UrlBarData.forNonUrlText("initial");
+        doReturn(initialData).when(mDelegate).getUrlBarDataForCurrentInput();
+
+        var sessionState = new FuseboxSessionState();
+        mMediator.beginInput(sessionState);
+        assertEquals("initial", mMediator.getUrlBarData().displayText.toString());
+
+        // Typing updates mUrlBarData when in input session.
+        mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("typed text");
+        assertEquals("typed text", mMediator.getUrlBarData().displayText.toString());
+
+        mMediator.endInput();
+
+        // Typing does NOT update mUrlBarData when not in input session.
+        mModel.get(UrlBarProperties.TEXT_CHANGE_LISTENER).onResult("after session");
+        assertEquals("", mMediator.getUrlBarData().displayText.toString());
+    }
+
+    @Test
+    public void setUrlBarData_inInputSession_selectionEquivalence() {
+        var sessionState = new FuseboxSessionState();
+        UrlBarData data = UrlBarData.forNonUrlText("test");
+        doReturn(data).when(mDelegate).getUrlBarDataForCurrentInput();
+
+        mMediator.beginInput(sessionState);
+        assertTrue(
+                mMediator.setUrlBarData(
+                        data, UrlBar.ScrollType.NO_SCROLL, new TextSelection(0, 4)));
+
+        // Same text, same scroll type, same selection -> deduplicated (false).
+        assertFalse(
+                mMediator.setUrlBarData(
+                        data, UrlBar.ScrollType.NO_SCROLL, new TextSelection(0, 4)));
+
+        // Same text, same scroll type, different selection -> not deduplicated (true).
+        assertTrue(
+                mMediator.setUrlBarData(
+                        data, UrlBar.ScrollType.NO_SCROLL, new TextSelection(2, 2)));
+    }
+
+    @Test
+    public void setUrlBarData_emptyDisplayText_scrollTypeEquivalent() {
+        UrlBarData nonEmpty = UrlBarData.forNonUrlText("initial");
+        assertTrue(
+                mMediator.setUrlBarData(
+                        nonEmpty, UrlBar.ScrollType.NO_SCROLL, TextSelection.SELECT_END));
+
+        UrlBarData empty1 = UrlBarData.create(null, "", 0, 0, null);
+        UrlBarData empty2 = UrlBarData.create(null, "", 0, 0, null);
+
+        assertTrue(
+                mMediator.setUrlBarData(
+                        empty1, UrlBar.ScrollType.NO_SCROLL, TextSelection.SELECT_END));
+
+        // Different scroll type, but both texts are empty -> deduplicated (false).
+        assertFalse(
+                mMediator.setUrlBarData(
+                        empty2, UrlBar.ScrollType.SCROLL_TO_TLD, TextSelection.SELECT_END));
     }
 
     private static SpannableStringBuilder spannable(String text) {

@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import './iframe.js';
 import './doodle_share_dialog.js';
 
 import {assert} from 'chrome://resources/js/assert.js';
@@ -203,7 +202,7 @@ export class LogoElement extends CrLitElement {
    * doodle-associated URL in new tab/window.
    */
   protected onImageClick_() {
-    if ($$<HTMLElement>(this, '#imageDoodle')!.tabIndex < 0) {
+    if ($$<HTMLElement>(this, '#imageContainer')!.tabIndex < 0) {
       return;
     }
 

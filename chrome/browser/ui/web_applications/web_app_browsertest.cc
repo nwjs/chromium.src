@@ -45,7 +45,9 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -64,6 +66,7 @@
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_menu_model.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_utils.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/browser/web_applications/external_install_options.h"
@@ -81,7 +84,6 @@
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
@@ -106,6 +108,7 @@
 #include "content/public/test/background_color_change_waiter.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/download_test_observer.h"
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/test_utils.h"
 #include "net/base/filename_util.h"
@@ -265,7 +268,7 @@ class WebAppBrowserTest : public base::test::WithFeatureOverride,
 
     webapps::AppId app_id = InstallWebApp(std::move(web_app_info));
     Browser* app_browser = LaunchWebAppBrowser(app_id);
-    DCHECK(app_browser->is_type_app());
+    DCHECK(app_browser->GetType() == BrowserWindowInterface::Type::TYPE_APP);
     DCHECK(web_app::AppBrowserController::From(app_browser));
     tester.ExpectUniqueSample(kLaunchWebAppDisplayModeHistogram,
                               expected_launch_display, 1);
@@ -501,7 +504,10 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, ThemeColor) {
     webapps::AppId app_id = InstallWebApp(std::move(web_app_info));
     Browser* app_browser = LaunchWebAppBrowser(app_id);
 
-    EXPECT_EQ(GetAppIdFromApplicationName(app_browser->app_name()), app_id);
+    EXPECT_EQ(
+        GetAppIdFromApplicationName(
+            BrowserInitState::From(app_browser)->create_params().app_name),
+        app_id);
     EXPECT_EQ(
         SkColorSetA(theme_color, SK_AlphaOPAQUE),
         web_app::AppBrowserController::From(app_browser)->GetThemeColor());
@@ -514,7 +520,10 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, ThemeColor) {
     webapps::AppId app_id = InstallWebApp(std::move(web_app_info));
     Browser* app_browser = LaunchWebAppBrowser(app_id);
 
-    EXPECT_EQ(GetAppIdFromApplicationName(app_browser->app_name()), app_id);
+    EXPECT_EQ(
+        GetAppIdFromApplicationName(
+            BrowserInitState::From(app_browser)->create_params().app_name),
+        app_id);
     EXPECT_EQ(
         std::nullopt,
         web_app::AppBrowserController::From(app_browser)->GetThemeColor());
@@ -1062,6 +1071,73 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, DesktopPWAsOpenLinksInNewTab) {
             model2->GetActiveWebContents());
 }
 
+// Tests that when a download is opened in a new window from within a PWA,
+// the newly created PWA window automatically closes once the download starts.
+IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, DownloadInNewWindowAutoCloses) {
+  const GURL app_url =
+      embedded_https_test_server().GetURL("app.com", "/web_apps/basic.html");
+  const webapps::AppId app_id = InstallPWA(app_url);
+  Browser* const app_browser = LaunchWebAppBrowserAndWait(app_id);
+  ASSERT_TRUE(app_browser);
+  EXPECT_EQ(1, app_browser->tab_strip_model()->count());
+  EXPECT_TRUE(web_app::AppBrowserController::IsWebApp(app_browser));
+
+  const GURL download_url =
+      embedded_https_test_server().GetURL("app.com", "/download-test1.lib");
+
+  content::DownloadTestObserverTerminal observer(
+      app_browser->GetProfile()->GetDownloadManager(), 1,
+      content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_ACCEPT);
+
+  ui_test_utils::BrowserCreatedObserver browser_created_observer;
+  NavigateParams params(app_browser, download_url, ui::PAGE_TRANSITION_LINK);
+  params.disposition = WindowOpenDisposition::NEW_POPUP;
+  ui_test_utils::NavigateToURL(&params);
+
+  Browser* download_browser = browser_created_observer.Wait();
+  ASSERT_TRUE(download_browser);
+  EXPECT_NE(app_browser, download_browser);
+  EXPECT_TRUE(web_app::AppBrowserController::IsWebApp(download_browser));
+
+  ui_test_utils::BrowserDestroyedObserver browser_destroyed_observer(
+      download_browser);
+
+  observer.WaitForFinished();
+  browser_destroyed_observer.Wait();
+
+  EXPECT_EQ(1, app_browser->tab_strip_model()->count());
+  EXPECT_EQ(app_url, app_browser->tab_strip_model()
+                         ->GetActiveWebContents()
+                         ->GetLastCommittedURL());
+}
+
+IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, DownloadInSameWindowDoesNotClose) {
+  const GURL app_url =
+      embedded_https_test_server().GetURL("app.com", "/web_apps/basic.html");
+  const webapps::AppId app_id = InstallPWA(app_url);
+  Browser* const app_browser = LaunchWebAppBrowserAndWait(app_id);
+  ASSERT_TRUE(app_browser);
+  EXPECT_EQ(1, app_browser->tab_strip_model()->count());
+
+  const GURL download_url =
+      embedded_https_test_server().GetURL("app.com", "/download-test1.lib");
+
+  content::DownloadTestObserverTerminal observer(
+      app_browser->GetProfile()->GetDownloadManager(), 1,
+      content::DownloadTestObserver::ON_DANGEROUS_DOWNLOAD_ACCEPT);
+
+  EXPECT_TRUE(
+      content::ExecJs(app_browser->tab_strip_model()->GetActiveWebContents(),
+                      "window.location.href = '" + download_url.spec() + "';"));
+
+  observer.WaitForFinished();
+
+  EXPECT_EQ(1, app_browser->tab_strip_model()->count());
+  EXPECT_EQ(app_url, app_browser->tab_strip_model()
+                         ->GetActiveWebContents()
+                         ->GetLastCommittedURL());
+}
+
 // Tests that desktop PWAs are opened at the correct size.
 IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, PWASizeIsCorrectlyRestored) {
   const GURL app_url = GetSecureAppURL();
@@ -1177,7 +1253,8 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, AboutBlankPWAPopup) {
   EXPECT_TRUE(AppBrowserController::IsWebApp(popup_browser));
 
   // The popup browser's BrowserWindowInterface::Type should be TYPE_APP_POPUP.
-  EXPECT_TRUE(popup_browser->is_type_app_popup());
+  EXPECT_EQ(popup_browser->GetType(),
+            BrowserWindowInterface::Type::TYPE_APP_POPUP);
 
   // Toolbar should not be shown, as about:blank app popups are a special case.
   EXPECT_FALSE(web_app::AppBrowserController::From(popup_browser)
@@ -1209,7 +1286,7 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, PWANavigatedToAboutBlank) {
   EXPECT_TRUE(AppBrowserController::IsWebApp(app_browser));
 
   // The app browser's BrowserWindowInterface::Type should be TYPE_APP.
-  EXPECT_TRUE(app_browser->is_type_app());
+  EXPECT_EQ(app_browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
 
   // Navigate to about:blank in the app.
   const GURL about_blank_url("about:blank");
@@ -1272,9 +1349,11 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, OverscrollEnabled) {
 
   // Overscroll is only enabled on Aura platforms currently.
 #if defined(USE_AURA)
-  EXPECT_TRUE(app_browser->CanOverscrollContent());
+  EXPECT_TRUE(
+      BrowserWebContentsDelegate::From(app_browser)->CanOverscrollContent());
 #else
-  EXPECT_FALSE(app_browser->CanOverscrollContent());
+  EXPECT_FALSE(
+      BrowserWebContentsDelegate::From(app_browser)->CanOverscrollContent());
 #endif
 }
 
@@ -2436,25 +2515,31 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest, PopupLocationBar) {
       "app.com", "/ssl/page_with_subresource.html");
   const webapps::AppId app_id = InstallPWA(app_url);
 
-  Browser::CreateParams params = web_app::CreateParamsForApp(
+  BrowserWindowCreateParams params = web_app::CreateParamsForApp(
       app_id,
-      /*is_popup*/ true,
+      /*is_popup=*/true,
       /*trusted_source=*/true, /*window_bounds=*/gfx::Rect(), profile(),
       /*user_gesture=*/true);
-  Browser* popup_browser =
-      web_app::CreateWebAppWindowMaybeWithHomeTab(app_id, params);
+  BrowserWindowInterface* popup_browser =
+      web_app::CreateWebAppWindowMaybeWithHomeTab(app_id, std::move(params));
   popup_browser->GetWindow()->Show();
   ui_test_utils::WaitUntilBrowserBecomeActive(popup_browser);
 
-  EXPECT_TRUE(popup_browser->CanSupportWindowFeature(
-      Browser::WindowFeature::kFeatureLocationBar));
-  EXPECT_TRUE(popup_browser->SupportsWindowFeature(
-      Browser::WindowFeature::kFeatureLocationBar));
+  EXPECT_TRUE(
+      WindowFeatureController::From(popup_browser)
+          ->CanSupportWindowFeature(
+              WindowFeatureController::WindowFeature::kFeatureLocationBar));
+  EXPECT_TRUE(
+      WindowFeatureController::From(popup_browser)
+          ->SupportsWindowFeature(
+              WindowFeatureController::WindowFeature::kFeatureLocationBar));
 
   ui_test_utils::ToggleFullscreenModeAndWait(popup_browser);
 
-  EXPECT_TRUE(popup_browser->CanSupportWindowFeature(
-      Browser::WindowFeature::kFeatureLocationBar));
+  EXPECT_TRUE(
+      WindowFeatureController::From(popup_browser)
+          ->CanSupportWindowFeature(
+              WindowFeatureController::WindowFeature::kFeatureLocationBar));
 }
 
 // Make sure chrome://web-app-internals page loads fine.
@@ -3057,8 +3142,7 @@ IN_PROC_BROWSER_TEST_P(WebAppBrowserTest_PageInfoManagementLink, Reparenting) {
   EXPECT_TRUE(ShowingAppManagementLink(app_browser));
 
   // Move back into tabbed browser: should keep showing the app settings link.
-  BrowserWindowInterface* tabbed_browser =
-      chrome::OpenInChrome(app_browser->GetBrowserForMigrationOnly());
+  BrowserWindowInterface* tabbed_browser = chrome::OpenInChrome(app_browser);
   EXPECT_TRUE(ShowingAppManagementLink(tabbed_browser));
 }
 

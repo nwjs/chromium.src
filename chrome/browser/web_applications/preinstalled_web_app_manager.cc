@@ -47,7 +47,6 @@
 #include "chrome/browser/web_applications/preinstalled_app_install_features.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_config_utils.h"
 #include "chrome/browser/web_applications/preinstalled_web_app_utils.h"
-#include "chrome/browser/web_applications/preinstalled_web_apps/extension_ids_to_replace.h"
 #include "chrome/browser/web_applications/preinstalled_web_apps/preinstalled_web_apps.h"
 #include "chrome/browser/web_applications/user_uninstalled_preinstalled_web_app_prefs.h"
 #include "chrome/browser/web_applications/web_app.h"
@@ -75,6 +74,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_extension_constants.h"
 // TODO(http://b/333583704): Revert CL which added this include after migration.
 #include "ash/constants/ash_switches.h"
 #include "ash/constants/web_app_id_constants.h"
@@ -524,7 +524,8 @@ void MaybeForceInstallForRemigration(
   bool calculator_web_app_installed = registrar.AppMatches(
       ash::kCalculatorAppId, WebAppFilter::InstalledByDefaultManagement());
   bool calculator_chrome_app_installed =
-      extensions_manager.IsExtensionInstalled(kCalculatorExtensionId);
+      extensions_manager.IsExtensionInstalled(
+          extension_misc::kCalculatorExtensionId);
   base::UmaHistogramBoolean(
       "WebApp.Preinstalled.CalculatorForceMigration.WebAppInstalled",
       calculator_web_app_installed);
@@ -550,7 +551,7 @@ void MaybeForceInstallForRemigration(
     for (const std::string& app_id : options.uninstall_and_replace) {
       bool migration_needed = false;
       if (extensions_manager.IsExtensionInstalled(app_id)) {
-        if (app_id == kCalculatorExtensionId) {
+        if (app_id == extension_misc::kCalculatorExtensionId) {
           calculator_migration_needed = true;
           migration_needed = true;
         }
@@ -673,14 +674,13 @@ const char* PreinstalledWebAppManager::
 
 void PreinstalledWebAppManager::RegisterProfilePrefs(
     user_prefs::PrefRegistrySyncable* registry) {
+  // LINT.IfChange(WebAppPrefs)
   registry->RegisterStringPref(prefs::kWebAppsLastPreinstallSynchronizeVersion,
                                "");
   registry->RegisterListPref(webapps::kWebAppsMigratedPreinstalledApps);
   registry->RegisterListPref(prefs::kWebAppsDidMigrateDefaultChromeApps);
   registry->RegisterListPref(prefs::kWebAppsUninstalledDefaultChromeApps);
-  // NOTE: If you add new prefs here that should be cleared during database
-  // corruption recovery, make sure to update
-  // `RemoveWebAppJob::RemoveForCorruptDatabase`.
+  // LINT.ThenChange(chrome/browser/web_applications/web_app_utils.cc:WebAppPrefs)
 }
 
 // static

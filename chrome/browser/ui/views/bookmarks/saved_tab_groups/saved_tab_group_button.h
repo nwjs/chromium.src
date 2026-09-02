@@ -25,7 +25,7 @@
 #include "ui/views/controls/button/menu_button.h"
 #include "ui/views/drag_controller.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace gfx {
 class Canvas;
@@ -48,7 +48,7 @@ class SavedTabGroupButton : public views::MenuButton,
  public:
   SavedTabGroupButton(const SavedTabGroup& group,
                       PressedCallback callback,
-                      Browser* browser,
+                      BrowserWindowInterface* browser,
                       bool animations_enabled = true);
 
   SavedTabGroupButton(const SavedTabGroupButton&) = delete;
@@ -96,8 +96,9 @@ class SavedTabGroupButton : public views::MenuButton,
   const base::Uuid guid() const { return guid_; }
 
  private:
-  FRIEND_TEST_ALL_PREFIXES(SavedTabGroupBarUnitTest, AccessibleName);
-  FRIEND_TEST_ALL_PREFIXES(SavedTabGroupBarUnitTest, TooltipText);
+  FRIEND_TEST_ALL_PREFIXES(SavedTabGroupBarComponentBrowserTest,
+                           AccessibleName);
+  FRIEND_TEST_ALL_PREFIXES(SavedTabGroupBarComponentBrowserTest, TooltipText);
 
   std::u16string GetAccessibleNameForButton() const;
   void SetTextProperties(const SavedTabGroup& group);
@@ -106,7 +107,7 @@ class SavedTabGroupButton : public views::MenuButton,
   void SetText(std::u16string_view text) override;
   int GetAndIncrementLatestCommandId();
 
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
 
   // The animations for button movement.
   std::unique_ptr<gfx::SlideAnimation> show_animation_;

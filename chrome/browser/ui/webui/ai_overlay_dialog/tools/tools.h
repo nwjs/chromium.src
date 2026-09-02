@@ -8,13 +8,14 @@
 #include <memory>
 #include <string>
 
-#include "base/callback_list.h"
-#include "base/memory/raw_ptr.h"
+#include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/ui/webui/ai_overlay_dialog/tools/tools.mojom.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/mojom/annotation/annotation.mojom.h"
+#include "third_party/blink/public/mojom/dom/dom_node_id.mojom.h"
 
 class BrowserWindowInterface;
 
@@ -22,13 +23,18 @@ namespace ttc {
 
 class PageContextMonitor;
 
-class AiOverlayTools : public ai_overlay_dialog::mojom::AiOverlayTools {
+class AiOverlayTools : public ai_overlay_dialog::mojom::AiOverlayTools,
+                       public ai_overlay_dialog::mojom::AiOverlayToolRegistry {
  public:
   AiOverlayTools(
       mojo::PendingReceiver<ai_overlay_dialog::mojom::AiOverlayTools> receiver,
       BrowserWindowInterface* browser,
       PageContextMonitor* page_context_monitor);
   ~AiOverlayTools() override;
+
+  void BindRegistryReceiver(
+      mojo::PendingReceiver<ai_overlay_dialog::mojom::AiOverlayToolRegistry>
+          registry_receiver);
   AiOverlayTools(const AiOverlayTools&) = delete;
   AiOverlayTools& operator=(const AiOverlayTools&) = delete;
 
@@ -56,8 +62,23 @@ class AiOverlayTools : public ai_overlay_dialog::mojom::AiOverlayTools {
                        SeekToTimestampCallback callback) override;
   void TranslatePage(const std::string& target_language,
                      TranslatePageCallback callback) override;
+  void AddBookmark(AddBookmarkCallback callback) override;
+  void RemoveBookmark(RemoveBookmarkCallback callback) override;
+  void OpenPage(const std::string& query,
+                OpenPageCallback callback) override;
+  void SetText(const blink::DOMNodeIdType& dom_node_id,
+               const std::string& text,
+               SetTextCallback callback) override;
+  void ClickElement(const blink::DOMNodeIdType& dom_node_id,
+                    ClickElementCallback callback) override;
+  void SetFullscreen(bool fullscreen,
+                     SetFullscreenCallback callback) override;
+  void SelectOption(const blink::DOMNodeIdType& dom_node_id,
+                    const std::string& value,
+                    SelectOptionCallback callback) override;
   void InvokeGlic(const std::string& prompt,
                   InvokeGlicCallback callback) override;
+  void GetToolDefinitions(GetToolDefinitionsCallback callback) override;
 
  private:
   class AnnotationTask : public blink::mojom::AnnotationAgentHost {
@@ -83,6 +104,8 @@ class AiOverlayTools : public ai_overlay_dialog::mojom::AiOverlayTools {
   void OnAnnotationAgentDisconnected();
 
   mojo::Receiver<ai_overlay_dialog::mojom::AiOverlayTools> receiver_;
+  mojo::Receiver<ai_overlay_dialog::mojom::AiOverlayToolRegistry>
+      registry_receiver_{this};
   raw_ptr<BrowserWindowInterface> browser_;
   // `page_context_monitor_` is owned by `AiOverlayDialogUntrustedUI` and must
   // outlive `AiOverlayTools`.
@@ -91,6 +114,8 @@ class AiOverlayTools : public ai_overlay_dialog::mojom::AiOverlayTools {
   std::unique_ptr<AnnotationTask> annotation_task_;
   content::WeakDocumentPtr annotation_document_;
   mojo::Remote<blink::mojom::AnnotationAgentContainer> annotation_container_;
+  base::CancelableTaskTracker task_tracker_;
+  base::WeakPtrFactory<AiOverlayTools> weak_factory_{this};
 };
 
 }  // namespace ttc

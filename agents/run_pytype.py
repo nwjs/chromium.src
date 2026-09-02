@@ -29,19 +29,18 @@ def main() -> int:
         # Exclude the CIPD dependencies that might be present from running
         # prompt evals.
         str(AGENTS_DIR / 'testing' / 'cipd'),
-        # Currently has a lot of issues that will need to be burned down.
-        # TODO(b/528058003): Remove this and fix resulting issues.
-        str(AGENTS_DIR / 'skills' / 'magi-mode'),
         # WIP, paused, and currently unclear whether work will continue.
         str(AGENTS_DIR / 'infra' / 'review_rag_indexer'),
     ]
 
-    return pytype_runner.run_pytype(test_name='agents_pytype',
-                                    test_location='//agents/run_pytype.py',
-                                    files_to_check=[str(AGENTS_DIR)],
-                                    files_to_exclude=files_to_exclude,
-                                    python_paths=extra_paths,
-                                    cwd=str(AGENTS_DIR))
+    return pytype_runner.run_pytype(
+        test_name='agents_pytype',
+        test_location='//agents/run_pytype.py',
+        files_to_check=[str(AGENTS_DIR)],
+        files_to_exclude=files_to_exclude,
+        python_paths=extra_paths,
+        cwd=str(AGENTS_DIR),
+    )
 
 
 if __name__ == '__main__':

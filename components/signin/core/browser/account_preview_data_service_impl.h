@@ -15,17 +15,24 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/version_info/channel.h"
+#include "build/build_config.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "components/signin/core/browser/account_preview_data_service.h"
 #include "components/signin/core/browser/account_preview_metrics_recorder.h"
 #include "components/signin/public/base/wait_for_network_callback_helper.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
+#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 class PrefService;
 
 namespace network {
 class SharedURLLoaderFactory;
+}
+
+namespace syncer {
+class SyncService;
 }
 
 namespace signin {
@@ -42,13 +49,17 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
     kPeriodicRefresh = 0,
     kRefreshTokenUpdated = 1,
     kRefreshTokenRemoved = 2,
-    kMaxValue = kRefreshTokenRemoved,
+    kRefreshTokenInvalidated = 3,
+    kExternalAppAccountUpdated = 4,
+    kMaxValue = kExternalAppAccountUpdated,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/signin/enums.xml:AccountPreviewFetchTriggerCause)
 
   AccountPreviewDataServiceImpl(
       IdentityManager* identity_manager,
-      PrefService* pref_service,
+      syncer::SyncService* sync_service,
+      PrefService* local_state,
+      PrefService* profile_prefs,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       std::unique_ptr<WaitForNetworkCallbackHelper> network_delay_helper,
       version_info::Channel channel,
@@ -63,6 +74,10 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
   // AccountPreviewDataService implementation:
   std::optional<AccountPreviewPreference> GetPreferredAccountForPromo()
       const override;
+  void GetPreviewPreferenceForAccount(
+      const GaiaId& gaia_id,
+      base::OnceCallback<void(std::optional<AccountPreviewPreference>)>
+          callback) override;
 
   // Retrieves the cached preview data. Exposed specifically for testing.
   // Note: This may not be available if the browser restarted and no fetch has
@@ -70,9 +85,17 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
   std::optional<AccountPreviewData> GetAccountPreviewData(
       const GaiaId& gaia_id) const;
 
-  bool HasActiveFetcherForTesting(const GaiaId& gaia_id) const {
-    return active_fetchers_.contains(gaia_id);
-  }
+#if BUILDFLAG(IS_ANDROID)
+  void UpdateExternalAppAccount(
+      const std::optional<std::string>& email) override;
+
+  std::optional<GaiaId> GetExternalAppAccountForTesting() const;
+#endif
+
+  bool HasActiveFetcherForTesting(const GaiaId& gaia_id) const;
+  AccountPreviewDataFetcher* GetFetcherForTesting(const GaiaId& gaia_id) const;
+
+  bool IsRateLimitedForTesting() const { return IsRateLimited(); }
 
   void SetFetchCompleteCallbackForTesting(base::OnceClosure callback);
   void SetAllDataAvailableCallbackForTesting(base::OnceClosure callback);
@@ -83,32 +106,67 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
   void OnRefreshTokenRemovedForAccount(
       const CoreAccountId& account_id) override;
   void OnRefreshTokensLoaded() override;
+  void OnErrorStateOfRefreshTokenUpdatedForAccount(
+      const CoreAccountInfo& account_info,
+      const GoogleServiceAuthError& error,
+      signin_metrics::SourceForRefreshTokenOperation token_operation_source)
+      override;
   void OnIdentityManagerShutdown(IdentityManager* identity_manager) override;
 
  private:
+  bool IsRateLimited() const;
   void RefreshAllAccountPreviewData();
   void EnsureAllAccountsFetched(FetchTriggerCause cause);
   void FetchAccountPreviewData(const GaiaId& gaia_id);
   void StartFetch(const GaiaId& gaia_id);
   void OnSingleFetchCompleted(const GaiaId& gaia_id,
-                              std::optional<AccountPreviewData> data);
+                              std::optional<AccountPreviewData> data,
+                              bool hit_429);
+  std::vector<CoreAccountInfo> GetAccountsWithValidRefreshTokens() const;
+  void RefreshAccountIdToGaiaIdMapping();
   bool HaveAccountsMutatedSinceLastFetch(
       const std::vector<CoreAccountInfo>& accounts) const;
   void RecordAccountsUsedForLastFetch();
   void OnAllFetchesCompleted(bool should_reset_periodic_timer);
+  void OnSigninAllowedPrefChanged();
   void CreateAndStartRepeatingTimer();
   void ResetTimer();
   std::optional<AccountPreviewPreference> ComputePreferredAccount() const;
+  void ComputeAndStorePreferredAccount();
+
+  void NotifyBatchBarrierOnFetchCompleted(const GaiaId& gaia_id);
+  void MaybeNotifySinglePendingRequests(const GaiaId& gaia_id);
+  void ClearAllSinglePendingRequests();
+
+  // Clears in-memory cache, in-flight fetchers, stored preferred account
+  // pref for `gaia_id`, and `account_id` from mapping. May trigger a batch
+  // fetch request if `gaia_id` was the preferred account.
+  void ProcessAccountRemoval(const CoreAccountId& account_id,
+                             const GaiaId& gaia_id,
+                             FetchTriggerCause trigger_cause);
+
+  void ClearMemoryData();
+  void ClearStoredResults();
   void ClearAllDataAndResults();
 
-  std::optional<AccountPreviewPreference> ReadPreviewPreferenceFromPrefs()
-      const;
+  std::optional<AccountPreviewPreference> ReadPreferredAccountFromPrefs() const;
   // Writing `std::nullopt` as `preference` clears the pref.
   void WritePreferredAccountToPrefs(
       std::optional<AccountPreviewPreference> preference);
 
+#if BUILDFLAG(IS_ANDROID)
+  std::optional<GaiaId> ReadExternalAppAccountFromPrefs() const;
+  void WriteExternalAppAccountToPrefs(const GaiaId& gaia_id,
+                                      base::Time timestamp);
+  void ClearExternalAppAccount();
+  void CleanUpExternalAppAccountIfExpired();
+  void CleanUpExternalAppAccountIfNotOnDevice();
+#endif
+
   raw_ptr<IdentityManager> identity_manager_ = nullptr;
-  raw_ptr<PrefService> pref_service_ = nullptr;
+  raw_ptr<syncer::SyncService> sync_service_ = nullptr;
+  raw_ptr<PrefService> local_state_ = nullptr;
+  raw_ptr<PrefService> profile_prefs_ = nullptr;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   std::unique_ptr<WaitForNetworkCallbackHelper> network_delay_helper_;
   const version_info::Channel channel_;
@@ -125,12 +183,23 @@ class AccountPreviewDataServiceImpl : public AccountPreviewDataService,
                       std::unique_ptr<AccountPreviewDataFetcher>,
                       GaiaId::Hash>
       active_fetchers_;
+  // Used to track single account requests - originating from
+  // `GetPreviewPreferenceForAccount()`.
+  absl::flat_hash_map<GaiaId,
+                      std::vector<base::OnceCallback<void(
+                          std::optional<AccountPreviewPreference>)>>,
+                      GaiaId::Hash>
+      single_pending_requests_;
+  // Used to track batch requests - originating from any source that requires
+  // to compute the overall preferred account.
+  absl::flat_hash_set<GaiaId, GaiaId::Hash> batch_gaia_ids_;
   base::RepeatingClosure all_accounts_fetched_barrier_;
 
   // Mapping used to look up gaia_id based on account_id, used when an account
   // is removed.
   absl::flat_hash_map<CoreAccountId, GaiaId> account_id_to_gaia_id_;
 
+  PrefChangeRegistrar pref_change_registrar_;
   base::ScopedObservation<IdentityManager, IdentityManager::Observer>
       identity_manager_observation_{this};
 

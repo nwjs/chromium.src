@@ -824,7 +824,8 @@
       },
       {
         "args": [
-          "--test-launcher-print-test-stdio=always"
+          "--test-launcher-print-test-stdio=always",
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
         ],
         "ci_only": true,
         "merge": {
@@ -1361,7 +1362,8 @@
       },
       {
         "args": [
-          "--test-launcher-print-test-stdio=always"
+          "--test-launcher-print-test-stdio=always",
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
         ],
         "ci_only": true,
         "merge": {
@@ -1452,7 +1454,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 12
+          "shards": 14
         },
         "test": "unit_tests",
         "test_id_prefix": "ninja://chrome/test:unit_tests/"

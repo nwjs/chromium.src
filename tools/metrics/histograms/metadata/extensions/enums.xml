@@ -96,6 +96,11 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Other MainFrame Redirects"/>
 </enum>
 
+<enum name="DefaultPinnedExtensionState">
+  <int value="0" label="Pinned"/>
+  <int value="1" label="Unpinned"/>
+</enum>
+
 <enum name="ExtensionActionInvocationSource">
   <int value="0" label="Keyboard Shortcut"/>
   <int value="1" label="Toolbar Button"/>
@@ -806,7 +811,7 @@ Called by update_extension_histograms.py.-->
   <int value="566"
       label="ENTERPRISE_REPORTING_PRIVATE_ON_DATA_MASKING_RULES_TRIGGERED"/>
   <int value="567"
-      label="PASSWORDS_PRIVATE_ON_SHOULD_SHOW_ACCOUNT_STORAGE_SETTING_TOGGLE_CHANGED"/>
+      label="DELETED_PASSWORDS_PRIVATE_ON_SHOULD_SHOW_ACCOUNT_STORAGE_SETTING_TOGGLE_CHANGED"/>
   <int value="568" label="PDF_VIEWER_PRIVATE_ON_SAVE_TO_DRIVE_PROGRESS"/>
   <int value="569" label="SIDE_PANEL_ON_OPENED"/>
   <int value="570" label="SIDE_PANEL_ON_CLOSED"/>
@@ -818,6 +823,7 @@ Called by update_extension_histograms.py.-->
   <int value="575" label="DICTATION_PRIVATE_ON_START_STREAM"/>
   <int value="576" label="DICTATION_PRIVATE_ON_END_STREAM"/>
   <int value="577" label="DICTATION_PRIVATE_ON_CONTEXT_UPDATE"/>
+  <int value="578" label="DICTATION_PRIVATE_ON_BROWSER_LOG_EVENT"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_event_histogram_value.h:HistogramValue) -->
@@ -2313,7 +2319,7 @@ Called by update_extension_histograms.py.-->
   <int value="1415" label="TERMINALPRIVATE_GETSETTINGS"/>
   <int value="1416" label="TERMINALPRIVATE_SETSETTINGS"/>
   <int value="1417" label="DELETED_WEBSTOREPRIVATE_REQUESTEXTENSION"/>
-  <int value="1418" label="AUTOTESTPRIVATE_INSTALLPLUGINVM"/>
+  <int value="1418" label="DELETED_AUTOTESTPRIVATE_INSTALLPLUGINVM"/>
   <int value="1419" label="CRASHREPORTPRIVATE_REPORTERROR"/>
   <int value="1420" label="AUTOTESTPRIVATE_SETMETRICSENABLED"/>
   <int value="1421" label="ENTERPRISEREPORTINGPRIVATE_GETPERSISTENTSECRET"/>
@@ -2369,8 +2375,8 @@ Called by update_extension_histograms.py.-->
   <int value="1471" label="DECLARATIVENETREQUEST_UPDATEENABLEDRULESETS"/>
   <int value="1472" label="DECLARATIVENETREQUEST_GETENABLEDRULESETS"/>
   <int value="1473" label="TERMINALPRIVATE_OPENWINDOW"/>
-  <int value="1474" label="AUTOTESTPRIVATE_SETPLUGINVMPOLICY"/>
-  <int value="1475" label="AUTOTESTPRIVATE_SHOWPLUGINVMINSTALLER"/>
+  <int value="1474" label="DELETED_AUTOTESTPRIVATE_SETPLUGINVMPOLICY"/>
+  <int value="1475" label="DELETED_AUTOTESTPRIVATE_SHOWPLUGINVMINSTALLER"/>
   <int value="1476" label="DELETED_PASSWORDSPRIVATE_REMOVESAVEDPASSWORDS"/>
   <int value="1477" label="DELETED_PASSWORDSPRIVATE_REMOVEPASSWORDEXCEPTIONS"/>
   <int value="1478" label="AUTOTESTPRIVATE_WAITFORAMBIENTPHOTOANIMATION"/>
@@ -2918,8 +2924,10 @@ Called by update_extension_histograms.py.-->
   <int value="1975" label="CONTEXTUALTASKSPRIVATE_LAUNCHPANELINNEWTAB"/>
   <int value="1976" label="DICTATIONPRIVATE_UPDATETRANSCRIPTION"/>
   <int value="1977" label="DICTATIONPRIVATE_SETSTREAMSTATE"/>
-  <int value="1978" label="WEBREQUESTINTERNAL_EVENTHANDLINGDONE"/>
+  <int value="1978" label="DELETED_WEBREQUESTINTERNAL_EVENTHANDLINGDONE"/>
   <int value="1979" label="DICTATIONPRIVATE_UPDATEAUDIOLEVEL"/>
+  <int value="1980"
+      label="ENTERPRISEREPORTINGPRIVATE_REPORTFORCESAVETOCLOUDEVENTHANDLED"/>
 </enum>
 
 <!-- LINT.ThenChange(//extensions/browser/extension_function_histogram_value.h:HistogramValue) -->
@@ -3313,6 +3321,7 @@ Called by update_extension_permission.py.-->
   <int value="270" label="kBluetoothSocket"/>
   <int value="271" label="kBluetoothLowEnergy"/>
   <int value="272" label="kBluetoothPeripheral"/>
+  <int value="273" label="kPublicSuffix"/>
 </enum>
 
 <enum name="ExtensionPinReason">
@@ -3336,6 +3345,14 @@ Called by update_extension_permission.py.-->
   </int>
   <int value="4" label="Not pinned (No action)">
     The extension does not have a toolbar action, so pinning is not applicable.
+  </int>
+  <int value="5" label="Not pinned (Enterprise extension)">
+    The extension was not pinned by default because it is an
+    enterprise-installed extension.
+  </int>
+  <int value="6" label="Not pinned (Installed from sync)">
+    The extension was not pinned by default because it was installed via Chrome
+    Sync.
   </int>
 </enum>
 

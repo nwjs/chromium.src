@@ -47,12 +47,12 @@ import org.chromium.chrome.browser.omnibox.suggestions.basic.BasicSuggestionProc
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.omnibox.AnswerDataProto.AnswerData;
-import org.chromium.components.omnibox.AnswerDataProto.FormattedString;
 import org.chromium.components.omnibox.AnswerDataProto.Image;
 import org.chromium.components.omnibox.AnswerTypeProto.AnswerType;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatchBuilder;
+import org.chromium.components.omnibox.FormattedStringProto.FormattedString;
 import org.chromium.components.omnibox.OmniboxSuggestionType;
 import org.chromium.components.omnibox.RichAnswerTemplateProto.RichAnswerTemplate;
 import org.chromium.components.omnibox.action.OmniboxAction;
@@ -83,16 +83,16 @@ public class AnswerSuggestionProcessorUnitTest {
         AnswerType.ANSWER_TYPE_CURRENCY
     };
 
-    public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private @Mock SuggestionHost mSuggestionHost;
-    private @Mock UrlBarEditingTextStateProvider mUrlStateProvider;
-    private @Mock OmniboxImageSupplier mImageSupplier;
-    private @Mock AutocompleteInput mInput;
-    private @Mock Supplier<Tab> mTabSupplier;
-    private @Mock Supplier<ShareDelegate> mShareDelegateSupplier;
-    private @Mock BookmarkState mBookmarkState;
-    private @Mock OmniboxActionDelegate mActionDelegate;
+    @Mock private SuggestionHost mSuggestionHost;
+    @Mock private UrlBarEditingTextStateProvider mUrlStateProvider;
+    @Mock private OmniboxImageSupplier mImageSupplier;
+    @Mock private AutocompleteInput mInput;
+    @Mock private Supplier<Tab> mTabSupplier;
+    @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
+    @Mock private BookmarkState mBookmarkState;
+    @Mock private OmniboxActionDelegate mActionDelegate;
 
     private AnswerSuggestionProcessor mProcessor;
     private Locale mDefaultLocale;

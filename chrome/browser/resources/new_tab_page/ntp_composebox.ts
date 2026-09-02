@@ -16,7 +16,7 @@ import '//resources/cr_components/search/animated_glow.js';
 import '//resources/cr_components/localized_link/localized_link.js';
 
 import {getLoadTimeBoolean} from '//resources/cr_components/composebox/common.js';
-import type {ComposeboxFile} from '//resources/cr_components/composebox/common.js';
+import type {ComposeboxFile, ContextualUpload} from '//resources/cr_components/composebox/common.js';
 import type {PageHandlerRemote} from '//resources/cr_components/composebox/composebox.mojom-webui.js';
 import type {ComposeboxDropdownElement} from '//resources/cr_components/composebox/composebox_dropdown.js';
 import type {ComposeboxFileInputsElement} from '//resources/cr_components/composebox/composebox_file_inputs.js';
@@ -24,6 +24,7 @@ import type {ComposeboxInputElement} from '//resources/cr_components/composebox/
 import {ComposeboxEmbedderMixin} from '//resources/cr_components/composebox/composebox_mixin.js';
 import type {ComposeboxEmbedderMixinInterface} from '//resources/cr_components/composebox/composebox_mixin.js';
 import {ComposeboxProxyImpl} from '//resources/cr_components/composebox/composebox_proxy.js';
+import {ModelMode, ToolMode} from '//resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ContextualEntrypointAndMenuElement} from '//resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import type {ErrorScrimElement} from '//resources/cr_components/composebox/error_scrim.js';
 import type {ComposeboxFileCarouselElement} from '//resources/cr_components/composebox/file_carousel.js';
@@ -34,8 +35,16 @@ import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 
+import {InputSource, QueryActionOverride} from './fusebox_action.mojom-webui.js';
+import type {FuseboxAction} from './fusebox_action.mojom-webui.js';
 import {getCss} from './ntp_composebox.css.js';
 import {getHtml} from './ntp_composebox.html.js';
+
+export interface FuseboxActionRequest {
+  suggestion: string;
+  files: ContextualUpload[];
+  fuseboxAction?: FuseboxAction;
+}
 
 export interface NtpComposeboxElement extends ComposeboxEmbedderMixinInterface {
   $: {
@@ -78,19 +87,17 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
         reflect: true,
         type: Boolean,
       },
-      isDark: {
-        reflect: true,
-        type: Boolean,
-      },
     };
   }
 
-  accessor isDark: boolean = false;
   accessor entrypointName: string = 'Realbox';
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
   private searchboxHandler_: SearchboxPageHandlerRemote;
   private eventTracker_: EventTracker = new EventTracker();
+  // Chip suggestion shown as the input placeholder while a hint action is
+  // active. Set or replaced only by hint deliveries; ends with the element.
+  private chipHint_: string|null = null;
   protected accessor expanding_: boolean = true;
   protected accessor shouldRemainFolded_: boolean = true;
 
@@ -185,6 +192,82 @@ export class NtpComposeboxElement extends ComposeboxEmbedderMixin
       this.queryAutocomplete(/* clearMatches= */ true);
     }
     return file;
+  }
+
+  // Keeps the active chip hint as the placeholder so that asynchronous
+  // inputState recomputes cannot clobber it.
+  override updateInputPlaceholder() {
+    if (this.chipHint_ !== null) {
+      this.inputPlaceholder = this.chipHint_;
+      return;
+    }
+    super.updateInputPlaceholder();
+  }
+
+  async handleFuseboxAction(request: FuseboxActionRequest) {
+    const action = request.fuseboxAction;
+    const isHint = action?.queryActionOverride === QueryActionOverride.kHint;
+    if (isHint) {
+      this.chipHint_ = request.suggestion;
+      this.updateInputPlaceholder();
+    }
+    this.state = {
+      text: isHint ? '' : request.suggestion,
+      files: request.files,
+      mode: action?.preselectedTool ?? ToolMode.kUnspecified,
+      model: action?.preselectedModel ?? ModelMode.kUnspecified,
+      suggestInventory: action?.preferredInventory ?? undefined,
+      // <if expr="not is_android">
+      smartTabSharingActive: false,
+      // </if>
+    };
+    if (action?.preselectedInputSource) {
+      switch (action.preselectedInputSource) {
+        case InputSource.kInputSourceGallery:
+          this.$.fileInputs.shadowRoot
+              ?.querySelector<HTMLInputElement>('#imageInput')
+              ?.click();
+          break;
+        case InputSource.kInputSourceFilePicker:
+          this.$.fileInputs.shadowRoot
+              ?.querySelector<HTMLInputElement>('#fileInput')
+              ?.click();
+          break;
+        case InputSource.kInputSourceTabPicker:
+          await this.openTabPicker();
+          break;
+        case InputSource.kInputSourceVoice:
+          this.onVoiceSearchButtonClick();
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  async openTabPicker() {
+    if (!this.inputState) {
+      const response = await this.getSearchboxHandler().getInputState();
+      if (response) {
+        this.inputState = response.state;
+      }
+    }
+    this.shareTabsFlyoutOpen = true;
+    await this.refreshTabSuggestions(/*forceRefresh=*/ true);
+    await this.updateComplete;
+
+    const contextEntrypoint = this.getContextEntrypointElement();
+    if (contextEntrypoint) {
+      await contextEntrypoint.updateComplete;
+      const entrypointButton =
+          contextEntrypoint.shadowRoot?.querySelector<CrLitElement>(
+              '#entrypointButton');
+      if (entrypointButton) {
+        await entrypointButton.updateComplete;
+      }
+      entrypointButton?.shadowRoot?.querySelector<HTMLElement>('#entrypoint')
+          ?.click();
+    }
   }
 }
 

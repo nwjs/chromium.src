@@ -42,7 +42,7 @@
 #include "base/tracing/perfetto_platform.h"
 #include "build/build_config.h"
 #include "components/cronet/android/cronet_base_feature.h"
-#include "components/cronet/android/cronet_jni_registration_generated.h"
+#include "components/cronet/android/cronet_final_jni.h"
 #include "components/cronet/android/proto/base_feature_overrides.pb.h"
 #include "components/cronet/cronet_global_state.h"
 #include "components/cronet/version.h"
@@ -97,8 +97,7 @@ std::optional<net::NetLogCaptureMode> g_trace_net_log_capture_mode;
       cronet::Java_CronetLibraryLoader_getBaseFeatureOverrides(env);
   CHECK(serializedProto);
 
-  const auto serializedProtoSize =
-      base::android::SafeGetArrayLength(env, serializedProto);
+  const int32_t serializedProtoSize = serializedProto.GetLength(env);
   ::org::chromium::net::httpflags::BaseFeatureOverrides overrides;
   void* const serializedProtoArray =
       env->GetPrimitiveArrayCritical(serializedProto.obj(), /*isCopy=*/nullptr);

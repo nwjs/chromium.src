@@ -12,6 +12,7 @@
 #include "base/strings/string_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
+#include "content/browser/client_hints/critical_client_hints_throttle.h"
 #include "content/public/test/mock_client_hints_controller_delegate.h"
 #include "content/public/test/test_browser_context.h"
 #include "content/test/test_render_frame_host.h"
@@ -32,6 +33,14 @@ namespace {
 
 using ClientHintsVector = std::vector<network::mojom::WebClientHintsType>;
 using network::mojom::WebClientHintsType;
+
+class MockThrottleDelegate : public blink::URLLoaderThrottle::Delegate {
+ public:
+  void CancelWithError(int error_code,
+                       std::string_view custom_reason) override {}
+  void Resume() override {}
+  void DidRestartForCriticalClientHint() override {}
+};
 
 }  // namespace
 
@@ -82,15 +91,18 @@ class ClientHintsTest : public RenderViewHostImplTestHarness {
 
   std::optional<ClientHintsVector> ParseAndPersist(
       const GURL& url,
+      net::CertStatus cert_status,
       const net::HttpResponseHeaders* response_header,
       const std::string& accept_ch_str,
       FrameTreeNode* frame_tree_node,
       MockClientHintsControllerDelegate* delegate) {
     auto parsed_headers = network::mojom::ParsedHeaders::New();
     parsed_headers->accept_ch = network::ParseClientHintsHeader(accept_ch_str);
+    net::SSLInfo ssl_info;
+    ssl_info.cert_status = cert_status;
 
     return ParseAndPersistAcceptCHForNavigation(
-        url::Origin::Create(url), parsed_headers, response_header,
+        url::Origin::Create(url), ssl_info, parsed_headers, response_header,
         browser_context(), delegate, frame_tree_node);
   }
 
@@ -257,25 +269,38 @@ TEST_F(ClientHintsTest, IntegrationTestsOnParseLookUp) {
     std::string description;
     std::string accept_ch_str;
     raw_ptr<FrameTreeNode> frame_tree_node;
+    net::CertStatus cert_status;
     std::optional<ClientHintsVector> expect_hints;
     ClientHintsVector expect_commit_hints;
   } tests[] = {
+      {"Fail to persist due to cert status error",
+       "sec-ch-ua-platform, sec-ch-ua-bitness", main_frame_node,
+       net::CERT_STATUS_ALL_ERRORS, std::nullopt, ClientHintsVector{}},
       {"Persist hints for main frame", "sec-ch-ua-platform, sec-ch-ua-bitness",
        main_frame_node,
+       /*cert_status=*/0,
        std::make_optional(ClientHintsVector{WebClientHintsType::kUAPlatform,
                                             WebClientHintsType::kUABitness}),
        ClientHintsVector{WebClientHintsType::kUAPlatform,
                          WebClientHintsType::kUABitness}},
-      {"No persist hints for sub frame",
-       "sec-ch-ua-platform, sec-ch-ua-bitness", sub_frame_node, std::nullopt,
+      {"Fail to persist hints for sub frame",
+       "sec-ch-ua-platform, sec-ch-ua-bitness", sub_frame_node,
+       /*cert_status=*/0, std::nullopt,
+       ClientHintsVector{WebClientHintsType::kUAPlatform,
+                         WebClientHintsType::kUABitness}},
+      {"Fail to update due to cert status error",
+       all_non_origin_trial_hints_pair.first, main_frame_node,
+       net::CERT_STATUS_ALL_ERRORS, std::nullopt,
        ClientHintsVector{WebClientHintsType::kUAPlatform,
                          WebClientHintsType::kUABitness}},
       {"All client hints for main frame", all_non_origin_trial_hints_pair.first,
        main_frame_node,
+       /*cert_status=*/0,
        std::make_optional(all_non_origin_trial_hints_pair.second),
        all_non_origin_trial_hints_pair.second},
       {"All client hints for sub frame", all_non_origin_trial_hints_pair.first,
-       sub_frame_node, std::nullopt, all_non_origin_trial_hints_pair.second},
+       sub_frame_node, /*cert_status=*/0, std::nullopt,
+       all_non_origin_trial_hints_pair.second},
   };
 
   for (const auto& test : tests) {
@@ -283,8 +308,8 @@ TEST_F(ClientHintsTest, IntegrationTestsOnParseLookUp) {
         base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 200 OK\n");
 
     auto actual_hints =
-        ParseAndPersist(url, response_headers.get(), test.accept_ch_str,
-                        test.frame_tree_node, &delegate);
+        ParseAndPersist(url, test.cert_status, response_headers.get(),
+                        test.accept_ch_str, test.frame_tree_node, &delegate);
     EXPECT_EQ(test.expect_hints, actual_hints)
         << "Test case [" << test.description << "]: expected hints "
         << HintsToString(test.expect_hints) << " but got "
@@ -323,8 +348,9 @@ TEST_F(ClientHintsTest, SubFrame) {
 
   // We shouldn't parse accept-ch in subframe, it should not overwrite existing
   // hints.
-  auto actual_updated_hints = ParseAndPersist(
-      url, response_headers.get(), accept_ch_str, sub_frame_node, &delegate);
+  auto actual_updated_hints =
+      ParseAndPersist(url, /*cert_status=*/0, response_headers.get(),
+                      accept_ch_str, sub_frame_node, &delegate);
 
   EXPECT_EQ(std::nullopt, actual_updated_hints);
   blink::EnabledClientHints current_hints;
@@ -356,8 +382,9 @@ TEST_F(ClientHintsTest, FencedFrame) {
 
   // We shouldn't parse accept-ch in fenced frame, it should not overwrite
   // existing hints.
-  auto actual_updated_hints = ParseAndPersist(
-      url, response_headers.get(), accept_ch_str, fenced_frame_node, &delegate);
+  auto actual_updated_hints =
+      ParseAndPersist(url, /*cert_status=*/0, response_headers.get(),
+                      accept_ch_str, fenced_frame_node, &delegate);
 
   EXPECT_EQ(std::nullopt, actual_updated_hints);
   blink::EnabledClientHints current_hints;
@@ -694,6 +721,44 @@ TEST_F(ClientHintsTest, GetEnabledClientHintsNotAllowedHintsLogic) {
         GetEnabledClientHints(sub_origin, sub_frame_node, &delegate);
     EXPECT_FALSE(actual_hints.not_allowed_hints.empty());
   }
+}
+
+TEST_F(ClientHintsTest, NullNavigationRequest) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kCriticalClientHint);
+
+  GURL url("https://example.com");
+  contents()->NavigateAndCommit(url);
+
+  FrameTree& frame_tree = contents()->GetPrimaryFrameTree();
+  FrameTreeNode* main_frame_node = frame_tree.root();
+  ASSERT_FALSE(main_frame_node->navigation_request());
+
+  blink::UserAgentMetadata ua_metadata;
+  MockClientHintsControllerDelegate delegate(ua_metadata);
+
+  CriticalClientHintsThrottle throttle(browser_context(), &delegate,
+                                       main_frame_node->frame_tree_node_id());
+  MockThrottleDelegate throttle_delegate;
+  throttle.set_delegate(&throttle_delegate);
+
+  network::ResourceRequest request;
+  request.url = GURL("https://example.com");
+  bool defer = false;
+  throttle.WillStartRequest(&request, &defer);
+
+  auto response_head = network::mojom::URLResponseHead::New();
+  response_head->parsed_headers = network::mojom::ParsedHeaders::New();
+  response_head->parsed_headers->accept_ch = {
+      network::mojom::WebClientHintsType::kDeviceMemory};
+  response_head->parsed_headers->critical_ch = {
+      network::mojom::WebClientHintsType::kDeviceMemory};
+
+  blink::URLLoaderThrottle::RestartWithURLReset restart_with_url_reset(false);
+  throttle.BeforeWillProcessResponse(request.url, *response_head,
+                                     &restart_with_url_reset);
+
+  EXPECT_TRUE(restart_with_url_reset.value());
 }
 
 }  // namespace content

@@ -35,13 +35,13 @@ build_webui("build") {
       "images/password_shortcut_promo_dark.svg",
       "images/passwords_on_web_promo.svg",
       "images/passwords_on_web_promo_dark.svg",
-      "images/relaunch_chrome_banner.svg",
-      "images/relaunch_chrome_banner_dark.svg",
+      "images/relaunch_chrome_promo.svg",
+      "images/relaunch_chrome_promo_dark.svg",
     ]
   } else {
     static_files += [
-      "images/relaunch_chrome_banner_dark_non_branded.svg",
-      "images/relaunch_chrome_banner_non_branded.svg",
+      "images/relaunch_chrome_promo_dark_non_branded.svg",
+      "images/relaunch_chrome_promo_non_branded.svg",
       "manifest.webmanifest",
     ]
   }
@@ -67,6 +67,7 @@ build_webui("build") {
     "dialogs/multi_store_delete_password_dialog.ts",
     "dialogs/password_preview_item.ts",
     "dialogs/remove_actor_login_permission_dialog.ts",
+    "dialogs/trusted_vault_error_dialog.ts",
     "full_data_reset.ts",
     "password_change_details.ts",
     "password_details_section.ts",

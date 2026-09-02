@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/span.h"
 #include "base/functional/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_move_support.h"
@@ -214,8 +215,6 @@ class AttemptFormFillingToolTest : public ActorToolsTest {
 
   void SetUpOnMainThread() override {
     ActorToolsTest::SetUpOnMainThread();
-    embedded_https_test_server().ServeFilesFromSourceDirectory(
-        "chrome/test/data");
     ASSERT_TRUE(embedded_https_test_server().Start());
 
     ON_CALL(mock_execution_engine(), GetActorFormFillingService())
@@ -314,66 +313,11 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, GetSuggestionsAndFill) {
       FillSuggestions(
           _,
           ElementsAre(MakeActorFormFillingSelection(request.suggestions[0].id)),
-          _, _))
-      .WillOnce(RunOnceCallback<3>(""));
+          _))
+      .WillOnce(RunOnceCallback<2>(""));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
       *active_tab(), {PageTarget(*address_home_line1)});
-  ActResultFuture result;
-  actor_task().Act(ToRequestList(action), result.GetCallback());
-  ExpectOkResult(result);
-}
-
-// Test that trigger_field_map_ is populated from tool requests and passed to
-// FillSuggestions.
-IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, PopulatesTriggerFieldMap) {
-  const GURL url = embedded_https_test_server().GetURL(
-      "example.com", "/autofill/autofill_test_form.html");
-  ASSERT_TRUE(content::NavigateToURL(web_contents(), url));
-  WaitForTabObservation();
-  std::optional<DomNode> address_home_line1 =
-      GetDomNodeOnPage(*main_frame(), "#ADDRESS_HOME_LINE1");
-  ASSERT_TRUE(address_home_line1);
-  std::optional<DomNode> phone_number =
-      GetDomNodeOnPage(*main_frame(), "#PHONE_HOME_WHOLE_NUMBER");
-  ASSERT_TRUE(phone_number);
-
-  autofill::FieldGlobalId field_id1(
-      autofill::LocalFrameToken(main_frame()->GetFrameToken().value()),
-      autofill::FieldRendererId(address_home_line1->node_id));
-  autofill::FieldGlobalId field_id2(
-      autofill::LocalFrameToken(main_frame()->GetFrameToken().value()),
-      autofill::FieldRendererId(phone_number->node_id));
-
-  PageTarget target1(*address_home_line1);
-  PageTarget target2(*phone_number);
-
-  base::flat_map<autofill::FieldGlobalId, PageTarget>
-      expected_trigger_field_map = {{field_id1, target1}, {field_id2, target2}};
-
-  autofill::ActorFormFillingRequest request;
-  autofill::ActorSuggestion suggestion;
-  suggestion.id = autofill::ActorSuggestionId(123);
-  suggestion.title = "My Address";
-  request.suggestions.push_back(suggestion);
-  std::vector<autofill::ActorFormFillingRequest> requests = {request};
-
-  EXPECT_CALL(mock_form_filling_service(), GetSuggestions)
-      .WillOnce(RunOnceCallback<2>(requests));
-
-  EXPECT_CALL(
-      mock_form_filling_service(),
-      FillSuggestions(
-          _,
-          ElementsAre(MakeActorFormFillingSelection(request.suggestions[0].id)),
-          Eq(expected_trigger_field_map), _))
-      .WillOnce(RunOnceCallback<3>(""));
-
-  std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
-      *active_tab(),
-      {CreateFormFillingRequest(RequestedData::kHomeAddress, {target1}),
-       CreateFormFillingRequest(RequestedData::kContactInformation,
-                                {target2})});
   ActResultFuture result;
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
@@ -417,8 +361,8 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest,
       FillSuggestions(
           _,
           ElementsAre(MakeActorFormFillingSelection(request.suggestions[0].id)),
-          _, _))
-      .WillOnce(RunOnceCallback<3>(expected_info));
+          _))
+      .WillOnce(RunOnceCallback<2>(expected_info));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
       *active_tab(),
@@ -436,7 +380,6 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest,
 
   EXPECT_EQ(action_result.result->message, expected_info);
 }
-
 // Test that dialog events are forwarded to the form filling service.
 IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, DialogEventsForwarding) {
   base::HistogramTester histogram_tester;
@@ -750,7 +693,7 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, FillFails) {
       .WillOnce(RunOnceCallback<2>(requests));
 
   EXPECT_CALL(mock_form_filling_service(), FillSuggestions)
-      .WillOnce(RunOnceCallback<3>(
+      .WillOnce(RunOnceCallback<2>(
           base::unexpected(autofill::ActorFormFillingError::kOther)));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
@@ -795,8 +738,8 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, MultipleSuggestions) {
       FillSuggestions(
           _,
           ElementsAre(MakeActorFormFillingSelection(request.suggestions[1].id)),
-          _, _))
-      .WillOnce(RunOnceCallback<3>(""));
+          _))
+      .WillOnce(RunOnceCallback<2>(""));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
       *active_tab(), {PageTarget(*address_home_line1)});
@@ -963,8 +906,8 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, TestSkippingSelection) {
       FillSuggestions(
           _,
           ElementsAre(MakeActorFormFillingSelection(request.suggestions[0].id)),
-          _, _))
-      .WillOnce(RunOnceCallback<3>(""));
+          _))
+      .WillOnce(RunOnceCallback<2>(""));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
       *active_tab(), {PageTarget(*address_home_line1)});

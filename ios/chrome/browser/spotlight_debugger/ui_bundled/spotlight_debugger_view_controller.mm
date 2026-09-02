@@ -126,13 +126,13 @@ typedef NS_ENUM(NSUInteger, DebugCommandsRows) {
         case LastIndexDateRow:
           content.text = @"Time since last reindexing";
           content.secondaryText = [self timeSinceLastReindexAsString];
-          content.image = DefaultSymbolWithPointSize(
-              @"arrow.counterclockwise.icloud", kSymbolAccessoryPointSize);
+          content.image = SymbolWithPointSize(SymbolArrowCounterclockwiseIcloud,
+                                              kSymbolAccessoryPointSize);
           break;
         case DonatedItemsRow:
           content.text = @"Donated items";
-          content.image = DefaultSymbolWithPointSize(
-              @"square.stack.3d.down.right", kSymbolAccessoryPointSize);
+          content.image = SymbolWithPointSize(SymbolSquareStack3dDownRight,
+                                              kSymbolAccessoryPointSize);
           cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
           break;
         default:
@@ -144,32 +144,32 @@ typedef NS_ENUM(NSUInteger, DebugCommandsRows) {
       switch (indexPath.row) {
         case ClearAllRow: {
           content.text = @"Clear all Spotlight entries";
-          content.image = DefaultSymbolWithPointSize(@"bin.xmark",
-                                                     kSymbolAccessoryPointSize);
+          content.image =
+              SymbolWithPointSize(SymbolTrash, kSymbolAccessoryPointSize);
           break;
         }
         case ReindexBookmarks: {
           content.text = @"Clear and Reindex Bookmarks";
-          content.image = DefaultSymbolWithPointSize(@"bin.xmark",
-                                                     kSymbolAccessoryPointSize);
+          content.image =
+              SymbolWithPointSize(SymbolTrash, kSymbolAccessoryPointSize);
           break;
         }
         case ReindexReadingList: {
           content.text = @"Clear and Reindex reading list";
-          content.image = DefaultSymbolWithPointSize(@"bin.xmark",
-                                                     kSymbolAccessoryPointSize);
+          content.image =
+              SymbolWithPointSize(SymbolTrash, kSymbolAccessoryPointSize);
           break;
         }
         case ReindexOpenTabs: {
           content.text = @"Clear and Reindex open tabs";
-          content.image = DefaultSymbolWithPointSize(@"bin.xmark",
-                                                     kSymbolAccessoryPointSize);
+          content.image =
+              SymbolWithPointSize(SymbolTrash, kSymbolAccessoryPointSize);
           break;
         }
         case ReindexTopSites: {
           content.text = @"Clear and Reindex Top sites";
-          content.image = DefaultSymbolWithPointSize(@"bin.xmark",
-                                                     kSymbolAccessoryPointSize);
+          content.image =
+              SymbolWithPointSize(SymbolTrash, kSymbolAccessoryPointSize);
           break;
         }
         default:

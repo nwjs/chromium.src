@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <ranges>
 #include <utility>
 
 #include "base/bits.h"
@@ -20,7 +21,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
-#include "base/types/zip.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/limits.h"
 #include "media/base/vector_math.h"
@@ -53,15 +53,6 @@ constexpr static bool IsValidChannelCount(int channels) {
   CHECK_GT(channels, 0);
   return base::checked_cast<size_t>(channels) <=
          static_cast<size_t>(limits::kMaxChannels);
-}
-
-void AudioBus::CheckOverflow(int start_frame, int frames, int total_frames) {
-  CHECK_GE(start_frame, 0);
-  CHECK_GE(frames, 0);
-  CHECK_GT(total_frames, 0);
-  int sum = start_frame + frames;
-  CHECK_LE(sum, total_frames);
-  CHECK_GE(sum, 0);
 }
 
 AudioBus::AudioBus(int channels, int frames)
@@ -313,10 +304,11 @@ void AudioBus::CopyTo(AudioBus* dest) const {
 }
 
 void AudioBus::CopyAndClipTo(AudioBus* dest) const {
-  DCHECK(!is_bitstream_format_);
+  CHECK(!is_bitstream_format_);
   CHECK_EQ(channels(), dest->channels());
   CHECK_LE(frames(), dest->frames());
-  for (auto [src_ch, dest_ch] : base::zip(channel_data_, dest->AllChannels())) {
+  for (auto [src_ch, dest_ch] :
+       std::views::zip(channel_data_, dest->AllChannels())) {
     vector_math::FCLAMP(src_ch, dest_ch);
   }
 }
@@ -325,7 +317,7 @@ void AudioBus::CopyPartialFramesTo(int source_start_frame,
                                    int frame_count,
                                    int dest_start_frame,
                                    AudioBus* dest) const {
-  DCHECK(!is_bitstream_format_);
+  CHECK(!is_bitstream_format_);
   CHECK_EQ(channels(), dest->channels());
 
   const size_t source_offset = base::checked_cast<size_t>(source_start_frame);
@@ -337,13 +329,14 @@ void AudioBus::CopyPartialFramesTo(int source_start_frame,
 
   // Since we don't know if the other AudioBus is wrapped or not (and we don't
   // want to care), just copy using the channel accessors.
-  for (auto [src_span, dest_span] : base::zip(src_channels, dest_channels)) {
+  for (auto [src_span, dest_span] :
+       std::views::zip(src_channels, dest_channels)) {
     dest_span.copy_from_nonoverlapping(src_span);
   }
 }
 
 void AudioBus::Scale(float volume) {
-  DCHECK(!is_bitstream_format_);
+  CHECK(!is_bitstream_format_);
   if (volume > 0 && volume != 1) {
     for (auto channel : channel_data_) {
       vector_math::FMUL(channel, volume, channel);
@@ -354,7 +347,7 @@ void AudioBus::Scale(float volume) {
 }
 
 void AudioBus::SwapChannels(int a, int b) {
-  DCHECK(!is_bitstream_format_);
+  CHECK(!is_bitstream_format_);
   DCHECK(a < channels() && a >= 0);
   DCHECK(b < channels() && b >= 0);
   DCHECK_NE(a, b);

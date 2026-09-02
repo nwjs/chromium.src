@@ -7,7 +7,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "GPU FYI Win arm64 Builder",
-              "project": "chromium-m152"
+              "project": "chromium-m153"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -31,7 +31,7 @@
             "builder_id": {
               "bucket": "ci",
               "builder": "Win11 FYI arm64 Release (Qualcomm Snapdragon X Elite)",
-              "project": "chromium-m152"
+              "project": "chromium-m153"
             },
             "builder_spec": {
               "builder_group": "chromium.gpu.fyi",
@@ -51,9 +51,10 @@
               "parent": {
                 "bucket": "ci",
                 "builder": "GPU FYI Win arm64 Builder",
-                "project": "chromium-m152"
+                "project": "chromium-m153"
               },
-              "run_tests_serially": true
+              "run_tests_serially": true,
+              "use_test_trigger_cas": true
             }
           }
         ]
@@ -62,7 +63,7 @@
         {
           "bucket": "ci",
           "builder": "Win11 FYI arm64 Release (Qualcomm Snapdragon X Elite)",
-          "project": "chromium-m152"
+          "project": "chromium-m153"
         }
       ],
       "mirroring_builder_group_and_names": [

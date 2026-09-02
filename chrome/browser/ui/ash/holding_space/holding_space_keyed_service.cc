@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
 
 #include <algorithm>
+#include <ranges>
 #include <set>
 
 #include "ash/public/cpp/holding_space/holding_space_controller.h"
@@ -12,8 +13,6 @@
 #include "ash/public/cpp/holding_space/holding_space_item.h"
 #include "ash/public/cpp/holding_space/holding_space_metrics.h"
 #include "ash/public/cpp/holding_space/holding_space_prefs.h"
-#include "base/containers/adapters.h"
-#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/string_util.h"
@@ -29,7 +28,6 @@
 #include "chrome/browser/ui/ash/holding_space/holding_space_suggestions_delegate.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_util.h"
 #include "components/account_id/account_id.h"
-#include "components/crash/core/common/crash_key.h"
 #include "components/user_manager/user.h"
 #include "storage/browser/file_system/file_system_url.h"
 #include "storage/common/file_system/file_system_types.h"
@@ -262,7 +260,7 @@ void HoldingSpaceKeyedService::SetSuggestions(
   // holding space model to account for the fact that items are presented in
   // reverse-chronological order.
   std::vector<const HoldingSpaceItem*> existing_suggestions;
-  for (const auto& item : base::Reversed(holding_space_model_.items())) {
+  for (const auto& item : std::views::reverse(holding_space_model_.items())) {
     if (HoldingSpaceItem::IsSuggestionType(item->type())) {
       existing_suggestions.emplace_back(item.get());
       item_ids_to_remove.insert(item->id());
@@ -282,7 +280,7 @@ void HoldingSpaceKeyedService::SetSuggestions(
   // items which would ideally be recycled are replaced due to the fact that the
   // holding space model doesn't currently support reordering.
   std::vector<std::unique_ptr<HoldingSpaceItem>> items_to_add;
-  for (const auto& [type, file_path] : base::Reversed(suggestions)) {
+  for (const auto& [type, file_path] : std::views::reverse(suggestions)) {
     std::unique_ptr<HoldingSpaceItem> item;
     if (auto existing_item =
             std::ranges::find_if(existing_suggestions,
@@ -298,27 +296,6 @@ void HoldingSpaceKeyedService::SetSuggestions(
       item = holding_space_model_.TakeItem((*existing_item)->id());
       if (item) {
         item_ids_to_remove.erase(item->id());
-      } else {
-        // TODO(crbug.com/365747236): Remove once root cause is found/fixed.
-        static crash_reporter::CrashKeyString<64> key("HSKS::SetSuggestions");
-        std::stringstream data;
-        data << "type: " << static_cast<int>((*existing_item)->type());
-        data << ", existing_count: "
-             << std::ranges::count_if(
-                    existing_suggestions, [&](const HoldingSpaceItem* item) {
-                      return item->type() == type &&
-                             item->file().file_path == file_path;
-                    });
-        data << ", new_count: "
-             << std::ranges::count_if(
-                    suggestions,
-                    [&](const std::pair<HoldingSpaceItem::Type, base::FilePath>&
-                            suggestion) {
-                      return suggestion.first == type &&
-                             suggestion.second == file_path;
-                    });
-        crash_reporter::ScopedCrashKeyString scoped(&key, data.str());
-        base::debug::DumpWithoutCrashing();
       }
     } else {
       item = CreateItemOfType(

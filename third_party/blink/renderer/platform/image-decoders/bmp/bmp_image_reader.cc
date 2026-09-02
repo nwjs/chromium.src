@@ -392,15 +392,14 @@ bool BMPImageReader::ReadInfoHeader() {
         profile.trc[2].table_entries = 0;
         profile.trc[2].parametric = fxpt16dot16_to_fn(ReadUint32(104));
 
-        parent_->SetEmbeddedColorProfile(
-            std::make_unique<ColorProfile>(profile));
+        parent_->SetEmbeddedColorProfile(skia::ColorProfile::Make(profile));
         break;
       }
 
       case kLcssRGB:               // sRGB
       case kLcsWindowsColorSpace:  // "The Windows default color space" (sRGB)
         parent_->SetEmbeddedColorProfile(
-            std::make_unique<ColorProfile>(*skcms_sRGB_profile()));
+            skia::ColorProfile::Make(*skcms_sRGB_profile()));
         break;
 
       case kProfileEmbedded:  // Embedded ICC profile
@@ -531,7 +530,7 @@ bool BMPImageReader::ProcessEmbeddedColorProfile() {
       base::HeapArray<uint8_t>::WithSize(info_header_.profile_size);
   base::span<const uint8_t> buffer = fast_reader_.GetConsecutiveData(
       info_header_.profile_data, info_header_.profile_size, owned_buffer);
-  auto profile = ColorProfile::Create(buffer);
+  auto profile = skia::ColorProfile::Make(buffer);
   if (!profile) {
     return parent_->SetFailed();
   }
@@ -1060,27 +1059,19 @@ void BMPImageReader::ColorCorrectCurrentRow() {
     return;
   }
   // Postprocess the image data according to the profile.
-  const ColorProfileTransform* const transform = parent_->ColorTransform();
-  if (!transform) {
+  if (!parent_->NeedsDecodeTimeColorTransform()) {
     return;
   }
+
   int decoder_width = parent_->Size().width();
-  // Enforce 0 ≤ current row < bitmap height.
+  // Enforce 0 ≤ current row < bitmap height.
   CHECK_GE(coord_.y(), 0);
   CHECK_LT(coord_.y(), buffer_->Bitmap().height());
   // Enforce decoder width == bitmap width exactly. (The bitmap rowbytes might
   // add a bit of padding, but we are only converting one row at a time.)
   CHECK_EQ(decoder_width, buffer_->Bitmap().width());
-  ImageFrame::PixelData* const row = buffer_->GetAddr(0, coord_.y());
-  const skcms_PixelFormat fmt = XformColorFormat();
-  const skcms_AlphaFormat alpha =
-      (buffer_->HasAlpha() && buffer_->PremultiplyAlpha())
-          ? skcms_AlphaFormat_PremulAsEncoded
-          : skcms_AlphaFormat_Unpremul;
-  const bool success =
-      skcms_Transform(row, fmt, alpha, transform->SrcProfile(), row, fmt, alpha,
-                      transform->DstProfile(), decoder_width);
-  DCHECK(success);
+  parent_->DoDecodeTimeColorTransformIfNeeded(
+      *buffer_, SkIRect::MakeXYWH(0, coord_.y(), decoder_width, 1));
   buffer_->SetPixelsChanged(true);
 }
 

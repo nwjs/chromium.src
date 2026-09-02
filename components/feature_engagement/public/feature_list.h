@@ -255,6 +255,7 @@ DEFINE_VARIATION_PARAM(kIPHTabTearingXR, "IPH_TabTearingXR");
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 DEFINE_VARIATION_PARAM(kIPHBottomToolbarTipFeature, "IPH_BottomToolbarTip");
+DEFINE_VARIATION_PARAM(kIPHSendTabToSelfOmnibox, "IPH_SendTabToSelfOmnibox");
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
@@ -340,6 +341,10 @@ DEFINE_VARIATION_PARAM(kIPHiOSPostDefaultAbandonmentPromoFeature,
                        "IPH_iOSPostDefaultAbandonmentPromo");
 DEFINE_VARIATION_PARAM(kIPHiOSPromoGenericDefaultBrowserFeature,
                        "IPH_iOSPromoGenericDefaultBrowser");
+DEFINE_VARIATION_PARAM(kIPHiOSPromoSettingsCardDefaultBrowserFeature,
+                       "IPH_iOSPromoSettingsCardDefaultBrowser");
+DEFINE_VARIATION_PARAM(kIPHiOSPromoSettingsCellDefaultBrowserFeature,
+                       "IPH_iOSPromoSettingsCellDefaultBrowser");
 DEFINE_VARIATION_PARAM(kIPHiOSOverflowMenuCustomizationFeature,
                        "IPH_iOSOverflowMenuCustomization");
 DEFINE_VARIATION_PARAM(kIPHiOSPageInfoRevampFeature, "IPH_iOSPageInfoRevamp");
@@ -451,7 +456,6 @@ DEFINE_VARIATION_PARAM(kIPHMultistepFilterPromoFeature,
 DEFINE_VARIATION_PARAM(kIPHLensOverlayFeature, "IPH_LensOverlay");
 DEFINE_VARIATION_PARAM(kIPHLensOverlayTranslateButtonFeature,
                        "IPH_LensOverlayTranslateButton");
-DEFINE_VARIATION_PARAM(kIPHLiveCaptionFeature, "IPH_LiveCaption");
 DEFINE_VARIATION_PARAM(kIPHPasswordsSavePrimingPromoFeature,
                        "IPH_PasswordsSavePrimingPromo");
 DEFINE_VARIATION_PARAM(kIPHPasswordsSaveRecoveryPromoFeature,
@@ -519,6 +523,8 @@ DEFINE_VARIATION_PARAM(kIPHSmartTabSharingFeature,
 DEFINE_VARIATION_PARAM(kIPHSmartTabSharingTryItFeature,
                        "IPH_SmartTabSharingTryItFeature");
 
+DEFINE_VARIATION_PARAM(kIPHSplitViewHorizontalIndirectAccessFeature,
+                       "IPH_SplitViewHorizontalIndirectAccessFeature");
 DEFINE_VARIATION_PARAM(kIPHVerticalTabsExpandOnHoverFeature,
                        "IPH_VerticalTabsExpandOnHoverFeature");
 DEFINE_VARIATION_PARAM(kIPHVerticalTabstripTutorialFeature,
@@ -775,6 +781,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
         VARIATION_ENTRY(kIPHBottomToolbarTipFeature),
+        VARIATION_ENTRY(kIPHSendTabToSelfOmnibox),
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
@@ -823,6 +830,8 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHiOSPromoPasswordManagerWidgetFeature),
         VARIATION_ENTRY(kIPHiOSPromoPostRestoreDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoPostRestoreFeature),
+        VARIATION_ENTRY(kIPHiOSPromoSettingsCardDefaultBrowserFeature),
+        VARIATION_ENTRY(kIPHiOSPromoSettingsCellDefaultBrowserFeature),
         VARIATION_ENTRY(kIPHiOSPromoStaySafeFeature),
         VARIATION_ENTRY(kIPHiOSPromoWhatsNewFeature),
         VARIATION_ENTRY(kIPHiOSPullToRefreshFeature),
@@ -871,7 +880,6 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHGMCCastStartStopFeature),
         VARIATION_ENTRY(kIPHGMCLocalMediaCastingFeature),
         VARIATION_ENTRY(kIPHHistorySearchFeature),
-        VARIATION_ENTRY(kIPHLiveCaptionFeature),
         VARIATION_ENTRY(kIPHMemorySaverModeFeature),
         VARIATION_ENTRY(kIPHMultistepFilterPromoFeature),
         VARIATION_ENTRY(kIPHPasswordManagerShortcutFeature),
@@ -909,6 +917,7 @@ inline constexpr flags_ui::FeatureEntry::FeatureVariation
         VARIATION_ENTRY(kIPHSmartTabSharingDefaultOnFeature),
         VARIATION_ENTRY(kIPHSmartTabSharingFeature),
         VARIATION_ENTRY(kIPHSmartTabSharingTryItFeature),
+        VARIATION_ENTRY(kIPHSplitViewHorizontalIndirectAccessFeature),
         VARIATION_ENTRY(kIPHTabAudioMutingFeature),
         VARIATION_ENTRY(kIPHTabGroupsSharedTabChangedFeature),
         VARIATION_ENTRY(kIPHTabGroupsSharedTabFeedbackFeature),

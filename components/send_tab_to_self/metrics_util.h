@@ -37,7 +37,9 @@ enum class ShareEntryPoint {
   kTabMenu = 6,
   // A physical gesture.
   kGesture = 7,
-  kMaxValue = kGesture,
+  // A DirectShare target on the OS-level Share Sheet.
+  kShareSheetDirectShare = 8,
+  kMaxValue = kShareSheetDirectShare,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/sharing/enums.xml:SendTabToSelfShareEntryPoint)
 
@@ -98,7 +100,18 @@ enum class AutoOpenOutcome {
   // click.
   kTabOpenedViaNotification = 4,
 
-  kMaxValue = kTabOpenedViaNotification,
+  // Tab opened in native app immediately (browser was active).
+  kOpenedInNativeAppImmediately = 5,
+
+  // Tab opened in native app delayed (browser was inactive/backgrounded/closed
+  // when received).
+  kOpenedInNativeAppUponActivation = 6,
+
+  // Tab(s) received but could not be opened upon app activation. This happens
+  // when a previous received entry triggered a switch to another app.
+  kUnopenedUponActivation = 7,
+
+  kMaxValue = kUnopenedUponActivation,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/sharing/enums.xml:SendTabToSelfAutoOpenOutcome)
 

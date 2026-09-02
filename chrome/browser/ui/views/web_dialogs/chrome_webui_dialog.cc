@@ -4,10 +4,15 @@
 
 #include "chrome/browser/ui/views/web_dialogs/chrome_webui_dialog.h"
 
+#include <algorithm>
+#include <limits>
 #include <memory>
 #include <utility>
 
+#include "base/memory/ptr_util.h"
 #include "base/task/single_thread_task_runner.h"
+#include "chrome/browser/ui/tabs/public/tab_dialog_manager.h"
+#include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -18,12 +23,34 @@
 #include "ui/display/screen.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/webview/webview.h"
-#include "ui/views/layout/fill_layout.h"
+#include "ui/views/focus/focus_manager.h"
+#include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/window/dialog_delegate.h"
 
 namespace webui_dialog {
+
+namespace {
+
+// EnableSizingFromWebContents() DCHECKs on an empty maximum, so an
+// unconstrained dimension is given to the renderer as the widest range it can
+// express. ResizeDueToAutoResize() still clamps the result to the work area.
+constexpr int kUnboundedExtent = std::numeric_limits<int>::max();
+
+gfx::Size EffectiveMinSize(const WebDialogSpec& spec) {
+  // Auto-resize does not accept a zero-sized minimum.
+  return gfx::Size(std::max(1, spec.min_size.width()),
+                   std::max(1, spec.min_size.height()));
+}
+
+gfx::Size EffectiveMaxSize(const WebDialogSpec& spec) {
+  return gfx::Size(
+      spec.max_size.width() > 0 ? spec.max_size.width() : kUnboundedExtent,
+      spec.max_size.height() > 0 ? spec.max_size.height() : kUnboundedExtent);
+}
+
+}  // namespace
 
 WebDialogSpec::WebDialogSpec() = default;
 WebDialogSpec::~WebDialogSpec() = default;
@@ -38,32 +65,39 @@ std::unique_ptr<views::Widget> ChromeWebUIDialog::Show(
       std::make_unique<ChromeWebUIDialog>(std::move(contents_wrapper), spec);
   ChromeWebUIDialog* dialog_ptr = dialog.get();
 
-  views::Widget* widget = nullptr;
+  std::unique_ptr<views::Widget> widget;
 
   if (spec.modal_type == ui::mojom::ModalType::kChild) {
     CHECK(spec.parent_tab)
         << "kChild (tab-modal) dialogs require spec.parent_tab";
-    widget = constrained_window::CreateWebModalDialogViews(
-        dialog.release(), spec.parent_tab->GetContents());
+    // Only the TabDialogManager makes a dialog genuinely tab-modal: it syncs
+    // visibility with the tab, closes on navigate and detach, suppresses input
+    // on the page underneath, and maintains CanShowModalUI(). A bare child
+    // widget looks modal and blocks nothing.
+    tabs::TabFeatures* features = spec.parent_tab->GetTabFeatures();
+    tabs::TabDialogManager* manager =
+        features ? features->tab_dialog_manager() : nullptr;
+    CHECK(manager) << "kChild dialogs require a tab with a TabDialogManager";
+    widget = manager->CreateTabScopedDialog(dialog.release());
   } else if (spec.modal_type == ui::mojom::ModalType::kWindow ||
              spec.modal_type == ui::mojom::ModalType::kSystem) {
-    widget = constrained_window::CreateBrowserModalDialogViews(dialog.release(),
-                                                               parent);
+    widget = base::WrapUnique(constrained_window::CreateBrowserModalDialogViews(
+        dialog.release(), parent));
   } else {
     // Allows for non-modal unanchored dialog options.
-    widget = views::DialogDelegate::CreateDialogWidget(
+    widget = base::WrapUnique(views::DialogDelegate::CreateDialogWidget(
         dialog.release(), /*context=*/parent,
-        /*parent=*/gfx::NativeView());
+        /*parent=*/gfx::NativeView()));
   }
 
   // Observe the widget so the delegate can safely clean itself up.
-  dialog_ptr->widget_observation_.Observe(widget);
+  dialog_ptr->widget_observation_.Observe(widget.get());
 
   if (!spec.wait_for_explicit_show) {
-    widget->Show();
+    dialog_ptr->ShowWidget();
   }
 
-  return base::WrapUnique(widget);
+  return widget;
 }
 
 ChromeWebUIDialog::ChromeWebUIDialog(
@@ -75,7 +109,9 @@ ChromeWebUIDialog::ChromeWebUIDialog(
   SetButtons(spec_.buttons);
   SetModalType(spec_.modal_type);
   SetShowCloseButton(spec_.show_close_button);
-  SetHasWindowSizeControls(true);
+  SetHasWindowSizeControls(spec_.has_window_size_controls);
+  set_esc_should_cancel_dialog_override(
+      spec_.esc_should_cancel_dialog_override);
 
   set_margins(gfx::Insets());
 
@@ -84,6 +120,12 @@ ChromeWebUIDialog::ChromeWebUIDialog(
   web_view_ = web_view.get();
   web_view_->SetWebContents(contents_wrapper_->web_contents());
 
+  // Unless it was preloaded the WebContents is created hidden, and a hidden
+  // renderer produces no frames: no auto-resize would arrive and the page
+  // would never reach the point of calling ShowUI().
+  contents_wrapper_->web_contents()->WasShown();
+  // Let the dialog handle accelerators the page declines, notably ESC.
+  web_view_->set_allow_accelerators(true);
   if (spec_.element_identifier) {
     web_view_->SetProperty(views::kElementIdentifierKey,
                            spec_.element_identifier);
@@ -97,11 +139,24 @@ ChromeWebUIDialog::ChromeWebUIDialog(
     initial_size = gfx::Size(1, 1);
   }
   web_view_->SetPreferredSize(initial_size);
-  web_view_->EnableSizingFromWebContents(spec_.min_size, spec_.max_size);
+  web_view_->EnableSizingFromWebContents(EffectiveMinSize(spec_),
+                                         EffectiveMaxSize(spec_));
 
   view_observation_.Observe(web_view_);
-  SetContentsView(std::move(web_view));
 
+  // Nested rather than being the contents view directly: a View holds at most
+  // one element identifier and the dialog needs one of its own.
+  auto contents_container = std::make_unique<views::View>();
+  contents_container->SetUseDefaultFillLayout(true);
+  if (spec_.dialog_element_identifier) {
+    contents_container->SetProperty(views::kElementIdentifierKey,
+                                    spec_.dialog_element_identifier);
+  }
+  contents_container->AddChildView(std::move(web_view));
+  SetContentsView(std::move(contents_container));
+
+  DCHECK(!contents_wrapper_->GetHost())
+      << "The contents wrapper already has a host";
   contents_wrapper_->SetHost(weak_ptr_factory_.GetWeakPtr());
 }
 
@@ -112,14 +167,37 @@ views::View* ChromeWebUIDialog::GetInitiallyFocusedView() {
 }
 
 void ChromeWebUIDialog::ShowUI() {
-  if (!GetWidget()) {
+  ShowWidget();
+}
+
+void ChromeWebUIDialog::ShowWidget() {
+  views::Widget* widget = GetWidget();
+  if (!widget) {
+    return;
+  }
+
+  if (spec_.modal_type == ui::mojom::ModalType::kChild) {
+    if (!spec_.parent_tab || widget->IsClosed()) {
+      return;
+    }
+
+    tabs::TabDialogManager* manager =
+        spec_.parent_tab->GetTabFeatures()->tab_dialog_manager();
+    // The TabDialogManager owns visibility once the dialog is registered, so
+    // Widget::Show() would bypass its bookkeeping and a repeat ShowUI() must
+    // not register twice.
+    if (manager->IsDialogManaged(widget)) {
+      return;
+    }
+    manager->ShowDialog(widget,
+                        std::make_unique<tabs::TabDialogManager::Params>());
     return;
   }
 
   // Note: On some platforms (such as Mac or Wayland), the widget's visibility
   // state is updated asynchronously.
-  if (!GetWidget()->IsVisible()) {
-    GetWidget()->Show();
+  if (!widget->IsVisible()) {
+    widget->Show();
   }
 }
 
@@ -131,7 +209,9 @@ void ChromeWebUIDialog::CloseUI() {
 
 void ChromeWebUIDialog::ResizeDueToAutoResize(content::WebContents* source,
                                               const gfx::Size& new_size) {
-  if (!GetWidget()) {
+  // OnViewIsDeleting() can clear `web_view_` while the wrapper still holds its
+  // host reference.
+  if (!web_view_) {
     return;
   }
 
@@ -141,8 +221,16 @@ void ChromeWebUIDialog::ResizeDueToAutoResize(content::WebContents* source,
   // the min/max bounds via `EnableAutoResize()` in the constructor. However,
   // because the renderer is an untrusted process, the size must be defensively
   // clamped here to guarantee strict adherence to `spec_`.
-  bounded_size.SetToMax(spec_.min_size);
-  bounded_size.SetToMin(spec_.max_size);
+  bounded_size.SetToMax(EffectiveMinSize(spec_));
+  bounded_size.SetToMin(EffectiveMaxSize(spec_));
+
+  // WebUIContentsWrapper::SetHost() delivers the frame's current size, and the
+  // constructor calls it before there is a widget. Record the size so the
+  // widget is created with it rather than opening at min_size.
+  if (!GetWidget()) {
+    web_view_->SetPreferredSize(bounded_size);
+    return;
+  }
 
   // Ensure the dialog doesn't exceed the display's work area.
   // Note: Clamping against the work area occurs *after* applying the spec
@@ -172,10 +260,57 @@ void ChromeWebUIDialog::ResizeDueToAutoResize(content::WebContents* source,
 
   web_view_->SetPreferredSize(bounded_size);
 
+  // A tab-modal dialog is positioned relative to its tab by the
+  // TabDialogManager, so centering it in the browser window would drag it off
+  // that anchor on every resize.
+  if (spec_.modal_type == ui::mojom::ModalType::kChild) {
+    if (spec_.parent_tab) {
+      tabs::TabDialogManager* manager =
+          spec_.parent_tab->GetTabFeatures()->tab_dialog_manager();
+      if (manager->IsDialogManaged(GetWidget())) {
+        manager->UpdateModalDialogBounds();
+      }
+    }
+    return;
+  }
+
   // Resize the widget to fit the new preferred size of the contents.
   // The non-client view includes the window frame, so this ensures the
   // entire dialog is sized correctly.
   GetWidget()->CenterWindow(GetWidget()->non_client_view()->GetPreferredSize());
+}
+
+bool ChromeWebUIDialog::HandleKeyboardEvent(
+    content::WebContents* source,
+    const input::NativeWebKeyboardEvent& event) {
+  views::Widget* widget = GetWidget();
+  // GetFocusManager() is null until the widget has a top-level, and
+  // UnhandledKeyboardEventHandler CHECKs it.
+  views::FocusManager* focus_manager =
+      widget ? widget->GetFocusManager() : nullptr;
+  if (!focus_manager) {
+    return false;
+  }
+
+  return unhandled_keyboard_event_handler_.HandleKeyboardEvent(event,
+                                                               focus_manager);
+}
+
+content::WebContents* ChromeWebUIDialog::AddNewContents(
+    content::WebContents* source,
+    std::unique_ptr<content::WebContents> new_contents,
+    const GURL& target_url,
+    WindowOpenDisposition disposition,
+    const blink::mojom::WindowFeatures& window_features,
+    bool user_gesture,
+    bool* was_blocked) {
+  if (!spec_.add_new_contents_callback) {
+    return nullptr;
+  }
+
+  return spec_.add_new_contents_callback.Run(source, std::move(new_contents),
+                                             target_url, disposition,
+                                             window_features, user_gesture);
 }
 
 void ChromeWebUIDialog::OnViewAddedToWidget(views::View* observed_view) {

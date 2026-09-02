@@ -13,65 +13,81 @@ mojom("mojo_bindings") {
   ]
   public_deps = [
     "//mojo/public/mojom/base",
+    "//third_party/blink/public/mojom:dom_node_id",
+    "//ui/gfx/geometry/mojom",
     "//url/mojom:url_mojom_gurl",
   ]
   webui_module_path = "/"
 }
 
 source_set("ai_overlay_dialog") {
-  sources = [
-    "ai_overlay_dialog_page_handler.cc",
+  public = [
     "ai_overlay_dialog_page_handler.h",
-    "ai_overlay_dialog_untrusted_ui.cc",
     "ai_overlay_dialog_untrusted_ui.h",
-    "markdown_builder.cc",
     "markdown_builder.h",
-    "page_context_monitor.cc",
     "page_context_monitor.h",
-    "tools/tools.cc",
     "tools/tools.h",
   ]
-  public_deps = [ ":mojo_bindings" ]
+  public_deps = [
+    ":mojo_bindings",
+    "//chrome/browser/ui/actions:actions_headers",
+    "//chrome/browser/ui/ai_overlay_dialog",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/webui/top_chrome",
+    "//components/page_content_annotations/content",
+    "//content/public/browser",
+    "//ui/base",
+    "//ui/display",
+    "//ui/webui",
+    "//url",
+  ]
+}
+
+source_set("impl") {
+  sources = [
+    "ai_overlay_dialog_page_handler.cc",
+    "ai_overlay_dialog_untrusted_ui.cc",
+    "markdown_builder.cc",
+    "page_context_monitor.cc",
+    "tools/tools.cc",
+  ]
+  public_deps = [ ":ai_overlay_dialog" ]
   deps = [
     "//chrome/browser:browser_process",
+    "//chrome/browser/bookmarks",
     "//chrome/browser/glic",
+    "//chrome/browser/history",
     "//chrome/browser/page_content_annotations:fetcher",
     "//chrome/browser/page_content_annotations:screenshot_service",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/search_engines",
     "//chrome/browser/translate",
     "//chrome/browser/ttc/resources",
-
-    # This target includes //chrome/browser/ui:ui's headers, but :ui depends
-    # back on this target (it owns the desktop interface-binders parts file that
-    # registers this dialog), so :ui allows the circular include instead of this
-    # target depending on the :ui monolith directly.
+    "//chrome/browser/ttc/resources:generate_tool_definitions",
+    "//chrome/browser/ui",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:ui_features",
-    "//chrome/browser/ui/actions:actions_headers",
-    "//chrome/browser/ui/ai_overlay_dialog",
-    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/webui:webui_util",
-    "//chrome/browser/ui/webui/top_chrome",
     "//chrome/common",
+    "//components/bookmarks/browser",
+    "//components/history/core/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
-    "//components/page_content_annotations/content",
     "//components/search_engines",
     "//components/sessions",
     "//components/tabs:public",
-    "//content/public/browser",
-    "//ui/base",
-    "//ui/webui",
-    "//url",
   ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "markdown_builder_unittest.cc" ]
+  sources = [
+    "ai_overlay_dialog_page_handler_unittest.cc",
+    "markdown_builder_unittest.cc",
+  ]
   deps = [
     ":ai_overlay_dialog",
+    ":impl",
     "//base",
     "//base/test:test_support",
     "//chrome/test:test_support",
@@ -86,11 +102,13 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
+    "ai_overlay_notes_browsertest.cc",
     "markdown_builder_browsertest.cc",
     "tools/tools_browsertest.cc",
   ]
   deps = [
     ":ai_overlay_dialog",
+    ":impl",
     "//base",
     "//base/test:test_support",
     "//chrome/browser/ui",

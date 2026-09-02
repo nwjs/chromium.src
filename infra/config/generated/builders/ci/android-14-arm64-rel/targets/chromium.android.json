@@ -42,6 +42,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "ci_only": true,
         "isolate_profile_data": true,
         "merge": {
           "args": [
@@ -77,6 +78,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "ci_only": true,
         "isolate_profile_data": true,
         "merge": {
           "args": [
@@ -151,6 +153,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "ci_only": true,
         "isolate_profile_data": true,
         "merge": {
           "args": [
@@ -185,6 +188,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "ci_only": true,
         "isolate_profile_data": true,
         "merge": {
           "args": [
@@ -263,6 +267,7 @@
           "--gs-results-bucket=chromium-result-details",
           "--recover-devices"
         ],
+        "ci_only": true,
         "isolate_profile_data": true,
         "merge": {
           "args": [

@@ -26,6 +26,7 @@
 #include "base/mac/mac_util.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/numerics/ranges.h"
 #include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
@@ -1759,6 +1760,10 @@ void RenderWidgetHostViewMac::InjectTouchEvent(
 
 bool RenderWidgetHostViewMac::HasFallbackSurface() const {
   return browser_compositor_->GetDelegatedFrameHost()->HasFallbackSurface();
+}
+
+void RenderWidgetHostViewMac::OptOutFrameEviction() {
+  browser_compositor_->GetDelegatedFrameHost()->OptOutFrameEviction();
 }
 
 bool RenderWidgetHostViewMac::TransformPointToCoordSpaceForView(

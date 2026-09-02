@@ -1,0 +1,59 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("remote_actor") {
+  sources = [
+    "remote_actor_credential_permission_client.cc",
+    "remote_actor_credential_permission_client.h",
+    "remote_actor_credential_sharing_service.h",
+    "remote_actor_credential_sharing_service_factory.cc",
+    "remote_actor_credential_sharing_service_factory.h",
+    "remote_actor_credential_sharing_service_impl.cc",
+    "remote_actor_credential_sharing_service_impl.h",
+    "remote_actor_credential_store_client.cc",
+    "remote_actor_credential_store_client.h",
+    "remote_actor_request_helper.cc",
+    "remote_actor_request_helper.h",
+    "remote_actor_switches.cc",
+    "remote_actor_switches.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chrome/browser/password_manager/remote_actor/protos",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/signin",
+    "//chrome/common:chrome_features",
+    "//components/keyed_service/core",
+    "//components/signin/public/base",
+    "//components/signin/public/identity_manager",
+    "//components/sync/protocol",
+    "//google_apis",
+    "//google_apis/common",
+    "//net",
+    "//services/network/public/cpp",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "remote_actor_credential_permission_client_unittest.cc",
+    "remote_actor_credential_sharing_service_impl_unittest.cc",
+    "remote_actor_credential_store_client_unittest.cc",
+    "remote_actor_request_helper_unittest.cc",
+  ]
+  deps = [
+    ":remote_actor",
+    "//base/test:test_support",
+    "//chrome/browser/password_manager/remote_actor/protos",
+    "//chrome/test:test_support",
+    "//components/signin/public/identity_manager:test_support",
+    "//components/sync/protocol",
+    "//content/test:test_support",
+    "//services/network:test_support",
+    "//testing/gtest",
+  ]
+}

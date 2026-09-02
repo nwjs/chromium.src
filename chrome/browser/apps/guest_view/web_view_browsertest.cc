@@ -46,9 +46,10 @@
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/bluetooth/web_bluetooth_test_utils.h"
 #include "chrome/browser/chrome_content_browser_client.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
 #include "chrome/browser/glic/host/glic_ui.h"
-#include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
+#include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/guest_view/web_view/context_menu_content_type_web_view.h"
 #include "chrome/browser/hid/chrome_hid_delegate.h"
 #include "chrome/browser/hid/hid_chooser_context.h"
@@ -67,7 +68,6 @@
 #include "chrome/browser/serial/serial_chooser_context_factory.h"
 #include "chrome/browser/site_protection/site_familiarity_fetcher.h"
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -86,6 +86,9 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/tracing.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/download/public/common/download_task_runner.h"
 #include "components/find_in_page/find_tab_helper.h"
@@ -778,6 +781,37 @@ class WebViewTestBase : public extensions::PlatformAppBrowserTest {
                       "  chrome.test.sendMessage('TEST_FAILED'); "
                       "}"}));
     ASSERT_TRUE(done_listener.WaitUntilSatisfied());
+  }
+
+  void TestHelperWithProfileGrant(const std::string& test_name,
+                                  const std::string& app_location,
+                                  ContentSettingsType permission_type,
+                                  ContentSetting setting) {
+    ASSERT_TRUE(InitializeEmbeddedTestServer());
+
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &WebViewTestBase::RedirectResponseHandler, kRedirectResponsePath,
+        embedded_test_server()->GetURL(kRedirectResponseFullPath)));
+
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &WebViewTestBase::EmptyResponseHandler, kEmptyResponsePath));
+
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &WebViewTestBase::UserAgentResponseHandler,
+        kUserAgentRedirectResponsePath,
+        embedded_test_server()->GetURL(kRedirectResponseFullPath)));
+
+    embedded_test_server()->RegisterRequestHandler(base::BindRepeating(
+        &WebViewTestBase::CacheControlResponseHandler, kCacheResponsePath));
+
+    EmbeddedTestServerAcceptConnections();
+
+    GURL guest_origin = embedded_test_server()->GetURL("localhost", "/");
+    HostContentSettingsMapFactory::GetForProfile(profile())
+        ->SetContentSettingDefaultScope(guest_origin, guest_origin,
+                                        permission_type, setting);
+
+    TestHelper(test_name, app_location, NO_TEST_SERVER);
   }
 
   // Runs media_access/allow tests.
@@ -3563,6 +3597,20 @@ IN_PROC_BROWSER_TEST_P(WebViewTest, GeolocationAPIEmbedderHasNoAccessDeny) {
   TestHelper("testDenyDenies",
              "web_view/geolocation/embedder_has_no_permission",
              NEEDS_TEST_SERVER);
+}
+
+IN_PROC_BROWSER_TEST_P(WebViewTest,
+                       GeolocationAPIEmbedderHasNoAccessWithProfileGrant) {
+  TestHelperWithProfileGrant(
+      "testDenyDenies", "web_view/geolocation/embedder_has_no_permission",
+      ContentSettingsType::GEOLOCATION, CONTENT_SETTING_ALLOW);
+}
+
+IN_PROC_BROWSER_TEST_P(WebViewTest,
+                       GeolocationAPIEmbedderHasAccessDenyWithProfileGrant) {
+  TestHelperWithProfileGrant(
+      "testDeny", "web_view/geolocation/embedder_has_permission",
+      ContentSettingsType::GEOLOCATION, CONTENT_SETTING_ALLOW);
 }
 
 // In following GeolocationAPIEmbedderHasAccess* tests, embedder (i.e. the
@@ -8698,7 +8746,7 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksChannelWebViewTest, InspectElement) {
 
 // TODO(crbug.com/537849253): Simplify this test suite to GlicBrowserTest.
 class GlicChannelWebViewTest
-    : public glic::NonInteractiveGlicTest,
+    : public glic::GlicBrowserTest,
       public testing::WithParamInterface<version_info::Channel> {
  public:
   GlicChannelWebViewTest() = default;
@@ -8706,7 +8754,7 @@ class GlicChannelWebViewTest
   version_info::Channel GetChannelParam() { return GetParam(); }
 
   void TearDownOnMainThread() override {
-    glic::NonInteractiveGlicTest::TearDownOnMainThread();
+    glic::GlicBrowserTest::TearDownOnMainThread();
     ContextMenuContentTypeWebView::SetChannelForTesting(std::nullopt);
   }
 
@@ -8735,27 +8783,19 @@ IN_PROC_BROWSER_TEST_P(GlicChannelWebViewTest, InspectElement) {
   ContextMenuContentTypeWebView::SetChannelForTesting(
       GetOptionalChannelParam());
 
-  RunTestSequence(
-      // glic::NonInteractiveGlicTest::OpenGlic() handles opening the window and
-      // instrumenting the guest webview as kGlicContentsElementId.
-      OpenGlic(glic::NonInteractiveGlicTest::kHostAndContents),
-      // Verify that the "Inspect" context menu item is enabled.
-      InAnyContext(WithElement(
-          glic::kGlicContentsElementId,
-          base::BindLambdaForTesting([](ui::TrackedElement* el) {
-            content::WebContents* guest_web_contents =
-                AsInstrumentedWebContents(el)->web_contents();
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  ASSERT_OK(WaitForGlicClient(instance));
+  content::RenderFrameHost* guest_main_frame =
+      instance->host().GetGuestMainFrame();
+  ASSERT_TRUE(guest_main_frame);
 
-            content::ContextMenuParams params;
-            params.page_url = guest_web_contents->GetLastCommittedURL();
-            auto menu = std::make_unique<TestRenderViewContextMenu>(
-                *guest_web_contents->GetPrimaryMainFrame(), params);
-            menu->Init();
+  content::ContextMenuParams params;
+  params.page_url = guest_main_frame->GetLastCommittedURL();
+  auto menu =
+      std::make_unique<TestRenderViewContextMenu>(*guest_main_frame, params);
+  menu->Init();
 
-            // Verify the command was present in the menu and was enabled.
-            EXPECT_TRUE(
-                menu->IsItemPresent(IDC_CONTENT_CONTEXT_INSPECTELEMENT));
-            EXPECT_TRUE(
-                menu->IsItemEnabled(IDC_CONTENT_CONTEXT_INSPECTELEMENT));
-          }))));
+  // Verify the command was present in the menu and was enabled.
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_INSPECTELEMENT));
+  EXPECT_TRUE(menu->IsItemEnabled(IDC_CONTENT_CONTEXT_INSPECTELEMENT));
 }

@@ -6,7 +6,7 @@ import {enumFromClient, enumToClient} from '../../enum_conversions.js';
 import {SkillSource as SkillSourceMojo} from '../../glic.mojom-webui.js';
 import type {Skill as SkillMojo, SkillPreview as SkillPreviewMojo, SkillsClientInterface, SkillsHandlerRemote} from '../../glic.mojom-webui.js';
 import type {CreateSkillRequest, Skill, SkillPreview, SkillsWebClientEvent, UpdateSkillRequest} from '../../glic_api/glic_api.js';
-import {optionalToClient, urlToClient} from '../host/conversions.js';
+import {optionalToClient, timeToClient, urlToClient} from '../host/conversions.js';
 import type {MessageHandlerInterface} from '../transport/messaging.js';
 import type {PostMessageRemote} from '../transport/post_message_transport.js';
 
@@ -19,6 +19,8 @@ export function skillPreviewToClient(
     source: enumToClient(preview.source),
     curatedBy: optionalToClient(preview.curatedBy),
     imageUrl: urlToClient(preview.imageUrl),
+    category: optionalToClient(preview.category),
+    creationTime: timeToClient(preview.creationTime),
     isContextual,
   };
 }
@@ -113,9 +115,7 @@ export class SkillsClientImpl implements SkillsClientInterface {
     this.sender.requestNoResponse('notifySkillDeleted', {skillId});
   }
 
-  notifySkillToInvokeChanged(skill: SkillMojo): void {
-    this.sender.requestNoResponse('notifySkillToInvokeChanged', {
-      skill: skillToClient(skill),
-    });
+  notifySkillsEnabledChanged(enabled: boolean): void {
+    this.sender.requestNoResponse('notifySkillsEnabledChanged', {enabled});
   }
 }

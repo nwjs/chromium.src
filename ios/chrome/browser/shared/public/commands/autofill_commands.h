@@ -5,6 +5,8 @@
 #ifndef IOS_CHROME_BROWSER_SHARED_PUBLIC_COMMANDS_AUTOFILL_COMMANDS_H_
 #define IOS_CHROME_BROWSER_SHARED_PUBLIC_COMMANDS_AUTOFILL_COMMANDS_H_
 
+#include "components/autofill/core/browser/payments/legal_message_line.h"
+
 namespace autofill {
 struct AutofillAiErrorDialogContext;
 struct AutofillErrorDialogContext;
@@ -22,6 +24,9 @@ class WebState;
 // Shows the card unmask authentication flow.
 - (void)showCardUnmaskAuthentication;
 
+// Dismisses the card unmask authentication flow.
+- (void)dismissCardUnmaskAuthentication;
+
 // Continue the card unmask authentication flow with OTP auth.
 - (void)continueCardUnmaskWithOtpAuth;
 
@@ -37,14 +42,27 @@ class WebState;
 // Shows the scan card save and fill suggestion bottom sheet view controller.
 - (void)showScanCardSaveAndFillBottomSheet:
     (const autofill::FormActivityParams&)params;
+
+// Dismisses the sheets shown through `showPaymentsBottomSheet` and
+// `showScanCardSaveAndFillBottomSheet`.
+- (void)dismissPaymentAndScanCardSheets;
+
 // Commands to manage save card bottomsheet.
 - (void)showSaveCardBottomSheetOnOriginWebState:(web::WebState*)originWebState;
 - (void)dismissSaveCardBottomSheet;
+
+// Sends a command to show the Wallet Reminder Notice Bottom Sheet.
+- (void)showWalletReminderNoticeOnOriginWebState:(web::WebState*)originWebState
+                               legalMessageLines:(autofill::LegalMessageLines)
+                                                     legalMessageLines;
 
 // Sends a command to show the VCN enrollment Bottom Sheet.
 - (void)showVirtualCardEnrollmentBottomSheet:
             (std::unique_ptr<autofill::VirtualCardEnrollUiModel>)model
                               originWebState:(web::WebState*)originWebState;
+
+// Dismisses the VCN enrollment.
+- (void)dismissVirtualCardEnrollmentBottomSheet;
 
 // Sends a command to show the bottom sheet to edit an address.
 - (void)showEditAddressBottomSheet;
@@ -54,7 +72,8 @@ class WebState;
 - (void)dismissEditAddressBottomSheet;
 
 // Command to reset the autofill suggestions loading states.
-- (void)resetAutofillSuggestionsLoadingStates;
+// Deprecated: use BrowserCoordinatorCommands instead.
+- (void)legacyResetAutofillSuggestionsLoadingStates;
 
 // Commands to manage the Autofill error dialog.
 - (void)showAutofillErrorDialog:

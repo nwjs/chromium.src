@@ -11,9 +11,15 @@
 #import "base/functional/callback_helpers.h"
 #import "base/metrics/histogram_functions.h"
 #import "ios/chrome/browser/fullscreen/public/fullscreen_metrics.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/common/material_timing.h"
 
 namespace {
+// The nominal scroll distance (in points) that maps to a full (0.0 to 1.0)
+// transition. In practice, scrolling past X% of this distance triggers the
+// animated transition to complete the rest.
+static constexpr CGFloat kEasedTransitionScrollDistance = 250.0;
+
 // Updates the fractional `progress` of the fullscreen UI layer by interpreting
 // a `scroll` distance. Evaluates the `scroll` as a percentage of the total
 // compressible space (`delta`) and clamps the result between 0.0 (fullscreen)
@@ -48,20 +54,29 @@ void FullscreenBrowserAgent::RemoveObserver(
 }
 
 void FullscreenBrowserAgent::IncrementalScroll(CGFloat amount, PassKey) {
-  if (!IsEnabled()) {
+  if (!IsEnabled() || IsForceFullscreen()) {
+    return;
+  }
+
+  if (IsFullscreenEasedTransitionsEnabled() && is_animating_) {
     return;
   }
 
   CGFloat pre_scroll_top_progress = top_progress_;
   CGFloat pre_scroll_bottom_progress = bottom_progress_;
 
-  CGFloat top_delta = max_insets_.top - min_insets_.top;
-  UpdateProgress(top_progress_, amount, top_delta);
-  CGFloat bottom_delta = max_insets_.bottom - min_insets_.bottom;
-  if (bottom_delta > 0) {
-    UpdateProgress(bottom_progress_, amount, bottom_delta);
-  } else {
+  if (IsFullscreenEasedTransitionsEnabled()) {
+    UpdateProgress(top_progress_, amount, kEasedTransitionScrollDistance);
     bottom_progress_ = top_progress_;
+  } else {
+    CGFloat top_delta = max_insets_.top - min_insets_.top;
+    UpdateProgress(top_progress_, amount, top_delta);
+    CGFloat bottom_delta = max_insets_.bottom - min_insets_.bottom;
+    if (bottom_delta > 0) {
+      UpdateProgress(bottom_progress_, amount, bottom_delta);
+    } else {
+      bottom_progress_ = top_progress_;
+    }
   }
 
   if (pre_scroll_top_progress == top_progress_ &&
@@ -115,17 +130,26 @@ void FullscreenBrowserAgent::UpdateProgressAndBroadcast(
   bottom_progress_ = bottom_progress;
 
   if (animated) {
-    base::TimeDelta duration = base::Seconds(kMaterialDuration1);
+    is_animating_ = true;
+    base::TimeDelta duration = IsFullscreenEasedTransitionsEnabled()
+                                   ? base::Seconds(kMaterialDuration3)
+                                   : base::Seconds(kMaterialDuration1);
     auto update_state = base::CallbackToBlock(
         base::BindOnce(&FullscreenBrowserAgent::NotifyObserversOfUpdatedState,
                        weak_ptr_factory_.GetWeakPtr(), duration));
     auto completion_block = base::CallbackToBlock(
         base::BindOnce(&FullscreenBrowserAgent::AnimationDidComplete,
                        weak_ptr_factory_.GetWeakPtr(), transition));
-    [UIView animateWithDuration:kMaterialDuration1
+    [UIView animateWithDuration:duration.InSecondsF()
+                          delay:0.0
+                        options:UIViewAnimationOptionAllowUserInteraction
                      animations:update_state
                      completion:completion_block];
   } else {
+    is_animating_ = false;
+    settled_state_ = (transition == FullscreenTransition::kEnterFullscreen)
+                         ? FullscreenState::kUICollapsed
+                         : FullscreenState::kUIExpanded;
     NotifyObserversOfUpdatedState();
     NotifyFullscreenDidTransition(transition);
   }
@@ -164,7 +188,11 @@ void FullscreenBrowserAgent::NotifyObserversOfUpdatedState(
 void FullscreenBrowserAgent::AnimationDidComplete(
     FullscreenTransition transition,
     bool finished) {
+  is_animating_ = false;
   if (finished) {
+    settled_state_ = (transition == FullscreenTransition::kEnterFullscreen)
+                         ? FullscreenState::kUICollapsed
+                         : FullscreenState::kUIExpanded;
     NotifyFullscreenDidTransition(transition);
   }
 }
@@ -199,9 +227,49 @@ void FullscreenBrowserAgent::IncrementDisabledCounter(PassKey pass_key,
   }
 }
 
-void FullscreenBrowserAgent::DecrementDisabledCounter(PassKey) {
+void FullscreenBrowserAgent::DecrementDisabledCounter(PassKey pass_key) {
   if (disabled_count_ > 0) {
     disabled_count_--;
+    if (disabled_count_ == 0 && IsForceFullscreen()) {
+      EnterFullscreen(pass_key, FullscreenModeTransitionTrigger::kForcedByCode,
+                      /*animated=*/true);
+    }
+  }
+}
+
+bool FullscreenBrowserAgent::IsForceFullscreen() const {
+  return !forced_features_.empty();
+}
+
+void FullscreenBrowserAgent::ForceFullscreen(PassKey pass_key,
+                                             bool enable,
+                                             ForceFullscreenFeature feature) {
+  const bool was_forced = IsForceFullscreen();
+  if (enable) {
+    forced_features_.Put(feature);
+  } else {
+    forced_features_.Remove(feature);
+  }
+  if (was_forced == IsForceFullscreen() || !IsEnabled()) {
+    return;
+  }
+  if (IsForceFullscreen()) {
+    EnterFullscreen(pass_key, FullscreenModeTransitionTrigger::kForcedByCode,
+                    /*animated=*/true);
+  } else {
+    ExitFullscreen(pass_key, FullscreenModeTransitionTrigger::kForcedByCode,
+                   /*animated=*/true);
+  }
+}
+
+void FullscreenBrowserAgent::ExitForceFullscreen(PassKey pass_key) {
+  if (!IsForceFullscreen()) {
+    return;
+  }
+  forced_features_.Clear();
+  if (IsEnabled()) {
+    ExitFullscreen(pass_key, FullscreenModeTransitionTrigger::kForcedByCode,
+                   /*animated=*/true);
   }
 }
 

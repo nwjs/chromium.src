@@ -33,6 +33,7 @@ import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
+import org.chromium.components.browser_ui.media.MediaNotificationManager.MediaTypeId;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxy;
 import org.chromium.components.browser_ui.notifications.BaseNotificationManagerProxyFactory;
 import org.chromium.components.browser_ui.notifications.ForegroundServiceUtils;
@@ -218,13 +219,10 @@ public class MediaNotificationController {
             // `mThrottleTask` takes care of clearing itself and `mLastPendingInfo` controls when to
             // exit the throttled state.
             mThrottleTask =
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            mThrottleTask = null;
-                            if (mLastPendingInfo != null) {
-                                showNotificationImmediately(mLastPendingInfo);
-                            }
+                    () -> {
+                        mThrottleTask = null;
+                        if (mLastPendingInfo != null) {
+                            showNotificationImmediately(mLastPendingInfo);
                         }
                     };
 
@@ -296,13 +294,7 @@ public class MediaNotificationController {
          */
         @VisibleForTesting
         public void postDelayedTask() {
-            mSwipeInitTask =
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            createPendingIntentActionSwipeIfNeeded();
-                        }
-                    };
+            mSwipeInitTask = () -> createPendingIntentActionSwipeIfNeeded();
             mHandler.postDelayed(mSwipeInitTask, MAX_INIT_WAIT_TIME_MILLIS);
         }
 
@@ -503,6 +495,7 @@ public class MediaNotificationController {
         void logNotificationShown(NotificationWrapper notification);
 
         /** Returns the media type ID associated with this delegate. */
+        @MediaTypeId
         int getMediaTypeId();
 
         /** Returns the unique notification ID associated with this delegate. */
@@ -1213,7 +1206,7 @@ public class MediaNotificationController {
         return mMediaNotificationInfo == null || mMediaNotificationInfo.isPaused;
     }
 
-    public int getMediaTypeId() {
+    public @MediaTypeId int getMediaTypeId() {
         return mDelegate.getMediaTypeId();
     }
 

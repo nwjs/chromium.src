@@ -44,9 +44,6 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
 
   void OnImmersiveModeChanged() override;
 
-  [[nodiscard]] base::ScopedClosureRunner
-  RegisterActorTabIndicatorStateChangedCallback(
-      ActorTabIndicatorStateChangedCallback callback) override;
   [[nodiscard]] base::ScopedClosureRunner RegisterActorOverlayStateChange(
       ActorOverlayStateChangeCallback callback) override;
   [[nodiscard]] base::ScopedClosureRunner RegisterActorOverlayBackgroundChange(
@@ -75,6 +72,8 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
 #if !BUILDFLAG(IS_ANDROID)
   // Called when the omnibox's popup visibility changes.
   void OnWindowOmniboxPopupVisibilityChanged() override;
+  // Called when tab modal UI showing state changes.
+  void OnModalUIChanged(tabs::TabInterface* tab);
 #endif
 
   // Sets the Tab Indicator visibility.
@@ -95,7 +94,6 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
 
   void UnregisterActorOverlayStateChange();
   void UnregisterActorOverlayBackgroundChange();
-  void UnregisterActorTabIndicatorStateChange();
   void UnregisterHandoffButtonController();
 
   // The current UiTabState.
@@ -117,8 +115,6 @@ class ActorUiTabController : public ActorUiTabControllerInterface {
   std::vector<base::CallbackListSubscription> tab_subscriptions_;
 
 #if !BUILDFLAG(IS_ANDROID)
-  ActorTabIndicatorStateChangedCallback
-      on_actor_tab_indicator_changed_callback_;
   ActorOverlayStateChangeCallback on_actor_overlay_state_changed_callback_;
   ActorOverlayBackgroundChangeCallback
       actor_overlay_background_changed_callback_;

@@ -8,6 +8,10 @@
 
 #include "base/functional/bind.h"
 #include "base/path_service.h"
+#include "base/task/single_thread_task_runner.h"
+#include "base/task/task_runner.h"
+#include "base/task/task_traits.h"
+#include "base/task/thread_pool.h"
 #include "chrome/browser/default_browser/default_browser_features.h"
 #include "chrome/installer/util/shell_util.h"
 #include "content/public/browser/web_contents.h"
@@ -28,6 +32,7 @@ void VisualGuidedSetterPageHandler::SetAnchorRect(const gfx::Rect& rect) {
     return;
   }
 
+  gfx::Rect validated_rect = rect;
   if (!rect.IsEmpty()) {
     if (rect.x() < 0 || rect.y() < 0) {
       mojo::ReportBadMessage("Invalid anchor rect bounds.");
@@ -38,7 +43,7 @@ void VisualGuidedSetterPageHandler::SetAnchorRect(const gfx::Rect& rect) {
     if (!container_size.IsEmpty() &&
         (rect.right() > container_size.width() ||
          rect.bottom() > container_size.height())) {
-      return;
+      validated_rect = gfx::Rect();
     }
   }
 
@@ -55,17 +60,29 @@ void VisualGuidedSetterPageHandler::SetAnchorRect(const gfx::Rect& rect) {
         base::BindRepeating(&VisualGuidedSetterPageHandler::OnErrorStateChanged,
                             weak_ptr_factory_.GetWeakPtr()));
 
-    controller_->SetAnchorRectInWebUi(rect);
+    controller_->SetAnchorRectInWebUi(validated_rect);
     controller_->Start();
   } else if (default_browser::IsVisualGuidedSetterDockingEnabled()) {
-    controller_->SetAnchorRectInWebUi(rect);
+    controller_->SetAnchorRectInWebUi(validated_rect);
   }
 }
 
 void VisualGuidedSetterPageHandler::OpenSettings() {
-  base::FilePath chrome_exe;
-  if (base::PathService::Get(base::FILE_EXE, &chrome_exe)) {
-    ShellUtil::ShowMakeChromeDefaultSystemUI(chrome_exe);
+  base::ThreadPool::CreateCOMSTATaskRunner(
+      {base::MayBlock(), base::TaskPriority::USER_VISIBLE})
+      ->PostTaskAndReplyWithResult(
+          FROM_HERE, base::BindOnce([]() {
+            base::FilePath chrome_exe;
+            return base::PathService::Get(base::FILE_EXE, &chrome_exe) &&
+                   ShellUtil::ShowMakeChromeDefaultSystemUI(chrome_exe);
+          }),
+          base::BindOnce(&VisualGuidedSetterPageHandler::OnOpenSettingsResult,
+                         weak_ptr_factory_.GetWeakPtr()));
+}
+
+void VisualGuidedSetterPageHandler::OnOpenSettingsResult(bool succeeded) {
+  if (!succeeded) {
+    OnErrorStateChanged(true);
   }
 }
 

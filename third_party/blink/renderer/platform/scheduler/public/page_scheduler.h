@@ -52,9 +52,6 @@ class PLATFORM_EXPORT PageScheduler {
   virtual void SetPageFrozen(bool) = 0;
   // Handles operations required for storing the page in the back-forward cache.
   virtual void SetPageBackForwardCached(bool) = 0;
-  // Whether the main frame of this page is local or not (remote).
-  virtual bool IsMainFrameLocal() const = 0;
-  virtual void SetIsMainFrameLocal(bool) = 0;
   // Whether the main frame of this page is in BackForwardCache or not.
   virtual bool IsInBackForwardCache() const = 0;
 
@@ -69,6 +66,10 @@ class PLATFORM_EXPORT PageScheduler {
   virtual void AudioStateChanged(bool is_audio_playing) = 0;
 
   virtual bool IsAudioPlaying() const = 0;
+
+  // Sets whether the page contains an effectively-fullscreen video, i.e. a
+  // video element that is the fullscreen element and dominant in the viewport.
+  virtual void SetIsFullscreenVideo(bool is_fullscreen_video) = 0;
 
   // Returns true if the page should be exempted from aggressive throttling
   // (e.g. due to a page maintaining an active connection).

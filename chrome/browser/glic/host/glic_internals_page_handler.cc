@@ -4,6 +4,7 @@
 
 #include "chrome/browser/glic/host/glic_internals_page_handler.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <sstream>
 
@@ -44,6 +45,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/glic/glic_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/skills/features.h"
 #include "components/subscription_eligibility/subscription_eligibility_service.h"
@@ -270,6 +272,8 @@ std::string InvocationSourceToString(glic::mojom::InvocationSource source) {
       return "kReshowInactive";
     case glic::mojom::InvocationSource::kTabContextMenu:
       return "kTabContextMenu";
+    case glic::mojom::InvocationSource::kWebContinuity:
+      return "kWebContinuity";
   }
   LOG(ERROR) << "Unexpected value for InvocationSource: "
              << static_cast<int>(source);
@@ -291,6 +295,10 @@ std::string FeatureModeToString(glic::mojom::FeatureMode mode) {
       return "kUniversalCart";
     case glic::mojom::FeatureMode::kPromotionPage:
       return "kPromotionPage";
+    case glic::mojom::FeatureMode::kPasswordChange:
+      return "kPasswordChange";
+    case glic::mojom::FeatureMode::kWebContinuity:
+      return "kWebContinuity";
   }
   LOG(ERROR) << "Unexpected value for FeatureMode: " << static_cast<int>(mode);
   return "Unknown";
@@ -776,6 +784,7 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
   options.skill_id = std::move(mojo_options->skill_id);
   options.error_message = std::move(mojo_options->error_message);
   options.timeout = mojo_options->timeout;
+  options.supersede_if_in_progress = mojo_options->supersede_if_in_progress;
   options.fre_override = mojo_options->fre_override;
   options.wait_for_panel_open = mojo_options->wait_for_panel_open;
   if (mojo_options->focus_on_show.has_value()) {
@@ -887,6 +896,28 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
     }
   }
 
+  if (mojo_options->specific_tabs_to_share_indices.has_value()) {
+    std::vector<tabs::TabHandle> tabs_to_pin;
+    TabListInterface* tab_list = TabListInterface::From(current_browser);
+    if (tab_list) {
+      for (int32_t index :
+           mojo_options->specific_tabs_to_share_indices.value()) {
+        if (index >= 0 && index < tab_list->GetTabCount()) {
+          tabs::TabInterface* target_tab = tab_list->GetTab(index);
+          if (target_tab &&
+              std::find(tabs_to_pin.begin(), tabs_to_pin.end(),
+                        target_tab->GetHandle()) == tabs_to_pin.end()) {
+            tabs_to_pin.push_back(target_tab->GetHandle());
+          }
+        }
+      }
+    }
+    if (!tabs_to_pin.empty()) {
+      options.tab_sharing = TabSharingOptions(std::move(tabs_to_pin),
+                                              GlicPinTrigger::kContextMenu);
+    }
+  }
+
   LogGlicInvokeOptions(options, mojo_options->auto_submit,
                        mojo_options->show_panel);
 
@@ -974,6 +1005,24 @@ void GlicInternalsPageHandler::ShowExperimentalOptIn() {
 
   service->opt_in_controller().ShowDialog(target_contents, base::DoNothing());
 #endif
+}
+
+void GlicInternalsPageHandler::RevokeExperimentalTriggeringConsent() {
+  if (auto* service = GetGlicService()) {
+    service->enabling().SetExperimentalTriggeringEnabled(false);
+  }
+}
+
+void GlicInternalsPageHandler::RevokeGlicConsent() {
+  if (auto* service = GetGlicService()) {
+    service->enabling().SetCompletedFre(glic::prefs::FreStatus::kNotStarted);
+  }
+}
+
+void GlicInternalsPageHandler::RevokeActuationConsent() {
+  if (auto* service = GetGlicService()) {
+    service->enabling().SetUserEnabledActuationOnWeb(false);
+  }
 }
 
 }  // namespace glic

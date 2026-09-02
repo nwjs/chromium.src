@@ -10,6 +10,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
@@ -24,6 +25,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_internals.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_page_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_base.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_interface.h"
 #include "chrome/browser/contextual_tasks/task_info_delegate.h"
 #include "chrome/common/webui_url_constants.h"
@@ -43,7 +45,6 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/backoff_entry.h"
-#include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/resource/resource_scale_factor.h"
 #include "ui/webui/mojo_web_ui_controller.h"
@@ -72,6 +73,10 @@ class ContextualTasksUiService;
 
 }  // namespace contextual_tasks
 
+namespace lens {
+class ClientToAimMessage;
+}  // namespace lens
+
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
@@ -82,8 +87,8 @@ class ContextualTasksPageHandler;
 class Profile;
 
 class ContextualTasksUI
-    : public contextual_tasks::ContextualTasksUIInterface,
-      public ui::MojoWebUIController,
+    : public contextual_tasks::ContextualTasksUIBase,
+      public contextual_tasks::ContextualTasksUIInterface,
 #if !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
       public guest_view::SlimWebViewPageHandlerFactory,
 #endif
@@ -95,6 +100,8 @@ class ContextualTasksUI
       public signin::IdentityManager::Observer,
       public contextual_tasks::ContextualTasksService::Observer {
  public:
+  using contextual_tasks::ContextualTasksUIBase::BindInterface;
+  using contextual_tasks::ContextualTasksUIBase::CreatePageHandler;
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kSmartTabSharingMenuItemElementId);
 
   friend class ContextualTasksUIBrowserTest;
@@ -277,7 +284,7 @@ class ContextualTasksUI
 
   static constexpr std::string_view GetWebUIName() { return "ContextualTasks"; }
 
-  static base::RefCountedMemory* GetFaviconResourceBytes(
+  static scoped_refptr<base::RefCountedMemory> GetFaviconResourceBytes(
       ui::ResourceScaleFactor scale_factor);
 
   // signin::IdentityManager::Observer:
@@ -426,6 +433,7 @@ class ContextualTasksUI
   WebUIState previous_web_ui_state_ = WebUIState::kUnknown;
   bool was_ai_page_ = false;
   bool is_lens_overlay_showing_ = false;
+  bool are_tab_inputs_supported_on_init_ = false;
   bool is_contextual_tasks_eligible_on_init_ = false;
   bool is_history_thread_loading_ = false;
 

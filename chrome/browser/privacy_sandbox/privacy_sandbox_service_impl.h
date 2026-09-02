@@ -5,29 +5,19 @@
 #ifndef CHROME_BROWSER_PRIVACY_SANDBOX_PRIVACY_SANDBOX_SERVICE_IMPL_H_
 #define CHROME_BROWSER_PRIVACY_SANDBOX_PRIVACY_SANDBOX_SERVICE_IMPL_H_
 
-// clang-format off
-#include "chrome/browser/privacy_sandbox/notice/notice_definitions.h"
-#include "chrome/browser/privacy_sandbox/privacy_sandbox_countries.h"
-#include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
-// clang-format on
-
-#include <set>
+#include <optional>
+#include <string>
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
-#include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/prefs/pref_change_registrar.h"
-#include "components/privacy_sandbox/canonical_topic.h"
+#include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #include "net/base/schemeful_site.h"
 
 class PrefService;
-
-namespace content {
-class BrowsingDataRemover;
-}
 
 namespace content_settings {
 class CookieSettings;
@@ -36,15 +26,12 @@ class CookieSettings;
 class PrivacySandboxServiceImpl : public PrivacySandboxService {
  public:
   PrivacySandboxServiceImpl(
-      Profile* profile,
       privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
       scoped_refptr<content_settings::CookieSettings> cookie_settings,
       PrefService* pref_service,
       profile_metrics::BrowserProfileType profile_type,
-      content::BrowsingDataRemover* browsing_data_remover,
-      HostContentSettingsMap* host_content_settings_map,
-      first_party_sets::FirstPartySetsPolicyService* first_party_sets_service,
-      PrivacySandboxCountries* privacy_sandbox_countries);
+      first_party_sets::FirstPartySetsPolicyService*
+          first_party_sets_policy_service);
 
   ~PrivacySandboxServiceImpl() override;
 
@@ -52,9 +39,6 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
   void Shutdown() override;
 
   // PrivacySandboxService:
-  void ForceChromeBuildForTests(bool force_chrome_build) override;
-  bool IsPrivacySandboxRestricted() override;
-  bool IsRestrictedNoticeEnabled() override;
   void SetRelatedWebsiteSetsDataAccessEnabled(bool enabled) override;
   bool IsRelatedWebsiteSetsDataAccessEnabled() const override;
   bool IsRelatedWebsiteSetsDataAccessManaged() const override;
@@ -64,37 +48,6 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
       const GURL& site_url) const override;
   bool IsPartOfManagedRelatedWebsiteSet(
       const net::SchemefulSite& site) const override;
-  void GetFledgeJoiningEtldPlusOneForDisplay(
-      base::OnceCallback<void(std::vector<std::string>)> callback) override;
-  std::vector<std::string> GetBlockedFledgeJoiningTopFramesForDisplay()
-      const override;
-  void SetFledgeJoiningAllowed(const std::string& top_frame_etld_plus1,
-                               bool allowed) const override;
-  std::vector<privacy_sandbox::CanonicalTopic> GetCurrentTopTopics()
-      const override;
-  std::vector<privacy_sandbox::CanonicalTopic> GetBlockedTopics()
-      const override;
-  std::vector<privacy_sandbox::CanonicalTopic> GetFirstLevelTopics()
-      const override;
-  std::vector<privacy_sandbox::CanonicalTopic> GetChildTopicsCurrentlyAssigned(
-      const privacy_sandbox::CanonicalTopic& topic) const override;
-  void SetTopicAllowed(privacy_sandbox::CanonicalTopic topic,
-                       bool allowed) override;
-  bool ShouldUsePrivacyPolicyChinaDomain() override;
-  void TopicsToggleChanged(bool new_value) const override;
-  bool TopicsConsentRequired() override;
-  bool TopicsHasActiveConsent() const override;
-  privacy_sandbox::TopicsConsentUpdateSource TopicsConsentLastUpdateSource()
-      const override;
-  base::Time TopicsConsentLastUpdateTime() const override;
-  std::string TopicsConsentLastUpdateText() const override;
-  void UpdateTopicsApiResult(bool value) override;
-  void UpdateProtectedAudienceApiResult(bool value) override;
-  void UpdateMeasurementApiResult(bool value) override;
-  privacy_sandbox::EligibilityLevel GetTopicsApiEligibility() override;
-  privacy_sandbox::EligibilityLevel GetProtectedAudienceApiEligibility()
-      override;
-  privacy_sandbox::EligibilityLevel GetAdMeasurementApiEligibility() override;
 
  protected:
   friend class PrivacySandboxServiceTest;
@@ -106,9 +59,6 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
                            RelatedWebsiteSetsEnabledMetric);
   FRIEND_TEST_ALL_PREFIXES(PrivacySandboxServiceTest,
                            RelatedWebsiteSetsDisabledMetric);
-  FRIEND_TEST_ALL_PREFIXES(LogPrivacySandboxStateNonRegularProfilesTest, APIs);
-  FRIEND_TEST_ALL_PREFIXES(PrivacySandboxServiceTest,
-                           LogPrivacySandboxState_APIs);
 
   // Contains all possible states of first party sets preference.
   // These values are persisted to logs. Entries should not be renumbered and
@@ -128,11 +78,7 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
   // Helper function to log first party sets state.
   void RecordFirstPartySetsStateHistogram();
 
-  // Helper function to log tracking protection state.
-  void RecordTrackingProtectionStateHistogram();
-
-  // Logs the state of the Privacy Sandbox APIs (Topics, Protected Audience,
-  // Ad Measurement) and cookie-related settings (FPS, Tracking Protection).
+  // Logs the state of cookie-related settings (FPS, Tracking Protection).
   // Called once per profile startup.
   void LogPrivacySandboxState();
 
@@ -140,53 +86,13 @@ class PrivacySandboxServiceImpl : public PrivacySandboxService {
   // so, sets the default value based on the user's current cookie settings.
   void MaybeInitializeRelatedWebsiteSetsPref();
 
-  // Updates the preferences which store the current Topics consent information.
-  void RecordUpdatedTopicsConsent(
-      privacy_sandbox::TopicsConsentUpdateSource source,
-      bool did_consent) const;
-
  private:
-  // Determines whether Privacy Sandbox Ads consent is required.
-  bool IsConsentRequired();
-  // Determines whether a Privacy Sandbox Ads notice is required.
-  bool IsNoticeRequired();
-  // Determines whether the Privacy Sandbox Ads Restricted notice is required.
-  bool IsRestrictedNoticeRequired();
-
-  raw_ptr<Profile> profile_;
   raw_ptr<privacy_sandbox::PrivacySandboxSettings> privacy_sandbox_settings_;
   scoped_refptr<content_settings::CookieSettings> cookie_settings_;
   raw_ptr<PrefService> pref_service_;
   profile_metrics::BrowserProfileType profile_type_;
-  raw_ptr<content::BrowsingDataRemover> browsing_data_remover_;
-  raw_ptr<HostContentSettingsMap> host_content_settings_map_;
   raw_ptr<first_party_sets::FirstPartySetsPolicyService>
       first_party_sets_policy_service_;
-  raw_ptr<PrivacySandboxCountries> privacy_sandbox_countries_;
-
-  PrefChangeRegistrar user_prefs_registrar_;
-
-  // Fake implementation for current and blocked topics.
-  // TODO(crbug.com/409048902): Moved initialization to constructor to prevent
-  // potential initialization order issues.
-  std::set<privacy_sandbox::CanonicalTopic> fake_current_topics_;
-  std::set<privacy_sandbox::CanonicalTopic> fake_blocked_topics_;
-
-  // Called when the Topics preference is changed.
-  void OnTopicsPrefChanged();
-
-  // Called when the Fledge preference is changed.
-  void OnFledgePrefChanged();
-
-  // Called when the Ad measurement preference is changed.
-  void OnAdMeasurementPrefChanged();
-
-  // Returns a PrivacySandboxCountries reference.
-  PrivacySandboxCountries* GetPrivacySandboxCountries();
-
-  bool force_chrome_build_for_tests_ = false;
-
-  base::WeakPtrFactory<PrivacySandboxServiceImpl> weak_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_PRIVACY_SANDBOX_PRIVACY_SANDBOX_SERVICE_IMPL_H_

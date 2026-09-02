@@ -12,6 +12,7 @@
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/search/ntp_user_data_logger.h"
 #include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
 #include "chrome/browser/ui/webui/new_tab_page_third_party/new_tab_page_third_party_handler.h"
@@ -133,6 +134,9 @@ void CreateAndAddNewTabPageThirdPartyUiHtmlSource(Profile* profile,
   source->AddBoolean(
       "prerenderOnPressEnabled",
       base::FeatureList::IsEnabled(features::kNewTabPageTriggerForPrerender2));
+  source->AddBoolean("mostVisitedHighDpiFaviconsEnabled",
+                     base::FeatureList::IsEnabled(
+                         ntp_features::kNtpMostVisitedHighDpiFavicons));
 
   // Needed by <cr-most-visited> but not used in
   // chrome://new-tab-page-third-party/.
@@ -223,8 +227,11 @@ void NewTabPageThirdPartyUI::CreatePageHandler(
 
   most_visited_page_handler_ = std::make_unique<MostVisitedHandler>(
       std::move(pending_page_handler), std::move(pending_page), profile_,
-      web_contents_, GURL(chrome::kChromeUINewTabPageThirdPartyURL),
-      navigation_start_time_, navigation_start_time_ticks_);
+      web_contents_,
+      std::make_unique<NTPUserDataLogger>(
+          profile_, GURL(chrome::kChromeUINewTabPageThirdPartyURL),
+          navigation_start_time_ticks_),
+      navigation_start_time_);
   most_visited_page_handler_->EnableTileTypes(
       ntp_tiles::MostVisitedSites::EnableTileTypesOptions().with_top_sites(
           true));

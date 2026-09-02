@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.bookmarks.bar;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -15,12 +16,14 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
 import android.content.res.Resources;
 import android.graphics.Point;
 import android.util.Pair;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -41,20 +44,23 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.shadows.ShadowLooper;
 
+import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkManagerOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkOpener;
 import org.chromium.chrome.browser.bookmarks.FakeBookmarkModel;
+import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarContextMenuMetrics.BookmarkBarContextMenuGesture;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarItemsProvider.ObservationId;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridgeJni;
-import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -84,6 +90,7 @@ import java.util.function.Supplier;
 
 /** Unit tests for the {@link BookmarkBarMediator}. */
 @RunWith(BaseRobolectricTestRunner.class)
+@DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_NTP)
 public class BookmarkBarMediatorTest {
     @Rule
     public ActivityScenarioRule<TestActivity> mActivityScenarioRule =
@@ -148,7 +155,8 @@ public class BookmarkBarMediatorTest {
                         () -> mModalDialogManager,
                         mItemsRecyclerView,
                         mBookmarkBarView,
-                        mPopupCoordinator);
+                        mPopupCoordinator,
+                        ObservableSuppliers.createNonNull(false));
     }
 
     @After
@@ -356,7 +364,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
-    public void testPopupMenuItemTouchListener_MiddleClick() {
+    public void testPopupMenuItemTouchListener_MiddleClickConsumed() {
         BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
         BookmarkId bookmarkId =
                 mBookmarkModel.addBookmark(
@@ -364,11 +372,8 @@ public class BookmarkBarMediatorTest {
 
         ModelList modelList =
                 mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
-        assertEquals(1, modelList.size());
-
         ListItem listItem = modelList.get(0);
         OnTouchListener touchListener = listItem.model.get(ListMenuItemProperties.TOUCH_LISTENER);
-        assertNotNull(touchListener);
 
         View placeholderView = new View(mActivity);
 
@@ -384,11 +389,94 @@ public class BookmarkBarMediatorTest {
         when(releaseEvent.getActionButton()).thenReturn(MotionEvent.BUTTON_TERTIARY);
         assertTrue(touchListener.onTouch(placeholderView, releaseEvent));
 
+        verifyNoInteractions(mBookmarkOpener);
+    }
+
+    @Test
+    @SmallTest
+    public void testPopupMenuItemGenericMotion_MiddleClick() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+        View.OnGenericMotionListener listener =
+                listItem.model.get(ListMenuItemProperties.GENERIC_MOTION_LISTENER);
+        assertNotNull(listener);
+
+        View placeholderView = new View(mActivity);
+        MotionEvent releaseEvent = mock(MotionEvent.class);
+        when(releaseEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_BUTTON_RELEASE);
+        when(releaseEvent.getActionButton()).thenReturn(MotionEvent.BUTTON_TERTIARY);
+        assertTrue(listener.onGenericMotion(placeholderView, releaseEvent));
+
         verify(mBookmarkOpener)
                 .openBookmarksInNewTabs(
                         eq(List.of(bookmarkId)),
                         eq(false),
                         eq(TabLaunchType.FROM_BOOKMARK_BAR_BACKGROUND));
+    }
+
+    @Test
+    @SmallTest
+    public void testPopupMenuItemClickListener_CtrlClick_Url() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+
+        // Simulate Ctrl Key active in Touch events to fake state
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getMetaState()).thenReturn(KeyEvent.META_CTRL_ON);
+        listItem.model
+                .get(ListMenuItemProperties.TOUCH_LISTENER)
+                .onTouch(new View(mActivity), downEvent);
+
+        View.OnClickListener listener = listItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
+        listener.onClick(new View(mActivity));
+
+        verify(mBookmarkOpener)
+                .openBookmarksInNewTabs(
+                        eq(List.of(bookmarkId)),
+                        eq(false),
+                        eq(TabLaunchType.FROM_BOOKMARK_BAR_BACKGROUND));
+    }
+
+    @Test
+    @SmallTest
+    public void testPopupMenuItemClickListener_CtrlClick_Folder() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        BookmarkId folderId = mBookmarkModel.addFolder(desktopFolderId, 0, "Test Folder");
+        BookmarkId urlId1 = mBookmarkModel.addBookmark(folderId, 0, "B1", JUnitTestGURLs.URL_1);
+        BookmarkId urlId2 = mBookmarkModel.addBookmark(folderId, 0, "B2", JUnitTestGURLs.URL_2);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0); // Should be the Test Folder
+
+        // Simulate Ctrl Key active
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getMetaState()).thenReturn(KeyEvent.META_CTRL_ON);
+        listItem.model
+                .get(ListMenuItemProperties.TOUCH_LISTENER)
+                .onTouch(new View(mActivity), downEvent);
+
+        View.OnClickListener listener = listItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
+        listener.onClick(new View(mActivity));
+
+        // Expect it to bulk-open the children URLs
+        verify(mBookmarkOpener)
+                .openFolderBookmarksInNewTabs(
+                        eq(folderId), eq(false), eq(TabLaunchType.FROM_BOOKMARK_BAR_BACKGROUND));
     }
 
     @Test
@@ -409,7 +497,7 @@ public class BookmarkBarMediatorTest {
         when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
         when(downEvent.getButtonState()).thenReturn(MotionEvent.BUTTON_PRIMARY);
 
-        org.junit.Assert.assertFalse(
+        assertFalse(
                 "ACTION_DOWN for primary click should not be consumed so tooltips can work",
                 touchListener.onTouch(placeholderView, downEvent));
     }
@@ -417,57 +505,101 @@ public class BookmarkBarMediatorTest {
     @Test
     @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
-    public void testPopupMenuItemLongClickListener() {
-        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
-        mBookmarkModel.addBookmark(desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
-
-        ModelList modelList =
-                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
-        ListItem listItem = modelList.get(0);
-        View placeholderView = new View(mActivity);
-
-        // Simulate ACTION_DOWN at (50, 60) to record touch coordinates.
-        MotionEvent downEvent = mock(MotionEvent.class);
-        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
-        when(downEvent.getX()).thenReturn(50f);
-        when(downEvent.getY()).thenReturn(60f);
-
-        OnTouchListener touchListener = listItem.model.get(ListMenuItemProperties.TOUCH_LISTENER);
-        assertNotNull(touchListener);
-        touchListener.onTouch(placeholderView, downEvent);
-
-        // Trigger long click on the view.
-        View.OnLongClickListener longClickListener =
-                listItem.model.get(ListMenuItemProperties.LONG_CLICK_LISTENER);
-        assertNotNull(longClickListener);
-        assertTrue(longClickListener.onLongClick(placeholderView));
-
-        // Verify context menu popup is shown with recorded coordinates.
-        verify(mPopupCoordinator)
-                .showContextMenuPopup(any(), eq(placeholderView), eq(new Point(50, 60)), eq(false));
-    }
-
-    @Test
-    @SmallTest
-    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
-    public void testEmptySpaceRightClick_FlagEnabled() {
-        ArgumentCaptor<BookmarkBar.RightClickCallback> captor =
-                ArgumentCaptor.forClass(BookmarkBar.RightClickCallback.class);
-        verify(mBookmarkBarView).setRightClickCallback(captor.capture());
-        BookmarkBar.RightClickCallback callback = captor.getValue();
+    public void testEmptySpaceRightClick_ContextMenuEnabled() {
+        ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
+                ArgumentCaptor.forClass(BookmarkBar.EmptySpaceContextMenuCallback.class);
+        verify(mBookmarkBarView).setEmptySpaceContextMenuCallback(captor.capture());
+        BookmarkBar.EmptySpaceContextMenuCallback callback = captor.getValue();
         assertNotNull(callback);
 
-        callback.onRightClick(100f, 200f);
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                "Bookmarks.BookmarkBar.ContextMenu.EmptySpace.RightClick.Opened",
+                                true)
+                        .build();
+
+        callback.onContextMenuTriggered(100f, 200f, BookmarkBarContextMenuGesture.RIGHT_CLICK);
 
         verify(mPopupCoordinator)
                 .showContextMenuPopup(
                         any(), eq(mBookmarkBarView), eq(new Point(100, 200)), eq(false));
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testEmptySpaceRightClick_ContextMenuDisabled() {
+        ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
+                ArgumentCaptor.forClass(BookmarkBar.EmptySpaceContextMenuCallback.class);
+        verify(mBookmarkBarView).setEmptySpaceContextMenuCallback(captor.capture());
+        BookmarkBar.EmptySpaceContextMenuCallback callback = captor.getValue();
+        assertNotNull(callback);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Bookmarks.BookmarkBar.ContextMenu.EmptySpace.RightClick.Opened")
+                        .build();
+
+        callback.onContextMenuTriggered(100f, 200f, BookmarkBarContextMenuGesture.RIGHT_CLICK);
+
+        verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        histogramWatcher.assertExpected();
     }
 
     @Test
     @SmallTest
     @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
-    public void testBookmarkItemRightClick_FlagEnabled() {
+    public void testEmptySpaceLongClick_ContextMenuEnabled() {
+        ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
+                ArgumentCaptor.forClass(BookmarkBar.EmptySpaceContextMenuCallback.class);
+        verify(mBookmarkBarView).setEmptySpaceContextMenuCallback(captor.capture());
+        BookmarkBar.EmptySpaceContextMenuCallback callback = captor.getValue();
+        assertNotNull(callback);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                "Bookmarks.BookmarkBar.ContextMenu.EmptySpace.LongPress.Opened",
+                                true)
+                        .build();
+
+        callback.onContextMenuTriggered(100f, 200f, BookmarkBarContextMenuGesture.LONG_PRESS);
+
+        verify(mPopupCoordinator)
+                .showContextMenuPopup(
+                        any(), eq(mBookmarkBarView), eq(new Point(100, 200)), eq(false));
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testEmptySpaceLongClick_ContextMenuDisabled() {
+        ArgumentCaptor<BookmarkBar.EmptySpaceContextMenuCallback> captor =
+                ArgumentCaptor.forClass(BookmarkBar.EmptySpaceContextMenuCallback.class);
+        verify(mBookmarkBarView).setEmptySpaceContextMenuCallback(captor.capture());
+        BookmarkBar.EmptySpaceContextMenuCallback callback = captor.getValue();
+        assertNotNull(callback);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Bookmarks.BookmarkBar.ContextMenu.EmptySpace.LongPress.Opened")
+                        .build();
+
+        callback.onContextMenuTriggered(100f, 200f, BookmarkBarContextMenuGesture.LONG_PRESS);
+
+        verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testBookmarkItemRightClick_ContextMenuEnabled() {
         BookmarkId bookmarkId =
                 mBookmarkModel.addBookmark(
                         mBookmarkModel.getDesktopFolderId(), 0, "Bookmark", JUnitTestGURLs.URL_1);
@@ -487,13 +619,272 @@ public class BookmarkBarMediatorTest {
         RecyclerView.ViewHolder viewHolder = new RecyclerView.ViewHolder(mockView) {};
         when(mItemsRecyclerView.findViewHolderForAdapterPosition(0)).thenReturn(viewHolder);
 
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                "Bookmarks.BookmarkBar.ContextMenu.BookmarkBarItem"
+                                        + ".RightClick.Opened",
+                                true)
+                        .build();
+
         clickCallback.onClickWithMeta(0, MotionEvent.BUTTON_SECONDARY);
 
         verify(mPopupCoordinator).showContextMenuPopup(any(), eq(mockView), any(), eq(false));
+        histogramWatcher.assertExpected();
     }
 
     @Test
     @SmallTest
+    @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testBookmarkItemRightClick_ContextMenuDisabled() {
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        mBookmarkModel.getDesktopFolderId(), 0, "Bookmark", JUnitTestGURLs.URL_1);
+        BookmarkItem bookmarkItem = mBookmarkModel.getBookmarkById(bookmarkId);
+
+        mMediator.onBookmarkItemAdded(ObservationId.LOCAL, bookmarkItem, 0);
+
+        ArgumentCaptor<ListItem> listItemCaptor = ArgumentCaptor.forClass(ListItem.class);
+        verify(mItemsModel).add(eq(0), listItemCaptor.capture());
+        PropertyModel itemModel = listItemCaptor.getValue().model;
+
+        ClickWithMetaStateCallback clickCallback =
+                itemModel.get(BookmarkBarButtonProperties.CLICK_CALLBACK);
+        assertNotNull(clickCallback);
+
+        View mockView = mock(View.class);
+        RecyclerView.ViewHolder viewHolder = new RecyclerView.ViewHolder(mockView) {};
+        when(mItemsRecyclerView.findViewHolderForAdapterPosition(0)).thenReturn(viewHolder);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Bookmarks.BookmarkBar.ContextMenu.BookmarkBarItem"
+                                        + ".RightClick.Opened")
+                        .build();
+
+        clickCallback.onClickWithMeta(0, MotionEvent.BUTTON_SECONDARY);
+
+        verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testBookmarkItemLongClick_ContextMenuEnabled() {
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        mBookmarkModel.getDesktopFolderId(), 0, "Bookmark", JUnitTestGURLs.URL_1);
+        BookmarkItem bookmarkItem = mBookmarkModel.getBookmarkById(bookmarkId);
+
+        mMediator.onBookmarkItemAdded(ObservationId.LOCAL, bookmarkItem, 0);
+
+        ArgumentCaptor<ListItem> listItemCaptor = ArgumentCaptor.forClass(ListItem.class);
+        verify(mItemsModel).add(eq(0), listItemCaptor.capture());
+        PropertyModel itemModel = listItemCaptor.getValue().model;
+
+        View.OnLongClickListener longClickListener =
+                itemModel.get(BookmarkBarButtonProperties.LONG_CLICK_LISTENER);
+        assertNotNull(longClickListener);
+
+        View mockView = mock(View.class);
+        RecyclerView.ViewHolder viewHolder = new RecyclerView.ViewHolder(mockView) {};
+        when(mItemsRecyclerView.findViewHolderForAdapterPosition(0)).thenReturn(viewHolder);
+
+        Callback<Point> pointCallback = itemModel.get(BookmarkBarButtonProperties.POINT_CALLBACK);
+        assertNotNull(pointCallback);
+        pointCallback.onResult(new Point(10, 20));
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                "Bookmarks.BookmarkBar.ContextMenu.BookmarkBarItem"
+                                        + ".LongPress.Opened",
+                                true)
+                        .build();
+
+        assertTrue(longClickListener.onLongClick(mockView));
+
+        verify(mPopupCoordinator)
+                .showContextMenuPopup(any(), eq(mockView), eq(new Point(10, 20)), eq(false));
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testBookmarkItemLongClick_ContextMenuDisabled() {
+        BookmarkId bookmarkId =
+                mBookmarkModel.addBookmark(
+                        mBookmarkModel.getDesktopFolderId(), 0, "Bookmark", JUnitTestGURLs.URL_1);
+        BookmarkItem bookmarkItem = mBookmarkModel.getBookmarkById(bookmarkId);
+
+        mMediator.onBookmarkItemAdded(ObservationId.LOCAL, bookmarkItem, 0);
+
+        ArgumentCaptor<ListItem> listItemCaptor = ArgumentCaptor.forClass(ListItem.class);
+        verify(mItemsModel).add(eq(0), listItemCaptor.capture());
+        PropertyModel itemModel = listItemCaptor.getValue().model;
+
+        View.OnLongClickListener longClickListener =
+                itemModel.get(BookmarkBarButtonProperties.LONG_CLICK_LISTENER);
+        assertNotNull(longClickListener);
+
+        View mockView = mock(View.class);
+        RecyclerView.ViewHolder viewHolder = new RecyclerView.ViewHolder(mockView) {};
+        when(mItemsRecyclerView.findViewHolderForAdapterPosition(0)).thenReturn(viewHolder);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Bookmarks.BookmarkBar.ContextMenu.BookmarkBarItem"
+                                        + ".LongPress.Opened")
+                        .build();
+
+        assertFalse(longClickListener.onLongClick(mockView));
+
+        verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testPopupMenuItemRightClickListener_ContextMenuEnabled() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        mBookmarkModel.addBookmark(desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+        View placeholderView = new View(mActivity);
+
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getButtonState()).thenReturn(MotionEvent.BUTTON_SECONDARY);
+        when(downEvent.getX()).thenReturn(50f);
+        when(downEvent.getY()).thenReturn(60f);
+
+        OnTouchListener touchListener = listItem.model.get(ListMenuItemProperties.TOUCH_LISTENER);
+        assertNotNull(touchListener);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                "Bookmarks.BookmarkBar.ContextMenu.PopupItem.RightClick.Opened",
+                                true)
+                        .build();
+
+        assertTrue(touchListener.onTouch(placeholderView, downEvent));
+
+        verify(mPopupCoordinator)
+                .showContextMenuPopup(any(), eq(placeholderView), eq(new Point(50, 60)), eq(false));
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testPopupMenuItemRightClickListener_ContextMenuDisabled() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        mBookmarkModel.addBookmark(desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+        View placeholderView = new View(mActivity);
+
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getButtonState()).thenReturn(MotionEvent.BUTTON_SECONDARY);
+        when(downEvent.getX()).thenReturn(50f);
+        when(downEvent.getY()).thenReturn(60f);
+
+        OnTouchListener touchListener = listItem.model.get(ListMenuItemProperties.TOUCH_LISTENER);
+        assertNotNull(touchListener);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Bookmarks.BookmarkBar.ContextMenu.PopupItem.RightClick.Opened")
+                        .build();
+
+        assertFalse(touchListener.onTouch(placeholderView, downEvent));
+
+        verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testPopupMenuItemLongClickListener_ContextMenuEnabled() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        mBookmarkModel.addBookmark(desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+        View placeholderView = new View(mActivity);
+
+        MotionEvent downEvent = mock(MotionEvent.class);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        when(downEvent.getX()).thenReturn(50f);
+        when(downEvent.getY()).thenReturn(60f);
+
+        OnTouchListener touchListener = listItem.model.get(ListMenuItemProperties.TOUCH_LISTENER);
+        assertNotNull(touchListener);
+        touchListener.onTouch(placeholderView, downEvent);
+
+        View.OnLongClickListener longClickListener =
+                listItem.model.get(ListMenuItemProperties.LONG_CLICK_LISTENER);
+        assertNotNull(longClickListener);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord(
+                                "Bookmarks.BookmarkBar.ContextMenu.PopupItem.LongPress.Opened",
+                                true)
+                        .build();
+
+        assertTrue(longClickListener.onLongClick(placeholderView));
+
+        verify(mPopupCoordinator)
+                .showContextMenuPopup(any(), eq(placeholderView), eq(new Point(50, 60)), eq(false));
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testPopupMenuItemLongClickListener_ContextMenuDisabled() {
+        BookmarkId desktopFolderId = mBookmarkModel.getDesktopFolderId();
+        mBookmarkModel.addBookmark(desktopFolderId, 0, "Popup Bookmark", JUnitTestGURLs.URL_1);
+
+        ModelList modelList =
+                mMediator.buildMenuModelListForFolder(mBookmarkModel, desktopFolderId);
+        ListItem listItem = modelList.get(0);
+        View placeholderView = new View(mActivity);
+
+        View.OnLongClickListener longClickListener =
+                listItem.model.get(ListMenuItemProperties.LONG_CLICK_LISTENER);
+        assertNotNull(longClickListener);
+
+        var histogramWatcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords(
+                                "Bookmarks.BookmarkBar.ContextMenu.PopupItem.LongPress.Opened")
+                        .build();
+
+        assertFalse(longClickListener.onLongClick(placeholderView));
+
+        verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        histogramWatcher.assertExpected();
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenInNewTab() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
 
@@ -506,6 +897,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenInNewWindow() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
 
@@ -516,6 +908,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenInIncognitoWindow() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
 
@@ -526,12 +919,13 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
-    public void testContextMenu_OpenAll() {
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenBookmarksInNewTabs() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
         BookmarkId id2 = new BookmarkId(2, BookmarkType.NORMAL);
         List<BookmarkId> ids = List.of(id1, id2);
 
-        mMediator.openAll(ids);
+        mMediator.openBookmarksInNewTabs(ids);
 
         verify(mBookmarkOpener)
                 .openBookmarksInNewTabs(
@@ -540,43 +934,95 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
-    public void testContextMenu_OpenAllInNewWindow() {
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenBookmarksInNewWindow() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
         BookmarkId id2 = new BookmarkId(2, BookmarkType.NORMAL);
         List<BookmarkId> ids = List.of(id1, id2);
 
-        mMediator.openAllInNewWindow(ids);
+        mMediator.openBookmarksInNewWindow(ids);
 
         verify(mBookmarkOpener).openBookmarksInNewWindow(eq(ids), eq(false));
     }
 
     @Test
     @SmallTest
-    public void testContextMenu_OpenAllInIncognitoWindow() {
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenBookmarksInIncognitoWindow() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
         BookmarkId id2 = new BookmarkId(2, BookmarkType.NORMAL);
         List<BookmarkId> ids = List.of(id1, id2);
 
-        mMediator.openAllInIncognitoWindow(ids);
+        mMediator.openBookmarksInIncognitoWindow(ids);
 
         verify(mBookmarkOpener).openBookmarksInNewWindow(eq(ids), eq(true));
     }
 
     @Test
     @SmallTest
-    public void testContextMenu_OpenAllInNewTabGroup_PropagatesTitle() {
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenBookmarksInNewTabGroup() {
         BookmarkId id1 = new BookmarkId(1, BookmarkType.NORMAL);
         BookmarkId id2 = new BookmarkId(2, BookmarkType.NORMAL);
         List<BookmarkId> ids = List.of(id1, id2);
         String title = "Test Group Title";
 
-        mMediator.openAllInNewTabGroup(ids, title);
+        mMediator.openBookmarksInNewTabGroup(ids, title);
 
         verify(mBookmarkOpener).openBookmarksInNewTabGroup(eq(ids), eq(false), eq(title));
     }
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenFolderInNewTabs() {
+        BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
+
+        mMediator.openFolderInNewTabs(folderId);
+
+        verify(mBookmarkOpener)
+                .openFolderBookmarksInNewTabs(
+                        eq(folderId), eq(false), eq(TabLaunchType.FROM_BOOKMARK_BAR_BACKGROUND));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenFolderInNewWindow() {
+        BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
+
+        mMediator.openFolderInNewWindow(folderId);
+
+        verify(mBookmarkOpener).openFolderBookmarksInNewWindow(eq(folderId), eq(false));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenFolderInIncognitoWindow() {
+        BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
+
+        mMediator.openFolderInIncognitoWindow(folderId);
+
+        verify(mBookmarkOpener).openFolderBookmarksInNewWindow(eq(folderId), eq(true));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
+    public void testContextMenu_OpenFolderInNewTabGroup() {
+        BookmarkId folderId = new BookmarkId(1, BookmarkType.NORMAL);
+        String title = "Test Group Title";
+
+        mMediator.openFolderInNewTabGroup(folderId, title);
+
+        verify(mBookmarkOpener)
+                .openFolderBookmarksInNewTabGroup(eq(folderId), eq(false), eq(title));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_EditBookmark() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
 
@@ -587,6 +1033,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_MoveBookmark() {
         BookmarkId id = new BookmarkId(1, BookmarkType.NORMAL);
 
@@ -598,6 +1045,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_DeleteBookmark() {
         BookmarkId bookmarkId =
                 mBookmarkModel.addBookmark(
@@ -606,6 +1054,7 @@ public class BookmarkBarMediatorTest {
                         "Bookmark to Delete",
                         JUnitTestGURLs.URL_1);
 
+        ShadowLooper.idleMainLooper();
         mMediator.deleteBookmark(bookmarkId);
 
         ArgumentCaptor<Snackbar> snackbarCaptor = ArgumentCaptor.forClass(Snackbar.class);
@@ -616,6 +1065,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_AddPage() {
         BookmarkId parentId = mBookmarkModel.getDesktopFolderId();
         doReturn("Test Title").when(mTab).getTitle();
@@ -637,6 +1087,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_AddFolder() {
         BookmarkId parentId = mBookmarkModel.getDesktopFolderId();
 
@@ -648,6 +1099,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_OpenBookmarksManager() {
         BookmarkId folderId = mBookmarkModel.getDesktopFolderId();
 
@@ -659,6 +1111,7 @@ public class BookmarkBarMediatorTest {
 
     @Test
     @SmallTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testContextMenu_ToggleBookmarksBar() {
         ContextUtils.getAppSharedPreferences()
                 .edit()
@@ -667,7 +1120,9 @@ public class BookmarkBarMediatorTest {
 
         mMediator.toggleBookmarksBar();
 
-        verify(mPrefService).setBoolean(eq(Pref.SHOW_BOOKMARK_BAR), eq(false));
+        assertFalse(
+                ContextUtils.getAppSharedPreferences()
+                        .getBoolean(BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR, true));
     }
 
     @Test
@@ -711,8 +1166,9 @@ public class BookmarkBarMediatorTest {
         // Simulate right click or long press (BUTTON_SECONDARY).
         clickCallback.onClickWithMeta(0, MotionEvent.BUTTON_SECONDARY);
 
-        // Context menu should NOT be shown for the All Bookmarks button.
+        // No response should happen for right click on the All bookmarks button.
         verify(mPopupCoordinator, never()).showContextMenuPopup(any(), any(), any(), anyBoolean());
+        verify(mBookmarkManagerOpener, never()).showBookmarkManager(any(), any(), any(), any());
     }
 
     @Test

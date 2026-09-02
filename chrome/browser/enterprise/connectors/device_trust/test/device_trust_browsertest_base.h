@@ -11,13 +11,13 @@
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/enterprise/connectors/device_trust/common/metrics_utils.h"
 #include "chrome/browser/enterprise/connectors/device_trust/test/device_trust_management_mixin.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
+#include "components/enterprise/device_trust/core/metrics_utils.h"
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace enterprise_connectors::test {
 
@@ -78,7 +78,8 @@ class DeviceTrustBrowserTestBase : public MixinBasedInProcessBrowserTest {
   // histograms).
   void ResetState();
 
-  content::WebContents* web_contents(Browser* active_browser = nullptr);
+  content::WebContents* web_contents(
+      BrowserWindowInterface* active_browser = nullptr);
 
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<DeviceTrustManagementMixin> device_trust_mixin_;

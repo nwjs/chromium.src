@@ -35,6 +35,7 @@
 
 #include "build/build_config.h"
 #include "cc/layers/layer.h"
+#include "cc/paint/paint_op_buffer_iterator.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_coalesced_input_event.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
@@ -44,6 +45,7 @@
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_plugin_params.h"
 #include "third_party/blink/public/web/web_print_params.h"
+#include "third_party/blink/public/web/web_script_source.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/blink/renderer/core/clipboard/system_clipboard.h"
@@ -53,16 +55,21 @@
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/event_handler_registry.h"
 #include "third_party/blink/renderer/core/frame/frame_test_helpers.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
+#include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_info.h"
+#include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/core/testing/fake_web_plugin.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/core/testing/scoped_fake_plugin_registry.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "third_party/blink/renderer/platform/graphics/paint/cull_rect.h"
+#include "third_party/blink/renderer/platform/graphics/paint/drawing_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/foreign_layer_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_controller.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_recorder.h"
@@ -188,14 +195,38 @@ class TestPluginWithEditableText : public FakeWebPlugin {
       paste_called_ = true;
       return true;
     }
+    if (name == "MakeTextWritingDirectionLeftToRight") {
+      writing_direction_left_to_right_called_ = true;
+      return true;
+    }
+    if (name == "MakeTextWritingDirectionRightToLeft") {
+      writing_direction_right_to_left_called_ = true;
+      return true;
+    }
+    if (name == "MakeTextWritingDirectionNatural") {
+      writing_direction_natural_called_ = true;
+      return true;
+    }
     return false;
   }
 
   bool IsCutCalled() const { return cut_called_; }
   bool IsPasteCalled() const { return paste_called_; }
+  bool IsWritingDirectionLeftToRightCalled() const {
+    return writing_direction_left_to_right_called_;
+  }
+  bool IsWritingDirectionRightToLeftCalled() const {
+    return writing_direction_right_to_left_called_;
+  }
+  bool IsWritingDirectionNaturalCalled() const {
+    return writing_direction_natural_called_;
+  }
   void ResetEditCommandState() {
     cut_called_ = false;
     paste_called_ = false;
+    writing_direction_left_to_right_called_ = false;
+    writing_direction_right_to_left_called_ = false;
+    writing_direction_natural_called_ = false;
   }
 
  private:
@@ -203,6 +234,37 @@ class TestPluginWithEditableText : public FakeWebPlugin {
 
   bool cut_called_;
   bool paste_called_;
+  bool writing_direction_left_to_right_called_ = false;
+  bool writing_direction_right_to_left_called_ = false;
+  bool writing_direction_natural_called_ = false;
+};
+
+class RenderThrottlingTestPlugin : public FakeWebPlugin {
+ public:
+  explicit RenderThrottlingTestPlugin(const WebPluginParams& params)
+      : FakeWebPlugin(params) {}
+
+  void UpdateRenderThrottlingStatus(bool is_throttled,
+                                    bool subtree_throttled,
+                                    bool display_locked) override {
+    is_throttled_ = is_throttled;
+    subtree_throttled_ = subtree_throttled;
+    display_locked_ = display_locked;
+    ++update_count_;
+  }
+
+  bool IsThrottled() const { return is_throttled_; }
+  bool SubtreeThrottled() const { return subtree_throttled_; }
+  bool DisplayLocked() const { return display_locked_; }
+  int UpdateCount() const { return update_count_; }
+
+ private:
+  ~RenderThrottlingTestPlugin() override = default;
+
+  bool is_throttled_ = false;
+  bool subtree_throttled_ = false;
+  bool display_locked_ = false;
+  int update_count_ = 0;
 };
 
 class TestPluginWebFrameClient : public frame_test_helpers::TestWebFrameClient {
@@ -314,6 +376,101 @@ void ExecuteContextMenuCommand(WebViewImpl* web_view,
 }
 
 }  // namespace
+
+TEST_F(WebPluginContainerTest, DisplayLockUpdatesRenderThrottlingStatus) {
+  RegisterMockedURL("plugin_display_lock.html");
+  CustomPluginWebFrameClient<RenderThrottlingTestPlugin>
+      plugin_web_frame_client;
+  frame_test_helpers::WebViewHelper web_view_helper;
+  WebViewImpl* web_view = web_view_helper.InitializeAndLoad(
+      base_url_ + "plugin_display_lock.html", &plugin_web_frame_client);
+  EnablePlugins(web_view, gfx::Size(300, 300));
+
+  WebElement plugin_element =
+      web_view->MainFrameImpl()->GetDocument().GetElementById("plugin");
+  auto* plugin = static_cast<RenderThrottlingTestPlugin*>(
+      To<WebPluginContainerImpl>(plugin_element.PluginContainer())->Plugin());
+
+  EXPECT_FALSE(plugin->IsThrottled());
+  EXPECT_FALSE(plugin->SubtreeThrottled());
+  EXPECT_FALSE(plugin->DisplayLocked());
+  EXPECT_EQ(0, plugin->UpdateCount());
+
+  plugin_element.SetAttribute("style", "content-visibility: hidden");
+  UpdateAllLifecyclePhases(web_view);
+  EXPECT_FALSE(plugin->IsThrottled());
+  EXPECT_FALSE(plugin->SubtreeThrottled());
+  EXPECT_TRUE(plugin->DisplayLocked());
+  EXPECT_EQ(1, plugin->UpdateCount());
+
+  plugin_element.SetAttribute("style", "content-visibility: visible");
+  UpdateAllLifecyclePhases(web_view);
+  EXPECT_FALSE(plugin->DisplayLocked());
+  EXPECT_EQ(2, plugin->UpdateCount());
+
+  WebElement container =
+      web_view->MainFrameImpl()->GetDocument().GetElementById("container");
+  container.SetAttribute("style", "content-visibility: hidden");
+  UpdateAllLifecyclePhases(web_view);
+  EXPECT_TRUE(plugin->DisplayLocked());
+  EXPECT_EQ(3, plugin->UpdateCount());
+
+  container.SetAttribute("style", "content-visibility: visible");
+  UpdateAllLifecyclePhases(web_view);
+  EXPECT_FALSE(plugin->DisplayLocked());
+  EXPECT_EQ(4, plugin->UpdateCount());
+}
+
+TEST_F(WebPluginContainerTest,
+       ContentVisibilityAutoUpdatesRenderThrottlingStatus) {
+  RegisterMockedURL("plugin_scroll.html");
+  CustomPluginWebFrameClient<RenderThrottlingTestPlugin>
+      plugin_web_frame_client;
+  frame_test_helpers::WebViewHelper web_view_helper;
+  WebViewImpl* web_view = web_view_helper.InitializeAndLoad(
+      base_url_ + "plugin_scroll.html", &plugin_web_frame_client);
+  EnablePlugins(web_view, gfx::Size(300, 300));
+
+  WebElement plugin_element =
+      web_view->MainFrameImpl()->GetDocument().GetElementById(
+          "scrolled-plugin");
+  auto* plugin = static_cast<RenderThrottlingTestPlugin*>(
+      To<WebPluginContainerImpl>(plugin_element.PluginContainer())->Plugin());
+
+  plugin_element.SetAttribute(
+      "style", "content-visibility: auto; position: absolute; top: 10000px");
+  UpdateAllLifecyclePhases(web_view);
+  // The first lifecycle registers the display-lock IntersectionObserver after
+  // laying out the newly auto-hidden element. Process its pending work before
+  // a second lifecycle computes and delivers the initial observation.
+  RunPendingTasks();
+  UpdateAllLifecyclePhases(web_view);
+  EXPECT_TRUE(plugin->DisplayLocked());
+  EXPECT_EQ(1, plugin->UpdateCount());
+
+  auto update_after_viewport_change = [&]() {
+    // After the initial observation, the display-lock IntersectionObserver
+    // queues its notification for the start of the next lifecycle. The first
+    // update computes the intersection, and the second applies the resulting
+    // lock change. Running pending tasks between them models the frame that
+    // Blink schedules for the deferred notification.
+    UpdateAllLifecyclePhases(web_view);
+    RunPendingTasks();
+    UpdateAllLifecyclePhases(web_view);
+  };
+
+  web_view->MainFrameImpl()->ExecuteScript(WebScriptSource(
+      "document.getElementById('scrolled-plugin').scrollIntoView()"));
+  update_after_viewport_change();
+  EXPECT_FALSE(plugin->DisplayLocked());
+  EXPECT_EQ(2, plugin->UpdateCount());
+
+  web_view->MainFrameImpl()->ExecuteScript(
+      WebScriptSource("window.scrollTo(0, 0)"));
+  update_after_viewport_change();
+  EXPECT_TRUE(plugin->DisplayLocked());
+  EXPECT_EQ(3, plugin->UpdateCount());
+}
 
 TEST_F(WebPluginContainerTest, WindowToLocalPointTest) {
   RegisterMockedURL("plugin_container.html");
@@ -1293,9 +1450,7 @@ TEST_F(WebPluginContainerTest, IsRectTopmostTest) {
 
   auto* plugin_container_impl = To<WebPluginContainerImpl>(
       GetWebPluginContainer(web_view, WebString("translated-plugin")));
-  plugin_container_impl->SetFrameRect(gfx::Rect(0, 0, 300, 300));
-
-  gfx::Rect rect = plugin_container_impl->GetElement().BoundsInWidget();
+  gfx::Rect rect(plugin_container_impl->GetElement().BoundsInWidget().size());
   EXPECT_TRUE(plugin_container_impl->IsRectTopmost(rect));
 
   // Cause the plugin's frame to be detached.
@@ -1316,14 +1471,14 @@ TEST_F(WebPluginContainerTest, IsRectTopmostTestWithOddAndEvenDimensions) {
 
   auto* even_plugin_container_impl = To<WebPluginContainerImpl>(
       GetWebPluginContainer(web_view, WebString("translated-plugin")));
-  even_plugin_container_impl->SetFrameRect(gfx::Rect(0, 0, 300, 300));
-  auto even_rect = even_plugin_container_impl->GetElement().BoundsInWidget();
+  gfx::Rect even_rect(
+      even_plugin_container_impl->GetElement().BoundsInWidget().size());
   EXPECT_TRUE(even_plugin_container_impl->IsRectTopmost(even_rect));
 
   auto* odd_plugin_container_impl = To<WebPluginContainerImpl>(
       GetWebPluginContainer(web_view, WebString("odd-dimensions-plugin")));
-  odd_plugin_container_impl->SetFrameRect(gfx::Rect(0, 0, 300, 300));
-  auto odd_rect = odd_plugin_container_impl->GetElement().BoundsInWidget();
+  gfx::Rect odd_rect(
+      odd_plugin_container_impl->GetElement().BoundsInWidget().size());
   EXPECT_TRUE(odd_plugin_container_impl->IsRectTopmost(odd_rect));
 }
 
@@ -1486,7 +1641,7 @@ TEST_F(WebPluginContainerTest, ClippedRectsForSubpixelPositionedPlugin) {
 }
 
 TEST_F(WebPluginContainerTest, TopmostAfterDetachTest) {
-  static constexpr gfx::Rect kTopmostRect(10, 10, 40, 40);
+  static constexpr gfx::Rect kTopmostRect(0, 0, 40, 40);
 
   // Plugin that checks isRectTopmost in destroy().
   class TopmostPlugin : public FakeWebPlugin {
@@ -1516,8 +1671,6 @@ TEST_F(WebPluginContainerTest, TopmostAfterDetachTest) {
 
   auto* plugin_container_impl = To<WebPluginContainerImpl>(
       GetWebPluginContainer(web_view, WebString("translated-plugin")));
-  plugin_container_impl->SetFrameRect(gfx::Rect(0, 0, 300, 300));
-
   EXPECT_TRUE(plugin_container_impl->IsRectTopmost(kTopmostRect));
 
   TopmostPlugin* test_plugin =
@@ -1528,6 +1681,251 @@ TEST_F(WebPluginContainerTest, TopmostAfterDetachTest) {
   web_view_helper.Reset();
 
   EXPECT_FALSE(plugin_container_impl->IsRectTopmost(kTopmostRect));
+}
+
+namespace {
+
+class PaintTrackingPlugin : public FakeWebPlugin {
+ public:
+  using FakeWebPlugin::FakeWebPlugin;
+
+  void Paint(cc::PaintCanvas* canvas, const gfx::Rect& rect) override {
+    ++paint_call_count_;
+    last_paint_rect_ = rect;
+    canvas->drawOval(gfx::RectToSkRect(rect), cc::PaintFlags());
+  }
+
+  int PaintCallCount() const { return paint_call_count_; }
+  const gfx::Rect& LastPaintRect() const { return last_paint_rect_; }
+  void ResetPaintTracking() {
+    paint_call_count_ = 0;
+    last_paint_rect_ = gfx::Rect();
+  }
+
+  // `display_item_rect` is used to find the corresponding display item from the
+  // paint artifact containing painting of multiple
+  void CheckPainting(const WebViewImpl* web_view,
+                     const gfx::Rect& expected_display_item_visual_rect,
+                     const gfx::Rect& expected_last_paint_rect,
+                     const gfx::Vector2dF& expected_translation) {
+    EXPECT_GE(PaintCallCount(), 1);
+    EXPECT_EQ(expected_last_paint_rect, LastPaintRect());
+
+    auto& display_items = web_view->MainFrameImpl()
+                              ->GetFrameView()
+                              ->GetPaintControllerPersistentDataForTesting()
+                              .GetPaintArtifact()
+                              .GetDisplayItemList();
+    const DrawingDisplayItem* plugin_drawing_item = nullptr;
+    for (const auto& display_item : display_items) {
+      if (display_item.GetType() == DisplayItem::kWebPlugin) {
+        plugin_drawing_item = &To<DrawingDisplayItem>(display_item);
+        break;
+      }
+    }
+    ASSERT_TRUE(plugin_drawing_item);
+    EXPECT_EQ(expected_display_item_visual_rect,
+              plugin_drawing_item->VisualRect());
+
+    bool found_drawing = false;
+    gfx::Vector2dF translation;
+    for (const auto& op : plugin_drawing_item->GetPaintRecord()) {
+      switch (op.GetType()) {
+        case cc::PaintOpType::kTranslate: {
+          const auto& translate_op = static_cast<const cc::TranslateOp&>(op);
+          translation += gfx::Vector2dF(translate_op.dx, translate_op.dy);
+          break;
+        }
+        case cc::PaintOpType::kDrawOval:
+          found_drawing = true;
+          break;
+        default:
+          break;
+      }
+    }
+
+    EXPECT_TRUE(found_drawing);
+    EXPECT_EQ(expected_translation, translation);
+  }
+
+ private:
+  int paint_call_count_ = 0;
+  gfx::Rect last_paint_rect_;
+};
+
+}  // namespace
+
+TEST_F(WebPluginContainerTest, GeometryAndPaintClipScroll) {
+  RegisterMockedURL("plugin_clip_scroll.html");
+
+  // Must outlive |web_view_helper|.
+  CustomPluginWebFrameClient<PaintTrackingPlugin> plugin_web_frame_client;
+  frame_test_helpers::WebViewHelper web_view_helper;
+  WebViewImpl* web_view = web_view_helper.InitializeAndLoad(
+      base_url_ + "plugin_clip_scroll.html", &plugin_web_frame_client);
+  EnablePlugins(web_view, gfx::Size(300, 300));
+
+  auto* plugin_container_impl = To<WebPluginContainerImpl>(
+      GetWebPluginContainer(web_view, WebString("plugin")));
+  ASSERT_TRUE(plugin_container_impl);
+
+  auto* test_plugin =
+      static_cast<PaintTrackingPlugin*>(plugin_container_impl->Plugin());
+  ASSERT_TRUE(test_plugin);
+
+  auto* owner_layout_object = plugin_container_impl->GetLayoutEmbeddedContent();
+  ASSERT_TRUE(owner_layout_object);
+  auto replaced_content_rect = owner_layout_object->ReplacedContentRect();
+  EXPECT_EQ(PhysicalRect(6, 4, 33, 44), replaced_content_rect);
+
+  gfx::Rect window_rect, clip_rect, unobscured_rect;
+  CalculateGeometry(plugin_container_impl, window_rect, clip_rect,
+                    unobscured_rect);
+  // The clipped ancestor leaves only part of the plugin visible.
+  // window_rect.origin = ancestor_translation(30, 20) +
+  //                      ancestor_offset(40, 100) +
+  //                      replaced_offset(6, 4).
+  EXPECT_EQ(gfx::Rect(76, 124, 33, 44), window_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 18, 14), clip_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 18, 14), unobscured_rect);
+
+  // visual_rect.origin = ancestor_offset(40, 100) + replaced_offset(6, 4).
+  const gfx::Rect display_item_visual_rect(46, 104, 33, 44);
+  test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                             gfx::Rect(70, 120, 24, 18),
+                             gfx::Vector2dF(-30, -20));
+
+  test_plugin->ResetPaintTracking();
+  web_view->SmoothScroll(80, 100, base::TimeDelta());
+  plugin_container_impl->Invalidate();
+  UpdateAllLifecyclePhases(web_view);
+  RunPendingTasks();
+
+  CalculateGeometry(plugin_container_impl, window_rect, clip_rect,
+                    unobscured_rect);
+  // Part of the original clip rect is scrolled out of the view.
+  EXPECT_EQ(gfx::Rect(-4, 24, 33, 44), window_rect);
+  EXPECT_EQ(gfx::Rect(10, 4, 14, 14), clip_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 18, 14), unobscured_rect);
+
+  test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                             gfx::Rect(-10, 20, 24, 18),
+                             gfx::Vector2dF(50, 80));
+
+  // The scroll above didn't invalidate layout. Now invalidate layout, and the
+  // geometry should not change.
+  test_plugin->ResetPaintTracking();
+  owner_layout_object->SetNeedsLayout("test");
+  plugin_container_impl->Invalidate();
+  UpdateAllLifecyclePhases(web_view);
+  RunPendingTasks();
+
+  CalculateGeometry(plugin_container_impl, window_rect, clip_rect,
+                    unobscured_rect);
+  EXPECT_EQ(gfx::Rect(-4, 24, 33, 44), window_rect);
+  EXPECT_EQ(gfx::Rect(10, 4, 14, 14), clip_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 18, 14), unobscured_rect);
+
+  test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                             gfx::Rect(-10, 20, 24, 18),
+                             gfx::Vector2dF(50, 80));
+
+  // Cause the plugin's frame to be detached.
+  web_view_helper.Reset();
+}
+
+TEST_F(WebPluginContainerTest, GeometryAndPaintFixedPositionScroll) {
+  RegisterMockedURL("plugin_fixed_position_scroll.html");
+
+  // Must outlive |web_view_helper|.
+  CustomPluginWebFrameClient<PaintTrackingPlugin> plugin_web_frame_client;
+  frame_test_helpers::WebViewHelper web_view_helper;
+  WebViewImpl* web_view = web_view_helper.InitializeAndLoad(
+      base_url_ + "plugin_fixed_position_scroll.html",
+      &plugin_web_frame_client);
+  EnablePlugins(web_view, gfx::Size(300, 300));
+
+  auto* plugin_container_impl = To<WebPluginContainerImpl>(
+      GetWebPluginContainer(web_view, WebString("plugin")));
+  ASSERT_TRUE(plugin_container_impl);
+
+  auto* test_plugin =
+      static_cast<PaintTrackingPlugin*>(plugin_container_impl->Plugin());
+  ASSERT_TRUE(test_plugin);
+
+  auto* owner_layout_object = plugin_container_impl->GetLayoutEmbeddedContent();
+  ASSERT_TRUE(owner_layout_object);
+  auto replaced_content_rect = owner_layout_object->ReplacedContentRect();
+  EXPECT_EQ(PhysicalRect(6, 4, 33, 44), replaced_content_rect);
+
+  gfx::Rect window_rect, clip_rect, unobscured_rect;
+  CalculateGeometry(plugin_container_impl, window_rect, clip_rect,
+                    unobscured_rect);
+  EXPECT_EQ(gfx::Rect(76, 124, 33, 44), window_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 33, 44), clip_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 33, 44), unobscured_rect);
+
+  const gfx::Rect display_item_visual_rect =
+      ToEnclosingRect(replaced_content_rect);
+  test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                             gfx::Rect(0, 0, 300, 300),
+                             gfx::Vector2dF(-70, -120));
+
+  test_plugin->ResetPaintTracking();
+  web_view->SmoothScroll(1000, 2000, base::TimeDelta());
+  plugin_container_impl->Invalidate();
+  UpdateAllLifecyclePhases(web_view);
+  RunPendingTasks();
+
+  CalculateGeometry(plugin_container_impl, window_rect, clip_rect,
+                    unobscured_rect);
+  // Part of the original clip rect is scrolled out of the view.
+  if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+    EXPECT_EQ(gfx::Rect(76, 124, 33, 44), window_rect);
+    EXPECT_EQ(gfx::Rect(6, 4, 33, 44), clip_rect);
+    EXPECT_EQ(gfx::Rect(6, 4, 33, 44), unobscured_rect);
+
+    test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                               gfx::Rect(0, 0, 300, 300),
+                               gfx::Vector2dF(-70, -120));
+  } else {
+    // TODO(crbug.com/540906913): The window rect is incorrect. The
+    // fixed-position plugin should remain in the same position relative to the
+    // viewport on scroll.
+    EXPECT_EQ(gfx::Rect(-924, -1876, 33, 44), window_rect);
+    EXPECT_EQ(gfx::Rect(6, 4, 33, 44), clip_rect);
+    EXPECT_EQ(gfx::Rect(6, 4, 33, 44), unobscured_rect);
+
+    // For now, though the window rect is incorrect, the paint rect and
+    // translation are also incorrect, and their errors cancel each other out,
+    // so the final painting result happens to be correct.
+    test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                               gfx::Rect(-1000, -2000, 300, 300),
+                               gfx::Vector2dF(930, 1880));
+  }
+
+  // The scroll above didn't invalidate layout. Now invalidate layout, and the
+  // geometry should not change.
+  // TODO(crbug.com/540906913): The window rect, the paint rect and the
+  // translation are now correct after relayout.
+  test_plugin->ResetPaintTracking();
+  owner_layout_object->SetNeedsLayout("test");
+  plugin_container_impl->Invalidate();
+  UpdateAllLifecyclePhases(web_view);
+  RunPendingTasks();
+
+  CalculateGeometry(plugin_container_impl, window_rect, clip_rect,
+                    unobscured_rect);
+  EXPECT_EQ(gfx::Rect(76, 124, 33, 44), window_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 33, 44), clip_rect);
+  EXPECT_EQ(gfx::Rect(6, 4, 33, 44), unobscured_rect);
+
+  test_plugin->CheckPainting(web_view, display_item_visual_rect,
+                             gfx::Rect(0, 0, 300, 300),
+                             gfx::Vector2dF(-70, -120));
+
+  // Cause the plugin's frame to be detached.
+  web_view_helper.Reset();
 }
 
 namespace {
@@ -1594,6 +1992,9 @@ TEST_F(WebPluginContainerTest, CompositedPlugin) {
   const auto& foreign_layer_display_item =
       To<ForeignLayerDisplayItem>(UNSAFE_BUFFERS(display_items[0]));
   EXPECT_EQ(plugin->GetCcLayer(), foreign_layer_display_item.GetLayer());
+  EXPECT_EQ(gfx::Vector2dF(20, 20),
+            plugin->GetCcLayer()->offset_to_transform_parent());
+  EXPECT_EQ(gfx::Size(400, 300), plugin->GetCcLayer()->bounds());
 }
 
 TEST_F(WebPluginContainerTest, NeedsWheelEvents) {
@@ -1615,6 +2016,56 @@ TEST_F(WebPluginContainerTest, NeedsWheelEvents) {
                   ->GetFrame()
                   ->GetEventHandlerRegistry()
                   .HasEventHandlers(EventHandlerRegistry::kWheelEventBlocking));
+}
+
+TEST_F(WebPluginContainerTest, SetTextDirection) {
+  RegisterMockedURL("plugin_container.html");
+  TestPluginWebFrameClient plugin_web_frame_client;
+  frame_test_helpers::WebViewHelper web_view_helper;
+
+  plugin_web_frame_client.SetHasEditableText(true);
+
+  WebViewImpl* web_view = web_view_helper.InitializeAndLoad(
+      base_url_ + "plugin_container.html", &plugin_web_frame_client);
+  EnablePlugins(web_view, gfx::Size(300, 300));
+
+  WebElement plugin_container_one_element =
+      web_view->MainFrameImpl()->GetDocument().GetElementById(
+          WebString("translated-plugin"));
+
+  auto* test_plugin =
+      TestPluginWithEditableText::FromContainer(&plugin_container_one_element);
+  ASSERT_TRUE(test_plugin);
+
+  LocalFrame* frame = web_view->MainFrameImpl()->GetFrame();
+
+  web_view->MainFrameImpl()
+      ->GetFrame()
+      ->GetDocument()
+      ->QuerySelector(AtomicString("#translated-plugin"))
+      ->Focus();
+
+  // Test LTR
+  frame->SetTextDirection(base::i18n::TextDirection::LEFT_TO_RIGHT);
+  EXPECT_TRUE(test_plugin->IsWritingDirectionLeftToRightCalled());
+  EXPECT_FALSE(test_plugin->IsWritingDirectionRightToLeftCalled());
+  EXPECT_FALSE(test_plugin->IsWritingDirectionNaturalCalled());
+
+  test_plugin->ResetEditCommandState();
+
+  // Test RTL
+  frame->SetTextDirection(base::i18n::TextDirection::RIGHT_TO_LEFT);
+  EXPECT_FALSE(test_plugin->IsWritingDirectionLeftToRightCalled());
+  EXPECT_TRUE(test_plugin->IsWritingDirectionRightToLeftCalled());
+  EXPECT_FALSE(test_plugin->IsWritingDirectionNaturalCalled());
+
+  test_plugin->ResetEditCommandState();
+
+  // Test Natural
+  frame->SetTextDirection(base::i18n::TextDirection::UNKNOWN_DIRECTION);
+  EXPECT_FALSE(test_plugin->IsWritingDirectionLeftToRightCalled());
+  EXPECT_FALSE(test_plugin->IsWritingDirectionRightToLeftCalled());
+  EXPECT_TRUE(test_plugin->IsWritingDirectionNaturalCalled());
 }
 
 }  // namespace blink

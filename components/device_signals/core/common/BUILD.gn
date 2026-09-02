@@ -25,6 +25,7 @@ static_library("common") {
 
   deps = [
     "//base",
+    "//build:chromeos_buildflags",
     "//components/certificate_matching",
     "//components/policy/core/common",
   ]
@@ -49,6 +50,9 @@ static_library("common") {
   if (is_linux || is_chromeos) {
     if (use_glib) {
       deps += [ "//ui/base/glib" ]
+    }
+    if (is_chromeos) {
+      deps += [ "//chromeos/dbus/power" ]
     }
     sources += [ "linux/platform_utils_linux.cc" ]
   }

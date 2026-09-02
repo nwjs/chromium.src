@@ -412,7 +412,7 @@
     'swarming': {
       'dimensions': {
         'device_type': 's5e9945',
-        'device_os': 'UP1A.231005.007',
+        'device_os': 'AP3A.240905.015.A2',
         'device_os_type': 'user',
         'os': 'Android',
         'pool': 'chromium.tests.gpu',
@@ -443,12 +443,12 @@
       },
     },
   },
-  'ios_runtime_cache_18_2': {
+  'ios_runtime_cache_18_5': {
     'swarming': {
       'named_caches': [
         {
-          'name': 'runtime_ios_18_2',
-          'path': 'Runtime-ios-18.2',
+          'name': 'runtime_ios_18_5',
+          'path': 'Runtime-ios-18.5',
         },
       ],
     },
@@ -464,6 +464,14 @@
     'swarming': {
       'dimensions': {
         'os': 'Ubuntu-22.04',
+      },
+    },
+  },
+  'linux-ubuntu': {
+    'fail_if_unused': False,
+    'swarming': {
+      'dimensions': {
+        'os': 'Ubuntu',
       },
     },
   },
@@ -512,6 +520,13 @@
         'display_attached': '1',
         'display_server': 'x11',
         'pool': 'chromium.tests.gpu',
+      },
+    },
+  },
+  'linux_gpu_high_tier_ai_wpt_dimensions': {
+    'swarming': {
+      'dimensions': {
+        'gpu': '10de|1002|8086:4680|8086:a780|8086:a7a0',
       },
     },
   },
@@ -676,7 +691,7 @@
     'swarming': {
       'dimensions': {
         'cpu': 'arm64',
-        'os': 'Mac-15|Mac-26',
+        'os': 'Mac-26',
       },
     },
   },

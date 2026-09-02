@@ -1078,6 +1078,7 @@
       supports_incremental_style: false,
       valid_for_keyframe: false,
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "animation-range-end",
@@ -1094,6 +1095,7 @@
       supports_incremental_style: false,
       valid_for_keyframe: false,
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "animation-timeline",
@@ -1178,6 +1180,7 @@
       runtime_flag: "TimelineTrigger",
       is_animation_affecting: true,
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "timeline-trigger-activation-range-end",
@@ -1191,6 +1194,7 @@
       runtime_flag: "TimelineTrigger",
       is_animation_affecting: true,
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "timeline-trigger-active-range-start",
@@ -1205,6 +1209,7 @@
       is_animation_affecting: true,
       percentages_depend_on_used_value: false,
       keywords: ["auto", "normal"],
+      affected_by_zoom: true,
     },
     {
       name: "timeline-trigger-active-range-end",
@@ -1219,6 +1224,7 @@
       is_animation_affecting: true,
       percentages_depend_on_used_value: false,
       keywords: ["auto", "normal"],
+      affected_by_zoom: true,
     },
     {
       name: "timeline-trigger-source",
@@ -2115,6 +2121,7 @@
       typedom_types: ["Keyword"],
       invalidate: ["compositing"],
       includes_currentcolor: true,
+      affected_by_zoom: true,
     },
     {
       name: "backface-visibility",
@@ -2271,6 +2278,7 @@
       valid_for_page_context: true,
       stored_on_extra_field: ["Background"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "background-position-y",
@@ -2289,6 +2297,7 @@
       valid_for_page_context: true,
       stored_on_extra_field: ["Background"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "background-repeat",
@@ -2324,6 +2333,7 @@
       valid_for_page_context: true,
       stored_on_extra_field: ["Background"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "baseline-shift",
@@ -2338,6 +2348,7 @@
       typedom_types: ["Keyword", "Percentage", "Length"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "baseline-source",
@@ -2459,7 +2470,7 @@
       default_value: "3",
       typedom_types: ["Keyword", "Length"],
       type_name: "int",
-      computed_style_custom_functions: ["getter"],
+      getter: "SpecifiedBorderBottomWidth",
       style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2501,6 +2512,7 @@
       // Overlaps with -webkit-border-image.
       overlapping: true,
       stored_on_extra_field: ["border-image"],
+      affected_by_zoom: true,
     },
     {
       name: "border-image-repeat",
@@ -2565,6 +2577,7 @@
       overlapping: true,
       stored_on_extra_field: ["border-image"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "border-left-color",
@@ -2626,7 +2639,7 @@
       default_value: "3",
       typedom_types: ["Keyword", "Length"],
       type_name: "int",
-      computed_style_custom_functions: ["getter"],
+      getter: "SpecifiedBorderLeftWidth",
       style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2702,7 +2715,7 @@
       default_value: "3",
       typedom_types: ["Keyword", "Length"],
       type_name: "int",
-      computed_style_custom_functions: ["getter"],
+      getter: "SpecifiedBorderRightWidth",
       style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2829,7 +2842,7 @@
       default_value: "3",
       typedom_types: ["Keyword", "Length"],
       type_name: "int",
-      computed_style_custom_functions: ["getter"],
+      getter: "SpecifiedBorderTopWidth",
       style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertBorderWidth",
       valid_for_first_letter: true,
@@ -2861,6 +2874,7 @@
       keywords: ["none"],
       typedom_types: ["Keyword"],
       invalidate: ["border-visual", "paint", "visual-overflow", "border-shape"],
+      affected_by_zoom: true,
     },
     {
       name: "bottom",
@@ -2912,6 +2926,7 @@
       valid_for_permission_element: true,
       invalidate: ["paint", "visual-overflow"],
       includes_currentcolor: true,
+      affected_by_zoom: true,
     },
     {
       name: "box-sizing",
@@ -3054,6 +3069,7 @@
       keywords: ["auto"],
       typedom_types: ["Keyword"],
       invalidate: ["clip"],
+      affected_by_zoom: true,
     },
     {
       name: "clip-path",
@@ -3071,6 +3087,7 @@
       keywords: ["border-box", "padding-box", "content-box", "margin-box", "fill-box", "stroke-box", "view-box", "none"],
       typedom_types: ["Keyword"],
       invalidate: ["clip-path"],
+      affected_by_zoom: true,
     },
     {
       name: "clip-rule",
@@ -3177,6 +3194,7 @@
       converter: "ConvertIntrinsicDimension",
       valid_for_permission_element: true,
       invalidate: ["layout", "scroll-anchor"],
+      affected_by_zoom: true,
     },
     {
       name: "contain-intrinsic-height",
@@ -3192,6 +3210,7 @@
       converter: "ConvertIntrinsicDimension",
       valid_for_permission_element: true,
       invalidate: ["layout", "scroll-anchor"],
+      affected_by_zoom: true,
     },
     {
       name: "container-name",
@@ -3393,6 +3412,7 @@
       supports_incremental_style: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "cy",
@@ -3406,6 +3426,7 @@
       supports_incremental_style: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "d",
@@ -3552,6 +3573,7 @@
       typedom_types: ["Keyword"],
       invalidate: ["filter-data"],
       includes_currentcolor: true,
+      affected_by_zoom: true,
     },
     {
       name: "flex-basis",
@@ -3699,6 +3721,7 @@
       runtime_flag: "CSSGridLanesLayout",
       interpolable: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "frame-sizing",
@@ -3725,6 +3748,7 @@
       separator: " ",
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "grid-auto-flow",
@@ -3754,6 +3778,7 @@
       separator: " ",
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "grid-column-end",
@@ -3872,6 +3897,7 @@
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "hanging-punctuation",
@@ -3909,6 +3935,7 @@
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "height",
@@ -4481,6 +4508,18 @@
       default_value: "normal",
     },
     {
+      name: "max-content-sizing",
+      property_methods: ["CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_template: "keyword",
+      keywords: ["auto", "shrink-to-fit"],
+      default_value: "auto",
+      typedom_types: ["Keyword"],
+      invalidate: ["layout"],
+      runtime_flag: "CssMaxContentSizing",
+      style_builder_custom_functions: ["initial", "inherit", "value"],
+    },
+    {
       name: "max-height",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       interpolable: true,
@@ -4617,6 +4656,7 @@
       typedom_types: ["Keyword", "Position"],
       invalidate: ["paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "object-view-box",
@@ -4632,6 +4672,7 @@
       keywords: ["none"],
       typedom_types: ["Keyword"],
       invalidate: ["layout", "paint"],
+      affected_by_zoom: true,
     },
     {
       name: "offset-anchor",
@@ -4647,6 +4688,7 @@
       typedom_types: ["Keyword", "Position"],
       invalidate: ["transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "offset-distance",
@@ -4659,6 +4701,7 @@
       typedom_types: ["Length", "Percentage"],
       invalidate: ["transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "offset-path",
@@ -4675,6 +4718,7 @@
       keywords: ["none"],
       typedom_types: ["Keyword"],
       invalidate: ["has-transform", "transform-data", "transform-other"],
+      affected_by_zoom: true,
     },
     {
       name: "offset-position",
@@ -4690,6 +4734,7 @@
       typedom_types: ["Keyword", "Position"],
       invalidate: ["has-transform", "transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "offset-rotate",
@@ -4836,7 +4881,6 @@
       field_template: "external",
       default_value: "3",
       type_name: "int",
-      computed_style_custom_functions: ["getter"],
       style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertBorderWidth",
       keywords: ["thin", "medium", "thick"],
@@ -4901,6 +4945,7 @@
       type_name: "std::optional<StyleOverflowClipMargin>",
       converter: "ConvertOverflowClipMargin",
       invalidate: ["box-paint-property", "layout"],
+      affected_by_zoom: true,
     },
     {
       name: "overflow-x",
@@ -4949,13 +4994,13 @@
       invalidate: ["box-paint-property", "layout", "paint"],
     },
     {
-      name: "-internal-overscroll-area",
+      name: "overscroll-container-type",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       field_group: "*",
       field_template: "keyword",
-      keywords: ["none", "auto", "overlay"],
+      keywords: ["none", "auto", "push", "overlay"],
       typedom_types: ["Keyword"],
-      default_value: "none",
+      default_value: "auto",
       runtime_flag: "OverscrollGestures",
     },
     {
@@ -5007,6 +5052,16 @@
       valid_for_permission_element: true,
     },
     {
+      name: "-internal-overscroll-container",
+      property_methods: ["CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_template: "keyword",
+      keywords: ["none", "auto"],
+      typedom_types: ["Keyword"],
+      default_value: "none",
+      runtime_flag: "OverscrollGestures",
+    },
+    {
       name: "-internal-overscroll-position",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       field_group: "*",
@@ -5015,6 +5070,17 @@
       typedom_types: ["Keyword"],
       default_value: "none",
       runtime_flag: "OverscrollGestures",
+    },
+    {
+      name: "-internal-unbounded",
+      property_methods: ["CSSValueFromComputedStyleInternal"],
+      field_group: "*",
+      field_template: "keyword",
+      keywords: ["none", "active"],
+      typedom_types: ["Keyword"],
+      default_value: "none",
+      runtime_flag: "UnboundedElement",
+      invalidate: ["layout", "paint"],
     },
     {
       name: "padding-bottom",
@@ -5176,6 +5242,7 @@
       invalidate: ["paint"],
       // <length> never accepts percentages, but the field type requires this.
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "perspective",
@@ -5189,6 +5256,7 @@
       keywords: ["none"],
       typedom_types: ["Keyword", "Length"],
       invalidate: ["transform-other"],
+      affected_by_zoom: true,
     },
     {
       name: "perspective-origin",
@@ -5206,6 +5274,7 @@
       overlapping: true,
       invalidate: ["transform-other"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "pointer-events",
@@ -5408,6 +5477,7 @@
       supports_incremental_style: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "rx",
@@ -5422,6 +5492,7 @@
       supports_incremental_style: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "ry",
@@ -5436,6 +5507,7 @@
       supports_incremental_style: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "scroll-axis-lock",
@@ -5809,7 +5881,7 @@
       getter: "GetScrollSnapType",
       type_name: "cc::ScrollSnapType",
       converter: "ConvertSnapType",
-      keywords: ["none", "x", "y", "block", "inline", "both", "mandatory", "proximity"],
+      keywords: ["none", "x", "y", "block", "inline", "both", "mandatory", "proximity", "pair"],
       typedom_types: ["Keyword"],
     },
     {
@@ -5860,6 +5932,7 @@
       typedom_types: ["Length", "Percentage"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "shape-outside",
@@ -5876,6 +5949,7 @@
       converter: "ConvertShapeValue",
       keywords: ["none"],
       invalidate: ["paint"],
+      affected_by_zoom: true,
     },
     {
       name: "shape-rendering",
@@ -6106,6 +6180,7 @@
       typedom_types: ["Number", "Length"],
       valid_for_marker: true,
       invalidate: ["layout", "paint"],
+      affected_by_zoom: true,
     },
     {
       name: "text-align",
@@ -6258,6 +6333,27 @@
       invalidate: ["text-decoration"],
     },
     {
+      name: "text-decoration-inset",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      include_paths: ["third_party/blink/renderer/core/style/text_decoration_inset.h"],
+      inherited: false,
+      field_group: "*",
+      field_template: "external",
+      type_name: "TextDecorationInset",
+      default_value: "TextDecorationInset(Length::Fixed(0), Length::Fixed(0))",
+      converter: "ConvertTextDecorationInset",
+      keywords: ["auto"],
+      typedom_types: ["Keyword", "Length", "Percentage"],
+      valid_for_first_letter: true,
+      valid_for_first_line: true,
+      valid_for_highlight: true,
+      valid_for_page_context: true,
+      runtime_flag: "CSSTextDecorationInset",
+      invalidate: ["text-decoration"],
+      affected_by_zoom: true,
+      percentages_depend_on_used_value: true,
+    },
+    {
       name: "text-decoration-skip-ink",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       inherited: true,
@@ -6328,6 +6424,7 @@
       valid_for_page_context: true,
       invalidate: ["text-decoration"],
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "text-indent",
@@ -6584,6 +6681,7 @@
       converter: "ConvertTransformOperations",
       supports_incremental_style: true,
       invalidate: ["has-transform", "transform-data", "transform-property"],
+      affected_by_zoom: true,
     },
     {
       name: "transform-box",
@@ -6612,6 +6710,7 @@
       overlapping: true,
       invalidate: ["transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "transform-style",
@@ -6641,6 +6740,7 @@
       invalidate: ["has-transform", "transform-data", "transform-other"],
       percentages_depend_on_used_value: true,
       keywords: ["none"],
+      affected_by_zoom: true,
     },
     {
       name: "rotate",
@@ -6715,6 +6815,7 @@
       valid_for_permission_element: true,
       stored_on_extra_field: ["VerticalAlign", "VerticalAlignLength"],
       percentages_depend_on_used_value: false,
+      affected_by_zoom: true,
     },
     {
       name: "view-timeline-axis",
@@ -6740,6 +6841,7 @@
       is_animation_affecting: true,
       percentages_depend_on_used_value: true,
       keywords: ["auto"],
+      affected_by_zoom: true,
     },
     {
       name: "view-timeline-name",
@@ -6834,6 +6936,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "y",
@@ -6848,6 +6951,7 @@
       valid_for_permission_element: true,
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "appearance",
@@ -6875,6 +6979,7 @@
       name: "app-region",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       surrogate_for: "window-drag",
+      devtools_keywords: ["none", "move", "no-drag"],
     },
     {
       name: "-webkit-app-region",
@@ -6894,6 +6999,7 @@
       // the `app-region` surrogate. `app-region: drag` maps to the shared
       // `kMove` state.
       keywords: ["none", "move", "no-drag"],
+      devtools_keywords: ["none", "move"],
       name_for_methods: "DraggableRegionMode",
       style_builder_custom_functions: ["value"],
       invalidate: ["layout"],
@@ -7023,6 +7129,7 @@
       invalidate: ["filter-data"],
       includes_currentcolor: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "column-count",
@@ -7071,6 +7178,7 @@
       typedom_types: ["Keyword", "Length", "Percentage"],
       invalidate: ["layout", "paint"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "rule-overlap",
@@ -7124,6 +7232,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "row-rule-inset-cap-end",
@@ -7139,6 +7248,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "column-rule-inset-cap-start",
@@ -7154,6 +7264,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "row-rule-inset-cap-start",
@@ -7169,6 +7280,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "column-rule-inset-junction-end",
@@ -7184,6 +7296,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "row-rule-inset-junction-end",
@@ -7199,6 +7312,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "column-rule-inset-junction-start",
@@ -7214,6 +7328,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "row-rule-inset-junction-start",
@@ -7229,6 +7344,7 @@
       invalidate: ["paint"],
       runtime_flag: "CSSGapDecoration",
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "column-rule-color",
@@ -7335,8 +7451,8 @@
       default_value: "GapDataList<int>::DefaultGapWidthDataList()",
       include_paths: ["third_party/blink/renderer/core/style/gap_data_list.h"],
       type_name: "GapDataList<int>",
-      computed_style_custom_functions: ["initial", "getter", "setter"],
-      style_builder_custom_functions: ["inherit"],
+      computed_style_custom_functions: ["initial", "setter"],
+      style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertGapDecorationWidthDataList",
       keywords: ["thin", "medium", "thick"],
       typedom_types: ["Keyword", "Length"],
@@ -7352,11 +7468,13 @@
       default_value: "GapDataList<int>::DefaultGapWidthDataList()",
       include_paths: ["third_party/blink/renderer/core/style/gap_data_list.h"],
       type_name: "GapDataList<int>",
-      computed_style_custom_functions: ["initial", "getter", "setter"],
+      computed_style_custom_functions: ["initial", "setter"],
+      style_builder_custom_functions: ["initial", "inherit"],
       converter: "ConvertGapDecorationWidthDataList",
       keywords: ["thin", "medium", "thick"],
       typedom_types: ["Keyword", "Length"],
       invalidate: ["paint"],
+      affected_by_zoom: true,
       runtime_flag: "CSSGapDecoration",
     },
     {
@@ -7560,6 +7678,7 @@
         modifier_type: "Outset",
       },
       stored_on_extra_field: ["MaskBoxImage"],
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-mask-box-image-repeat",
@@ -7604,6 +7723,7 @@
       stored_on_extra_field: ["MaskBoxImage"],
       percentages_depend_on_used_value: true,
       keywords: ["auto"],
+      affected_by_zoom: true,
     },
     {
       name: "mask-mode",
@@ -7684,6 +7804,7 @@
       },
       stored_on_extra_field: ["Mask"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-mask-position-y",
@@ -7695,6 +7816,7 @@
       },
       stored_on_extra_field: ["Mask"],
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "mask-repeat",
@@ -7721,6 +7843,7 @@
       stored_on_extra_field: ["Mask"],
       percentages_depend_on_used_value: true,
       keywords: ["auto", "contain", "cover"],
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-mask-size",
@@ -7737,6 +7860,7 @@
       // Overlaps with perspective-origin.
       legacy_overlapping: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-perspective-origin-y",
@@ -7749,6 +7873,7 @@
       // Overlaps with perspective-origin.
       legacy_overlapping: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-rtl-ordering",
@@ -7958,6 +8083,7 @@
       // Overlaps with transform-origin.
       legacy_overlapping: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-transform-origin-y",
@@ -7970,6 +8096,7 @@
       // Overlaps with transform-origin.
       legacy_overlapping: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-transform-origin-z",
@@ -7982,6 +8109,7 @@
       // Overlaps with transform-origin.
       legacy_overlapping: true,
       percentages_depend_on_used_value: true,
+      affected_by_zoom: true,
     },
     {
       name: "-webkit-user-drag",
@@ -8405,6 +8533,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       keywords: ["medium", "thick", "thin"],
+      typedom_types: ["Keyword", "Length"],
     },
     {
       name: "border-inline-start-style",
@@ -8417,6 +8546,7 @@
       valid_for_page_context: true,
       keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
                 "dotted", "dashed", "solid", "double"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-inline-start-color",
@@ -8428,6 +8558,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["currentcolor"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-inline-end-width",
@@ -8440,6 +8572,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       keywords: ["medium", "thick", "thin"],
+      typedom_types: ["Keyword", "Length"],
     },
     {
       name: "border-inline-end-style",
@@ -8452,6 +8585,7 @@
       valid_for_page_context: true,
       keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
                 "dotted", "dashed", "solid", "double"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-inline-end-color",
@@ -8463,6 +8597,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["currentcolor"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-block-start-width",
@@ -8475,6 +8611,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       keywords: ["medium", "thick", "thin"],
+      typedom_types: ["Keyword", "Length"],
     },
     {
       name: "border-block-start-style",
@@ -8487,6 +8624,7 @@
       valid_for_page_context: true,
       keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
                 "dotted", "dashed", "solid", "double"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-block-start-color",
@@ -8498,6 +8636,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["currentcolor"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-block-end-width",
@@ -8510,6 +8650,7 @@
       valid_for_permission_element: true,
       valid_for_page_context: true,
       keywords: ["medium", "thick", "thin"],
+      typedom_types: ["Keyword", "Length"],
     },
     {
       name: "border-block-end-style",
@@ -8522,6 +8663,7 @@
       valid_for_page_context: true,
       keywords: ["none", "hidden", "inset", "groove", "outset", "ridge",
                 "dotted", "dashed", "solid", "double"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "border-block-end-color",
@@ -8533,6 +8675,8 @@
       valid_for_first_letter: true,
       valid_for_permission_element: true,
       valid_for_page_context: true,
+      keywords: ["currentcolor"],
+      typedom_types: ["Keyword"],
     },
     {
       name: "inset-inline-start",

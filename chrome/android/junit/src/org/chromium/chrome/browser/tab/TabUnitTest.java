@@ -10,12 +10,16 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -50,13 +54,19 @@ import org.chromium.base.Callback;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.settings.SettingsInTab;
+import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.tabmodel.SettableLookAheadObservableSupplier;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.components.autofill.AndroidAutofillFeatures;
 import org.chromium.components.autofill.AutofillProvider;
+import org.chromium.components.autofill.AutofillProviderJni;
+import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.components.security_state.SecurityStateModel;
@@ -64,9 +74,11 @@ import org.chromium.components.security_state.SecurityStateModelJni;
 import org.chromium.components.tabs.DetachReason;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
+import org.chromium.content.browser.selection.SelectionPopupControllerImpl;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 
 import java.lang.ref.WeakReference;
 
@@ -97,8 +109,10 @@ public class TabUnitTest {
     @Mock private ChromeActivity mChromeActivity;
     @Mock private UserPrefs.Natives mUserPrefsNatives;
     @Mock private PrefService mPrefs;
+    @Mock private AutofillProvider.Natives mAutofillProviderNatives;
     @Mock TabImpl.Natives mNativeMock;
     @Mock private SecurityStateModel.Natives mSecurityStateModelNatives;
+    @Mock private SelectionPopupControllerImpl mSelectionPopupController;
     @Captor private ArgumentCaptor<Callback<Tab>> mCallbackCaptor;
 
     private final SettableLookAheadObservableSupplier<Tab> mTabSupplier =
@@ -116,7 +130,10 @@ public class TabUnitTest {
         doReturn(mContext).when(mContext).getApplicationContext();
         UserPrefsJni.setInstanceForTesting(mUserPrefsNatives);
         SecurityStateModelJni.setInstanceForTesting(mSecurityStateModelNatives);
+        AutofillProviderJni.setInstanceForTesting(mAutofillProviderNatives);
         when(mUserPrefsNatives.get(mProfile)).thenReturn(mPrefs);
+        when(mWebContents.getOrSetUserData(eq(SelectionPopupControllerImpl.class), any()))
+                .thenReturn(mSelectionPopupController);
 
         mTab =
                 new TabImpl(
@@ -449,6 +466,134 @@ public class TabUnitTest {
 
     @Test
     @SmallTest
+    @EnableFeatures({
+        AndroidAutofillFeatures.ANDROID_AUTOFILL_LAZY_FRAMEWORK_WRAPPER_NAME,
+        ChromeFeatureList.ANDROID_AUTOFILL_PREF_OBSERVER
+    })
+    public void testColdStart_tabInitializedBeforeProfileReady_recoversAutofill() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+
+        // 1. Simulate Cold Start: Profile is not initialized or pref is false when tab initializes
+        when(mProfile.isNativeInitialized()).thenReturn(false);
+        when(mPrefs.getBoolean(TabImpl.AUTOFILL_PREF_USES_VIRTUAL_STRUCTURE)).thenReturn(false);
+
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_RESTORE, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+
+                    @Override
+                    public Context getContext() {
+                        return mContext;
+                    }
+
+                    @Override
+                    public WebContents getWebContents() {
+                        return mWebContents;
+                    }
+                };
+        tab.setNativePtrForTesting(1);
+
+        // Tab initially has no autofill provider when pref is false
+        tab.mAutofillProvider = null;
+        assertFalse(tab.providesAutofillStructure());
+        assertNull(tab.mAutofillProvider);
+        verify(mNativeMock, never()).initializeAutofillIfNecessary(anyLong());
+
+        // 2. Simulate Profile Native Initialization & Pref Transition later (e.g.
+        // AutofillClientProvider finishes)
+        when(mProfile.isNativeInitialized()).thenReturn(true);
+        when(mPrefs.getBoolean(TabImpl.AUTOFILL_PREF_USES_VIRTUAL_STRUCTURE)).thenReturn(true);
+
+        // Pref change triggers reactive state update
+        tab.updateAutofillProviderState();
+
+        // 3. User interacts with Tab 1 (calls onProvideAutofillVirtualStructure)
+        ViewStructure structure = mock(ViewStructure.class);
+        tab.onProvideAutofillVirtualStructure(
+                structure, View.AUTOFILL_FLAG_INCLUDE_NOT_IMPORTANT_VIEWS);
+
+        // 4. Assert that Tab 1 has recovered and instantiated an AutofillProvider!
+        assertTrue(tab.providesAutofillStructure());
+        assertNotNull(
+                "AutofillProvider must be initialized on Tab 1 once profile/pref is ready",
+                tab.mAutofillProvider);
+        verify(mNativeMock).initializeAutofillIfNecessary(1L);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({
+        AndroidAutofillFeatures.ANDROID_AUTOFILL_LAZY_FRAMEWORK_WRAPPER_NAME,
+        ChromeFeatureList.ANDROID_AUTOFILL_PREF_OBSERVER
+    })
+    public void testAutofillPrefDynamicToggle_updatesProviderAndImportance() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+        when(mProfile.isNativeInitialized()).thenReturn(true);
+        when(mPrefs.getBoolean(TabImpl.AUTOFILL_PREF_USES_VIRTUAL_STRUCTURE)).thenReturn(true);
+
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_RESTORE, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+
+                    @Override
+                    public Context getContext() {
+                        return mContext;
+                    }
+
+                    @Override
+                    public WebContents getWebContents() {
+                        return mWebContents;
+                    }
+                };
+        tab.setNativePtrForTesting(1);
+
+        // Initially enabled
+        tab.updateAutofillProviderState();
+        assertTrue(tab.providesAutofillStructure());
+        assertNotNull(tab.mAutofillProvider);
+
+        // Toggle to disabled
+        when(mPrefs.getBoolean(TabImpl.AUTOFILL_PREF_USES_VIRTUAL_STRUCTURE)).thenReturn(false);
+        tab.updateAutofillProviderState();
+        assertFalse(tab.providesAutofillStructure());
+        assertNull(tab.mAutofillProvider);
+
+        // Toggle back to enabled
+        when(mPrefs.getBoolean(TabImpl.AUTOFILL_PREF_USES_VIRTUAL_STRUCTURE)).thenReturn(true);
+        tab.updateAutofillProviderState();
+        assertTrue(tab.providesAutofillStructure());
+        assertNotNull(tab.mAutofillProvider);
+    }
+
+    @Test
+    @SmallTest
+    @DisableFeatures(ChromeFeatureList.ANDROID_AUTOFILL_PREF_OBSERVER)
+    public void testAutofillPrefObserver_disabled_doesNotRegisterObserver() {
+        when(mProfile.isNativeInitialized()).thenReturn(true);
+        when(mPrefs.getBoolean(TabImpl.AUTOFILL_PREF_USES_VIRTUAL_STRUCTURE)).thenReturn(true);
+
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+                };
+
+        assertNull(tab.getPrefChangeRegistrarForTesting());
+    }
+
+    @Test
+    @SmallTest
     public void testDefaultInvalidTimestamp() {
         Tab tab = new TabImpl(1, mProfile, TabLaunchType.FROM_LINK, /* isArchived= */ false);
         assertThat(tab.getTimestampMillis(), equalTo(TabImpl.INVALID_TIMESTAMP));
@@ -577,5 +722,193 @@ public class TabUnitTest {
 
         verify(mNativeMock).sendWillDetachUpdate(1, DetachReason.DELETE);
         verify(mNativeMock).destroy(1);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.GLIC_BACKGROUND_ACTUATION})
+    public void testStopOffscreenRendering_DestroyedWindow_PassesNullToWebContents() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+                };
+        tab.setWebContentsForTesting(mWebContents);
+        tab.setNativePtrForTesting(1);
+        tab.updateWindowAndroid(mWindowAndroid);
+
+        tab.startOffscreenRendering();
+        assertTrue(tab.isOffscreenRendering());
+
+        when(mWindowAndroid.isDestroyed()).thenReturn(true);
+
+        clearInvocations(mWebContents);
+        tab.stopOffscreenRendering();
+        assertFalse(tab.isOffscreenRendering());
+        verify(mWebContents).setTopLevelNativeWindow(null);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.GLIC_BACKGROUND_ACTUATION})
+    public void testStopOffscreenRendering_ValidWindow_PassesWindowToWebContents() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+                };
+        tab.setWebContentsForTesting(mWebContents);
+        tab.setNativePtrForTesting(1);
+        tab.updateWindowAndroid(mWindowAndroid);
+
+        tab.startOffscreenRendering();
+        assertTrue(tab.isOffscreenRendering());
+
+        when(mWindowAndroid.isDestroyed()).thenReturn(false);
+
+        clearInvocations(mWebContents);
+        tab.stopOffscreenRendering();
+        assertFalse(tab.isOffscreenRendering());
+        verify(mWebContents).setTopLevelNativeWindow(mWindowAndroid);
+    }
+
+    @Test
+    @SmallTest
+    @Config(qualifiers = "sw600dp")
+    @EnableFeatures({ChromeFeatureList.ANDROID_SETTINGS_URL, ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testOnUpdateUrl_IncognitoProfile_Settings_CallsStartSettings() {
+        assertTrue(SettingsInTab.isEnabled());
+        SettingsNavigation mockSettingsNavigation = mock(SettingsNavigation.class);
+        SettingsNavigationFactory.setInstanceForTesting(mockSettingsNavigation);
+        when(mProfile.isOffTheRecord()).thenReturn(true);
+
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+
+                    @Override
+                    public void goBack() {}
+                };
+        tab.updateWindowAndroid(mWindowAndroid);
+
+        GURL settingsUrl = new GURL("chrome://settings");
+        handleDidFinishNavigation(tab, settingsUrl);
+
+        verify(mockSettingsNavigation).startSettings(any());
+    }
+
+    @Test
+    @SmallTest
+    @Config(qualifiers = "sw600dp")
+    @EnableFeatures({ChromeFeatureList.ANDROID_SETTINGS_URL, ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testOnUpdateUrl_RegularProfile_Settings_DoesNotCallStartSettings() {
+        assertTrue(SettingsInTab.isEnabled());
+        SettingsNavigation mockSettingsNavigation = mock(SettingsNavigation.class);
+        SettingsNavigationFactory.setInstanceForTesting(mockSettingsNavigation);
+        when(mProfile.isOffTheRecord()).thenReturn(false);
+
+        TabImpl tab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI, /* isArchived= */ false) {
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+                };
+        tab.updateWindowAndroid(mWindowAndroid);
+
+        GURL settingsUrl = new GURL("chrome://settings");
+        handleDidFinishNavigation(tab, settingsUrl);
+
+        verify(mockSettingsNavigation, never()).startSettings(any());
+    }
+
+    @Test
+    @SmallTest
+    public void testShow_unfreezesFrozenNativePageWhenAlreadyShown() {
+        TabImplJni.setInstanceForTesting(mNativeMock);
+        doReturn(mActivity).when(mWeakReferenceContext).get();
+        when(mWebContents.getTopLevelNativeWindow()).thenReturn(mWindowAndroid);
+
+        NativePage frozenNativePage = mock(NativePage.class);
+        when(frozenNativePage.isFrozen()).thenReturn(true);
+        when(frozenNativePage.getUrl()).thenReturn("chrome://history");
+
+        mTab =
+                new TabImpl(
+                        TAB1_ID, mProfile, TabLaunchType.FROM_CHROME_UI, /* isArchived= */ false) {
+                    private NativePage mCurrentNativePage = frozenNativePage;
+
+                    @Override
+                    public boolean isInitialized() {
+                        return true;
+                    }
+
+                    @Override
+                    public boolean isHidden() {
+                        return false;
+                    }
+
+                    @Override
+                    public NativePage getNativePage() {
+                        return mCurrentNativePage;
+                    }
+
+                    @Override
+                    void showNativePage(NativePage nativePage) {
+                        mCurrentNativePage = nativePage;
+                    }
+
+                    @Override
+                    public WebContents getWebContents() {
+                        return mWebContents;
+                    }
+                };
+        mTab.setNativePtrForTesting(1);
+        mTab.updateAttachment(mWindowAndroid, mDelegateFactory);
+
+        NativePage liveNativePage = mock(NativePage.class);
+        when(mDelegateFactory.createNativePage(
+                        eq("chrome://history"),
+                        /* candidatePage= */ isNull(),
+                        eq(mTab),
+                        /* pdfInfo= */ isNull()))
+                .thenReturn(liveNativePage);
+
+        assertFalse(mTab.isHidden());
+        assertTrue(mTab.getNativePage().isFrozen());
+
+        // Calling show() on an already-shown tab should unfreeze the frozen native page.
+        mTab.show(TabSelectionType.FROM_USER);
+
+        verify(mDelegateFactory)
+                .createNativePage(
+                        eq("chrome://history"),
+                        /* candidatePage= */ isNull(),
+                        eq(mTab),
+                        /* pdfInfo= */ isNull());
+        assertEquals(liveNativePage, mTab.getNativePage());
+        assertFalse(mTab.getNativePage().isFrozen());
+    }
+
+    private void handleDidFinishNavigation(TabImpl tab, GURL url) {
+        tab.handleDidFinishNavigation(
+                url,
+                /* transitionType= */ 0,
+                /* isPdf= */ false,
+                /* isRendererInitiated= */ false,
+                /* initiatorOrigin= */ null);
     }
 }

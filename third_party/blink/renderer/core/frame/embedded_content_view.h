@@ -34,6 +34,10 @@ class CORE_EXPORT EmbeddedContentView : public GarbageCollectedMixin {
   virtual LayoutEmbeddedContent* GetLayoutEmbeddedContent() const = 0;
   virtual void AttachToLayout() = 0;
   virtual void DetachFromLayout() = 0;
+  // When AvoidEmbeddedContentViewLocation is enabled, `cull_rect` is unused and
+  // will be removed, and `paint_offset` is the offset of the embedded content
+  // from the current paint context.
+  // Deprecated usage:
   // |cull_rect| is in the same coordinate space as Location() and FrameRect().
   // |paint_offset| is Location() mapped into the current coordinates space of
   // the current paint context.
@@ -58,8 +62,20 @@ class CORE_EXPORT EmbeddedContentView : public GarbageCollectedMixin {
   // See WebFrameWidgetImpl::SetZoomLevel() for how this value is used.
   virtual void ZoomFactorChanged(float zoom_factor) {}
 
-  gfx::Rect FrameRect() const { return gfx::Rect(Location(), Size()); }
-  gfx::Point Location() const;
+  // This is deprecated because:
+  // - It's not necessarily the origin of the frame, e.g. when there are
+  //   non-translation transforms;
+  // - It's incorrectly pixel-snapped before we know the paint offset.
+  // We should use other means e.g. LayoutObject geometry mapping routines
+  // instead.
+  gfx::Point DeprecatedLocation() const;
+  // Besides the reasons of deprecating Location(), this is deprecated
+  // because it's not a rect of anything with non-translation transforms,
+  // but the origin is of the bounding box in the containing frame, and
+  // the size is in local coordinates.
+  gfx::Rect DeprecatedFrameRect() const {
+    return gfx::Rect(DeprecatedLocation(), Size());
+  }
   int Width() const { return Size().width(); }
   int Height() const { return Size().height(); }
   gfx::Size Size() const { return frame_rect_.size(); }

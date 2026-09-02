@@ -19,8 +19,8 @@
 #include "chrome/browser/ash/input_method/url_utils.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/manta/manta_service_factory.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/common/extensions/extension_constants.h"
+#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
 #include "chromeos/ash/components/editor_menu/public/cpp/editor_consent_status.h"
 #include "chromeos/ash/components/editor_menu/public/cpp/editor_enterprise_policy_enums.h"
@@ -30,6 +30,7 @@
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_properties.h"
+#include "components/account_id/account_id.h"
 #include "components/manta/manta_service.h"
 #include "extensions/common/constants.h"
 #include "google_apis/gaia/gaia_auth_util.h"
@@ -287,6 +288,13 @@ bool EditorSwitch::IsAllowedForUse() const {
 
   if (chromeos::IsKioskSession()) {
     return false;
+  }
+
+  const AccountId* account_id =
+      ash::AnnotatedAccountId::Get(profile_->GetOriginalProfile());
+  if (account_id &&
+      gaia::IsGoogleInternalAccountEmail(account_id->GetUserEmail())) {
+    return true;
   }
 
   return base::FeatureList::IsEnabled(ash::features::kOrcaSupportDemoMode) &&

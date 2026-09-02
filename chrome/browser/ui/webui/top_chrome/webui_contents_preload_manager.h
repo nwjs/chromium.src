@@ -19,7 +19,7 @@
 #include "content/public/browser/web_contents.h"
 #include "url/gurl.h"
 
-class Browser;
+class BrowserWindowInterface;
 class PerProfileWebUITracker;
 
 // WebUIContentsPreloadManager is a singleton class that preloads top Chrome
@@ -68,7 +68,7 @@ class WebUIContentsPreloadManager : public ProfileObserver,
 
   // Warms up the preload manager. Depending on PreloadMode this may or may not
   // make a preloaded contents.
-  void WarmupForBrowser(Browser* browser);
+  void WarmupForBrowser(BrowserWindowInterface* browser);
 
   // Make a WebContents that shows `webui_url` under `browser_context`. If a
   // preloaded WebContents exists for the same `browser_context`, it will be
@@ -100,6 +100,7 @@ class WebUIContentsPreloadManager : public ProfileObserver,
   // Disable navigations for tests that don't have //content properly
   // initialized.
   void DisableNavigationForTesting();
+  void ReenableNavigationForTesting();
 
  private:
   WebUIContentsPreloadManager();
@@ -223,7 +224,9 @@ class WebUIContentsPreloadManager : public ProfileObserver,
   // Observation of destroy of preload content's profile.
   base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
 
-  base::MemoryConsumerRegistration memory_consumer_registration_;
+  void ReregisterMemoryConsumerForTesting();
+
+  std::optional<base::MemoryConsumerRegistration> memory_consumer_registration_;
 };
 
 #endif  // CHROME_BROWSER_UI_WEBUI_TOP_CHROME_WEBUI_CONTENTS_PRELOAD_MANAGER_H_

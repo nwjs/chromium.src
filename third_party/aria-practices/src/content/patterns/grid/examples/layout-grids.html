@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Layout Grid Examples</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/layoutGrids.css" rel="stylesheet">
+    <script src="js/dataGrid.js"></script>
+    <script src="js/layoutGrids.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+            <h4 id="grid1_label">Related Documents</h4>
+            <div id="ex1-grid" role="grid" class="list-links" aria-labelledby="grid1_label" data-wrap-cols="true" data-wrap-rows="true" data-restructure="true">
+              <div role="row">
+                <span role="gridcell" class="list-link"><a tabindex="-1" href="http://www.w3.org/TR/wai-aria-1.1/">ARIA 1.1 Specification</a></span>
+                <span role="gridcell" class="list-link"><a tabindex="-1" href="https://www.w3.org/TR/core-aam-1.1/">Core Accessibility API Mappings 1.1</a></span>
+                <span role="gridcell" class="list-link"><a tabindex="-1" href="https://www.w3.org/WAI/intro/aria.php">WAI-ARIA Overview</a></span>
+                <span role="gridcell" class="list-link"><a tabindex="-1" href="https://www.w3.org/WAI/intro/wcag">WCAG Overview</a></span>
+                <span role="gridcell" class="list-link"><a tabindex="-1" href="https://html.spec.whatwg.org/">HTML Specification</a></span>
+                <span role="gridcell" class="list-link"><a tabindex="-1" href="https://www.w3.org/TR/SVG2/">SVG 2 Specification</a></span>
+              </div>
+            </div>
+            <div id="grid-nux" class="grid-nux hidden" role="region" aria-label="Grid Instructions" tabindex="0">
+              <p class="grid-nux-header">Move keyboard focus inside a grid with arrow keys.</p>
+              <p class="indicator_description">
+                <img src="imgs/black_keys.png" width="100" alt="Arrow keypad" class="indicator_graphic">
+              </p>
+              <p>
+                This focus ring means arrow key navigation is available.
+                Press arrow keys to move inside the component.
+                Press Tab to jump to the next component.
+                <span class="indicator_description">As a reminder, an arrow keypad graphic also appears in the lower left corner of the page.</span>
+              </p>
+              <p>Components that support arrow keys often enable additional keys that make navigation easier, such as Home, End, Ctrl-Home, Ctrl-End, Page Up, and Page Down.</p>
+              <a id="close-nux-button" class="close-nux-button" role="button" tabindex="0">Close Tutorial</a>
+            </div>
+          </div>
+
+        <div id="ex2">
+            
+            <div class="recipient-list">
+              <span id="send_to_label">Send To:</span>
+              <div id="ex2-grid" role="grid" class="pill-list" aria-labelledby="send_to_label" data-wrap-cols="true">
+                <div role="row" class="pill-item" data-id="1">
+                  <span role="gridcell"><a id="r1" class="pill-name" tabindex="-1" href="#">Recipient Name 1</a></span>
+                  <span role="gridcell"><span id="rb1" class="pill-remove" tabindex="-1" role="button" aria-label="Remove" aria-labelledby="rb1 r1"> X </span></span>
+                </div>
+                <div role="row" class="pill-item" data-id="2">
+                  <span role="gridcell"><a id="r2" class="pill-name" tabindex="-1" href="#">Recipient Name 2</a></span>
+                  <span role="gridcell"><span id="rb2" class="pill-remove" tabindex="-1" role="button" aria-label="Remove" aria-labelledby="rb2 r2"> X </span></span>
+                </div>
+              </div>
+
+              <div id="recipient-form">
+                <input id="add-recipient-input" type="text" aria-label="Add Recipient" placeholder="New Recipient Name">
+                <button type="button" id="add-recipient-button">Add</button>
+                <div class="accessible_elem">
+                  Last change to recipient list:
+                  <span aria-live="polite" aria-relevant="text" id="form-action-text"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        <div id="ex3">
+            <h4 id="ex3_search_results_label">Search Results for "W3C WAI-ARIA"</h4>
+            <div class="ex3_result_indices">Showing results <span id="ex3_start_index">1</span> to <span id="ex3_end_index">5</span> of 19</div>
+
+            <div id="ex3-grid" role="grid" aria-labelledby="ex3_search_results_label" aria-rowcount="19" data-per-page="5" data-wrap-cols="true">
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/WAI/intro/aria">WAI-ARIA Overview Web Accessibility Initiative W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">WAI-ARIA, the Accessible Rich Internet Applications Suite, defines a way to make Web content and Web applications more accessible to people with disabilities.</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-1.0/states_and_properties">ARIA States and Properties - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">In this document, states and properties are both treated as aria-prefixed markup attributes. However, they are maintained conceptually distinct to clarify subtle ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria/">Accessible Rich Internet Applications (WAI-ARIA) 1.0 - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Mar 20, 2014 - This is the WAI-ARIA 1.0 W3C Recommendation from the Protocols &amp; Formats Working Group of the Web Accessibility Initiative. The Working ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/WAI/ARIA/">Accessible Rich Internet Applications (ARIA) Working Group - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">The mission of the Accessible Rich Internet Applications Working Group (ARIA WG) is to develop technologies that enhance accessibility of web content for ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-1.1/">Accessible Rich Internet Applications (WAI-ARIA) 1.1 - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Jul 21, 2016 - This version of ARIA 1.1 changes the aria-kbdshortcuts property to aria-keyshortcuts , expands roles that can be used in comboboxes, adds a ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-1.0/roles">The Roles Model | Accessible Rich Internet Applications (WAI-ARIA) 1.0</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">This section defines the WAI-ARIA role taxonomy and describes the characteristics and properties of all roles. A formal RDF / OWL representation of all the ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-practices-1.1/">WAI-ARIA Authoring Practices 1.1 - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Mar 17, 2016 - The WAI-ARIA Authoring Practices Guide is intended to provide an understanding of how to use WAI-ARIA to create an accessible Rich Internet ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/html-aria/">ARIA in HTML - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Oct 5, 2016 - ARIA in HTML is a [ HTML51 ] specification module. Any HTML features, conformance requirements, or terms that this specification module ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/html-aria/">ARIA in HTML</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Jul 24, 2015 - Setting an ARIA role and/or aria-* attribute that matches the default implicit ARIA semantics is unnecessary and is NOT RECOMMENDED as ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/WAI/standards-guidelines/aria/">Accessible Rich Internet Applications (ARIA) Overview</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Here are answers to some frequently asked questions (FAQ) about WAI-ARIA, the Accessible Rich Internet Applications Suite. When we add significant ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-implementation/">WAI-ARIA 1.0 User Agent Implementation Guide - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">WAI-ARIA enables rich Internet applications to have the same accessibility features as desktop GUI applications by adding metadata to markup technologies ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://w3c.github.io/html-reference/aria/aria.html">ARIA - HTML5 - W3C on GitHub</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Alertdialog #. aria.alertdialog = role="" alertdialog "" intermixed with an optional aria-expanded element. Application #. aria.application = role="" application ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/WAI/PF/aria-practices/">WAI-ARIA 1.0 Authoring Practices - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Abstract. This document provided readers with an understanding of how to use WAI-ARIA [ ARIA ] to create accessible rich internet applications. It described ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/aria-in-html/">Notes on Using ARIA in HTML - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">May 21, 2015 - This document demonstrates how to use WAI-ARIA in [ HTML51 ], which especially helps with dynamic content and advanced user interface ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/standards/techs/aria">Accessible Rich Internet Applications (WAI-ARIA) Current Status - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Accessible Rich Internet Applications (WAI-ARIA) 1.0. Accessibility of Web content to people with disabilities requires semantic information about widgets, ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/WAI/PF/aria/">Accessible Rich Internet Applications (WAI-ARIA) 1.0 - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Feb 3, 2014 - This version: http://www.w3.org/WAI/PF/aria/; Previous editors' draft: ... This document is part of the WAI-ARIA suite described in the WAI-ARIA ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-1.0/introduction">Introduction | Accessible Rich Internet Applications (WAI-ARIA) 1.0</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">WAI-ARIA is a technical specification that provides a framework to improve the accessibility and interoperability of web content and applications. This document ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/wai-aria-1.0/usage">Using WAI-ARIA | Accessible Rich Internet Applications (WAI-ARIA) 1.0</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">WAI-ARIA divides the semantics into roles (the type defining a user interface element) and states and properties supported by the roles. Authors need to ...</span>
+              </div>
+              <div role="row">
+                <div role="gridcell">
+                  <h5 class="ex3_result_header">
+                    <a tabindex="-1" href="https://www.w3.org/TR/WCAG20-TECHS/aria#ARIA11">Using ARIA landmarks to identify regions of a page - WCAG WG - W3C</a>
+                  </h5>
+                </div>
+                <span tabindex="-1" role="gridcell">World Wide Web Consortium</span> <span tabindex="-1" role="gridcell">Jan 3, 2014 - NVDA 2 supports all landmarks except it will not support navigation to “application”; Window Eyes as of V.7 does not support ARIA landmarks.</span>
+              </div>
+            </div>
+
+            <div class="ex3_pagination">
+              <button type="button" disabled id="ex3_pageup_button">Previous</button>
+              <button type="button" id="ex3_pagedown_button">Next</button>
+            </div>
+          </div>
+  </body>
+</html>

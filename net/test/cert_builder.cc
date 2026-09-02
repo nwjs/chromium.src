@@ -30,6 +30,7 @@
 #include "crypto/evp.h"
 #include "crypto/hash.h"
 #include "crypto/keypair.h"
+#include "crypto/openssl_util.h"
 #include "crypto/sha2.h"
 #include "crypto/subtle_passkey.h"
 #include "net/base/hash_value.h"
@@ -134,30 +135,20 @@ bool CBBAddAsn1Element(CBB* cbb,
 
 // Finalizes the CBB to a std::string.
 std::string FinishCBB(CBB* cbb) {
-  size_t cbb_len;
-  uint8_t* cbb_bytes;
-
-  if (!CBB_finish(cbb, &cbb_bytes, &cbb_len)) {
-    ADD_FAILURE() << "CBB_finish() failed";
+  if (!CBB_flush(cbb)) {
+    ADD_FAILURE() << "CBB_flush() failed";
     return std::string();
   }
-
-  bssl::UniquePtr<uint8_t> delete_bytes(cbb_bytes);
-  return std::string(reinterpret_cast<char*>(cbb_bytes), cbb_len);
+  return std::string(base::as_string_view(crypto::CbbAsSpan(cbb)));
 }
 
 // Finalizes the CBB to a std::vector.
 std::vector<uint8_t> FinishCBBToVector(CBB* cbb) {
-  size_t cbb_len;
-  uint8_t* cbb_bytes;
-
-  if (!CBB_finish(cbb, &cbb_bytes, &cbb_len)) {
-    ADD_FAILURE() << "CBB_finish() failed";
+  if (!CBB_flush(cbb)) {
+    ADD_FAILURE() << "CBB_flush() failed";
     return {};
   }
-
-  bssl::UniquePtr<uint8_t> delete_bytes(cbb_bytes);
-  return std::vector<uint8_t>(cbb_bytes, UNSAFE_TODO(cbb_bytes + cbb_len));
+  return base::ToVector(crypto::CbbAsSpan(cbb));
 }
 
 // Makes a plants-05 log id out of ca_id and log_number.
@@ -1632,16 +1623,10 @@ std::vector<bssl::Subtree> MtcLogBuilder::SubtreesForLandmarkRangeForTesting(
 
 class MtcLogBuilder::Data {
  public:
-  explicit Data(Spec spec, std::vector<uint8_t> ca_id, LogNumber log_number = 0)
-      : spec_(spec),
-        ca_id_(std::move(ca_id)),
+  explicit Data(std::vector<uint8_t> ca_id, LogNumber log_number = 0)
+      : ca_id_(std::move(ca_id)),
         log_number_(log_number),
         encoded_issuer_name_(GetEncodedIssuerName()) {
-    if (spec == kDavidBen08) {
-      // davidben-08 requires entry 0 is always the null entry.
-      merkle_tree_.Append(base::U16ToBigEndian(kNullEntry));
-      log_entries_.push_back(MtcLogEntry::NullEntry());
-    }
     // Note that for plants-05, a log_number of 0 is invalid. It is
     // intentionally allowed here in case a test wants to generate invalid test
     // data.
@@ -1650,8 +1635,8 @@ class MtcLogBuilder::Data {
   uint64_t Size() const { return log_entries_.size(); }
 
   uint64_t AddEntry(MtcLogEntry entry) {
-    merkle_tree_.Append(entry.BuildMerkleTreeCertEntryTbsCertEntry(
-        encoded_issuer_name_, spec_));
+    merkle_tree_.Append(
+        entry.BuildMerkleTreeCertEntryTbsCertEntry(encoded_issuer_name_));
 
     log_entries_.push_back(std::move(entry));
 
@@ -1659,9 +1644,7 @@ class MtcLogBuilder::Data {
   }
 
   std::vector<uint8_t> BuildTBSCertificate(uint64_t index) {
-    uint64_t serial = spec_ == kDavidBen08
-                          ? index
-                          : (static_cast<uint64_t>(log_number_) << 48) + index;
+    uint64_t serial = (static_cast<uint64_t>(log_number_) << 48) + index;
     return log_entries_[index].BuildTBSCertificate(encoded_issuer_name_,
                                                    serial);
   }
@@ -1702,8 +1685,6 @@ class MtcLogBuilder::Data {
     return FinishCBBToVector(cbb.get());
   }
 
-  Spec spec_;
-
   std::vector<uint8_t> ca_id_;
 
   LogNumber log_number_;
@@ -1724,59 +1705,42 @@ MtcLogBuilder::MtcLogEntry::MtcLogEntry(MtcLogEntry&&) = default;
 MtcLogBuilder::MtcLogEntry& MtcLogBuilder::MtcLogEntry::operator=(
     MtcLogEntry&& other) = default;
 
-MtcLogBuilder::MtcLogEntry MtcLogBuilder::MtcLogEntry::NullEntry() {
-  // TODO(crbug.com/469624806): could return a const reference to a singleton
-  // (like GURL::EmptyGURL)
-  MtcLogEntry result;
-  return result;
-}
-
 std::vector<uint8_t>
 MtcLogBuilder::MtcLogEntry::BuildMerkleTreeCertEntryTbsCertEntry(
-    std::vector<uint8_t> issuer_tlv,
-    Spec spec) {
+    std::vector<uint8_t> issuer_tlv) {
   bssl::ScopedCBB cbb;
-  CBB tbs_cert, version;
-  CBB* tbs_cert_ptr;
+  CBB version;
 
   CHECK(CBB_init(cbb.get(), 64));
 
-  if (spec == kPlants05) {
-    // MerkleTreeCertEntryExtension extensions<0..2^16-1>;
-    CHECK(CBB_add_u16(cbb.get(), 0));
-  }
+  // MerkleTreeCertEntryExtension extensions<0..2^16-1>;
+  CHECK(CBB_add_u16(cbb.get(), 0));
 
-  // MerkleTreeCertEntry type:
+  // MerkleTreeCertEntryType type:
   CHECK(CBB_add_u16(cbb.get(), kTbsCertEntry));
 
   // MerkleTreeCertEntry tbs_cert_entry:
-  if (spec == kDavidBen08) {
-    CHECK(CBB_add_asn1(cbb.get(), &tbs_cert, CBS_ASN1_SEQUENCE));
-    tbs_cert_ptr = &tbs_cert;
-  } else {
-    tbs_cert_ptr = cbb.get();
-  }
   // TODO(crbug.com/469624806): support CertBuilder::version_?
-  CHECK(CBB_add_asn1(tbs_cert_ptr, &version,
+  CHECK(CBB_add_asn1(cbb.get(), &version,
                      CBS_ASN1_CONTEXT_SPECIFIC | CBS_ASN1_CONSTRUCTED | 0));
   CHECK(CBB_add_asn1_uint64(&version, 2));
 
-  CHECK(CBBAddBytes(tbs_cert_ptr, issuer_tlv));
-  CHECK(CBBAddBytes(tbs_cert_ptr, validity));
-  CHECK(CBBAddBytes(tbs_cert_ptr, subject));
-  if (spec == kPlants05) {
-    CBS spki(subject_public_key_info);
-    CBS spki_sequence, spki_algorithm_tlv;
-    CHECK(CBS_get_asn1(&spki, &spki_sequence, CBS_ASN1_SEQUENCE));
-    CHECK(CBS_get_asn1_element(&spki_sequence, &spki_algorithm_tlv,
-                               CBS_ASN1_SEQUENCE));
-    CHECK(CBB_add_bytes(tbs_cert_ptr, CBS_data(&spki_algorithm_tlv),
-                        CBS_len(&spki_algorithm_tlv)));
-  }
-  CHECK(CBBAddAsn1Element(tbs_cert_ptr, CBS_ASN1_OCTETSTRING,
+  CHECK(CBBAddBytes(cbb.get(), issuer_tlv));
+  CHECK(CBBAddBytes(cbb.get(), validity));
+  CHECK(CBBAddBytes(cbb.get(), subject));
+
+  CBS spki(subject_public_key_info);
+  CBS spki_sequence, spki_algorithm_tlv;
+  CHECK(CBS_get_asn1(&spki, &spki_sequence, CBS_ASN1_SEQUENCE));
+  CHECK(CBS_get_asn1_element(&spki_sequence, &spki_algorithm_tlv,
+                             CBS_ASN1_SEQUENCE));
+  CHECK(CBB_add_bytes(cbb.get(), CBS_data(&spki_algorithm_tlv),
+                      CBS_len(&spki_algorithm_tlv)));
+
+  CHECK(CBBAddAsn1Element(cbb.get(), CBS_ASN1_OCTETSTRING,
                           crypto::hash::Sha256(subject_public_key_info)));
   // issuerUniqueID and subjectUniqueID not present.
-  CHECK(CBBAddBytes(tbs_cert_ptr, extensions));
+  CHECK(CBBAddBytes(cbb.get(), extensions));
 
   return FinishCBBToVector(cbb.get());
 }
@@ -1811,23 +1775,12 @@ std::vector<uint8_t> MtcLogBuilder::MtcLogEntry::BuildTBSCertificate(
   return FinishCBBToVector(cbb.get());
 }
 
-MtcLogBuilder::MtcLogBuilder(base::span<const uint8_t> log_id,
-                             base::span<const uint8_t> base_id)
-    : spec_(kDavidBen08),
-      log_id_(base::ToVector(log_id)),
-      base_id_(base::ToVector(base_id.empty() ? log_id : base_id)),
-      data_(new Data(spec_, base::ToVector(log_id))) {
-  // The first landmark, numbered zero, is always a tree size of zero.
-  landmarks_.push_back(0);
-}
-
 MtcLogBuilder::MtcLogBuilder(base::span<const uint8_t> ca_id,
                              LogNumber log_number)
-    : spec_(kPlants05),
-      log_id_(MakeMtcLogId(ca_id, log_number)),
+    : log_id_(MakeMtcLogId(ca_id, log_number)),
       ca_id_(base::ToVector(ca_id)),
       log_number_(log_number),
-      data_(new Data(spec_, base::ToVector(ca_id), log_number)) {
+      data_(new Data(base::ToVector(ca_id), log_number)) {
   // The first landmark, numbered zero, is always a tree size of zero.
   landmarks_.push_back(0);
 }
@@ -1842,6 +1795,11 @@ bool MtcLogBuilder::AdvanceLandmark() {
 
   landmarks_.push_back(data_->Size());
   return true;
+}
+
+std::vector<uint8_t> MtcLogBuilder::GetLandmarkTrustAnchorGroup() const {
+  return x509_util::CreateMtcLandmarkGroupTrustAnchorID(ca_id_, log_number_,
+                                                        landmarks_.size() - 1);
 }
 
 std::vector<bssl::Subtree> MtcLogBuilder::GetLandmarkSubtrees() const {
@@ -1871,6 +1829,13 @@ std::vector<bssl::TrustedSubtree> MtcLogBuilder::GetLandmarkSubtreeHashes()
     result.emplace_back(subtree, *hash);
   }
 
+  return result;
+}
+
+std::map<uint16_t, std::vector<bssl::TrustedSubtree>>
+MtcLogBuilder::GetPerLogLandmarkSubtreeHashes() const {
+  std::map<uint16_t, std::vector<bssl::TrustedSubtree>> result;
+  result[log_number_] = GetLandmarkSubtreeHashes();
   return result;
 }
 
@@ -1946,27 +1911,18 @@ std::vector<uint8_t> MtcLogBuilder::CreateMtcProof(
   result.reserve(2 * sizeof(uint64_t) + 2 * sizeof(uint16_t) +
                  inclusion_proof.size() + signatures_size);
 
-  if (spec_ == kDavidBen08) {
-    // struct {
-    //     uint64 start;
-    base::Extend(result, base::U64ToBigEndian(subtree.start));
+  // From plants-05:
+  // struct {
+  //   MerkleTreeCertEntryExtension extensions<0..2^16-1>;
+  base::Extend(result, base::U16ToBigEndian(0));  // `extensions` is empty.
 
-    //     uint64 end;
-    base::Extend(result, base::U64ToBigEndian(subtree.end));
-  } else {
-    // From plants-05:
-    // struct {
-    //   MerkleTreeCertEntryExtension extensions<0..2^16-1>;
-    base::Extend(result, base::U16ToBigEndian(0));  // `extensions` is empty.
+  //   uint48 start;
+  base::Extend(result,
+               base::span(base::U64ToBigEndian(subtree.start)).subspan(2u));
 
-    //   uint48 start;
-    base::Extend(result,
-                 base::span(base::U64ToBigEndian(subtree.start)).subspan(2u));
-
-    //   uint48 end;
-    base::Extend(result,
-                 base::span(base::U64ToBigEndian(subtree.end)).subspan(2u));
-  }
+  //   uint48 end;
+  base::Extend(result,
+               base::span(base::U64ToBigEndian(subtree.end)).subspan(2u));
 
   //    HashValue inclusion_proof<0..2^16-1>;
   base::Extend(result, base::U16ToBigEndian(inclusion_proof.size()));
@@ -2035,9 +1991,6 @@ std::vector<uint8_t> MtcLogBuilder::CreateCosignedMessage(
 std::vector<uint8_t> MtcLogBuilder::CreateMtcSignature(
     bssl::Subtree subtree,
     const Cosigner* cosigner) {
-  // This implementation only supports signatures on the newer plants-05 draft.
-  CHECK_EQ(spec_, kPlants05);
-
   std::vector<uint8_t> mtc_signature;
 
   // struct {
@@ -2124,48 +2077,40 @@ std::optional<std::vector<uint8_t>> MtcLogBuilder::CreateStandaloneCertificate(
       index, CreateMtcProof(index, subtree, std::move(cosigners)));
 }
 
+bssl::UniquePtr<CRYPTO_BUFFER> MtcLogBuilder::CreateStandaloneCertificateBuffer(
+    LogIndex index,
+    std::vector<Cosigner*> cosigners) {
+  auto cert = CreateStandaloneCertificate(index, cosigners);
+  if (cert) {
+    return x509_util::CreateCryptoBuffer(*cert);
+  }
+  return nullptr;
+}
+
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 void MtcLogBuilder::FillMtcMetadataAnchorProto(
     chrome_root_store::MtcAnchorData* mtc_anchor_data) const {
-  if (spec_ == kDavidBen08) {
-    mtc_anchor_data->set_log_id(base::as_string_view(log_id_));
+  // TODO(crbug.com/469624806): This only handles the case of a CA with a
+  // single log. Perhaps the code should be refactored so there is a
+  // MtcCaBuilder which owns one or more MtcLogBuilders? Or
+  // FillMtcMetadataAnchorProto could be a static function which takes
+  // multiple MtcLogBuilders as params?
 
-    mtc_anchor_data->mutable_trusted_landmark_ids_range()->set_base_id(
-        base::as_string_view(base_id_));
-    mtc_anchor_data->mutable_trusted_landmark_ids_range()
-        ->set_min_active_landmark_inclusive(GetActiveLandmarkRange().first);
-    mtc_anchor_data->mutable_trusted_landmark_ids_range()
-        ->set_last_landmark_inclusive(GetActiveLandmarkRange().second);
+  mtc_anchor_data->set_ca_id(base::as_string_view(ca_id_));
 
-    for (const auto& subtree_hash : GetLandmarkSubtreeHashes()) {
-      auto* subtree = mtc_anchor_data->add_trusted_subtrees();
-      subtree->set_start_inclusive(subtree_hash.range.start);
-      subtree->set_end_exclusive(subtree_hash.range.end);
-      subtree->set_hash(base::as_string_view(subtree_hash.hash));
-    }
-  } else {
-    // TODO(crbug.com/469624806): This only handles the case of a CA with a
-    // single log. Perhaps the code should be refactored so there is a
-    // MtcCaBuilder which owns one or more MtcLogBuilders? Or
-    // FillMtcMetadataAnchorProto could be a static function which takes
-    // multiple MtcLogBuilders as params?
+  auto* log_data = mtc_anchor_data->add_mtc_log_data();
+  log_data->set_log_number(log_number_);
 
-    mtc_anchor_data->set_ca_id(base::as_string_view(ca_id_));
+  log_data->mutable_trusted_landmark_ids_range()
+      ->set_min_active_landmark_inclusive(GetActiveLandmarkRange().first);
+  log_data->mutable_trusted_landmark_ids_range()->set_last_landmark_inclusive(
+      GetActiveLandmarkRange().second);
 
-    auto* log_data = mtc_anchor_data->add_mtc_log_data();
-    log_data->set_log_number(log_number_);
-
-    log_data->mutable_trusted_landmark_ids_range()
-        ->set_min_active_landmark_inclusive(GetActiveLandmarkRange().first);
-    log_data->mutable_trusted_landmark_ids_range()->set_last_landmark_inclusive(
-        GetActiveLandmarkRange().second);
-
-    for (const auto& subtree_hash : GetLandmarkSubtreeHashes()) {
-      auto* subtree = log_data->add_trusted_subtrees();
-      subtree->set_start_inclusive(subtree_hash.range.start);
-      subtree->set_end_exclusive(subtree_hash.range.end);
-      subtree->set_hash(base::as_string_view(subtree_hash.hash));
-    }
+  for (const auto& subtree_hash : GetLandmarkSubtreeHashes()) {
+    auto* subtree = log_data->add_trusted_subtrees();
+    subtree->set_start_inclusive(subtree_hash.range.start);
+    subtree->set_end_exclusive(subtree_hash.range.end);
+    subtree->set_hash(base::as_string_view(subtree_hash.hash));
   }
 }
 #endif  // BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)

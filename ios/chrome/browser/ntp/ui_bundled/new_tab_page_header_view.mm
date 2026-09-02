@@ -70,7 +70,6 @@
 #import "ios/public/provider/chrome/browser/lottie/lottie_animation_api.h"
 #import "ios/public/provider/chrome/browser/lottie/lottie_animation_configuration.h"
 #import "ui/base/l10n/l10n_util.h"
-#import "ui/gfx/ios/uikit_util.h"
 
 namespace {
 
@@ -95,6 +94,7 @@ constexpr CGFloat kFakeboxMinimumFontScaleFactor = 0.57;
 // The constants for the constraints affecting the end button; either Lens or
 // Voice Search, depending on if Lens is enabled.
 constexpr CGFloat kEndButtonFakeboxTrailingSpace = 13.0;
+constexpr CGFloat kEndButtonFakeboxTrailingSpaceUICleanup = 20.0;
 constexpr CGFloat kEndButtonFakeboxIPadTrailingSpace = 18.0;
 constexpr CGFloat kEndButtonNormalSizeFakeboxWithBadgeTrailingSpace = 7.0;
 constexpr CGFloat kEndButtonOmniboxTrailingSpace = 7.0;
@@ -105,19 +105,23 @@ constexpr CGFloat kHintLabelFakeboxTrailingSpace = 12.0f;
 // The constants for the constraints the leading-edge aligned UI elements.
 constexpr CGFloat kHintLabelFakeboxLeadingSpaceWithIcon = 42.0;
 constexpr CGFloat kHintLabelFakeboxLeadingSpaceWithPlus = 46.0;
+constexpr CGFloat kHintLabelFakeboxLeadingSpaceUICleanup = 52.0;
 constexpr CGFloat kHintLabelOmniboxLeadingSpaceWithIcon = 42.0;
 constexpr CGFloat kHintLabelOmniboxLeadingSpaceWithWithPlus = 52.0;
 
 // The constants for the search engine image.
 constexpr CGFloat kFakeboxIPadExtraLeadingSpace = 5.0;
 constexpr CGFloat kFakeboxImageLeadingSpace = 13.0;
+constexpr CGFloat kFakeboxLeadingSpaceUICleanup = 20.0;
 constexpr CGFloat kFakeboxPlusLeadingSpace = 18.0;
 constexpr CGFloat kOmniboxImageLeadingSpace = 22.0;
 constexpr CGFloat kOmniboxPlusLeadingSpace = 26.0;
 constexpr CGFloat kFakeboxImageSize = 20.0;
+constexpr CGFloat kFakeboxImageSizeUICleanup = 24.0;
 
 // The spacing between the items in the button stack.
 constexpr CGFloat kButtonSpacing = 9.0;
+constexpr CGFloat kButtonSpacingUICleanup = 16.0;
 
 // The height of the divider between the mic and lens icons.
 constexpr CGFloat kIconDividerHeight = 13.0;
@@ -133,6 +137,14 @@ NSString* const kMIACircleAnimationDarkMode = @"mia_glowing_circle_animation";
 // Returns the background color for the NTP Header view. This is the color
 // that shows when the fakebox is scrolled up.
 UIColor* HeaderBackgroundColor(id<UITraitEnvironment> environment) {
+  if (IsNewTabPageUICleanupEnabled()) {
+    NewTabPageColorPalette* colorPalette =
+        [environment.traitCollection objectForNewTabPageTrait];
+    if (!colorPalette &&
+        ![environment.traitCollection boolForNewTabPageImageBackgroundTrait]) {
+      return [UIColor colorNamed:kNewTabPageBackgroundColor];
+    }
+  }
   if (IsSplitToolbarMode(environment)) {
     return [UIColor colorNamed:kBackgroundColor];
   } else {
@@ -597,7 +609,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   _buttonStack = [[TouchAreaOverflowStackView alloc] init];
   _buttonStack.translatesAutoresizingMaskIntoConstraints = NO;
   _buttonStack.alignment = UIStackViewAlignmentCenter;
-  _buttonStack.spacing = kButtonSpacing;
+  _buttonStack.spacing =
+      IsNewTabPageUICleanupEnabled() ? kButtonSpacingUICleanup : kButtonSpacing;
   _buttonStack.directionalLayoutMargins = NSDirectionalEdgeInsetsMake(
       0, 0, 0, [self endButtonFakeboxTrailingSpace]);
   _buttonStack.layoutMarginsRelativeArrangement = true;
@@ -647,6 +660,9 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 // The leading padding to add in the search field when the fakebox is displayed
 // in the middle of the screen.
 - (CGFloat)fakeboxLeadingSpace {
+  if (IsNewTabPageUICleanupEnabled()) {
+    return kFakeboxLeadingSpaceUICleanup;
+  }
   if ([self shouldShowPlusButton]) {
     return kFakeboxPlusLeadingSpace;
   } else if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
@@ -677,7 +693,11 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
   leadingView.translatesAutoresizingMaskIntoConstraints = NO;
   [searchField addSubview:leadingView];
-  AddSquareConstraints(leadingView, kFakeboxImageSize);
+
+  CGFloat imageSize = IsNewTabPageUICleanupEnabled()
+                          ? kFakeboxImageSizeUICleanup
+                          : kFakeboxImageSize;
+  AddSquareConstraints(leadingView, imageSize);
 
   CGFloat leadingViewConstraintConstant;
   if (IsChromeNextIaEnabled()) {
@@ -775,9 +795,9 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   }
 
   if (IsNTPHeaderTransformsForAnimationsEnabled()) {
-    self.leadingViewConstraint.constant = kFakeboxImageLeadingSpace;
+    self.leadingViewConstraint.constant = [self fakeboxLeadingSpace];
     CGFloat translationX =
-        (kOmniboxImageLeadingSpace - kFakeboxImageLeadingSpace) * progress;
+        ([self omniboxLeadingSpace] - [self fakeboxLeadingSpace]) * progress;
     _logoView.transform = CGAffineTransformMakeTranslation(translationX, 0);
   } else {
     self.leadingViewConstraint.constant = Interpolate(
@@ -895,7 +915,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   CGFloat maxTopMarginDiff = fakeOmniboxHeight - locationBarHeight -
                              kAdaptiveLocationBarVerticalMargin;
   topMarginConstraint.constant =
-      -content_suggestions::SearchFieldTopMargin(self.searchEngineLogoState) -
+      -content_suggestions::LogoToFakeboxPadding(self.searchEngineLogoState) -
       maxTopMarginDiff * progress;
   heightConstraint.constant =
       ntp_header::kFakeLocationBarTopConstraint -
@@ -961,6 +981,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   if (!_isBottomOmnibox) {
     CGFloat currentWidth = self.fakeOmniboxContainer.bounds.size.width;
     CGFloat currentHeight = self.fakeOmniboxContainer.bounds.size.height;
+    CGPoint currentCenter = self.fakeOmniboxContainer.center;
 
     if (currentWidth <= 0 || currentHeight <= 0) {
       return;
@@ -968,14 +989,26 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
     CGFloat targetWidth = topOmniboxView.frame.size.width;
     CGFloat targetHeight = topOmniboxView.frame.size.height;
+    CGPoint targetCenter = [topOmniboxView
+        convertPoint:CGPointMake(CGRectGetMidX(topOmniboxView.bounds),
+                                 CGRectGetMidY(topOmniboxView.bounds))
+              toView:self];
 
-    CGFloat scaleX = Interpolate(1.0, (targetWidth / currentWidth),
-                                 (progress * (2.0 - progress)));
-    CGFloat scaleY = Interpolate(1.0, (targetHeight / currentHeight),
-                                 (progress * (2.0 - progress)));
+    CGFloat progressEase = progress * (2.0 - progress);
+
+    CGFloat scaleX =
+        Interpolate(1.0, (targetWidth / currentWidth), progressEase);
+    CGFloat scaleY =
+        Interpolate(1.0, (targetHeight / currentHeight), progressEase);
+    CGFloat translateX = (targetCenter.x - currentCenter.x) * progressEase;
+
+    CGAffineTransform scaleTransform =
+        CGAffineTransformMakeScale(scaleX, scaleY);
+    CGAffineTransform translateTransform =
+        CGAffineTransformMakeTranslation(translateX, 0.0);
 
     self.fakeOmniboxContainer.transform =
-        CGAffineTransformMakeScale(scaleX, scaleY);
+        CGAffineTransformConcat(scaleTransform, translateTransform);
   } else {
     // Bottom omnibox.
     // No transform for the fakebox transition when the omnibox is pinned to the
@@ -1359,9 +1392,11 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       [ExtendedTouchTargetButton buttonWithType:UIButtonTypeSystem];
   self.plusButton.accessibilityLabel = l10n_util::GetNSString(
       IDS_IOS_COMPOSEBOX_ADD_ATTACHMENT_BUTTON_ACCESSIBILITY_LABEL);
-  [self.plusButton
-      setImage:SymbolWithPointSize(SymbolPlus, kSymbolActionPointSize)
-      forState:UIControlStateNormal];
+  CGFloat symbolPointSize = IsNewTabPageUICleanupEnabled()
+                                ? kFakeboxImageSizeUICleanup
+                                : kSymbolActionPointSize;
+  [self.plusButton setImage:SymbolWithPointSize(SymbolPlus, symbolPointSize)
+                   forState:UIControlStateNormal];
   [self.plusButton addTarget:self.NTPShortcutsHandler
                       action:@selector(openMultimodalActionsMenu)
             forControlEvents:UIControlEventTouchUpInside];
@@ -1403,10 +1438,16 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       lens_availability::CheckAndLogAvailabilityForLensEntryPoint(
           LensEntrypoint::NewTabPage, _isGoogleDefaultSearchEngine);
   if (useLens) {
-    [self addVoiceAndLensDivider];
+    if (IsNewTabPageUICleanupEnabled()) {
+      self.voiceAndLensDivider = nil;
+    } else {
+      [self addVoiceAndLensDivider];
+    }
     self.lensButton =
         [ExtendedTouchTargetButton buttonWithType:UIButtonTypeSystem];
     [_buttonStack addArrangedSubview:self.lensButton];
+    [self.layoutGuideCenter referenceView:self.lensButton
+                                underName:kFakeboxLensIconGuide];
     if (_useNewBadgeForLensButton) {
       [self.lensButton addTarget:self
                           action:@selector(lensButtonWithNewBadgeTapped:)
@@ -1523,7 +1564,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
     if (canShowTabStrip || !isSplitToolbarMode) {
       offset += content_suggestions::FakeOmniboxHeight();
       if (canShowTabStrip) {
-        offset -= content_suggestions::SearchFieldTopMargin(
+        offset -= content_suggestions::LogoToFakeboxPadding(
             self.searchEngineLogoState);
       }
     }
@@ -1553,7 +1594,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 
   if (canShowTabStrip) {
     offset -=
-        content_suggestions::SearchFieldTopMargin(self.searchEngineLogoState);
+        content_suggestions::LogoToFakeboxPadding(self.searchEngineLogoState);
   } else {
     offset -= self.safeAreaInsets.top + topToolbarHeight;
   }
@@ -1642,6 +1683,9 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 // Returns end button fakebox trailing space depending on fakebox size and
 // whether the new badge is displayed.
 - (CGFloat)endButtonFakeboxTrailingSpace {
+  if (IsNewTabPageUICleanupEnabled()) {
+    return kEndButtonFakeboxTrailingSpaceUICleanup;
+  }
   // If normal sized fakebox and new bade is showing, reduce trailing space.
   if (_useNewBadgeForLensButton && !IsAimEnabledInNtp()) {
     return kEndButtonNormalSizeFakeboxWithBadgeTrailingSpace;
@@ -1702,6 +1746,9 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 #pragma mark - helpers
 
 - (CGFloat)hintLabelFakeboxLeadingSpace {
+  if (IsNewTabPageUICleanupEnabled()) {
+    return kHintLabelFakeboxLeadingSpaceUICleanup;
+  }
   if ([self shouldShowPlusButton]) {
     return kHintLabelFakeboxLeadingSpaceWithPlus;
   } else if (CanShowTabStrip(self) || !IsSplitToolbarMode(self)) {
@@ -1931,11 +1978,18 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   [self.identityDiscButton setSignedOutAccountImage];
 }
 
-- (void)updateAccountImage:(UIImage*)image
-                      name:(NSString*)name
-                     email:(NSString*)email {
+// Updates current signed-in user account avatar with the supplied images.
+// `avatarWithoutAITier` is the normal-sized avatar image to be displayed when
+// the AI tier ring is not shown.
+- (void)updateAccountWithName:(NSString*)name
+                        email:(NSString*)email
+                  avatarImage:(UIImage*)avatarImage
+                    hasAITier:(BOOL)hasAITier {
   _isSignedIn = YES;
-  [self.identityDiscButton updateAccountImage:image name:name email:email];
+  [self.identityDiscButton updateAccountWithName:name
+                                           email:email
+                                     avatarImage:avatarImage
+                                       hasAITier:hasAITier];
 }
 
 #pragma mark - SearchEngineLogoConsumer
@@ -1948,7 +2002,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   self.searchEngineLogoState = logoState;
 
   self.fakeOmniboxTopMarginConstraint.constant =
-      -content_suggestions::SearchFieldTopMargin(self.searchEngineLogoState);
+      -content_suggestions::LogoToFakeboxPadding(self.searchEngineLogoState);
 
   [self updateFakeboxDisplay];
 
@@ -2069,9 +2123,8 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
 }
 
 - (void)updateFakeboxDisplay {
-  self.doodleTopMarginConstraint.constant =
-      content_suggestions::DoodleTopMargin(self.searchEngineLogoState,
-                                           self.traitCollection);
+  self.doodleTopMarginConstraint.constant = content_suggestions::LogoTopPadding(
+      self.searchEngineLogoState, self.traitCollection);
   [self.doodleHeightConstraint
       setConstant:content_suggestions::DoodleHeight(self.searchEngineLogoState,
                                                     self.traitCollection)];
@@ -2089,7 +2142,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
                     andHeaderView:(UIView*)headerView {
   self.doodleTopMarginConstraint = [logoView.topAnchor
       constraintEqualToAnchor:headerView.topAnchor
-                     constant:content_suggestions::DoodleTopMargin(
+                     constant:content_suggestions::LogoTopPadding(
                                   self.searchEngineLogoState,
                                   self.traitCollection)];
   self.doodleHeightConstraint = [logoView.heightAnchor
@@ -2104,7 +2157,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
       [fakeOmnibox.widthAnchor constraintEqualToConstant:initialWidth];
   self.fakeOmniboxTopMarginConstraint = [logoView.bottomAnchor
       constraintEqualToAnchor:fakeOmnibox.topAnchor
-                     constant:-content_suggestions::SearchFieldTopMargin(
+                     constant:-content_suggestions::LogoToFakeboxPadding(
                                   self.searchEngineLogoState)];
   self.headerViewHeightConstraint =
       [headerView.heightAnchor constraintEqualToConstant:[self headerHeight]];
@@ -2152,7 +2205,7 @@ CGFloat Interpolate(CGFloat from, CGFloat to, CGFloat percent) {
   if ([self.delegate shouldPinFakeOmnibox]) {
     offsetY -= self.headerHeight;
   }
-  return AlignValueToPixel(offsetY);
+  return AlignValueToLowerPixel(offsetY);
 }
 
 - (void)didAppear {

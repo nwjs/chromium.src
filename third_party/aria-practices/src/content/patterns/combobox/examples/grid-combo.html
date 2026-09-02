@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Editable Combobox with Grid Popup Example</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/grid-combo.css" rel="stylesheet">
+    <script src="js/grid-combo.js"></script>
+    <script src="js/grid-combo-example.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <label for="ex1-input" id="ex1-label" class="combobox-label"> Fruits and vegetables </label>
+          <div class="combobox-wrapper">
+            <div id="ex1-combobox">
+              <input type="text" role="combobox" aria-haspopup="grid" aria-expanded="false" aria-autocomplete="list" aria-controls="ex1-grid" id="ex1-input">
+            </div>
+            <div aria-labelledby="ex1-label" role="grid" id="ex1-grid" class="grid hidden"></div>
+          </div>
+        </div>
+  </body>
+</html>

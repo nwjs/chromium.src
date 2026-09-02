@@ -165,6 +165,12 @@ bool MayPerformAutofillAiAction(
     const PrefService* prefs,
     const signin::IdentityManager* identity_manager);
 
+// Same as above but doesn't consider the Private API experiment. Used to determine
+// whether the user is opted-in regardless of the experiment status.
+[[nodiscard]] bool GetObsoleteAutofillAiOptInStatus(
+    const PrefService* prefs,
+    const signin::IdentityManager* identity_manager);
+
 // Sets the AutofillAI opt-in status for the profile and account tied to
 // `client`. Returns `false` if the opt-in status may not be changed and `true`
 // otherwise.
@@ -205,6 +211,19 @@ bool IsAutofillAiEntityTypeBlockedByPolicy(const AutofillClient& client,
 // Checks whether Autofill AI is enabled by enterprise policy including logging.
 [[nodiscard]] bool IsAutofillAiAllowedByEnterprisePolicy(
     const PrefService* prefs);
+
+// Returns whether Autofill AI is available by default without requiring
+// explicit opt-in. On Desktop, this returns true because the feature is fully
+// launched. On Mobile (Android/iOS), this returns whether the feature flag
+// `kAutofillAiAvailableByDefault` is enabled.
+[[nodiscard]] bool IsAutofillAiDefaultAvailabilityEnabled();
+
+// Returns whether the user's subscription tier or current device is eligible
+// for Ambient Autofill. Note that this does not check other requirements (e.g.
+// user sign-in state or enterprise policy).
+[[nodiscard]] bool IsDeviceOrSubscriptionTierEligibleForAmbientAutofill(
+    const subscription_eligibility::SubscriptionEligibilityService*
+        subscription_eligibility_service);
 
 }  // namespace autofill
 

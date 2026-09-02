@@ -140,7 +140,6 @@ FrameSelection::FrameSelection(LocalFrame& frame)
     : frame_(frame),
       layout_selection_(MakeGarbageCollected<LayoutSelection>(*this)),
       selection_editor_(MakeGarbageCollected<SelectionEditor>(frame)),
-      granularity_(TextGranularity::kCharacter),
       x_pos_for_vertical_arrow_navigation_(NoXPosForVerticalArrowNavigation()),
       focused_(frame.GetPage() &&
                frame.GetPage()->GetFocusController().FocusedFrame() == frame),
@@ -495,7 +494,7 @@ void FrameSelection::DidChangeChildren(
 void FrameSelection::DidMergeTextNodes(
     const Text& merged_node,
     const NodeWithIndex& node_to_be_removed_with_index,
-    unsigned old_length) {
+    wtf_size_t old_length) {
   if (!document_) {
     return;  // ContextDestroyed() was already called
   }
@@ -511,9 +510,9 @@ void FrameSelection::DidSplitTextNode(const Text& text) {
 }
 
 void FrameSelection::DidUpdateCharacterData(CharacterData* data,
-                                            unsigned offset,
-                                            unsigned old_length,
-                                            unsigned new_length) {
+                                            wtf_size_t offset,
+                                            wtf_size_t old_length,
+                                            wtf_size_t new_length) {
   if (!document_) {
     return;  // ContextDestroyed() was already called
   }
@@ -1429,8 +1428,8 @@ void FrameSelection::RevealSelection(
 
   // This function is needed to make sure that ComputeRectToScroll below has the
   // sticky offset info available before the computation.
-  GetDocument().EnsurePaintLocationDataValidForNode(
-      start.AnchorNode(), DocumentUpdateReason::kSelection);
+  GetDocument().UpdateStyleAndLayoutForNode(start.AnchorNode(),
+                                            DocumentUpdateReason::kSelection);
   PhysicalRect selection_rect(ComputeRectToScroll(reveal_extent_option));
   if (selection_rect == PhysicalRect()) {
     return;
@@ -1660,7 +1659,7 @@ SelectionState FrameSelection::ComputePaintingSelectionStateForCursor(
   return layout_selection_->ComputePaintingSelectionStateForCursor(position);
 }
 
-std::optional<unsigned> FrameSelection::ComputeBlockCaretCharacterOffset(
+std::optional<wtf_size_t> FrameSelection::ComputeBlockCaretCharacterOffset(
     const InlineCursor& cursor) const {
   if (GetCaretShape() != CaretShape::kBlock) {
     return std::nullopt;
@@ -1696,14 +1695,14 @@ std::optional<unsigned> FrameSelection::ComputeBlockCaretCharacterOffset(
     return std::nullopt;
   }
 
-  const std::optional<unsigned> tc_offset =
+  const std::optional<wtf_size_t> tc_offset =
       offset_mapping->GetTextContentOffset(position);
   if (!tc_offset) {
     return std::nullopt;
   }
 
-  const unsigned fragment_start = item->StartOffset();
-  const unsigned fragment_end = item->EndOffset();
+  const wtf_size_t fragment_start = item->StartOffset();
+  const wtf_size_t fragment_end = item->EndOffset();
   if (*tc_offset < fragment_start || *tc_offset >= fragment_end) {
     return std::nullopt;
   }

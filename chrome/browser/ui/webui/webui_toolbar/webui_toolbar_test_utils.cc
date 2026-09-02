@@ -48,6 +48,7 @@ CreateValidNavigationControlsState() {
       toolbar_ui_api::mojom::SplitTabsControlState::New(),
       std::move(back_forward_state),
       toolbar_ui_api::mojom::HomeControlState::New(),
+      toolbar_ui_api::mojom::PerformanceInterventionControlState::New(),
       toolbar_ui_api::mojom::AppMenuControlState::New(),
       toolbar_ui_api::mojom::AvatarControlState::New(),
       /*battery_saver_button_visible=*/false,
@@ -61,6 +62,7 @@ CreateValidNavigationControlsState() {
                   toolbar_ui_api::IconHandle(),
                   toolbar_ui_api::mojom::SecurityLevel::kNone,
                   /*text=*/std::u16string(),
+                  /*tooltip=*/std::u16string(),
                   toolbar_ui_api::mojom::SecurityChipAccessibilityState::New(
                       /*label=*/std::u16string(),
                       /*description=*/std::u16string()),

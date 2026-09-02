@@ -690,6 +690,9 @@ interface CSSLayerStatementRule : CSSRule
     attribute @@toStringTag
     getter nameList
     method constructor
+interface CSSLocationRule : CSSRule
+    attribute @@toStringTag
+    method constructor
 interface CSSMarginRule : CSSRule
     attribute @@toStringTag
     getter name
@@ -997,9 +1000,6 @@ interface CSSRotate : CSSTransformComponent
     setter x
     setter y
     setter z
-interface CSSRouteRule : CSSRule
-    attribute @@toStringTag
-    method constructor
 interface CSSRule
     attribute @@toStringTag
     attribute CHARSET_RULE
@@ -2103,6 +2103,9 @@ interface Document : Node
     method clear
     method close
     method constructor
+    method convertPointFromNode
+    method convertQuadFromNode
+    method convertRectFromNode
     method createAttribute
     method createAttributeNS
     method createCDATASection
@@ -2126,6 +2129,7 @@ interface Document : Node
     method exitPictureInPicture
     method exitPointerLock
     method getAnimations
+    method getBoxQuads
     method getElementById
     method getElementsByClassName
     method getElementsByName
@@ -2497,6 +2501,9 @@ interface Element : Node
     method closest
     method computedStyleMap
     method constructor
+    method convertPointFromNode
+    method convertQuadFromNode
+    method convertRectFromNode
     method getAnimations
     method getAttribute
     method getAttributeNS
@@ -2504,6 +2511,8 @@ interface Element : Node
     method getAttributeNode
     method getAttributeNodeNS
     method getBoundingClientRect
+    method getBoxQuads
+    method getCanvasTransform
     method getClientRects
     method getElementsByClassName
     method getElementsByTagName
@@ -2545,6 +2554,7 @@ interface Element : Node
     method setAttributeNS
     method setAttributeNode
     method setAttributeNodeNS
+    method setCanvasTransform
     method setHTML
     method setHTMLUnsafe
     method setPointerCapture
@@ -4127,7 +4137,6 @@ interface HTMLEmbedElement : HTMLElement
     setter type
     setter width
 interface HTMLFencedFrameElement : HTMLElement
-    static method canLoadOpaqueURL
     attribute @@toStringTag
     getter allow
     getter config
@@ -4341,7 +4350,6 @@ interface HTMLIFrameElement : HTMLElement
     getter referrerPolicy
     getter sandbox
     getter scrolling
-    getter sharedStorageWritable
     getter src
     getter srcdoc
     getter width
@@ -4367,7 +4375,6 @@ interface HTMLIFrameElement : HTMLElement
     setter referrerPolicy
     setter sandbox
     setter scrolling
-    setter sharedStorageWritable
     setter src
     setter srcdoc
     setter width
@@ -4391,7 +4398,6 @@ interface HTMLImageElement : HTMLElement
     getter naturalHeight
     getter naturalWidth
     getter referrerPolicy
-    getter sharedStorageWritable
     getter sizes
     getter src
     getter srcset
@@ -4416,7 +4422,6 @@ interface HTMLImageElement : HTMLElement
     setter lowsrc
     setter name
     setter referrerPolicy
-    setter sharedStorageWritable
     setter sizes
     setter src
     setter srcset
@@ -5187,6 +5192,7 @@ interface HTMLTemplateElement : HTMLElement
     getter buffer
     getter content
     getter htmlFor
+    getter sanitize
     getter shadowRootAdoptedStyleSheets
     getter shadowRootClonable
     getter shadowRootCustomElementRegistry
@@ -5198,6 +5204,7 @@ interface HTMLTemplateElement : HTMLElement
     method constructor
     setter buffer
     setter htmlFor
+    setter sanitize
     setter shadowRootAdoptedStyleSheets
     setter shadowRootClonable
     setter shadowRootCustomElementRegistry
@@ -5572,7 +5579,6 @@ interface Image
     getter naturalHeight
     getter naturalWidth
     getter referrerPolicy
-    getter sharedStorageWritable
     getter sizes
     getter src
     getter srcset
@@ -5597,7 +5603,6 @@ interface Image
     setter lowsrc
     setter name
     setter referrerPolicy
-    setter sharedStorageWritable
     setter sizes
     setter src
     setter srcset
@@ -6694,6 +6699,7 @@ interface Navigator
     getter deviceMemory
     getter doNotTrack
     getter geolocation
+    getter globalPrivacyControl
     getter gpu
     getter hardwareConcurrency
     getter ink
@@ -7225,6 +7231,7 @@ interface Performance : EventTarget
     method mark
     method markConditional
     method measure
+    method measureConditional
     method now
     method setResourceTimingBufferSize
     method toJSON
@@ -7305,6 +7312,9 @@ interface PerformanceMarkConditional : PerformanceEntry
 interface PerformanceMeasure : PerformanceEntry
     attribute @@toStringTag
     getter detail
+    method constructor
+interface PerformanceMeasureConditional : PerformanceEntry
+    attribute @@toStringTag
     method constructor
 interface PerformanceNavigation
     attribute @@toStringTag
@@ -9559,39 +9569,6 @@ interface ShadowRoot : DocumentFragment
     setter innerHTML
     setter onslotchange
     setter referenceTarget
-interface SharedStorage
-    attribute @@toStringTag
-    getter worklet
-    method append
-    method batchUpdate
-    method clear
-    method constructor
-    method createWorklet
-    method delete
-    method run
-    method selectURL
-    method set
-interface SharedStorageAppendMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageClearMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageDeleteMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageSetMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageWorklet
-    attribute @@toStringTag
-    method addModule
-    method constructor
-    method run
-    method selectURL
 interface SnapEvent : Event
     attribute @@toStringTag
     getter snapTargetBlock
@@ -9881,6 +9858,10 @@ interface Text : CharacterData
     getter assignedSlot
     getter wholeText
     method constructor
+    method convertPointFromNode
+    method convertQuadFromNode
+    method convertRectFromNode
+    method getBoxQuads
     method splitText
 interface TextCluster
     attribute @@toStringTag
@@ -11913,10 +11894,12 @@ interface WebTransport
     getter closed
     getter congestionControl
     getter datagrams
+    getter draining
     getter incomingBidirectionalStreams
     getter incomingUnidirectionalStreams
     getter protocol
     getter ready
+    getter responseHeaders
     method close
     method constructor
     method createBidirectionalStream
@@ -12684,7 +12667,6 @@ namespace console
     getter scrollbars
     getter self
     getter sessionStorage
-    getter sharedStorage
     getter status
     getter statusbar
     getter styleMedia

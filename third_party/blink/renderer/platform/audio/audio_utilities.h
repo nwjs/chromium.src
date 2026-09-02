@@ -63,12 +63,6 @@ TimeToSampleFrame(double time,
                   double sample_rate,
                   enum SampleFrameRounding rounding = kRoundToNearest);
 
-// Calculate a buffer duration given the number of frames and a sample rate.
-// The only reason we have it here is because it takes sample_rate as float.
-// Otherwise, media::AudioTimestampHelper::FramesToTime would be just fine.
-PLATFORM_EXPORT
-base::TimeDelta FramesToTime(int64_t frames, float sample_rate);
-
 // Check that |sampleRate| is a valid rate for AudioBuffers.
 PLATFORM_EXPORT bool IsValidAudioBufferSampleRate(float sample_rate);
 
@@ -80,6 +74,10 @@ PLATFORM_EXPORT bool IsValidRenderQuantumSize(uint32_t render_quantum_size,
                                               float sample_rate);
 PLATFORM_EXPORT uint32_t MinRenderQuantumSize();
 PLATFORM_EXPORT uint32_t MaxRenderQuantumSize(float sample_rate);
+
+// Returns `value` rounded up to the smallest multiple of `modulus`, safe
+// against integer overflow. `modulus` must be strictly greater than 0.
+PLATFORM_EXPORT size_t RoundUpToMultiple(size_t value, size_t modulus);
 
 PLATFORM_EXPORT const std::string GetSinkIdForTracing(
     blink::WebAudioSinkDescriptor sink_descriptor);

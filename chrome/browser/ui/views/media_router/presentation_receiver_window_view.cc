@@ -13,25 +13,15 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
-#include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
 #include "chrome/browser/subresource_filter/chrome_content_subresource_filter_web_contents_helper_factory.h"
-#include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/accelerator_table.h"
-#include "chrome/browser/ui/autofill/chrome_autofill_client.h"
-#include "chrome/browser/ui/blocked_content/framebust_block_tab_helper.h"
 #include "chrome/browser/ui/media_router/presentation_receiver_window_delegate.h"
-#include "chrome/browser/ui/passwords/manage_passwords_ui_controller.h"
-#include "chrome/browser/ui/search/search_tab_helper.h"
-#include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/views/exclusive_access/exclusive_access_bubble_views.h"
 #include "chrome/browser/ui/views/media_router/presentation_receiver_window_frame.h"
-#include "components/blocked_content/popup_blocker_tab_helper.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/omnibox/browser/location_bar_model_impl.h"
-#include "components/safe_browsing/buildflags.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_constants.h"
@@ -54,10 +44,6 @@
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
 #include "ui/gfx/native_ui_types.h"
-#endif
-
-#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-#include "chrome/browser/safe_browsing/chrome_password_reuse_detection_manager_client.h"
 #endif
 
 using content::WebContents;
@@ -179,19 +165,8 @@ void PresentationReceiverWindowView::Init() {
   // ContentSubresourceFilterThrottleManager has it as a dependency.
   infobars::ContentInfoBarManager::CreateForWebContents(web_contents);
 
-  ChromeSecurityStateTabHelper::CreateForWebContents(web_contents);
-  autofill::ChromeAutofillClient::CreateForWebContents(web_contents);
-  ChromePasswordManagerClient::CreateForWebContents(web_contents);
-#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  ChromePasswordReuseDetectionManagerClient::CreateForWebContents(web_contents);
-#endif
-  ManagePasswordsUIController::CreateForWebContents(web_contents);
-  SearchTabHelper::CreateForWebContents(web_contents);
-  TabDialogs::CreateForWebContents(web_contents);
-  FramebustBlockTabHelper::CreateForWebContents(web_contents);
   CreateSubresourceFilterWebContentsHelper(web_contents);
   MixedContentSettingsTabHelper::CreateForWebContents(web_contents);
-  blocked_content::PopupBlockerTabHelper::CreateForWebContents(web_contents);
   content_settings::PageSpecificContentSettings::CreateForWebContents(
       web_contents,
       std::make_unique<PageSpecificContentSettingsDelegate>(web_contents));

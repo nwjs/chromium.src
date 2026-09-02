@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/signin/features.gni")
 import("//ui/webui/webui_features.gni")
 
 assert(!is_ios)
@@ -182,6 +183,9 @@ if (!is_android) {
       "//ui/display",
       "//ui/gfx",
     ]
+    if (enable_dice_support) {
+      deps += [ "//chrome/browser/ui/views/search_ai_mode" ]
+    }
   }
 }
 
@@ -200,6 +204,7 @@ source_set("unit_tests") {
     "//chrome/browser/tab_list:test_support",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/contextual_search",
+    "//chrome/browser/ui/tabs/alert:tab_alert",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
     "//components/contextual_search:test_support",
@@ -290,8 +295,11 @@ if (enable_webui_ntp && !is_android) {
       "//chrome/browser/ui",
       "//chrome/browser/ui/views/page_action:test_support",
       "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
+      "//chrome/browser/ui/webui/test_support",
       "//chrome/common",
       "//chrome/test:test_support",
+      "//components/bookmarks/browser",
+      "//components/bookmarks/test",
       "//components/contextual_search:public",
       "//components/contextual_search:test_support",
       "//components/keyed_service/content",

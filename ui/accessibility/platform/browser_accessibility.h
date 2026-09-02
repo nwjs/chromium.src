@@ -15,7 +15,6 @@
 #include <vector>
 
 #include "base/component_export.h"
-#include "base/memory/advanced_memory_safety_checks.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_enums.mojom-forward.h"
@@ -43,9 +42,6 @@ class BrowserAccessibilityManager;
 // Web.
 class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibility
     : public AXPlatformNodeDelegate {
-  // TODO(b/498205735): Remove once hardening protections are no longer needed.
-  ADVANCED_MEMORY_SAFETY_CHECKS();
-
  public:
   // Creates a platform specific BrowserAccessibility. Ownership passes to the
   // caller.
@@ -101,6 +97,25 @@ class COMPONENT_EXPORT(AX_PLATFORM) BrowserAccessibility
   virtual BrowserAccessibility* PlatformGetChild(size_t child_index) const;
 
   BrowserAccessibility* PlatformGetParent() const;
+
+  // Returns true when this node needs an AXPlatformNode to represent it.
+  //
+  // Only an ignored node may return false. `AXPlatformNodeDelegate` walks the
+  // tree through `gfx::NativeViewAccessible`, and a node with no platform node
+  // gives none. The walk stops at such a node instead of stepping over it, thus
+  // it loses the children and the later siblings of that node. The unignored
+  // walk behind this delegate never gives an ignored node, thus only an ignored
+  // node is safe with no platform node.
+  //
+  // TODO(crbug.com/540914690): Take the platform node away from every ignored
+  // node, and then remove this function. The rule becomes universal at that
+  // point, thus no caller needs to ask.
+  virtual bool ShouldHavePlatformNode() const;
+
+  // Creates or destroys this node's AXPlatformNode so that it exists exactly
+  // when ShouldHavePlatformNode() is true. Subclasses that own a platform node
+  // must override this, and must tolerate not owning one.
+  virtual void UpdatePlatformNode() {}
 
   // The following methods are virtual so that they can be overridden on Mac to
   // take into account the "extra Mac nodes".

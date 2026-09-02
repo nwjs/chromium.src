@@ -40,6 +40,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChrome;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab.state.PersistedTabDataConfiguration;
@@ -54,7 +55,10 @@ import org.chromium.components.messages.MessageBannerProperties;
 import org.chromium.components.messages.MessageIdentifier;
 import org.chromium.components.messages.MessagesFactory;
 import org.chromium.components.messages.PrimaryActionClickBehavior;
+import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync_device_info.FormFactor;
+import org.chromium.components.sync_device_info.OsType;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -81,6 +85,8 @@ public class SendTabToSelfAndroidBridgeTest {
     @Mock private SnackbarManager mSnackbarManager;
     @Mock private ManagedMessageDispatcher mMessageDispatcher;
     @Mock private ChromeTabbedActivity mTabbedActivity;
+    @Mock private IdentityServicesProvider mIdentityServicesProvider;
+    @Mock private IdentityManager mIdentityManager;
     private WebContents mWebContents;
 
     @Before
@@ -103,6 +109,9 @@ public class SendTabToSelfAndroidBridgeTest {
         when(mWebContents.getTopLevelNativeWindow()).thenReturn(mWindowAndroid);
         SnackbarManagerProvider.attach(mWindowAndroid, mSnackbarManager);
         MessagesFactory.attachMessageDispatcher(mWindowAndroid, mMessageDispatcher);
+        IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
+        when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
+        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(TestAccounts.ACCOUNT1);
     }
 
     @Test
@@ -160,9 +169,20 @@ public class SendTabToSelfAndroidBridgeTest {
     public void testGetAllTargetDeviceInfos() {
         List<TargetDeviceInfo> expected =
                 List.of(
-                        new TargetDeviceInfo("name1", "guid1", FormFactor.DESKTOP, "Active today"),
-                        new TargetDeviceInfo("name2", "guid2", FormFactor.DESKTOP, "Active today"),
-                        new TargetDeviceInfo("name3", "guid3", FormFactor.PHONE, "Active today"));
+                        new TargetDeviceInfo(
+                                "name1",
+                                "guid1",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active today"),
+                        new TargetDeviceInfo(
+                                "name2", "guid2", FormFactor.DESKTOP, OsType.MAC, "Active today"),
+                        new TargetDeviceInfo(
+                                "name3",
+                                "guid3",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"));
         when(mNativeMock.getAllTargetDeviceInfos(eq(mProfile))).thenReturn(expected);
 
         List<TargetDeviceInfo> actual =
@@ -178,6 +198,28 @@ public class SendTabToSelfAndroidBridgeTest {
     public void testGetEntryPointDisplayReason() {
         SendTabToSelfAndroidBridge.getEntryPointDisplayReason(mProfile, URL);
         verify(mNativeMock).getEntryPointDisplayReason(eq(mProfile), eq(URL));
+    }
+
+    // Tests that adding a target device list waiter invokes the native JNI method and returns the native pointer.
+    @Test
+    @SmallTest
+    public void testAddTargetDeviceListWaiter() {
+        Runnable runnable = mock(Runnable.class);
+        when(mNativeMock.addTargetDeviceListWaiter(eq(mProfile), eq(URL), eq(runnable)))
+                .thenReturn(12345L);
+        long waiterPtr =
+                SendTabToSelfAndroidBridge.addTargetDeviceListWaiter(mProfile, URL, runnable);
+        verify(mNativeMock).addTargetDeviceListWaiter(eq(mProfile), eq(URL), eq(runnable));
+        Assert.assertEquals(12345L, waiterPtr);
+    }
+
+    // Tests that removing a target device list waiter invokes the native JNI method with the expected pointer.
+    @Test
+    @SmallTest
+    public void testRemoveTargetDeviceListWaiter() {
+        long waiterPtr = 12345L;
+        SendTabToSelfAndroidBridge.removeTargetDeviceListWaiter(waiterPtr);
+        verify(mNativeMock).removeTargetDeviceListWaiter(eq(waiterPtr));
     }
 
     @Test
@@ -213,7 +255,89 @@ public class SendTabToSelfAndroidBridgeTest {
         ArgumentCaptor<Snackbar> snackbarCaptor = ArgumentCaptor.forClass(Snackbar.class);
         verify(mSnackbarManager).showSnackbar(snackbarCaptor.capture());
         Assert.assertEquals(
-                "Sent to Chrome on your Pixel 10.",
+                "Sent to Chrome on your Pixel 10 • test@gmail.com",
+                snackbarCaptor.getValue().getTextForTesting().toString());
+    }
+
+    // Tests that the post-send success snackbar shows the fallback message without an email when
+    // the user's primary account email address is not available.
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
+    public void testSendTabToDevice_ShowsSuccessSnackbar_NoEmail() {
+        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(null);
+        ArgumentCaptor<SendTabToSelfAndroidBridge.CommitConfirmationCallback>
+                confirmationCallbackCaptor =
+                        ArgumentCaptor.forClass(
+                                SendTabToSelfAndroidBridge.CommitConfirmationCallback.class);
+
+        SendTabToSelfAndroidBridge.sendTabToDevice(
+                mProfile,
+                mWebContents,
+                TARGET_DEVICE_SYNC_CACHE_GUID,
+                "Pixel 10",
+                URL,
+                TITLE,
+                ShareEntryPoint.SHARE_SHEET);
+
+        verify(mNativeMock)
+                .sendTabToDevice(
+                        eq(mProfile),
+                        eq(mWebContents),
+                        eq(TARGET_DEVICE_SYNC_CACHE_GUID),
+                        eq(URL),
+                        eq(TITLE),
+                        confirmationCallbackCaptor.capture(),
+                        eq(ShareEntryPoint.SHARE_SHEET));
+
+        confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.SUCCESS);
+
+        ArgumentCaptor<Snackbar> snackbarCaptor = ArgumentCaptor.forClass(Snackbar.class);
+        verify(mSnackbarManager).showSnackbar(snackbarCaptor.capture());
+        Assert.assertEquals(
+                "Sent to Chrome on your Pixel 10",
+                snackbarCaptor.getValue().getTextForTesting().toString());
+    }
+
+    // Tests that the post-send success snackbar shows the fallback message without an email when
+    // the user's primary account email address cannot be displayed (e.g. supervised child account).
+    @Test
+    @SmallTest
+    @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_POST_SEND_TOAST)
+    public void testSendTabToDevice_ShowsSuccessSnackbar_NonDisplayableEmail() {
+        // Supervised child accounts are not allowed to display email addresses in the UI.
+        when(mIdentityManager.getPrimaryAccountInfo())
+                .thenReturn(TestAccounts.CHILD_ACCOUNT_NON_DISPLAYABLE_EMAIL);
+        ArgumentCaptor<SendTabToSelfAndroidBridge.CommitConfirmationCallback>
+                confirmationCallbackCaptor =
+                        ArgumentCaptor.forClass(
+                                SendTabToSelfAndroidBridge.CommitConfirmationCallback.class);
+
+        SendTabToSelfAndroidBridge.sendTabToDevice(
+                mProfile,
+                mWebContents,
+                TARGET_DEVICE_SYNC_CACHE_GUID,
+                "Pixel 10",
+                URL,
+                TITLE,
+                ShareEntryPoint.SHARE_SHEET);
+
+        verify(mNativeMock)
+                .sendTabToDevice(
+                        eq(mProfile),
+                        eq(mWebContents),
+                        eq(TARGET_DEVICE_SYNC_CACHE_GUID),
+                        eq(URL),
+                        eq(TITLE),
+                        confirmationCallbackCaptor.capture(),
+                        eq(ShareEntryPoint.SHARE_SHEET));
+
+        confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.SUCCESS);
+
+        ArgumentCaptor<Snackbar> snackbarCaptor = ArgumentCaptor.forClass(Snackbar.class);
+        verify(mSnackbarManager).showSnackbar(snackbarCaptor.capture());
+        Assert.assertEquals(
+                "Sent to Chrome on your Pixel 10",
                 snackbarCaptor.getValue().getTextForTesting().toString());
     }
 
@@ -270,7 +394,7 @@ public class SendTabToSelfAndroidBridgeTest {
         when(activity.getString(
                         eq(R.string.send_tab_to_self_post_send_success_toast_android),
                         any(Object[].class)))
-                .thenReturn("Sent to Chrome on your Pixel 10.");
+                .thenReturn("Sent to Chrome on your Pixel 10 • test@gmail.com");
 
         ApplicationStatus.onStateChangeForTesting(activity, ActivityState.CREATED);
         ApplicationStatus.onStateChangeForTesting(activity, ActivityState.STARTED);
@@ -300,7 +424,7 @@ public class SendTabToSelfAndroidBridgeTest {
         ArgumentCaptor<Snackbar> snackbarCaptor = ArgumentCaptor.forClass(Snackbar.class);
         verify(mSnackbarManager).showSnackbar(snackbarCaptor.capture());
         Assert.assertEquals(
-                "Sent to Chrome on your Pixel 10.",
+                "Sent to Chrome on your Pixel 10 • test@gmail.com",
                 snackbarCaptor.getValue().getTextForTesting().toString());
 
         ApplicationStatus.onStateChangeForTesting(activity, ActivityState.DESTROYED);
@@ -481,7 +605,7 @@ public class SendTabToSelfAndroidBridgeTest {
     // shown correctly and that the primary action callback is triggered correctly.
     public void testShowMessageBanner() {
         // Trigger the banner display logic.
-        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10");
+        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10", 1);
 
         // Capture the enqueued PropertyModel to verify its content and action callbacks.
         ArgumentCaptor<PropertyModel> messageCaptor = ArgumentCaptor.forClass(PropertyModel.class);
@@ -492,7 +616,7 @@ public class SendTabToSelfAndroidBridgeTest {
         Assert.assertEquals(
                 MessageIdentifier.SEND_TAB_TO_SELF,
                 model.get(MessageBannerProperties.MESSAGE_IDENTIFIER));
-        Assert.assertEquals("Links received", model.get(MessageBannerProperties.TITLE));
+        Assert.assertEquals("Link received", model.get(MessageBannerProperties.TITLE));
         Assert.assertEquals("From Pixel 10", model.get(MessageBannerProperties.DESCRIPTION));
         Assert.assertEquals("Open", model.get(MessageBannerProperties.PRIMARY_BUTTON_TEXT));
         Assert.assertEquals(
@@ -526,7 +650,7 @@ public class SendTabToSelfAndroidBridgeTest {
     @SmallTest
     public void testShowMessageBanner_ClickActionSingleTab_OpensTab() {
         // Trigger message banner display.
-        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10");
+        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10", 1);
 
         ArgumentCaptor<PropertyModel> messageCaptor = ArgumentCaptor.forClass(PropertyModel.class);
         verify(mMessageDispatcher).enqueueWindowScopedMessage(messageCaptor.capture(), eq(false));
@@ -574,10 +698,14 @@ public class SendTabToSelfAndroidBridgeTest {
     @SmallTest
     public void testShowMessageBanner_ClickActionMultipleTabs_OpensNewestTab() {
         // Trigger message banner display.
-        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10");
+        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10", 2);
 
         ArgumentCaptor<PropertyModel> messageCaptor = ArgumentCaptor.forClass(PropertyModel.class);
         verify(mMessageDispatcher).enqueueWindowScopedMessage(messageCaptor.capture(), eq(false));
+
+        Assert.assertEquals(
+                "2 links received",
+                messageCaptor.getValue().get(MessageBannerProperties.TITLE));
 
         Supplier<Integer> onPrimaryAction =
                 messageCaptor.getValue().get(MessageBannerProperties.ON_PRIMARY_ACTION);
@@ -643,7 +771,7 @@ public class SendTabToSelfAndroidBridgeTest {
         when(mTabbedActivity.isInOverviewMode()).thenReturn(true);
 
         // Trigger the banner display logic.
-        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10");
+        SendTabToSelfAndroidBridge.showMessageBanner(mWebContents, "Pixel 10", 1);
 
         // Verify banner was never enqueued.
         verify(mMessageDispatcher, never()).enqueueWindowScopedMessage(any(), eq(false));
@@ -719,7 +847,9 @@ public class SendTabToSelfAndroidBridgeTest {
 
         confirmationCallbackCaptor.getValue().onResult(SendTabToSelfResult.SUCCESS);
 
-        Assert.assertEquals("Sent to Chrome on your Pixel 10.", ShadowToast.getTextOfLatestToast());
+        Assert.assertEquals(
+                "Sent to Chrome on your Pixel 10 • test@gmail.com",
+                ShadowToast.getTextOfLatestToast());
     }
 
     @Test

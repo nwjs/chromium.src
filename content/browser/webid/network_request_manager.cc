@@ -33,9 +33,6 @@ using DownloadCallback = NetworkRequestManager::DownloadCallback;
 using ParseJsonCallback = NetworkRequestManager::ParseJsonCallback;
 
 namespace {
-constexpr char kApplicationJson[] = "application/json";
-// Body content types.
-constexpr char kUrlEncodedContentType[] = "application/x-www-form-urlencoded";
 
 // Host prefix prepended to the eTLD+1 to form the FedCM well-known host:
 // "web-identity.well-known.<eTLD+1>".
@@ -48,6 +45,10 @@ constexpr int maxResponseSizeInKiB = 1024;
 ParseStatus GetResponseError(base::optional_ref<std::string> response_body,
                              int response_code,
                              const std::string& mime_type) {
+  if (response_code == net::ERR_NETWORK_ACCESS_REVOKED) {
+    return ParseStatus::kBlockedByConnectionAllowlist;
+  }
+
   if (response_code == net::HTTP_NOT_FOUND) {
     return ParseStatus::kHttpNotFoundError;
   }
@@ -160,22 +161,24 @@ NetworkRequestManager::~NetworkRequestManager() = default;
 
 void NetworkRequestManager::DownloadJsonAndParse(
     std::unique_ptr<network::ResourceRequest> resource_request,
-    std::optional<std::string> url_encoded_post_data,
+    std::optional<std::string> post_data,
     ParseJsonCallback parse_json_callback,
-    bool allow_http_error_results) {
-  DownloadUrl(std::move(resource_request), std::move(url_encoded_post_data),
+    bool allow_http_error_results,
+    const std::string& content_type) {
+  DownloadUrl(std::move(resource_request), std::move(post_data),
               base::BindOnce(&OnDownloadedJson, std::move(parse_json_callback)),
               /*max_download_size=*/maxResponseSizeInKiB * 1024,
-              allow_http_error_results);
+              allow_http_error_results, content_type);
 }
 
 void NetworkRequestManager::DownloadUrl(
     std::unique_ptr<network::ResourceRequest> resource_request,
-    std::optional<std::string> url_encoded_post_data,
+    std::optional<std::string> post_data,
     DownloadCallback callback,
     size_t max_download_size,
-    bool allow_http_error_results) {
-  const RenderFrameHost* render_frame_host =
+    bool allow_http_error_results,
+    const std::string& content_type) {
+  RenderFrameHost* render_frame_host =
       initiator_document_.AsRenderFrameHostIfValid();
 
   if (!render_frame_host) {
@@ -196,11 +199,10 @@ void NetworkRequestManager::DownloadUrl(
 
     return;
   }
-
-  if (url_encoded_post_data) {
+  if (post_data) {
     resource_request->method = net::HttpRequestHeaders::kPostMethod;
     resource_request->headers.SetHeader(net::HttpRequestHeaders::kContentType,
-                                        kUrlEncodedContentType);
+                                        content_type);
   }
 
   // Prepare DevTools instrumentation for the request upfront.
@@ -209,7 +211,7 @@ void NetworkRequestManager::DownloadUrl(
       frame_tree_node_id_, request_id.ToString(), *resource_request);
   if (resource_request->devtools_request_id.has_value()) {
     devtools_instrumentation::WillSendFedCmNetworkRequest(
-        frame_tree_node_id_, *resource_request, url_encoded_post_data);
+        frame_tree_node_id_, *resource_request, post_data);
   }
 
   if (!content::FrameConnectionAllowlistAllowsRequestAndReportIfNeeded(
@@ -266,9 +268,8 @@ void NetworkRequestManager::DownloadUrl(
     urlloader_devtools_request_id_map_[url_loader_ptr] = request_id;
   }
 
-  if (url_encoded_post_data) {
-    url_loader->AttachStringForUpload(*url_encoded_post_data,
-                                      kUrlEncodedContentType);
+  if (post_data) {
+    url_loader->AttachStringForUpload(*post_data, content_type);
     if (allow_http_error_results) {
       url_loader->SetAllowHttpErrorResults(true);
     }
@@ -354,7 +355,7 @@ NetworkRequestManager::CreateUncredentialedResourceRequest(
   resource_request->url = target_url;
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
   resource_request->headers.SetHeader(net::HttpRequestHeaders::kAccept,
-                                      kApplicationJson);
+                                      "application/json");
   resource_request->destination = destination_;
   // See https://github.com/fedidcg/FedCM/issues/379 for why the Origin header
   // is sent instead of the Referrer header.
@@ -425,7 +426,7 @@ NetworkRequestManager::CreateCredentialedResourceRequest(
   }
   resource_request->redirect_mode = network::mojom::RedirectMode::kError;
   resource_request->headers.SetHeader(net::HttpRequestHeaders::kAccept,
-                                      kApplicationJson);
+                                      "application/json");
 
   resource_request->credentials_mode =
       network::mojom::CredentialsMode::kInclude;

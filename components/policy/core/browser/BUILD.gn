@@ -55,6 +55,8 @@ source_set("internal") {
     "url_list/url_list_policy_pref_names.h",
     "url_list/url_scheme_list_policy_handler.cc",
     "url_list/url_scheme_list_policy_handler.h",
+    "cloud/user_cloud_management_status_fetcher.cc",
+    "cloud/user_cloud_management_status_fetcher.h",
     "webui/json_generation.cc",
     "webui/json_generation.h",
     "webui/machine_level_user_cloud_policy_status_provider.cc",
@@ -206,14 +208,21 @@ source_set("unit_tests") {
     "url_list/url_blocklist_manager_unittest.cc",
     "url_list/url_blocklist_policy_handler_unittest.cc",
     "url_list/url_scheme_list_policy_handler_unittest.cc",
+    "cloud/user_cloud_management_status_fetcher_unittest.cc",
+    "webui/json_generation_unittest.cc",
+    "webui/policy_status_provider_unittest.cc",
+    "webui/statistics_collector_unittest.cc",
   ]
   deps = [
     ":browser",
     ":incognito_mode_policy_test_support",
     ":test_support",
     "//base",
+    "//base/test:test_support",
     "//build:android_buildflags",
     "//components/policy:generated",
+    "//components/policy/core/common:test_support",
+    "//components/policy/resources/webui/mojom:mojo_bindings",
     "//components/prefs:test_support",
     "//components/signin/public/identity_manager",
     "//components/signin/public/identity_manager:test_support",
@@ -227,6 +236,11 @@ source_set("unit_tests") {
     "//ui/base",
     "//url",
   ]
+
+  if (!is_chromeos) {
+    sources +=
+        [ "webui/machine_level_user_cloud_policy_status_provider_unittest.cc" ]
+  }
 
   if (is_android) {
     sources += [ "android/policy_cache_updater_android_unittest.cc" ]

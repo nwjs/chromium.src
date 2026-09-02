@@ -8,14 +8,20 @@
 #include "base/functional/callback_helpers.h"
 #include "base/no_destructor.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#include "build/build_config.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#if BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/android/tab_android.h"
+#include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "chrome/browser/ui/android/tab_model/tab_model_list.h"
+#else
+#include "chrome/browser/lifetime/application_lifetime_desktop.h"
+#endif  // BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "ui/base/base_window.h"
 
 namespace {
 
@@ -27,6 +33,23 @@ void DestroyOTRProfileWhenAppropriate(base::WeakPtr<Profile> weak_profile) {
         profile, base::Seconds(kDestroyProfileTimeoutSeconds));
   }
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void CloseAndroidTabsForProfile(Profile* profile) {
+  // Closing the last incognito tab can synchronously destroy its TabModel and
+  // remove it from TabModelList. Iterate by reverse index so removing the
+  // current model does not invalidate the remaining traversal.
+  for (size_t model_index = TabModelList::models().size(); model_index > 0;) {
+    TabModel* model = TabModelList::models()[--model_index];
+    for (int tab_index = model->GetTabCount(); tab_index > 0;) {
+      TabAndroid* tab = model->GetTabAt(--tab_index);
+      if (tab && tab->profile() == profile) {
+        model->CloseTabAt(tab_index);
+      }
+    }
+  }
+}
+#endif  // BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -68,11 +91,11 @@ content::BrowserContext* DevToolsBrowserContextManager::CreateBrowserContext() {
   return otr_profile;
 }
 
-std::vector<content::BrowserContext*>
+std::vector<base::WeakPtr<content::BrowserContext>>
 DevToolsBrowserContextManager::GetBrowserContexts() {
-  std::vector<content::BrowserContext*> result;
+  std::vector<base::WeakPtr<content::BrowserContext>> result;
   for (const auto& profile_pair : otr_profiles_)
-    result.push_back(profile_pair.second);
+    result.push_back(profile_pair.second->GetWeakPtr());
   return result;
 }
 
@@ -101,6 +124,13 @@ void DevToolsBrowserContextManager::DisposeBrowserContext(
   }
 
   Profile* profile = it->second;
+#if BUILDFLAG(IS_ANDROID)
+  CloseAndroidTabsForProfile(profile);
+  StopObservingProfileIfAny(profile);
+  DestroyOTRProfileWhenAppropriate(profile->GetWeakPtr());
+  std::move(callback).Run(true, "");
+  return;
+#else
   bool has_opened_browser = false;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [profile,
@@ -127,9 +157,13 @@ void DevToolsBrowserContextManager::DisposeBrowserContext(
 
   pending_context_disposals_[context_id] = std::move(callback);
   chrome::CloseAllBrowsersWithIncognitoProfile(profile);
+#endif  // BUILDFLAG(IS_ANDROID)
 }
 
 void DevToolsBrowserContextManager::OnProfileWillBeDestroyed(Profile* profile) {
+#if BUILDFLAG(IS_ANDROID)
+  CloseAndroidTabsForProfile(profile);
+#else
   // This is likely happening during shutdown. We'll immediately
   // close all browser windows for our profile without unload handling.
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
@@ -139,6 +173,7 @@ void DevToolsBrowserContextManager::OnProfileWillBeDestroyed(Profile* profile) {
         }
         return true;
       });
+#endif  // BUILDFLAG(IS_ANDROID)
 
   StopObservingProfileIfAny(profile);
 }

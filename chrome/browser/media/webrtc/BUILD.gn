@@ -145,6 +145,7 @@ source_set("webrtc") {
     "//chrome/browser/safe_browsing",
     "//chrome/browser/status_icons",
     "//chrome/browser/ui:simple_message_box_headers",
+    "//chrome/browser/ui:tab_modal_confirm_dialog",
     "//chrome/browser/ui:tab_modal_confirm_dialog_delegate",
     "//chrome/browser/ui:ui_features",
     "//chrome/common",
@@ -312,8 +313,6 @@ source_set("webrtc") {
     ]
     allow_circular_includes_from = [
       "//chrome/browser/ash/policy/handlers",
-      "//chrome/browser/ash/profiles",
-      "//chrome/browser/ash/notifications",
       "//chrome/browser/ash/arc/screen_capture",
       "//chrome/browser/ash/policy/uploading",
       "//chrome/browser/ui/ash/keyboard",
@@ -419,6 +418,7 @@ if (!is_android) {
       "//chrome/browser/ui/tab_sharing",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/web_applications:web_applications_test_support",
+      "//chrome/browser/web_applications/isolated_web_apps/test:test_support",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/infobars/content",
@@ -433,6 +433,7 @@ if (!is_android) {
         "capture_handle_app_window_browsertest.cc",
         "get_all_screens_media_browsertest.cc",
         "multi_capture/multi_capture_data_service_browsertest.cc",
+        "multi_capture/multi_capture_iframe_browsertest.cc",
         "multi_capture/multi_capture_session_controller_browsertest.cc",
         "multi_capture/multi_capture_usage_indicator_service_browsertest.cc",
       ]

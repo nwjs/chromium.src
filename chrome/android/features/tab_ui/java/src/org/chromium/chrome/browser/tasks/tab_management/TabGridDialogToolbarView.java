@@ -35,14 +35,13 @@ import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.widget.ButtonCompat;
-import org.chromium.ui.widget.ChromeImageView;
 
 /** Toolbar used in the tab grid dialog see {@link TabGridDialogCoordinator}. */
 @NullMarked
 public class TabGridDialogToolbarView extends FrameLayout {
-    private ChromeImageView mNewTabButton;
-    private ChromeImageView mBackButton;
-    private ChromeImageView mMenuButton;
+    private ImageView mNewTabButton;
+    private ImageView mBackButton;
+    private ImageView mMenuButton;
     private EditText mTitleTextView;
     private LinearLayout mMainContent;
     private FrameLayout mColorIconContainer;
@@ -139,12 +138,9 @@ public class TabGridDialogToolbarView extends FrameLayout {
             // show the keyboard.
             KeyboardVisibilityDelegate delegate = KeyboardVisibilityDelegate.getInstance();
             postDelayed(
-                    new Runnable() {
-                        @Override
-                        public void run() {
-                            assert hasWindowFocus();
-                            delegate.showKeyboard(mTitleTextView);
-                        }
+                    () -> {
+                        assert hasWindowFocus();
+                        delegate.showKeyboard(mTitleTextView);
                     },
                     showKeyboardDelay);
         } else {

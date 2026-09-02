@@ -20,16 +20,19 @@
 namespace mojo {
 
 // static
-bool StructTraits<viz::mojom::MetadataOverrideDataView,
-                  viz::TransferableResource::MetadataOverride>::
+base::expected<void, DeserializationError>
+StructTraits<viz::mojom::MetadataOverrideDataView,
+             viz::TransferableResource::MetadataOverride>::
     Read(viz::mojom::MetadataOverrideDataView data,
          viz::TransferableResource::MetadataOverride* out) {
   out->is_overlay_candidate = data.is_overlay_candidate();
-  if (!data.ReadColorSpace(&out->color_space) ||
-      !data.ReadOrigin(&out->origin) || !data.ReadAlphaType(&out->alpha_type)) {
-    return false;
+  if (!data.ReadColorSpace(&out->color_space)) {
+    return base::unexpected(DeserializationError());
   }
-  return true;
+  if (!data.ReadAlphaType(&out->alpha_type)) {
+    return base::unexpected(DeserializationError());
+  }
+  return base::ok();
 }
 
 // static
@@ -150,27 +153,41 @@ EnumTraits<viz::mojom::ResourceSource,
 }
 
 // static
-bool StructTraits<viz::mojom::TransferableResourceDataView,
-                  viz::TransferableResource>::
-    Read(viz::mojom::TransferableResourceDataView data,
-         viz::TransferableResource* out) {
+base::expected<void, DeserializationError> StructTraits<
+    viz::mojom::TransferableResourceDataView,
+    viz::TransferableResource>::Read(viz::mojom::TransferableResourceDataView
+                                         data,
+                                     viz::TransferableResource* out) {
   viz::ResourceId id;
 
   gpu::SyncToken sync_token;
   gpu::ExportedSharedImage exported_shared_image;
   viz::TransferableResource::MetadataOverride metadata_override;
 
-  if (!data.ReadSharedImage(&exported_shared_image) ||
-      !data.ReadSyncToken(&sync_token) ||
-      !data.ReadMetadataOverride(&metadata_override) ||
-      !data.ReadHdrMetadata(&out->hdr_metadata) || !data.ReadId(&id) ||
-      !data.ReadSynchronizationType(&out->synchronization_type) ||
-      !data.ReadResourceSource(&out->resource_source)) {
-    return false;
+  if (!data.ReadSharedImage(&exported_shared_image)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadSyncToken(&sync_token)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadMetadataOverride(&metadata_override)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadHdrMetadata(&out->hdr_metadata)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadId(&id)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadSynchronizationType(&out->synchronization_type)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadResourceSource(&out->resource_source)) {
+    return base::unexpected(DeserializationError());
   }
 #if BUILDFLAG(IS_ANDROID)
   if (!data.ReadYcbcrInfo(&out->ycbcr_info)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
 #endif
 
@@ -189,7 +206,7 @@ bool StructTraits<viz::mojom::TransferableResourceDataView,
   out->wants_promotion_hint = data.wants_promotion_hint();
 #endif
 
-  return true;
+  return base::ok();
 }
 
 }  // namespace mojo

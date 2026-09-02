@@ -389,7 +389,7 @@ void BaseUIManager::OnBlockingPageDone(
     } else if (web_contents) {
       // |web_contents| doesn't exist if the tab has been closed.
       RemoveAllowlistUrlSet(main_frame_url, resource.navigation_id,
-                            web_contents, true /* from_pending_only */);
+                            web_contents, /*from_pending_only=*/true);
     }
   }
 }
@@ -565,7 +565,8 @@ void BaseUIManager::SendThreatDetails(
 // If HaTS surveys are enabled, then this gets called when the report is ready.
 void BaseUIManager::AttachThreatDetailsAndLaunchSurvey(
     content::BrowserContext* browser_context,
-    std::unique_ptr<ClientSafeBrowsingReportRequest> report) {
+    std::unique_ptr<ClientSafeBrowsingReportRequest> report,
+    bool is_tab_closed) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   return;
 }
@@ -676,6 +677,28 @@ ThreatSeverity BaseUIManager::GetSeverestThreatForRedirectChain(
     }
   }
   return min_severity;
+}
+
+void BaseUIManager::RemoveAllowlistUrlSet(
+    base::PassKey<ChromePasswordProtectionService>,
+    const GURL& allowlist_url,
+    const std::optional<int64_t> navigation_id,
+    WebContents* web_contents,
+    bool from_pending_only) {
+  RemoveAllowlistUrlSet(allowlist_url, navigation_id, web_contents,
+                        from_pending_only);
+}
+
+void BaseUIManager::RemoveAllowlistUrlSetThreatType(
+    base::PassKey<SuspiciousSiteControllerAndroid,
+                  SuspiciousSiteControllerDesktop>,
+    const GURL& allowlist_url,
+    const std::optional<int64_t> navigation_id,
+    WebContents* web_contents,
+    bool from_pending_only,
+    SBThreatType threat_type) {
+  RemoveAllowlistUrlSetThreatType(allowlist_url, navigation_id, web_contents,
+                                  from_pending_only, threat_type);
 }
 
 void BaseUIManager::RemoveAllowlistUrlSet(

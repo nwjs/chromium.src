@@ -240,6 +240,7 @@ struct OsSignalsResponse : BaseSignalResponse {
   // - Linux: utsname.release, e.g 6.12.35-1rodete1-amd64
   // - Mac: <major>.<minor>.<bugfix>, e.g 15.7.0
   // - Android: The major version number, e.g 13
+  // - iOS: <major>.<minor>[.<patch>], e.g 18.2.1
   std::string os_version{};
   device_signals::SettingValue screen_lock_secured =
       device_signals::SettingValue::UNKNOWN;
@@ -261,6 +262,9 @@ struct OsSignalsResponse : BaseSignalResponse {
   // The date when the device most recently applied a security patch, in ms
   // since epoch.
   std::optional<int64_t> security_patch_ms;
+
+  // iOS specific
+  std::optional<std::string> vendor_id = std::nullopt;
 };
 
 struct ProfileSignalsResponse : BaseSignalResponse {

@@ -66,14 +66,7 @@
 #include "chrome/browser/ui/ash/shell_delegate/tab_scrubber.h"
 #include "chrome/browser/ui/ash/user_education/chrome_user_education_delegate.h"
 #include "chrome/browser/ui/ash/wm/coral_delegate_impl.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/chrome_pages.h"
-#include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
-#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/webui/ash/diagnostics_dialog/diagnostics_dialog.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/common/chrome_paths.h"
@@ -531,8 +524,7 @@ void ChromeShellDelegate::ForceSkipWarningUserOnClose(
     ash::BrowserDelegate* browser =
         ash::BrowserController::GetInstance()->GetBrowserForWindow(window);
     if (browser) {
-      UnloadController::From(&browser->GetBrowser())
-          ->set_force_skip_warning_user_on_close(true);
+      browser->SetSkipWarningUserOnClose(true);
     }
   }
 }

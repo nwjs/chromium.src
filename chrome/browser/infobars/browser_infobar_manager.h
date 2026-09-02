@@ -21,6 +21,10 @@
 class BrowserProcess;
 class BrowserWindowInterface;
 
+namespace tabs {
+class TabInterface;
+}
+
 namespace infobars {
 
 class InfoBar;
@@ -42,8 +46,12 @@ class BrowserInfoBarManager : public BrowserCollectionObserver,
   // Registers an InfoBarSpec with the manager.
   void Register(InfoBarSpec spec);
 
-  // Shows the InfoBar with the given identifier for a specific WebContents.
-  void Show(content::WebContents* web_contents,
+  // Returns true if an InfoBarSpec with the given identifier is registered.
+  bool IsRegistered(
+      infobars::InfoBarDelegate::InfoBarIdentifier identifier) const;
+
+  // Shows the InfoBar with the given identifier for a specific Tab.
+  void Show(tabs::TabInterface* tab,
             infobars::InfoBarDelegate::InfoBarIdentifier identifier);
 
   // Shows the InfoBar with the given identifier globally.
@@ -62,11 +70,13 @@ class BrowserInfoBarManager : public BrowserCollectionObserver,
 
  private:
   // Returns the approved priority for an InfoBar.
-  InfoBarPriority GetApprovedPriority(
+  InfoBarDelegate::InfobarPriority GetApprovedPriority(
       infobars::InfoBarDelegate::InfoBarIdentifier identifier);
 
   void OnActiveTabChanged(BrowserWindowInterface* browser);
   bool IsGlobal(infobars::InfoBarDelegate::InfoBarIdentifier identifier);
+  BrowserWindowInterface* FindBrowserWithWebContents(
+      content::WebContents* web_contents);
 
   ui::ScopedUnownedUserData<BrowserInfoBarManager> scoped_unowned_user_data_;
 

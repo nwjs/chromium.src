@@ -13,6 +13,7 @@
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_delegate.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_impl.h"
 #include "chrome/browser/ui/views/frame/layout/browser_view_layout_params.h"
+#include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
@@ -80,9 +81,10 @@ gfx::Rect GetBoundsBetweenExclusionZones(const BrowserLayoutParams& params) {
 
 BrowserViewAppLayoutImpl::BrowserViewAppLayoutImpl(
     std::unique_ptr<BrowserViewLayoutDelegate> delegate,
-    Browser* browser,
-    BrowserViewLayoutViews views)
-    : BrowserViewLayoutImpl(std::move(delegate), browser, std::move(views)) {}
+    BrowserViewLayoutViews views,
+    bool is_web_app)
+    : BrowserViewLayoutImpl(std::move(delegate), std::move(views)),
+      is_web_app_(is_web_app) {}
 
 BrowserViewAppLayoutImpl::~BrowserViewAppLayoutImpl() = default;
 
@@ -115,16 +117,10 @@ gfx::Size BrowserViewAppLayoutImpl::GetMinimumSize(
           : gfx::Size();
   const gfx::Size infobar_container_size =
       views().infobar_container->GetMinimumSize();
-  gfx::Size contents_size = views().contents_container->GetMinimumSize();
+  gfx::Size contents_size = views().multi_contents_view->GetMinimumSize();
 
   // For full PWAs, there is a minimum content width.
-  bool is_web_app = browser() && browser()->is_type_app() &&
-                    web_app::AppBrowserController::IsWebApp(browser());
-#if BUILDFLAG(IS_CHROMEOS)
-  is_web_app = is_web_app &&
-               !web_app::AppBrowserController::From(browser())->system_app();
-#endif
-  if (is_web_app) {
+  if (is_web_app_) {
     contents_size.SetToMax(gfx::Size(kMainBrowserContentsMinimumWidth, 1));
   }
 
@@ -192,11 +188,11 @@ BrowserViewAppLayoutImpl::CalculateProposedLayout(
   }
 
   // Lay out contents container.
-  CHECK(
-      IsParentedToAndVisible(views().contents_container, views().browser_view));
+  CHECK(IsParentedToAndVisible(views().multi_contents_view,
+                               views().browser_view));
   gfx::Rect contents_bounds = params.visual_client_area;
   contents_bounds.set_height(std::max(contents_bounds.height(), 1));
-  layout.AddChild(views().contents_container, contents_bounds);
+  layout.AddChild(views().multi_contents_view, contents_bounds);
 
   // If certain views were not laid out, make sure they're hidden to avoid
   // visual artifacts.

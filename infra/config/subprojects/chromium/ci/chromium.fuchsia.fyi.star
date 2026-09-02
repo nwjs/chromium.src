@@ -82,7 +82,7 @@ ci.builder(
         mixins = [
             "arm64",
             "docker",
-            "linux-jammy",
+            "linux-ubuntu",
         ],
         per_test_modifications = {
             "blink_web_tests": targets.remove(
@@ -198,6 +198,7 @@ ci.builder(
         # forces use of the passthrough decoder even if validating is specified.
         targets = "fuchsia_standard_passthrough_tests",
         mixins = [
+            "fuchsia-orchestrate",
             "linux-jammy",
             targets.mixin(
                 swarming = targets.swarming(
@@ -459,6 +460,7 @@ ci.builder(
         ],
         mixins = [
             "fuchsia-large-device-spec",
+            "fuchsia-orchestrate",
             "isolate_profile_data",
             "linux-jammy",
             targets.mixin(

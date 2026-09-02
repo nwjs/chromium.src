@@ -142,6 +142,10 @@ class MockSessionControllerDelegate : public SessionControllerDelegate {
   MockSessionControllerDelegate();
   ~MockSessionControllerDelegate() override;
 
+  MOCK_METHOD(content::BrowserContext*,
+              GetBrowserContext,
+              (),
+              (const, override));
   MOCK_METHOD(std::unique_ptr<StreamProvider>,
               CreateStreamProvider,
               (SessionController & controller),
@@ -164,7 +168,7 @@ class MockDictationKeyedService : public DictationKeyedService {
   std::unique_ptr<SessionUi> CreateUi(
       SessionController& controller) const override;
 
-  MOCK_METHOD(void, OnDictationHotkeyPressed, (), (override));
+  MOCK_METHOD(void, ToggleHotkeyHandler, (), (override));
 };
 
 }  // namespace dictation

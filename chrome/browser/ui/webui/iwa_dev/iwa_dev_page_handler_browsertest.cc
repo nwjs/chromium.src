@@ -8,6 +8,7 @@
 #include <string_view>
 #include <vector>
 
+#include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/browser.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/ui/webui/iwa_dev/iwa_dev_ui.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
+#include "chrome/browser/web_applications/isolated_web_apps/update_manifest/update_manifest_fetcher.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
@@ -25,12 +27,16 @@
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/web_package/test_support/signed_web_bundles/web_bundle_signer.h"
 #include "components/webapps/isolated_web_apps/types/update_channel.h"
 #include "content/public/test/browser_test.h"
-#include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/extension_dialog_auto_confirm.h"
+#include "mojo/public/mojom/base/empty.mojom.h"
+#include "mojo/public/mojom/base/error.mojom.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/shell_dialogs/fake_select_file_dialog.h"
+#include "ui/shell_dialogs/select_file_dialog.h"
 
 namespace {
 
@@ -100,6 +106,11 @@ class IwaDevHandlerBrowserTest
         ui_test_utils::NavigateToURL(browser(), GURL("chrome://iwa-dev")));
   }
 
+  void TearDownOnMainThread() override {
+    ui::SelectFileDialog::SetFactory(nullptr);
+    web_app::IsolatedWebAppBrowserTestHarness::TearDownOnMainThread();
+  }
+
   web_app::IsolatedWebAppUrlInfo InstallProxyApp() {
     server_ =
         CreateAndStartServer(FILE_PATH_LITERAL("web_apps/simple_isolated_app"));
@@ -159,12 +170,106 @@ class IwaDevHandlerBrowserTest
     return future.Get();
   }
 
-  web_app::IsolatedWebAppUrlInfo InstallBundle(std::string_view name,
-                                               std::string_view version) {
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+  CallInstallAppFromDevProxy(const GURL& url) {
+    base::test::TestFuture<
+        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->InstallAppFromDevProxy(url, future.GetCallback());
+    return future.Take();
+  }
+
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+  CallSelectAndInstallAppFromLocalWebBundle(
+      std::optional<base::FilePath> path) {
+    ui::FakeSelectFileDialog::Factory* factory =
+        ui::FakeSelectFileDialog::RegisterFactory();
+
+    base::test::TestFuture<void> dialog_opened_future;
+    factory->SetOpenCallback(dialog_opened_future.GetRepeatingCallback());
+
+    base::test::TestFuture<
+        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->SelectAndInstallAppFromLocalWebBundle(future.GetCallback());
+
+    if (!dialog_opened_future.Wait()) {
+      ADD_FAILURE() << "Timed out waiting for file dialog to open.";
+      return base::unexpected(mojo_base::mojom::Error::New(
+          mojo_base::mojom::Code::kInvalidArgument,
+          "Timed out waiting for file dialog to open."));
+    }
+
+    ui::FakeSelectFileDialog* fake_dialog = factory->GetLastDialog();
+    if (!fake_dialog) {
+      ADD_FAILURE() << "fake_dialog is nullptr.";
+      return base::unexpected(mojo_base::mojom::Error::New(
+          mojo_base::mojom::Code::kInvalidArgument, "fake_dialog is nullptr."));
+    }
+    if (path.has_value()) {
+      EXPECT_TRUE(fake_dialog->CallFileSelected(*path, "swbn"));
+    } else {
+      fake_dialog->CallFileSelectionCanceled();
+    }
+
+    return future.Take();
+  }
+
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+  CallSelectAndUpdateAppFromLocalWebBundle(const std::string& app_id,
+                                           std::optional<base::FilePath> path) {
+    ui::FakeSelectFileDialog::Factory* factory =
+        ui::FakeSelectFileDialog::RegisterFactory();
+
+    base::test::TestFuture<void> dialog_opened_future;
+    factory->SetOpenCallback(dialog_opened_future.GetRepeatingCallback());
+
+    base::test::TestFuture<
+        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->SelectAndUpdateAppFromLocalWebBundle(app_id,
+                                                       future.GetCallback());
+
+    if (!dialog_opened_future.Wait()) {
+      ADD_FAILURE() << "Timed out waiting for file dialog to open.";
+      return base::unexpected(mojo_base::mojom::Error::New(
+          mojo_base::mojom::Code::kInvalidArgument,
+          "Timed out waiting for file dialog to open."));
+    }
+
+    ui::FakeSelectFileDialog* fake_dialog = factory->GetLastDialog();
+    if (!fake_dialog) {
+      ADD_FAILURE() << "fake_dialog is nullptr.";
+      return base::unexpected(mojo_base::mojom::Error::New(
+          mojo_base::mojom::Code::kInvalidArgument, "fake_dialog is nullptr."));
+    }
+    if (path.has_value()) {
+      EXPECT_TRUE(fake_dialog->CallFileSelected(*path, "swbn"));
+    } else {
+      fake_dialog->CallFileSelectionCanceled();
+    }
+
+    return future.Take();
+  }
+
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+  CallUpdateDevProxyInstalledApp(const std::string& app_id) {
+    base::test::TestFuture<
+        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->UpdateDevProxyInstalledApp(app_id, future.GetCallback());
+    return future.Take();
+  }
+
+  web_app::IsolatedWebAppUrlInfo InstallBundle(
+      std::string_view name,
+      std::string_view version,
+      const web_package::test::Ed25519KeyPair& key_pair =
+          web_package::test::Ed25519KeyPair::CreateRandom()) {
     std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app =
         web_app::IsolatedWebAppBuilder(
             web_app::ManifestBuilder().SetName(name).SetVersion(version))
-            .BuildBundle();
+            .BuildBundle(key_pair);
     auto result = app->InstallWithSource(
         profile(), &web_app::IsolatedWebAppInstallSource::FromDevUi);
     CHECK(result.has_value()) << result.error();
@@ -198,6 +303,146 @@ IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       InstallAppFromDevProxy_Success) {
+  auto server =
+      CreateAndStartServer(FILE_PATH_LITERAL("web_apps/simple_isolated_app"));
+
+  auto result = CallInstallAppFromDevProxy(server->GetURL("/"));
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->name, kProxyAppName);
+  ASSERT_TRUE(apps[0]->source->is_proxy_origin());
+  EXPECT_EQ(apps[0]->source->get_proxy_origin(), server->GetOrigin());
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       InstallAppFromDevProxy_Error_NonOriginUrl) {
+  auto server =
+      CreateAndStartServer(FILE_PATH_LITERAL("web_apps/simple_isolated_app"));
+
+  auto result = CallInstallAppFromDevProxy(server->GetURL("/invalid_path"));
+
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error()->message,
+              testing::HasSubstr("Non-origin URL provided"));
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       InstallAppFromDevProxy_Error_MissingManifest) {
+  // Point to a directory that does not contain a valid IWA manifest.
+  auto empty_server =
+      CreateAndStartServer(FILE_PATH_LITERAL("web_apps/empty_dir"));
+
+  auto result = CallInstallAppFromDevProxy(empty_server->GetURL("/"));
+
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error()->message,
+              testing::HasSubstr(
+                  "App is not installable: The manifest could not be fetched"));
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       UpdateDevProxyInstalledApp_Error_SameVersion) {
+  auto proxy_app = InstallProxyApp();
+
+  auto result = CallUpdateDevProxyInstalledApp(proxy_app.app_id());
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error()->message,
+              testing::HasSubstr("Installed app is already on version 1.0.0."));
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       UpdateDevProxyInstalledApp_Error_AppNotInstalled) {
+  auto result = CallUpdateDevProxyInstalledApp("invalid_app_id");
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "App not found.");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       SelectAndInstallAppFromLocalWebBundle_Success) {
+  std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app =
+      web_app::IsolatedWebAppBuilder(web_app::ManifestBuilder()
+                                         .SetName(kLocalBundleName)
+                                         .SetVersion(kAppBaseVersion))
+          .BuildBundle(web_package::test::Ed25519KeyPair::CreateRandom());
+
+  auto result = CallSelectAndInstallAppFromLocalWebBundle(app->path());
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->name, kLocalBundleName);
+  ASSERT_TRUE(apps[0]->source->is_bundle_path());
+  ExpectBundleInstalledAtTruncatedPath(apps[0]->source->get_bundle_path());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    IwaDevHandlerBrowserTest,
+    SelectAndInstallAppFromLocalWebBundle_Error_NoFileSelected) {
+  auto result = CallSelectAndInstallAppFromLocalWebBundle(std::nullopt);
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "No file selected");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
+                       SelectAndUpdateAppFromLocalWebBundle_Success) {
+  web_package::test::Ed25519KeyPair key_pair =
+      web_package::test::Ed25519KeyPair::CreateRandom();
+  std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app =
+      web_app::IsolatedWebAppBuilder(web_app::ManifestBuilder()
+                                         .SetName(kLocalBundleName)
+                                         .SetVersion(kAppBaseVersion))
+          .BuildBundle(key_pair);
+  auto install_result = app->InstallWithSource(
+      profile(), &web_app::IsolatedWebAppInstallSource::FromDevUi);
+  ASSERT_TRUE(install_result.has_value());
+
+  std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> updated_app =
+      web_app::IsolatedWebAppBuilder(web_app::ManifestBuilder()
+                                         .SetName(kLocalBundleName)
+                                         .SetVersion("2.0.0"))
+          .BuildBundle(key_pair);
+
+  auto result = CallSelectAndUpdateAppFromLocalWebBundle(
+      install_result->app_id(), updated_app->path());
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->name, kLocalBundleName);
+  EXPECT_EQ(apps[0]->installed_version, "2.0.0");
+  ASSERT_TRUE(apps[0]->source->is_bundle_path());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    IwaDevHandlerBrowserTest,
+    SelectAndUpdateAppFromLocalWebBundle_Error_NoFileSelected) {
+  web_app::IsolatedWebAppUrlInfo app = InstallBundleApp();
+
+  auto result =
+      CallSelectAndUpdateAppFromLocalWebBundle(app.app_id(), std::nullopt);
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "No file selected");
+}
+
+IN_PROC_BROWSER_TEST_F(
+    IwaDevHandlerBrowserTest,
+    SelectAndUpdateAppFromLocalWebBundle_Error_AppNotInstalled) {
+  std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> app =
+      web_app::IsolatedWebAppBuilder(web_app::ManifestBuilder()
+                                         .SetName(kLocalBundleName)
+                                         .SetVersion(kAppBaseVersion))
+          .BuildBundle(web_package::test::Ed25519KeyPair::CreateRandom());
+
+  auto result =
+      CallSelectAndUpdateAppFromLocalWebBundle("invalid_app_id", app->path());
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "App not found.");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
                        GetInstalledAppsInfo_LocalBundleApp) {
   web_app::IsolatedWebAppUrlInfo app = InstallBundleApp();
 
@@ -227,6 +472,364 @@ IN_PROC_BROWSER_TEST_F(IwaDevHandlerBrowserTest,
   const auto& update_info = app_info->source->get_update_info();
   EXPECT_EQ(update_info->update_manifest_url, GURL(kUpdateManifestUrl));
   EXPECT_EQ(update_info->update_channel, "default");
+}
+
+class IwaDevHandlerUpdateManifestBrowserTest : public IwaDevHandlerBrowserTest {
+ public:
+  // Builds a BasicHttpResponse with the given status code, content, and content
+  // type.
+  static std::unique_ptr<net::test_server::HttpResponse> BuildResponse(
+      net::HttpStatusCode status,
+      std::optional<std::string> content = std::nullopt,
+      std::optional<std::string> content_type = std::nullopt) {
+    auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+    response->set_code(status);
+    if (content_type) {
+      response->set_content_type(*content_type);
+    }
+    if (content) {
+      response->set_content(*content);
+    }
+    return response;
+  }
+
+  // Starts an EmbeddedTestServer that responds to requests matching `path`
+  // using `response_builder`.
+  std::unique_ptr<net::EmbeddedTestServer> StartServerForPath(
+      std::string_view path,
+      base::RepeatingCallback<std::unique_ptr<net::test_server::HttpResponse>()>
+          response_builder) {
+    auto server = std::make_unique<net::EmbeddedTestServer>();
+    server->RegisterRequestHandler(base::BindRepeating(
+        [](std::string target_path,
+           base::RepeatingCallback<
+               std::unique_ptr<net::test_server::HttpResponse>()> builder,
+           const net::test_server::HttpRequest& request)
+            -> std::unique_ptr<net::test_server::HttpResponse> {
+          if (request.GetURL().path() == target_path) {
+            return builder.Run();
+          }
+          return nullptr;
+        },
+        std::string(path), response_builder));
+    EXPECT_TRUE(server->Start());
+    return server;
+  }
+
+  std::unique_ptr<net::EmbeddedTestServer> ServeData(
+      std::string_view path,
+      std::string_view content,
+      std::optional<std::string> content_type = std::nullopt) {
+    return StartServerForPath(
+        path, base::BindRepeating(&BuildResponse, net::HTTP_OK,
+                                  std::make_optional<std::string>(content),
+                                  content_type));
+  }
+
+  std::unique_ptr<net::EmbeddedTestServer> ServeJson(
+      std::string_view path,
+      std::string_view json_content) {
+    return ServeData(path, json_content, "application/json");
+  }
+
+  std::unique_ptr<net::EmbeddedTestServer> BuildAndServeBundle(
+      const std::string& version = kAppBaseVersion,
+      const web_package::test::Ed25519KeyPair& key_pair =
+          web_package::test::Ed25519KeyPair::CreateRandom()) {
+    std::unique_ptr<web_app::ScopedBundledIsolatedWebApp> bundle =
+        web_app::IsolatedWebAppBuilder(web_app::ManifestBuilder()
+                                           .SetName(kManifestAppName)
+                                           .SetVersion(version))
+            .BuildBundle(key_pair);
+    return ServeData("/app.swbn", bundle->GetBundleData());
+  }
+
+  std::unique_ptr<net::EmbeddedTestServer> ServeUpdateManifest(
+      const std::string& version,
+      const GURL& bundle_url) {
+    return ServeJson(
+        "/update_manifest.json",
+        base::StringPrintf(R"({
+      "versions": [
+        {
+          "version": "%s",
+          "src": "%s"
+        }
+      ]
+    })",
+                           version.c_str(), bundle_url.spec().c_str()));
+  }
+
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+  CallInstallAppFromUpdateManifest(const GURL& web_bundle_url,
+                                   iwa_dev::mojom::UpdateInfoPtr update_info) {
+    base::test::TestFuture<
+        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->InstallAppFromUpdateManifest(
+        web_bundle_url, std::move(update_info), future.GetCallback());
+    return future.Take();
+  }
+
+  base::expected<iwa_dev::mojom::UpdateManifestPtr, mojo_base::mojom::ErrorPtr>
+  CallParseUpdateManifestFromUrl(const GURL& url) {
+    base::test::TestFuture<base::expected<iwa_dev::mojom::UpdateManifestPtr,
+                                          mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->ParseUpdateManifestFromUrl(url, future.GetCallback());
+    return future.Take();
+  }
+
+  base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
+  CallUpdateManifestInstalledApp(const std::string& app_id) {
+    base::test::TestFuture<
+        base::expected<std::monostate, mojo_base::mojom::ErrorPtr>>
+        future;
+    GetHandler()->UpdateManifestInstalledApp(app_id, future.GetCallback());
+    return future.Take();
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       ParseUpdateManifestFromUrlWithoutChannels_Success) {
+  auto server = ServeJson("/update_manifest.json", R"({
+    "versions": [
+      {
+        "version": "1.0.0",
+        "src": "https://example.com/app.swbn"
+      }
+    ]
+  })");
+
+  auto result =
+      CallParseUpdateManifestFromUrl(server->GetURL("/update_manifest.json"));
+  ASSERT_TRUE(result.has_value());
+  const auto& manifest = *result;
+  ASSERT_EQ(manifest->versions.size(), 1u);
+  EXPECT_EQ(manifest->versions[0]->version, "1.0.0");
+  EXPECT_EQ(manifest->versions[0]->src, GURL("https://example.com/app.swbn"));
+  EXPECT_THAT(manifest->versions[0]->channels, testing::ElementsAre("default"));
+
+  ASSERT_EQ(manifest->channels.size(), 1u);
+  EXPECT_EQ(manifest->channels[0]->channel, "default");
+  EXPECT_EQ(manifest->channels[0]->display_name, "default");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       ParseUpdateManifestFromUrlWithChannels_Success) {
+  auto server = ServeJson("/update_manifest.json", R"({
+    "channels": {
+      "beta": { "name": "Beta Channel" }
+    },
+    "versions": [
+      {
+        "version": "1.0.0",
+        "src": "https://example.com/app.swbn",
+        "channels": ["beta"]
+      }
+    ]
+  })");
+
+  auto result =
+      CallParseUpdateManifestFromUrl(server->GetURL("/update_manifest.json"));
+  ASSERT_TRUE(result.has_value());
+  const auto& manifest = *result;
+
+  ASSERT_EQ(manifest->versions.size(), 1u);
+  EXPECT_THAT(manifest->versions[0]->channels, testing::ElementsAre("beta"));
+
+  ASSERT_EQ(manifest->channels.size(), 1u);
+  EXPECT_EQ(manifest->channels[0]->channel, "beta");
+  EXPECT_EQ(manifest->channels[0]->display_name, "Beta Channel");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       ParseUpdateManifestFromUrl_Error_DownloadFailed) {
+  auto result =
+      CallParseUpdateManifestFromUrl(GURL("https://127.0.0.1:0/missing.json"));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error()->message,
+              testing::HasSubstr(web_app::UpdateManifestFetcher::ErrorToString(
+                  web_app::UpdateManifestFetcher::Error::kDownloadFailed)));
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       ParseUpdateManifestFromUrl_Error_InvalidJson) {
+  auto server = ServeJson("/invalid.json", "invalid json content {{{");
+
+  auto result = CallParseUpdateManifestFromUrl(server->GetURL("/invalid.json"));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error()->message,
+              testing::HasSubstr(web_app::UpdateManifestFetcher::ErrorToString(
+                  web_app::UpdateManifestFetcher::Error::kInvalidJson)));
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       ParseUpdateManifestFromUrl_Error_InvalidManifestSchema) {
+  auto server = ServeJson("/invalid_manifest.json", R"({ "invalid": true })");
+
+  auto result =
+      CallParseUpdateManifestFromUrl(server->GetURL("/invalid_manifest.json"));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(result.error()->message,
+              testing::HasSubstr(web_app::UpdateManifestFetcher::ErrorToString(
+                  web_app::UpdateManifestFetcher::Error::kInvalidManifest)));
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       InstallAppFromUpdateManifest_Success) {
+  auto server = BuildAndServeBundle();
+
+  auto update_info =
+      iwa_dev::mojom::UpdateInfo::New(GURL(kUpdateManifestUrl), "default");
+  auto result = CallInstallAppFromUpdateManifest(server->GetURL("/app.swbn"),
+                                                 std::move(update_info));
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->name, kManifestAppName);
+  ASSERT_TRUE(apps[0]->source->is_update_info());
+  const auto& installed_update_info = apps[0]->source->get_update_info();
+  EXPECT_EQ(installed_update_info->update_manifest_url,
+            GURL(kUpdateManifestUrl));
+  EXPECT_EQ(installed_update_info->update_channel, "default");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       InstallAppFromUpdateManifestCustomChannel_Success) {
+  auto server = BuildAndServeBundle();
+
+  auto update_info =
+      iwa_dev::mojom::UpdateInfo::New(GURL(kUpdateManifestUrl), "beta");
+  auto result = CallInstallAppFromUpdateManifest(server->GetURL("/app.swbn"),
+                                                 std::move(update_info));
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->name, kManifestAppName);
+  ASSERT_TRUE(apps[0]->source->is_update_info());
+  const auto& installed_update_info = apps[0]->source->get_update_info();
+  EXPECT_EQ(installed_update_info->update_manifest_url,
+            GURL(kUpdateManifestUrl));
+  EXPECT_EQ(installed_update_info->update_channel, "beta");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       InstallAppFromUpdateManifest_NonHttpUrlScheme) {
+  // Non-HTTP/HTTPS bundle URL
+  auto update_info1 = iwa_dev::mojom::UpdateInfo::New(
+      GURL("https://example.com/update.json"), "default");
+  auto result1 = CallInstallAppFromUpdateManifest(GURL("chrome://settings"),
+                                                  std::move(update_info1));
+  ASSERT_FALSE(result1.has_value());
+  EXPECT_EQ(result1.error()->message, "Invalid Web Bundle URL provided.");
+  EXPECT_TRUE(GetInstalledAppsInfo().empty());
+
+  // Non-HTTP/HTTPS manifest URL
+  auto update_info2 =
+      iwa_dev::mojom::UpdateInfo::New(GURL("chrome://settings"), "default");
+  auto result2 = CallInstallAppFromUpdateManifest(
+      GURL("https://example.com/app.swbn"), std::move(update_info2));
+  ASSERT_FALSE(result2.has_value());
+  EXPECT_EQ(result2.error()->message, "Invalid Update Manifest URL provided.");
+  EXPECT_TRUE(GetInstalledAppsInfo().empty());
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       InstallAppFromUpdateManifest_InvalidUpdateChannel) {
+  auto server = BuildAndServeBundle();
+
+  auto update_info =
+      iwa_dev::mojom::UpdateInfo::New(GURL(kUpdateManifestUrl), "");
+  auto result = CallInstallAppFromUpdateManifest(server->GetURL("/app.swbn"),
+                                                 std::move(update_info));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "Invalid update channel provided.");
+  EXPECT_TRUE(GetInstalledAppsInfo().empty());
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       InstallAppFromUpdateManifest_BundleDownloadError) {
+  auto update_info =
+      iwa_dev::mojom::UpdateInfo::New(GURL(kUpdateManifestUrl), "default");
+  auto result = CallInstallAppFromUpdateManifest(
+      GURL("https://127.0.0.1:0/missing.swbn"), std::move(update_info));
+  ASSERT_FALSE(result.has_value());
+  EXPECT_THAT(
+      result.error()->message,
+      testing::HasSubstr("Network error while downloading bundle file"));
+  EXPECT_TRUE(GetInstalledAppsInfo().empty());
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       UpdateManifestInstalledApp_Success) {
+  web_package::test::Ed25519KeyPair key_pair =
+      web_package::test::Ed25519KeyPair::CreateRandom();
+  web_app::IsolatedWebAppUrlInfo app =
+      InstallBundle(kManifestAppName, kAppBaseVersion, key_pair);
+
+  auto bundle_server = BuildAndServeBundle("2.0.0", key_pair);
+  auto manifest_server =
+      ServeUpdateManifest("2.0.0", bundle_server->GetURL("/app.swbn"));
+  SetUpdateInfo(app.app_id(), manifest_server->GetURL("/update_manifest.json"));
+
+  auto result = CallUpdateManifestInstalledApp(app.app_id());
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->installed_version, "2.0.0");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       UpdateManifestInstalledApp_AlreadyPending) {
+  web_package::test::Ed25519KeyPair key_pair =
+      web_package::test::Ed25519KeyPair::CreateRandom();
+  web_app::IsolatedWebAppUrlInfo app =
+      InstallBundle(kManifestAppName, kAppBaseVersion, key_pair);
+
+  auto bundle_server = BuildAndServeBundle("2.0.0", key_pair);
+  auto manifest_server =
+      ServeUpdateManifest("2.0.0", bundle_server->GetURL("/app.swbn"));
+  SetUpdateInfo(app.app_id(), manifest_server->GetURL("/update_manifest.json"));
+
+  provider().isolated_web_app_update_manager().DiscoverAndPrepareUpdatesNow();
+
+  auto result = CallUpdateManifestInstalledApp(app.app_id());
+  EXPECT_TRUE(result.has_value());
+
+  auto apps = GetInstalledAppsInfo();
+  ASSERT_EQ(apps.size(), 1u);
+  EXPECT_EQ(apps[0]->installed_version, "2.0.0");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       UpdateManifestInstalledApp_NoUpdateAvailable) {
+  web_app::IsolatedWebAppUrlInfo app = InstallUpdateManifestApp();
+
+  auto manifest_server = ServeJson("/update_manifest.json", R"({
+    "versions": [
+      {
+        "version": "1.0.0",
+        "src": "https://example.com/app.swbn"
+      }
+    ]
+  })");
+
+  SetUpdateInfo(app.app_id(), manifest_server->GetURL("/update_manifest.json"));
+
+  auto result = CallUpdateManifestInstalledApp(app.app_id());
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "App is already on the latest version.");
+}
+
+IN_PROC_BROWSER_TEST_F(IwaDevHandlerUpdateManifestBrowserTest,
+                       UpdateManifestInstalledApp_Error_AppNotInstalled) {
+  auto result = CallUpdateManifestInstalledApp("invalid_app_id");
+  ASSERT_FALSE(result.has_value());
+  EXPECT_EQ(result.error()->message, "App not found.");
 }
 
 class IwaDevHandlerObserverBrowserTest : public IwaDevHandlerBrowserTest {

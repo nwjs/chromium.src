@@ -725,7 +725,7 @@ void AppInstallControllerImpl::InstallComplete(UpdateService::Result result) {
     UpdateService::UpdateState update_state;
     update_state.app_id = app_id_;
     update_state.state = UpdateService::UpdateState::State::kUpdateError;
-    update_state.error_code = static_cast<int>(result);
+    update_state.error_code = std::to_underlying(result);
     update_state.error_category = [result] {
       switch (result) {
         case UpdateService::Result::kUpdateCheckFailed:
@@ -869,11 +869,11 @@ void AppInstallControllerImpl::LoadLogo(const std::string& app_id,
     return;
   }
 
-  if (::PostMessage(progress_hwnd, ui::WM_SET_APP_LOGO,
-                    reinterpret_cast<WPARAM>(standalone_bitmap.get()), 0)) {
-    static_cast<void>(standalone_bitmap.release());
-  } else {
+  const HBITMAP bitmap_handle = standalone_bitmap.release();
+  if (!::PostMessage(progress_hwnd, ui::WM_SET_APP_LOGO,
+                     reinterpret_cast<WPARAM>(bitmap_handle), 0)) {
     VLOG(1) << __func__ << "::PostMessage failed";
+    ::DeleteObject(bitmap_handle);
   }
 }
 

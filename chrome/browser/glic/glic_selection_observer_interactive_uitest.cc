@@ -3,9 +3,9 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/glic/glic_selection_observer.h"
+
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"

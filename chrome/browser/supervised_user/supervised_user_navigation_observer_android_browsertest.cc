@@ -50,19 +50,11 @@ using ::testing::_;
 struct TestCase {
   std::string test_label;
   bool start_with_family_link_enabled;
-  bool merge_device_parental_controls_and_family_link_prefs;
 };
 
-// Test case where the system has Family Link parental controls enabled but
-// won't merge with device parental controls is impossible: in this
-// configuration both systems are mutually exclusive and Device Parental
-// Controls will be ignored.
 TestCase kTestCases[] = {
-    {"StartWithFamilyLinkEnabled_MergeWithDeviceParentalControls", true, true},
-    {"StartWithFamilyLinkDisabled_MergeWithDeviceParentalControls", false,
-     true},
-    {"StartWithFamilyLinkDisabled_DoNotMergeWithDeviceParentalControls", false,
-     false},
+    {"StartWithFamilyLinkEnabled", true},
+    {"StartWithFamilyLinkDisabled", false},
 };
 
 // Covers extra behaviors available only in Clank (Android). See supervised
@@ -71,24 +63,15 @@ TestCase kTestCases[] = {
 // kSupervisedUserUseUrlFilteringService, which should be neutral in any setting
 // to this test.
 class SupervisedUserNavigationObserverAndroidBrowserTest
-    : public WithFeatureOverrideAndParamInterface<TestCase>,
-      public SupervisedUserBrowserTestBase {
+    : public SupervisedUserBrowserTestBase,
+      public testing::WithParamInterface<TestCase> {
  protected:
-  SupervisedUserNavigationObserverAndroidBrowserTest()
-      : WithFeatureOverrideAndParamInterface<TestCase>(
-            kSupervisedUserUseUrlFilteringService) {
+  SupervisedUserNavigationObserverAndroidBrowserTest() {
 #if BUILDFLAG(IS_ANDROID)
     // On Android, we disable the feature that automatically scales web content
     // because it is not meaningful and would change expected values.
-    scoped_feature_list_.InitWithFeatureStates(
-        {{kSupervisedUserMergeDeviceParentalControlsAndFamilyLinkPrefs,
-          GetTestCase().merge_device_parental_controls_and_family_link_prefs},
-         { features::kAndroidDesktopZoomScaling,
-           false }});
-#else
     scoped_feature_list_.InitWithFeatureState(
-        kSupervisedUserMergeDeviceParentalControlsAndFamilyLinkPrefs,
-        GetTestCase().merge_device_parental_controls_and_family_link_prefs);
+        features::kAndroidDesktopZoomScaling, false);
 #endif  // BUILDFLAG(IS_ANDROID)
   }
 
@@ -116,7 +99,7 @@ class SupervisedUserNavigationObserverAndroidBrowserTest
         }));
     ASSERT_TRUE(embedded_test_server()->Start());
 
-    if (GetTestCase().start_with_family_link_enabled) {
+    if (GetParam().start_with_family_link_enabled) {
       // For Family Link users, we need to do a few tweaks:
       // 1. Set the URL classification to "allow all" mode so that the system
       // won't try to classify google.com (blocking the navigation).
@@ -178,11 +161,10 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserNavigationObserverAndroidBrowserTest,
 // supervised user pref store by device parental controls.
 IN_PROC_BROWSER_TEST_P(SupervisedUserNavigationObserverAndroidBrowserTest,
                        InactiveSupervisedUserSettingsCantVetoSafeSearch) {
-  if (GetTestCase().merge_device_parental_controls_and_family_link_prefs &&
-      GetTestCase().start_with_family_link_enabled) {
+  if (GetParam().start_with_family_link_enabled) {
     GTEST_SKIP() << "This test specifically tests what happens when the Family "
                     "Link parental controls are enabled after Device Parental "
-                    "Controls were set; and there's no merging of settings.";
+                    "Controls were set.";
   }
 
   GetDeviceParentalControls().SetSearchContentFiltersEnabledForTesting(true);
@@ -252,14 +234,10 @@ IN_PROC_BROWSER_TEST_P(SupervisedUserNavigationObserverAndroidBrowserTest,
 INSTANTIATE_TEST_SUITE_P(
     ,
     SupervisedUserNavigationObserverAndroidBrowserTest,
-    testing::Combine(testing::Bool(), testing::ValuesIn(kTestCases)),
+    testing::ValuesIn(kTestCases),
     [](const testing::TestParamInfo<
         SupervisedUserNavigationObserverAndroidBrowserTest::ParamType>& info) {
-      bool feature_enabled = std::get<0>(info.param);
-      TestCase test_case = std::get<1>(info.param);
-      return base::StrCat({feature_enabled ? "With" : "Without",
-                           kSupervisedUserUseUrlFilteringService.name, "_",
-                           test_case.test_label});
+      return info.param.test_label;
     });
 
 // Tests if no-approval interstitial is shown when the browser content filter
@@ -286,8 +264,7 @@ class SupervisedUserNavigationObserverNoApprovalsInterstitialAndroidBrowserTest
     // On Android, we disable the feature that automatically scales web content
     // because it is not meaningful and would change expected values.
     scoped_feature_list_.InitWithFeatureStates(
-        {{ features::kAndroidDesktopZoomScaling,
-           false }});
+        {{features::kAndroidDesktopZoomScaling, false}});
 #endif  // BUILDFLAG(IS_ANDROID)
   }
 
@@ -439,26 +416,16 @@ IN_PROC_BROWSER_TEST_P(
 // or Device Parental Controls interstitial (depending on which system blocked
 // the navigation).
 TestCase kTestCasesNoApprovalsInterstitial[] = {
-    {"StartWithFamilyLinkDisabled_MergeWithDeviceParentalControls", false,
-     true},
-    {"StartWithFamilyLinkDisabled_DoNotMergeWithDeviceParentalControls", false,
-     false},
+    {"StartWithFamilyLinkDisabled", false},
 };
 
 INSTANTIATE_TEST_SUITE_P(
     ,
     SupervisedUserNavigationObserverNoApprovalsInterstitialAndroidBrowserTest,
-    testing::Combine(testing::Bool(),
-                     testing::ValuesIn(kTestCasesNoApprovalsInterstitial)),
+    testing::ValuesIn(kTestCasesNoApprovalsInterstitial),
     [](const testing::TestParamInfo<
         SupervisedUserNavigationObserverNoApprovalsInterstitialAndroidBrowserTest::
-            ParamType>& info) {
-      bool feature_enabled = std::get<0>(info.param);
-      TestCase test_case = std::get<1>(info.param);
-      return base::StrCat({feature_enabled ? "With" : "Without",
-                           kSupervisedUserUseUrlFilteringService.name, "_",
-                           test_case.test_label});
-    });
+            ParamType>& info) { return info.param.test_label; });
 
 }  // namespace
 }  // namespace supervised_user

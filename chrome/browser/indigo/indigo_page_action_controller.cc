@@ -131,21 +131,38 @@ void RecordTransformationResultCannotGenerateImage(
   base::UmaHistogramEnumeration("Indigo.Transformation.Result", result);
 }
 
-void RecordInvokeEntryPointMetrics(EntryPoint entry_point) {
+void RecordInvokeEntryPointMetrics(
+    EntryPoint entry_point,
+    std::optional<page_actions::PageActionPriorityCategory>
+        last_anchored_message_priority) {
   switch (entry_point) {
     case EntryPoint::kSuggestionChip:
-      base::RecordAction(base::UserMetricsAction("Indigo.PageAction.Click"));
       base::RecordAction(
           base::UserMetricsAction("Indigo.PageAction.SuggestionChip.Click"));
+      base::UmaHistogramEnumeration(
+          "Indigo.PageAction.ClickedEntryPoint",
+          IndigoPageActionEntryPoint::kSuggestionChip);
       break;
     case EntryPoint::kAnchoredMessage:
-      base::RecordAction(base::UserMetricsAction("Indigo.PageAction.Click"));
       base::RecordAction(
           base::UserMetricsAction("Indigo.PageAction.AnchoredMessage.Click"));
+      if (last_anchored_message_priority ==
+          page_actions::PageActionPriorityCategory::kContextualCue) {
+        base::UmaHistogramEnumeration(
+            "Indigo.PageAction.ClickedEntryPoint",
+            IndigoPageActionEntryPoint::kProactiveAnchoredMessage);
+      } else if (last_anchored_message_priority ==
+                 page_actions::PageActionPriorityCategory::kUserInteraction) {
+        base::UmaHistogramEnumeration(
+            "Indigo.PageAction.ClickedEntryPoint",
+            IndigoPageActionEntryPoint::kReactiveAnchoredMessage);
+      }
       break;
     case EntryPoint::kErrorToast:
       base::RecordAction(
           base::UserMetricsAction("Indigo.ErrorToast.Retry.Click"));
+      base::UmaHistogramEnumeration("Indigo.PageAction.ClickedEntryPoint",
+                                    IndigoPageActionEntryPoint::kErrorToast);
       break;
   }
 }
@@ -234,7 +251,7 @@ IndigoPageActionController* IndigoPageActionController::From(
 }
 
 void IndigoPageActionController::InvokeAction(EntryPoint entry_point) {
-  RecordInvokeEntryPointMetrics(entry_point);
+  RecordInvokeEntryPointMetrics(entry_point, last_anchored_message_priority_);
 
   if (!indigo_service_) {
     return;
@@ -311,63 +328,89 @@ void IndigoPageActionController::ContinueInvoke(
     return;
   }
 
-  if (!skip_glic_invoke &&
-      base::FeatureList::IsEnabled(features::kIndigoOpenGlic) &&
-      !glic::GlicSidePanelCoordinator::IsShowing(&tab())) {
-    Profile* profile =
-        Profile::FromBrowserContext(web_contents->GetBrowserContext());
-    if (auto* glic_keyed_service = glic::GlicKeyedService::Get(profile)) {
-      glic::GlicInvokeOptions options(
-          glic::Target(tab()),
-          glic::mojom::InvocationSource::kIndigoPageAction);
+  const bool invoked_glic = !skip_glic_invoke && MaybeInvokeGlic();
+  if (!invoked_glic) {
+    // The glic invocation path will trigger the Indigo agent after the panel is opened.
+    // Otherwise, do so now.
+    TriggerIndigoAgent();
+  }
+}
 
-      std::string skill_id = features::kIndigoGlicSkillId.Get();
-      const skills::Skill* skill = nullptr;
-      if (!skill_id.empty()) {
-        if (auto* skills_service =
-                skills::SkillsServiceFactory::GetForProfile(profile)) {
-          skill = skills_service->GetSkillById(skill_id);
+bool IndigoPageActionController::MaybeInvokeGlic() {
+  if (!base::FeatureList::IsEnabled(features::kIndigoOpenGlic)) {
+    return false;
+  }
+
+  if (glic::GlicSidePanelCoordinator::IsShowing(&tab())) {
+    return false;
+  }
+
+  content::WebContents* web_contents = tab().GetContents();
+  if (!web_contents) {
+    return false;
+  }
+
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  auto* glic_keyed_service = glic::GlicKeyedService::Get(profile);
+  if (!glic_keyed_service) {
+    return false;
+  }
+
+  if (auto* instance = glic_keyed_service->GetInstanceForTab(&tab())) {
+    if (instance->conversation_id().has_value()) {
+      return false;
+    }
+  }
+
+  glic::GlicInvokeOptions options(
+      glic::Target(tab()), glic::mojom::InvocationSource::kIndigoPageAction);
+
+  std::string skill_id = features::kIndigoGlicSkillId.Get();
+  const skills::Skill* skill = nullptr;
+  if (!skill_id.empty()) {
+    if (auto* skills_service =
+            skills::SkillsServiceFactory::GetForProfile(profile)) {
+      skill = skills_service->GetSkillById(skill_id);
+    }
+  }
+
+  std::string prompt;
+  if (skill) {
+    prompt = skill->prompt;
+    options.skill_id = skill_id;
+  } else {
+    prompt = features::kIndigoGlicPrompt.Get();
+    if (prompt.empty()) {
+      std::string prompt_key = features::kIndigoGlicPromptKey.Get();
+      if (!prompt_key.empty() && indigo_service_) {
+        std::optional<std::string> proto_prompt =
+            indigo_service_->GetPrompt(prompt_key);
+        if (proto_prompt.has_value()) {
+          prompt = *proto_prompt;
         }
-      }
-
-      std::string prompt;
-      if (skill) {
-        prompt = skill->prompt;
-        options.skill_id = skill_id;
-      } else {
-        prompt = features::kIndigoGlicPrompt.Get();
-        if (prompt.empty()) {
-          std::string prompt_key = features::kIndigoGlicPromptKey.Get();
-          if (!prompt_key.empty() && indigo_service_) {
-            std::optional<std::string> proto_prompt =
-                indigo_service_->GetPrompt(prompt_key);
-            if (proto_prompt.has_value()) {
-              prompt = *proto_prompt;
-            }
-          }
-        }
-      }
-
-      options.wait_for_panel_open = true;
-      // We introduce a delay here to give the page some time to process the
-      // viewport size change after the side panel opens. Some sites can
-      // significantly alter the page on resize, removing and re-inserting new
-      // image elements in the process.
-      options.on_panel_opened = base::BindOnce(
-          &IndigoPageActionController::TriggerIndigoAgentWithDelay,
-          invoke_weak_ptr_factory_.GetWeakPtr());
-
-      if (!prompt.empty()) {
-        options.prompts.push_back(std::move(prompt));
-        glic_keyed_service->InvokeWithAutoSubmit(
-            glic::InvokeWithAutoSubmitPasskeyProvider::GetPassKey(),
-            std::move(options));
-        return;
       }
     }
   }
 
-  TriggerIndigoAgent();
+  if (prompt.empty()) {
+    return false;
+  }
+
+  options.wait_for_panel_open = true;
+  // We introduce a delay here to give the page some time to process the
+  // viewport size change after the side panel opens. Some sites can
+  // significantly alter the page on resize, removing and re-inserting new
+  // image elements in the process.
+  options.on_panel_opened =
+      base::BindOnce(&IndigoPageActionController::TriggerIndigoAgentWithDelay,
+                     invoke_weak_ptr_factory_.GetWeakPtr());
+
+  options.prompts.push_back(std::move(prompt));
+  glic_keyed_service->InvokeWithAutoSubmit(
+      glic::InvokeWithAutoSubmitPasskeyProvider::GetPassKey(),
+      std::move(options));
+  return true;
 }
 
 void IndigoPageActionController::TriggerIndigoAgent() {
@@ -574,6 +617,8 @@ void IndigoPageActionController::OnRegenerate(IndigoToolbar* toolbar) {
     return;
   }
 
+  base::RecordAction(base::UserMetricsAction("Indigo.Regenerate.Trigger"));
+
   auto* manager =
       IndigoImageReplacementManager::GetForPage(web_contents->GetPrimaryPage());
   if (manager && manager->RegenerateImage()) {
@@ -648,6 +693,7 @@ void IndigoPageActionController::ResetTriggeringState() {
   optimization_guide_decision_ =
       optimization_guide::OptimizationGuideDecision::kUnknown;
   page_has_allowed_category_by_heuristic_ = false;
+  last_anchored_message_priority_ = std::nullopt;
   metadata_remote_.reset();
   UpdateEntryPointsState();
 }
@@ -674,7 +720,6 @@ void IndigoPageActionController::UpdateEntryPointsState() {
     } else {
       page_action_controller_->ShowSuggestionChip(kActionIndigo);
     }
-    base::RecordAction(base::UserMetricsAction("Indigo.PageAction.Show"));
     base::UmaHistogramEnumeration("Indigo.PageAction.TriggerSource",
                                   *trigger_source);
 
@@ -746,8 +791,29 @@ void IndigoPageActionController::OnPageActionAnchoredMessageShown(
   if (indigo_service_) {
     indigo_service_->ContextualCueShown();
   }
+  if (last_anchored_message_priority_ ==
+      page_actions::PageActionPriorityCategory::kUserInteraction) {
+    base::RecordAction(base::UserMetricsAction(
+        "Indigo.PageAction.AnchoredMessage.Reactive.Show"));
+    base::UmaHistogramEnumeration(
+        "Indigo.PageAction.ShownEntryPoint",
+        IndigoPageActionEntryPoint::kReactiveAnchoredMessage);
+  } else if (last_anchored_message_priority_ ==
+             page_actions::PageActionPriorityCategory::kContextualCue) {
+    base::RecordAction(base::UserMetricsAction(
+        "Indigo.PageAction.AnchoredMessage.Proactive.Show"));
+    base::UmaHistogramEnumeration(
+        "Indigo.PageAction.ShownEntryPoint",
+        IndigoPageActionEntryPoint::kProactiveAnchoredMessage);
+  }
+}
+
+void IndigoPageActionController::OnPageActionChipShown(
+    const page_actions::PageActionState& page_action) {
   base::RecordAction(
-      base::UserMetricsAction("Indigo.PageAction.ShowAnchoredMessage"));
+      base::UserMetricsAction("Indigo.PageAction.SuggestionChip.Show"));
+  base::UmaHistogramEnumeration("Indigo.PageAction.ShownEntryPoint",
+                                IndigoPageActionEntryPoint::kSuggestionChip);
 }
 
 void IndigoPageActionController::OnOptimizationGuideDecision(
@@ -780,6 +846,7 @@ views::View* IndigoPageActionController::GetIndigoOverlayView() const {
 
 void IndigoPageActionController::ShowAnchoredMessage(
     page_actions::PageActionPriorityCategory priority) {
+  last_anchored_message_priority_ = priority;
   page_action_controller_->SetAnchoredMessageText(
       kActionIndigo,
       l10n_util::GetStringUTF16(IDS_INDIGO_ENTRYPOINT_ANCHORED_MESSAGE_TEXT));

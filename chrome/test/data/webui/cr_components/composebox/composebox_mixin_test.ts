@@ -12,7 +12,7 @@ import {ComposeboxProxyImpl} from 'chrome://resources/cr_components/composebox/c
 import type {ContextualEntrypointAndMenuElement} from 'chrome://resources/cr_components/composebox/contextual_entrypoint_and_menu.js';
 import type {ComposeboxFileCarouselElement} from 'chrome://resources/cr_components/composebox/file_carousel.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {DriveDisclaimerStatus, DriveUploadError, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {DriveDisclaimerStatus, DriveUploadError, InputMethod, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch, AutocompleteResult, PageRemote as SearchboxPageRemote, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {ContextUploadStatus, InputType, ModelMode, ToolMode} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
 import type {InputState} from 'chrome://resources/mojo/components/omnibox/composebox/composebox_query.mojom-webui.js';
@@ -35,6 +35,24 @@ function simulateUserTextInput(
   inputElement.input = value;
   inputElement.fire('input-input');
   return microtasksFinished();
+}
+
+function setSelectionOffset(input: HTMLElement, offset: number) {
+  if (input instanceof HTMLTextAreaElement) {
+    input.setSelectionRange(offset, offset);
+    return;
+  }
+  const range = document.createRange();
+  const sel = window.getSelection();
+  if (sel) {
+    const textNode = input.childNodes[0];
+    if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+      range.setStart(textNode, offset);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  }
 }
 
 suite('ComposeboxMixinTest', () => {
@@ -80,7 +98,9 @@ suite('ComposeboxMixinTest', () => {
         loadTimeData.overrideValues({
           contextManagementInComposeboxEnabled: true,
           contextManagementInOmniboxEnabled: true,
+          tabDeselectionEnabled: false,
         });
+        element.tabDeselectionEnabled = false;
         const tab1 = {
           tabId: 0,
           title: 'Tab 1',
@@ -142,7 +162,9 @@ suite('ComposeboxMixinTest', () => {
         loadTimeData.overrideValues({
           contextManagementInComposeboxEnabled: true,
           contextManagementInOmniboxEnabled: true,
+          tabDeselectionEnabled: false,
         });
+        element.tabDeselectionEnabled = false;
         const tab1 = {
           tabId: 0,
           title: 'Tab 1',
@@ -503,17 +525,24 @@ suite('ComposeboxMixinTest', () => {
     await microtasksFinished();
 
     const inputElement = element.getInputElement();
-    inputElement.inputElement.value = 'hello';
+    (inputElement.inputElement as HTMLTextAreaElement).value = 'hello';
     inputElement.inputElement.focus();
-    inputElement.inputElement.selectionStart = 3;
-    inputElement.inputElement.selectionEnd = 3;
+    setSelectionOffset(inputElement.inputElement, 3);
 
     searchboxHandler.resetResolver('queryAutocomplete');
     element.queryAutocomplete(/*clearMatches=*/ false);
 
     const args = await searchboxHandler.whenCalled('queryAutocomplete');
-    assertDeepEquals(
-        args, [0, 'hello', false, 3, SuggestInventory.kDefault, false, '']);
+    assertDeepEquals(args, [
+      0,
+      'hello',
+      false,
+      3,
+      SuggestInventory.kDefault,
+      false,
+      '',
+      InputMethod.kKeyboard,
+    ]);
   });
 
   test(
@@ -523,10 +552,8 @@ suite('ComposeboxMixinTest', () => {
         await microtasksFinished();
 
         const inputElement = element.getInputElement();
-        inputElement.inputElement.value = 'hello';
+        (inputElement.inputElement as HTMLTextAreaElement).value = 'hello';
         inputElement.inputElement.focus();
-        inputElement.inputElement.selectionStart = 3;
-        inputElement.inputElement.selectionEnd = 3;
 
         // Simulate a programming update of the input as happens when, e.g., the
         // user closes the composebox. This update won't be immediately
@@ -546,6 +573,7 @@ suite('ComposeboxMixinTest', () => {
           SuggestInventory.kDefault,
           false,
           '',
+          InputMethod.kKeyboard,
         ]);
       });
 
@@ -948,11 +976,12 @@ suite('ComposeboxMixinTest', () => {
         assertEquals(1, searchboxHandler.getCallCount('setActiveToolMode'));
         assertEquals(
             ToolMode.kDeepSearch,
-            searchboxHandler.getArgs('setActiveToolMode')[0]);
+            searchboxHandler.getArgs('setActiveToolMode')[0][0]);
         assertEquals(1, searchboxHandler.getCallCount('setActiveModelMode'));
         assertEquals(
             ModelMode.kGeminiRegular,
-            searchboxHandler.getArgs('setActiveModelMode')[0]);
+            searchboxHandler.getArgs('setActiveModelMode')[0][0]);
+        assertFalse(searchboxHandler.getArgs('setActiveModelMode')[0][1]);
       });
 
   test('navigates matches with ArrowDown and ArrowUp', async () => {
@@ -1079,7 +1108,7 @@ suite('ComposeboxMixinTest', () => {
     input.dispatchEvent(tabEvent);
     await microtasksFinished();
 
-    assertEquals('test', input.value);
+    assertEquals('test', (input as HTMLTextAreaElement).value);
     assertTrue(tabEvent.defaultPrevented);
   });
 
@@ -1167,7 +1196,6 @@ suite('ComposeboxMixinTest', () => {
   test('Smart Compose hint is hidden when cursor is not at end', async () => {
     element.smartComposeEnabled = true;
     const inputElem = element.getInputElement();
-    const input = inputElem.inputElement;
 
     await simulateUserTextInput(inputElem, 'test');
     element.smartComposeInlineHint = 'a';
@@ -1175,8 +1203,8 @@ suite('ComposeboxMixinTest', () => {
 
     assertTrue(!!inputElem.shadowRoot.querySelector('#smartCompose'));
 
-    input.selectionStart = 2;
-    input.selectionEnd = 2;
+    inputElem.inputElement.focus();
+    setSelectionOffset(inputElem.inputElement, 1);
     inputElem.requestUpdate();
     await microtasksFinished();
 
@@ -1392,7 +1420,7 @@ suite('ComposeboxMixinTest', () => {
     assertEquals(1, searchboxHandler.getCallCount('setActiveToolMode'));
     assertEquals(
         ToolMode.kUnspecified,
-        searchboxHandler.getArgs('setActiveToolMode')[0]);
+        searchboxHandler.getArgs('setActiveToolMode')[0][0]);
 
     const metricName =
         'ContextualSearch.UserAction.InputStateDeletion.TestEmbedder';
@@ -1431,7 +1459,8 @@ suite('ComposeboxMixinTest', () => {
     assertEquals(1, searchboxHandler.getCallCount('setActiveModelMode'));
     assertEquals(
         ModelMode.kGeminiPro,
-        searchboxHandler.getArgs('setActiveModelMode')[0]);
+        searchboxHandler.getArgs('setActiveModelMode')[0][0]);
+    assertFalse(searchboxHandler.getArgs('setActiveModelMode')[0][1]);
   });
 
   test('empty input computes canSubmitFilesAndInput as false', async () => {
@@ -1995,6 +2024,30 @@ suite('ComposeboxMixinTest', () => {
             1, searchboxHandler.getCallCount('getSmartTabSharingActive'));
         assertTrue(newElement.smartTabSharingActive);
         document.body.removeChild(host);
+      });
+
+  test(
+      'resetSession resets submitting, input, tool, and models', async () => {
+        element.submitting = true;
+        element.input = 'previous query';
+        const inputState = new MockInputState();
+        inputState.activeTool = ToolMode.kDeepSearch;
+        inputState.activeModel = ModelMode.kGeminiPro;
+        element.inputState = inputState;
+
+        element.resetSession();
+        await microtasksFinished();
+
+        assertFalse(element.submitting);
+        assertEquals('', element.input);
+        assertTrue(searchboxHandler.getCallCount('setActiveToolMode') >= 1);
+        assertDeepEquals(
+            [ToolMode.kUnspecified, /*isSetByServer=*/ false],
+            searchboxHandler.getArgs('setActiveToolMode').at(-1));
+        assertEquals(1, searchboxHandler.getCallCount('setActiveModelMode'));
+        assertDeepEquals(
+            [ModelMode.kUnspecified, /*isSetByServer=*/ false],
+            searchboxHandler.getArgs('setActiveModelMode')[0]);
       });
   // </if>
 });

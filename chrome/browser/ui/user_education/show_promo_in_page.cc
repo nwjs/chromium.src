@@ -14,8 +14,8 @@
 #include "base/threading/thread_checker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/focus/browser_focus_controller.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/user_education/user_education_types.h"
@@ -37,8 +37,8 @@ constexpr base::TimeDelta kShowPromoInPageTimeout = base::Seconds(30);
 
 class ShowPromoInPageImpl : public ShowPromoInPage {
  public:
-  explicit ShowPromoInPageImpl(Browser* browser, Params params)
-      : browser_(browser->AsWeakPtr()), callback_(std::move(params.callback)) {
+  explicit ShowPromoInPageImpl(BrowserWindowInterface* browser, Params params)
+      : browser_(browser->GetWeakPtr()), callback_(std::move(params.callback)) {
     DCHECK(callback_);
     DCHECK(browser_);
     DCHECK(!params.bubble_text.empty());
@@ -149,7 +149,7 @@ class ShowPromoInPageImpl : public ShowPromoInPage {
     delete this;
   }
 
-  const base::WeakPtr<Browser> browser_;
+  const base::WeakPtr<BrowserWindowInterface> browser_;
   std::unique_ptr<user_education::HelpBubble> help_bubble_;
   base::CallbackListSubscription help_bubble_closed_subscription_;
   user_education::HelpBubbleParams bubble_params_;
@@ -172,7 +172,8 @@ ShowPromoInPage::Params::~Params() = default;
 ShowPromoInPage::ShowPromoInPage() = default;
 ShowPromoInPage::~ShowPromoInPage() = default;
 
-base::WeakPtr<ShowPromoInPage> ShowPromoInPage::Start(Browser* browser,
-                                                      Params params) {
+base::WeakPtr<ShowPromoInPage> ShowPromoInPage::Start(
+    BrowserWindowInterface* browser,
+    Params params) {
   return (new ShowPromoInPageImpl(browser, std::move(params)))->GetWeakPtr();
 }

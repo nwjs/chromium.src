@@ -32,11 +32,14 @@
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/service/glic_invoke_handler.h"
 #include "chrome/browser/glic/service/glic_invoke_task.h"
+#include "chrome/browser/glic/service/glic_ui_types.h"
 #include "chrome/browser/glic/service/metrics/glic_instance_helper_metrics.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_histogram_tester.h"
 #include "chrome/browser/glic/widget/glic_floating_ui.h"
+#include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -48,6 +51,7 @@
 #include "chrome/common/chrome_features.h"
 #include "components/enterprise/browser/reporting/common_pref_names.h"
 #include "components/enterprise/browser/reporting/reporting_features.h"
+#include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/prefs/pref_service.h"
@@ -63,7 +67,6 @@
 #include "ui/gfx/geometry/point_conversions.h"
 
 #if BUILDFLAG(IS_ANDROID)
-
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "components/sessions/core/tab_restore_service.h"
@@ -160,22 +163,14 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
   EXPECT_EQ(coordinator().GetInstances().size(), 0u);
 }
 
-#if BUILDFLAG(IS_ANDROID)
-// TODO(crbug.com/523146661): Failing on Android.
-#define MAYBE_CloseHidesInstance DISABLED_CloseHidesInstance
-#else
-#define MAYBE_CloseHidesInstance CloseHidesInstance
-#endif
-IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest, MAYBE_CloseHidesInstance) {
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest, CloseHidesInstance) {
   ToggleGlicForActiveTab();
   ASSERT_OK_AND_ASSIGN(auto* instance, WaitForGlicOpen());
 
   PreventDeletionOnClose(instance, "test_conversation");
-  ToggleGlicForActiveTab();
-  ASSERT_OK(WaitForGlicClose());
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  ASSERT_OK(CloseGlicForTabAndWait(tab));
   EXPECT_FALSE(instance->IsShowing());
-  EXPECT_OK(
-      WaitForWebUiContentsVisibility(instance, content::Visibility::HIDDEN));
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
@@ -245,9 +240,9 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUnbindOnCloseTest,
   EXPECT_EQ(GetContentsVisibility(instance1), content::Visibility::HIDDEN);
 }
 
-// TODO(crbug.com/514816170): Re-enable when no longer flaky on Android,
-// Windows, and Linux.
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+// TODO(crbug.com/514816170): Re-enable when no longer flaky on Android
+// and Linux.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 #define MAYBE_UnboundWhenClosedBySidePanelCoordinator \
   DISABLED_UnboundWhenClosedBySidePanelCoordinator
 #else
@@ -287,7 +282,8 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUnbindOnCloseTest,
   // But because it was bound to tab1 (and kept bound), the instance itself
   // should still exist.
   EXPECT_EQ(GetInstanceForTab(tab1), instance1);
-  EXPECT_EQ(GetContentsVisibility(instance1), content::Visibility::HIDDEN);
+  EXPECT_OK(
+      WaitForWebUiContentsVisibility(instance1, content::Visibility::HIDDEN));
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorUnbindOnCloseTest,
@@ -660,6 +656,26 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
             mojom::MicrophoneStatus::kNotListening);
 }
 #endif
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       ShowOpensPanelAndDoesNotClose) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  coordinator().Show(tab->GetBrowserWindowInterface(),
+                     mojom::InvocationSource::kTopChromeButton);
+  ASSERT_OK_AND_ASSIGN(auto instance, WaitForGlicOpen(tab));
+  EXPECT_TRUE(instance->IsShowing());
+
+  // Calling Show again when already showing should leave the panel open.
+  coordinator().Show(tab->GetBrowserWindowInterface(),
+                     mojom::InvocationSource::kTopChromeButton);
+  EXPECT_TRUE(instance->IsShowing());
+
+  // Calling ShowUI on GlicKeyedService should also leave the panel open.
+  GlicKeyedService::Get(GetProfile())
+      ->ShowUI(tab->GetBrowserWindowInterface(),
+               mojom::InvocationSource::kTopChromeButton);
+  EXPECT_TRUE(instance->IsShowing());
+}
 
 // Flaky test. crbug.com/498990943
 IN_PROC_BROWSER_TEST_F(
@@ -1700,14 +1716,8 @@ class GlicInstanceCoordinatorLocalHotkeyScopeTest
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-#if BUILDFLAG(IS_ANDROID)
-// TODO(crbug.com/522616857): Failing on Android.
-#define MAYBE_HotkeyTriggersToggle DISABLED_HotkeyTriggersToggle
-#else
-#define MAYBE_HotkeyTriggersToggle HotkeyTriggersToggle
-#endif
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorLocalHotkeyScopeTest,
-                       MAYBE_HotkeyTriggersToggle) {
+                       HotkeyTriggersToggle) {
   EXPECT_EQ(coordinator().GetInstances().size(), 0u);
 
   // Simulate receiving the hotkey command.
@@ -1880,6 +1890,28 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
   EXPECT_TRUE(instance->HasActiveEmbedder());
   EXPECT_TRUE(instance->GetBoundTabs().empty());
 }
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
+                       DetachedPanelAcquiresAndReleasesProfileKeepAlive) {
+  auto* profile_manager = g_browser_process->profile_manager();
+  EXPECT_FALSE(profile_manager->HasKeepAliveForTesting(
+      GetProfile(), ProfileKeepAliveOrigin::kGlicView));
+
+  // Open Glic and detach it into a floating window.
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance,
+                       OpenGlicForActiveTabAndDetach());
+  ASSERT_TRUE(instance->IsDetached());
+
+  EXPECT_TRUE(profile_manager->HasKeepAliveForTesting(
+      GetProfile(), ProfileKeepAliveOrigin::kGlicView));
+
+  // Close the detached window.
+  instance->CloseAllEmbedders();
+  ASSERT_OK(WaitForGlicClose(instance));
+
+  EXPECT_FALSE(profile_manager->HasKeepAliveForTesting(
+      GetProfile(), ProfileKeepAliveOrigin::kGlicView));
+}
 #endif
 
 IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorBrowserTest,
@@ -2006,6 +2038,34 @@ IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorRemoveBlankInstancesTest,
 
   // Wait for the blank instance to be deleted asynchronously.
   ASSERT_OK(WaitForInstanceDeletion(weak_instance));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInstanceCoordinatorRemoveBlankInstancesTest,
+                       DoNotRemoveBlankInstanceWhenInvoking) {
+  // Start an invocation. This asynchronously initializes the web client.
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  GlicInvokeOptions options(glic::Target(*tab),
+                            mojom::InvocationSource::kOsButton);
+  coordinator().Invoke(std::move(options));
+
+  // The instance should be created and in the invoking state.
+  GlicInstanceImpl* instance = GetInstanceForTab(tab);
+  ASSERT_TRUE(instance);
+
+  EXPECT_TRUE(instance->IsInvoking());
+
+  // Close the panel before the invocation finishes initializing.
+  instance->CloseAllEmbedders();
+  ASSERT_OK(WaitForGlicClose());
+
+  // Wait a bit to ensure the timeout has passed, but the instance shouldn't
+  // be deleted. The timer delay is 100ms.
+  base::RunLoop run_loop;
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, run_loop.QuitClosure(), base::Milliseconds(200));
+  run_loop.Run();
+
+  EXPECT_EQ(GetInstanceForTab(tab), instance);
 }
 
 #if !BUILDFLAG(IS_ANDROID)

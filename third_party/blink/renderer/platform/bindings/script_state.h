@@ -8,6 +8,7 @@
 #include "base/memory/raw_ptr.h"
 #include "gin/public/context_holder.h"
 #include "gin/public/gin_embedders.h"
+#include "gin/public/wrappable_pointer_tags.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/renderer/platform/bindings/scoped_persistent.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -153,7 +154,7 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
     DCHECK(!object.IsEmpty());
     ScriptState* script_state = static_cast<ScriptState*>(
         object->GetAlignedPointerFromEmbedderDataInCreationContext(
-            isolate, kV8ContextPerContextDataIndex, gin::kBlinkScriptState));
+            isolate, kV8ContextPerContextDataIndex, kTypeTag));
     // ScriptState::ForRelevantRealm() must be called only for objects having a
     // creation context while the context must have a valid embedder data in
     // the embedder field.
@@ -165,8 +166,8 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
                            v8::Local<v8::Context> context) {
     DCHECK(!context.IsEmpty());
     ScriptState* script_state =
-        static_cast<ScriptState*>(context->GetAlignedPointerFromEmbedderData(
-            isolate, kV8ContextPerContextDataIndex, gin::kBlinkScriptState));
+        context->GetAlignedPointerFromEmbedderData<ScriptState>(
+            isolate, kV8ContextPerContextDataIndex, kTypeTag);
     // ScriptState::From() must not be called for a context that does not have
     // valid embedder data in the embedder field.
     DCHECK(script_state);
@@ -191,11 +192,12 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
       return nullptr;
     }
     ScriptState* script_state =
-        static_cast<ScriptState*>(context->GetAlignedPointerFromEmbedderData(
-            isolate, kV8ContextPerContextDataIndex, gin::kBlinkScriptState));
+        context->GetAlignedPointerFromEmbedderData<ScriptState>(
+            isolate, kV8ContextPerContextDataIndex, kTypeTag);
     SECURITY_CHECK(!script_state || script_state->context_ == context ||
-		   context->GetAlignedPointerFromEmbedderData(50, v8::kEmbedderDataTypeTagDefault)
-                   == (void*)0x08110800);
+                   context->GetAlignedPointerFromEmbedderData(
+                       50, v8::kEmbedderDataTypeTagDefault) ==
+                       (void*)0x08110800);
     return script_state;
   }
   // Isolate is never null.
@@ -257,7 +259,7 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
   // use |reference_from_v8_context_| to represent this strong reference.  The
   // lifetime of |reference_from_v8_context_| and the internal field must match
   // exactly.
-  SelfKeepAlive<ScriptState> reference_from_v8_context_{this};
+  SelfKeepAlive<ScriptState> reference_from_v8_context_{{}, this};
 
   // Serves as a unique ID for this context, which can be used to name the
   // context in browser/renderer communications.
@@ -273,6 +275,9 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
   static constexpr int kV8ContextPerContextDataIndex =
       static_cast<int>(gin::kPerContextDataStartIndex) +
       static_cast<int>(gin::kEmbedderBlink);
+
+  static constexpr v8::CppHeapPointerTag kTypeTag =
+      static_cast<v8::CppHeapPointerTag>(gin::kScriptState);
 
   // For accessing information about the last script compilation via
   // internals.idl.

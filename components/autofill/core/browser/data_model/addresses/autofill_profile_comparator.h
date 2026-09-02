@@ -16,11 +16,13 @@
 #include "components/autofill/core/browser/data_model/addresses/address.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
-#include "components/autofill/core/browser/data_model/addresses/contact_info.h"
+#include "components/autofill/core/browser/data_model/addresses/company_info.h"
 #include "components/autofill/core/browser/data_model/addresses/phone_number.h"
 #include "components/autofill/core/browser/field_types.h"
 
 namespace autofill {
+
+class EmailInfo;
 
 struct ProfileValueDifference {
   // The type of the field that is different.
@@ -96,7 +98,8 @@ class AutofillProfileComparator {
   //
   // Note that mergeability is non-directional; merging two profiles will likely
   // incorporate data from both profiles.
-  // TODO(crbug.com/359768803): Move this function to AutofillProfile.
+  // TODO(crbug.com/453945181): Delete this function once callers are migrated to
+  // `AutofillProfile::MergeDataFrom`.
   bool AreMergeable(const AutofillProfile& p1, const AutofillProfile& p2) const;
 
   // Populates `email_info` with the result of merging the email addresses in

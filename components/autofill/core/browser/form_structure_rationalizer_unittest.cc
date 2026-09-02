@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/form_structure_rationalizer.h"
 
+#include <ranges>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -11,7 +12,6 @@
 #include "base/base64.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_encoding.h"
@@ -90,7 +90,7 @@ std::unique_ptr<FormStructure> BuildFormStructure(
     const std::vector<FieldTemplate>& fields) {
   auto form_structure = std::make_unique<FormStructure>(CreateFormData(fields));
   for (auto [field, field_template] :
-       base::zip(form_structure->fields(), fields)) {
+       std::views::zip(form_structure->fields(), fields)) {
     field->set_heuristic_type(GetActiveHeuristicSource(),
                               field_template.heuristic_type);
     field->set_server_predictions({test::CreateFieldPrediction(
@@ -1432,6 +1432,20 @@ TEST_F(RationalizeRepeatedZipTest, ZipAndZipSuffix) {
       {.label = "Zip", .name = "zip", .server_type = ADDRESS_HOME_ZIP},
       {.label = "Zip2", .name = "zip2", .server_type = ADDRESS_HOME_ZIP_SUFFIX},
       {.label = "City", .name = "city", .server_type = ADDRESS_HOME_CITY},
+  });
+  EXPECT_THAT(GetTypes(*form_structure),
+              FieldTypesAre(NAME_FULL, ADDRESS_HOME_ZIP_PREFIX,
+                            ADDRESS_HOME_ZIP_SUFFIX, ADDRESS_HOME_CITY));
+}
+
+// Tests that (ADDRESS_HOME_ZIP_PREFIX, ADDRESS_HOME_ZIP) is rationalized to
+// (ADDRESS_HOME_ZIP_PREFIX, ADDRESS_HOME_ZIP_SUFFIX).
+TEST_F(RationalizeRepeatedZipTest, ZipPrefixAndHeuristicZip) {
+  std::unique_ptr<FormStructure> form_structure = BuildFormStructure({
+      {.server_type = NAME_FULL},
+      {.server_type = ADDRESS_HOME_ZIP_PREFIX},
+      {.server_type = NO_SERVER_DATA, .heuristic_type = ADDRESS_HOME_ZIP},
+      {.server_type = ADDRESS_HOME_CITY},
   });
   EXPECT_THAT(GetTypes(*form_structure),
               FieldTypesAre(NAME_FULL, ADDRESS_HOME_ZIP_PREFIX,

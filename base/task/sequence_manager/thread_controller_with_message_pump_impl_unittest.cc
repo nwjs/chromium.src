@@ -12,6 +12,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/allocator/partition_alloc_support.h"
 #include "base/features.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -19,6 +20,7 @@
 #include "base/message_loop/message_pump.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
+#include "base/synchronization/lock_impl.h"
 #include "base/synchronization/lock_metrics_recorder.h"
 #include "base/task/sequence_manager/task_queue.h"
 #include "base/task/sequence_manager/thread_controller_power_monitor.h"
@@ -98,7 +100,7 @@ class MockMessagePump : public MessagePump {
   MOCK_METHOD(void, Run, (MessagePump::Delegate*), (override));
   MOCK_METHOD(void, Quit, (), (override));
   MOCK_METHOD(void, ScheduleWork, (), (override));
-  MOCK_METHOD(void, ScheduleDelayedWork_TimeTicks, (const TimeTicks&));
+  MOCK_METHOD(void, ScheduleDelayedWork_TimeTicks, (TimeTicks));
 
   void ScheduleDelayedWork(
       const MessagePump::Delegate::NextWorkInfo& next_work_info) override {
@@ -2282,12 +2284,17 @@ TEST_F(ThreadControllerWithMessagePumpTest, LockMetricsReportedOnIdle) {
 
   HistogramTester histogram_tester;
 
+  const LockMetricsRecorder::LockMetricSample base_lock_metric_sample = {
+      test_sample1, &GetBaseLockMetricTag()};
+  const LockMetricsRecorder::LockMetricSample pa_lock_metric_sample = {
+      test_sample2, &allocator::GetPartitionAllocLockMetricTag()};
+
   base::LockMetricsRecorder::GetForCurrentThread()->RecordLockAcquisitionTime(
-      test_sample1, LockMetricsRecorder::LockType::kBaseLock);
+      base_lock_metric_sample);
   base::LockMetricsRecorder::GetForCurrentThread()->RecordLockAcquisitionTime(
-      test_sample2, LockMetricsRecorder::LockType::kPartitionAllocLock);
+      pa_lock_metric_sample);
   base::LockMetricsRecorder::GetForCurrentThread()->RecordLockAcquisitionTime(
-      test_sample2, LockMetricsRecorder::LockType::kPartitionAllocLock);
+      pa_lock_metric_sample);
 
   EXPECT_CALL(*message_pump_, Run(_))
       .WillOnce([&](MessagePump::Delegate* delegate) {

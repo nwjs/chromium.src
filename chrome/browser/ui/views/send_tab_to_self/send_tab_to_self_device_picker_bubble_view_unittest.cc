@@ -21,8 +21,10 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "google_apis/gaia/gaia_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -33,6 +35,9 @@ namespace send_tab_to_self {
 
 namespace {
 
+using FormFactor = syncer::DeviceInfo::FormFactor;
+using OsType = syncer::DeviceInfo::OsType;
+
 class SendTabToSelfBubbleControllerMock : public SendTabToSelfBubbleController {
  public:
   explicit SendTabToSelfBubbleControllerMock(content::WebContents* web_contents)
@@ -42,20 +47,18 @@ class SendTabToSelfBubbleControllerMock : public SendTabToSelfBubbleController {
 
   std::vector<TargetDeviceInfo> GetValidDevices() override {
     base::SimpleTestClock clock;
-    return {
-        {"Device_1", "device_guid_1", syncer::DeviceInfo::FormFactor::kDesktop,
-         clock.Now() - base::Days(0)},
-        {"Device_2", "device_guid_2", syncer::DeviceInfo::FormFactor::kDesktop,
-         clock.Now() - base::Days(1)},
-        {"Device_3", "device_guid_3", syncer::DeviceInfo::FormFactor::kPhone,
-         clock.Now() - base::Days(5)}};
+    return {{"Device_1", "device_guid_1", FormFactor::kDesktop, OsType::kLinux,
+             clock.Now() - base::Days(0)},
+            {"Device_2", "device_guid_2", FormFactor::kDesktop, OsType::kLinux,
+             clock.Now() - base::Days(1)},
+            {"Device_3", "device_guid_3", FormFactor::kPhone, OsType::kAndroid,
+             clock.Now() - base::Days(5)}};
   }
 
   AccountInfo GetSharingAccountInfo() override {
-    AccountInfo info;
-    info.email = "user@host.com";
-    info.account_image = gfx::Image(gfx::test::CreateImageSkia(96, 96));
-    return info;
+    return AccountInfo::Builder(GaiaId("test_gaia"), "user@host.com")
+        .SetAvatarImage(gfx::Image(gfx::test::CreateImageSkia(96, 96)))
+        .Build();
   }
 
   MOCK_METHOD(void,
@@ -69,6 +72,12 @@ bool IsAccessibleNodeSelected(const views::View* view) {
   ui::AXNodeData node_data;
   view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
   return node_data.GetBoolAttribute(ax::mojom::BoolAttribute::kSelected);
+}
+
+ax::mojom::Role GetAccessibleNodeRole(const views::View* view) {
+  ui::AXNodeData node_data;
+  view->GetViewAccessibility().GetAccessibleNodeData(&node_data);
+  return node_data.role;
 }
 
 }  // namespace
@@ -163,7 +172,8 @@ TEST_F(SendTabToSelfDevicePickerBubbleViewEnhancedDesktopUITest,
 }
 
 // Verifies that the first target device button is automatically selected on
-// open and its accessibility node data indicates that it is selected.
+// open and its accessibility node data indicates that it is selected and has
+// listbox option roles for Windows AT compatibility.
 TEST_F(SendTabToSelfDevicePickerBubbleViewEnhancedDesktopUITest,
        FirstDeviceIsSelectedAndAccessibleOnOpen) {
   const views::View* container = bubble_->GetButtonContainerForTesting();
@@ -177,8 +187,13 @@ TEST_F(SendTabToSelfDevicePickerBubbleViewEnhancedDesktopUITest,
   EXPECT_TRUE(first_button->IsSelected());
   EXPECT_FALSE(second_button->IsSelected());
 
-  // Verify that the accessible node data exposes the selected state to screen
-  // readers.
+  // Verify that the accessible roles and selected state are exposed correctly
+  // for screen readers on all platforms.
+  EXPECT_EQ(ax::mojom::Role::kListBox, GetAccessibleNodeRole(container));
+  EXPECT_EQ(ax::mojom::Role::kListBoxOption,
+            GetAccessibleNodeRole(first_button));
+  EXPECT_EQ(ax::mojom::Role::kListBoxOption,
+            GetAccessibleNodeRole(second_button));
   EXPECT_TRUE(IsAccessibleNodeSelected(first_button));
   EXPECT_FALSE(IsAccessibleNodeSelected(second_button));
 }
@@ -198,6 +213,13 @@ TEST_F(SendTabToSelfDevicePickerBubbleViewEnhancedDesktopUITest,
 
   EXPECT_TRUE(first_button->IsSelected());
   EXPECT_FALSE(second_button->IsSelected());
+  EXPECT_EQ(ax::mojom::Role::kListBox, GetAccessibleNodeRole(container));
+  EXPECT_EQ(ax::mojom::Role::kListBoxOption,
+            GetAccessibleNodeRole(first_button));
+  EXPECT_EQ(ax::mojom::Role::kListBoxOption,
+            GetAccessibleNodeRole(second_button));
+  EXPECT_TRUE(IsAccessibleNodeSelected(first_button));
+  EXPECT_FALSE(IsAccessibleNodeSelected(second_button));
 
   // Select the second device button.
   bubble_->SelectTargetDevice(second_button);
@@ -206,6 +228,10 @@ TEST_F(SendTabToSelfDevicePickerBubbleViewEnhancedDesktopUITest,
   EXPECT_TRUE(second_button->IsSelected());
 
   // Verify accessibility attributes after selection change.
+  EXPECT_EQ(ax::mojom::Role::kListBoxOption,
+            GetAccessibleNodeRole(first_button));
+  EXPECT_EQ(ax::mojom::Role::kListBoxOption,
+            GetAccessibleNodeRole(second_button));
   EXPECT_FALSE(IsAccessibleNodeSelected(first_button));
   EXPECT_TRUE(IsAccessibleNodeSelected(second_button));
 }

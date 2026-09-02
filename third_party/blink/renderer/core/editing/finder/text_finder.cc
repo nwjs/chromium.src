@@ -669,8 +669,6 @@ void TextFinder::InvalidateFindMatchRects() {
 }
 
 void TextFinder::UpdateFindMatchRects() {
-  GetFrame()->GetDocument()->UpdateStyleAndLayout(
-      DocumentUpdateReason::kFindInPage);
   gfx::Size current_document_size = OwnerFrame().DocumentSize();
   if (document_size_for_current_find_match_rects_ != current_document_size) {
     document_size_for_current_find_match_rects_ = current_document_size;
@@ -710,8 +708,6 @@ gfx::RectF TextFinder::ActiveFindMatchRect() {
   if (!current_active_match_frame_ || !active_match_)
     return gfx::RectF();
 
-  GetFrame()->GetDocument()->UpdateStyleAndLayoutForRange(
-      active_match_.Get(), DocumentUpdateReason::kFindInPage);
   return FindInPageRectFromRange(EphemeralRange(ActiveMatch()));
 }
 
@@ -728,20 +724,21 @@ Vector<gfx::RectF> TextFinder::FindMatchRects() {
   return match_rects;
 }
 
-int TextFinder::SelectNearestFindMatch(const gfx::PointF& point,
-                                       gfx::Rect* selection_rect) {
-  int index = NearestFindMatch(point, nullptr);
-  if (index != -1)
-    return SelectFindMatch(static_cast<unsigned>(index), selection_rect);
-
-  return -1;
+std::optional<wtf_size_t> TextFinder::SelectNearestFindMatch(
+    const gfx::PointF& point,
+    gfx::Rect* selection_rect) {
+  if (auto index = NearestFindMatch(point, nullptr)) {
+    return SelectFindMatch(*index, selection_rect);
+  }
+  return std::nullopt;
 }
 
-int TextFinder::NearestFindMatch(const gfx::PointF& point,
-                                 float* distance_squared) {
+std::optional<wtf_size_t> TextFinder::NearestFindMatch(
+    const gfx::PointF& point,
+    float* distance_squared) {
   UpdateFindMatchRects();
 
-  int nearest = -1;
+  std::optional<wtf_size_t> nearest;
   float nearest_distance_squared = FLT_MAX;
   for (wtf_size_t i = 0; i < find_matches_cache_.size(); ++i) {
     DCHECK(!find_matches_cache_[i].rect_.IsEmpty());
@@ -759,12 +756,14 @@ int TextFinder::NearestFindMatch(const gfx::PointF& point,
   return nearest;
 }
 
-int TextFinder::SelectFindMatch(unsigned index, gfx::Rect* selection_rect) {
+std::optional<wtf_size_t> TextFinder::SelectFindMatch(
+    wtf_size_t index,
+    gfx::Rect* selection_rect) {
   SECURITY_DCHECK(index < find_matches_cache_.size());
 
   Range* range = find_matches_cache_[index].range_;
   if (!range->BoundaryPointsValid() || !range->startContainer()->isConnected())
-    return -1;
+    return std::nullopt;
 
   // Check if the match is already selected.
   if (!current_active_match_frame_ || !active_match_ ||
@@ -787,9 +786,6 @@ int TextFinder::SelectFindMatch(unsigned index, gfx::Rect* selection_rect) {
     // Make sure no node is focused. See http://crbug.com/38700.
     OwnerFrame().GetFrame()->GetDocument()->ClearFocusedElement();
   }
-
-  OwnerFrame().GetFrame()->GetDocument()->UpdateStyleAndLayoutForRange(
-      active_match_.Get(), DocumentUpdateReason::kFindInPage);
 
   gfx::Rect active_match_rect;
   gfx::Rect active_match_bounding_box =
@@ -835,17 +831,7 @@ int TextFinder::SelectFindMatch(unsigned index, gfx::Rect* selection_rect) {
 TextFinder::TextFinder(WebLocalFrameImpl& owner_frame)
     : owner_frame_(&owner_frame),
       find_task_controller_(
-          MakeGarbageCollected<FindTaskController>(owner_frame, *this)),
-      current_active_match_frame_(false),
-      active_match_index_(-1),
-      total_match_count_(-1),
-      frame_scoping_(false),
-      find_request_identifier_(-1),
-      next_invalidate_after_(0),
-      find_match_markers_version_(0),
-      should_locate_active_rect_(false),
-      scoping_in_progress_(false),
-      find_match_rects_are_valid_(false) {}
+          MakeGarbageCollected<FindTaskController>(owner_frame, *this)) {}
 
 bool TextFinder::SetMarkerActive(Range* range, bool active) {
   if (!range || range->collapsed())

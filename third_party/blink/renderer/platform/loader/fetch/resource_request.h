@@ -59,10 +59,6 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/ref_counted.h"
 
-namespace network {
-class PermissionsPolicy;
-}  // namespace network
-
 namespace blink {
 
 class FeatureContext;
@@ -302,25 +298,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
   }
 
 
-  // True if the original request included the required attribute for the
-  // response to be eligible to write to shared storage, pending a
-  // `PermissionsPolicy` check.
-  bool GetSharedStorageWritableOptedIn() const {
-    return shared_storage_writable_opted_in_;
-  }
-  void SetSharedStorageWritableOptedIn(bool shared_storage_writable_opted_in) {
-    shared_storage_writable_opted_in_ = shared_storage_writable_opted_in;
-  }
-
-  // True if the current request should have the
-  // `http_names::kSecSharedStorageWritable` header attached and is eligible to
-  // write to shared storage from response headers.
-  bool GetSharedStorageWritableEligible() const {
-    return shared_storage_writable_eligible_;
-  }
-  void SetSharedStorageWritableEligible(bool shared_storage_writable_eligible) {
-    shared_storage_writable_eligible_ = shared_storage_writable_eligible;
-  }
 
   // True if service workers should not get events for the request.
   bool GetSkipServiceWorker() const { return skip_service_worker_; }
@@ -452,6 +429,14 @@ class PLATFORM_EXPORT ResourceRequestHead {
 
   bool IsRevalidating() const { return is_revalidating_; }
   void SetIsRevalidating(bool value) { is_revalidating_ = value; }
+  const String& RevalidationEtag() const { return revalidation_etag_; }
+  void SetRevalidationEtag(const String& etag) { revalidation_etag_ = etag; }
+  const String& RevalidationLastModified() const {
+    return revalidation_last_modified_;
+  }
+  void SetRevalidationLastModified(const String& last_modified) {
+    revalidation_last_modified_ = last_modified;
+  }
   void SetIsAutomaticUpgrade(bool is_automatic_upgrade) {
     is_automatic_upgrade_ = is_automatic_upgrade;
   }
@@ -467,17 +452,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
   void SetDevToolsThrottlingToken(
       const std::optional<base::UnguessableToken>& devtools_token) {
     devtools_throttling_token_ = devtools_token;
-  }
-
-  const scoped_refptr<
-      base::RefCountedData<base::flat_set<net::SourceStreamType>>>&
-  GetDevToolsAcceptedStreamTypes() const {
-    return devtools_accepted_stream_types_;
-  }
-  void SetDevToolsAcceptedStreamTypes(
-      const scoped_refptr<
-          base::RefCountedData<base::flat_set<net::SourceStreamType>>>& types) {
-    devtools_accepted_stream_types_ = types;
   }
 
   const String& GetDevToolsId() const { return devtools_id_; }
@@ -690,8 +664,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
   bool download_to_blob_ : 1;
   bool use_stream_on_response_ : 1;
   bool keepalive_ : 1;
-  bool shared_storage_writable_opted_in_ : 1;
-  bool shared_storage_writable_eligible_ : 1;
   bool allow_stale_response_ : 1;
   bool skip_service_worker_ : 1;
   bool download_to_cache_only_ : 1;
@@ -700,6 +672,8 @@ class PLATFORM_EXPORT ResourceRequestHead {
   bool priority_incremental_ : 1;
   bool upgrade_if_insecure_ : 1;
   bool is_revalidating_ : 1;
+  String revalidation_etag_;
+  String revalidation_last_modified_;
   bool is_automatic_upgrade_ : 1;
   bool is_from_origin_dirty_style_sheet_ : 1;
   bool is_fetch_like_api_ : 1;
@@ -781,15 +755,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
   // reporting for redirects.
   RenderBlockingBehavior render_blocking_behavior_ =
       RenderBlockingBehavior::kUnset;
-
-  // If not null, the network service will not advertise any stream types
-  // (via Accept-Encoding) that are not listed. Also, it will not attempt
-  // decoding any non-listed stream types.
-  // Instead of using std::optional, we use scoped_refptr to reduce
-  // blink memory footprint because the attribute is only used by DevTools
-  // and we should keep the footprint minimal when DevTools is closed.
-  scoped_refptr<base::RefCountedData<base::flat_set<net::SourceStreamType>>>
-      devtools_accepted_stream_types_;
 
   net::StorageAccessApiStatus storage_access_api_status_ =
       net::StorageAccessApiStatus::kNone;
@@ -892,15 +857,6 @@ class PLATFORM_EXPORT ResourceRequest final : public ResourceRequestHead {
 
   ResourceRequestBody& MutableBody() { return body_; }
 
-  // `PermissionsPolicy` is in blink/public and hence cannot access
-  // `ResourceRequest`. We implement this method here and make `ResourceRequest`
-  // a forward-declared friend class to `PermissionsPolicy` in order to keep
-  // `PermissionsPolicy::IsFeatureEnabledForSubresourceRequestAssumingOptIn()`
-  // private for safety.
-  bool IsFeatureEnabledForSubresourceRequestAssumingOptIn(
-      const network::PermissionsPolicy* policy,
-      network::mojom::PermissionsPolicyFeature feature,
-      const url::Origin& origin);
 
  private:
   ResourceRequestBody body_;

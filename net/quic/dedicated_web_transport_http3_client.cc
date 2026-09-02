@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "net/base/address_list.h"
 #include "net/base/port_util.h"
@@ -399,6 +400,7 @@ DedicatedWebTransportHttp3Client::DedicatedWebTransportHttp3Client(
           parameters.anticipated_concurrent_incoming_unidirectional_streams),
       anticipated_concurrent_incoming_bidirectional_streams_(
           parameters.anticipated_concurrent_incoming_bidirectional_streams),
+      additional_headers_(parameters.additional_headers),
       context_(context),
       visitor_(visitor),
       quic_context_(context->quic_context()),
@@ -836,6 +838,11 @@ int DedicatedWebTransportHttp3Client::DoSendRequest() {
           *std::move(protocols_header);
     }
   }
+  for (const auto& [name, value] : additional_headers_) {
+    // "Characters in field names MUST be converted to lowercase prior to
+    // their encoding." -- RFC 9114 Section 4.2
+    headers.AppendValueOrAddHeader(base::ToLowerASCII(name), value);
+  }
   stream->WriteHeaders(std::move(headers), /*fin=*/false, nullptr);
 
   web_transport_session_ = stream->web_transport();
@@ -844,6 +851,14 @@ int DedicatedWebTransportHttp3Client::DoSendRequest() {
   }
   stream->web_transport()->SetVisitor(
       std::make_unique<WebTransportVisitorProxy>(this));
+  // Install the single-use draining callback before the handshake completes so
+  // a GOAWAY that drains the session during the handshake is not lost.
+  web_transport_session_->SetOnDraining(
+      [weak_this = weak_factory_.GetWeakPtr()]() mutable {
+        if (weak_this) {
+          weak_this->OnSessionDraining();
+        }
+      });
 
   next_connect_state_ = CONNECT_STATE_CONFIRM_CONNECTION;
   return ERR_IO_PENDING;
@@ -954,6 +969,13 @@ void DedicatedWebTransportHttp3Client::OnSessionClosed(
       FROM_HERE,
       base::BindOnce(&DedicatedWebTransportHttp3Client::TransitionToState,
                      weak_factory_.GetWeakPtr(), WebTransportState::CLOSED));
+}
+
+void DedicatedWebTransportHttp3Client::OnSessionDraining() {
+  if (IsTerminalState(state_)) {
+    return;
+  }
+  visitor_->OnDraining();
 }
 
 void DedicatedWebTransportHttp3Client::

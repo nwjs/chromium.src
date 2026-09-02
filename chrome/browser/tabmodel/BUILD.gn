@@ -79,6 +79,7 @@ android_library("java") {
   ]
   deps = [
     "//base:base_java",
+    "//base:tristate_java",
     "//build/android:build_java",
     "//chrome/browser/flags:java",
     "//chrome/browser/profiles/android:java",
@@ -118,6 +119,8 @@ robolectric_library("junit") {
   sources = [
     "android/java/src/org/chromium/chrome/browser/tabmodel/AccumulatingTabCreatorUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/ArchivedTabCountTrackerUnitTest.java",
+    "android/java/src/org/chromium/chrome/browser/tabmodel/AsyncTabParamsManagerImplUnitTest.java",
+    "android/java/src/org/chromium/chrome/browser/tabmodel/IncognitoStateProviderUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/IncognitoTabModelImplUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/MultiTabMetadataUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/OverridableTabCountUnitTest.java",
@@ -132,6 +135,7 @@ robolectric_library("junit") {
     "android/java/src/org/chromium/chrome/browser/tabmodel/TabGroupTitleUtilsUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/TabGroupUtilsUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/TabGroupVisualDataStoreUnitTest.java",
+    "android/java/src/org/chromium/chrome/browser/tabmodel/TabModelOrderControllerImplUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/TabModelSelectorTabModelObserverUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/TabModelSelectorTabRegistrationObserverUnitTest.java",
     "android/java/src/org/chromium/chrome/browser/tabmodel/TabModelUtilsUnitTest.java",
@@ -144,6 +148,7 @@ robolectric_library("junit") {
     "//base:base_java",
     "//base:base_java_test_support",
     "//base:base_junit_test_support",
+    "//base:tristate_java",
     "//base/test:test_support_java",
     "//build/android:build_java",
     "//chrome/android:chrome_java",

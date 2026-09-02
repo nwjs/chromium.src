@@ -14,13 +14,13 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/lens/core/mojom/lens.mojom.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_gen204_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_image_helper.h"
 #include "chrome/browser/ui/lens/lens_overlay_proto_converter.h"
+#include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
 #include "chrome/browser/ui/lens/lens_overlay_url_builder.h"
 #include "chrome/browser/ui/lens/lens_search_contextualization_controller.h"
 #include "chrome/browser/ui/lens/lens_search_feature_flag_utils.h"
@@ -35,9 +35,10 @@
 #include "components/lens/ref_counted_lens_overlay_client_logs.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/lens_suggest_inputs_utils.h"
+#include "components/omnibox/common/composebox_features.h"
 #include "components/omnibox/common/logger.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/sessions/content/session_tab_helper.h"
-#include "components/signin/public/identity_manager/identity_manager.h"
 #include "mojo/public/cpp/bindings/clone_traits.h"
 #include "net/base/url_util.h"
 #include "third_party/lens_server_proto/lens_overlay_server.pb.h"
@@ -71,6 +72,9 @@ omnibox::ChromeAimEntryPoint AimEntryPointFromInvocationSource(
   // Lens invocation source.
   if (invocation_source ==
       lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion) {
+    if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxAskGAboutThisPage)) {
+      return omnibox::DESKTOP_CHROME_COBROWSE_OMNIBOX_CONTEXTUAL_SUGGESTION;
+    }
     return omnibox::DESKTOP_CHROME_OTHER_OMNIBOX_COMPOSEBOX_ENTRY_POINT;
   }
   return omnibox::DESKTOP_CHROME_LENS_CONTEXTUAL_SEARCHBOX_ENTRY_POINT;
@@ -168,6 +172,16 @@ void LensQueryFlowRouter::StartQueryFlow(
         .ui_scale_factor = ui_scale_factor,
         .invocation_time = invocation_time,
     };
+
+    if (lens_search_controller_->invocation_source() ==
+        lens::LensOverlayInvocationSource::kOmniboxPopupButton) {
+      context_upload_mode_ = ContextUploadMode::kSelectedRegionOnly;
+      // For region-only uploads, page context is not uploaded, but page context
+      // eligibility is evaluated to ensure protected pages are blocked.
+      lens_search_contextualization_controller()
+          ->CheckPageContextEligibilityOnly();
+      return;
+    }
 
     ContextUploadMode initial_mode = ShouldPopulateFullPageContext()
                                          ? ContextUploadMode::kFullPage
@@ -342,10 +356,41 @@ void LensQueryFlowRouter::SendRegionSearch(
 
   if (ShouldRouteToContextualTasks()) {
     MaybeResumeQueryFlow();
+    std::optional<SkBitmap> region_bytes_to_send = region_bytes;
+    lens::mojom::CenterRotatedBoxPtr region_to_send =
+        region ? region->Clone() : nullptr;
+
+    if (context_upload_mode_ == ContextUploadMode::kSelectedRegionOnly) {
+      // For region-only uploads, the selected region must be cropped out of the
+      // viewport screenshot each time a region selection is made.
+      SkBitmap region_bitmap;
+      if (region_bytes.has_value()) {
+        region_bitmap = *region_bytes;
+      } else if (region) {
+        region_bitmap =
+            lens::CropBitmapToRegion(GetViewportScreenshot(), region->Clone());
+      }
+      // Upload the cropped region image as the context payload for this region
+      // selection (with page URL, title, tab ID, and DOM context stripped).
+      UploadContextualInputData(
+          ContextUploadMode::kSelectedRegionOnly,
+          CreateContextualInputData(ContextUploadMode::kSelectedRegionOnly,
+                                    region_bitmap, GURL(), std::nullopt,
+                                    base::span<const PageContent>(),
+                                    lens::MimeType::kImage, std::nullopt));
+      // Set the region bounds to indicate that the selected region is the
+      // entirety of the context image.
+      region_bytes_to_send = region_bitmap;
+      region_to_send = lens::mojom::CenterRotatedBox::New();
+      region_to_send->box = gfx::RectF(0.5f, 0.5f, 1.0f, 1.0f);
+      region_to_send->coordinate_type =
+          lens::mojom::CenterRotatedBox_CoordinateType::kNormalized;
+    }
+
     SendInteractionToContextualTasks(CreateSearchUrlRequestInfoFromInteraction(
-        std::move(region), std::move(region_bytes), /*query_text=*/std::nullopt,
-        lens_selection_type, additional_search_query_params, query_start_time,
-        invocation_source));
+        std::move(region_to_send), std::move(region_bytes_to_send),
+        /*query_text=*/std::nullopt, lens_selection_type,
+        additional_search_query_params, query_start_time, invocation_source));
     return;
   }
 
@@ -399,6 +444,7 @@ void LensQueryFlowRouter::SendContextualTextQuery(
     // This lazily uploads full page context only when a contextual text query
     // is issued.
     if (context_upload_mode_ != ContextUploadMode::kFullPage &&
+        context_upload_mode_ != ContextUploadMode::kSelectedRegionOnly &&
         ShouldPopulateFullPageContext() && initial_context_params_) {
       UploadContextualInputData(
           ContextUploadMode::kFullPage,
@@ -509,6 +555,12 @@ void LensQueryFlowRouter::HandleInteractionResponse(
 
 void LensQueryFlowRouter::RemoveContextualSearchContextIfNecessary(
     bool has_region_selection) {
+  // If context management is handled by the composebox, do not let Lens
+  // unilaterally delete the tab context when closing.
+  if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
+    return;
+  }
+
   if (ShouldRouteToContextualTasks() &&
       overlay_tab_context_file_token_.has_value() && !has_region_selection) {
     auto* session_handle = GetContextualSearchSessionHandle();
@@ -528,7 +580,6 @@ LensQueryFlowRouter::GetViewportEncodingOptions() {
   const auto& image_upload_config =
       ntp_composebox::FeatureConfig::Get().config.composebox().image_upload();
   return lens::ImageEncodingOptions{
-      .enable_webp_encoding = image_upload_config.enable_webp_encoding(),
       .max_size = image_upload_config.downscale_max_image_size(),
       .max_height = image_upload_config.downscale_max_image_height(),
       .max_width = image_upload_config.downscale_max_image_width(),
@@ -790,7 +841,6 @@ void LensQueryFlowRouter::UploadContextualInputData(
   auto image_upload_config =
       ntp_composebox::FeatureConfig::Get().config.composebox().image_upload();
   auto image_options = lens::ImageEncodingOptions{
-      .enable_webp_encoding = image_upload_config.enable_webp_encoding(),
       .max_size = image_upload_config.downscale_max_image_size(),
       .max_height = image_upload_config.downscale_max_image_height(),
       .max_width = image_upload_config.downscale_max_image_width(),
@@ -841,19 +891,22 @@ bool LensQueryFlowRouter::ShouldPopulateFullPageContext() const {
   if (!profile()) {
     return false;
   }
-  const bool is_cobrowse_eligible =
+  // Since ShouldPopulateFullPageContext() may be called prior to
+  // StartQueryFlow(), context_upload_mode_ may not be set yet, so also check
+  // if the invocation source is one where page context is blocked.
+  if (context_upload_mode_ == ContextUploadMode::kSelectedRegionOnly ||
+      (lens_search_controller_ &&
+       lens_search_controller_->invocation_source() ==
+           lens::LensOverlayInvocationSource::kOmniboxPopupButton)) {
+    return false;
+  }
+  const bool can_add_page_content_to_query =
       lens::IsLensOverlayContextualSearchboxEnabled(profile());
   const bool is_permitted =
       lens::DidUserGrantLensOverlayNeededPermissions(profile()) ||
       (lens_overlay_query_controller() &&
        lens_overlay_query_controller()->HasPermissionForSession());
-  bool is_signed_in = false;
-  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile());
-  if (identity_manager) {
-    is_signed_in =
-        identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
-  }
-  return is_signed_in && is_cobrowse_eligible && is_permitted;
+  return can_add_page_content_to_query && is_permitted;
 }
 
 std::unique_ptr<lens::ContextualInputData>
@@ -883,7 +936,11 @@ LensQueryFlowRouter::CreateContextualInputData(
       lens_search_contextualization_controller()
           ->GetCurrentPageContextEligibility();
 
-  if (upload_mode == ContextUploadMode::kViewportOnly ||
+  // In region-only or viewport-only mode, strip all page-level context (page
+  // URL, page title, tab session ID, and DOM text content) from the upload
+  // payload.
+  if (upload_mode == ContextUploadMode::kSelectedRegionOnly ||
+      upload_mode == ContextUploadMode::kViewportOnly ||
       !ShouldPopulateFullPageContext()) {
     contextual_input_data->primary_content_type = lens::MimeType::kImage;
     contextual_input_data->tab_session_id = std::nullopt;
@@ -982,6 +1039,14 @@ void LensQueryFlowRouter::SetQueryContextualizerForTesting(
 
 bool LensQueryFlowRouter::IsActiveTabContextEligible() const {
   if (ShouldRouteToContextualTasks()) {
+    if (context_upload_mode_ == ContextUploadMode::kSelectedRegionOnly) {
+      // In region-only mode, the tab context will never be uploaded, so check
+      // page context eligibility directly instead of relying on the upload
+      // status.
+      return lens_search_contextualization_controller()
+          ->GetCurrentPageContextEligibility();
+    }
+
     // If the overlay tab context has not been uploaded yet, then the page is
     // considered eligible for contextual tasks. However, the overlay tab
     // context should be checked for eligibility again if it is later uploaded.

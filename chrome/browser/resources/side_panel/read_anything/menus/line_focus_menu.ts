@@ -100,6 +100,7 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
         {
           header: {
             title: loadTimeData.getString('lineFocusLabel'),
+            shortcut: loadTimeData.getString('lineFocusShortcutLabel'),
             separator: false,
           },
           items: this.toggleOptions_,
@@ -151,6 +152,9 @@ export class LineFocusMenuElement extends LineFocusMenuElementBase implements
 
   close() {
     this.$.menu.close();
+    if (this.lineFocusEnabled) {
+      chrome.readingMode.onLineFocusFeatureUsed();
+    }
   }
 
   protected onLineFocusStyleChange_() {

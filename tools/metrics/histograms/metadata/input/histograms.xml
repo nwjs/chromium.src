@@ -32,6 +32,21 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Input.CommitContent.{Result}" enum="ImeCommitContentExtension"
+    expires_after="2027-08-01">
+  <owner>hdchuong@google.com</owner>
+  <owner>essential-inputs-team@google.com</owner>
+  <summary>
+    Records the file extension format for {Result} IME commitContent
+    (image/media insertion) attempts. Logged on Android when an IME commits rich
+    media content via InputConnection#commitContent.
+  </summary>
+  <token key="Result">
+    <variant name="Failure" summary="failed"/>
+    <variant name="Success" summary="successful"/>
+  </token>
+</histogram>
+
 <histogram name="Input.Digitizer.MaxTouchPoints.{PointerDigitizerType}"
     units="maximum allowed touch points" expires_after="2027-01-01">
   <owner>kouhei@chromium.org</owner>
@@ -273,7 +288,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="InputMethod.Assistive.AutocorrectV2.Distance.SuggestedLength.{Keyboard}{Interaction}"
-    units="chars" expires_after="2026-12-01">
+    units="chars" expires_after="2027-02-07">
   <owner>zacpartridge@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -914,7 +929,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Commit.Type2" enum="IMECommitType2"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>dvallet@chromium.org</owner>
   <owner>shuchen@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1024,7 +1039,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Handwriting.LanguagePackState"
-    enum="LanguagePackState" expires_after="2026-12-01">
+    enum="LanguagePackState" expires_after="2027-02-07">
   <owner>curtismcmullan@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -1035,7 +1050,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.ID2" enum="InputMethodID2"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>tranbaoduy@chromium.org</owner>
   <owner>shuchen@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1062,7 +1077,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.ImeSwitch" enum="IMESwitchType"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>dvallet@chromium.org</owner>
   <owner>timloh@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
@@ -1070,7 +1085,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.KeyEventLatency" units="ms"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>Time taken by the engine to handle a key event.</summary>
@@ -1448,7 +1463,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.Manta.Orca.{Language}.States.{Mode}"
-    enum="IMEEditorStates" expires_after="2026-12-01">
+    enum="IMEEditorStates" expires_after="2027-02-07">
   <owner>curtismcmullan@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -1628,7 +1643,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.PhysicalKeyboard.KeyboardShortcut"
-    enum="PhysicalKeyboardShortcut" expires_after="2026-12-01">
+    enum="PhysicalKeyboardShortcut" expires_after="2027-02-07">
   <owner>wbjacksonjr@chromium.org</owner>
   <owner>embedded-experience@google.com</owner>
   <summary>
@@ -1863,7 +1878,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.SystemEmojiPicker.LoadTime" units="ms"
-    expires_after="2026-12-01">
+    expires_after="2027-01-31">
   <owner>jopalmer@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -1891,7 +1906,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.TouchSelection.DragType"
-    enum="TouchSelectionDragType" expires_after="2026-12-01">
+    enum="TouchSelectionDragType" expires_after="2027-02-07">
   <owner>michellegc@google.com</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2059,7 +2074,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.InitLatency.KeyboardShownLongTail"
-    units="ms" expires_after="2026-12-01">
+    units="ms" expires_after="2027-01-31">
   <owner>jopalmer@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2070,7 +2085,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.InitLatency{IMEVKLatency}"
-    units="ms" expires_after="2026-12-01">
+    units="ms" expires_after="2027-01-31">
   <owner>shend@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>
@@ -2156,7 +2171,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="InputMethod.VirtualKeyboard.ResizableWindowWidth" units="px"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>curtismcmullan@chromium.org</owner>
   <owner>essential-inputs-team@google.com</owner>
   <summary>

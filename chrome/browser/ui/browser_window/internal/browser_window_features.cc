@@ -10,6 +10,7 @@
 #include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "chrome/browser/actor/ui/actor_border_view_controller.h"
 #include "chrome/browser/actor/ui/actor_ui_window_controller.h"
@@ -29,6 +30,8 @@
 #include "chrome/browser/devtools/devtools_ui_controller.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_ui_controller.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
+#include "chrome/browser/geic/geic_enabling.h"
+#include "chrome/browser/geic/geic_side_panel_coordinator.h"
 #include "chrome/browser/glic/browser_ui/glic_iph_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_split_button_controller.h"
@@ -49,6 +52,7 @@
 #include "chrome/browser/ui/breadcrumb_manager_browser_agent.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
+#include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -58,6 +62,7 @@
 #include "chrome/browser/ui/browser_location_bar_model_delegate.h"
 #include "chrome/browser/ui/browser_select_file_dialog_controller.h"
 #include "chrome/browser/ui/browser_tab_menu_model_delegate.h"
+#include "chrome/browser/ui/browser_ui_controller/browser_ui_controller.h"
 #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -202,6 +207,7 @@
 #include "chrome/browser/extensions/extension_browser_window_helper.h"
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/extensions/settings_overridden_params_providers.h"
 #include "chrome/browser/ui/search_engines/default_search_extension_controlled_controller.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
@@ -222,6 +228,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
 #endif
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -257,6 +264,10 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   // dependency ordering takes precedence and exceptions are called out with
   // `// Must be after X.` comments):
 
+  // UnloadController must be created first / destroyed last to ensure
+  // features are able to register / de-register close callbacks.
+  unload_controller_ = std::make_unique<UnloadController>(browser);
+
   if (base::FeatureList::IsEnabled(features::kGlicActorUi) &&
       features::kGlicActorUiBorderGlow.Get()) {
     actor_border_view_controller_ =
@@ -266,6 +277,10 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   app_browser_controller_ =
       GetUserDataFactory().CreateInstanceWithFactoryMethod(
           *browser, &web_app::MaybeCreateAppBrowserController, browser);
+
+  browser_active_state_manager_ =
+      GetUserDataFactory().CreateInstance<BrowserActiveStateManager>(
+          *browser, *browser, app_browser_controller_.get());
 
   {
     auto* merged_bookmarks_service =
@@ -301,7 +316,9 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
       GetUserDataFactory().CreateInstance<WindowFeatureController>(
           *browser, fullscreen_controller_.get(), app_browser_controller_.get(),
           browser->GetType(),
-          BrowserInitState::From(browser)->create_params().trusted_source,
+          BrowserInitState::From(browser)
+              ->browser_window_create_params()
+              .is_trusted_source,
           browser->GetUnownedUserDataHost());
 
   side_panel_registry_ =
@@ -390,6 +407,12 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   extension_installed_watcher_ =
       std::make_unique<ExtensionInstalledWatcher>(profile);
 
+  if (geic::IsGeicEnabled(profile)) {
+    geic_side_panel_coordinator_ =
+        GetUserDataFactory().CreateInstance<geic::GeicSidePanelCoordinator>(
+            *browser, *browser);
+  }
+
   history_clusters_side_panel_coordinator_ =
       std::make_unique<HistoryClustersSidePanelCoordinator>(
           browser, browser->GetProfile());
@@ -439,6 +462,9 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
       std::make_unique<memory_saver::MemorySaverBubbleController>(browser);
 
 #if BUILDFLAG(IS_CHROMEOS)
+  locked_state_controller_ =
+      GetUserDataFactory().CreateInstance<chromeos::LockedStateController>(
+          *browser, browser);
   on_task_locked_controller_ =
       GetUserDataFactory().CreateInstance<ash::boca::OnTaskLockedController>(
           *browser, browser);
@@ -482,7 +508,8 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   session_service_browser_helper_ =
       std::make_unique<SessionServiceBrowserHelper>(
           browser->GetTabStripModel(), browser->GetSessionID(),
-          browser->GetType(), browser->GetProfile());
+          browser->GetType(), browser->GetProfile(),
+          &BrowserInitState::From(browser)->browser_window_create_params());
 
   // Must be after session_service_browser_helper_:
   //   tab_list_bridge_ depends on initialized session tab/window state.
@@ -525,8 +552,6 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
   translate_bubble_controller_ =
       GetUserDataFactory().CreateInstance<TranslateBubbleController>(
           *browser, browser, browser_actions_->root_action_item());
-
-  unload_controller_ = std::make_unique<UnloadController>(browser);
 
   user_education_ =
       GetUserDataFactory().CreateInstance<BrowserUserEducationInterfaceImpl>(
@@ -576,7 +601,7 @@ void BrowserWindowFeatures::Init(BrowserWindowInterface* browser) {
               profile, browser->GetTabStripModel(), browser->GetSessionID());
     }
 
-    if (organizer_panel::IsOrganizerPanelVisibleForProfile(profile)) {
+    if (organizer_panel::IsOrganizerPanelFeatureEnabled()) {
       organizer_panel_state_controller_ =
           GetUserDataFactory().CreateInstance<OrganizerPanelStateController>(
               *browser, browser, browser_actions_->root_action_item());
@@ -689,6 +714,11 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
           browser->GetProfile(), browser->tab_strip_model(),
           BrowserWindow::FromBrowser(browser), browser);
 
+  browser_ui_controller_ =
+      GetUserDataFactory().CreateInstance<BrowserUiController>(
+          *browser, *browser, *tab_strip_model_,
+          *BrowserWindow::FromBrowser(browser), *bookmark_bar_controller_);
+
   if (browser_view) {
     color_provider_browser_helper_ =
         std::make_unique<ColorProviderBrowserHelper>(
@@ -714,6 +744,14 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
 
 #if BUILDFLAG(ENABLE_EXTENSIONS) && (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC))
   if (browser_view) {
+    if (!browser_->GetProfile()->IsOffTheRecord()) {
+      base::UmaHistogramBoolean(
+          "Extensions.SettingsOverridden."
+          "UnacknowledgedMatchingDseExtensionPresent",
+          settings_overridden_params::HasUnacknowledgedMatchingDseExtension(
+              browser_->GetProfile()));
+    }
+
     if (base::FeatureList::IsEnabled(
             extensions_features::kSearchEngineExplicitChoiceDialog)) {
       default_search_extension_controlled_controller_ =
@@ -746,14 +784,16 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
   }
 
   exclusive_access_manager_ = std::make_unique<ExclusiveAccessManager>(
-      browser,
-      BrowserWindow::FromBrowser(browser)->GetExclusiveAccessContext());
+      browser, BrowserWindow::FromBrowser(browser)->GetExclusiveAccessContext(),
+      browser_command_controller_.get(), bookmark_bar_controller_.get());
 
-  // Must be after exclusive_access_manager_ and
-  // desktop_browser_window_capabilities_.
+  // Must be after exclusive_access_manager_,
+  // desktop_browser_window_capabilities_, and browser_ui_controller_.
   browser_web_contents_delegate_ = std::make_unique<BrowserWebContentsDelegate>(
-      browser, *exclusive_access_manager_, *BrowserWindow::FromBrowser(browser),
-      *desktop_browser_window_capabilities_);
+      browser, *exclusive_access_manager_, *browser_command_controller_,
+      *unload_controller_, app_browser_controller_.get(),
+      *BrowserWindow::FromBrowser(browser),
+      *desktop_browser_window_capabilities_, *browser_ui_controller_);
 
   // Must be after exclusive_access_manager_.
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -802,7 +842,9 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
 
   live_tab_context_ = std::make_unique<BrowserLiveTabContext>(
       browser, browser->GetTabStripModel(), profile, browser->GetWindow(),
-      browser->GetType(), browser->app_name(), browser->GetSessionID());
+      browser->GetType(),
+      BrowserInitState::From(browser)->create_params().app_name,
+      browser->GetSessionID());
 
   if (browser_view) {
     if (base::FeatureList::IsEnabled(ntp_features::kNtpFooter)) {
@@ -849,7 +891,8 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
       browser, browser->GetTabStripModel(), browser->GetSessionID(),
       browser->GetType());
 
-  if (browser->is_type_normal() || browser->is_type_app()) {
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL ||
+      browser->GetType() == BrowserWindowInterface::Type::TYPE_APP) {
     toast_service_ = std::make_unique<ToastService>(browser);
   }
 
@@ -887,7 +930,7 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
   // omnibox and a tab strip). By default most new features should be
   // instantiated in this block (please keep this list ordered without taking
   // into consideration buildflags, repeating buildflags is ok):
-  if (browser->is_type_normal()) {
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
     if (browser_view) {
       if (base::FeatureList::IsEnabled(features::kGlicActorUi)) {
         std::vector<std::pair<views::WebView*, ActorOverlayWebView*>>
@@ -904,8 +947,7 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
       }
     }
 
-    if (browser_view && IsPageActionMigrated(PageActionIconType::kAiMode) &&
-        AiModeButtonServiceFactory::GetForProfile(profile)) {
+    if (browser_view && AiModeButtonServiceFactory::GetForProfile(profile)) {
       LocationBar* location_bar = browser_view->GetLocationBar();
       if (location_bar) {
         ai_mode_page_action_controller_ =
@@ -942,13 +984,13 @@ void BrowserWindowFeatures::InitPostWindowConstruction(Browser* browser) {
     // Cannot be in Init since needs to listen to the fullscreen controller
     // and location bar view which are initialized after Init.
     if (lens::features::IsLensOverlayEnabled()) {
-      views::View* location_bar = nullptr;
+      LocationBar* location_bar = nullptr;
       // TODO(crbug.com/360163254): We should really be using
       // Browser::GetBrowserView, which always returns a non-null BrowserView
       // in production, but this crashes during unittests using
       // BrowserWithTestWindowTest; these should eventually be refactored.
       if (browser_view) {
-        location_bar = browser_view->GetLocationBarView();
+        location_bar = browser_view->GetLocationBar();
       }
       lens_overlay_entry_point_controller_->Initialize(
           browser, browser_command_controller_.get(), location_bar);
@@ -1132,6 +1174,7 @@ void BrowserWindowFeatures::TearDownPreBrowserWindowDestruction() {
   data_protection_ui_controller_.reset();
   contents_border_controller_.reset();
   color_provider_browser_helper_.reset();
+  browser_ui_controller_.reset();
   browser_select_file_dialog_controller_.reset();
   browser_focus_controller_.reset();
   bookmark_bar_controller_->SetDelegate(nullptr);
@@ -1214,7 +1257,8 @@ FindBarController* BrowserWindowFeatures::GetFindBarController() {
   if (!find_bar_controller_.get()) {
     CHECK(browser_);
     find_bar_controller_ = std::make_unique<FindBarController>(
-        BrowserWindow::FromBrowser(browser_)->CreateFindBar());
+        BrowserWindow::FromBrowser(browser_)->CreateFindBar(),
+        browser_command_controller_.get());
     find_bar_controller_->find_bar()->SetFindBarController(
         find_bar_controller_.get());
     find_bar_controller_->ChangeWebContents(

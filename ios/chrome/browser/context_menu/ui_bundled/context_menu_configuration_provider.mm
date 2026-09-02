@@ -589,10 +589,7 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
       gemini::IsGeminiAvailable(gemini::EntryPoint::ImageContextMenu,
                                 self.browser->GetProfile(), webState)
           .enabled;
-  BOOL geminiAboveSearch = IsGeminiImageRemixToolShowAboveSearchImageEnabled();
-  BOOL geminiBelowSearch = IsGeminiImageRemixToolShowBelowSearchImageEnabled();
-
-  if (canShowGeminiElement && (geminiAboveSearch || geminiBelowSearch)) {
+  if (canShowGeminiElement) {
     RecordImageRemixContextMenuEntryPointShown();
 
     ProceduralBlock geminiElementCallback = ^{
@@ -602,20 +599,10 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
     };
     geminiElement = [actionFactory
         actionToOpenImageInGeminiWithBlock:geminiElementCallback];
-  }
-
-  // Display the gemini element either above or below the search image
-  // element based on the flags.
-  if (geminiElement && geminiAboveSearch) {
     [imageMenuElements addObject:geminiElement];
   }
 
   [imageMenuElements addObjectsFromArray:imageSearchingElements];
-
-  // Ensure we don't show gemini twice if both flags are enabled.
-  if (geminiElement && geminiBelowSearch && !geminiAboveSearch) {
-    [imageMenuElements addObject:geminiElement];
-  }
 
   // Share Image.
   // Shares the URL of the image and not the image itself.
@@ -647,6 +634,8 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
       imageURL, referrer, params.frame_id, params.frame_security_origin,
       ^(NSData* rawData) {
         // Arbitrary web image data requires sanitization before use.
+        // TODO(b/541315801): C2PA: Web images could have C2PA metadata;
+        // candidate to pass raw bytes.
         [weakSelf
             sanitizeImageData:rawData
                      mimeType:kJPEGImageMimeType
@@ -910,8 +899,8 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
   [imageSavingElements addObject:saveImageToPhotosAction];
 
   // Save Image Menu.
-  UIImage* image = DefaultSymbolWithPointSize(kPhotoBadgeArrowDownSymbol,
-                                              kSymbolActionPointSize);
+  UIImage* image =
+      SymbolWithPointSize(SymbolPhotoBadgeArrowDown, kSymbolActionPointSize);
   UIMenu* saveImageInMenu = [UIMenu
       menuWithTitle:l10n_util::GetNSString(IDS_IOS_TOOLS_MENU_SAVE_IMAGE_IN)
               image:image
@@ -1185,7 +1174,10 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
   GeminiStartupState* state = [[GeminiStartupState alloc]
       initWithEntryPoint:gemini::EntryPoint::ImageContextMenu];
   state.imageAttachment = image;
-  [handler startGeminiFlowWithStartupState:state];
+  [handler startGeminiEntryFlowWithStartupState:state
+                             baseViewController:self.baseViewController
+                       showSnackbarOnCompletion:YES
+                                     completion:nil];
 }
 
 @end

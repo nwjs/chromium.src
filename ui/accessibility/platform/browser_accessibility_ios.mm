@@ -27,17 +27,29 @@ BrowserAccessibilityIOS::BrowserAccessibilityIOS(
 BrowserAccessibilityIOS::~BrowserAccessibilityIOS() = default;
 
 void BrowserAccessibilityIOS::OnDataChanged() {
-  BrowserAccessibility::OnDataChanged();
-
+  // BrowserAccessibility::OnDataChanged is responsible for creating the
+  // AXPlatformNode (through UpdatePlatformNode), and this event should be fired
+  // before the node gets created. This is the wrong location for this event to
+  // be fired from, though, and the TODO mentioned below should fix this by
+  // moving this to BrowserAccessibilityIOS::FireGeneratedEvent.
   if (platform_node_) {
     // TODO(crbug.com/336611337): Investigate why this needs to be called
     // unconditionally rather than just for children changes.
     [base::apple::ObjCCastStrict<AXPlatformNodeUIKitElement>(
         platform_node_->GetNativeViewAccessible().Get()) childrenChanged];
-    return;
   }
 
-  CreatePlatformNode();
+  BrowserAccessibility::OnDataChanged();
+}
+
+void BrowserAccessibilityIOS::UpdatePlatformNode() {
+  if (!ShouldHavePlatformNode()) {
+    platform_node_.reset();
+    return;
+  }
+  if (!platform_node_) {
+    CreatePlatformNode();
+  }
 }
 
 size_t BrowserAccessibilityIOS::PlatformChildCount() const {
@@ -100,7 +112,8 @@ BrowserAccessibility* BrowserAccessibilityIOS::PlatformGetLastChild() const {
 BrowserAccessibility* BrowserAccessibilityIOS::PlatformGetNextSibling() const {
   BrowserAccessibility* parent = PlatformGetParent();
   if (parent) {
-    size_t next_child_index = node()->GetUnignoredIndexInParent() + 1;
+    size_t next_child_index =
+        node()->GetUnignoredIndexInParentCrossingTreeBoundary() + 1;
     if (next_child_index >= parent->InternalChildCount() &&
         next_child_index < parent->PlatformChildCount()) {
       // Get the extra_mac_node.
@@ -116,7 +129,8 @@ BrowserAccessibility* BrowserAccessibilityIOS::PlatformGetPreviousSibling()
     const {
   BrowserAccessibility* parent = PlatformGetParent();
   if (parent) {
-    size_t child_index = node()->GetUnignoredIndexInParent();
+    size_t child_index =
+        node()->GetUnignoredIndexInParentCrossingTreeBoundary();
     if (child_index > parent->InternalChildCount() &&
         child_index <= parent->PlatformChildCount()) {
       // Get the extra_mac_node.

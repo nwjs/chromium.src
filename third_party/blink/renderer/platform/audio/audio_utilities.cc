@@ -113,12 +113,6 @@ size_t TimeToSampleFrame(double time,
   return static_cast<size_t>(frame);
 }
 
-base::TimeDelta FramesToTime(int64_t frames, float sample_rate) {
-  CHECK_GT(sample_rate, 0.f);
-  return base::Microseconds(static_cast<int64_t>(
-      frames * base::Time::kMicrosecondsPerSecond / sample_rate));
-}
-
 bool IsValidAudioBufferSampleRate(float sample_rate) {
   return sample_rate >= MinAudioBufferSampleRate() &&
          sample_rate <= MaxAudioBufferSampleRate();
@@ -212,6 +206,12 @@ const std::string GetDeviceEnumerationForTracing(
   }
 
   return s.str().empty() ? "EMPTY" : s.str();
+}
+
+size_t RoundUpToMultiple(size_t value, size_t modulus) {
+  CHECK_GT(modulus, 0u);
+  CHECK_LE(value, SIZE_MAX - modulus);
+  return ((value + modulus - 1) / modulus) * modulus;
 }
 
 }  // namespace blink::audio_utilities

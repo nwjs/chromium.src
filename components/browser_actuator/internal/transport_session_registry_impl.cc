@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "components/browser_actuator/internal/features.h"
 #include "components/browser_actuator/internal/transport_session_impl.h"
 
@@ -45,6 +46,16 @@ TransportSession* TransportSessionRegistryImpl::GetSession(
     std::string_view session_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return GetSessionImpl(session_id);
+}
+
+void TransportSessionRegistryImpl::AddObserver(Observer* observer) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  observers_.AddObserver(observer);
+}
+
+void TransportSessionRegistryImpl::RemoveObserver(Observer* observer) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  observers_.RemoveObserver(observer);
 }
 
 std::vector<TransportSessionImpl*>
@@ -89,7 +100,14 @@ TransportSessionImpl* TransportSessionRegistryImpl::GetOrCreateSession(
 TransportSessionImpl* TransportSessionRegistryImpl::CreateSession(
     std::string_view session_id) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (sessions_.size() >= max_concurrent_sessions_) {
+  base::UmaHistogramExactLinear(
+      "Browser.Actuator.SessionRegistry.ExistingSessionsCount",
+      static_cast<int>(sessions_.size()),
+      /*exclusive_max=*/20);
+  const bool limit_reached = sessions_.size() >= max_concurrent_sessions_;
+  base::UmaHistogramBoolean(
+      "Browser.Actuator.SessionRegistry.SessionLimitReached", limit_reached);
+  if (limit_reached) {
     DLOG(WARNING) << "Max concurrent sessions limit ("
                   << max_concurrent_sessions_
                   << ") reached. Rejecting new session.";
@@ -99,6 +117,9 @@ TransportSessionImpl* TransportSessionRegistryImpl::CreateSession(
       std::make_unique<TransportSessionImpl>(session_id, channel_);
   TransportSessionImpl* session_ptr = session.get();
   sessions_.emplace(std::string(session_id), std::move(session));
+  for (auto& observer : observers_) {
+    observer.OnSessionRegistered(session_ptr);
+  }
   return session_ptr;
 }
 

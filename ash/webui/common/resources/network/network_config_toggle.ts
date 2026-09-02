@@ -18,6 +18,7 @@ import {CrPolicyNetworkBehaviorMojo} from './cr_policy_network_behavior_mojo.js'
 import type {NetworkConfigElementBehaviorInterface} from './network_config_element_behavior.js';
 import {NetworkConfigElementBehavior} from './network_config_element_behavior.js';
 import {getTemplate} from './network_config_toggle.html.js';
+import type {OncMojo} from './onc_mojo.js';
 
 const NetworkConfigToggleElementBase = mixinBehaviors(
                                            [
@@ -62,10 +63,12 @@ export class NetworkConfigToggleElement extends NetworkConfigToggleElementBase {
     };
   }
 
-  checked: boolean;
-  label: string;
-  policyOnLeft: boolean;
-  subLabel: string;
+  declare checked: boolean;
+  declare disabled: boolean;
+  declare label: string;
+  declare policyOnLeft: boolean;
+  declare property: OncMojo.ManagedProperty|null;
+  declare subLabel: string;
 
   override ready() {
     super.ready();

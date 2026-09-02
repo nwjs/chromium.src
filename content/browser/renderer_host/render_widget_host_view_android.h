@@ -182,16 +182,14 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
       override;
   ui::FilteredGestureProvider* GetFilteredGestureProviderForTesting() override;
-  void CopyFromExactSurfaceWithIpcDelay(
-      const gfx::Rect& src_rect,
-      const gfx::Size& output_size,
-      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback,
-      base::TimeDelta ipc_delay) override;
-  void CopyFromExactSurface(
-      const gfx::Rect& src_rect,
-      const gfx::Size& output_size,
-      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback)
-      override;
+  // Identical to `CopyFromSurface()`, except that this method issues the
+  // `viz::CopyOutputRequest` against the exact `viz::Surface` currently
+  // embedded by this View, while `CopyFromSurface()` may return a copy of any
+  // Surface associated with this View, generated after the current Surface. The
+  // caller is responsible for making sure that the target Surface is embedded
+  // and available for copy when this API is called. This Surface can be removed
+  // from the UI after this call.
+  // Additionally, the result is a shared image, as opposed to a bitmap.
   void CopySharedImageFromExactSurface(
       const gfx::Rect& src_rect,
       const gfx::Size& output_size,
@@ -214,6 +212,12 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void ShowWithVisibility(PageVisibilityState page_visibility) final;
   void WasOccluded() override;
   void Destroy() override;
+  void CreateUnboundedSurface(
+      mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
+      mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient>
+          client,
+      const gfx::Rect& bounds_in_dips,
+      base::WeakPtr<RenderWidgetHostViewBase> subframe_view) override;
   void UpdateTooltipUnderCursor(const std::u16string& tooltip_text) override;
   void UpdateTooltip(const std::u16string& tooltip_text) override;
   void UpdateTooltipFromKeyboard(const std::u16string& tooltip_text,
@@ -434,6 +438,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
       const cc::RenderFrameMetadata& metadata) override {}
   void OnRootScrollOffsetChanged(
       const gfx::PointF& root_scroll_offset) override;
+  void OnReportScrollJankStats(uint32_t total_frames,
+                               uint32_t janky_frames) override;
 
   void WasEvicted();
 
@@ -522,6 +528,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   void UnlockOrientation() override;
   void SetHasPersistentVideo(bool has_persistent_video) override;
   void SetTouchpadOverscrollHistoryNavigation(bool enabled) override;
+  void ReportScrollJankStats(uint32_t total_frames,
+                             uint32_t janky_frames) override;
   void OnUnconfirmedTapConvertedToTap() override;
 
   // This method is used as a callback for `ViewAndroid::HitTest` to determine
@@ -814,6 +822,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
 
   // Whether swipe-to-move-cursor gesture is activated.
   bool swipe_to_move_cursor_activated_ = false;
+
+  bool in_destroy_ = false;
 
   raw_ptr<WebContentsAccessibilityAndroid> web_contents_accessibility_ =
       nullptr;

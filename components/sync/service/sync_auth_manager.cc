@@ -8,6 +8,7 @@
 
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/time/time.h"
 #include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/access_token_fetcher.h"
@@ -232,8 +233,32 @@ SyncTokenStatus SyncAuthManager::GetSyncTokenStatus() const {
 }
 
 SyncCredentials SyncAuthManager::GetCredentials() const {
-  return {.email = sync_account_.Get().account_info.email,
-          .access_token_info = access_token_info_};
+  return {.access_token_info = access_token_info_};
+}
+
+void SyncAuthManager::FetchAccessToken(
+    base::OnceCallback<void(signin::AccessTokenInfo)> callback) {
+  CHECK(registered_for_auth_notifications_);
+  CHECK(base::FeatureList::IsEnabled(kSyncUsePropagatedAccessToken));
+
+  // This method is called by the sync engine, which only exists and requests
+  // access tokens while the connection is open.
+  CHECK(connection_open_);
+
+  if (sync_account_.Get().account_info.IsEmpty() || IsSyncPaused()) {
+    std::move(callback).Run(signin::AccessTokenInfo());
+    return;
+  }
+
+  if (!access_token_info_.token.empty()) {
+    std::move(callback).Run(access_token_info_);
+    return;
+  }
+
+  access_token_callbacks_.push_back(std::move(callback));
+
+  // Verifies an ongoing access token fetch internally.
+  RequestAccessToken();
 }
 
 void SyncAuthManager::ConnectionOpened() {
@@ -335,6 +360,7 @@ void SyncAuthManager::ClearAccessTokenAndRequest() {
   request_access_token_retry_timer_.Stop();
   ongoing_access_token_fetch_.reset();
   weak_ptr_factory_.InvalidateWeakPtrs();
+  NotifyAccessTokenCallbacks(signin::AccessTokenInfo());
 }
 
 void SyncAuthManager::ScheduleAccessTokenRequest() {
@@ -463,8 +489,9 @@ void SyncAuthManager::OnRefreshTokensLoaded() {
 
 void SyncAuthManager::OnIdentityManagerShutdown(
     signin::IdentityManager* identity_manager) {
-  CHECK_EQ(identity_manager, identity_manager_);
-  identity_manager_observation_.Reset();
+  // Needs to be destroyed before `IdentityManager`, similar to
+  // `SyncServiceImpl::OnIdentityManagerShutdown()`.
+  NOTREACHED();
 }
 
 bool SyncAuthManager::IsRetryingAccessTokenFetchForTest() const {
@@ -591,6 +618,8 @@ void SyncAuthManager::AccessTokenFetched(
     SetLastAuthError(error);
   }
 
+  NotifyAccessTokenCallbacks(access_token_info_);
+
   delegate_->SyncAuthCredentialsChanged();
 }
 
@@ -601,6 +630,15 @@ void SyncAuthManager::SetLastAuthError(const GoogleServiceAuthError& error) {
   }
   last_auth_error_ = error;
   last_auth_error_time_ = base::Time::Now();
+}
+
+void SyncAuthManager::NotifyAccessTokenCallbacks(
+    const signin::AccessTokenInfo& token) {
+  for (base::OnceCallback<void(signin::AccessTokenInfo)>& callback :
+       access_token_callbacks_) {
+    std::move(callback).Run(token);
+  }
+  access_token_callbacks_.clear();
 }
 
 }  // namespace syncer

@@ -109,6 +109,11 @@ void InitSkiaGraphiteFeatureParams(const base::Feature* feature) {
           g_skia_graphite_feature_params
               .flush_d3d11_tile_raster_commands_to_driver)
           .Get();
+  g_skia_graphite_feature_params.triple_buffered_dcomp_root_surface =
+      base::FeatureParam<bool>(
+          feature, "triple_buffered_dcomp_root_surface",
+          g_skia_graphite_feature_params.triple_buffered_dcomp_root_surface)
+          .Get();
 #endif
 
   GetGraphiteParamsInitFlag().Set();
@@ -400,6 +405,12 @@ BASE_FEATURE(kUseDynamicBackingAllocations, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kUseStrongRefToSharedImageInterface,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, this feature lets ClientSharedImage handle all SyncToken
+// management (i.e. generation, waiting and storing) internally. All SyncTokens
+// that clients obtain from ClientSharedImage will be empty in this situation.
+BASE_FEATURE(kUseAutomaticSyncTokenManagement,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable atlasing of small paths on Skia Graphite. Only meaningful if
 // SkiaGraphite is also enabled.
 BASE_FEATURE(kSkiaGraphiteSmallPathAtlas, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -456,10 +467,6 @@ void InitSkiaGraphiteDefaultParamsForTesting() {
 const base::FeatureParam<int> kSkiaGraphiteMinPathSizeForMsaa{
     &kSkiaGraphiteSmallPathAtlas, "min_path_size_for_msaa", 0};
 
-#if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kSkiaGraphiteDawnUseD3D12, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // Whether to use the GpuPersistentCache for caching GPU process shader blobs.
 // Usage for Graphite is controlled independently with
 // kSkiaGraphiteDawnUsePersistentCache.
@@ -489,13 +496,6 @@ BASE_FEATURE(kPruneOldTransferCacheEntries, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDeferredOverlaysRelease,
              "DeferredOverlayRelease",
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Use d3d11 UpdateSubresource() (instead of a staging texture) to upload pixels
-// to textures.
-#if BUILDFLAG(IS_WIN)
-BASE_FEATURE(kD3DBackingUploadWithUpdateSubresource,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // This feature allows enabling specific entries in
 // software_rendering_list.json, via experimentation. The entries must have
@@ -704,13 +704,6 @@ bool ShouldEnableDrDc() {
                       kDrDcBlockListByAndroidBuildFP.Get())) {
     return false;
   }
-
-  // Chrome on Android desktop aims to be Vulkan-only, which can result
-  // in crashes when enabled together with DrDc. Re-enable DrDc after
-  // crbug.com/380295059 is fixed if it is shown beneficial on desktop.
-  if (base::android::device_info::is_desktop()) {
-    return false;
-  }
 #endif
 
   return base::FeatureList::IsEnabled(kEnableDrDc);
@@ -875,10 +868,6 @@ bool IsSyncPointGraphValidationEnabled() {
 }
 
 BASE_FEATURE(kANGLEPerContextBlobCache, base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_APPLE)
-BASE_FEATURE(kIOSurfaceMultiThreading, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 // Support thread safety for graphite::context by sharing the same
 // graphite::context as well as its wrapper class GraphiteSharedContext between

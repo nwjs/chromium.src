@@ -47,6 +47,7 @@ Canvas2DBitmapProvider::Canvas2DBitmapProvider(
       format_(format),
       alpha_type_(alpha_type),
       color_space_(color_space),
+      hdr_metadata_(hdr_metadata),
       delegate_(delegate),
       snapshot_paint_image_id_(cc::PaintImage::GetNextId()) {
   max_recorded_op_bytes_ = static_cast<size_t>(kMaxRecordedOpKB.Get()) * 1024;
@@ -205,10 +206,6 @@ void Canvas2DBitmapProvider::ReleaseImageProviderImages() {
     canvas_image_provider_->ReleaseLockedImages();
     canvas_image_provider_->UnbindTextureBackedImages();
   }
-}
-
-const std::optional<cc::PaintRecord>& Canvas2DBitmapProvider::LastRecording() {
-  return last_recording_;
 }
 
 sk_sp<SkSurface> Canvas2DBitmapProvider::CreateSkSurface() const {

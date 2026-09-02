@@ -22,6 +22,9 @@ public class ImmersiveVideoControlAutoHideManager {
     private boolean mControlPanelHovered;
     private boolean mFormatPanelHovered;
     private boolean mControlPanelMoving;
+    private boolean mControlPanelAccessibilityFocused;
+    private boolean mFormatPanelAccessibilityFocused;
+    private boolean mPlayerPanelMoving;
 
     /**
      * Creates a new {@link ImmersiveVideoControlAutoHideManager} with default delay.
@@ -61,11 +64,32 @@ public class ImmersiveVideoControlAutoHideManager {
         updateTimer();
     }
 
+    /** Called when accessibility focus state of the control panel changes. */
+    public void onControlPanelAccessibilityFocusChanged(boolean focused) {
+        mControlPanelAccessibilityFocused = focused;
+        updateTimer();
+    }
+
+    /** Called when accessibility focus state of the format selection panel changes. */
+    public void onFormatPanelAccessibilityFocusChanged(boolean focused) {
+        mFormatPanelAccessibilityFocused = focused;
+        updateTimer();
+    }
+
+    /** Called when player panel moving or dragging state changes. */
+    public void onPlayerPanelMovingChanged(boolean moving) {
+        mPlayerPanelMoving = moving;
+        updateTimer();
+    }
+
     /** Starts or restarts the inactivity timer. */
     public void startTimer() {
         mControlPanelHovered = false;
         mFormatPanelHovered = false;
         mControlPanelMoving = false;
+        mControlPanelAccessibilityFocused = false;
+        mFormatPanelAccessibilityFocused = false;
+        mPlayerPanelMoving = false;
         updateTimer();
     }
 
@@ -75,7 +99,12 @@ public class ImmersiveVideoControlAutoHideManager {
     }
 
     private void updateTimer() {
-        if (mControlPanelHovered || mFormatPanelHovered || mControlPanelMoving) {
+        if (mControlPanelHovered
+                || mFormatPanelHovered
+                || mControlPanelMoving
+                || mControlPanelAccessibilityFocused
+                || mFormatPanelAccessibilityFocused
+                || mPlayerPanelMoving) {
             stopTimer();
         } else {
             mHandler.removeCallbacks(mAutoHideRunnable);

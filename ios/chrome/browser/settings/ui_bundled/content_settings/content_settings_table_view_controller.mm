@@ -176,7 +176,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
                    prefName:prefs::kDetectUnitsEnabled];
     [_detectUnitsEnabled setObserver:self];
 
-    if (IsReaderModeAvailable() && IsReaderModeOmniboxEntryPointEnabled() &&
+    if (IsReaderModeOmniboxEntryPointEnabled() &&
         !IsReaderModeContentSettingsForLinkEnabled()) {
       _showReadingModeAvailableEnabled = [[PrefBackedBoolean alloc]
           initWithPrefService:prefService
@@ -304,7 +304,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   [model addItem:[self detectAddressItem]
       toSectionWithIdentifier:SectionIdentifierSettings];
 
-  if (base::FeatureList::IsEnabled(kIOSMiniMapUniversalLink)) {
+  if (IsMiniMapUniversalLinkEnabled()) {
     [model addItem:[self miniMapShowNativeViewItem]
         toSectionWithIdentifier:SectionIdentifierSettings];
   }
@@ -330,12 +330,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
   if (IsReaderModeContentSettingsForLinkEnabled()) {
     // Add a new content setting section for Reading Mode that holds multiple
     // feature options.
-    if (IsReaderModeAvailable()) {
-      self.readerModeItem = [self readerModeSectionItem];
-      [model addSectionWithIdentifier:SectionIdentifierReaderMode];
-      [model addItem:self.readerModeItem
-          toSectionWithIdentifier:SectionIdentifierReaderMode];
-    }
+    self.readerModeItem = [self readerModeSectionItem];
+    [model addSectionWithIdentifier:SectionIdentifierReaderMode];
+    [model addItem:self.readerModeItem
+        toSectionWithIdentifier:SectionIdentifierReaderMode];
   }
 }
 

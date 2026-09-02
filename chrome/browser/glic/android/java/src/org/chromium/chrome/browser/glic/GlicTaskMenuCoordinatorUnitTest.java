@@ -27,7 +27,6 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Batch;
 import org.chromium.chrome.browser.actor.ActorTask;
 import org.chromium.chrome.browser.actor.ActorTaskState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
@@ -45,7 +44,6 @@ import java.util.Set;
 /** Unit tests for {@link GlicTaskMenuCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@Batch(Batch.UNIT_TESTS)
 public class GlicTaskMenuCoordinatorUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -80,7 +78,7 @@ public class GlicTaskMenuCoordinatorUnitTest {
     public void testBuildModelList_WithActiveTasks() {
         ModelList modelList = mCoordinator.buildModelList(mTasks);
 
-        // 2 tasks + 1 divider + 1 Ask Gemini = 4 items total
+        // 2 tasks + 1 divider + 1 Open Chat = 4 items total
         assertEquals(4, modelList.size());
 
         ListItem item1 = modelList.get(0);
@@ -110,7 +108,7 @@ public class GlicTaskMenuCoordinatorUnitTest {
                         GlicTaskMenuCoordinator.ButtonSource.TAB_STRIP);
         ModelList modelList = tabStripCoordinator.buildModelList(Arrays.asList(task1, task2));
 
-        // 2 tasks = 2 items total (Ask Gemini hidden)
+        // 2 tasks = 2 items total (Open Chat hidden)
         assertEquals(2, modelList.size());
 
         ListItem item1 = modelList.get(0);
@@ -157,13 +155,13 @@ public class GlicTaskMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testClickAskGemini_TriggersCallbackWithFalse() {
+    public void testClickOpenChat_TriggersCallbackWithFalse() {
         ModelList modelList = mCoordinator.buildModelList(Collections.emptyList());
-        // Index 0 is divider, Index 1 is Ask Gemini
-        ListItem askGeminiItem = modelList.get(1);
+        // Index 0 is divider, Index 1 is Open Chat
+        ListItem openChatItem = modelList.get(1);
 
         View.OnClickListener clickListener =
-                askGeminiItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
+                openChatItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
         clickListener.onClick(null);
 
         verify(mToggleGlicCallback)
@@ -230,7 +228,7 @@ public class GlicTaskMenuCoordinatorUnitTest {
     }
 
     @Test
-    public void testClickAskGemini_UsesConfiguredInvocationSource() {
+    public void testClickOpenChat_UsesConfiguredInvocationSource() {
         GlicTaskMenuCoordinator coordinator =
                 new GlicTaskMenuCoordinator(
                         mContext,
@@ -239,10 +237,10 @@ public class GlicTaskMenuCoordinatorUnitTest {
                         GlicKeyedService.GlicInvocationSource.TOOLBAR_BUTTON,
                         GlicTaskMenuCoordinator.ButtonSource.TOOLBAR);
         ModelList modelList = coordinator.buildModelList(Collections.emptyList());
-        ListItem askGeminiItem = modelList.get(1);
+        ListItem openChatItem = modelList.get(1);
 
         View.OnClickListener clickListener =
-                askGeminiItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
+                openChatItem.model.get(ListMenuItemProperties.CLICK_LISTENER);
         clickListener.onClick(null);
 
         verify(mToggleGlicCallback)

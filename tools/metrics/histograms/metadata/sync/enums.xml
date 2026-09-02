@@ -636,7 +636,7 @@ chromium-metrics-reviews@google.com.
   <int value="100220" label="BrowserColorVariant"/>
   <int value="100221" label="GrayscaleThemeEnabled"/>
   <int value="100222" label="UserColor"/>
-  <int value="100223" label="BlockAll3pcToggleEnabled"/>
+  <int value="100223" label="(Obsolete) BlockAll3pcToggleEnabled"/>
   <int value="100224" label="(Obsolete) TrackingProtectionLevel"/>
   <int value="100225" label="UserSpeakOnMuteDetectionEnabled"/>
   <int value="100226" label="ShouldShowSpeakOnMuteOptInNudge"/>
@@ -699,11 +699,12 @@ chromium-metrics-reviews@google.com.
   <int value="100271" label="AccessibilityFaceGazeGesturesToConfidence"/>
   <int value="100272" label="ShelfGeminiAppPinRolls"/>
   <int value="100273"
-      label="ProfileContentSettingsExceptionsTrackingProtection"/>
+      label="(obsolete) ProfileContentSettingsExceptionsTrackingProtection"/>
   <int value="100274"
-      label="ProfileContentSettingsPartitionedExceptionsTrackingProtection"/>
+      label="(obsolete)
+             ProfileContentSettingsPartitionedExceptionsTrackingProtection"/>
   <int value="100275"
-      label="ProfileDefaultContentSettingValuesTrackingProtection"/>
+      label="(obsolete) ProfileDefaultContentSettingValuesTrackingProtection"/>
   <int value="100276" label="ShowForwardButton"/>
   <int value="100277" label="AccessibilityMagnifierFollowsSts"/>
   <int value="100278" label="AccessibilityReadAnythingLanguagesEnabled"/>
@@ -1059,6 +1060,7 @@ chromium-metrics-reviews@google.com.
   <int value="81" label="Encrypted Tab Context Container"/>
   <int value="82" label="Encrypted Tab Context Item"/>
   <int value="83" label="Notebook"/>
+  <int value="84" label="Journey"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/base/data_type.h:SyncDataTypes) -->
@@ -1349,6 +1351,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Sync needs trusted vault key"/>
   <int value="7" label="Sync trusted vault recoverability degraded"/>
   <int value="8" label="Bookmarks limit exceeded"/>
+  <int value="9" label="Device management error"/>
 </enum>
 
 <!-- LINT.ThenChange(/ios/chrome/browser/settings/model/sync/utils/sync_util.mm:SyncErrorInfobarTypes) -->
@@ -1987,6 +1990,7 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="Needs UPM backend upgrade"/>
   <int value="10" label="Needs client upgrade"/>
   <int value="11" label="Bookmarks limit exceeded"/>
+  <int value="12" label="Device Management error"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/service/sync_service.h:UserActionableError) -->

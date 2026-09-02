@@ -12,6 +12,7 @@
 #include "base/notreached.h"
 #include "base/types/expected.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_model.h"
@@ -26,6 +27,8 @@
 #include "components/tabs/public/tab_interface.h"
 #include "mojo/public/mojom/base/error.mojom.h"
 #include "ui/actions/actions.h"
+#include "ui/color/color_id.h"
+#include "ui/gfx/color_utils.h"
 
 namespace page_actions {
 
@@ -85,7 +88,7 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   void OnPageActionModelWillBeDeleted(
       const page_actions::PageActionModelInterface& model) override;
 
-  toolbar_ui_api::mojom::PageActionStatePtr GetState() const;
+  toolbar_ui_api::mojom::PageActionStatePtr GetState();
   void NotifyClick(PageActionTrigger trigger);
   void NotifyChipShowingChanged();
 
@@ -136,6 +139,8 @@ class WebUIPageActionControl::WebUIPageActionDelegate
   // The last state sent to the WebUI. Null if the action was not visible.
   toolbar_ui_api::mojom::PageActionStatePtr old_state_;
   bool was_chip_visible_ = false;
+
+  toolbar_ui_api::IconHandle cached_icon_;
 };
 
 void WebUIPageActionControl::WebUIPageActionDelegate::SetController(
@@ -192,7 +197,7 @@ void WebUIPageActionControl::WebUIPageActionDelegate::
 }
 
 toolbar_ui_api::mojom::PageActionStatePtr
-WebUIPageActionControl::WebUIPageActionDelegate::GetState() const {
+WebUIPageActionControl::WebUIPageActionDelegate::GetState() {
   if (!observation_.IsObserving()) {
     return nullptr;
   }
@@ -206,8 +211,36 @@ WebUIPageActionControl::WebUIPageActionDelegate::GetState() const {
       webui_toolbar::ActionIdToMojomPageActionId(action_id_);
   state->accessible_name = model->GetAccessibleName();
   state->tooltip_text = model->GetTooltipText();
-  state->icon = owner_->webui_delegate_->GetIconTable().RegisterImageModel(
-      model->GetImage());
+  ui::ImageModel image_model = model->GetImage();
+  if (model->GetColorSource() ==
+          page_actions::PageActionColorSource::kCascadingAccent &&
+      image_model.IsVectorIcon()) {
+    const auto& vector_icon_model = image_model.GetVectorIcon();
+    const ui::ColorProvider* color_provider =
+        owner_->webui_delegate_->GetView()->GetColorProvider();
+    const SkColor default_color =
+        color_provider->GetColor(ui::kColorFocusableBorderFocused);
+    // Page actions are displayed on the toolbar, so `kColorToolbar` is used as
+    // the background color for contrast calculations (matching what
+    // `views::GetCascadingBackgroundColor()` resolves in native Views via
+    // `ToolbarView`).
+    const SkColor background_color = color_provider->GetColor(kColorToolbar);
+    const SkColor blended_color =
+        color_utils::BlendForMinContrast(
+            default_color, background_color, std::nullopt,
+            color_utils::kMinimumVisibleContrastRatio)
+            .color;
+    image_model = ui::ImageModel::FromVectorIcon(
+        *vector_icon_model.vector_icon(), blended_color,
+        vector_icon_model.icon_size(), vector_icon_model.badge_icon());
+  }
+  state->icon = cached_icon_ =
+      owner_->webui_delegate_->GetIconTable().RegisterImageModelTryReuse(
+          image_model, cached_icon_);
+  state->text = model->GetText();
+  state->should_show_chip = model->ShouldShowSuggestionChip();
+  state->should_animate_chip_in = model->GetShouldAnimateChipIn();
+  state->should_animate_chip_out = model->GetShouldAnimateChipOut();
   return state;
 }
 
@@ -318,6 +351,13 @@ void WebUIPageActionControl::UpdateController(
 
   for (auto& [action_id, delegate] : delegates_) {
     delegate->SetController(active_controller_);
+  }
+}
+
+void WebUIPageActionControl::SetShouldHidePageActions(
+    bool should_hide_page_actions) {
+  if (active_controller_) {
+    active_controller_->SetShouldHidePageActions(should_hide_page_actions);
   }
 }
 

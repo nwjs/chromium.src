@@ -54,8 +54,8 @@
 #include "chrome/browser/ui/bookmarks/bookmark_ui_operations_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
@@ -415,7 +415,8 @@ END_METADATA
 
 // BookmarkBarView ------------------------------------------------------------
 
-BookmarkBarView::BookmarkBarView(Browser* browser, BrowserView* browser_view)
+BookmarkBarView::BookmarkBarView(BrowserWindowInterface* browser,
+                                 BrowserView* browser_view)
     : AnimationDelegateViews(this),
       browser_(browser),
       browser_view_(browser_view) {

@@ -694,6 +694,48 @@ void DecodeLoginPolicies(const em::ChromeDeviceSettingsProto& policy,
       }
     }
   }
+
+  if (policy.has_devicelocalnetworkaccessallowedforurls()) {
+    const em::StringListPolicyProto& container(
+        policy.devicelocalnetworkaccessallowedforurls());
+    base::ListValue list;
+    if (container.has_value()) {
+      for (const auto& entry : container.value().entries()) {
+        list.Append(entry);
+      }
+    }
+    policies->Set(key::kDeviceLocalNetworkAccessAllowedForUrls,
+                  POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+                  POLICY_SOURCE_CLOUD, base::Value(std::move(list)), nullptr);
+  }
+
+  if (policy.has_devicelocalnetworkaccessipaddressspaceoverrides()) {
+    const em::StringListPolicyProto& container(
+        policy.devicelocalnetworkaccessipaddressspaceoverrides());
+    base::ListValue list;
+    if (container.has_value()) {
+      for (const auto& entry : container.value().entries()) {
+        list.Append(entry);
+      }
+    }
+    policies->Set(key::kDeviceLocalNetworkAccessIpAddressSpaceOverrides,
+                  POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+                  POLICY_SOURCE_CLOUD, base::Value(std::move(list)), nullptr);
+  }
+
+  if (policy.has_devicelocalnetworkaccessblockedforurls()) {
+    const em::StringListPolicyProto& container(
+        policy.devicelocalnetworkaccessblockedforurls());
+    base::ListValue list;
+    if (container.has_value()) {
+      for (const auto& entry : container.value().entries()) {
+        list.Append(entry);
+      }
+    }
+    policies->Set(key::kDeviceLocalNetworkAccessBlockedForUrls,
+                  POLICY_LEVEL_MANDATORY, POLICY_SCOPE_MACHINE,
+                  POLICY_SOURCE_CLOUD, base::Value(std::move(list)), nullptr);
+  }
 }
 
 base::DictValue DecodeDeviceLocalAccountInfoProto(
@@ -2017,15 +2059,6 @@ void DecodeGenericPolicies(const em::ChromeDeviceSettingsProto& policy,
           POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
           base::Value(container.device_unaffiliated_crostini_allowed()),
           nullptr);
-    }
-  }
-
-  if (policy.has_plugin_vm_allowed()) {
-    const em::PluginVmAllowedProto& container(policy.plugin_vm_allowed());
-    if (container.has_plugin_vm_allowed()) {
-      policies->Set(key::kPluginVmAllowed, POLICY_LEVEL_MANDATORY,
-                    POLICY_SCOPE_MACHINE, POLICY_SOURCE_CLOUD,
-                    base::Value(container.plugin_vm_allowed()), nullptr);
     }
   }
 

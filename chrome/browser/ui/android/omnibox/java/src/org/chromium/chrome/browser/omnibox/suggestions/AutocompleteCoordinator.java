@@ -132,6 +132,7 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         ModelList listItems = new ModelList();
         PropertyModel listModel =
                 new PropertyModel.Builder(SuggestionListProperties.ALL_KEYS)
+                        .with(SuggestionListProperties.RESOURCE_PROVIDER, resourceProvider)
                         .with(SuggestionListProperties.EMBEDDER, dropdownEmbedder)
                         .with(SuggestionListProperties.OMNIBOX_SESSION_ACTIVE, false)
                         .with(
@@ -195,7 +196,7 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
                 listModel,
                 SuggestionListProperties.OMNIBOX_SESSION_ACTIVE,
                 mViewProvider,
-                new SuggestionListViewBinder(resourceProvider));
+                new SuggestionListViewBinder());
 
         BaseSuggestionViewBinder.resetCachedResources();
 
@@ -208,7 +209,7 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         // the pool is moved to the AutocompleteCoordinator so AutocompleteCoordinator can
         // tell the pool to start prewarming and then pass it to the dropdown.
         if (!OmniboxFeatures.sAsyncViewInflation.isEnabled()) {
-            mViewHolderFactory = new OmniboxViewHolderFactory(resourceProvider);
+            mViewHolderFactory = new OmniboxViewHolderFactory();
             mRecycledViewPool = new PreWarmingRecycledViewPool(mViewHolderFactory, context);
         } else {
             mViewHolderFactory = null;
@@ -280,7 +281,6 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         private @Nullable SuggestionListViewHolder mHolder;
         private boolean mForceSyncInflate;
         private final ModelList mListItems;
-
         SuggestionListViewHolderProvider(ModelList listItems) {
             mListItems = listItems;
         }
@@ -364,6 +364,19 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
     public void loadTypedOmniboxText(long eventTime, @NavigationTarget int target) {
         if (mMediator.hasAutocompleteController()) {
             mMediator.loadTypedOmniboxText(eventTime, target);
+        }
+    }
+
+    /**
+     * Navigate using the pasted omnibox text, disabling inline autocompletion.
+     *
+     * @param text The pasted text to load.
+     * @param eventTime The timestamp when the navigation was triggered (e.g., uptimeMillis).
+     * @param target The target destination for the navigation (current tab, new tab, new window).
+     */
+    public void loadPastedText(String text, long eventTime, @NavigationTarget int target) {
+        if (mMediator.hasAutocompleteController()) {
+            mMediator.loadPastedText(text, eventTime, target);
         }
     }
 
@@ -514,8 +527,7 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
                 || (keyCode == KeyEvent.KEYCODE_DPAD_DOWN)
                 || KeyNavigationUtil.isTabNavigation(event)) {
             mMediator.allowPendingItemSelection();
-            assumeNonNull(mContainer).onKeyDown(keyCode, event);
-            return true;
+            return assumeNonNull(mContainer).onKeyDown(keyCode, event);
         } else if (KeyNavigationUtil.isEnter(event)) {
             return assumeNonNull(mContainer).onKeyDown(keyCode, event);
         }
@@ -545,16 +557,22 @@ public class AutocompleteCoordinator implements OmniboxSuggestionsVisualState {
         mDropdown.resetSelection();
     }
 
-    /** Keyboard select the first item in the suggestions list. */
-    public void selectFirstItem() {
-        if (mDropdown == null) return;
-        mDropdown.selectFirstItem();
+    /**
+     * Keyboard select the first item in the suggestions list. Returns true if this selected an
+     * item, false if no item was selected.
+     */
+    public boolean selectFirstItem() {
+        if (mDropdown == null) return false;
+        return mDropdown.selectFirstItem();
     }
 
-    /** Keyboard select the last item in the suggestions list. */
-    public void selectLastItem() {
-        if (mDropdown == null) return;
-        mDropdown.selectLastItem();
+    /**
+     * Keyboard select the last item in the suggestions list. Returns true if this selected an item,
+     * false if no item was selected.
+     */
+    public boolean selectLastItem() {
+        if (mDropdown == null) return false;
+        return mDropdown.selectLastItem();
     }
 
     /**

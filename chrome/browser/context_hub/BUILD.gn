@@ -19,27 +19,49 @@ source_set("context_hub") {
     "context_hub_service.h",
     "context_hub_service_factory.cc",
     "context_hub_service_factory.h",
+    "prefs.cc",
+    "prefs.h",
   ]
 
   public_deps = [
     ":features",
     "//base",
+    "//chrome/browser/context_hub/auto_todos",
+    "//chrome/browser/context_hub/auto_todos:impl",
     "//chrome/browser/context_hub/memory_bank",
     "//chrome/browser/context_hub/memory_bank:impl",
     "//chrome/browser/context_hub/storage",
     "//chrome/browser/context_hub/tab_group_store",
     "//chrome/browser/context_hub/tab_group_store:impl",
     "//chrome/browser/optimization_guide",
+    "//chrome/browser/page_content_annotations",
     "//chrome/browser/personal_context",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/webui/context_hub:mojo_bindings",
     "//components/keyed_service/core",
     "//components/optimization_guide/core",
+    "//components/page_content_annotations/content",
     "//components/personal_context/core",
     "//components/personal_context/proto:personal_context_proto",
+    "//components/tab_groups",
   ]
 
+  if (!is_android) {
+    public_deps += [
+      "//chrome/browser/ui:browser_tab_strip",
+      "//chrome/browser/ui/tabs:tab_strip_model_observer",
+    ]
+  }
+
   deps = [
-    "//chrome/browser/ui/webui/context_hub:mojo_bindings_shared",
+    "//chrome/browser/tab_group_sync",
+    "//chrome/browser/tab_group_sync:factories",
+    "//chrome/browser/tab_list",
+    "//chrome/browser/ui/browser_window",
+    "//components/prefs",
+    "//components/saved_tab_groups/public",
+    "//components/sessions",
+    "//components/signin/public/base",
     "//sql",
   ]
 }
@@ -54,12 +76,22 @@ source_set("unit_tests") {
     ":context_hub",
     "//base/test:test_support",
     "//chrome/browser/optimization_guide:test_support",
+    "//chrome/browser/page_content_annotations",
+    "//chrome/browser/tab_list",
     "//chrome/browser/ui/webui/context_hub:mojo_bindings_shared",
     "//chrome/test:test_support",
     "//components/optimization_guide/core:test_support",
+    "//components/page_content_annotations/content",
+    "//components/page_content_annotations/content:test_support",
     "//components/personal_context/core:test_support",
+    "//components/prefs:test_support",
+    "//components/saved_tab_groups/test_support",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
   ]
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/tabs:tab_strip_model_observer" ]
+  }
 }

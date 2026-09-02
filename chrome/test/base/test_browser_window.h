@@ -16,6 +16,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
@@ -32,6 +33,7 @@
 class LocationBarTesting;
 class GlobalBrowserCollection;
 class OmniboxView;
+struct BrowserWindowCreateParams;
 
 // WARNING WARNING WARNING WARNING
 // Do not use this class. See docs/chrome_browser_design_principles.md for
@@ -118,9 +120,7 @@ class TestBrowserWindow : public BrowserWindow,
   ui::mojom::WindowShowState GetWindowShowState() const override;
   bool IsFullscreen() const override;
   LocationBar* GetLocationBar() const override;
-  void UpdatePageActionIcon(PageActionIconType type) override {}
   autofill::AutofillBubbleHandler* GetAutofillBubbleHandler() override;
-  void ExecutePageActionIconForTesting(PageActionIconType type) override {}
   void SetFocusToLocationBar(bool is_user_initiated) override {}
   void UpdateReloadStopState(bool is_loading, bool force) override {}
   void UpdateToolbar(content::WebContents* contents) override {}
@@ -275,6 +275,7 @@ class TestBrowserWindow : public BrowserWindow,
     void Update(content::WebContents* contents) override {}
     void ResetTabState(content::WebContents* contents) override {}
     bool HasSecurityStateChanged() override;
+    void AnnounceAlert(const std::u16string& announcement) override {}
   };
 
   // BrowserCollectionObserver:
@@ -293,12 +294,12 @@ class TestBrowserWindow : public BrowserWindow,
 
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
   base::OnceClosure close_callback_;
 };
 
 // Helper that handle the lifetime of TestBrowserWindow instances.
 std::unique_ptr<Browser> CreateBrowserWithTestWindowForParams(
-    Browser::CreateParams params);
+    BrowserWindowCreateParams params);
 
 #endif  // CHROME_TEST_BASE_TEST_BROWSER_WINDOW_H_

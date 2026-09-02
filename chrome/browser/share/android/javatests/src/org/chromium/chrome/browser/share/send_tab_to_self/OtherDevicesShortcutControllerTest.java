@@ -34,13 +34,16 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
+import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync_device_info.FormFactor;
+import org.chromium.components.sync_device_info.OsType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +51,6 @@ import java.util.List;
 /** Unit tests for OtherDevicesShortcutController. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE, sdk = Build.VERSION_CODES.R)
-@Batch(Batch.UNIT_TESTS)
 @EnableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_DYNAMIC_SHORTCUTS)
 public class OtherDevicesShortcutControllerTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
@@ -57,16 +59,17 @@ public class OtherDevicesShortcutControllerTest {
     private static final String DEVICE_NAME_2 = "Device 2";
     private static final String DEVICE_GUID_1 = "guid1";
     private static final String DEVICE_GUID_2 = "guid2";
-    private static final String SHORTCUT_ID_1 = "stts-target-" + DEVICE_GUID_1;
-    private static final String SHORTCUT_ID_2 = "stts-target-" + DEVICE_GUID_2;
-    private static final String CATEGORY =
-            "org.chromium.chrome.browser.share.send_tab_to_self.category.DEVICE";
+    private static final String SHORTCUT_ID_1 =
+            OtherDevicesShortcutController.SHORTCUT_ID_PREFIX + DEVICE_GUID_1;
+    private static final String SHORTCUT_ID_2 =
+            OtherDevicesShortcutController.SHORTCUT_ID_PREFIX + DEVICE_GUID_2;
 
     private static final String URL = "https://example.com";
     private static final String TITLE = "Title";
 
     @Mock private Profile mProfile;
     @Mock private SendTabToSelfAndroidBridge.Natives mNativeMock;
+    @Mock private IdentityManager mIdentityManager;
 
     private Context mContext;
 
@@ -75,6 +78,7 @@ public class OtherDevicesShortcutControllerTest {
         mContext = ContextUtils.getApplicationContext();
 
         SendTabToSelfAndroidBridgeJni.setInstanceForTesting(mNativeMock);
+        IdentityServicesProvider.setIdentityManagerForTesting(mIdentityManager);
         ProfileManager.setLastUsedProfileForTesting(mProfile);
     }
 
@@ -129,7 +133,9 @@ public class OtherDevicesShortcutControllerTest {
     @Test
     public void handleShareTargetIntent() {
         List<TargetDeviceInfo> devices = new ArrayList<>();
-        devices.add(new TargetDeviceInfo("Device 1", DEVICE_GUID_1, FormFactor.PHONE, "Just now"));
+        devices.add(
+                new TargetDeviceInfo(
+                        "Device 1", DEVICE_GUID_1, FormFactor.PHONE, OsType.ANDROID, "Just now"));
         when(mNativeMock.getAllTargetDeviceInfos(mProfile)).thenReturn(devices);
 
         // Instantiate controller to populate shortcuts in ShortcutManager.
@@ -150,7 +156,7 @@ public class OtherDevicesShortcutControllerTest {
                         eq(URL),
                         eq(TITLE),
                         any(),
-                        eq(ShareEntryPoint.SHARE_SHEET));
+                        eq(ShareEntryPoint.SHARE_SHEET_DIRECT_SHARE));
     }
 
     @Test
@@ -190,7 +196,12 @@ public class OtherDevicesShortcutControllerTest {
     public void testHandleLauncherShortcutIntent_RelaunchesAsTrusted() {
         List<TargetDeviceInfo> devices = new ArrayList<>();
         devices.add(
-                new TargetDeviceInfo(DEVICE_NAME_1, DEVICE_GUID_1, FormFactor.PHONE, "Just now"));
+                new TargetDeviceInfo(
+                        DEVICE_NAME_1,
+                        DEVICE_GUID_1,
+                        FormFactor.PHONE,
+                        OsType.ANDROID,
+                        "Just now"));
         when(mNativeMock.getAllTargetDeviceInfos(mProfile)).thenReturn(devices);
 
         Activity activity = Robolectric.buildActivity(Activity.class).create().get();
@@ -226,7 +237,9 @@ public class OtherDevicesShortcutControllerTest {
         if (shortcut == null) return false;
 
         if (!shortcut.isLongLived()) return false;
-        if (!shortcut.getCategories().contains(CATEGORY)) return false;
+        if (!shortcut.getCategories().contains(OtherDevicesShortcutController.CATEGORY)) {
+            return false;
+        }
 
         Intent intent = shortcut.getIntent();
         if (intent == null) return false;
@@ -253,9 +266,19 @@ public class OtherDevicesShortcutControllerTest {
     public void testUpdateShortcuts() {
         List<TargetDeviceInfo> devices = new ArrayList<>();
         devices.add(
-                new TargetDeviceInfo(DEVICE_NAME_1, DEVICE_GUID_1, FormFactor.PHONE, "Just now"));
+                new TargetDeviceInfo(
+                        DEVICE_NAME_1,
+                        DEVICE_GUID_1,
+                        FormFactor.PHONE,
+                        OsType.ANDROID,
+                        "Just now"));
         devices.add(
-                new TargetDeviceInfo(DEVICE_NAME_2, DEVICE_GUID_2, FormFactor.DESKTOP, "Just now"));
+                new TargetDeviceInfo(
+                        DEVICE_NAME_2,
+                        DEVICE_GUID_2,
+                        FormFactor.DESKTOP,
+                        OsType.WINDOWS,
+                        "Just now"));
 
         when(mNativeMock.getAllTargetDeviceInfos(mProfile)).thenReturn(devices);
         when(mNativeMock.addDeviceInfoObserver(any(), any())).thenReturn(123L);
@@ -271,11 +294,13 @@ public class OtherDevicesShortcutControllerTest {
         ShortcutInfo shortcut1 = findShortcut(SHORTCUT_ID_1);
         assertTrue(isValidOtherDeviceShortcut(shortcut1));
         assertEquals(DEVICE_NAME_1, shortcut1.getShortLabel());
+        assertEquals(DEVICE_NAME_1, shortcut1.getLongLabel());
         assertEquals(DEVICE_GUID_1, getGuidFromShortcut(shortcut1));
 
         ShortcutInfo shortcut2 = findShortcut(SHORTCUT_ID_2);
         assertTrue(isValidOtherDeviceShortcut(shortcut2));
         assertEquals(DEVICE_NAME_2, shortcut2.getShortLabel());
+        assertEquals(DEVICE_NAME_2, shortcut2.getLongLabel());
         assertEquals(DEVICE_GUID_2, getGuidFromShortcut(shortcut2));
 
         controller.destroy();
@@ -284,11 +309,69 @@ public class OtherDevicesShortcutControllerTest {
     }
 
     @Test
+    public void testUpdateShortcuts_WithGivenName() {
+        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(TestAccounts.ACCOUNT1);
+
+        List<TargetDeviceInfo> devices = new ArrayList<>();
+        devices.add(
+                new TargetDeviceInfo(
+                        DEVICE_NAME_1,
+                        DEVICE_GUID_1,
+                        FormFactor.PHONE,
+                        OsType.ANDROID,
+                        "Just now"));
+
+        when(mNativeMock.getAllTargetDeviceInfos(mProfile)).thenReturn(devices);
+
+        OtherDevicesShortcutController controller = new OtherDevicesShortcutController(mProfile);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        ShortcutInfo shortcut1 = findShortcut(SHORTCUT_ID_1);
+        assertTrue(isValidOtherDeviceShortcut(shortcut1));
+        assertEquals(DEVICE_NAME_1, shortcut1.getShortLabel());
+        assertEquals(
+                TestAccounts.ACCOUNT1.getGivenName() + " • " + DEVICE_NAME_1,
+                shortcut1.getLongLabel());
+    }
+
+    @Test
+    public void testUpdateShortcuts_WithoutGivenName() {
+        when(mIdentityManager.getPrimaryAccountInfo())
+                .thenReturn(TestAccounts.TEST_ACCOUNT_NO_NAME);
+
+        List<TargetDeviceInfo> devices = new ArrayList<>();
+        devices.add(
+                new TargetDeviceInfo(
+                        DEVICE_NAME_1,
+                        DEVICE_GUID_1,
+                        FormFactor.PHONE,
+                        OsType.ANDROID,
+                        "Just now"));
+
+        when(mNativeMock.getAllTargetDeviceInfos(mProfile)).thenReturn(devices);
+
+        OtherDevicesShortcutController controller = new OtherDevicesShortcutController(mProfile);
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        ShortcutInfo shortcut1 = findShortcut(SHORTCUT_ID_1);
+        assertTrue(isValidOtherDeviceShortcut(shortcut1));
+        assertEquals(DEVICE_NAME_1, shortcut1.getShortLabel());
+        // Since the test user doesn't have a given name, the long label should fall back to just
+        // the device name.
+        assertEquals(DEVICE_NAME_1, shortcut1.getLongLabel());
+    }
+
+    @Test
     @DisableFeatures(ChromeFeatureList.SEND_TAB_TO_SELF_DYNAMIC_SHORTCUTS)
     public void testFeatureDisabled_NoShortcutsRegistered() {
         List<TargetDeviceInfo> devices = new ArrayList<>();
         devices.add(
-                new TargetDeviceInfo(DEVICE_NAME_1, DEVICE_GUID_1, FormFactor.PHONE, "Just now"));
+                new TargetDeviceInfo(
+                        DEVICE_NAME_1,
+                        DEVICE_GUID_1,
+                        FormFactor.PHONE,
+                        OsType.ANDROID,
+                        "Just now"));
 
         when(mNativeMock.getAllTargetDeviceInfos(mProfile)).thenReturn(devices);
 

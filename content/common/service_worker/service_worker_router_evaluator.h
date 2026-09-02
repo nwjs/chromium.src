@@ -6,10 +6,12 @@
 #define CONTENT_COMMON_SERVICE_WORKER_SERVICE_WORKER_ROUTER_EVALUATOR_H_
 
 #include <memory>
+#include <utility>
 
 #include "base/values.h"
 #include "content/common/content_export.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "third_party/blink/public/common/safe_url_pattern.h"
 #include "third_party/blink/public/common/service_worker/embedded_worker_status.h"
 #include "third_party/blink/public/common/service_worker/service_worker_router_rule.h"
 
@@ -31,6 +33,17 @@ enum class ServiceWorkerRouterEvaluatorErrorEnums {
 };
 
 namespace content {
+
+// Used for DevTools to serialize URLPatternCondition.
+std::string SafeURLPatternToJsonString(const blink::SafeUrlPattern& pattern);
+
+// Another version of `blink::ServiceWorkerRouterRule` that has the internal ID
+// assigned by the browser.
+struct CONTENT_EXPORT ServiceWorkerRouterRule {
+  blink::ServiceWorkerRouterCondition condition;
+  blink::ServiceWorkerRouterSource source;
+  int id;
+};
 
 class CONTENT_EXPORT ServiceWorkerRouterEvaluator {
  public:
@@ -65,11 +78,14 @@ class CONTENT_EXPORT ServiceWorkerRouterEvaluator {
   bool has_non_fetch_event_source() const {
     return has_non_fetch_event_source_;
   }
+  bool has_nested_conditions() const { return max_rule_depth_ != 0; }
 
   base::Value ToValue() const;
   std::string ToString() const;
+  std::vector<ServiceWorkerRouterRule> CalculateRouterRulesForDevTools() const;
   void RecordRouterRuleInfo() const;
-  std::tuple<size_t, size_t> GetMaxDepthAndWidth() const;
+  size_t MaxRuleDepthForTesting() const { return max_rule_depth_; }
+  size_t MaxRuleWidthForTesting() const { return max_rule_width_; }
   const std::optional<ServiceWorkerRouterEvaluatorErrorEnums>&
   invalid_error_code() const {
     return invalid_error_code_;
@@ -89,6 +105,9 @@ class CONTENT_EXPORT ServiceWorkerRouterEvaluator {
   bool require_fetch_handler_ = false;
   bool has_non_fetch_event_source_ = false;
   std::optional<ServiceWorkerRouterEvaluatorErrorEnums> invalid_error_code_;
+  size_t max_rule_depth_ = 0;
+  // Used only for testing purposes.
+  size_t max_rule_width_ = 0;
 };
 
 }  // namespace content

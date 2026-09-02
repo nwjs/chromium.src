@@ -56,6 +56,7 @@
 #include "content/public/common/buildflags.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
+#include "content/public/common/url_constants.h"
 #include "ipc/constants.mojom.h"
 #include "net/base/filename_util.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
@@ -801,6 +802,24 @@ void WebContentsViewAura::PrepareDropData(
       drop_data->custom_data = std::move(maybe_custom_data.value());
     }
   }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // The 'fs/*' custom-data types are produced by the ChromeOS Files SWA to
+  // describe filesystem entries it transfers between its own windows. Consumers
+  // such as the Files app resolve them via privileged APIs, so only retain them
+  // when the drag source is a chrome:// WebUI page. This mirrors the source
+  // check performed by file_manager::util::ParseFileSystemSources.
+  if (!drop_data->custom_data.empty()) {
+    const ui::DataTransferEndpoint* source = data.GetSource();
+    const bool from_webui = source && source->IsUrlType() &&
+                            source->GetURL()->SchemeIs(kChromeUIScheme);
+    if (!from_webui) {
+      std::erase_if(drop_data->custom_data, [](const auto& kv) {
+        return kv.first.starts_with(u"fs/");
+      });
+    }
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void WebContentsViewAura::EndDrag(
@@ -1260,22 +1279,27 @@ void WebContentsViewAura::StartDragging(
   DragOperation result_op;
   {
     gfx::NativeView content_native_view = GetContentNativeView();
-    // For a touch-initiated drag the renderer-supplied `event_info.location`
-    // is untrusted: on Windows it would reach `::SendInput` via
+    // The renderer-supplied `event_info.location` is untrusted. On Windows, a
+    // touch event would reach `::SendInput` via
     // DesktopWindowTreeHostWin::StartTouchDrag and could redirect the
     // synthesized click to an overlapping HWND (e.g. a permission bubble).
-    // Require an in-flight touch and substitute the browser-observed last
-    // touch point known to aura::Env.
+    // Require an in-flight touch or mouse button, depending on the event
+    // source, and refuse the drag if requirement is not met.
     gfx::Point trusted_location = event_info.location;
+    aura::Env* env = aura::Env::GetInstance();
+    if ((event_info.source == ui::mojom::DragEventSource::kTouch &&
+         !env->is_touch_down()) ||
+        (event_info.source == ui::mojom::DragEventSource::kMouse &&
+         !env->IsMouseButtonDown())) {
+      web_contents_->SystemDragEnded(source_rwh);
+      return;
+    }
     if (event_info.source == ui::mojom::DragEventSource::kTouch) {
-      aura::Env* env = aura::Env::GetInstance();
-      if (!env->is_touch_down()) {
-        web_contents_->SystemDragEnded(source_rwh);
-        return;
-      }
       trusted_location =
           env->GetLastPointerPoint(event_info.source, content_native_view,
                                    /*fallback=*/event_info.location);
+    } else {
+      trusted_location = env->last_mouse_location();
     }
     // Make sure event is within the web contents, and the web contents are
     // visible.

@@ -81,9 +81,6 @@ COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kOmitCorsClientCert);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kIgnoreCorsPreflightPolicy);
-
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kRestrictFrameDestinationsToNavigate);
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
@@ -189,73 +186,6 @@ BASE_DECLARE_FEATURE(kUpdateRequestForCorsRedirect);
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kBrowsingTopics);
 
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kSharedStorageAPI);
-// Maximum number of URLs allowed to be included in the input parameter for
-// runURLSelectionOperation().
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(
-    size_t,
-    kSharedStorageURLSelectionOperationInputURLSizeLimit);
-// Maximum database page size in bytes. Must be a power of two between
-// 512 and 65536, inclusive.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStoragePageSize);
-// Maximum database in-memory cache size, in pages.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStorageCacheSize);
-// Maximum number of tries to initialize the database.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStorageInitTries);
-// Maximum number of keys or key-value pairs returned in each batch by
-// the async `keys()` and `entries()` iterators, respectively.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(int, kMaxSharedStorageIteratorBatchSize);
-// Maximum number of bits of entropy allowed per origin to output via the Shared
-// Storage API.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(int, kSharedStorageBitBudget);
-// Interval over which `kSharedStorageBitBudget` is defined.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSharedStorageBudgetInterval);
-// Initial interval from service startup after which
-// SharedStorageManager first checks for any stale entries, purging any that it
-// finds.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
-                           kSharedStorageStalePurgeInitialInterval);
-// Second and subsequent intervals from service startup after
-// which SharedStorageManager checks for any stale entries, purging any that it
-// finds.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
-                           kSharedStorageStalePurgeRecurringInterval);
-// Length of time between last key write access and key expiration. When an
-// entry's data is older than this threshold, it will be auto-purged.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSharedStorageStalenessThreshold);
-// Maximum depth of fenced frame where sharedStorage.selectURL() is allowed to
-// be invoked. The depth of a fenced frame is the number of the fenced frame
-// boundaries above that frame (i.e. the outermost main frame's frame tree has
-// fenced frame depth 0, a topmost fenced frame tree embedded in the outermost
-// main frame has fenced frame depth 1, etc).
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(
-    size_t,
-    kSharedStorageMaxAllowedFencedFrameDepthForSelectURL);
-// If enabled, sends additional details in the error message for the
-// rejected promise when shared storage is disabled, for local troubleshooting
-// and use in testing.
-//
-// NOTE: To preserve user privacy, this feature param MUST remain false by
-// default.
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE_PARAM(bool,
-                           kSharedStorageExposeDebugMessageForSettingsStatus);
-
-COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
-BASE_DECLARE_FEATURE(kSharedStorageTransactionalBatchUpdate);
-
 
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kIncreaseCookieAccessCacheSize);
@@ -290,6 +220,11 @@ BASE_DECLARE_FEATURE(kCSPScriptSrcHashesInV1);
 // See https://chromestatus.com/feature/5202380930678784
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kCacheSharingForPervasiveResources);
+
+// When enabled along with kCacheSharingForPervasiveResources, pervasive
+// shared dictionaries are supported via an unpartitioned, single-keyed store.
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kPervasiveSharedDictionaries);
 
 // When enabled, sends SameSite=Lax cookies for FedCM requests in addition to
 // SameSite=None.
@@ -429,6 +364,9 @@ BASE_DECLARE_FEATURE(kDirectSocketsUdpSendRequireMulticastPermissionPolicy);
 // service.
 COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
 BASE_DECLARE_FEATURE(kBrowserInitiatedFileUploadValidation);
+
+COMPONENT_EXPORT(NETWORK_CPP_FLAGS_AND_SWITCHES)
+BASE_DECLARE_FEATURE(kSafeRevalidation);
 
 }  // namespace network::features
 

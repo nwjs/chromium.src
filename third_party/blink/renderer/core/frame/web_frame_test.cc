@@ -234,6 +234,7 @@
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/hash_map.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/skia/include/core/SkTextBlob.h"
 #include "ui/base/ime/mojom/text_input_state.mojom-blink.h"
 #include "ui/base/mojom/menu_source_type.mojom-blink.h"
@@ -306,7 +307,8 @@ void ExecuteScriptsInMainWorld(
       mojom::blink::EvaluationTiming::kSynchronous,
       mojom::blink::LoadEventBlockingOption::kDoNotBlock, std::move(callback),
       BackForwardCacheAware::kAllow,
-      mojom::blink::WantResultOption::kWantResult, wait_for_promise);
+      mojom::blink::WantResultOption::kWantResult, wait_for_promise,
+      /*is_injected_extension_script=*/false);
 }
 
 // Same as above, but for a single script.
@@ -5188,9 +5190,8 @@ TEST_F(WebFrameTest, FindInPageMatchRects) {
     Range* result = main_frame->GetTextFinder()->ActiveMatch();
     ASSERT_TRUE(result);
     result->setEnd(result->endContainer(), result->endOffset() + 3);
-    EXPECT_EQ(
-        result->GetText(),
-        UNSAFE_TODO(String::Format("%s %02d", kFindString, result_index + 2)));
+    EXPECT_EQ(result->GetText(),
+              Format("{} {:02d}", kFindString, result_index + 2));
 
     // Verify that the expected match rect also matches the currently active
     // match.  Compare the enclosing rects to prevent precision issues caused by
@@ -7543,6 +7544,7 @@ class TestNewWindowWebFrameClient
   // frame_test_helpers::TestWebFrameClient:
   void BeginNavigation(std::unique_ptr<WebNavigationInfo> info) override {
     begin_navigation_call_count_++;
+    last_navigation_policy_ = info->navigation_policy;
     if (ignore_navigations_) {
       return;
     }
@@ -7555,22 +7557,38 @@ class TestNewWindowWebFrameClient
       const WebString&,
       const gfx::Rect&,
       WebNavigationPolicy,
-      network::mojom::blink::WebSandboxFlags,
+      network::mojom::blink::WebSandboxFlags sandbox_flags,
       const SessionStorageNamespaceId&,
       bool& consumed_user_gesture,
       const std::optional<WebPictureInPictureWindowOptions>&,
       const WebURL&,
       WebString*) override {
-    EXPECT_TRUE(false);
+    EXPECT_TRUE(expect_create_new_window_);
+    did_call_create_new_window_ = true;
+    new_window_sandbox_flags_ = sandbox_flags;
     return nullptr;
   }
 
   int BeginNavigationCallCount() const { return begin_navigation_call_count_; }
+  WebNavigationPolicy LastNavigationPolicy() const {
+    return last_navigation_policy_;
+  }
+  bool DidCallCreateNewWindow() const { return did_call_create_new_window_; }
+  network::mojom::blink::WebSandboxFlags NewWindowSandboxFlags() const {
+    return new_window_sandbox_flags_;
+  }
+
   void IgnoreNavigations() { ignore_navigations_ = true; }
+  void ExpectCreateNewWindow() { expect_create_new_window_ = true; }
 
  private:
   bool ignore_navigations_ = false;
+  bool expect_create_new_window_ = false;
+  bool did_call_create_new_window_ = false;
   int begin_navigation_call_count_ = 0;
+  WebNavigationPolicy last_navigation_policy_ = kWebNavigationPolicyCurrentTab;
+  network::mojom::blink::WebSandboxFlags new_window_sandbox_flags_ =
+      network::mojom::blink::WebSandboxFlags::kNone;
 };
 
 TEST_F(WebFrameTest, ModifiedClickNewWindow) {
@@ -8217,9 +8235,9 @@ TEST_F(WebFrameTest, FrameViewMoveWithSetFrameRect) {
   UpdateAllLifecyclePhases(web_view_helper.GetWebView());
 
   LocalFrameView* frame_view = web_view_helper.LocalMainFrame()->GetFrameView();
-  EXPECT_EQ(gfx::Rect(0, 0, 200, 200), frame_view->FrameRect());
+  EXPECT_EQ(gfx::Rect(0, 0, 200, 200), frame_view->DeprecatedFrameRect());
   frame_view->SetFrameRect(gfx::Rect(100, 100, 200, 200));
-  EXPECT_EQ(gfx::Rect(100, 100, 200, 200), frame_view->FrameRect());
+  EXPECT_EQ(gfx::Rect(100, 100, 200, 200), frame_view->DeprecatedFrameRect());
 }
 
 TEST_F(WebFrameTest, FrameViewScrollAccountsForBrowserControls) {
@@ -14178,8 +14196,9 @@ TEST_F(WebFrameTest, RemoteViewportAndMainframeIntersections) {
 
   // The viewport intersection should be applied by the layout geometry mapping
   // code when these flags are used.
-  int viewport_intersection_flags =
-      kTraverseDocumentBoundaries | kApplyRemoteMainFrameTransform;
+  MapCoordinatesFlags viewport_intersection_flags = {
+      MapCoordinatesMode::kTraverseDocumentBoundaries,
+      MapCoordinatesMode::kApplyRemoteMainFrameTransform};
 
   // Expectation is: (target location) + (viewport offset) = (20, 10) + (7, -11)
   PhysicalOffset offset = target->GetLayoutObject()->LocalToAbsolutePoint(
@@ -14199,13 +14218,15 @@ TEST_F(WebFrameTest, RemoteViewportAndMainframeIntersections) {
   local_frame->GetFrame()
       ->GetDocument()
       ->GetLayoutView()
-      ->MapToVisualRectInAncestorSpace(nullptr, mainframe_rect,
-                                       kDontApplyMainFrameOverflowClip);
+      ->MapToVisualRectInAncestorSpace(
+          nullptr, mainframe_rect,
+          {VisualRectFlag::kDontApplyMainFrameOverflowClip});
   EXPECT_EQ(PhysicalRect(7, -11, 25, 35), mainframe_rect);
 
-  constexpr auto kGeometryMapperFlags = static_cast<VisualRectFlags>(
-      kUseGeometryMapper | kVisualRectApplyRemoteViewportTransform |
-      kIgnoreFilters);
+  constexpr VisualRectFlags kGeometryMapperFlags = {
+      VisualRectFlag::kUseGeometryMapper,
+      VisualRectFlag::kApplyRemoteViewportTransform,
+      VisualRectFlag::kIgnoreFilters};
 
   // Translate (0,0) by (7, -11) => (7, -11)
   // Clip against parent viewport (0, 0, 200, 140):
@@ -14437,7 +14458,7 @@ TEST_F(WebFrameTest, DownloadReferrerPolicy) {
             policy_container_host.BindNewEndpointAndPassDedicatedRemote(),
             mojom::blink::PolicyContainerPolicies::New()));
     EXPECT_CALL(policy_container_host,
-                SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever));
+                SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever, _));
     frame_test_helpers::LoadHTMLString(
         frame, GetHTMLStringForReferrerPolicy("no-referrer", std::string()),
         test_url);
@@ -14455,7 +14476,7 @@ TEST_F(WebFrameTest, DownloadReferrerPolicy) {
             policy_container_host.BindNewEndpointAndPassDedicatedRemote(),
             mojom::blink::PolicyContainerPolicies::New()));
     EXPECT_CALL(policy_container_host,
-                SetReferrerPolicy(network::mojom::ReferrerPolicy::kOrigin));
+                SetReferrerPolicy(network::mojom::ReferrerPolicy::kOrigin, _));
     frame_test_helpers::LoadHTMLString(
         frame, GetHTMLStringForReferrerPolicy("origin", std::string()),
         test_url);
@@ -14472,7 +14493,7 @@ TEST_F(WebFrameTest, DownloadReferrerPolicy) {
         std::make_unique<PolicyContainer>(
             policy_container_host.BindNewEndpointAndPassDedicatedRemote(),
             mojom::blink::PolicyContainerPolicies::New()));
-    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_)).Times(0);
+    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_, _)).Times(0);
     frame_test_helpers::LoadHTMLString(
         frame, GetHTMLStringForReferrerPolicy(std::string(), std::string()),
         test_url);
@@ -14490,7 +14511,7 @@ TEST_F(WebFrameTest, DownloadReferrerPolicy) {
         std::make_unique<PolicyContainer>(
             policy_container_host.BindNewEndpointAndPassDedicatedRemote(),
             mojom::blink::PolicyContainerPolicies::New()));
-    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_)).Times(0);
+    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_, _)).Times(0);
     frame_test_helpers::LoadHTMLString(
         frame, GetHTMLStringForReferrerPolicy(std::string(), "origin"),
         test_url);
@@ -14507,7 +14528,7 @@ TEST_F(WebFrameTest, DownloadReferrerPolicy) {
         std::make_unique<PolicyContainer>(
             policy_container_host.BindNewEndpointAndPassDedicatedRemote(),
             mojom::blink::PolicyContainerPolicies::New()));
-    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_)).Times(0);
+    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_, _)).Times(0);
     frame_test_helpers::LoadHTMLString(
         frame, GetHTMLStringForReferrerPolicy(std::string(), "same-origin"),
         test_url);
@@ -14524,7 +14545,7 @@ TEST_F(WebFrameTest, DownloadReferrerPolicy) {
         std::make_unique<PolicyContainer>(
             policy_container_host.BindNewEndpointAndPassDedicatedRemote(),
             mojom::blink::PolicyContainerPolicies::New()));
-    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_)).Times(0);
+    EXPECT_CALL(policy_container_host, SetReferrerPolicy(_, _)).Times(0);
     frame_test_helpers::LoadHTMLString(
         frame, GetHTMLStringForReferrerPolicy(std::string(), "no-referrer"),
         test_url);
@@ -14919,6 +14940,7 @@ TEST_F(WebFrameTest, SandboxedIframePopupCtrlClick) {
       base_url_ + "sandboxed-srcdoc-ctrl-click.html", &web_frame_client);
 
   ASSERT_EQ(web_frame_client.iframe_client()->BeginNavigationCallCount(), 1);
+  web_frame_client.iframe_client()->IgnoreNavigations();
 
   LocalFrame* child = To<LocalFrame>(
       web_view_helper.GetWebView()->GetPage()->MainFrame()->FirstChild());
@@ -14927,9 +14949,45 @@ TEST_F(WebFrameTest, SandboxedIframePopupCtrlClick) {
   To<HTMLElement>(element)->click();
 
   // Clicking the button will attempt a synthetic Ctrl+Click from an iframe
-  // sandboxed without `allow-popups`. This should be blocked before reaching
-  // BeginNavigation().
+  // sandboxed without `allow-popups`. This should reach begin navigation, but
+  // not reach CreateNewWindow() (TestNewWindowWebFrameClient will fail the test
+  // if CreateNewWindow() is reached).
+  EXPECT_EQ(web_frame_client.iframe_client()->BeginNavigationCallCount(), 2);
+  EXPECT_EQ(web_frame_client.iframe_client()->LastNavigationPolicy(),
+            kWebNavigationPolicyCurrentTab);
+}
+
+TEST_F(WebFrameTest,
+       SandboxedIframePropagatesToAuxiliaryBrowsingContextsCtrlClick) {
+  RegisterMockedHttpURLLoad("sandboxed-allow-popups-srcdoc-ctrl-click.html");
+  IframeBeginNavivationCountTestWebFrameClient web_frame_client;
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.InitializeAndLoad(
+      base_url_ + "sandboxed-allow-popups-srcdoc-ctrl-click.html",
+      &web_frame_client);
+
+  ASSERT_EQ(web_frame_client.iframe_client()->BeginNavigationCallCount(), 1);
+  web_frame_client.iframe_client()->IgnoreNavigations();
+  web_frame_client.iframe_client()->ExpectCreateNewWindow();
+
+  LocalFrame* child = To<LocalFrame>(
+      web_view_helper.GetWebView()->GetPage()->MainFrame()->FirstChild());
+  ASSERT_TRUE(child->GetSecurityContext()->IsSandboxed(
+      network::mojom::blink::WebSandboxFlags::
+          kPropagatesToAuxiliaryBrowsingContexts));
+
+  Element* element =
+      child->GetDocument()->body()->getElementById(AtomicString("btn"));
+  To<HTMLElement>(element)->click();
+
+  // Clicking the button will attempt a synthetic Ctrl+Click from an iframe
+  // sandboxed without sandbox escaping. This should go through the
+  // CreateNewWindow() path instead of the BeginNavigation() path, and should
+  // include the child's sandbox flags.
   EXPECT_EQ(web_frame_client.iframe_client()->BeginNavigationCallCount(), 1);
+  EXPECT_TRUE(web_frame_client.iframe_client()->DidCallCreateNewWindow());
+  EXPECT_EQ(web_frame_client.iframe_client()->NewWindowSandboxFlags(),
+            child->GetSecurityContext()->GetSandboxFlags());
 }
 
 // Tests that a FrameLoadRequest for a GET request made from an opaque origin
@@ -14951,6 +15009,18 @@ TEST_F(WebFrameTest, FrameLoadRequestOriginGETOpaque) {
   EXPECT_TRUE(frame_load_request.GetResourceRequest()
                   .HttpHeaderField(http_names::kOrigin)
                   .IsNull());
+}
+
+TEST_F(WebFrameTest, FindFrameByNameCurrent) {
+  frame_test_helpers::WebViewHelper web_view_helper;
+  web_view_helper.Initialize();
+  WebLocalFrame* frame = web_view_helper.LocalMainFrame();
+
+  EXPECT_EQ(frame->FindFrameByName(WebString("_self")), frame);
+  EXPECT_EQ(frame->FindFrameByName(WebString("_current")), nullptr);
+
+  ScopedRemoveTargetCurrentForTest scoped_feature(false);
+  EXPECT_EQ(frame->FindFrameByName(WebString("_current")), frame);
 }
 
 }  // namespace blink

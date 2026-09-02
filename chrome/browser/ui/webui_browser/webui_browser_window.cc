@@ -17,6 +17,7 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/accelerator_table.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_init_state.h"
@@ -280,7 +281,7 @@ void WebUIBrowserWindow::Show() {
   // OnWidgetActivationChanged() until we return to the runloop. Therefore any
   // calls to Browser::GetLastActive() will return the wrong result if we do
   // not explicitly set it here.
-  browser_->DidBecomeActive();
+  BrowserActiveStateManager::From(browser_)->DidBecomeActive();
 #endif
 
   // If the window is already visible, just activate it.
@@ -304,9 +305,9 @@ void WebUIBrowserWindow::Show() {
 // BrowserView::PaintAsActiveChanged().
 void WebUIBrowserWindow::PaintAsActiveChanged() {
   if (widget_->ShouldPaintAsActive()) {
-    browser_->DidBecomeActive();
+    BrowserActiveStateManager::From(browser_)->DidBecomeActive();
   } else {
-    browser_->DidBecomeInactive();
+    BrowserActiveStateManager::From(browser_)->DidBecomeInactive();
   }
   if (webui_browser::mojom::Page* page = GetWebUIBrowserUI()->page()) {
     page->OnPaintAsActiveChanged(widget_->ShouldPaintAsActive());
@@ -636,7 +637,10 @@ void WebUIBrowserWindow::ProcessFullscreen(bool fullscreen) {
     page->OnFullscreenModeChanged(fullscreen, context);
   }
 
-  browser_->WindowFullscreenStateChanged();
+  browser_->GetFeatures()
+      .exclusive_access_manager()
+      ->fullscreen_controller()
+      ->WindowFullscreenStateChanged();
 }
 
 void WebUIBrowserWindow::DeleteBrowserWindow() {
@@ -670,8 +674,10 @@ void WebUIBrowserWindow::LoadAccelerators() {
   for (const auto& entry : GetAcceleratorList()) {
     // In app mode, only allow accelerators of allowlisted commands to pass
     // through.
-    if (is_app_mode && !IsCommandAllowedInAppMode(entry.command_id,
-                                                  browser_->is_type_popup())) {
+    if (is_app_mode &&
+        !IsCommandAllowedInAppMode(
+            entry.command_id,
+            browser_->GetType() == BrowserWindowInterface::Type::TYPE_POPUP)) {
       continue;
     }
 
@@ -811,19 +817,10 @@ void WebUIBrowserWindow::OnContentsElementShown(ui::TrackedElement* element) {
   }
 }
 
-void WebUIBrowserWindow::UpdatePageActionIcon(PageActionIconType type) {
-  NOTIMPLEMENTED_LOG_ONCE();
-}
-
 autofill::AutofillBubbleHandler*
 WebUIBrowserWindow::GetAutofillBubbleHandler() {
   NOTIMPLEMENTED_LOG_ONCE();
   return nullptr;
-}
-
-void WebUIBrowserWindow::ExecutePageActionIconForTesting(
-    PageActionIconType type) {
-  NOTIMPLEMENTED_LOG_ONCE();
 }
 
 LocationBar* WebUIBrowserWindow::GetLocationBar() const {
@@ -1016,7 +1013,8 @@ WebUIBrowserWindow::PreHandleKeyboardEvent(
   // - If the |browser_| is not for an app, and the |accelerator| is associated
   //   with the browser, and it is not a reserved one, do nothing.
 
-  if (browser_->is_type_app() || browser_->is_type_app_popup()) {
+  if (browser_->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+      browser_->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) {
     // Let all keys fall through to a v1 app's web content, even accelerators.
     // We don't use NOT_HANDLED_IS_SHORTCUT here. If we do that, the app
     // might not be able to see a subsequent Char event. See
@@ -1301,5 +1299,5 @@ void WebUIBrowserWindow::CloseSidePanel() {
 
 WebUIBrowserSidePanelUI* WebUIBrowserWindow::GetWebUIBrowserSidePanelUI() {
   return static_cast<WebUIBrowserSidePanelUI*>(
-      browser_->browser_window_features()->side_panel_ui());
+      browser_->GetFeatures().side_panel_ui());
 }

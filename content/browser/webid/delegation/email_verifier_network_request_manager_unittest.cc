@@ -67,11 +67,15 @@ TEST_F(EmailVerifierNetworkRequestManagerTest, SendTokenRequestDestination) {
         called = true;
         EXPECT_EQ(network::mojom::RequestDestination::kEmailVerification,
                   request.destination);
+        std::optional<std::string> content_type =
+            request.headers.GetHeader(net::HttpRequestHeaders::kContentType);
+        ASSERT_TRUE(content_type.has_value());
+        EXPECT_EQ("application/json", *content_type);
         run_loop.Quit();
       });
   test_url_loader_factory_.SetInterceptor(interceptor);
   manager_->SendTokenRequest(GURL("https://idp.example/token"), "data",
-                             base::DoNothing());
+                             net::HttpRequestHeaders(), base::DoNothing());
   run_loop.Run();
   EXPECT_TRUE(called);
 }

@@ -18,6 +18,7 @@
 #include "chrome/browser/profiles/batch_upload/batch_upload_service.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_promo.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
@@ -54,6 +55,7 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_quality/addresses/address_import_requirement_utils.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/user_selectable_type.h"
@@ -294,6 +296,7 @@ bool IsAllowedByPromoFrequency(Profile& profile,
     case SignInPromoType::kBookmark:
     case SignInPromoType::kExtension:
     case SignInPromoType::kSendTabToSelf:
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
       // No specific frequency exists for this promo type.
       return true;
     case SignInPromoType::kSearchAIMode:
@@ -405,6 +408,10 @@ syncer::DataType GetDataTypeFromSignInPromoType(SignInPromoType type) {
     case SignInPromoType::kSearchAIMode:
       // Search AI Mode sign-in promo is not related to any synced data type.
       NOTREACHED();
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
+      // Composebox Drive context menu option sign-in promo is not related to
+      // any synced data type.
+      NOTREACHED();
     case SignInPromoType::kSendTabToSelf:
       return syncer::SEND_TAB_TO_SELF;
   }
@@ -420,6 +427,10 @@ bool PromoTypeHasSyncableData(SignInPromoType type) {
       return true;
     case SignInPromoType::kSearchAIMode:
       // Search AI Mode sign-in promo is not related to any synced data type.
+      return false;
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
+      // Composebox Drive context menu option sign-in promo is not related to
+      // any synced data type.
       return false;
   }
   NOTREACHED();
@@ -490,6 +501,7 @@ int GetContextualPromoDismissCountPerSignedOutProfile(Profile& profile,
           prefs::kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment);
     case SignInPromoType::kExtension:
     case SignInPromoType::kSendTabToSelf:
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
       NOTREACHED();
     case SignInPromoType::kSearchAIMode:
       return profile.GetPrefs()->GetInteger(
@@ -521,6 +533,7 @@ int GetContextualPromoDismissCountPerAccount(Profile& profile,
           .GetBookmarkSigninPromoDismissCount(gaia_id);
     case SignInPromoType::kExtension:
     case SignInPromoType::kSendTabToSelf:
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
       NOTREACHED();
   }
 }
@@ -530,13 +543,15 @@ bool ShouldShowPromoBasedOnImpressionOrDismissalCount(Profile& profile,
   // Footer sign in promos are always shown.
   if (type == signin::SignInPromoType::kExtension ||
       type == signin::SignInPromoType::kSendTabToSelf ||
+      type == signin::SignInPromoType::kComposeboxDriveContextMenuOption ||
       (type == signin::SignInPromoType::kBookmark &&
        !base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp))) {
     return true;
   }
 
   AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
-      IdentityManagerFactory::GetForProfile(&profile));
+      IdentityManagerFactory::GetForProfile(&profile),
+      AccountPreviewDataServiceFactory::GetForProfile(&profile));
 
   int show_count = 0;
   switch (type) {
@@ -557,6 +572,7 @@ bool ShouldShowPromoBasedOnImpressionOrDismissalCount(Profile& profile,
       break;
     case SignInPromoType::kExtension:
     case SignInPromoType::kSendTabToSelf:
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
       NOTREACHED();
   }
 
@@ -651,8 +667,9 @@ bool ShouldShowSignInPromoCommon(Profile& profile, SignInPromoType type) {
 
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(original_profile);
-  AccountInfo promo_account =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager);
+  AccountInfo promo_account = signin_ui_util::GetSingleAccountForPromos(
+      identity_manager,
+      AccountPreviewDataServiceFactory::GetForProfile(original_profile));
 
   // Don't show if sign in can't be offered (ex: signin disallowed).
   if (!CanOfferSignin(original_profile, promo_account.gaia, promo_account.email,
@@ -783,6 +800,15 @@ bool ShouldShowBookmarkSignInPromo(Profile& profile) {
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 }
 
+bool ShouldShowComposeboxDriveContextMenuOptionSignInPromo(Profile& profile) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  return ShouldShowSignInPromoCommon(
+      profile, SignInPromoType::kComposeboxDriveContextMenuOption);
+#else
+  return false;
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+}
+
 bool IsBubbleSigninPromo(signin_metrics::AccessPoint access_point) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   return access_point == signin_metrics::AccessPoint::kPasswordBubble ||
@@ -790,6 +816,10 @@ bool IsBubbleSigninPromo(signin_metrics::AccessPoint access_point) {
          (base::FeatureList::IsEnabled(
               switches::kEnableSearchAIModeSigninPromo) &&
           access_point == signin_metrics::AccessPoint::kSearchAIModeBubble) ||
+         (base::FeatureList::IsEnabled(
+              omnibox::kComposeboxDriveContextMenuOptionSigninPromo) &&
+          access_point == signin_metrics::AccessPoint::
+                              kComposeboxDriveContextMenuOptionBubble) ||
          (base::FeatureList::IsEnabled(syncer::kUnoPhase2FollowUp) &&
           access_point == signin_metrics::AccessPoint::kBookmarkBubble);
 #else
@@ -841,6 +871,8 @@ SignInPromoType GetSignInPromoTypeFromAccessPoint(
       return SignInPromoType::kExtension;
     case signin_metrics::AccessPoint::kSendTabToSelfPromo:
       return SignInPromoType::kSendTabToSelf;
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+      return SignInPromoType::kComposeboxDriveContextMenuOption;
     default:
       NOTREACHED();
   }
@@ -853,7 +885,8 @@ void RecordSignInPromoShown(signin_metrics::AccessPoint access_point,
   CHECK(!profile->IsOffTheRecord());
 
   AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
-      IdentityManagerFactory::GetForProfile(profile));
+      IdentityManagerFactory::GetForProfile(profile),
+      AccountPreviewDataServiceFactory::GetForProfile(profile));
   SignInPromoType promo_type = GetSignInPromoTypeFromAccessPoint(access_point);
 
   // Record the pref per profile if there is no account present.
@@ -892,6 +925,7 @@ void RecordSignInPromoShown(signin_metrics::AccessPoint access_point,
         break;
       case SignInPromoType::kExtension:
       case SignInPromoType::kSendTabToSelf:
+      case SignInPromoType::kComposeboxDriveContextMenuOption:
         return;
     }
 
@@ -926,12 +960,15 @@ void RecordSignInPromoShown(signin_metrics::AccessPoint access_point,
       return;
     case SignInPromoType::kExtension:
     case SignInPromoType::kSendTabToSelf:
+    case SignInPromoType::kComposeboxDriveContextMenuOption:
       return;
   }
 }
 
 bool ShouldUseAutofillSignInPromoLimits(signin::SignInPromoType promo_type) {
   return promo_type != signin::SignInPromoType::kSearchAIMode &&
+         promo_type !=
+             signin::SignInPromoType::kComposeboxDriveContextMenuOption &&
          !base::FeatureList::IsEnabled(switches::kSigninPromoLimitsExperiment);
 }
 
@@ -1017,21 +1054,25 @@ void ComputeProfileMenuAvatarButtonPromoInfo(
 
 AvatarButtonPromoManager::AvatarButtonPromoManager(
     signin::IdentityManager* identity_manager,
+    signin::AccountPreviewDataService* account_preview_data_service,
     PrefService* pref_service)
     : AvatarButtonPromoManager(
           identity_manager,
+          account_preview_data_service,
           pref_service,
           user_education::features::GetNewBadgeShowCount(),
           user_education::features::GetNewBadgeFeatureUsedCount()) {}
 
 AvatarButtonPromoManager::AvatarButtonPromoManager(
     signin::IdentityManager* identity_manager,
+    signin::AccountPreviewDataService* account_preview_data_service,
     PrefService* pref_service,
     int max_shown_count,
     int max_used_count)
     : identity_manager_(identity_manager),
       signin_prefs_(std::make_unique<SigninPrefs>(CHECK_DEREF(pref_service))),
       pref_service_(pref_service),
+      account_preview_data_service_(account_preview_data_service),
       max_shown_count_(max_shown_count),
       max_used_count_(max_used_count) {
   CHECK(identity_manager_);
@@ -1060,8 +1101,8 @@ bool AvatarButtonPromoManager::ShouldShowPromo(
   CHECK(signin_prefs_);
   CHECK(identity_manager_);
 
-  const AccountInfo account =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager_);
+  const AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      identity_manager_, account_preview_data_service_);
   auto [promo_shown_count, promo_used_count, promo_last_shown_time,
         last_external_event_time] =
       GetPromoUsageInfo(*pref_service_.get(), *signin_prefs_.get(), promo_type,
@@ -1092,8 +1133,8 @@ void AvatarButtonPromoManager::RecordPromoShown(
   CHECK(identity_manager_);
   CHECK(IsSigninStateAlignedWithPromoType(promo_type));
 
-  const AccountInfo account =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager_);
+  const AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      identity_manager_, account_preview_data_service_);
   if (promo_type == ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo) {
     CHECK(switches::IsAvatarSyncPromoFeatureEnabled());
     signin_prefs_->IncrementSyncPromoIdentityPillShownCount(account.gaia);
@@ -1123,8 +1164,8 @@ GaiaId AvatarButtonPromoManager::RecordPromoUsed(
   CHECK(identity_manager_);
   CHECK(IsSigninStateAlignedWithPromoType(promo_type));
 
-  const AccountInfo account =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager_);
+  const AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      identity_manager_, account_preview_data_service_);
   if (promo_type == ProfileMenuAvatarButtonPromoInfo::Type::kSyncPromo) {
     CHECK(switches::IsAvatarSyncPromoFeatureEnabled());
     signin_prefs_->IncrementSyncPromoIdentityPillUsedCount(account.gaia);
@@ -1176,6 +1217,7 @@ void AvatarButtonPromoManager::OnIdentityManagerShutdown(
   // `Browser` + `TestingProfile` (where the `PrefService` is owned by the
   // profile itself).
   pref_service_ = nullptr;
+  account_preview_data_service_ = nullptr;
   signin_prefs_.reset();
 }
 

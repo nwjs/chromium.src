@@ -97,9 +97,6 @@ CGFloat HorizontalMargin() {
   TabGridToolbarBackground* _backgroundView;
   TabGridToolbarScrollingBackground* _scrollBackgroundView;
 
-  // Configures the responder following the receiver in the responder chain.
-  UIResponder* _followingNextResponder;
-
   // The button to access the page action menu.
   PageActionMenuEntrypointView* _pageActionMenuEntrypointView;
 
@@ -760,17 +757,15 @@ CGFloat HorizontalMargin() {
     _scrollBackgroundView = [[TabGridToolbarScrollingBackground alloc] init];
     _scrollBackgroundView.translatesAutoresizingMaskIntoConstraints = NO;
     [self insertSubview:_scrollBackgroundView atIndex:0];
-    AddSameConstraintsToSides(
-        self, _scrollBackgroundView,
-        LayoutSides::kLeading | LayoutSides::kBottom | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(self, _scrollBackgroundView,
+                              LayoutSides::kBottom | LayoutSides::kHorizontal);
   } else {
     _backgroundView =
         [[TabGridToolbarBackground alloc] initWithFrame:self.frame];
     _backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_backgroundView];
-    AddSameConstraintsToSides(
-        self, _backgroundView,
-        LayoutSides::kLeading | LayoutSides::kBottom | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(self, _backgroundView,
+                              LayoutSides::kBottom | LayoutSides::kHorizontal);
   }
 
   // A non-nil UIImage has to be added in the background of the toolbar to
@@ -792,10 +787,6 @@ CGFloat HorizontalMargin() {
   [_searchBar resignFirstResponder];
 }
 
-- (void)respondBeforeResponder:(UIResponder*)nextResponder {
-  _followingNextResponder = nextResponder;
-}
-
 - (void)setBackgroundContentOffset:(CGPoint)backgroundContentOffset
                           animated:(BOOL)animated {
   [_scrollBackgroundView setContentOffset:backgroundContentOffset
@@ -808,16 +799,13 @@ CGFloat HorizontalMargin() {
   return @[ UIKeyCommand.cr_closeAll, UIKeyCommand.cr_close ];
 }
 
-- (UIResponder*)nextResponder {
-  return _followingNextResponder;
-}
-
 - (BOOL)canPerformAction:(SEL)action withSender:(id)sender {
   if (sel_isEqual(action, @selector(keyCommand_closeAll))) {
     return _closeAllActionEnabled;
   }
   if (sel_isEqual(action, @selector(keyCommand_close))) {
-    return _exitTabGridButton.enabled || _mode == TabGridMode::kSearch;
+    return _exitTabGridButton.enabled || _mode == TabGridMode::kSearch ||
+           _mode == TabGridMode::kSelection;
   }
   if (sel_isEqual(action, @selector(keyCommand_find))) {
     return _searchButton.enabled;

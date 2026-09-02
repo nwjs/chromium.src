@@ -165,7 +165,7 @@ class LocationBarBadgeMediatorTest : public PlatformTest {
                               base::BindRepeating(&CreateTestTracker));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegate(
+        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
     builder.AddTestingFactory(GeminiServiceFactory::GetInstance(),
                               GeminiServiceFactory::GetDefaultFactory());
@@ -222,8 +222,6 @@ class LocationBarBadgeMediatorTest : public PlatformTest {
     mock_delegate_ =
         OCMProtocolMock(@protocol(LocationBarBadgeMediatorDelegate));
     mediator_.delegate = mock_delegate_;
-    mock_gemini_handler_ = OCMProtocolMock(@protocol(GeminiCommands));
-    mediator_.geminiHandler = mock_gemini_handler_;
 
     mock_contextual_sheet_handler_ =
         OCMProtocolMock(@protocol(ContextualSheetCommands));
@@ -392,12 +390,11 @@ TEST_F(LocationBarBadgeMediatorTest, TestGeminiContextualChipTimestampUpdated) {
 // Tests that tapping the gemini chip calls the BWG command handler and logs
 // FET metrics.
 TEST_F(LocationBarBadgeMediatorTest, TestGeminiChipTapped) {
-  id mock_gemini_handler = OCMProtocolMock(@protocol(GeminiCommands));
-  mediator_.geminiHandler = mock_gemini_handler;
-
-  OCMExpect([mock_gemini_handler
-      startGeminiFlowWithStartupState:[OCMArg checkWithBlock:^BOOL(
-                                                  GeminiStartupState* state) {
+  OCMExpect([mock_delegate_
+                  locationBarBadgeMediator:mediator_
+      startGeminiEntryFlowWithStartupState:[OCMArg checkWithBlock:^BOOL(
+                                                       GeminiStartupState*
+                                                           state) {
         return state.entryPoint == gemini::EntryPoint::OmniboxChip &&
                state.prepopulatedPrompt == nil;
       }]]);
@@ -409,7 +406,7 @@ TEST_F(LocationBarBadgeMediatorTest, TestGeminiChipTapped) {
       CreateBadgeConfiguration(LocationBarBadgeType::kGeminiContextualCueChip);
   config.badgeText = kTestAccessibilityLabel;
   [mediator_ badgeTapped:config];
-  EXPECT_OCMOCK_VERIFY(mock_gemini_handler);
+  EXPECT_OCMOCK_VERIFY(mock_delegate_);
 }
 // Tests that the Gemini contextual cue chip is not shown if it was recently
 // displayed.
@@ -529,9 +526,7 @@ TEST_F(LocationBarBadgeMediatorTest, TestContextualPanelOneConfiguration) {
 
   ContextualPanelItemConfiguration configuration(
       ContextualPanelItemType::SamplePanelItem);
-  configuration.entrypoint_image_name = "chrome_product";
-  configuration.image_type =
-      ContextualPanelItemConfiguration::EntrypointImageType::Image;
+  configuration.entrypoint_symbol = SymbolChromeProduct;
 
   FakeContextualPanelTabHelper* tab_helper =
       static_cast<FakeContextualPanelTabHelper*>(
@@ -586,9 +581,7 @@ TEST_F(LocationBarBadgeMediatorTest,
       std::make_unique<SamplePanelItemConfiguration>();
   configuration->relevance = ContextualPanelItemConfiguration::high_relevance;
   configuration->entrypoint_message = "test";
-  configuration->entrypoint_image_name = "chrome_product";
-  configuration->image_type =
-      ContextualPanelItemConfiguration::EntrypointImageType::Image;
+  configuration->entrypoint_symbol = SymbolChromeProduct;
 
   FakeContextualPanelTabHelper* tab_helper =
       static_cast<FakeContextualPanelTabHelper*>(
@@ -654,9 +647,7 @@ TEST_F(LocationBarBadgeMediatorTest, TestContextualPanelIPHEntrypointAppears) {
       &feature_engagement::kIPHiOSContextualPanelSampleModelFeature;
   configuration->iph_text = "test_text";
   configuration->iph_title = "test_title";
-  configuration->entrypoint_image_name = "chrome_product";
-  configuration->image_type =
-      ContextualPanelItemConfiguration::EntrypointImageType::Image;
+  configuration->entrypoint_symbol = SymbolChromeProduct;
 
   OCMStub([mock_entrypoint_iph_handler_
               showContextualPanelEntrypointIPHWithConfig:configuration.get()

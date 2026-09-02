@@ -19,6 +19,10 @@
 class Profile;
 class BrowserWindowInterface;
 
+namespace components_sharing_message {
+class GlicExperimentalTriggering;
+}  // namespace components_sharing_message
+
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
@@ -39,6 +43,15 @@ class GlicExperimentalTriggeringCoordinator {
       const GlicExperimentalTriggeringCoordinator&) = delete;
   virtual ~GlicExperimentalTriggeringCoordinator();
 
+  // Validates, logs, and processes an incoming raw protobuf triggering
+  // message, returning the domain response (success or error).
+  virtual std::optional<ExperimentalTriggeringResponse> OnProtoMessage(
+      const std::string& context_id,
+      const components_sharing_message::GlicExperimentalTriggering& proto,
+      ScopedIncomingMessageResultLogger result_logger,
+      GlicExperimentalTriggeringUpdateCallback update_callback,
+      tabs::TabInterface* prepared_tab = nullptr);
+
   // Handles an incoming domain request for experimental triggering.
   // `result_logger` carries the responsibility for recording the
   // Glic.ExperimentalTriggering.IncomingMessageResult histogram; the
@@ -47,7 +60,8 @@ class GlicExperimentalTriggeringCoordinator {
       const std::string& context_id,
       const ExperimentalTriggeringRequest& request,
       ScopedIncomingMessageResultLogger result_logger,
-      GlicExperimentalTriggeringUpdateCallback update_callback);
+      GlicExperimentalTriggeringUpdateCallback update_callback,
+      tabs::TabInterface* prepared_tab);
 
   size_t GetUpdatesHandlerMapSizeForTesting() const {
     return context_id_to_updates_handler_map_.size();

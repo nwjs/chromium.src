@@ -257,8 +257,7 @@ public class CronetUrlRequestContext extends CronetEngineBase {
             mThroughputListenerList.disableThreadAsserts();
             mNetworkQualityEstimatorEnabled = builder.networkQualityEstimatorEnabled();
             boolean triggeredInitialization =
-                    CronetLibraryLoader.ensureInitialized(builder.getContext(), builder);
-            CronetPccAuditLogger.initialize();
+                    CronetLibraryLoader.ensureInitialized(builder.getContext());
             if (builder.httpCacheMode() == HttpCacheType.DISK) {
                 mInUseStoragePath = builder.storagePath();
                 synchronized (sInUseStoragePaths) {

@@ -102,6 +102,7 @@ class PaymentRequestBrowserTestBase
     // provided by WebcontentsObserver::TitleWasSet.
     PAYMENT_HANDLER_TITLE_SET,
     DIALOG_SIZE_CHECK_AFTER_BROWSER_RESIZE,
+    PAYMENT_HANDLER_THEME_COLOR_SET,
   };
 
   PaymentRequestBrowserTestBase(const PaymentRequestBrowserTestBase&) = delete;
@@ -127,6 +128,12 @@ class PaymentRequestBrowserTestBase
   void SetBrowserWindowInactive();
   void SetBrowserWindowSizeCheckEnabled();
 
+  // WARNING: Bypassing user interaction checks in browser tests is discouraged.
+  // Tests should prefer simulating real user interactions (e.g., mouse clicks
+  // or keyboard input) with the payment app window whenever possible instead of
+  // bypassing the check.
+  void SetBypassUserInteractionForTesting();
+
   // PaymentRequest::ObserverForTest:
   void OnCanMakePaymentCalled() override;
   void OnCanMakePaymentReturned() override;
@@ -137,6 +144,7 @@ class PaymentRequestBrowserTestBase
   void OnPayCalled() override;
   void OnAbortCalled() override;
   void OnInternalError() override;
+  void OnPaymentRequestStateInitDone(PaymentRequestState* state) override;
 
   // PaymentRequestDialogView::ObserverForTest:
   void OnDialogOpened() override;
@@ -159,6 +167,7 @@ class PaymentRequestBrowserTestBase
   void OnLoadingViewHidden() override;
   void OnPaymentHandlerWindowOpened() override;
   void OnPaymentHandlerTitleSet() override;
+  void OnPaymentHandlerThemeColorSet() override;
   void OnDialogSizeCheckAfterBrowserResize() override;
 
   void InstallPaymentApp(const std::string& hostname,
@@ -335,6 +344,10 @@ class PaymentRequestBrowserTestBase
   // size check. Most tests should run with this disabled, as bots often have
   // small virtual displays that will fail the check.
   bool is_browser_window_size_check_enabled_ = false;
+
+  // Determines whether to bypass the user interaction check in browser tests.
+  // Discouraged: tests should simulate real user interaction where possible.
+  bool bypass_user_interaction_for_testing_ = false;
 
   base::WeakPtrFactory<PaymentRequestBrowserTestBase> weak_ptr_factory_{this};
 };

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <utility>
 
 #include "ash/app_list/app_list_controller_impl.h"
@@ -48,7 +49,6 @@
 #include "ash/wm/window_util.h"
 #include "base/auto_reset.h"
 #include "base/check_op.h"
-#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -169,7 +169,6 @@ bool ShelfButtonIsInDrag(const ShelfItemType item_type,
     case TYPE_PINNED_APP:
     case TYPE_BROWSER_SHORTCUT:
     case TYPE_APP:
-    case TYPE_UNPINNED_BROWSER_SHORTCUT:
       return static_cast<const ShelfAppButton*>(item_view)->state() &
              ShelfAppButton::STATE_DRAGGING;
     case TYPE_DIALOG:
@@ -668,7 +667,7 @@ View* ShelfView::GetTooltipHandlerForPoint(const gfx::Point& point) {
   // Similar implementation as views::View, but without going into each
   // child's subviews.
   View::Views children = GetChildrenInZOrder();
-  for (views::View* child : base::Reversed(children)) {
+  for (views::View* child : std::views::reverse(children)) {
     if (!child->GetVisible())
       continue;
 
@@ -757,7 +756,6 @@ void ShelfView::ButtonPressed(views::Button* sender,
     case TYPE_PINNED_APP:
     case TYPE_BROWSER_SHORTCUT:
     case TYPE_APP:
-    case TYPE_UNPINNED_BROWSER_SHORTCUT:
       base::RecordAction(base::UserMetricsAction("Launcher_ClickOnApp"));
       break;
 
@@ -999,7 +997,6 @@ views::View* ShelfView::CreateViewForItem(const ShelfItem& item) {
     case TYPE_PINNED_APP:
     case TYPE_BROWSER_SHORTCUT:
     case TYPE_APP:
-    case TYPE_UNPINNED_BROWSER_SHORTCUT:
     case TYPE_DIALOG: {
       ShelfAppButton* button = new ShelfAppButton(
           this, shelf_button_delegate_ ? shelf_button_delegate_.get() : this);
@@ -1048,7 +1045,7 @@ void ShelfView::UpdateSeparatorIndex() {
   const bool can_drag_view_across_separator =
       drag_view_ && CanDragAcrossSeparator(drag_view_);
 
-  for (size_t i : base::Reversed(visible_views_indices_)) {
+  for (size_t i : std::views::reverse(visible_views_indices_)) {
     const auto& item = model()->items()[i];
     if (IsItemPinned(item)) {
       // The dragged item is temporarily moved to the end of the shelf if it is
@@ -2371,7 +2368,6 @@ void ShelfView::ShelfItemChanged(int model_index, const ShelfItem& old_item) {
     case TYPE_PINNED_APP:
     case TYPE_BROWSER_SHORTCUT:
     case TYPE_APP:
-    case TYPE_UNPINNED_BROWSER_SHORTCUT:
     case TYPE_DIALOG: {
       CHECK(views::IsViewClass<ShelfAppButton>(view));
       ShelfAppButton* button = static_cast<ShelfAppButton*>(view);

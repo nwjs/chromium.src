@@ -84,10 +84,11 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   [self setUpHeader];
   [self setUpWebStateView];
 
-  [self
-      registerForTraitChanges:
-          @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
-                   withAction:@selector(traitsDidChange)];
+  [self registerForTraitChanges:@[
+    UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class,
+    UITraitUserInterfaceStyle.class
+  ]
+                     withAction:@selector(traitsDidChange)];
   [self traitsDidChange];
 }
 
@@ -160,6 +161,7 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
   _inputViewController.view.alpha = effectPercentage;
   _webStateView.alpha = effectPercentage;
   _inputViewFade.alpha = effectPercentage;
+  _zeroStateViewController.view.alpha = effectPercentage;
   self.isMinimized = effectPercentage == 0;
 
   [_headerView adjustForPercentage:effectPercentage];
@@ -439,14 +441,20 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
                                   : self.view.bottomAnchor;
 
     AddSameConstraintsToSides(_zeroStateViewController.view, self.view,
-                              LayoutSides::kLeading | LayoutSides::kTrailing);
+                              LayoutSides::kHorizontal);
 
+    // Lowering the layout priority prevents a conflict with the header size
+    // when minimizing.
+    // This is safe because the zero state isn't visible when the assistant is
+    // minimized.
+    NSLayoutConstraint* zeroStateTopToHeader =
+        [_zeroStateViewController.view.topAnchor
+            constraintEqualToAnchor:_headerView.bottomAnchor
+                           constant:kTitleVerticalMargin];
+    zeroStateTopToHeader.priority = UILayoutPriorityRequired - 1;
     [NSLayoutConstraint activateConstraints:@[
-      [_zeroStateViewController.view.topAnchor
-          constraintEqualToAnchor:_headerView.bottomAnchor
-                         constant:kTitleVerticalMargin],
-      [_zeroStateViewController.view.bottomAnchor
-          constraintEqualToAnchor:bottomAnchor]
+      zeroStateTopToHeader, [_zeroStateViewController.view.bottomAnchor
+                                constraintEqualToAnchor:bottomAnchor]
     ]];
 
     _zeroStateViewController.view.hidden =
@@ -708,6 +716,15 @@ constexpr CGFloat kThresholdForCompleteVisibility = 0.3;
     [self.view layoutIfNeeded];
   }];
   [self.mutator didTapHistory];
+}
+
+- (void)assistantAIMHeaderViewDidTapMyActivity:
+    (AssistantAIMHeaderView*)headerView {
+  [self.delegate assistantAIMViewControllerDidTapMyActivity:self];
+}
+
+- (void)assistantAIMHeaderViewDidTapHelp:(AssistantAIMHeaderView*)headerView {
+  [self.delegate assistantAIMViewControllerDidTapHelp:self];
 }
 
 #pragma mark - Private

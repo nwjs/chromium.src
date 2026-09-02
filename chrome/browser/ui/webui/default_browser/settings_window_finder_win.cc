@@ -21,8 +21,28 @@
 #include "base/strings/string_util.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/scoped_propvariant.h"
+#include "ui/gfx/win/hwnd_util.h"
 
 namespace {
+
+// Events observed on the Settings window once it has been found. Hooked
+// individually rather than as a range: the events are not contiguous, and
+// [EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE] would also subscribe to every
+// EVENT_OBJECT_SHOW in the session.
+constexpr DWORD kObservedWindowEvents[] = {
+    // The window moved or was resized: re-dock to it.
+    EVENT_OBJECT_LOCATIONCHANGE,
+    // The user grabbed the title bar or a border. These bracket the run of
+    // location changes the drag produces, and distinguish it from the window
+    // moving itself.
+    EVENT_SYSTEM_MOVESIZESTART,
+    EVENT_SYSTEM_MOVESIZEEND,
+    // The window went away. Closing a UWP window such as Settings often
+    // cloaks or hides its frame rather than destroying it.
+    EVENT_OBJECT_DESTROY,
+    EVENT_OBJECT_HIDE,
+    EVENT_OBJECT_CLOAKED,
+};
 
 base::WeakPtr<SettingsWindowFinderWin>& GetGlobalFinderInstance() {
   static base::NoDestructor<base::WeakPtr<SettingsWindowFinderWin>> instance;
@@ -49,6 +69,26 @@ bool GetWindowProcessImagePath(HWND hwnd, std::wstring* path_out) {
 
   *path_out = buffer;
   return true;
+}
+
+// Installs an out-of-context hook for a single `event`, scoped to `pid` when
+// non-zero, and records it in `hooks` when installation succeeds.
+void InstallWinEventHook(DWORD event,
+                         DWORD pid,
+                         WINEVENTPROC callback,
+                         std::vector<HWINEVENTHOOK>& hooks) {
+  if (HWINEVENTHOOK hook = ::SetWinEventHook(
+          event, event, nullptr, callback, pid,
+          /*idThread=*/0, WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS)) {
+    hooks.push_back(hook);
+  }
+}
+
+void UnhookAll(std::vector<HWINEVENTHOOK>& hooks) {
+  for (HWINEVENTHOOK hook : hooks) {
+    ::UnhookWinEvent(hook);
+  }
+  hooks.clear();
 }
 
 }  // namespace
@@ -78,8 +118,19 @@ void SettingsWindowFinderWin::Start(base::TimeDelta timeout,
   }
 
   is_active_ = true;
+  // These hooks cannot be scoped to a process: they exist to discover a window
+  // that does not necessarily exist yet, so its owner is unknown. The
+  // observation hooks in StartObservingLocationChanges() are scoped.
   winevent_hook_ =
       ::SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_SHOW, nullptr,
+                        &SettingsWindowFinderWin::WinEventCallback, 0, 0,
+                        WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+
+  //  Launching Settings window can be transiently DWM-cloaked, which
+  //  IsLikelySettingsWindow() rejects. Listen for the uncloak so such a window
+  //  is matched the moment it becomes visible.
+  uncloak_hook_ =
+      ::SetWinEventHook(EVENT_OBJECT_UNCLOAKED, EVENT_OBJECT_UNCLOAKED, nullptr,
                         &SettingsWindowFinderWin::WinEventCallback, 0, 0,
                         WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
   UpdateGlobalInstance();
@@ -95,6 +146,11 @@ void SettingsWindowFinderWin::Stop() {
   if (winevent_hook_) {
     ::UnhookWinEvent(winevent_hook_);
     winevent_hook_ = nullptr;
+  }
+
+  if (uncloak_hook_) {
+    ::UnhookWinEvent(uncloak_hook_);
+    uncloak_hook_ = nullptr;
   }
 
   is_active_ = false;
@@ -113,31 +169,48 @@ void SettingsWindowFinderWin::StartObservingLocationChanges(
   observed_hwnd_ = settings_hwnd;
   on_resized_ = std::move(on_resized);
 
-  location_change_hook_ = ::SetWinEventHook(
-      EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr,
-      &SettingsWindowFinderWin::WinEventCallback, 0, 0,
-      WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
+  // The observed window is known, so scope the hooks to the process that owns
+  // it: a system-wide hook would marshal each matching event in the session
+  // onto the browser UI thread only for it to be discarded. Falls back to a
+  // system-wide hook if the process cannot be determined.
+  DWORD observed_pid = 0;
+  ::GetWindowThreadProcessId(settings_hwnd, &observed_pid);
+
+  for (DWORD event : kObservedWindowEvents) {
+    InstallWinEventHook(event, observed_pid,
+                        &SettingsWindowFinderWin::WinEventCallback,
+                        observation_hooks_);
+  }
+
   UpdateGlobalInstance();
+}
+
+void SettingsWindowFinderWin::SetMoveSizeCallback(
+    WindowMoveSizeCallback on_move_size) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  on_move_size_ = std::move(on_move_size);
 }
 
 void SettingsWindowFinderWin::StopObservingLocationChanges() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (location_change_hook_) {
-    ::UnhookWinEvent(location_change_hook_);
-    location_change_hook_ = nullptr;
-  }
+
+  UnhookAll(observation_hooks_);
+
   observed_hwnd_ = nullptr;
   on_resized_.Reset();
+  on_move_size_.Reset();
 
   UpdateGlobalInstance();
 }
 
 void SettingsWindowFinderWin::UpdateGlobalInstance() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (winevent_hook_ || location_change_hook_) {
+  if (winevent_hook_ || uncloak_hook_ || !observation_hooks_.empty()) {
     if (GetGlobalFinderInstance().get() != this) {
-      CHECK(!GetGlobalFinderInstance())
-          << "Only one SettingsWindowFinderWin can be active at a time.";
+      if (auto old_finder = GetGlobalFinderInstance()) {
+        old_finder->Stop();
+        old_finder->StopObservingLocationChanges();
+      }
       GetGlobalFinderInstance() = weak_ptr_factory_.GetWeakPtr();
     }
   } else if (GetGlobalFinderInstance().get() == this) {
@@ -170,7 +243,8 @@ HWND SettingsWindowFinderWin::FindSettingsTopLevelWindow() const {
 
 bool SettingsWindowFinderWin::IsLikelySettingsWindow(HWND hwnd) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!::IsWindow(hwnd) || !::IsWindowVisible(hwnd)) {
+  if (!::IsWindow(hwnd) || !::IsWindowVisible(hwnd) ||
+      gfx::IsWindowCloaked(hwnd)) {
     return false;
   }
 
@@ -193,8 +267,8 @@ bool SettingsWindowFinderWin::IsLikelySettingsWindow(HWND hwnd) const {
 
   // First check via PKEY_AppUserModel_ID.
   Microsoft::WRL::ComPtr<IPropertyStore> prop_store;
-  if (FAILED(::SHGetPropertyStoreForWindow(hwnd, IID_PPV_ARGS(&prop_store))) &&
-      prop_store) {
+  if (FAILED(::SHGetPropertyStoreForWindow(hwnd, IID_PPV_ARGS(&prop_store))) ||
+      !prop_store) {
     return false;
   }
 
@@ -225,10 +299,6 @@ SettingsWindowFinderWin::WinEventCallback(HWINEVENTHOOK hWinEventHook,
                                           LONG idChild,
                                           DWORD dwEventThread,
                                           DWORD dwmsEventTime) {
-  if (!hwnd || idObject != OBJID_WINDOW) {
-    return;
-  }
-
   SettingsWindowFinderWin* finder = GetGlobalFinderInstance().get();
   if (!finder) {
     return;
@@ -238,25 +308,63 @@ SettingsWindowFinderWin::WinEventCallback(HWINEVENTHOOK hWinEventHook,
   // the message pump of the thread that called SetWinEventHook.
   DCHECK_CALLED_ON_VALID_SEQUENCE(finder->sequence_checker_);
 
-  if (event == EVENT_OBJECT_LOCATIONCHANGE) {
-    if (hwnd == finder->observed_hwnd_ && finder->on_resized_) {
-      finder->on_resized_.Run();
+  finder->HandleWinEvent(event, hwnd, idObject);
+}
+
+void SettingsWindowFinderWin::HandleWinEvent(DWORD event,
+                                             HWND hwnd,
+                                             LONG idObject) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!hwnd || idObject != OBJID_WINDOW) {
+    return;
+  }
+
+  if (hwnd == observed_hwnd_ && (event == EVENT_SYSTEM_MOVESIZESTART ||
+                                 event == EVENT_SYSTEM_MOVESIZEEND)) {
+    if (on_move_size_) {
+      // Run a copy: as with on_resized_, the callback may reentrantly stop the
+      // observation while the invocation is still on the stack.
+      WindowMoveSizeCallback callback = on_move_size_;
+      callback.Run(event == EVENT_SYSTEM_MOVESIZESTART);
     }
     return;
   }
 
-  if (!finder->on_found_) {
+  // Events on the observed Settings window: location changes re-dock it, and
+  // destroy/hide/cloak transitions let the owner detect that the user closed
+  // it (a UWP window is often cloaked or hidden rather than destroyed).
+  if (hwnd == observed_hwnd_ && on_resized_ &&
+      (event == EVENT_OBJECT_LOCATIONCHANGE || event == EVENT_OBJECT_DESTROY ||
+       event == EVENT_OBJECT_HIDE || event == EVENT_OBJECT_CLOAKED)) {
+    // Run a copy: the callback may reentrantly stop the observation (e.g.
+    // the owner tears down on a destroy/cloak event), resetting on_resized_
+    // while the invocation is still on the stack.
+    WindowResizedCallback callback = on_resized_;
+    callback.Run();
     return;
   }
 
-  HWND root_hwnd = ::GetAncestor(hwnd, GA_ROOT);
-  if (!finder->IsLikelySettingsWindow(root_hwnd)) {
+  if (event != EVENT_OBJECT_CREATE && event != EVENT_OBJECT_SHOW &&
+      event != EVENT_OBJECT_UNCLOAKED) {
+    return;
+  }
+
+  if (!on_found_) {
+    return;
+  }
+
+  HWND root_hwnd = GetRootWindow(hwnd);
+  if (!IsLikelySettingsWindow(root_hwnd)) {
     return;
   }
 
   // Copy the callback and stop the finder BEFORE executing the callback.
   // This prevents use-after-free if the callback destroys the finder.
-  WindowFoundCallback callback = std::move(finder->on_found_);
-  finder->Stop();
+  WindowFoundCallback callback = std::move(on_found_);
+  Stop();
   std::move(callback).Run(root_hwnd);
+}
+
+HWND SettingsWindowFinderWin::GetRootWindow(HWND hwnd) const {
+  return ::GetAncestor(hwnd, GA_ROOT);
 }

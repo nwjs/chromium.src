@@ -56,12 +56,16 @@ IN_PROC_BROWSER_TEST_F(ActionAppMenuBrowserTest, ShowActionAppMenu) {
   ASSERT_TRUE(root);
 
   // Verify that the Action items have been converted into visual menu items.
-  views::MenuItemView* new_tab_item = root->GetMenuItemByID(kActionNewTab);
-  ASSERT_TRUE(new_tab_item);
+  views::MenuItemView* password_item =
+      root->GetMenuItemByID(kActionShowPasswordManager);
+  ASSERT_TRUE(password_item);
 
-  views::MenuItemView* clear_data_item =
-      root->GetMenuItemByID(kActionClearBrowsingData);
-  ASSERT_TRUE(clear_data_item);
+  views::MenuItemView* print_item = root->GetMenuItemByID(kActionPrint);
+  ASSERT_TRUE(print_item);
+
+  // Check if the menu items have background styling
+  EXPECT_TRUE(password_item->GetMenuItemBackground().has_value());
+  EXPECT_TRUE(print_item->GetMenuItemBackground().has_value());
 
   menu_button->CloseMenu();
   EXPECT_FALSE(menu_button->IsMenuShowing());

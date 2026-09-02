@@ -530,6 +530,19 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="UnsetStillWaiting"/>
 </enum>
 
+<!-- LINT.IfChange(SafeBrowsingUpdateCategory) -->
+
+<enum name="SafeBrowsingUpdateCategory">
+  <int value="0" label="Post-migration partial update"/>
+  <int value="1" label="Post-migration full update"/>
+  <int value="2" label="New database partial update"/>
+  <int value="3" label="New database full update"/>
+  <int value="4" label="Regular partial update"/>
+  <int value="5" label="Regular full update"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/safe_browsing/core/browser/db/sb_store.h:SafeBrowsingUpdateCategory) -->
+
 <enum name="SafeBrowsingUrlScheme">
   <int value="0" label="Unknown scheme"/>
   <int value="1" label="about"/>
@@ -966,6 +979,23 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/safe_browsing/core/browser/suspicious_site_warning_allowlist.h:SuspiciousSiteWarningOutcome) -->
+
+<!-- LINT.IfChange(SuspiciousSiteWarningUserInteraction) -->
+
+<enum name="SuspiciousSiteWarningUserInteraction">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Warning dialog shown"/>
+  <int value="2" label="Mark as safe button clicked"/>
+  <int value="3" label="Back to safety button clicked"/>
+  <int value="4" label="Dismissed"/>
+  <int value="5" label="Manual navigation"/>
+  <int value="6" label="Close tab"/>
+  <int value="7" label="Learn more clicked"/>
+  <int value="8" label="System back button/gesture used"/>
+  <int value="9" label="Destroyed"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/safe_browsing/core/browser/suspicious_site_warning_allowlist.h:SuspiciousSiteWarningUserInteraction) -->
 
 <!-- LINT.IfChange(SyncedEsbOutcome) -->
 

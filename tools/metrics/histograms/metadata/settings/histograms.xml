@@ -203,10 +203,10 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.ClearBrowsingData.Advanced.TimePeriod"
-    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2026-11-29">
+    enum="SettingsClearBrowsingDataTimePeriod" expires_after="2027-02-07">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records the time period that users cleared from the Clear Browsing Data
     dialog.
@@ -242,7 +242,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 <histogram name="Settings.FragmentAttached"
     enum="AndroidSettingsFragmentHashes" expires_after="2026-12-20">
   <owner>dullweber@chromium.org</owner>
-  <owner>chrome-browser-privacy@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records the classname of a Fragment when it is attached to a
     SettingsActivity. For evaluating popularity and priorities for Android
@@ -256,7 +256,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.GivenShowHomeButton_HomePageIsNewTabPage2"
-    enum="Boolean" expires_after="2026-12-06">
+    enum="Boolean" expires_after="2027-02-07">
   <owner>mpearson@chromium.org</owner>
   <owner>twellington@chromium.org</owner>
   <summary>
@@ -384,7 +384,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.PinUnlockSetup" enum="LockScreenProgress"
-    expires_after="2026-11-25">
+    expires_after="2027-01-24">
   <owner>antrim@chromium.org</owner>
   <owner>teresachow@google.com</owner>
   <owner>cros-lurs@google.com</owner>
@@ -401,7 +401,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     expires_after="2027-01-17">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The status of the preload setting, recorded on regular profile open (not
     Incognito, Guest, etc.). Not recorded for iOS where the setting does not
@@ -414,6 +414,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
   <owner>harrisonsean@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>sauski@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Which privacy related settings elements a user interacted with. Recorded
     every time a user interacts with an element of interest.
@@ -424,7 +425,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="SettingsPrivacyGuideInteractions" expires_after="2026-12-27">
   <owner>harrisonsean@chromium.org</owner>
   <owner>rainhard@chromium.org</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     How the users navigated into the Privacy guide as well as links out of the
     privacy guide.
@@ -435,7 +436,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     expires_after="2026-10-25">
   <owner>rainhard@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The number of settings steps that can be shown in the Privacy Guide flow.
     This number varies based on the users' setting states. Recorded when the
@@ -447,7 +448,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="SettingsPrivacyGuideInteractions" expires_after="2026-10-25">
   <owner>harrisonsean@chromium.org</owner>
   <owner>rainhard@chromium.org</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The step in the Privacy guide from which a user clicked the 'next' button.
   </summary>
@@ -457,7 +458,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="SettingsPrivacyGuideSettingsStates" expires_after="2026-10-25">
   <owner>harrisonsean@chromium.org</owner>
   <owner>rainhard@chromium.org</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records whether or not the user kept the same settings or changed it, and
     the corresponding value, on every |Next| or |Back| button click inside of
@@ -470,7 +471,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     expires_after="2026-12-27">
   <owner>rainhard@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records which steps were set to be eligible to be shown when user clicks
     'Next' button in the Welcome step. Records which steps were reached when
@@ -478,116 +479,12 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
   </summary>
 </histogram>
 
-<histogram name="Settings.PrivacySandbox.AdMeasurement.Enabled"
-    enum="BooleanEnabled" expires_after="2027-01-17">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the startup state of the ad measurement API for Privacy Sandbox GA
-    M1. This is recorded during the profile start up.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.AdMeasurement.EnabledForProfile"
-    enum="SettingsPrivacySandboxProfileEnabledState" expires_after="2027-01-03">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the startup state of the ad measurement API on a Profile for Privacy
-    Sandbox GA M1. This is recorded during the profile start up.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.ConsentCheckIsMismatched"
-    enum="Boolean" expires_after="2026-08-07">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records mismatches between the calculated consent requirement and any
-    overrides applied to the Privacy Sandbox consent param.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.Fledge.Enabled" enum="BooleanEnabled"
-    expires_after="2027-01-17">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the startup state of the fledge API for Privacy Sandbox GA M1. This
-    is recorded during the profile start up.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.Fledge.EnabledForProfile"
-    enum="SettingsPrivacySandboxProfileEnabledState" expires_after="2026-08-07">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the startup state of the fledge API on a Profile for Privacy Sandbox
-    GA M1. This is recorded during the profile start up.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.NoticeCheckIsMismatched"
-    enum="Boolean" expires_after="2026-08-07">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records mismatches between the calculated notice requirement and any
-    overrides applied to the Privacy Sandbox notice param.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.PrivacySandboxReferrer"
-    enum="PrivacySandboxReferrer" expires_after="2023-02-12">
-  <owner>andzaytsev@google.com</owner>
-  <owner>harrisonsean@chromium.org</owner>
-  <owner>msramek@chromium.org</owner>
-  <owner>chrome-friendly-settings@google.com</owner>
-  <summary>
-    Referrer of a navigation to the Privacy Sandbox UI Settings view. Recorded
-    when the user enters the view.
-
-    Warning: This histogram was expired after M95 and restored M99. Data may be
-    missing M96-98.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.RestrictedNoticeCheckIsMismatched"
-    enum="Boolean" expires_after="2026-09-13">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records mismatches between the calculated restricted notice requirement and
-    any overrides applied to the Privacy Sandbox restricted notice param.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.Topics.Enabled" enum="BooleanEnabled"
-    expires_after="2027-01-17">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the startup state of the topics API for Privacy Sandbox GA M1. This
-    is recorded during the profile start up.
-  </summary>
-</histogram>
-
-<histogram name="Settings.PrivacySandbox.Topics.EnabledForProfile"
-    enum="SettingsPrivacySandboxProfileEnabledState" expires_after="2026-08-07">
-  <owner>boujane@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the startup state of the topics API on a Profile for Privacy Sandbox
-    GA M1. This is recorded during the profile start up.
-  </summary>
-</histogram>
-
 <histogram name="Settings.SafetyCheck.Interactions"
-    enum="SettingsSafetyCheckInteractions" expires_after="2026-11-29">
+    enum="SettingsSafetyCheckInteractions" expires_after="2027-02-07">
   <owner>rainhard@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
   <owner>anaudrey@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Which user actions were taken in safety check. Recorded every time a user
     does an interaction in safety check. Value 5 and 6 got added with M86, 7-9
@@ -642,9 +539,10 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram name="Settings.SafetyCheck.UnusedSitePermissionsModuleInteractions"
     enum="SafetyCheckUnusedSitePermissionsModuleInteractions"
-    expires_after="2026-11-22">
+    expires_after="2027-01-24">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The user actions taken on the unused site permissions module in safety check
     in Chrome settings. Recorded every time the user interacts with the
@@ -712,7 +610,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.AbusiveNotificationPermissionRevocation.CheckResult"
-    enum="AbusiveNotificationPermissionsCheckResult" expires_after="2026-11-22">
+    enum="AbusiveNotificationPermissionsCheckResult" expires_after="2027-02-07">
   <owner>thefrog@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -738,7 +636,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.AbusiveNotificationPermissionRevocation.{NotificationRevocationSource}.{RevokedStatus}.PermissionChanged"
-    enum="ContentSetting" expires_after="2026-11-29">
+    enum="ContentSetting" expires_after="2027-02-07">
   <owner>skrakowi@chromium.org</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -795,9 +693,9 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SafetyHub.DashboardWarning"
-    enum="SafetyHubModuleType" expires_after="2026-11-29">
+    enum="SafetyHubModuleType" expires_after="2027-02-07">
   <owner>sideyilmaz@chromium.org</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Captures the impressions of the different modules that have some warnings in
     Safety Check page. Recorded whenever Safety Check page is loaded.
@@ -809,6 +707,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="EngagementScore" expires_after="2026-08-26">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records the site engagement for revoked disruptive notification sites.
     Recorded on every run of the disruptive notification sites Safety Hub check.
@@ -826,6 +725,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="days" expires_after="2026-09-06">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records the number of days since revocation for revoked disruptive
     notification sites, and their current state and site engagement. Recorded on
@@ -889,6 +789,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2026-08-26">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks the distribution of the number of notification clicks that occured
     during the cooldown period for detected false positive sites that were
@@ -952,6 +853,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2026-08-26">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks the distribution of the days since proposed revocation for sites that
     were previously marked for revocation of disruptive notifications but are
@@ -965,6 +867,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2026-08-26">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks the distribution of the new daily average notification count (over
     the last 7 days) for sites that were previously marked for revocation of
@@ -990,6 +893,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2026-09-06">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks the distribution of the average daily notification count for proposed
     revocation of disruptive notifications.
@@ -1001,6 +905,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="DisruptiveNotificationRevocationResult" expires_after="2026-12-27">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks results of the disruptive notification feature. Recorded every time
     the safety hub check runs (once a day). The metric is recorded per each
@@ -1014,6 +919,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2026-12-27">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks how many days has passed since a disruptive notification revocation
     was proposed to when it was actually revoked. The delay is caused by waiting
@@ -1026,6 +932,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2027-01-17">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records the number of revoked disruptive notification sites per a Safety Hub
     run. Note that this are actually proposed revocations, which will
@@ -1035,9 +942,10 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 
 <histogram
     name="Settings.SafetyHub.DisruptiveNotificationRevocations.UserRegrant.{RegrantType}.DaysSinceProposedRevocation"
-    units="days" expires_after="2026-11-29">
+    units="days" expires_after="2027-02-07">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Recorded when users regrant notification permissions after a disruptive
     notification revocation. Measures how many days passed since the proposed
@@ -1064,6 +972,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="count" expires_after="2026-10-25">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Recorded when users regrant notification permissions after a disruptive
     notification revocation. Reports the average daily notification count when
@@ -1077,6 +986,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="DisruptiveNotificationFalsePositiveReason" expires_after="2026-11-29">
   <owner>olesiamarukhnno@google.com</owner>
   <owner>antoniosartori@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Tracks the distribution of the interactions with sites that were previously
     marked for revocation of disruptive notifications. The metric is reported
@@ -1093,6 +1003,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
   <owner>sideyilmaz@chromium.org</owner>
   <owner>tov@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Captures the impressions of the different entry points of Safety Hub.
   </summary>
@@ -1146,6 +1057,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
   <owner>sideyilmaz@chromium.org</owner>
   <owner>tov@chromium.org</owner>
   <owner>msramek@chromium.org</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Captures Safety Hub page visits and three dot menu clicks for any Safety Hub
     module.
@@ -1213,7 +1125,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="SafetyHubCardState" expires_after="2026-08-31">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Passwords Card is located on Safety Check page in settings and can be in one
     of the multiple states. This is the Passwords Card state recorded on click.
@@ -1224,7 +1136,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="SafetyHubCardState" expires_after="2026-08-31">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Safe Browsing Card is located on Safety Check page in settings and can be in
     one of the multiple states. This is the Safe Browsing Card state recorded on
@@ -1236,7 +1148,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="ContentType" expires_after="2026-12-27">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The type of permission auto-revoked by the unused site permissions module of
     Safety Hub. Recorded during the auto-revocation run.
@@ -1250,7 +1162,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="Boolean" expires_after="2026-09-20">
   <owner>aisulu@google.com</owner>
   <owner>fsenra@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records on startup whether the user previously went through backfill or not.
     The backfill here is a process of adding `last_visited` timestamp to all
@@ -1263,7 +1175,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="permissions" expires_after="2026-09-20">
   <owner>aisulu@google.com</owner>
   <owner>fsenra@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The number of permissions that a successfull backfill run timestamped with
     `last_visited` field.
@@ -1275,7 +1187,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="BooleanStartedCompleted" expires_after="2026-09-20">
   <owner>aisulu@google.com</owner>
   <owner>fsenra@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Records whenever the backfill was started or completed. The backfill here
     adds `last_visited` timestamp to all granted permissions of the user that do
@@ -1288,7 +1200,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     expires_after="2026-11-15">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The user actions taken on the unused site permissions module in Safety Check
     page in settings. Recorded every time the user interacts with the respective
@@ -1300,7 +1212,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     units="suggestions" expires_after="2027-01-17">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     The number of unused site permissions suggested to be removed. Recorded when
     Safety Check page in Settings is opened.
@@ -1311,7 +1223,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
     enum="SafetyHubCardState" expires_after="2026-08-31">
   <owner>sideyilmaz@chromium.org</owner>
   <owner>aisulu@google.com</owner>
-  <owner>chrome-privacy-controls@google.com</owner>
+  <owner>chrome-browser-privacy-team@google.com</owner>
   <summary>
     Version Card is located on Safety Check page in settings and can be in one
     of the multiple states. This is the Version Card state recorded on click.
@@ -1354,7 +1266,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.Search.UiOpenedPerSession" enum="Boolean"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>adelm@google.com</owner>
   <owner>jinsukkim@chromium.org</owner>
   <summary>
@@ -1375,7 +1287,7 @@ Regular profiles start at bucket 1. Incognito profiles count towards the origina
 </histogram>
 
 <histogram name="Settings.SearchEngines.Interactions"
-    enum="SettingsSearchEnginesInteractions" expires_after="2026-11-29">
+    enum="SettingsSearchEnginesInteractions" expires_after="2027-01-31">
   <owner>yoangela@chromium.org</owner>
   <owner>amelies@google.com</owner>
   <owner>chrome-omnibox-team@google.com</owner>
@@ -1764,16 +1676,6 @@ useful for Chirp alerts (go/crca-alerts). -->
     HMAC fallback reset flow had the config allowed it. Only emitted if the
     encrypted hash verification is not available causing the verification to
     fallback to HMAC-based verification.
-  </summary>
-</histogram>
-
-<histogram name="Settings.TrackingProtection.Enabled" enum="BooleanEnabled"
-    expires_after="2027-01-10">
-  <owner>fmacintosh@google.com</owner>
-  <owner>koilos@google.com</owner>
-  <summary>
-    Records the state of the pref that represents whether the user has the new
-    Tracking Protection prefs and UX. Logged on startup.
   </summary>
 </histogram>
 

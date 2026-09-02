@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.settings;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.verify;
 
@@ -14,9 +15,13 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.slidingpanelayout.widget.SlidingPaneLayout;
@@ -35,12 +40,14 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.language.settings.SelectLanguageFragment;
+import org.chromium.components.browser_ui.settings.SearchViewProvider;
+import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.widget.ChromeImageButton;
 
@@ -50,7 +57,6 @@ import java.util.List;
 /** Unit tests for {@link MultiColumnTitleUpdater}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(qualifiers = "sw600dp")
-@Batch(Batch.UNIT_TESTS)
 public class MultiColumnTitleUpdaterTest {
 
     /** Fake PreferenceFragment for testing. */
@@ -65,8 +71,16 @@ public class MultiColumnTitleUpdaterTest {
     @SuppressWarnings("MissingSuperCall")
     public static class FakeMultiColumnSettings extends MultiColumnSettings {
         private List<Title> mFakeTitles = new ArrayList<>();
+        private View mDetailView;
 
-        public FakeMultiColumnSettings() {}
+        void setDetailView(View detailView) {
+            mDetailView = detailView;
+        }
+
+        @Override
+        public View getDetailView() {
+            return mDetailView != null ? mDetailView : super.getDetailView();
+        }
 
         void setFakeTitles(List<Title> titles) {
             mFakeTitles = titles;
@@ -145,6 +159,29 @@ public class MultiColumnTitleUpdaterTest {
         return supplier;
     }
 
+    /**
+     * Creates a MultiColumnTitleUpdater with null savedInstanceState and no breadcrumb path. Exists
+     * to keep tests concise.
+     */
+    private MultiColumnTitleUpdater createMultiColumnTitleUpdater() {
+        return createMultiColumnTitleUpdater(
+                /* savedInstanceState= */ null, /* initialBreadcrumbPath= */ null);
+    }
+
+    /** Creates a MultiColumnTitleUpdater. Exists to keep tests concise. */
+    private MultiColumnTitleUpdater createMultiColumnTitleUpdater(
+            @Nullable Bundle savedInstanceState,
+            @Nullable List<SettingsIndexData.Entry> initialBreadcrumbPath) {
+        return new MultiColumnTitleUpdater(
+                savedInstanceState,
+                mMultiColumnSettings,
+                mActivity,
+                mContainer,
+                /* mainTitleSetter= */ (t) -> {},
+                /* titleTapCallback= */ mTitleTapCallback,
+                initialBreadcrumbPath);
+    }
+
     @Test
     @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
     public void testSingleTitle_noBackButton() {
@@ -153,15 +190,7 @@ public class MultiColumnTitleUpdaterTest {
                 new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
         mMultiColumnSettings.setFakeTitles(titles);
 
-        MultiColumnTitleUpdater updater =
-                new MultiColumnTitleUpdater(
-                        /* savedInstanceState= */ null,
-                        mMultiColumnSettings,
-                        mActivity,
-                        mContainer,
-                        /* mainTitleSetter= */ (t) -> {},
-                        /* titleTapCallback= */ mTitleTapCallback,
-                        /* initialBreadcrumbPath= */ null);
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
 
         updater.onTitleUpdated();
 
@@ -173,67 +202,305 @@ public class MultiColumnTitleUpdaterTest {
 
     @Test
     @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
-    public void testMultipleTitles_showsBackButtonAndNavigatesToPreviousDetailPane() {
+    public void testMultipleTitles_settingsInTabEnabled_showsBackButtonAndLastTitle() {
         List<MultiColumnSettings.Title> titles = new ArrayList<>();
         titles.add(
                 new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
         titles.add(new MultiColumnSettings.Title("uuid2", createTitleSupplier("Theme"), 1, null));
         mMultiColumnSettings.setFakeTitles(titles);
 
-        MultiColumnTitleUpdater updater =
-                new MultiColumnTitleUpdater(
-                        /* savedInstanceState= */ null,
-                        mMultiColumnSettings,
-                        mActivity,
-                        mContainer,
-                        /* mainTitleSetter= */ (t) -> {},
-                        /* titleTapCallback= */ mTitleTapCallback,
-                        /* initialBreadcrumbPath= */ null);
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
 
         updater.onTitleUpdated();
 
-        // Multiple titles should prepend the back button as child at index 0.
-        assertTrue(mContainer.getChildCount() > 1);
+        // When SettingsInTab is enabled, only the back button and the last title should be shown.
+        assertEquals(2, mContainer.getChildCount());
         assertTrue(mContainer.getChildAt(0) instanceof ChromeImageButton);
 
-        // Parent title ("Appearance") should be clickable, but active title ("Theme") should not.
-        assertTrue(mContainer.getChildAt(1) instanceof TextView);
-        assertEquals("Appearance", ((TextView) mContainer.getChildAt(1)).getText().toString());
-        assertTrue(mContainer.getChildAt(1).isClickable());
-
-        assertTrue(mContainer.getChildAt(3) instanceof TextView);
-        assertEquals("Theme", ((TextView) mContainer.getChildAt(3)).getText().toString());
-        assertFalse(mContainer.getChildAt(3).isClickable());
-
+        // Back button's left edge should align with the parent so its ripple is not clipped. See
+        // https://crbug.com/542040289 which was caused by assigning a negative margin.
         ChromeImageButton backButton = (ChromeImageButton) mContainer.getChildAt(0);
-        backButton.performClick();
+        var layoutParams = (LinearLayout.LayoutParams) backButton.getLayoutParams();
+        assertEquals(0, layoutParams.getMarginStart());
+
+        // Last title should be shown.
+        assertTrue(mContainer.getChildAt(1) instanceof TextView);
+        assertEquals("Theme", ((TextView) mContainer.getChildAt(1)).getText().toString());
+        assertFalse(mContainer.getChildAt(1).isClickable());
 
         // Clicking back button should pop to previous title ("Appearance") and trigger callback.
+        backButton.performClick();
         verify(mTitleTapCallback).onResult("appearance_entry");
     }
 
     @Test
     @DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
-    public void testMultipleTitles_featureDisabled_noBackButton() {
+    public void testMultipleTitles_settingsInTabDisabled_noBackButton() {
         List<MultiColumnSettings.Title> titles = new ArrayList<>();
         titles.add(
                 new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
         titles.add(new MultiColumnSettings.Title("uuid2", createTitleSupplier("Theme"), 1, null));
         mMultiColumnSettings.setFakeTitles(titles);
 
-        MultiColumnTitleUpdater updater =
-                new MultiColumnTitleUpdater(
-                        /* savedInstanceState= */ null,
-                        mMultiColumnSettings,
-                        mActivity,
-                        mContainer,
-                        /* mainTitleSetter= */ (t) -> {},
-                        /* titleTapCallback= */ mTitleTapCallback,
-                        /* initialBreadcrumbPath= */ null);
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
 
         updater.onTitleUpdated();
 
-        // When SettingsInTab is disabled, back button is not shown (first child is TextView).
+        // When SettingsInTab is disabled, back button is not shown and all titles are added with
+        // separators.
+        assertEquals(3, mContainer.getChildCount());
+
         assertTrue(mContainer.getChildAt(0) instanceof TextView);
+        assertEquals("Appearance", ((TextView) mContainer.getChildAt(0)).getText().toString());
+        assertTrue(mContainer.getChildAt(0).isClickable());
+
+        assertTrue(mContainer.getChildAt(1) instanceof ImageView);
+
+        assertTrue(mContainer.getChildAt(2) instanceof TextView);
+        assertEquals("Theme", ((TextView) mContainer.getChildAt(2)).getText().toString());
+        assertFalse(mContainer.getChildAt(2).isClickable());
+
+        TextView parentTitle = (TextView) mContainer.getChildAt(0);
+        parentTitle.performClick();
+
+        // Clicking parent title ("Appearance") should pop to previous title and trigger callback.
+        verify(mTitleTapCallback).onResult("appearance_entry");
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    public void testSearchResults_settingsInTabEnabled_noBackButton() {
+        List<MultiColumnSettings.Title> titles = new ArrayList<>();
+        titles.add(
+                new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
+        titles.add(
+                new MultiColumnSettings.Title(
+                        "uuid2", createTitleSupplier("Search results"), 1, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
+
+        updater.setFirstVisibleTitleIndex(1);
+        updater.onTitleUpdated();
+
+        // When viewing Search results (mFirstVisibleTitleIndex = 1), back button should be hidden.
+        // Container should only contain 1 DetailedTitle ("Search results").
+        assertEquals(1, mContainer.getChildCount());
+        assertTrue(mContainer.getChildAt(0) instanceof TextView);
+        assertEquals("Search results", ((TextView) mContainer.getChildAt(0)).getText().toString());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    public void
+            testDetailPageFromSearchResults_settingsInTabEnabled_showsBackButtonToSearchResults() {
+        List<MultiColumnSettings.Title> titles = new ArrayList<>();
+        titles.add(
+                new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
+        titles.add(
+                new MultiColumnSettings.Title(
+                        "uuid2", createTitleSupplier("Search results"), 1, null));
+        titles.add(new MultiColumnSettings.Title("uuid3", createTitleSupplier("Theme"), 2, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
+
+        updater.setFirstVisibleTitleIndex(1);
+        updater.onTitleUpdated();
+
+        // When viewing detail page from search results, back button should be shown pointing to
+        // Search results.
+        assertEquals(2, mContainer.getChildCount());
+        assertTrue(mContainer.getChildAt(0) instanceof ChromeImageButton);
+        assertTrue(mContainer.getChildAt(1) instanceof TextView);
+        assertEquals("Theme", ((TextView) mContainer.getChildAt(1)).getText().toString());
+    }
+
+    public static class TestSearchViewProviderFragment extends Fragment
+            implements SearchViewProvider {
+        private @Nullable SearchView mSearchView;
+        private SearchViewProvider.@Nullable Observer mObserver;
+
+        @Override
+        public View onCreateView(
+                LayoutInflater inflater,
+                @Nullable ViewGroup container,
+                @Nullable Bundle savedInstanceState) {
+            return new View(inflater.getContext());
+        }
+
+        @Override
+        public void setSearchViewObserver(SearchViewProvider.Observer observer) {
+            mObserver = observer;
+        }
+
+        @Override
+        public void initSearchView(SearchView searchView) {
+            mSearchView = searchView;
+        }
+
+        public @Nullable SearchView getSearchView() {
+            return mSearchView;
+        }
+    }
+
+    public static class TestSelectLanguageFragment extends SelectLanguageFragment {
+        private @Nullable SearchView mSearchView;
+
+        @Override
+        public View onCreateView(
+                LayoutInflater inflater,
+                @Nullable ViewGroup container,
+                @Nullable Bundle savedInstanceState) {
+            return new View(inflater.getContext());
+        }
+
+        @Override
+        public void initSearchView(SearchView searchView) {
+            mSearchView = searchView;
+        }
+
+        public @Nullable SearchView getSearchView() {
+            return mSearchView;
+        }
+    }
+
+    @Test
+    @EnableFeatures({
+        ChromeFeatureList.SETTINGS_IN_TAB,
+        ChromeFeatureList.DETAILED_LANGUAGE_SETTINGS
+    })
+    public void testSelectLanguageFragment_addsSearchButtonAndSearchView() {
+        TestSelectLanguageFragment selectLanguageFragment = new TestSelectLanguageFragment();
+        mMultiColumnSettings
+                .getChildFragmentManager()
+                .beginTransaction()
+                .replace(R.id.preferences_detail, selectLanguageFragment)
+                .commitNow();
+
+        List<MultiColumnSettings.Title> titles = new ArrayList<>();
+        titles.add(
+                new MultiColumnSettings.Title(
+                        "uuid1", createTitleSupplier("Select language"), 0, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
+
+        updater.onTitleUpdated();
+
+        // 1 DetailedTitle ("Select language") + 1 search button + 1 search view = 3 views in
+        // mContainer.
+        assertEquals(3, mContainer.getChildCount());
+        assertNotNull(selectLanguageFragment.getSearchView());
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB})
+    public void testSearchViewProvider_addsSearchButtonAndSearchView() {
+        TestSearchViewProviderFragment searchViewProviderFragment =
+                new TestSearchViewProviderFragment();
+        mMultiColumnSettings
+                .getChildFragmentManager()
+                .beginTransaction()
+                .replace(R.id.preferences_detail, searchViewProviderFragment)
+                .commitNow();
+
+        List<MultiColumnSettings.Title> titles = new ArrayList<>();
+        titles.add(
+                new MultiColumnSettings.Title("uuid1", createTitleSupplier("All Sites"), 0, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
+
+        updater.onTitleUpdated();
+
+        // 1 DetailedTitle ("All Sites") + 1 search button + 1 search view = 3 views in
+        // mContainer.
+        assertEquals(3, mContainer.getChildCount());
+        assertNotNull(searchViewProviderFragment.getSearchView());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    public void testMaybeUpdateStartMargin_accountsForBackButtonOffset() {
+        FrameLayout detailView = new FrameLayout(mActivity);
+        detailView.layout(0, 0, 1000, 100);
+        View recyclerView = new View(mActivity);
+        recyclerView.setId(R.id.recycler_view);
+        recyclerView.layout(0, 0, 1000, 100);
+        detailView.addView(recyclerView);
+        mMultiColumnSettings.setDetailView(detailView);
+
+        RelativeLayout rootLayout = new RelativeLayout(mActivity);
+        HorizontalScrollView titleScrollView = new HorizontalScrollView(mActivity);
+        RelativeLayout.LayoutParams scrollParams =
+                new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rootLayout.addView(titleScrollView, scrollParams);
+        titleScrollView.addView(mContainer);
+
+        List<MultiColumnSettings.Title> titles = new ArrayList<>();
+        titles.add(
+                new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
+        updater.onTitleUpdated();
+
+        var paramsWithoutBack = (RelativeLayout.LayoutParams) titleScrollView.getLayoutParams();
+        int marginWithoutBack = paramsWithoutBack.getMarginStart();
+
+        titles.add(new MultiColumnSettings.Title("uuid2", createTitleSupplier("Theme"), 1, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+        updater.onTitleUpdated();
+
+        var paramsWithBack = (RelativeLayout.LayoutParams) titleScrollView.getLayoutParams();
+        int marginWithBack = paramsWithBack.getMarginStart();
+
+        int minTouchTargetPx =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.min_touch_target_size);
+        ChromeImageButton backButton = (ChromeImageButton) mContainer.getChildAt(0);
+        int iconWidthPx = backButton.getDrawable().getIntrinsicWidth();
+        int expectedOffset = (minTouchTargetPx - iconWidthPx) / 2;
+
+        // Verify that the title scroll view start margin is shifted left by expectedOffset when the
+        // back button is shown.
+        assertEquals(marginWithoutBack - expectedOffset, marginWithBack);
+    }
+
+    /** Regression test for incorrect title layout after display rotation. crbug.com/541103334 */
+    @Test
+    @EnableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    public void testMaybeUpdateStartMargin_usesDetailViewWidthWhenRecyclerViewNotLaidOut() {
+        FrameLayout detailView = new FrameLayout(mActivity);
+        detailView.layout(0, 0, 1000, 100);
+        // Add a recycler view that has width = 0 (not laid out yet).
+        View recyclerView = new View(mActivity);
+        recyclerView.setId(R.id.recycler_view);
+        detailView.addView(recyclerView);
+        mMultiColumnSettings.setDetailView(detailView);
+
+        RelativeLayout rootLayout = new RelativeLayout(mActivity);
+        HorizontalScrollView titleScrollView = new HorizontalScrollView(mActivity);
+        RelativeLayout.LayoutParams scrollParams =
+                new RelativeLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rootLayout.addView(titleScrollView, scrollParams);
+        titleScrollView.addView(mContainer);
+
+        List<MultiColumnSettings.Title> titles = new ArrayList<>();
+        titles.add(
+                new MultiColumnSettings.Title("uuid1", createTitleSupplier("Appearance"), 0, null));
+        mMultiColumnSettings.setFakeTitles(titles);
+
+        MultiColumnTitleUpdater updater = createMultiColumnTitleUpdater();
+        updater.onTitleUpdated();
+
+        var params = (RelativeLayout.LayoutParams) titleScrollView.getLayoutParams();
+        int marginStart = params.getMarginStart();
+
+        // Verify that start margin was updated based on detailView's width (1000px) even though
+        // recyclerView's width is 0.
+        assertTrue(marginStart > 0);
     }
 }

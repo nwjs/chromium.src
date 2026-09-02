@@ -390,6 +390,15 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   // Returns the top-most frame in the hierarchy containing this frame.
   Frame* Top();
 
+  // Returns the nearest frame that is an inclusive ancestor of both this frame
+  // and `other`, or nullptr if there is no common ancestor.
+  Frame* CommonAncestor(const Frame* other) const;
+
+  // Returns true if every frame on the shortest frame-tree path between this
+  // frame and `other`, including both endpoints and their common ancestor, has
+  // the same origin.
+  bool IsFrameTreePathSameOrigin(const Frame* other) const;
+
   // Returns the first child frame.
   Frame* FirstChild() const { return first_child_.Get(); }
 
@@ -454,7 +463,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   GetDeprecatedFencedFrameMode() const;
 
   // Iterates through the frame owner's ancestor nodes and adjusts the offset.
-  void AdjustOffsetByAncestorFrames(gfx::Point* origin_point);
+  void DeprecatedAdjustOffsetByAncestorFrames(gfx::Point* origin_point);
 
   // Checks whether this frame is a descendant of other.
   bool IsDescendantOf(const Frame* other) const;

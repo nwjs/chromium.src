@@ -8,7 +8,9 @@ import android.view.View;
 
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.NonNullObservableSupplier;
+import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 
 /**
  * This is XR scene core session management interface.
@@ -76,11 +78,40 @@ public interface XrSceneCoreSessionManager extends Destroyable {
     /** Returns the {@link XrPanelEntityHolder} for the main panel of the session. */
     XrPanelEntityHolder getMainPanelEntity();
 
+    /** Returns the {@link XrEntityHolder} for the Activity Space. */
+    XrEntityHolder getActivitySpaceEntity();
+
     /**
      * Sets the key entity for the session. This is typically used to identify the entity that is
      * the primary focus of the user's interaction.
      *
      * @param entityHolder The entity to be set as the key entity.
      */
-    void setKeyEntity(XrEntityHolder entityHolder);
+    void setKeyEntity(@Nullable XrEntityHolder entityHolder);
+
+    /** Returns the user's head pose in the Activity Space, or null if tracking is unavailable. */
+    @Nullable XrPose getHeadPoseInActivitySpace();
+
+    /**
+     * Enables or disables head tracking for the session.
+     *
+     * @param enable True to enable head tracking, false to disable.
+     */
+    void setHeadTrackingEnabled(boolean enable);
+
+    /** Returns whether head tracking is enabled for the session. */
+    boolean isHeadTrackingEnabled();
+
+    /**
+     * Starts head pose tracking.
+     *
+     * @return True if head pose tracking was successfully started, false otherwise.
+     */
+    boolean startHeadPoseTracking();
+
+    /** Stops head pose tracking. */
+    void stopHeadPoseTracking();
+
+    /** Returns the head pose observable supplier. */
+    NullableObservableSupplier<XrPose> getHeadPoseObservableSupplier();
 }

@@ -13,6 +13,7 @@
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
+#include "chrome/browser/glic/glic_enums.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/public/glic_instance_metrics_backwards_compatibility.h"
 #include "chrome/browser/glic/public/glic_window_invocation_tracker.h"
@@ -57,13 +58,6 @@ using SafeEmbedderKey =
 // Tracks and logs lifecycle events for a single GlicInstance.
 class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
  public:
-  enum class EmbedderType {
-    kUnknown,
-    kSidePanel,
-    kFloaty,
-    kTab,
-  };
-
   explicit GlicInstanceMetrics(
       const metrics::ProfileMetricsService* profile_metrics_service,
       Profile* profile = nullptr);
@@ -161,7 +155,7 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
 
   // Called when Toggle is called on the instance.
   void OnToggle(glic::mojom::InvocationSource source,
-                const ShowOptions& options,
+                const EmbedderKey& embedder_key,
                 bool is_showing,
                 std::unique_ptr<GlicWindowInvocationTracker>
                     invocation_tracker = nullptr);
@@ -205,7 +199,7 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   void OnWebUiStateChanged(mojom::WebUiState state);
 
   // Called when the client is ready to show.
-  void OnClientReady(EmbedderType type);
+  void OnClientReady();
 
   void OnUserResizeStarted(const gfx::Size& start_size);
   void OnUserResizeEnded(const gfx::Size& end_size);
@@ -282,6 +276,15 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
 
   void RecordSkillsInvokeFunnelStep(SkillsInvokeFunnel invoke_funnel);
   void RecordAndResetAutoOpenPdfMetric();
+  void MaybeRecordOptInImpression();
+
+  // Records the duration and prompt count for the first time the side panel is
+  // closed or the tab is switched.
+  void MaybeRecordFirstSidePanelOpenMetrics(base::TimeDelta duration);
+
+  // Records the duration the user waited before closing/dismissing the panel
+  // while the client was still loading.
+  void MaybeRecordTimeToDismissWhileLoading();
 
   base::flat_map<GlicInstanceEvent, int> event_counts_;
   EmbedderType current_ui_mode_ = EmbedderType::kUnknown;
@@ -297,6 +300,13 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   mojom::WebClientMode input_mode_ = mojom::WebClientMode::kUnknown;
   base::EnumSet<mojom::WebClientMode> inputs_modes_used_;
 
+  // Stores info scoped to the current invocation loading phase.
+  struct InvocationLoadState {
+    base::TimeTicks start_time;
+    EmbedderType embedder_type = EmbedderType::kUnknown;
+    bool has_logged_dismiss_while_loading = false;
+  };
+
   // The last web ui state received.
   mojom::WebUiState last_web_ui_state_ = mojom::WebUiState::kUninitialized;
   // The last invocation source that was used to show the panel.
@@ -305,8 +315,7 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   std::optional<mojom::InvocationSource> initial_invocation_source_ =
       std::nullopt;
   bool did_open_ = false;
-  // Timestamp of last show start.
-  base::TimeTicks invocation_start_time_;
+  InvocationLoadState invocation_load_state_;
   base::TimeTicks web_ui_load_start_time_;
 
   base::TimeTicks last_active_time_;
@@ -331,8 +340,6 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   bool is_client_ready_ = false;
   bool is_opt_in_pending_ = false;
   bool has_consented_ = false;
-
-  void MaybeRecordOptInImpression();
 
   base::CallbackListSubscription pinned_tabs_changed_subscription_;
   base::CallbackListSubscription tab_pinning_status_subscription_;
@@ -360,6 +367,11 @@ class GlicInstanceMetrics : public GlicInstanceMetricsBackwardsCompatibility {
   base::flat_set<SafeEmbedderKey> seen_embedders_;
 
   std::vector<std::unique_ptr<GlicCuiTracker>> cui_trackers_;
+
+  // Number of user prompts submitted while the instance is in side panel mode.
+  // Incremented on user input when current_ui_mode_ is kSidePanel, and logged
+  // when the side panel is closed or tab is switched for the first time.
+  size_t side_panel_prompt_count_ = 0;
 };
 
 }  // namespace glic

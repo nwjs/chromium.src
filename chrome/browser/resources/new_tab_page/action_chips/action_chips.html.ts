@@ -26,6 +26,7 @@ export function getHtml(this: ActionChipsElement) {
             data-index="${index}"
             title="${this.getChipTitle_(chip)}"
             @click="${this.onClick_}"
+            @auxclick="${this.onAuxclick_}"
             @contextmenu="${this.disablementContextMenuEnabled_ ?
                 this.onContextmenu_ : nothing}">
             <div class="action-chip-icon-container ${
@@ -43,12 +44,14 @@ export function getHtml(this: ActionChipsElement) {
                     ${chip.suggestTemplateInfo.primaryText.text}
                   </span>` :
                   ''}
-              ${this.getChipSubtitle_(chip) ? html`
+              ${!this.smallChipsEnabled_ && this.getChipSubtitle_(chip) ?
+                  html`
                 <span
                   title="${this.getChipTitle_(chip)}"
                   class="chip-body">
                   ${this.getChipSubtitle_(chip)}
-                </span>` : ''}
+                </span>` :
+                  ''}
             </div>
             ${this.showDismissalUI_ ? html`
               <cr-icon-button

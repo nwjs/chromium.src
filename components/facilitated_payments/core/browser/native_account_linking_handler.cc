@@ -26,6 +26,44 @@ NativeAccountLinkingHandler::NativeAccountLinkingHandler(
 
 NativeAccountLinkingHandler::~NativeAccountLinkingHandler() = default;
 
+bool NativeAccountLinkingHandler::CanPromptUser() {
+  strike_database::StrikeDatabaseIntegratorBase* strike_db =
+      GetStrikeDatabase();
+  if (strike_db) {
+    using StrikeDecision =
+        strike_database::StrikeDatabaseIntegratorBase::StrikeDatabaseDecision;
+    auto decision = strike_db->GetStrikeDatabaseDecision();
+    switch (decision) {
+      case StrikeDecision::kDoNotBlock:
+        break;
+      case StrikeDecision::kMaxStrikeLimitReached:
+        LogAccountLinkingFlowExitedReason(
+            GetHistogramSuffix(), AccountLinkingFlowExitedReason::kMaxStrikes);
+        return false;
+      case StrikeDecision::kRequiredDelayNotPassed:
+        LogAccountLinkingFlowExitedReason(
+            GetHistogramSuffix(),
+            AccountLinkingFlowExitedReason::kRequiredDelayNotPassed);
+        return false;
+    }
+  }
+
+  if (!IsUserPrefEnabled()) {
+    LogAccountLinkingFlowExitedReason(
+        GetHistogramSuffix(), AccountLinkingFlowExitedReason::kUserOptedOut);
+    return false;
+  }
+
+  if (!client()->HasScreenlockOrBiometricSetup()) {
+    LogAccountLinkingFlowExitedReason(
+        GetHistogramSuffix(),
+        AccountLinkingFlowExitedReason::kNoScreenlockOrBiometricSetup);
+    return false;
+  }
+
+  return true;
+}
+
 void NativeAccountLinkingHandler::FetchClientToken() {
   if (!GetApiClient()) {
     OnAccountLinkingResult(AccountLinkingResult{});
@@ -99,6 +137,7 @@ void NativeAccountLinkingHandler::InvokeInstrumentManager(
                      GetWeakPtr()));
 }
 
+
 void NativeAccountLinkingHandler::ShowAccountLinkingPrompt() {
   std::optional<AccountLinkingParams> params = CreateAccountLinkingParams();
   if (!params) {
@@ -160,6 +199,9 @@ void NativeAccountLinkingHandler::
 }
 
 void NativeAccountLinkingHandler::OnAccepted() {
+  if (auto* strike_db = GetStrikeDatabase()) {
+    strike_db->ClearStrikes();
+  }
   DoOnAccepted();
   DismissPrompt();
   if (action_token_.empty()) {
@@ -180,7 +222,9 @@ void NativeAccountLinkingHandler::OnAccepted() {
 }
 
 void NativeAccountLinkingHandler::OnDeclined() {
-  DoOnDeclined();
+  if (auto* strike_db = GetStrikeDatabase()) {
+    strike_db->AddStrike();
+  }
   LogAccountLinkingFlowExitedReason(
       GetHistogramSuffix(), AccountLinkingFlowExitedReason::kUserDeclined);
   DismissPrompt();

@@ -22,6 +22,7 @@ import org.chromium.base.ObserverList;
 import org.chromium.base.StreamUtil;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
+import org.chromium.base.TriState;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.task.AsyncTask;
@@ -148,13 +149,13 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         public final int id;
         public final int originalIndex;
         public final String url;
-        public final @Nullable Boolean isIncognito;
+        public final @TriState int isIncognito;
         public final Boolean fromMerge;
 
         public TabRestoreDetails(
                 int id,
                 int originalIndex,
-                @Nullable Boolean isIncognito,
+                @TriState int isIncognito,
                 String url,
                 Boolean fromMerge) {
             this.id = id;
@@ -207,7 +208,6 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
     // Tracks whether this TabPersistentStore's tabs are being loaded.
     private boolean mLoadInProgress;
     private long mTabRestoreStartTime = INVALID_TIME;
-    private int mRegularFallbackTabCount;
     @Nullable AsyncTask<@Nullable TabState> mPrefetchTabStateActiveTabTask;
 
     /**
@@ -327,6 +327,13 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
                     @Override
                     public void willCloseAllTabs(boolean incognito) {
                         cancelLoadingTabs(incognito);
+                    }
+
+                    @Override
+                    public void willCloseTabs(
+                            List<Tab> tabs, boolean isAllTabs, boolean allowUndo) {
+                        if (!isAllTabs) return;
+                        cancelLoadingTabs(tabs.get(0).isIncognito());
                     }
 
                     @Override
@@ -617,7 +624,6 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
 
     @Override
     public void restoreTabs(boolean setActiveTab) {
-        mRegularFallbackTabCount = 0;
         if (setActiveTab) {
             // Restore and select the active tab, which is first in the restore list.
             // If the active tab can't be restored, restore and select another tab. Otherwise, the
@@ -729,7 +735,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         boolean isIncognito = isIncognitoTabBeingRestored(tabToRestore, tabState);
 
         if (tabState == null) {
-            if (tabToRestore.isIncognito == null) {
+            if (tabToRestore.isIncognito == TriState.NOT_SET) {
                 Log.w(TAG, "Failed to restore tab: not enough info about its type was available.");
                 return;
             } else if (isIncognito) {
@@ -829,7 +835,13 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
             mSeenTabIds.add(tabId);
         } else {
             Log.w(TAG, "Failed to restore TabState; creating Tab with last known URL.");
-            if (!isIncognito) mRegularFallbackTabCount++;
+            if (!isIncognito) {
+                TabCreator tabCreator = mTabCreatorManager.getTabCreator(isIncognito);
+                if (tabCreator instanceof RecordingTabCreator recordingTabCreator) {
+                    recordingTabCreator
+                            .recordFallbackTab(tabToRestore.id, tabToRestore.url);
+                }
+            }
             Tab fallbackTab =
                     mTabCreatorManager
                             .getTabCreator(isIncognito)
@@ -1048,9 +1060,9 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         mLastSavedMetadata = listData;
     }
 
-    private boolean shouldCancelTabLoad(@Nullable Boolean isIncognito) {
-        return (mCancelIncognitoTabLoads && Boolean.TRUE.equals(isIncognito))
-                || (mCancelNormalTabLoads && Boolean.FALSE.equals(isIncognito));
+    private boolean shouldCancelTabLoad(@TriState int isIncognito) {
+        return (mCancelIncognitoTabLoads && isIncognito == TriState.TRUE)
+                || (mCancelNormalTabLoads && isIncognito == TriState.FALSE);
     }
 
     /**
@@ -1062,7 +1074,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         return (int index,
                 int id,
                 String url,
-                @Nullable Boolean isIncognito,
+                @TriState int isIncognito,
                 boolean isStandardActiveIndex,
                 boolean isIncognitoActiveIndex) -> {
             if (shouldCancelTabLoad(isIncognito)) {
@@ -1783,18 +1795,14 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
      *
      * @return True if the tab is definitely Incognito, false if it's not or if it's undecidable.
      */
-    private boolean isIncognitoTabBeingRestored(
+    private static boolean isIncognitoTabBeingRestored(
             TabRestoreDetails tabDetails, @Nullable TabState tabState) {
         if (tabState != null) {
             // The Tab's previous state was completely restored.
             return tabState.isIncognito;
-        } else if (tabDetails.isIncognito != null) {
-            // The TabState couldn't be restored, but we have some information about the tab.
-            return tabDetails.isIncognito;
-        } else {
-            // The tab's type is undecidable.
-            return false;
         }
+        // The TabState couldn't be restored, so fall back to restored metadata if known.
+        return tabDetails.isIncognito == TriState.TRUE;
     }
 
     @SuppressWarnings("NullAway") // executeOnTaskRunner() drops null information.
@@ -1912,7 +1920,7 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
                 // restore. If a tab state file exists and the tab is not actually incognito, it
                 // will be restored in the normal tab model. If a tab state file does not exist,
                 // the tab will not be restored.
-                if (details.isIncognito == null || details.isIncognito) {
+                if (details.isIncognito != TriState.FALSE) {
                     incognitoInfo.ids.add(details.id);
                     incognitoInfo.urls.add(details.url);
                 } else {
@@ -2121,10 +2129,10 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
         return (int index,
                 int id,
                 String url,
-                @Nullable Boolean isIncognito,
+                @TriState int isIncognito,
                 boolean isStandardActiveIndex,
                 boolean isIncognitoActiveIndex) -> {
-            if (isIncognito != null && isIncognito) {
+            if (isIncognito == TriState.TRUE) {
                 return;
             }
             tabs.add(new ClosedWindowTabInfo(id, new GURL(url), isStandardActiveIndex));
@@ -2244,10 +2252,5 @@ public class TabPersistentStoreImpl implements TabPersistentStore {
                 }
             }
         }
-    }
-
-    @Override
-    public int getRegularFallbackTabCount() {
-        return mRegularFallbackTabCount;
     }
 }

@@ -337,7 +337,8 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
                 fullscreenManager,
                 toolbarDataProvider,
                 browserControlsVisibilityManager,
-                mDesktopWindowStateManager);
+                mDesktopWindowStateManager,
+                mTopControlsStacker);
         mToolbarLayout.initialize(
                 toolbarDataProvider,
                 tabController,
@@ -1197,7 +1198,15 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
         int topControlsMinHeight = mBrowserControls.getTopControlsMinHeight();
         int topControlsHairlineHeight = mBrowserControls.getTopControlsHairlineHeight();
         int contentOffset = mBrowserControls.getContentOffset();
-        return (includeMinHeightBoundary || contentOffset > topControlsMinHeight)
+        // Fully hidden controls rest exactly at the zero min-height boundary with
+        // browser-applied offsets, e.g. an installed web app whose toolbar never shows.
+        // The capture still contains the hairline row, so without the adjustment it
+        // stays visible at the top of the screen.
+        boolean controlsOffScreen =
+                BrowserControlsUtils.areBrowserControlsOffScreen(mBrowserControls);
+        return (includeMinHeightBoundary
+                        || controlsOffScreen
+                        || contentOffset > topControlsMinHeight)
                 && BrowserControlsUtils.shouldContentOffsetHideTopControlsHairline(
                         contentOffset, topControlsMinHeight, topControlsHairlineHeight);
     }
@@ -1238,14 +1247,11 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
     /** Returns whether the Glic button should be shown on the toolbar. */
     public boolean shouldShowGlicToolbarButton() {
         if (!(mToolbarLayout instanceof ToolbarTablet)) return false;
-        if (mIsVerticalTabsActiveSupplier == null
-                || mIsGlicPinnedSupplier == null
-                || mIncognitoStateProvider == null) {
+        if (mIsVerticalTabsActiveSupplier == null || mIsGlicPinnedSupplier == null) {
             return false;
         }
         return Boolean.TRUE.equals(mIsVerticalTabsActiveSupplier.get())
-                && Boolean.TRUE.equals(mIsGlicPinnedSupplier.get())
-                && !mIncognitoStateProvider.isIncognitoSelected();
+                && Boolean.TRUE.equals(mIsGlicPinnedSupplier.get());
     }
 
     /**
@@ -1258,12 +1264,30 @@ public class TopToolbarCoordinator implements Toolbar, TopControlLayer {
         return null;
     }
 
+    /** Notifies the top toolbar whether the Glic UI panel is currently open. */
+    public void setGlicPanelIsOpen(boolean isOpen) {
+        if (mToolbarLayout instanceof ToolbarTablet tabletLayout) {
+            tabletLayout.setGlicPanelIsOpen(isOpen);
+        }
+    }
+
     private void onGlicVisibilityNeedsUpdate(boolean state) {
         if (mToolbarLayout instanceof ToolbarTablet tabletLayout) {
             tabletLayout.setGlicActionChipVisibility(
                     shouldShowGlicToolbarButton(),
                     v -> assumeNonNull(mToggleGlicCallback).run(),
                     assumeNonNull(mGlicLongClickListener));
+        }
+    }
+
+    /**
+     * Sets the x-offset of the toolbar scene layer.
+     *
+     * @param xOffset The x-offset in px.
+     */
+    public void setXOffset(float xOffset) {
+        if (mOverlayCoordinator != null) {
+            mOverlayCoordinator.setXOffset(xOffset);
         }
     }
 

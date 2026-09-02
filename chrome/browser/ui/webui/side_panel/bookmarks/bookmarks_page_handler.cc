@@ -34,10 +34,8 @@
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/bookmarks/bookmark_ui_operations_helper.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
@@ -90,7 +88,7 @@ class BookmarksPageHandler::BookmarkContextMenu
                 ->GetPrimaryWindowWidget()
                 ->GetNativeWindow(),
             this,
-            browser_window->GetBrowserForMigrationOnly(),
+            browser_window,
             browser_window->GetProfile(),
             BookmarkLaunchLocation::kSidePanelContextMenu,
             bookmarks,
@@ -406,8 +404,7 @@ void BookmarksPageHandler::BookmarkCurrentTabInFolder(
     return;
   }
   chrome::BookmarkCurrentTabInFolder(
-      browser_window_interface_->GetBrowserForMigrationOnly(),
-      bookmark_merged_surface_->bookmark_model(),
+      browser_window_interface_, bookmark_merged_surface_->bookmark_model(),
       bookmark_merged_surface_->GetDefaultParentForNewNodes(*parent)->id());
 }
 
@@ -500,7 +497,7 @@ void BookmarksPageHandler::DropBookmarks(const std::string& folder_id,
                      /*index=*/parent_node->children().size(),
                      /*copy=*/false,
                      chrome::BookmarkReorderDropTarget::kBookmarkSidePanel,
-                     browser_window_interface_->GetBrowserForMigrationOnly());
+                     browser_window_interface_);
 }
 
 void BookmarksPageHandler::ExecuteOpenInNewTabCommand(
@@ -648,9 +645,8 @@ void BookmarksPageHandler::OpenBookmark(
       click_modifiers->middle_button, click_modifiers->alt_key,
       click_modifiers->ctrl_key, click_modifiers->meta_key,
       click_modifiers->shift_key);
-  bookmarks::OpenAllIfAllowed(
-      browser_window_interface_->GetBrowserForMigrationOnly(), {bookmark_node},
-      open_location);
+  bookmarks::OpenAllIfAllowed(browser_window_interface_, {bookmark_node},
+                              open_location);
   if (source == side_panel::mojom::ActionSource::kPriceTracking) {
     return;
   }
@@ -698,7 +694,7 @@ void BookmarksPageHandler::MoveBookmark(int64_t node_id,
   bookmark_merged_surface_->Move(
       node_to_move, *parent,
       bookmark_merged_surface_->GetChildrenCount(*parent),
-      browser_window_interface_->GetBrowserForMigrationOnly());
+      browser_window_interface_);
 }
 
 void BookmarksPageHandler::RemoveBookmarks(const std::vector<int64_t>& node_ids,

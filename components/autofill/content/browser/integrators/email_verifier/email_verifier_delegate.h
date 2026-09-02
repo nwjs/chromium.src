@@ -7,9 +7,10 @@
 
 #include <map>
 #include <optional>
+#include <vector>
 
+#include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
-#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
@@ -20,6 +21,9 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/webid/email_verifier.h"
 #include "net/base/schemeful_site.h"
+#include "services/metrics/public/cpp/ukm_source_id.h"
+#include "third_party/blink/public/mojom/webid/email_verification_request.mojom-shared.h"
+#include "ui/gfx/geometry/rect_f.h"
 #include "url/gurl.h"
 
 namespace autofill {
@@ -30,7 +34,7 @@ class AutofillClient;
 // numeric values should never be reused.
 // LINT.IfChange(EvpAutofillFlowResult)
 enum class EvpAutofillFlowResult {
-  kSuccess = 0,
+  kSuccess = 0,  // Obsolete.
   kTokenFieldHasNoNonce = 1,
   kUserPrefDisabled = 2,
   kStrikeDatabaseBlock = 3,
@@ -43,7 +47,8 @@ enum class EvpAutofillFlowResult {
   kTokenSentToRenderer = 10,
   kDriverInactive = 11,
   kPageNavigatedDuringVerification = 12,
-  kMaxValue = kPageNavigatedDuringVerification,
+  kPageNavigatedDuringCheckIfVerifiable = 13,
+  kMaxValue = kPageNavigatedDuringCheckIfVerifiable,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:EvpAutofillFlowResult)
 
@@ -57,10 +62,39 @@ enum class EvpAutofillFlowResult {
 class EmailVerifierDelegate : public AutofillManager::Observer,
                               public content::WebContentsObserver {
  public:
+  // Aggregates status and timing metrics recorded throughout a single Email
+  // Verification Protocol (EVP) request attempt. This struct buffers stage
+  // metrics so that a single aggregated UKM event
+  // (`Blink.EmailVerificationProtocol`) can be emitted when the flow completes.
+  struct RequestMetrics {
+    // UKM source ID associated with the main frame page navigation.
+    ukm::SourceId ukm_source_id = ukm::kInvalidSourceId;
+
+    // High-level outcome of the EVP flow from the Autofill perspective.
+    std::optional<EvpAutofillFlowResult> autofill_flow_result;
+
+    // Outcome and dismissal status of the permission UI prompt.
+    std::optional<AutofillClient::EmailVerificationPermissionUiStatus>
+        permission_ui_status;
+
+    // Status outcome of the IsVerifiable check.
+    std::optional<blink::mojom::EmailVerificationRequestResult>
+        is_verifiable_status;
+
+    // Duration of the IsVerifiable check.
+    std::optional<base::TimeDelta> is_verifiable_duration;
+
+    // Status outcome of the Verify stage.
+    std::optional<blink::mojom::EmailVerificationRequestResult> verify_status;
+
+    // Duration of the Verify stage.
+    std::optional<base::TimeDelta> verify_duration;
+  };
+
   class Observer : public base::CheckedObserver {
    public:
     ~Observer() override = default;
-    virtual void OnFlowCompleted(EvpAutofillFlowResult result) = 0;
+    virtual void OnFlowCompleted(const RequestMetrics& metrics) {}
   };
 
   explicit EmailVerifierDelegate(AutofillClient* client);
@@ -90,7 +124,7 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
   void OnBeforeFormWithEmailVerificationTokenSubmitted(
       AutofillManager& manager,
       const FormData& form,
-      const FieldGlobalId& field_id) override;
+      const FieldGlobalId& email_field_id) override;
   void OnAfterFocusOnFormField(AutofillManager& manager,
                                FormGlobalId form_id,
                                FieldGlobalId field_id) override;
@@ -105,58 +139,72 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
    public:
     MetricsObserver();
     ~MetricsObserver() override;
-    void OnFlowCompleted(EvpAutofillFlowResult result) override;
+    void OnFlowCompleted(const RequestMetrics& metrics) override;
   };
 
-  // Initiates the verification of the given `email_value` by checking the frame
-  // for a `nonce` attribute, prompting the user for verification, and sending
-  // the token to the renderer on completion.
+  // Queries the renderer for the nonce.
+  void QueryNonce(AutofillManager& manager,
+                  const AutofillField& email_field,
+                  const std::u16string& email_value);
+
+  void OnNonceReceived(base::WeakPtr<AutofillManager> manager,
+                       FieldGlobalId email_field_id,
+                       gfx::RectF email_field_bounds,
+                       std::u16string email_value,
+                       const std::optional<std::string>& nonce);
+
+  // Initiates the verification of the given `email_value` by checking the
+  // user pref, origin trial, and strike database, prompting the user for
+  // verification, and sending the token to the renderer on completion.
   void TriggerVerification(AutofillManager& manager,
-                           const FormStructure& form,
-                           const AutofillField& email_field,
-                           const std::u16string& email_value);
+                           FieldGlobalId email_field_id,
+                           gfx::RectF email_field_bounds,
+                           std::u16string email_value,
+                           const std::string& nonce);
+
+  void OnDnsCheckPassed(base::WeakPtr<AutofillManager> manager,
+                        FieldGlobalId email_field_id);
 
   void OnIsVerifiable(
       base::WeakPtr<AutofillManager> manager,
       FieldGlobalId email_field_id,
-      FieldGlobalId token_field_id,
       gfx::RectF email_field_bounds,
       std::u16string email,
       std::string nonce,
       bool already_allowed,
-      std::optional<content::webid::EmailVerifier::Result> result);
+      std::optional<content::webid::EmailVerifier::Result> result,
+      blink::mojom::EmailVerificationRequestResult status,
+      base::TimeDelta is_verifiable_duration);
 
   void Verify(base::WeakPtr<AutofillManager> manager,
               FieldGlobalId email_field_id,
               std::string email_utf8,
-              FieldGlobalId token_field_id,
               const std::string& nonce,
               const content::webid::EmailVerifier::Result& result);
 
-  void OnVerificationResponseReceived(base::WeakPtr<AutofillManager> manager,
-                                      FieldGlobalId email_field_id,
-                                      std::string email,
-                                      FieldGlobalId token_field_id,
-                                      net::SchemefulSite issuer_site,
-                                      std::optional<std::string> token);
+  void OnVerificationResponseReceived(
+      base::WeakPtr<AutofillManager> manager,
+      FieldGlobalId email_field_id,
+      std::string email,
+      net::SchemefulSite issuer_site,
+      std::optional<std::string> token,
+      blink::mojom::EmailVerificationRequestResult status,
+      base::TimeDelta verify_duration);
 
   void OnEmailVerificationDecision(
       base::WeakPtr<AutofillManager> manager,
       FieldGlobalId email_field_id,
       std::string email_utf8,
-      FieldGlobalId token_field_id,
       std::string nonce,
       content::webid::EmailVerifier::Result result,
-      AutofillClient::EmailVerificationPermissionUiResult ui_result);
+      AutofillClient::EmailVerificationPermissionUiStatus ui_status);
 
   // Notifies `observers_` that an EVP flow finished with `result`. If `manager`
-  // and `field_id` are present and the flow ended in a state other than success
-  // or waiting for renderer response, resets the email verification loading
-  // spinner on the input field (`EmailVerificationState::kNone`).
-  // `field_id` is `std::nullopt` (and `manager` is null) when the flow is
-  // cancelled due to a page navigation or manager destruction.
+  // is present and the flow ended in a state other than success or waiting for
+  // renderer response, resets the email verification loading spinner on the
+  // input field (`EmailVerificationState::kNone`).
   void NotifyFlowCompleted(AutofillManager* manager,
-                           const std::optional<FieldGlobalId>& field_id,
+                           FieldGlobalId field_id,
                            EvpAutofillFlowResult result);
 
   void OnFieldLostFocus(AutofillManager& manager,
@@ -167,11 +215,14 @@ class EmailVerifierDelegate : public AutofillManager::Observer,
 
   ScopedAutofillManagersObservation observation_{this};
   std::map<FieldGlobalId, GURL> issuers_;
-  size_t in_flight_verify_count_ = 0;
+  // Holds the active RequestMetrics for in-flight verification requests, keyed
+  // by the email field's ID. Entries are inserted in `TriggerVerification` and
+  // erased in `NotifyFlowCompleted`.
+  base::flat_map<FieldGlobalId, RequestMetrics> pending_request_metrics_;
   std::optional<FieldGlobalId> last_focused_field_;
   // A tab-scoped cache of recently verified email values (mapped by field ID)
   // used to deduplicate verification prompts when the user alternates focus.
-  std::vector<std::pair<FieldGlobalId, std::u16string>> last_verified_values_;
+  std::vector<std::pair<FieldGlobalId, std::string>> last_verified_values_;
 
   base::WeakPtrFactory<EmailVerifierDelegate> weak_ptr_factory_{this};
 };

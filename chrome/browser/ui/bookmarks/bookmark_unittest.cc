@@ -11,12 +11,12 @@
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
@@ -39,6 +39,7 @@
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/user_education/test/mock_feature_promo_controller.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/navigation_simulator.h"
@@ -82,8 +83,6 @@ class BookmarkTest : public ChromeRenderViewHostTestHarness {
 
     ON_CALL(mock_browser_window_interface_, GetTabStripModel())
         .WillByDefault(testing::Return(tab_strip_model_.get()));
-    ON_CALL(mock_browser_window_interface_, GetActions())
-        .WillByDefault(testing::Return(browser_actions_.get()));
     ON_CALL(mock_browser_window_interface_, GetFeatures())
         .WillByDefault(testing::ReturnRef(features_));
   }
@@ -336,40 +335,6 @@ TEST_F(BookmarkTest, SomeTabsInMultipleGroups) {
   }
 }
 
-TEST_F(BookmarkTest, GetURLsAndFoldersForTabGroup) {
-  // Deflake the test by setting TabGroupSyncService initialized.
-  tab_groups::TabGroupSyncService* service =
-      static_cast<tab_groups::TabGroupSyncService*>(
-          tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile()));
-  if (service) {
-    service->SetIsInitializedForTesting(true);
-  }
-  const std::vector<GURL> urls = {GURL("http://localhost:8000/"),
-                                  GURL("http://localhost:8001/"),
-                                  GURL("http://localhost:8002/")};
-  for (const auto& url : urls) {
-    std::unique_ptr<content::WebContents> web_contents =
-        content::WebContentsTester::CreateTestWebContents(profile(), nullptr);
-    content::NavigationSimulator::NavigateAndCommitFromBrowser(
-        web_contents.get(), url);
-    tab_strip_model_->AppendWebContents(std::move(web_contents),
-                                        /*foreground=*/true);
-  }
-  std::vector<int> tab_indices = {0, 1, 2};
-  tab_groups::TabGroupId group_id =
-      tab_strip_model_->AddToNewGroup(tab_indices);
-  const TabGroup* tab_group =
-      tab_strip_model_->group_model()->GetTabGroup(group_id);
-
-  std::vector<BookmarkEditor::EditDetails::BookmarkData> folder_data;
-  bookmarks::GetURLsAndFoldersForTabGroup(tab_strip_model_.get(), *tab_group,
-                                          &folder_data);
-
-  EXPECT_EQ(folder_data.size(), urls.size());
-  for (size_t i = 0; i < urls.size(); ++i) {
-    EXPECT_EQ(folder_data[i].url.value(), urls[i]);
-  }
-}
 
 TEST_F(BookmarkTest, SuggestsUniqueTabGroupName) {
   auto service = std::make_unique<tab_groups::FakeTabGroupSyncService>();

@@ -2,25 +2,25 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import '../controls/controlled_radio_button.js';
 import '../controls/settings_radio_group.js';
 import '../controls/settings_toggle_button.js';
 import '../settings_page/settings_section.js';
-import '../settings_shared.css.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
+import {PrefService} from '/shared/settings/prefs2/pref_service.js';
+import {PrefServiceObserverMixinLit} from '/shared/settings/prefs2/pref_service_observer_mixin_lit.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {ControlledRadioButtonElement} from '../controls/controlled_radio_button.js';
 import type {SettingsRadioGroupElement} from '../controls/settings_radio_group.js';
 import type {SettingsToggleButtonElement} from '../controls/settings_toggle_button.js';
 import {loadTimeData} from '../i18n_setup.js';
 
-import {getTemplate} from './battery_page.html.js';
+import {getCss} from './battery_page.css.js';
+import {getHtml} from './battery_page.html.js';
 import {PerformanceBrowserProxyImpl, PerformanceFeedbackCategory} from './performance_browser_proxy.js';
 import type {PerformanceMetricsProxy} from './performance_metrics_proxy.js';
 import {BatterySaverModeState, PerformanceMetricsProxyImpl} from './performance_metrics_proxy.js';
@@ -36,72 +36,87 @@ export interface SettingsBatteryPageElement {
   };
 }
 
-const SettingsBatteryPageElementBase = PrefsMixin(PolymerElement);
+const SettingsBatteryPageElementBase =
+    PrefServiceObserverMixinLit(CrLitElement);
 
 export class SettingsBatteryPageElement extends SettingsBatteryPageElementBase {
   static get is() {
     return 'settings-battery-page';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      batterySaverModeStateEnum_: {
-        readOnly: true,
-        type: Object,
-        value: BatterySaverModeState,
-      },
-
-      isBatterySaverModeManagedByOs_: {
-        type: Boolean,
-        value() {
-          return loadTimeData.getBoolean('isBatterySaverModeManagedByOS');
-        },
-      },
-
-      numericUncheckedValues_: {
-        type: Array,
-        value: () => [BatterySaverModeState.DISABLED],
-      },
+      isBatterySaverModeManagedByOs_: {type: Boolean},
+      numericUncheckedValues_: {type: Array},
+      batterySaverStatePref_: {type: Object},
     };
   }
 
-  declare private isBatterySaverModeManagedByOs_: boolean;
-  declare private numericUncheckedValues_: BatterySaverModeState[];
+  protected accessor isBatterySaverModeManagedByOs_: boolean =
+      loadTimeData.getBoolean('isBatterySaverModeManagedByOS');
+  protected accessor numericUncheckedValues_: BatterySaverModeState[] =
+      [BatterySaverModeState.DISABLED];
+  protected accessor batterySaverStatePref_: chrome.settingsPrivate.PrefObject|
+      undefined;
+
   private metricsProxy_: PerformanceMetricsProxy =
       PerformanceMetricsProxyImpl.getInstance();
 
-  private isBatterySaverModeEnabled_(value: number): boolean {
-    return value !== BatterySaverModeState.DISABLED;
+  override connectedCallback() {
+    super.connectedCallback();
+    this.mirrorPref(BATTERY_SAVER_MODE_PREF, 'batterySaverStatePref_');
   }
 
-  private onChange_() {
+  protected isBatterySaverModeEnabled_(): boolean {
+    if (!this.batterySaverStatePref_) {
+      return false;
+    }
+    return this.batterySaverStatePref_.value !== BatterySaverModeState.DISABLED;
+  }
+
+  protected onChange_() {
     this.metricsProxy_.recordBatterySaverModeChanged(
-        this.getPref<number>(BATTERY_SAVER_MODE_PREF).value);
+        PrefService.getInstance()
+            .getPref<number>(BATTERY_SAVER_MODE_PREF)
+            .value);
   }
 
-  private onBatterySaverLearnMoreLinkClick_() {
+  protected onBatterySaverSubLabelLinkClicked_() {
     OpenWindowProxyImpl.getInstance().openUrl(
         loadTimeData.getString('batterySaverLearnMoreUrl'));
   }
 
   // <if expr="is_chromeos">
-  private openOsPowerSettings_() {
+  protected onOsPowerSettingsClick_() {
     OpenWindowProxyImpl.getInstance().openUrl(
         loadTimeData.getString('osPowerSettingsUrl'));
   }
   // </if>
 
-  // <if expr="_google_chrome">
-  private onSendFeedbackClick_(e: Event) {
-    e.stopPropagation();
+  protected showSendFeedbackButton_(): boolean {
+    // <if expr="_google_chrome">
+    return true;
+    // </if>
+    // <if expr="not _google_chrome">
+    return false;
+    // </if>
+  }
+
+  protected onSendFeedback_(_e: Event) {
+    // <if expr="_google_chrome">
+    _e.stopPropagation();
     PerformanceBrowserProxyImpl.getInstance().openFeedbackDialog(
         PerformanceFeedbackCategory.BATTERY);
+    // </if>
   }
-  // </if>
 }
 
 declare global {

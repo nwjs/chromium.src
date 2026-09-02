@@ -20,20 +20,25 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.PackageUtils;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.task.AsyncTask;
 import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browserservices.intents.WebappInfo;
+import org.chromium.chrome.browser.browserservices.intents.WebappIntentUtils;
 import org.chromium.chrome.browser.browserservices.metrics.WebApkUmaRecorder;
 import org.chromium.chrome.browser.browserservices.permissiondelegation.InstalledWebappPermissionStore;
 import org.chromium.chrome.browser.browsing_data.UrlFilter;
 import org.chromium.chrome.browser.browsing_data.UrlFilterBridge;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.sync.protocol.WebApkSpecifics;
+import org.chromium.components.webapps.AppBannerManager;
+import org.chromium.content_public.browser.WebContents;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
 import java.util.ArrayList;
@@ -82,6 +87,16 @@ public class WebappRegistry {
 
     /** Maps webapp ids to storages. */
     private final Map<String, WebappDataStorage> mStorages;
+
+    /**
+     * Maps a WebAPK's manifest ID to its package name for installations that are in progress. This
+     * in-memory map helps detect concurrent installation requests for the same manifest and allows
+     * internal services to block duplicate installation attempts before the package is fully
+     * registered in the system.
+     */
+    public static final String PENDING_PACKAGE_NAME_PLACEHOLDER = "pending_placeholder";
+
+    private final Map<String, String> mPendingManifestIdToPackageName = new HashMap<>();
 
     private final SharedPreferences mPreferences;
     private InstalledWebappPermissionStore mPermissionStore;
@@ -159,6 +174,11 @@ public class WebappRegistry {
                 mPreferences.edit().putStringSet(KEY_WEBAPP_SET, mStorages.keySet()).apply();
                 storage.updateLastUsedTime();
                 if (callback != null) callback.onWebappDataStorageRetrieved(storage);
+
+                String manifestId = storage.getWebApkManifestId();
+                if (manifestId != null) {
+                    mPendingManifestIdToPackageName.remove(manifestId);
+                }
             }
         }.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
     }
@@ -364,19 +384,67 @@ public class WebappRegistry {
         return webApkIdsWithPendingUpdate;
     }
 
+    public void registerPendingWebApk(String manifestId, String packageName) {
+        mPendingManifestIdToPackageName.put(manifestId, packageName);
+    }
+
+    public void removePendingWebApk(String manifestId) {
+        mPendingManifestIdToPackageName.remove(manifestId);
+    }
+
+    /** Returns whether there is a pending WebAPK installation for the given manifest ID. */
+    public boolean isWebApkPending(@Nullable String manifestId) {
+        if (manifestId == null) return false;
+        return mPendingManifestIdToPackageName.containsKey(manifestId);
+    }
+
+    /** Returns whether a WebAPK with the given manifest ID was recently installed. */
+    public boolean wasWebApkRecentlyInstalled(@Nullable String manifestId, long maxAgeMs) {
+        if (manifestId == null) return false;
+
+        String packageName = findWebApkWithManifestId(manifestId);
+        if (packageName == null) return false;
+
+        String webappId = WebappIntentUtils.getIdForWebApkPackage(packageName);
+        WebappDataStorage storage = getWebappDataStorage(webappId);
+        if (storage == null) return false;
+
+        long registrationTime = storage.getLocalRegistrationTimestamp();
+        long age = TimeUtils.currentTimeMillis() - registrationTime;
+        return age < maxAgeMs;
+    }
+
     /**
-     * Returns the WebAPK PackageName whose manifestId matches the provided one. Returns null if no
-     * matches.
+     * Returns the newest WebAPK PackageName whose manifestId matches the provided one. If multiple
+     * WebAPKs match, the newest one is returned. It checks both pending installations and fully
+     * registered apps. Returns null if no matches.
      *
      * @param manifestId The manifestId to search for.
-     * @return The package name for the WebAPK, or null if one cannot be found.
+     * @return The package name for the newest WebAPK, or null if one cannot be found.
      */
     public @Nullable String findWebApkWithManifestId(@Nullable String manifestId) {
-        WebappDataStorage storage = getWebappDataStorageForManifestId(manifestId);
-        if (storage != null) {
-            return storage.getWebApkPackageName();
+        if (manifestId == null) return null;
+
+        String pendingInstallPackageName = mPendingManifestIdToPackageName.get(manifestId);
+        if (pendingInstallPackageName != null
+                && !PENDING_PACKAGE_NAME_PLACEHOLDER.equals(pendingInstallPackageName)) {
+            return pendingInstallPackageName;
         }
-        return null;
+
+        String newestPackageName = null;
+        long newestRegistrationTime = -1;
+        for (WebappDataStorage storage : mStorages.values()) {
+            if (!storage.getId().startsWith(WebApkConstants.WEBAPK_ID_PREFIX)) continue;
+            String registeredManifestId = storage.getWebApkManifestId();
+            if (TextUtils.equals(manifestId, registeredManifestId)) {
+                long registrationTime = storage.getLocalRegistrationTimestamp();
+                if (registrationTime > newestRegistrationTime) {
+                    newestRegistrationTime = registrationTime;
+                    newestPackageName = storage.getWebApkPackageName();
+                }
+            }
+        }
+        return newestPackageName;
     }
 
     /**
@@ -593,5 +661,16 @@ public class WebappRegistry {
         if (isInitalizing) {
             WebApkUmaRecorder.recordWebApksCount(getOriginsWithWebApk().size());
         }
+    }
+
+    /** Resolves the manifest ID for the given tab, falling back to the tab's URL if empty. */
+    public static String getManifestIdOrUrl(Tab tab) {
+        @Nullable WebContents webContents = tab.getWebContents();
+        String manifestId =
+                webContents != null ? AppBannerManager.maybeGetManifestId(webContents) : null;
+        if (TextUtils.isEmpty(manifestId)) {
+            manifestId = tab.getUrl().getSpec();
+        }
+        return manifestId;
     }
 }

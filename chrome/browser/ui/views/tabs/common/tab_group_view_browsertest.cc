@@ -11,6 +11,8 @@
 #include "chrome/browser/ui/tabs/tab_group_attention_indicator.h"
 #include "chrome/browser/ui/tabs/tab_group_features.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/tabs/common/root_tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_header_view.h"
@@ -18,6 +20,7 @@
 #include "chrome/browser/ui/views/test/vertical_tabs_browser_test_mixin.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/data_sharing/public/features.h"
+#include "components/tabs/public/tab_collection_types.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/vector_icons/vector_icons.h"
@@ -26,6 +29,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
+#include "ui/gfx/animation/animation_test_api.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/view_utils.h"
 
@@ -39,14 +43,14 @@ class TabGroupViewTest
   const std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures()
       override {
     return {{tabs::kVerticalTabs, {}},
-            {data_sharing::features::kDataSharingFeature, {}}};
+            {data_sharing::features::kDataSharingFeature, {}},
+            {features::kTabGroupsFocusing, {}}};
   }
 
   RootTabCollectionNode* root_node() {
     VerticalTabStripRegionView* region_view =
-        browser()
-            ->GetBrowserView()
-            .vertical_tab_strip_region_view_for_testing();
+        BrowserView::GetBrowserViewForBrowser(browser())
+            ->vertical_tab_strip_region_view_for_testing();
     return region_view->root_node_for_testing();
   }
 
@@ -128,7 +132,8 @@ class TabGroupViewTest
 
   const tabs::TabInterface* GetTabInterfaceForNode(
       const TabCollectionNode* node) {
-    return std::get<const tabs::TabInterface*>(node->GetNodeData());
+    return std::get<tabs::ConstDanglingUntriagedTabInterface>(
+        node->GetNodeData());
   }
 };
 
@@ -481,6 +486,47 @@ IN_PROC_BROWSER_TEST_F(TabGroupViewTest, ShiftGroupDown_AlreadyAtBottom) {
   EXPECT_FALSE(model->GetTabGroupForTab(0).has_value());
   EXPECT_EQ(group, model->GetTabGroupForTab(1));
   EXPECT_EQ(group, model->GetTabGroupForTab(2));
+}
+
+IN_PROC_BROWSER_TEST_F(TabGroupViewTest,
+                       GroupLineHiddenAndTabsAlignedInFocusMode) {
+  auto animation_mode_reset = gfx::AnimationTestApi::SetRichAnimationRenderMode(
+      gfx::Animation::RichAnimationRenderMode::FORCE_DISABLED);
+
+  tab_groups::TabGroupId group_id = CreateInactiveTabGroup();
+
+  TabCollectionNode* group_node =
+      unpinned_collection_node()->GetChildNodeOfType(
+          TabCollectionNode::Type::GROUP);
+  TabGroupView* group_view =
+      views::AsViewClass<TabGroupView>(group_node->view());
+  ASSERT_TRUE(group_view);
+
+  TabCollectionNode* tab_node = group_node->children()[0].get();
+  TabView* tab = views::AsViewClass<TabView>(tab_node->view());
+  ASSERT_TRUE(tab);
+
+  // Initially in expanded mode (not focused), group line is visible and tab is
+  // indented.
+  EXPECT_TRUE(group_view->group_line()->GetVisible());
+  EXPECT_EQ(tab->x(), TabGroupView::kTabLeadingPadding);
+
+  // Focus the group.
+  browser()->tab_strip_model()->SetFocusedGroup(group_id);
+  RunScheduledLayouts();
+
+  // In focus mode, group line should be hidden and tab should be aligned at x =
+  // 0.
+  EXPECT_FALSE(group_view->group_line()->GetVisible());
+  EXPECT_EQ(tab->x(), 0);
+
+  // Unfocus the group.
+  browser()->tab_strip_model()->SetFocusedGroup(std::nullopt);
+  RunScheduledLayouts();
+
+  // Group line should be restored and tab indented again.
+  EXPECT_TRUE(group_view->group_line()->GetVisible());
+  EXPECT_EQ(tab->x(), TabGroupView::kTabLeadingPadding);
 }
 
 // TODO(crbug.com/490428062): Create Tests to Verify Focus Order of Tab Group

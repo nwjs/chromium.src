@@ -103,7 +103,9 @@ public class ImmersiveVideoPlaybackActivity extends VideoOverlayActivity {
             return;
         }
 
-        finishInitialize();
+        if (!isNativeHandleInitialized()) {
+            finishInitialize();
+        }
     }
 
     @Initializer
@@ -114,6 +116,8 @@ public class ImmersiveVideoPlaybackActivity extends VideoOverlayActivity {
             finishOverlay(/* closeByNative= */ true);
             return;
         }
+
+        setTitle(org.chromium.chrome.R.string.accessibility_video_player);
     }
 
     @Override
@@ -145,7 +149,11 @@ public class ImmersiveVideoPlaybackActivity extends VideoOverlayActivity {
                             });
 
             CompositorView compositorView = mPlaybackCoordinator.show();
-            addContentView(compositorView.getView(), new ViewGroup.LayoutParams(0, 0));
+            addContentView(
+                    compositorView.getView(),
+                    new ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT));
             setCompositorView(compositorView);
         }
 
@@ -159,6 +167,22 @@ public class ImmersiveVideoPlaybackActivity extends VideoOverlayActivity {
             mPlaybackCoordinator = null;
         }
         mPendingState.reset();
+    }
+
+    @Override
+    public void onPauseWithNative() {
+        super.onPauseWithNative();
+        if (isNativeHandleInitialized()) {
+            togglePlayPause(/* toggleOn= */ false);
+        }
+    }
+
+    @Override
+    public void onResumeWithNative() {
+        super.onResumeWithNative();
+        if (mPlaybackCoordinator != null) {
+            mPlaybackCoordinator.showControlPanel();
+        }
     }
 
     @Override

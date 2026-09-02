@@ -101,8 +101,8 @@ class AutocompleteHistoryManagerTest : public testing::Test {
     task_environment_.AdvanceClock(
         base::Time::FromSecondsSinceUnixEpoch(1546889367) - base::Time::Now());
     web_data_service_ = base::MakeRefCounted<MockAutofillWebDataService>();
-    autocomplete_manager_ = std::make_unique<AutocompleteHistoryManager>();
-    autocomplete_manager_->Init(web_data_service_, prefs_.get(), false);
+    autocomplete_manager_ = std::make_unique<AutocompleteHistoryManager>(
+        web_data_service_, prefs_.get());
     ON_CALL(autofill_client_, GetAutocompleteHistoryManager())
         .WillByDefault(Return(autocomplete_manager_.get()));
     test_field_ =
@@ -168,10 +168,8 @@ TEST_F(AutocompleteHistoryManagerTest, CreditCardNumberValue) {
   form.set_fields({valid_cc});
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(),
-      /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 // Contrary test to AutocompleteHistoryManagerTest.CreditCardNumberValue.  The
@@ -193,9 +191,8 @@ TEST_F(AutocompleteHistoryManagerTest, NonCreditCardNumberValue) {
   form.set_fields({invalid_cc});
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_));
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 // Tests that IBANs are not sent to the WebDatabase to be saved.
@@ -214,9 +211,8 @@ TEST_F(AutocompleteHistoryManagerTest, IbanValue) {
   form.set_fields({iban});
 
   EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 // Tests that SSNs are not sent to the WebDatabase to be saved.
@@ -235,9 +231,8 @@ TEST_F(AutocompleteHistoryManagerTest, SSNValue) {
   form.set_fields({ssn});
 
   EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 // Verify that autocomplete text is saved for search fields.
@@ -257,9 +252,8 @@ TEST_F(AutocompleteHistoryManagerTest, SearchField) {
   form.set_fields({search_field});
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_));
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 TEST_F(AutocompleteHistoryManagerTest, AutocompleteFeatureOff) {
@@ -278,9 +272,10 @@ TEST_F(AutocompleteHistoryManagerTest, AutocompleteFeatureOff) {
   form.set_fields({search_field});
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/false);
+  // Autocomplete saving is controlled by the address Autofill pref.
+  prefs::SetAutofillProfileEnabled(prefs_.get(), false);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 // Verify that we don't save invalid values in Autocomplete.
@@ -306,9 +301,8 @@ TEST_F(AutocompleteHistoryManagerTest, InvalidValues) {
                    make_field(u"Search3", u"other search", u"      ")});
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 // Tests that text entered into fields specifying autocomplete="off" is not sent
@@ -332,33 +326,8 @@ TEST_F(AutocompleteHistoryManagerTest, FieldWithAutocompleteOff) {
   form.set_fields({field});
 
   EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
-}
-
-// Shouldn't save entries when in Incognito mode.
-TEST_F(AutocompleteHistoryManagerTest, Incognito) {
-  autocomplete_manager_->Init(web_data_service_, prefs_.get(),
-                              /*is_off_the_record_=*/true);
-  FormData form;
-  form.set_name(u"MyForm");
-  form.set_url(GURL("http://myform.com/form.html"));
-  form.set_action(GURL("http://myform.com/submit.html"));
-
-  // Search field.
-  FormFieldData search_field;
-  search_field.set_label(u"Search");
-  search_field.set_name(u"search");
-  search_field.set_value(u"my favorite query");
-  search_field.set_properties_mask(search_field.properties_mask() | kUserTyped);
-  search_field.set_form_control_type(FormControlType::kInputSearch);
-  form.set_fields({search_field});
-
-  EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
 #if !BUILDFLAG(IS_IOS)
@@ -382,9 +351,8 @@ TEST_F(AutocompleteHistoryManagerTest, UserInputNotFocusable) {
   form.set_fields({search_field});
 
   EXPECT_CALL(*(web_data_service_.get()), AddFormFields(_));
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 #endif
 
@@ -407,58 +375,45 @@ TEST_F(AutocompleteHistoryManagerTest, PresentationField) {
   form.set_fields({field});
 
   EXPECT_CALL(*web_data_service_, AddFormFields(_)).Times(0);
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), /*form=*/nullptr,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    /*form=*/nullptr);
 }
 
-// Tests that the Init function will trigger the Autocomplete Retention Policy
-// cleanup if the flag is enabled, we're not in OTR and it hadn't run in the
-// current major version.
-TEST_F(AutocompleteHistoryManagerTest, Init_TriggersCleanup) {
+// Tests that creating an AutocompleteHistoryManager will trigger the
+// Autocomplete Retention Policy cleanup if it hadn't run in the current major
+// version.
+TEST_F(AutocompleteHistoryManagerTest, RetentionPolicy_TriggersCleanup) {
   // Set the retention policy cleanup to a past major version.
   prefs_->SetInteger(prefs::kAutocompleteLastVersionRetentionPolicy,
                      version_info::GetMajorVersionNumberAsInt() - 1);
 
   EXPECT_CALL(*web_data_service_, RemoveExpiredAutocompleteEntries).Times(1);
-  autocomplete_manager_->Init(web_data_service_, prefs_.get(),
-                              /*is_off_the_record=*/false);
+  AutocompleteHistoryManager manager(web_data_service_, prefs_.get());
 }
 
-// Tests that the Init function will not trigger the Autocomplete Retention
-// Policy when running in OTR.
-TEST_F(AutocompleteHistoryManagerTest, Init_OTR_Not_TriggersCleanup) {
+// Tests that creating an AutocompleteHistoryManager will not crash even if we
+// don't have a DB.
+TEST_F(AutocompleteHistoryManagerTest, RetentionPolicy_NullDB_NoCrash) {
   // Set the retention policy cleanup to a past major version.
   prefs_->SetInteger(prefs::kAutocompleteLastVersionRetentionPolicy,
                      version_info::GetMajorVersionNumberAsInt() - 1);
 
   EXPECT_CALL(*web_data_service_, RemoveExpiredAutocompleteEntries).Times(0);
-  autocomplete_manager_->Init(web_data_service_, prefs_.get(),
-                              /*is_off_the_record=*/true);
+  AutocompleteHistoryManager manager(/*profile_database=*/nullptr,
+                                     prefs_.get());
 }
 
-// Tests that the Init function will not crash even if we don't have a DB.
-TEST_F(AutocompleteHistoryManagerTest, Init_NullDB_NoCrash) {
-  // Set the retention policy cleanup to a past major version.
-  prefs_->SetInteger(prefs::kAutocompleteLastVersionRetentionPolicy,
-                     version_info::GetMajorVersionNumberAsInt() - 1);
-
-  EXPECT_CALL(*web_data_service_, RemoveExpiredAutocompleteEntries).Times(0);
-  autocomplete_manager_->Init(nullptr, prefs_.get(),
-                              /*is_off_the_record=*/false);
-}
-
-// Tests that the Init function will not trigger the Autocomplete Retention
-// Policy when running in a major version that was already cleaned.
+// Tests that creating an AutocompleteHistoryManager will not trigger the
+// Autocomplete Retention Policy when running in a major version that was
+// already cleaned.
 TEST_F(AutocompleteHistoryManagerTest,
-       Init_SameMajorVersion_Not_TriggersCleanup) {
+       RetentionPolicy_SameMajorVersion_Not_TriggersCleanup) {
   // Set the retention policy cleanup to the current major version.
   prefs_->SetInteger(prefs::kAutocompleteLastVersionRetentionPolicy,
                      version_info::GetMajorVersionNumberAsInt());
 
   EXPECT_CALL(*web_data_service_, RemoveExpiredAutocompleteEntries).Times(0);
-  autocomplete_manager_->Init(web_data_service_, prefs_.get(),
-                              /*is_off_the_record=*/false);
+  AutocompleteHistoryManager manager(web_data_service_, prefs_.get());
 }
 
 // Make sure suggestions are not returned if the field should not autocomplete.
@@ -1098,9 +1053,8 @@ TEST_F(AutocompleteHistoryManagerTest, ClassificationBasedFiltering) {
               AddFormFields(testing::ElementsAre(
                   testing::Property(&FormFieldData::value, u"John"))));
 
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), &form_structure,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    &form_structure);
 }
 
 // Tests that loyalty card fields are saved in autocomplete history if they
@@ -1119,9 +1073,8 @@ TEST_F(AutocompleteHistoryManagerTest, LoyaltyCardManualEntryIsSaved) {
               AddFormFields(testing::ElementsAre(
                   testing::Property(&FormFieldData::value, u"999"))));
 
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), &form_structure,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    &form_structure);
 }
 
 // Tests that fields autofilled by standard Autofill or Autocomplete are not
@@ -1163,9 +1116,8 @@ TEST_F(AutocompleteHistoryManagerTest, PreventSavingAutofilledFields) {
               AddFormFields(testing::ElementsAre(testing::Property(
                   &FormFieldData::value, u"john.doe@example.com"))));
 
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), &form_structure,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    &form_structure);
 }
 
 // Tests that if a field was autocompleted (filled by Autocomplete) and then
@@ -1206,9 +1158,8 @@ TEST_F(AutocompleteHistoryManagerTest,
               AddFormFields(testing::ElementsAre(
                   testing::Property(&FormFieldData::value, u"DoeEdited"))));
 
-  autocomplete_manager_->OnWillSubmitFormWithFields(
-      form.fields(), &form_structure,
-      /*is_autocomplete_enabled=*/true);
+  autocomplete_manager_->OnWillSubmitFormWithFields(form.fields(),
+                                                    &form_structure);
 }
 
 class AutocompleteHistoryManagerAtMemoryTest

@@ -21,6 +21,7 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -41,6 +42,7 @@ public class VerticalTabUtilsUnitTest {
 
     @After
     public void tearDown() {
+        DeviceInfo.resetIsDesktopForTesting();
         VerticalTabUtils.resetSharedPrefsForTesting();
     }
 
@@ -131,6 +133,70 @@ public class VerticalTabUtilsUnitTest {
                 VerticalTabUtils.EXTERNAL_DRAG_PARAM,
                 /* testValue= */ true);
         assertTrue(VerticalTabUtils.isExternalDragEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsAutoResizeEnabled_DefaultDisabled() {
+        assertFalse(VerticalTabUtils.isAutoResizeEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsAutoResizeEnabled_EnabledViaOverride() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                VerticalTabUtils.AUTO_RESIZE_PARAM,
+                /* testValue= */ true);
+        assertTrue(VerticalTabUtils.isAutoResizeEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsGroupHoverCardEnabled_DefaultDisabled() {
+        assertFalse(VerticalTabUtils.isGroupHoverCardEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsGroupHoverCardEnabled_EnabledViaOverride() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                VerticalTabUtils.GROUP_HOVER_CARD_PARAM,
+                /* testValue= */ true);
+        assertTrue(VerticalTabUtils.isGroupHoverCardEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsMultiSelectEnabled_DefaultDisabled() {
+        assertFalse(VerticalTabUtils.isMultiSelectEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsMultiSelectEnabled_EnabledViaOverride() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                VerticalTabUtils.MULTI_SELECT_PARAM,
+                /* testValue= */ true);
+        assertTrue(VerticalTabUtils.isMultiSelectEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsIncognitoButtonEnabled_DefaultDisabled() {
+        assertFalse(VerticalTabUtils.isIncognitoButtonEnabled());
+    }
+
+    @Test
+    @SmallTest
+    public void testIsIncognitoButtonEnabled_EnabledViaOverride() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                VerticalTabUtils.INCOGNITO_BUTTON_PARAM,
+                /* testValue= */ true);
+        assertTrue(VerticalTabUtils.isIncognitoButtonEnabled());
     }
 
     @Test
@@ -252,5 +318,29 @@ public class VerticalTabUtilsUnitTest {
 
         // Should respect preference (true).
         assertTrue(VerticalTabUtils.isVerticalTabsEnabled(mContext));
+    }
+
+    @Test
+    @SmallTest
+    @Config(qualifiers = "sw600dp")
+    public void testIsTablet_TrueOnTabletNonDesktop() {
+        DeviceInfo.setIsDesktopForTesting(false);
+        assertTrue(VerticalTabUtils.isTablet(mContext));
+    }
+
+    @Test
+    @SmallTest
+    @Config(qualifiers = "sw600dp")
+    public void testIsTablet_FalseOnDesktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        assertFalse(VerticalTabUtils.isTablet(mContext));
+    }
+
+    @Test
+    @SmallTest
+    @Config(qualifiers = "sw400dp")
+    public void testIsTablet_FalseOnPhone() {
+        DeviceInfo.setIsDesktopForTesting(false);
+        assertFalse(VerticalTabUtils.isTablet(mContext));
     }
 }

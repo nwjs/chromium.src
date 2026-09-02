@@ -21,6 +21,8 @@
 #include "media/gpu/windows/d3d12_video_processor_wrapper.h"
 #include "media/video/video_encode_accelerator.h"
 #include "third_party/abseil-cpp/absl/container/inlined_vector.h"
+#include "ui/gfx/geometry/rect.h"
+#include "ui/gfx/hdr_metadata.h"
 
 namespace media {
 
@@ -62,19 +64,25 @@ class MEDIA_GPU_EXPORT D3D12VideoEncodeDelegate {
       uint32_t framerate);
 
   // Do video processing if the input frame format or resolution is not
-  // expected and then call |EncodeImpl()|.
+  // expected and then call |EncodeImpl()|. |input_visible_rect| is the region
+  // of |picture_buffer| that holds picture content, i.e. the region that should
+  // be encoded. It must be non-empty and contained in |picture_buffer|; callers
+  // that do not crop pass the whole texture rather than an empty rectangle.
   virtual EncoderStatus::Or<EncodeResult> Encode(
       D3D12PictureBuffer picture_buffer,
+      const gfx::Rect& input_visible_rect,
       const gfx::ColorSpace& input_frame_color_space,
       const BitstreamBuffer& bitstream_buffer,
-      const VideoEncoder::EncodeOptions& options);
+      const VideoEncoder::EncodeOptions& options,
+      const gfx::HDRMetadata& input_frame_hdr_metadata = gfx::HDRMetadata());
 
   // Do the codec specific encoding.
   virtual EncoderStatus EncodeImpl(
       ID3D12Resource* input_frame,
       UINT input_frame_subresource,
       const VideoEncoder::EncodeOptions& options,
-      const gfx::ColorSpace& input_color_space) = 0;
+      const gfx::ColorSpace& input_color_space,
+      const gfx::HDRMetadata& input_hdr_metadata) = 0;
 
   uint8_t GetNumTemporalLayers() const;
 

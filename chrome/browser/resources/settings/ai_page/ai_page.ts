@@ -5,11 +5,10 @@
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import '../controls/settings_toggle_button.js';
 import '../settings_page/settings_section.js';
+import '../privacy_icons.html.js';
 // <if expr="_google_chrome">
 import '../internal/icons.html.js';
 
-import type {OnDeviceAiBrowserProxy, OnDeviceAiEnabled} from './on_device_ai_browser_proxy.js';
-import {OnDeviceAiBrowserProxyImpl} from './on_device_ai_browser_proxy.js';
 // </if>
 
 import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
@@ -28,6 +27,10 @@ import {SettingsViewMixin} from '../settings_page/settings_view_mixin.js';
 
 import {getTemplate} from './ai_page.html.js';
 import {FeatureOptInState, SettingsAiPageFeaturePrefName} from './constants.js';
+// <if expr="_google_chrome">
+import type {OnDeviceAiBrowserProxy, OnDeviceAiEnabled} from './on_device_ai_browser_proxy.js';
+import {OnDeviceAiBrowserProxyImpl} from './on_device_ai_browser_proxy.js';
+// </if>
 
 const SettingsAiPageElementBase =
     WebUiListenerMixin(SettingsViewMixin(PrefsMixin(PolymerElement)));
@@ -62,6 +65,11 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
         value: () => loadTimeData.getBoolean('showAiSuggestionsControl'),
       },
 
+      showInlineCueMenuControl_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('showInlineCueMenuControl'),
+      },
+
       showSkillsSettingPage_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('showSkillsSettingPage'),
@@ -76,6 +84,11 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
         type: Boolean,
         value: () =>
             loadTimeData.getBoolean('showGoogleSearchAiModeWorkspaceControl'),
+      },
+
+      showDictationControl_: {
+        type: Boolean,
+        value: () => loadTimeData.getBoolean('showDictationControl'),
       },
 
       // <if expr="_google_chrome">
@@ -100,9 +113,11 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
   declare private showHistorySearchControl_: boolean;
   declare private showPasswordChangeControl_: boolean;
   declare private showAiSuggestionsControl_: boolean;
+  declare private showInlineCueMenuControl_: boolean;
   declare private showSkillsSettingPage_: boolean;
   declare private showIndigoControl_: boolean;
   declare private showGoogleSearchAiModeWorkspaceControl_: boolean;
+  declare private showDictationControl_: boolean;
   // <if expr="_google_chrome">
   declare private showOnDeviceAiSettings_: boolean;
   declare private onDeviceAiPref_: chrome.settingsPrivate.PrefObject<boolean>;
@@ -187,6 +202,15 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
     router.navigateTo(router.getRoutes().AI_SUGGESTIONS);
   }
 
+  private onInlineCueMenuRowClick_() {
+    this.recordInteractionMetrics_(
+        AiPageInteractions.INLINE_CUE_MENU_CLICK,
+        'Settings.AiPage.InlineCueMenuEntryPointClick');
+
+    const router = Router.getInstance();
+    router.navigateTo(router.getRoutes().INLINE_CUE_MENU);
+  }
+
   private onSkillsRowClick_() {
     this.recordInteractionMetrics_(
         AiPageInteractions.SKILLS_CLICK,
@@ -194,6 +218,11 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
 
     const router = Router.getInstance();
     router.navigateTo(router.getRoutes().SKILLS);
+  }
+
+  private onDictationRowClick_() {
+    const router = Router.getInstance();
+    router.navigateTo(router.getRoutes().DICTATION);
   }
 
   private onIndigoRowClick_() {
@@ -303,8 +332,16 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
       map.set(routes.AI_SUGGESTIONS.path, '#aiSuggestionsRow');
     }
 
+    if (routes.INLINE_CUE_MENU) {
+      map.set(routes.INLINE_CUE_MENU.path, '#inlineCueMenuRow');
+    }
+
     if (routes.SKILLS) {
       map.set(routes.SKILLS.path, '#skillsRow');
+    }
+
+    if (routes.DICTATION) {
+      map.set(routes.DICTATION.path, '#dictationRow');
     }
 
     return map;
@@ -314,8 +351,10 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
   override getAssociatedControlFor(childViewId: string): HTMLElement {
     const ids = [
       'compose',
+      'dictation',
       'historySearch',
       'aiSuggestions',
+      'inlineCueMenu',
       'skills',
     ];
     assert(ids.includes(childViewId));
@@ -334,9 +373,17 @@ export class SettingsAiPageElement extends SettingsAiPageElementBase {
         assert(this.showAiSuggestionsControl_);
         triggerId = 'aiSuggestionsRow';
         break;
+      case 'inlineCueMenu':
+        assert(this.showInlineCueMenuControl_);
+        triggerId = 'inlineCueMenuRow';
+        break;
       case 'skills':
         assert(this.showSkillsSettingPage_);
         triggerId = 'skillsRow';
+        break;
+      case 'dictation':
+        assert(this.showDictationControl_);
+        triggerId = 'dictationRow';
         break;
       default:
         assertNotReached();

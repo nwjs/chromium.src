@@ -72,5 +72,4 @@ proto_extras("metrics_proto_with_extension_and_system_extras") {
   ]
   proto_in_dir = "//"
   deps = [ ":metrics_proto" ]
-  protobuf_full_support = true
 }

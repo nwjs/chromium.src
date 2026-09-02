@@ -27,7 +27,6 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/browser/supervised_user_utils.h"
 #import "ios/chrome/app/profile/first_run_profile_agent.h"
-#import "ios/chrome/browser/authentication/ui_bundled/signin_presenter.h"
 #import "ios/chrome/browser/bookmarks/model/bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/ui_bundled/home/bookmarks_coordinator.h"
 #import "ios/chrome/browser/bring_android_tabs/model/bring_android_tabs_to_ios_service.h"
@@ -69,8 +68,9 @@
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/browser_layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -186,7 +186,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                                   InactiveTabsCoordinatorDelegate,
                                   SceneStateObserver,
                                   SendTabToSelfCoordinatorDelegate,
-                                  SigninPresenter,
                                   TabContextMenuDelegate,
                                   TabGridCommands,
                                   TabGridTransitionLayoutProviding,
@@ -284,6 +283,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 
   // The presenter for the pin tab IPH bubble.
   BubbleViewControllerPresenter* _pinTabBubblePresenter;
+
+  // The presenter for the create tab group IPH bubble.
+  BubbleViewControllerPresenter* _createTabGroupBubblePresenter;
 
   // The view controller for the Tab Grid, defined manually so that the type can
   // be specified.
@@ -787,7 +789,7 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
                  browserLayoutGuideCenter:LayoutGuideCenterForBrowser(browser)
                       isRegularBrowserNTP:isRegularBrowserNTP
                                 incognito:isIncognito
-                              layoutState:sceneState.layoutState];
+                       browserLayoutState:browser->GetBrowserLayoutState()];
     }
   } else {
     self.transitionHandler = [[TabGridTransitionHandler alloc]
@@ -1196,6 +1198,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [_pinTabBubblePresenter dismissAnimated:NO];
   _pinTabBubblePresenter = nil;
 
+  [_createTabGroupBubblePresenter dismissAnimated:NO];
+  _createTabGroupBubblePresenter = nil;
+
   [_toolbarsCoordinator stop];
   _toolbarsCoordinator = nil;
 
@@ -1366,6 +1371,10 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self dismissActionSheetCoordinator];
   [self.sharingCoordinator stop];
   self.sharingCoordinator = nil;
+  [self.sendTabToSelfCoordinator stop];
+  self.sendTabToSelfCoordinator = nil;
+  [self.pageActionMenuCoordinator stop];
+  self.pageActionMenuCoordinator = nil;
 }
 
 #pragma mark - GridCoordinatorAudience
@@ -1388,8 +1397,13 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 }
 
 - (BOOL)tabGridIsUserEligibleForSwipeToIncognitoIPH {
-  return _pageConfiguration == TabGridPageConfiguration::kAllPagesEnabled &&
-         IsFirstRunRecent(base::Days(60)) &&
+  if (_pageConfiguration != TabGridPageConfiguration::kAllPagesEnabled) {
+    return NO;
+  }
+  if (IsLevelUpEnabled() && _viewController.shouldShowSwipeToIncognitoIPH) {
+    return YES;
+  }
+  return IsFirstRunRecent(base::Days(60)) &&
          feature_engagement::TrackerFactory::GetForProfile(
              self.regularBrowser->GetProfile())
              ->WouldTriggerHelpUI(
@@ -1397,6 +1411,9 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
 }
 
 - (BOOL)tabGridShouldPresentSwipeToIncognitoIPH {
+  if (IsLevelUpEnabled() && _viewController.shouldShowSwipeToIncognitoIPH) {
+    return YES;
+  }
   return feature_engagement::TrackerFactory::GetForProfile(
              self.regularBrowser->GetProfile())
       ->ShouldTriggerHelpUI(
@@ -1537,55 +1554,13 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [self.sharingCoordinator start];
 }
 
-- (void)sendTabToSelfWithIdentifier:(web::WebStateID)identifier {
-  Browser* browser = self.regularBrowser;
-  if (!browser) {
-    return;
-  }
-  WebStateList* webStateList = browser->GetWebStateList();
-  web::WebState* webState = GetWebState(
-      webStateList, WebStateSearchCriteria{.identifier = identifier});
-  if (!webState) {
-    return;
-  }
-  const GURL& url = webState->GetVisibleURL();
-  NSString* title = base::SysUTF16ToNSString(webState->GetTitle());
-
-  [self.sendTabToSelfCoordinator stop];
-  self.sendTabToSelfCoordinator = [[SendTabToSelfCoordinator alloc]
-      initWithBaseViewController:_viewController
-                         browser:self.regularBrowser
-                 signinPresenter:self
-                             url:url
-                           title:title
-                      entryPoint:send_tab_to_self::ShareEntryPoint::kTabMenu];
-  self.sendTabToSelfCoordinator.delegate = self;
-
-  // Postpone the start of the coordinator to allow the context menu dismissal
-  // animation to complete cleanly and prevent a UIKit transition deadlock.
-  __weak TabGridCoordinator* weakSelf = self;
-  ExecuteWhenTransitionsComplete(
-      ^{
-        [weakSelf.sendTabToSelfCoordinator start];
-      },
-      _viewController);
+- (void)removeSessionAtTableSectionWithIdentifier:(NSInteger)sectionIdentifier {
+  NOTREACHED();
 }
 
-#pragma mark - SendTabToSelfCoordinatorDelegate
-
-- (void)sendTabToSelfCoordinatorWantsToBeStopped:
-    (SendTabToSelfCoordinator*)coordinator {
-  DCHECK_EQ(coordinator, self.sendTabToSelfCoordinator);
-  [self.sendTabToSelfCoordinator stop];
-  self.sendTabToSelfCoordinator = nil;
-}
-
-#pragma mark - SigninPresenter
-
-- (void)showSignin:(ShowSigninCommand*)command {
-  id<SceneCommands> handler =
-      HandlerForProtocol(self.dispatcher, SceneCommands);
-  [handler showSignin:command baseViewController:_viewController];
+- (synced_sessions::DistantSession const*)sessionForTableSectionWithIdentifier:
+    (NSInteger)sectionIdentifier {
+  NOTREACHED();
 }
 
 - (void)addToReadingListURL:(const GURL&)URL title:(NSString*)title {
@@ -1613,6 +1588,12 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   base::RecordAction(base::UserMetricsAction(
       "MobileTabGridOpenedBookmarkEditorForExistingBookmark"));
   [self.bookmarksCoordinator presentBookmarkEditorForURL:URL];
+}
+
+- (void)selectTabs {
+  base::RecordAction(
+      base::UserMetricsAction("MobileTabGridTabContextMenuSelectTabs"));
+  [self setActiveMode:TabGridMode::kSelection];
 }
 
 - (void)pinTabWithIdentifier:(web::WebStateID)identifier {
@@ -1721,20 +1702,46 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   [tabGroupsHandler showRecentActivityForGroup:tabGroup];
 }
 
-- (void)selectTabs {
-  base::RecordAction(
-      base::UserMetricsAction("MobileTabGridTabContextMenuSelectTabs"));
-  [self setActiveMode:TabGridMode::kSelection];
+- (void)sendTabToSelfWithIdentifier:(web::WebStateID)identifier {
+  Browser* browser = self.regularBrowser;
+  if (!browser) {
+    return;
+  }
+  WebStateList* webStateList = browser->GetWebStateList();
+  web::WebState* webState = GetWebState(
+      webStateList, WebStateSearchCriteria{.identifier = identifier});
+  if (!webState) {
+    return;
+  }
+  const GURL& url = webState->GetVisibleURL();
+  NSString* title = base::SysUTF16ToNSString(webState->GetTitle());
+
+  [self.sendTabToSelfCoordinator stop];
+  self.sendTabToSelfCoordinator = [[SendTabToSelfCoordinator alloc]
+      initWithBaseViewController:_viewController
+                         browser:self.regularBrowser
+                             url:url
+                           title:title
+                      entryPoint:send_tab_to_self::ShareEntryPoint::kTabMenu];
+  self.sendTabToSelfCoordinator.delegate = self;
+
+  // Postpone the start of the coordinator to allow the context menu dismissal
+  // animation to complete cleanly and prevent a UIKit transition deadlock.
+  __weak TabGridCoordinator* weakSelf = self;
+  ExecuteWhenTransitionsComplete(
+      ^{
+        [weakSelf.sendTabToSelfCoordinator start];
+      },
+      _viewController);
 }
 
-- (void)removeSessionAtTableSectionWithIdentifier:(NSInteger)sectionIdentifier {
-  NOTREACHED(base::NotFatalUntil::M142);
-}
+#pragma mark - SendTabToSelfCoordinatorDelegate
 
-- (synced_sessions::DistantSession const*)sessionForTableSectionWithIdentifier:
-    (NSInteger)sectionIdentifier {
-  NOTREACHED(base::NotFatalUntil::M142);
-  return nullptr;
+- (void)sendTabToSelfCoordinatorWantsToBeStopped:
+    (SendTabToSelfCoordinator*)coordinator {
+  DCHECK_EQ(coordinator, self.sendTabToSelfCoordinator);
+  [self.sendTabToSelfCoordinator stop];
+  self.sendTabToSelfCoordinator = nil;
 }
 
 #pragma mark - SceneStateObserver
@@ -1952,6 +1959,64 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   _pinTabBubblePresenter = presenter;
 }
 
+- (void)presentCreateTabGroupBubble {
+  if (!IsLevelUpEnabled()) {
+    return;
+  }
+
+  NSString* title = l10n_util::GetNSString(
+      IDS_IOS_FIRST_RUN_GUIDED_TOUR_TAB_GRID_LONG_PRESS_IPH_TITLE);
+  NSString* text = l10n_util::GetNSString(
+      IDS_IOS_FIRST_RUN_GUIDED_TOUR_TAB_GRID_LONG_PRESS_IPH_TEXT);
+  UIView* anchorView = [LayoutGuideCenterForBrowser(self.regularBrowser)
+      referencedViewUnderName:kSelectedRegularCellGuide];
+  if (!anchorView) {
+    return;
+  }
+
+  CGFloat anchorPointX = CGRectGetMidX(anchorView.frame);
+  CGFloat anchorPointY = 0.0;
+  BubbleArrowDirection direction = BubbleArrowDirectionUp;
+
+  CGRect anchorFrameInViewController =
+      [anchorView convertRect:[anchorView bounds] toView:_viewController.view];
+  if (CGRectGetMidY(anchorFrameInViewController) >
+      CGRectGetMidY(_viewController.view.bounds)) {
+    direction = BubbleArrowDirectionDown;
+    anchorPointY = CGRectGetMinY(anchorView.frame);
+  } else {
+    direction = BubbleArrowDirectionUp;
+    anchorPointY = CGRectGetMaxY(anchorView.frame);
+  }
+
+  CGPoint anchorPoint = CGPointMake(anchorPointX, anchorPointY);
+  anchorPoint = [anchorView.superview convertPoint:anchorPoint toView:nil];
+
+  BubbleViewControllerPresenter* presenter =
+      [[BubbleViewControllerPresenter alloc]
+               initWithText:text
+                      title:title
+             arrowDirection:direction
+                  alignment:BubbleAlignmentCenter
+                 bubbleType:BubbleViewTypeDefault
+            pageControlPage:BubblePageControlPageNone
+          dismissalCallback:nil];
+  if (![presenter canPresentInView:_viewController.view
+                       anchorPoint:anchorPoint]) {
+    return;
+  }
+  [presenter presentInViewController:_viewController anchorPoint:anchorPoint];
+  _createTabGroupBubblePresenter = presenter;
+}
+
+- (void)showSwipeToIncognitoIPH {
+  if (!IsLevelUpEnabled()) {
+    return;
+  }
+  _viewController.shouldShowSwipeToIncognitoIPH = YES;
+  [_viewController maybeShowSwipeToIncognitoIPH];
+}
+
 - (void)showPageActionMenuFromTabGrid {
   Browser* browser = self.regularBrowser;
   if (!browser) {
@@ -1970,8 +2035,6 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   self.pageActionMenuCoordinator = [[PageActionMenuCoordinator alloc]
       initWithBaseViewController:_viewController
                          browser:browser];
-  self.pageActionMenuCoordinator.pageActionMenuHandler = HandlerForProtocol(
-      self.regularBrowser->GetCommandDispatcher(), PageActionMenuCommands);
   [self.pageActionMenuCoordinator start];
 }
 

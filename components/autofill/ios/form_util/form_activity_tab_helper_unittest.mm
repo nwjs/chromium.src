@@ -162,7 +162,8 @@ class FormActivityTabHelperTest : public AutofillTestWithWebState {
     FormActivityParams expected_activity_params;
     expected_activity_params.frame_id = WaitForMainFrame()->GetFrameId();
     expected_activity_params.is_main_frame = true;
-    expected_activity_params.type = "form_changed";
+    expected_activity_params.type =
+        FormActivityParams::ActivityType::kFormChanged;
 
     EXPECT_EQ(params, expected_activity_params);
   }
@@ -202,6 +203,9 @@ TEST_F(FormActivityTabHelperTest, TestPasswordSymbolSetOnNewElement) {
   // will set the attribute correctly.
   ExecuteJavaScript(
       @"document.body.innerHTML = '<input type=\"password\" id=\"pw\"/>';");
+  ExecuteJavaScript(
+      @"__gCrWeb.getRegisteredApi('autofill').getFunction('extractForms')("
+      @"false);");
 
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
     return [GetHasBeenPasswordForElement(@"pw") isEqual:@YES];
@@ -225,6 +229,9 @@ TEST_F(FormActivityTabHelperTest, TestPasswordSymbolSetOnTypeChange) {
 
   FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
       main_frame, /*mutation_tracking_delay=*/200);
+  ExecuteJavaScript(
+      @"__gCrWeb.getRegisteredApi('autofill').getFunction('extractForms')("
+      @"false);");
 
   // Loading the page should have set the attribute since the input is a
   // password.
@@ -258,6 +265,9 @@ TEST_F(FormActivityTabHelperTest, TestPasswordSymbolFeatureDisabled) {
 
   FormHandlersJavaScriptFeature::GetInstance()->TrackFormMutations(
       main_frame, /*mutation_tracking_delay=*/200);
+  ExecuteJavaScript(
+      @"__gCrWeb.getRegisteredApi('autofill').getFunction('extractForms')("
+      @"false);");
 
   // The Has Been Password symbol is not set since the feature is disabled
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForJSCompletionTimeout, ^bool {
@@ -343,8 +353,10 @@ TEST_F(FormActivityTabHelperTest,
             observer_->form_activity_info()->sender_frame_id);
   EXPECT_EQ("form-name",
             observer_->form_activity_info()->form_activity.form_name);
-  EXPECT_EQ("text", observer_->form_activity_info()->form_activity.field_type);
-  EXPECT_EQ("focus", observer_->form_activity_info()->form_activity.type);
+  EXPECT_EQ(FormActivityParams::FieldType::kText,
+            observer_->form_activity_info()->form_activity.field_type);
+  EXPECT_EQ(FormActivityParams::ActivityType::kFocus,
+            observer_->form_activity_info()->form_activity.type);
   EXPECT_EQ("", observer_->form_activity_info()->form_activity.value);
   EXPECT_TRUE(observer_->form_activity_info()->form_activity.is_main_frame);
   EXPECT_TRUE(observer_->form_activity_info()->form_activity.has_user_gesture);
@@ -382,7 +394,7 @@ TEST_F(FormActivityTabHelperTest, FocusMainFrame) {
   }));
   TestFormActivityInfo* info = observer_->form_activity_info();
   ASSERT_TRUE(info);
-  EXPECT_EQ("focus", info->form_activity.type);
+  EXPECT_EQ(FormActivityParams::ActivityType::kFocus, info->form_activity.type);
   EXPECT_FALSE(info->form_activity.input_missing);
 }
 
@@ -408,7 +420,7 @@ TEST_F(FormActivityTabHelperTest, FocusSameOriginIFrame) {
   }));
   TestFormActivityInfo* info = observer_->form_activity_info();
   ASSERT_TRUE(info);
-  EXPECT_EQ("focus", info->form_activity.type);
+  EXPECT_EQ(FormActivityParams::ActivityType::kFocus, info->form_activity.type);
   EXPECT_FALSE(info->form_activity.input_missing);
 }
 

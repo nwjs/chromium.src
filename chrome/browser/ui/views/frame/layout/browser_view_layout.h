@@ -16,7 +16,7 @@
 #include "ui/views/layout/layout_manager.h"
 
 class BookmarkBarView;
-class Browser;
+class BrowserWindowInterface;
 class BrowserViewLayoutDelegate;
 class InfoBarContainerView;
 class MultiContentsView;
@@ -75,7 +75,6 @@ struct BrowserViewLayoutViews {
   raw_ptr<OrganizerPanelView> organizer_panel_container = nullptr;
   raw_ptr<views::View> toolbar = nullptr;
   raw_ptr<InfoBarContainerView> infobar_container = nullptr;
-  raw_ptr<views::View> contents_container = nullptr;
   raw_ptr<MultiContentsView> multi_contents_view = nullptr;
   raw_ptr<SidePanel> side_panel = nullptr;
   raw_ptr<views::View> side_panel_animation_content = nullptr;
@@ -121,7 +120,7 @@ class BrowserViewLayout : public views::LayoutManager {
   // etc.
   static std::unique_ptr<BrowserViewLayout> CreateLayout(
       std::unique_ptr<BrowserViewLayoutDelegate> delegate,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       BrowserViewLayoutViews views);
 
   // Sets or updates views that are not available when |this| is initialized.
@@ -147,22 +146,13 @@ class BrowserViewLayout : public views::LayoutManager {
   // Used by BrowserView.
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost();
 
-  // Test-only methods.
-
-  // Returns the minimum acceptable width for the browser web contents.
-  void SetDelegateForTesting(
-      std::unique_ptr<BrowserViewLayoutDelegate> delegate);
-
  protected:
   // |browser| may be null in tests.
   BrowserViewLayout(std::unique_ptr<BrowserViewLayoutDelegate> delegate,
-                    Browser* browser,
                     BrowserViewLayoutViews views);
 
   const BrowserViewLayoutViews& views() const { return views_; }
 
-  Browser* browser() { return browser_; }
-  const Browser* browser() const { return browser_; }
   BrowserViewLayoutDelegate& delegate() { return *delegate_; }
   const BrowserViewLayoutDelegate& delegate() const { return *delegate_; }
 
@@ -178,9 +168,6 @@ class BrowserViewLayout : public views::LayoutManager {
 
   // The delegate interface. May be a mock or replaced in tests.
   std::unique_ptr<BrowserViewLayoutDelegate> delegate_;
-
-  // The owning browser view.
-  const raw_ptr<Browser> browser_;
 
   // The collection of Views associated with the browser.
   BrowserViewLayoutViews views_;

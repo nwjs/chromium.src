@@ -21,7 +21,6 @@
 #include "chrome/browser/ash/crostini/crostini_features.h"
 #include "chrome/browser/ash/crostini/crostini_pref_names.h"
 #include "chrome/browser/ash/dbus/service_util.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_features.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -119,13 +118,6 @@ void ChromeFeaturesServiceProvider::Start(
       chromeos::kChromeFeaturesServiceInterface,
       chromeos::kChromeFeaturesServiceIsCrostiniEnabledMethod,
       base::BindRepeating(&ChromeFeaturesServiceProvider::IsCrostiniEnabled,
-                          weak_ptr_factory_.GetWeakPtr()),
-      base::BindOnce(&ChromeFeaturesServiceProvider::OnExported,
-                     weak_ptr_factory_.GetWeakPtr()));
-  exported_object->ExportMethod(
-      chromeos::kChromeFeaturesServiceInterface,
-      chromeos::kChromeFeaturesServiceIsPluginVmEnabledMethod,
-      base::BindRepeating(&ChromeFeaturesServiceProvider::IsPluginVmEnabled,
                           weak_ptr_factory_.GetWeakPtr()),
       base::BindOnce(&ChromeFeaturesServiceProvider::OnExported,
                      weak_ptr_factory_.GetWeakPtr()));
@@ -420,18 +412,6 @@ void ChromeFeaturesServiceProvider::IsCryptohomeUserDataAuthKillswitchEnabled(
                    ash::features::kCryptohomeUserDataAuthKillswitch));
 }
 
-void ChromeFeaturesServiceProvider::IsPluginVmEnabled(
-    dbus::MethodCall* method_call,
-    dbus::ExportedObject::ResponseSender response_sender) {
-  Profile* profile = GetSenderProfile(method_call, &response_sender);
-  if (!profile)
-    return;
-
-  std::string reason;
-  bool answer = plugin_vm::PluginVmFeatures::Get()->IsAllowed(profile, &reason);
-  SendResponse(method_call, std::move(response_sender), answer, reason);
-}
-
 void ChromeFeaturesServiceProvider::IsVmManagementCliAllowed(
     dbus::MethodCall* method_call,
     dbus::ExportedObject::ResponseSender response_sender) {
@@ -463,11 +443,11 @@ void ChromeFeaturesServiceProvider::IsPeripheralDataAccessEnabled(
                peripheral_data_access_enabled);
 }
 
+// TODO(b/356234634): Remove method as the flag is removed to always returns true.
 void ChromeFeaturesServiceProvider::IsDnsProxyEnabled(
     dbus::MethodCall* method_call,
     dbus::ExportedObject::ResponseSender response_sender) {
-  SendResponse(method_call, std::move(response_sender),
-               !base::FeatureList::IsEnabled(features::kDisableDnsProxy));
+  SendResponse(method_call, std::move(response_sender), true);
 }
 
 void ChromeFeaturesServiceProvider::IsRootNsDnsProxyEnabled(

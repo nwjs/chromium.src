@@ -98,6 +98,7 @@ public class AtMemoryFlyoutView extends LinearLayout {
         }
 
         mChipsFlow.setReferencedIds(toIntArray(chipViewIds));
+        mChipsContainer.setVisibility(chipViewIds.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private void resetViews() {
@@ -156,6 +157,8 @@ public class AtMemoryFlyoutView extends LinearLayout {
         chip.setId(View.generateViewId());
 
         TextView primaryTextView = chip.getPrimaryTextView();
+        primaryTextView.setMaxLines(2);
+        primaryTextView.setEllipsize(TextUtils.TruncateAt.END);
         primaryTextView.setText(suggestion.getLabel());
 
         TextView secondaryTextView = chip.getSecondaryTextView();

@@ -75,6 +75,10 @@ GeminiPageContextAttachmentState GetCurrentPageContextAttachmentState() {
 
 void SwitchToMode(GeminiViewMode mode, bool animated) {}
 
+void SwitchToMode(GeminiViewMode mode,
+                  GeminiViewState target_state,
+                  bool animated) {}
+
 GeminiViewMode GetCurrentMode() {
   return GeminiViewMode::kUnknown;
 }
@@ -92,6 +96,10 @@ int GetLiveCaptionsNumberOfLines() {
 }
 
 void SetShouldShowSuggestionChips(bool should_show) {}
+
+void SetBlockQuerySubmissionWhileLoading(bool block_submission) {}
+
+void SetShowPageLoadingSnackbarOnOpeningInvocation(bool show_snackbar) {}
 
 void ShowAccountSnackbar() {}
 

@@ -343,6 +343,16 @@ void SingleThreadProxy::SetUnboundedFrameSink(
                                     local_surface_id);
 }
 
+void SingleThreadProxy::SetUnboundedFrameSinkId(
+    const viz::FrameSinkId& frame_sink_id,
+    const viz::LocalSurfaceId& local_surface_id) {
+  DCHECK(task_runner_provider_->IsMainThread());
+  DCHECK(layer_tree_host_->GetSettings().enable_unbounded_element);
+  CHECK(base::FeatureList::IsEnabled(features::kTreesInViz));
+  DebugScopedSetImplThread impl(task_runner_provider_);
+  host_impl_->SetUnboundedFrameSinkId(frame_sink_id, local_surface_id);
+}
+
 void SingleThreadProxy::DismissUnboundedFrameSink() {
   DCHECK(task_runner_provider_->IsMainThread());
   DCHECK(layer_tree_host_->GetSettings().enable_unbounded_element);
@@ -576,12 +586,13 @@ void SingleThreadProxy::SetNeedsPrepareTilesOnImplThread() {
 }
 
 void SingleThreadProxy::SetNeedsCommitOnImplThread(BeginMainFrameReason reason,
-                                                   bool urgent) {
+                                                   bool urgent,
+                                                   bool unthrottled) {
   DCHECK(!task_runner_provider_->HasImplThread() ||
          task_runner_provider_->IsImplThread());
   single_thread_delegate_->ScheduleAnimationForWebTests();
   if (scheduler_on_impl_thread_)
-    scheduler_on_impl_thread_->SetNeedsBeginMainFrame(urgent);
+    scheduler_on_impl_thread_->SetNeedsBeginMainFrame(urgent, unthrottled);
   commit_requested_ = true;
 }
 
@@ -710,7 +721,7 @@ void SingleThreadProxy::NotifyImageDecodeRequestFinished(
       IssueImageDecodeFinishedCallbacks();
     } else {
       SetNeedsCommitOnImplThread(BeginMainFrameReason::kOther,
-                                 /* urgent = */ false);
+                                 /* urgent = */ false, false);
     }
   }
 }

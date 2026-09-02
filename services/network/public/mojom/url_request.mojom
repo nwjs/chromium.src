@@ -401,16 +401,6 @@ struct URLRequest {
   // https://fetch.spec.whatwg.org/#request-keepalive-flag
   bool keepalive;
 
-  // True if the request should try to calculate and send the
-  // `Sec-Browsing-Topics` headers.
-  // https://github.com/patcg-individual-drafts/topics
-  bool browsing_topics;
-
-
-  // True if the request should send the `Sec-Shared-Storage-Writable` request
-  // header.
-  bool shared_storage_writable_eligible;
-
   // True if the request was user initiated.
   bool has_user_gesture;
 
@@ -453,6 +443,10 @@ struct URLRequest {
   // Some users, notably blink, has its own cache. This flag is set to exempt
   // some CORS logic for a revalidating request.
   bool is_revalidating;
+
+  // Metadata passed for safe revalidation handling in Network Service.
+  string? revalidation_etag;
+  string? revalidation_last_modified;
 
   // The profile ID of network conditions to throttle the network request.
   mojo_base.mojom.UnguessableToken? throttling_profile_id;

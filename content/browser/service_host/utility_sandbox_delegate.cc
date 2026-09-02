@@ -8,8 +8,8 @@
 
 #include "base/check.h"
 #include "build/build_config.h"
+#include "content/browser/sandboxed_process_launcher_delegate.h"
 #include "content/common/features.h"
-#include "content/public/browser/sandboxed_process_launcher_delegate.h"
 #include "content/public/common/zygote/zygote_buildflags.h"
 #include "media/gpu/buildflags.h"
 #include "sandbox/policy/mojom/sandbox.mojom.h"
@@ -60,13 +60,13 @@ UtilitySandboxedProcessLauncherDelegate::
       sandbox_type_ == sandbox::mojom::Sandbox::kPdfConversion ||
       sandbox_type_ == sandbox::mojom::Sandbox::kIconReader ||
       sandbox_type_ == sandbox::mojom::Sandbox::kMediaFoundationCdm ||
-      sandbox_type_ == sandbox::mojom::Sandbox::kWebNNModelCompilation ||
 #endif
 #if BUILDFLAG(IS_MAC)
       sandbox_type_ == sandbox::mojom::Sandbox::kMirroring ||
 #endif
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
       sandbox_type_ == sandbox::mojom::Sandbox::kProxyResolver ||
+      sandbox_type_ == sandbox::mojom::Sandbox::kWebNNModelCompilation ||
 #endif
       sandbox_type_ == sandbox::mojom::Sandbox::kUtility ||
       sandbox_type_ == sandbox::mojom::Sandbox::kService ||

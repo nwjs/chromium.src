@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Looper;
 import android.provider.Settings;
@@ -40,7 +41,6 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.TextView;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.preference.Preference;
@@ -82,7 +82,6 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.about_settings.AboutChromeSettings;
-import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment.AutofillSettingsReferrer;
 import org.chromium.chrome.browser.autofill.settings.AutofillPaymentMethodsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillProfilesFragment;
@@ -143,7 +142,6 @@ import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Stream;
 
 /** Test for {@link MainSettings}. Main purpose is to have a quick confidence check on the xml. */
 @RunWith(ChromeJUnit4ClassRunner.class)
@@ -213,10 +211,9 @@ public class MainSettingsFragmentTest {
 
         // Keep render tests consistent by suppressing "new" labels.
         final var prefs = ChromeSharedPreferences.getInstance();
-        Stream.of(
-                        ChromePreferenceKeys.ADDRESS_BAR_SETTINGS_VIEW_COUNT,
-                        ChromePreferenceKeys.APPEARANCE_SETTINGS_VIEW_COUNT)
-                .forEach(key -> prefs.writeInt(key, MainSettings.NEW_LABEL_MAX_VIEW_COUNT));
+        prefs.writeInt(
+                ChromePreferenceKeys.ADDRESS_BAR_SETTINGS_VIEW_COUNT,
+                MainSettings.NEW_LABEL_MAX_VIEW_COUNT);
 
         when(mSigninAndHistorySyncActivityLauncher
                         .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
@@ -408,7 +405,7 @@ public class MainSettingsFragmentTest {
         SigninFeatures.ENABLE_ACTIVITYLESS_SIGNIN_ALL_ENTRY_POINT
     })
     public void testSignInRowLaunchesSignInFlowForSignedOutAccounts_legacy() {
-        mSyncTestRule.addTestAccount();
+        mSyncTestRule.addAccount(TestAccounts.ACCOUNT1);
         startSettings();
 
         onView(withId(R.id.recycler_view))
@@ -420,7 +417,7 @@ public class MainSettingsFragmentTest {
                 ArgumentCaptor.forClass(BottomSheetSigninAndHistorySyncConfig.class);
         verify(mSigninAndHistorySyncActivityLauncher)
                 .createBottomSheetSigninIntentOrShowError(
-                        any(Activity.class),
+                        any(Context.class),
                         any(Profile.class),
                         configCaptor.capture(),
                         eq(SigninAccessPoint.SETTINGS));
@@ -562,7 +559,8 @@ public class MainSettingsFragmentTest {
     @SmallTest
     @EnableFeatures(
             ChromeFeatureList.HOME_BUTTON_REMOVAL
-                    + ":remove_home_button_everywhere/true/set_default_to_false_on_homepage_on_desktop/false")
+                    + ":remove_home_button_everywhere/true"
+                    + "/set_default_to_false_on_homepage_on_desktop/false")
     @DisableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
     public void testHomeButtonRemovalEnabled() {
         startSettings();
@@ -664,9 +662,8 @@ public class MainSettingsFragmentTest {
 
     @Test
     @SmallTest
-    public void
-            testAccountManagementRowForChildAccountWithNonDisplayableAccountEmailWithEmptyDisplayName()
-                    throws InterruptedException {
+    public void testAccountManagementRowForChildAccountWithNonDisplayableEmailWithEmptyDisplayName()
+            throws InterruptedException {
         startSettings();
 
         // Account set up.
@@ -885,16 +882,6 @@ public class MainSettingsFragmentTest {
                 .removeEntry(
                         MainSettings.SEARCH_INDEX_DATA_PROVIDER.getUniqueId(
                                 MainSettings.PREF_DEFAULT_BROWSER));
-    }
-
-    @Test
-    @SmallTest
-    public void testAppearanceSettingsNewLabel() {
-        testNewPreferenceLabel(
-                AppearanceSettingsFragment.class,
-                MainSettings.PREF_APPEARANCE,
-                ChromePreferenceKeys.APPEARANCE_SETTINGS_VIEW_COUNT,
-                R.string.appearance_settings);
     }
 
     @Test
@@ -1119,9 +1106,9 @@ public class MainSettingsFragmentTest {
     }
 
     private void testNewPreferenceLabel(
-            @NonNull Class prefFragmentClass,
-            @NonNull String prefKey,
-            @NonNull String viewCountPrefKey,
+            Class prefFragmentClass,
+            String prefKey,
+            String viewCountPrefKey,
             @StringRes int titleId) {
         // Set up.
         final var prefs = ChromeSharedPreferences.getInstance();

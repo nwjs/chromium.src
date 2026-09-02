@@ -385,12 +385,6 @@
       permissions_policy_name: "idle-detection",
     },
     {
-      name: "JoinAdInterestGroup",
-      permissions_policy_name: "join-ad-interest-group",
-      feature_default: "EnableForAll",
-      depends_on: ["AdInterestGroupAPI"],
-    },
-    {
       name: "KeyboardMap",
       permissions_policy_name: "keyboard-map",
     },
@@ -483,12 +477,6 @@
       feature_default: "EnableForAll",
     },
     {
-      name: "PrivateAggregation",
-      permissions_policy_name: "private-aggregation",
-      feature_default: "EnableForAll",
-      depends_on: ["SharedStorageAPI", "Fledge"],
-    },
-    {
       name: "PrivateStateTokenIssuance",
       permissions_policy_name: "private-state-token-issuance",
       feature_default: "EnableForAll",
@@ -503,21 +491,9 @@
       permissions_policy_name: "publickey-credentials-get",
     },
     {
-      name: "RecordAdAuctionEvents",
-      permissions_policy_name: "record-ad-auction-events",
-      feature_default: "EnableForAll",
-      depends_on: ["FledgeClickiness"],
-    },
-    {
       name: "Rewriter",
       permissions_policy_name: "rewriter",
       depends_on: ["AIRewriterAPI"],
-    },
-    {
-      name: "RunAdAuction",
-      permissions_policy_name: "run-ad-auction",
-      feature_default: "EnableForAll",
-      depends_on: ["AdInterestGroupAPI"],
     },
     {
       name: "ScreenWakeLock",
@@ -530,14 +506,16 @@
       depends_on: ["Serial"],
       privacy_sensitive: true,
     },
+    // Deprecated. TODO(crbug.com/462465887): Remove when no longer needed.
     {
-      name: "SharedStorage",
+      name: "Deprecated_SharedStorage",
       permissions_policy_name: "shared-storage",
       feature_default: "EnableForAll",
       depends_on: ["SharedStorageAPI"],
     },
+    // Deprecated. TODO(crbug.com/462465887): Remove when no longer needed.
     {
-      name: "SharedStorageSelectUrl",
+      name: "Deprecated_SharedStorageSelectUrl",
       permissions_policy_name: "shared-storage-select-url",
       feature_default: "EnableForAll",
       depends_on: ["SharedStorageAPI"],

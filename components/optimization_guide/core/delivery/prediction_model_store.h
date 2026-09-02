@@ -12,12 +12,17 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/values.h"
 #include "components/optimization_guide/core/delivery/model_enums.h"
+#include "components/optimization_guide/core/delivery/model_info.h"
 #include "components/optimization_guide/core/delivery/model_store_metadata_entry.h"
 #include "components/optimization_guide/proto/models.pb.h"
 
 class PrefService;
 
 namespace optimization_guide {
+
+// The prefix for the folder where models are stored by the new install-wide
+// model store.
+extern const base::FilePath::CharType kOptimizationGuideModelStoreDirPrefix[];
 
 // The new model store that manages the optimization guide prediction models.
 // The model store is a key-value store where the optimization target,
@@ -32,7 +37,7 @@ namespace optimization_guide {
 class PredictionModelStore {
  public:
   using PredictionModelLoadedCallback =
-      base::OnceCallback<void(std::unique_ptr<proto::PredictionModel>)>;
+      base::OnceCallback<void(std::optional<ModelInfo>)>;
 
   explicit PredictionModelStore(PrefService& local_state);
 
@@ -115,7 +120,7 @@ class PredictionModelStore {
   void OnModelLoaded(proto::OptimizationTarget optimization_target,
                      const ClientCacheKey& model_cache_key,
                      PredictionModelLoadedCallback callback,
-                     std::unique_ptr<proto::PredictionModel> model);
+                     std::optional<ModelInfo> model_info);
 
   // Invoked when the model files are verified on a model update.
   void OnModelUpdateVerified(proto::OptimizationTarget optimization_target,

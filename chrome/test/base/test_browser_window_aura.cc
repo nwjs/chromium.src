@@ -9,6 +9,7 @@
 
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "ui/aura/window.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/public/activation_client.h"
@@ -17,7 +18,7 @@ namespace chrome {
 
 std::unique_ptr<Browser> CreateBrowserWithAuraTestWindowForParams(
     std::unique_ptr<aura::Window> window,
-    Browser::CreateParams* params) {
+    BrowserWindowCreateParams params) {
   if (!window) {
     window = std::make_unique<aura::Window>(nullptr);
     window->SetId(0);
@@ -29,15 +30,15 @@ std::unique_ptr<Browser> CreateBrowserWithAuraTestWindowForParams(
       std::make_unique<TestBrowserWindowAura>(std::move(window));
 
   // Returned Browser takes ownership of `browser_window`.
-  return browser_window.release()->CreateBrowser(params);
+  return browser_window.release()->CreateBrowser(std::move(params));
 }
 
 std::unique_ptr<Browser> CreateBrowserWithViewsTestWindowForParams(
-    const Browser::CreateParams& params,
+    BrowserWindowCreateParams params,
     aura::Window* parent) {
   auto browser_window = std::make_unique<TestBrowserWindowViews>(parent);
   // Returned Browser takes ownership of `browser_window`.
-  return browser_window.release()->CreateBrowser(params);
+  return browser_window.release()->CreateBrowser(std::move(params));
 }
 
 }  // namespace chrome
@@ -92,10 +93,11 @@ gfx::Rect TestBrowserWindowAura::GetBounds() const {
 }
 
 std::unique_ptr<Browser> TestBrowserWindowAura::CreateBrowser(
-    Browser::CreateParams* params) {
+    BrowserWindowCreateParams params) {
   // Resulting Browser owns `this`.
-  params->window = this;
-  auto browser = Browser::DeprecatedCreateOwnedForTesting(*params);
+  params.window = this;
+  auto browser =
+      DeprecatedCreateOwnedBrowserWindowForTesting(std::move(params));
   browser_ = browser.get();
   return browser;
 }
@@ -141,11 +143,11 @@ gfx::Rect TestBrowserWindowViews::GetBounds() const {
 }
 
 std::unique_ptr<Browser> TestBrowserWindowViews::CreateBrowser(
-    const Browser::CreateParams& params) {
-  Browser::CreateParams params_copy = params;
+    BrowserWindowCreateParams params) {
   // Resulting Browser owns `this`.
-  params_copy.window = this;
-  auto browser = Browser::DeprecatedCreateOwnedForTesting(params_copy);
+  params.window = this;
+  auto browser =
+      DeprecatedCreateOwnedBrowserWindowForTesting(std::move(params));
   browser_ = browser.get();
   return browser;
 }

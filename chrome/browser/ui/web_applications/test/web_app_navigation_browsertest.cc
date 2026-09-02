@@ -24,8 +24,8 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
-#include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
+#include "chrome/browser/web_applications/web_app_origin_association_manager.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -313,32 +313,33 @@ Browser* WebAppNavigationBrowserTest::OpenTestWebApp() {
   return app_browser;
 }
 
-void WebAppNavigationBrowserTest::NavigateToLaunchingPage(Browser* browser) {
+void WebAppNavigationBrowserTest::NavigateToLaunchingPage(
+    BrowserWindowInterface* browser) {
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser, embedded_https_test_server().GetURL(GetLaunchingPageHost(),
                                                    GetLaunchingPagePath())));
 }
 
 bool WebAppNavigationBrowserTest::ExpectLinkClickNotCapturedIntoAppBrowser(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const GURL& target_url,
     const std::string& rel) {
   content::WebContents* initial_tab =
-      browser->tab_strip_model()->GetActiveWebContents();
-  int num_tabs = browser->tab_strip_model()->count();
+      browser->GetTabStripModel()->GetActiveWebContents();
+  int num_tabs = browser->GetTabStripModel()->count();
   size_t num_browsers =
       ProfileBrowserCollection::GetForProfile(browser->GetProfile())->GetSize();
 
-  ClickLinkAndWait(browser->tab_strip_model()->GetActiveWebContents(),
+  ClickLinkAndWait(browser->GetTabStripModel()->GetActiveWebContents(),
                    target_url, LinkTarget::SELF, rel);
 
-  EXPECT_EQ(num_tabs, browser->tab_strip_model()->count());
+  EXPECT_EQ(num_tabs, browser->GetTabStripModel()->count());
   EXPECT_EQ(num_browsers,
             ProfileBrowserCollection::GetForProfile(browser->GetProfile())
                 ->GetSize());
   EXPECT_EQ(browser,
             GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser());
-  EXPECT_EQ(initial_tab, browser->tab_strip_model()->GetActiveWebContents());
+  EXPECT_EQ(initial_tab, browser->GetTabStripModel()->GetActiveWebContents());
   EXPECT_EQ(target_url, initial_tab->GetLastCommittedURL());
 
   return !HasFailure();

@@ -10,6 +10,7 @@
 #include "base/i18n/icu_util.h"
 #include "base/i18n/icubridge/icu_bridge.h"
 #include "base/i18n/language_tag.h"
+#include "base/i18n/rtl.h"
 #include "base/i18n/tag_converters.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/icu_test_util.h"
@@ -629,6 +630,28 @@ TEST_F(DateTimeFormatterTest, HourClockType) {
       datetime_options::T::Short().with_hour_clock_type(base::k24HourClock));
   EXPECT_NE(result24.find(u"22:30"), std::u16string::npos);
   EXPECT_EQ(result24.find(u"PM"), std::u16string::npos);
+
+  // Overriding hour clock type on a pattern that contains date fields, e.g.
+  // YMDT. en-US normally uses 12-hour clock for YMDT. Let's verify we can
+  // override to 24-hour.
+  std::u16string result_ymdt24 =
+      formatter.Format(time, GetKnownLanguageTag("en-US"),
+                       datetime_options::YMDT::Medium().with_hour_clock_type(
+                           base::k24HourClock));
+  EXPECT_NE(result_ymdt24.find(u"22:30:00"), std::u16string::npos);
+  EXPECT_EQ(result_ymdt24.find(u"PM"), std::u16string::npos);
+
+  // en-GB normally uses 24-hour clock for YMDT. Let's verify we can override to
+  // 12-hour.
+  std::u16string result_ymdt12 =
+      formatter.Format(time, GetKnownLanguageTag("en-GB"),
+                       datetime_options::YMDT::Medium().with_hour_clock_type(
+                           base::k12HourClock));
+  EXPECT_NE(result_ymdt12.find(u"10:30:00"), std::u16string::npos);
+  EXPECT_TRUE(result_ymdt12.find(u"pm") != std::u16string::npos ||
+              result_ymdt12.find(u"PM") != std::u16string::npos ||
+              result_ymdt12.find(u"p.m.") != std::u16string::npos ||
+              result_ymdt12.find(u"P.M.") != std::u16string::npos);
 }
 
 TEST_F(DateTimeFormatterTest, AmPmClockType) {
@@ -1647,6 +1670,95 @@ TEST_F(DateTimeFormatterTest, MD_AllChromiumPlatformLocales) {
                                    datetime_options::MD::Medium(),
                                    datetime_options::MD::Long()},
                        .expectations = expectations}});
+}
+
+TEST_F(DateTimeFormatterTest, GetHourClockType) {
+  const IcuBridge::DateTimeFormatter& formatter =
+      IcuBridge::GetInstance().date_time_formatter();
+
+  // Test zero-argument version (which checks default locale) under different
+  // default locales.
+  test::ScopedRestoreICUDefaultLocale restore_locale;
+
+  i18n::SetICUDefaultLocale("en-US");
+  EXPECT_EQ(base::k12HourClock, formatter.GetHourClockType());
+
+  i18n::SetICUDefaultLocale("en-GB");
+  EXPECT_EQ(base::k24HourClock, formatter.GetHourClockType());
+
+  i18n::SetICUDefaultLocale("ar-EG");
+  EXPECT_EQ(base::k12HourClock, formatter.GetHourClockType());
+
+  i18n::SetICUDefaultLocale("fa-IR");
+  EXPECT_EQ(base::k24HourClock, formatter.GetHourClockType());
+}
+
+TEST_F(DateTimeFormatterTest, E_AllChromiumPlatformLocales) {
+  std::vector<ExactMatchTestEntry::Expectation> expectations = {
+      {"af", {u"D", u"Di.", u"Dinsdag"}},
+      {"am", {u"ማ", u"ማክሰ", u"ማክሰኞ"}},
+      {"ar", {u"ث", u"الثلاثاء", u"الثلاثاء"}},
+      {"ar-XB", {u"ث", u"الثلاثاء", u"الثلاثاء"}},
+      {"bg", {u"в", u"вт", u"вторник"}},
+      {"bn", {u"ম", u"মঙ্গল", u"মঙ্গলবার"}},
+      {"ca", {u"dt.", u"dt.", u"dimarts"}},
+      {"cs", {u"Ú", u"út", u"úterý"}},
+      {"da", {u"T", u"tirs.", u"tirsdag"}},
+      {"de", {u"D", u"Di", u"Dienstag"}},
+      {"el", {u"Τ", u"Τρί", u"Τρίτη"}},
+      {"en-GB", {u"T", u"Tue", u"Tuesday"}},
+      {"en-US", {u"T", u"Tue", u"Tuesday"}},
+      {"en-XA", {u"T", u"Tue", u"Tuesday"}},
+      {"es", {u"M", u"mar", u"martes"}},
+      {"es-419", {u"M", u"mar", u"martes"}},
+      {"et", {u"T", u"T", u"teisipäev"}},
+      {"fa", {u"س", u"سه\u200Cشنبه", u"سه\u200Cشنبه"}},
+      {"fi", {u"T", u"ti", u"tiistai"}},
+      {"fil", {u"Mar", u"Mar", u"Martes"}},
+      {"fr", {u"M", u"mar.", u"mardi"}},
+      {"gu", {u"મં", u"મંગળ", u"મંગળવાર"}},
+      {"he", {u"ג׳", u"יום ג׳", u"יום שלישי"}},
+      {"hi", {u"मं", u"मंगल", u"मंगलवार"}},
+      {"hr", {u"u", u"uto", u"utorak"}},
+      {"hu", {u"K", u"K", u"kedd"}},
+      {"id", {u"S", u"Sel", u"Selasa"}},
+      {"it", {u"M", u"mar", u"martedì"}},
+      {"ja", {u"火", u"火", u"火曜日"}},
+      {"kn", {u"ಮಂ", u"ಮಂಗಳ", u"ಮಂಗಳವಾರ"}},
+      {"ko", {u"화", u"화", u"화요일"}},
+      {"lt", {u"A", u"an", u"antradienis"}},
+      {"lv", {u"O", u"Otrd.", u"Otrdiena"}},
+      {"ml", {u"ചൊ", u"ചൊവ്വ", u"ചൊവ്വാഴ്\u200Cച"}},
+      {"mr", {u"मं", u"मंगळ", u"मंगळवार"}},
+      {"ms", {u"S", u"Sel", u"Selasa"}},
+      {"nb", {u"T", u"tir.", u"tirsdag"}},
+      {"nl", {u"D", u"di", u"dinsdag"}},
+      {"pl", {u"W", u"wt.", u"wtorek"}},
+      {"pt-BR", {u"T", u"ter.", u"terça-feira"}},
+      {"pt-PT", {u"T", u"terça", u"terça-feira"}},
+      {"ro", {u"M", u"mar.", u"marți"}},
+      {"ru", {u"В", u"вт", u"вторник"}},
+      {"sl", {u"t", u"tor.", u"torek"}},
+      {"sr", {u"у", u"уто", u"уторак"}},
+      {"sv", {u"T", u"tis", u"tisdag"}},
+      {"sw", {u"T", u"Jumanne", u"Jumanne"}},
+      {"ta", {u"செ", u"செவ்.", u"செவ்வாய்"}},
+      {"te", {u"మ", u"మంగళ", u"మంగళవారం"}},
+      {"th", {u"อ", u"อังคาร", u"วันอังคาร"}},
+      {"tr", {u"S", u"Sal", u"Salı"}},
+      {"uk", {u"В", u"вт", u"вівторок"}},
+      {"ur", {u"T", u"منگل", u"منگل"}},
+      {"vi", {u"T3", u"Thứ 3", u"Thứ Ba"}},
+      {"zh-CN", {u"二", u"周二", u"星期二"}},
+      {"zh-TW", {u"二", u"週二", u"星期二"}},
+  };
+
+  RunExactMatchTests(
+      {{.description = "Exact match for: E",
+        .value = "2020-01-07 08:25:07",
+        .options = {datetime_options::E::Short(), datetime_options::E::Medium(),
+                    datetime_options::E::Long()},
+        .expectations = expectations}});
 }
 
 }  // namespace base::i18n

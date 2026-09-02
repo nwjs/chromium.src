@@ -110,6 +110,7 @@ public class HistorySyncTest {
                     });
         }
         mSigninTestRule.forceSignOut();
+        ActivityTestUtils.clearActivityOrientation(mActivityTestRule.getActivity());
     }
 
     @Test
@@ -564,6 +565,7 @@ public class HistorySyncTest {
                                     SIGNIN_ACCESS_POINT,
                                     false,
                                     false,
+                                    /* isFre= */ false,
                                     null);
                 });
 
@@ -616,6 +618,7 @@ public class HistorySyncTest {
                                     SIGNIN_ACCESS_POINT,
                                     false,
                                     false,
+                                    /* isFre= */ false,
                                     null);
                 });
 
@@ -700,6 +703,7 @@ public class HistorySyncTest {
                                     accessPoint,
                                     showEmailInFooter,
                                     shouldSignOutOnDecline,
+                                    /* isFre= */ false,
                                     null);
                     mActivityTestRule
                             .getActivity()

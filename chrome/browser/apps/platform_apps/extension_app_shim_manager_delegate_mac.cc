@@ -5,19 +5,19 @@
 #include "chrome/browser/apps/platform_apps/extension_app_shim_manager_delegate_mac.h"
 
 #include <memory>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "apps/launcher.h"
-#include "base/containers/adapters.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/apps/app_shim/app_shim_termination_manager.h"
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 #include "chrome/browser/apps/platform_apps/platform_app_launch.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profiles_state.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/extensions/app_launch_params.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow_delegate.h"
@@ -106,7 +106,7 @@ bool ExtensionAppShimManagerDelegate::ShowAppWindows(
     const webapps::AppId& app_id) {
   AppWindowList windows =
       AppWindowRegistry::Get(profile)->GetAppWindowsForApp(app_id);
-  for (extensions::AppWindow* window : base::Reversed(windows)) {
+  for (extensions::AppWindow* window : std::views::reverse(windows)) {
     if (window)
       window->GetBaseWindow()->Show();
   }

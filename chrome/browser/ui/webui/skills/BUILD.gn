@@ -21,6 +21,7 @@ source_set("skills") {
     "skills_dialog_delegate.h",
     "skills_dialog_handler.h",
     "skills_dialog_view.h",
+    "skills_navigation_throttle.h",
     "skills_page_handler.h",
     "skills_page_handler_v2.h",
     "skills_ui.h",
@@ -30,6 +31,7 @@ source_set("skills") {
     "skills_dialog_handler.cc",
     "skills_dialog_handler.h",
     "skills_dialog_view.cc",
+    "skills_navigation_throttle.cc",
     "skills_page_handler.cc",
     "skills_page_handler_v2.cc",
     "skills_ui.cc",
@@ -52,9 +54,11 @@ source_set("skills") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/toasts/api:toasts",
     "//chrome/browser/ui/webui",
+    "//chrome/browser/ui/webui:chrome_web_contents_handler",
     "//chrome/browser/ui/webui/sanitized_image:sanitized_image_source",
     "//chrome/common",
     "//components/application_locale_storage",
+    "//components/google/core/common",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/signin/public/identity_manager",
     "//components/skills:features",
@@ -79,6 +83,7 @@ source_set("unit_tests") {
   testonly = true
   sources = [
     "skills_dialog_handler_unittest.cc",
+    "skills_navigation_throttle_unittest.cc",
     "skills_page_handler_unittest.cc",
     "skills_page_handler_v2_unittest.cc",
   ]
@@ -89,6 +94,7 @@ source_set("unit_tests") {
     "//chrome/browser/skills:public",
     "//chrome/test:test_support",
     "//components/optimization_guide/core:test_support",
+    "//components/skills:features",
     "//components/skills/mocks",
     "//components/skills/public",
     "//components/skills/public:metrics",
@@ -99,4 +105,46 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+  if (is_chromeos) {
+    deps += [
+      "//chrome/browser/chromeos/policy/dlp",
+      "//chrome/browser/chromeos/policy/dlp/test:test_support",
+    ]
+  }
+}
+
+if (!is_android) {
+  source_set("interactive_ui_tests") {
+    testonly = true
+    defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+    configs += [ "//build/config/compiler:no_exit_time_destructors" ]
+    sources = [ "skills_page_interactive_uitest.cc" ]
+    deps = [
+      ":skills",
+      "//chrome/browser/glic",
+      "//chrome/browser/optimization_guide",
+      "//chrome/browser/profiles:profile",
+      "//chrome/browser/signin",
+      "//chrome/browser/skills",
+      "//chrome/browser/sync",
+      "//chrome/browser/ui/toasts",
+      "//chrome/browser/ui/toasts/api:toasts",
+      "//chrome/browser/ui/views/frame",
+      "//chrome/common",
+      "//chrome/test:test_support",
+      "//components/keyed_service/content",
+      "//components/signin/public/identity_manager",
+      "//components/signin/public/identity_manager:test_support",
+      "//components/skills:features",
+      "//components/skills/internal",
+      "//components/skills/public",
+      "//components/skills/public:metrics",
+      "//components/skills/public:mojo_bindings",
+      "//components/sync/model",
+      "//components/zoom",
+      "//content/test:test_support",
+      "//ui/base/interaction",
+      "//ui/native_theme",
+    ]
+  }
 }

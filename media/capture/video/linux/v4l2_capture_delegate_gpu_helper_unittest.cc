@@ -31,8 +31,7 @@ namespace {
 
 class MockV4l2GpuClient : public VideoCaptureDevice::Client {
  public:
-  void OnIncomingCapturedData(const uint8_t* data,
-                              int length,
+  void OnIncomingCapturedData(base::span<const uint8_t> data,
                               const VideoCaptureFormat& frame_format,
                               const gfx::ColorSpace& color_space,
                               int clockwise_rotation,
@@ -177,8 +176,8 @@ TEST_F(V4l2CaptureDelegateGpuHelperTest, FailureAsInvalidClient) {
   std::vector<uint8_t> sample = ReadSampleData(capture_format);
 
   int status = v4l2_gpu_helper_->OnIncomingCapturedData(
-      nullptr, sample.data(), sample.size(), capture_format, gfx::ColorSpace(),
-      kRotation, reference_time, timestamp);
+      nullptr, sample, capture_format, gfx::ColorSpace(), kRotation,
+      reference_time, timestamp);
   EXPECT_NE(status, 0);
 }
 
@@ -213,8 +212,8 @@ TEST_F(V4l2CaptureDelegateGpuHelperTest,
       });
 
   int status = v4l2_gpu_helper_->OnIncomingCapturedData(
-      &client, sample.data(), sample.size(), capture_format, gfx::ColorSpace(),
-      kRotation, reference_time, timestamp);
+      &client, sample, capture_format, gfx::ColorSpace(), kRotation,
+      reference_time, timestamp);
   EXPECT_NE(status, 0);
 }
 
@@ -243,8 +242,8 @@ TEST_F(V4l2CaptureDelegateGpuHelperTest, FailureAsReserveOutputBufferErr) {
       });
 
   int status = v4l2_gpu_helper_->OnIncomingCapturedData(
-      &client, sample.data(), sample.size(), capture_format, gfx::ColorSpace(),
-      kRotation, reference_time, timestamp);
+      &client, sample, capture_format, gfx::ColorSpace(), kRotation,
+      reference_time, timestamp);
   EXPECT_NE(status, 0);
 }
 
@@ -278,8 +277,8 @@ TEST_F(V4l2CaptureDelegateGpuHelperTest, FailureAsInvalidSharedImageInterface) {
       });
 
   int status = v4l2_gpu_helper_->OnIncomingCapturedData(
-      &client, sample.data(), sample.size(), capture_format, gfx::ColorSpace(),
-      kRotation, reference_time, timestamp);
+      &client, sample, capture_format, gfx::ColorSpace(), kRotation,
+      reference_time, timestamp);
   EXPECT_NE(status, 0);
 }
 
@@ -308,8 +307,8 @@ TEST_F(V4l2CaptureDelegateGpuHelperTest, SuccessRotationIsNotZero) {
       .WillRepeatedly(InvokeWithoutArgs([]() {}));
 
   int status = v4l2_gpu_helper_->OnIncomingCapturedData(
-      &client, sample.data(), sample.size(), capture_format, gfx::ColorSpace(),
-      kRotation, reference_time, timestamp);
+      &client, sample, capture_format, gfx::ColorSpace(), kRotation,
+      reference_time, timestamp);
 
   EXPECT_EQ(status, 0);
 }
@@ -338,8 +337,8 @@ TEST_P(V4l2CaptureDelegateGpuHelperTest, SuccessConvertWithCaptureParam) {
       .WillRepeatedly(InvokeWithoutArgs([]() {}));
 
   int status = v4l2_gpu_helper_->OnIncomingCapturedData(
-      &client, sample.data(), sample.size(), capture_format, gfx::ColorSpace(),
-      kRotation, reference_time, timestamp);
+      &client, sample, capture_format, gfx::ColorSpace(), kRotation,
+      reference_time, timestamp);
   EXPECT_EQ(status, 0);
 }
 

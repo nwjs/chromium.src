@@ -11,7 +11,6 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
@@ -25,8 +24,8 @@ views::View* GetZoomView(Browser* browser) {
   auto* provider =
       BrowserView::GetBrowserViewForBrowser(browser)->toolbar_button_provider();
   return page_actions::GetIconLabelBubbleViewForTesting(
-      provider->GetPageActionViewInterface(kActionZoomNormal),
-      kActionZoomNormal);
+      provider->GetPageActionViewInterface(kActionShowZoomBubble),
+      kActionShowZoomBubble);
 }
 
 }  // namespace

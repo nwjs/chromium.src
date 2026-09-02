@@ -15,23 +15,31 @@
 
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
+#include "base/functional/function_ref.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_multi_source_observation.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_process_host_observer.h"
 #include "content/public/common/child_process_id.h"
 #include "extensions/browser/api/declarative_webrequest/request_stage.h"
 #include "extensions/browser/api/web_request/web_request_api_helpers.h"
 #include "extensions/browser/extension_event_histogram_value.h"
+#include "extensions/browser/process_manager.h"
+#include "extensions/browser/process_manager_observer.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/web_request/web_request_filter.h"
 #include "extensions/common/api/web_request/web_request_resource_type.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension_id.h"
+#include "extensions/common/mojom/web_request_host.mojom.h"
 #include "extensions/common/url_pattern_set.h"
+#include "mojo/public/cpp/bindings/associated_receiver_set.h"
 #include "net/base/completion_once_callback.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_database.mojom.h"
@@ -54,9 +62,26 @@ namespace extensions {
 class WebRequestRulesRegistry;
 class WebRequestEventDetails;
 struct WebRequestInfo;
+struct WorkerId;
 
-class WebRequestEventRouter : public KeyedService {
+class WebRequestEventRouter : public KeyedService,
+                              public ProcessManagerObserver,
+                              public content::RenderProcessHostObserver,
+                              public mojom::WebRequestHost {
  public:
+  static void BindForRenderer(
+      content::ChildProcessId render_process_id,
+      mojo::PendingAssociatedReceiver<mojom::WebRequestHost> receiver);
+
+  // mojom::WebRequestHost
+  // Resolves the pending dispatch target through `OnEventHandlingDone()`.
+  void EventHandlingDone(const std::optional<ExtensionId>& extension_id,
+                         const std::string& event_name,
+                         uint64_t request_id,
+                         int32_t web_view_instance_id,
+                         int32_t worker_thread_id,
+                         int64_t service_worker_version_id) override;
+
   struct BlockedRequest;
 
   // The events denoting the lifecycle of a given network request.
@@ -247,6 +272,9 @@ class WebRequestEventRouter : public KeyedService {
                                 const WebRequestInfo* request);
 
   // Called when an event listener handles a blocking event and responds.
+  // `browser_context` is the responding listener's context; the blocked
+  // request may belong to the cross browser context (a spanning-mode
+  // extension responding to an off-the-record request).
   void OnEventHandled(content::BrowserContext* browser_context,
                       const ExtensionId& extension_id,
                       const std::string& event_name,
@@ -263,7 +291,9 @@ class WebRequestEventRouter : public KeyedService {
   // It does NOT resolve the target: resolution is signaled separately by
   // `OnEventHandlingDone()`, because the context may have multiple listeners
   // for the same parent event name. `extra_info_spec` holds the options the
-  // responding listener was registered with.
+  // responding listener was registered with. `browser_context` is the
+  // responding target's context; the blocked request may belong to the
+  // cross browser context.
   void OnEventHandledForTarget(content::BrowserContext* browser_context,
                                const ExtensionId& extension_id,
                                const std::string& event_name,
@@ -278,6 +308,8 @@ class WebRequestEventRouter : public KeyedService {
   // Called when a renderer context has finished handling a blocking event
   // for `request_id`, after all of its matching listeners have settled.
   // Resolves the pending dispatch target identified by the context.
+  // `browser_context` is the responding target's context; the blocked
+  // request may belong to the cross browser context.
   void OnEventHandlingDone(content::BrowserContext* browser_context,
                            const ExtensionId& extension_id,
                            const std::string& event_name,
@@ -350,6 +382,11 @@ class WebRequestEventRouter : public KeyedService {
   // Get the number of listeners - for testing only.
   size_t GetListenerCountForTesting(content::BrowserContext* browser_context,
                                     const std::string& event_name);
+
+  // Get the number of blocked requests owned by `browser_context` - for
+  // testing only.
+  size_t GetBlockedRequestCountForTesting(
+      content::BrowserContext* browser_context) const;
 
   size_t GetInactiveListenerCount(content::BrowserContext* browser_context,
                                   const std::string& event_name);
@@ -621,11 +658,6 @@ class WebRequestEventRouter : public KeyedService {
     // `RulesRegistryService::kDefaultRulesRegistryID` is used.
     std::map<int, scoped_refptr<WebRequestRulesRegistry>> rules_registries;
 
-    // A map of network requests that are waiting for at least one event handler
-    // to respond. Blocked requests are stored on the regular BrowserContext for
-    // both it and any off-the-record BrowserContext that exists.
-    BlockedRequestMap blocked_requests;
-
     SignaledRequestIDTracker signaled_request_id_tracker;
   };
 
@@ -727,8 +759,7 @@ class WebRequestEventRouter : public KeyedService {
 
   // Ensures that future callbacks for `request` are ignored so that it can be
   // destroyed safely.
-  void ClearPendingCallbacks(content::BrowserContext* browser_context,
-                             const WebRequestInfo& request);
+  void ClearPendingCallbacks(const WebRequestInfo& request);
 
   bool DispatchEvent(content::BrowserContext* browser_context,
                      const WebRequestInfo* request,
@@ -784,16 +815,15 @@ class WebRequestEventRouter : public KeyedService {
   // without applying response deltas. Bound as an event's
   // `cannot_dispatch_callback` to unblock requests when a target is unreachable
   // at dispatch time (e.g., worker start failure).
-  void OnTargetCannotDispatch(content::BrowserContext* browser_context,
-                              const std::string& event_name,
+  // `ResolvePendingTargetsForTeardown()` also calls this on target teardown.
+  void OnTargetCannotDispatch(const std::string& event_name,
                               uint64_t request_id,
                               const DispatchTargetKey& dispatch_key);
 
   // Resolves a pending target by erasing it from `blocked_request` and
   // decrementing the blocking count (which resumes the request if no blocking
   // sources remain). Does nothing if no such target remains.
-  void ResolvePendingTarget(content::BrowserContext* browser_context,
-                            BlockedRequest& blocked_request,
+  void ResolvePendingTarget(BlockedRequest& blocked_request,
                             const DispatchTargetKey& target_key,
                             const std::string& event_name,
                             uint64_t request_id);
@@ -801,12 +831,36 @@ class WebRequestEventRouter : public KeyedService {
   // Converts `response` into an EventResponseDelta clamped by the permissions
   // in `extra_info_spec`, logs the API usage to the activity monitor, and
   // appends the delta to `blocked_request`.
-  void AppendResponseDelta(content::BrowserContext* browser_context,
-                           BlockedRequest& blocked_request,
+  void AppendResponseDelta(BlockedRequest& blocked_request,
                            const ExtensionId& extension_id,
                            const std::string& event_name,
                            EventResponse& response,
                            int extra_info_spec);
+
+  // ProcessManagerObserver:
+  void OnStoppedTrackingServiceWorkerInstance(
+      content::BrowserContext& browser_context,
+      const WorkerId& worker_id) override;
+  void OnProcessManagerShutdown(ProcessManager* manager) override;
+
+  // content::RenderProcessHostObserver:
+  void RenderProcessExited(
+      content::RenderProcessHost* host,
+      const content::ChildProcessTerminationInfo& info) override;
+  void RenderProcessHostDestroyed(content::RenderProcessHost* host) override;
+
+  // Starts to observe the ProcessManager of `browser_context`.
+  void ObserveProcessManager(content::BrowserContext* browser_context);
+
+  // Starts to observe `host`, so the router resolves the host's pending
+  // targets when the process goes away.
+  void ObserveRenderProcessHost(content::RenderProcessHost* host);
+
+  // Resolves (without responses) every pending target whose key satisfies
+  // `matches`, across the blocked requests of every BrowserContext that
+  // shares this router.
+  void ResolvePendingTargetsForTeardown(
+      base::FunctionRef<bool(const DispatchTargetKey&)> matches);
 
   // Returns a list of event listeners that care about the given event, based
   // on their filter parameters. `extra_info_spec` will contain the combined
@@ -841,19 +895,18 @@ class WebRequestEventRouter : public KeyedService {
   // count reaches 0, we stop blocking the request and proceed it using the
   // method requested by the extension with the highest precedence. Precedence
   // is decided by extension install time.
-  void DecrementBlockCount(content::BrowserContext* browser_context,
-                           const ExtensionId& extension_id,
+  void DecrementBlockCount(const ExtensionId& extension_id,
                            const std::string& event_name,
                            uint64_t request_id,
                            std::unique_ptr<EventResponse> response,
                            int extra_info_spec);
 
-  // Processes the generated deltas from blocked_requests_ on the specified
-  // request. If `call_callback` is true, the callback registered in
-  // `blocked_requests_` is called.
-  // The function returns the error code for the network request. This is
-  // mostly relevant in case the caller passes `call_callback` = false
-  // and wants to return the correct network error code themself.
+  // Processes the generated deltas from `blocked_requests_` on the specified
+  // request. `browser_context` is the context that owns the blocked request. If
+  // `call_callback` is true, the callback registered in `blocked_requests_` is
+  // called. The function returns the error code for the network request. This
+  // is mostly relevant in case the caller passes `call_callback` = false and
+  // wants to return the correct network error code themself.
   int ExecuteDeltas(content::BrowserContext* browser_context,
                     const WebRequestInfo* request,
                     bool call_callback);
@@ -925,10 +978,6 @@ class WebRequestEventRouter : public KeyedService {
   // Helper for |HasAnySecurityInfoListener()|.
   bool HasAnySecurityInfoListenerImpl(content::BrowserContext* browser_context);
 
-  // Returns the instance of the BlockedRequestMap for `browser_context`.
-  BlockedRequestMap& GetBlockedRequestMap(
-      content::BrowserContext* browser_context);
-
   // Returns the instance of the SignaledRequestIDTracker for
   // `browser_context`, if the BrowserContext exists in the
   // BrowserContextData map. Otherwise, it returns nullptr.
@@ -947,33 +996,48 @@ class WebRequestEventRouter : public KeyedService {
         .signaled_request_id_tracker;
   }
 
-  // Clears any entries in the BlockedRequestMap for `browser_context` with
-  // `id`.
-  void ClearBlockedRequest(content::BrowserContext* browser_context,
-                           uint64_t id);
+  // Clears the entry in `blocked_requests_` with `id`, if any.
+  void ClearBlockedRequest(uint64_t id);
 
-  // Gets the entry in the BlockedRequestMap for `browser_context` with `id`.
-  // The entry is created if it doesn't exist.
+  // Gets the entry in `blocked_requests_` with `id`. The entry is created if
+  // it doesn't exist, owned by `browser_context` (the context the request
+  // belongs to). An existing entry must be owned by `browser_context`.
   BlockedRequest& GetOrAddBlockedRequest(
       content::BrowserContext* browser_context,
       uint64_t id);
 
-  // Gets the existing entry in the BlockedRequestMap for `browser_context`
-  // with `id`. The entry is not created if it doesn't exist.
-  BlockedRequest* GetBlockedRequest(content::BrowserContext* browser_context,
-                                    uint64_t id);
+  // Gets the existing entry in `blocked_requests_` with `id`. The entry is
+  // not created if it doesn't exist.
+  BlockedRequest* GetBlockedRequest(uint64_t id);
 
   // Returns the blocked request identified by `request_id` if it is currently
   // waiting on the stage named `event_name`, or nullptr otherwise.
-  BlockedRequest* GetBlockedRequestForEvent(
-      content::BrowserContext* browser_context,
-      uint64_t request_id,
-      const std::string& event_name);
+  BlockedRequest* GetBlockedRequestForEvent(uint64_t request_id,
+                                            const std::string& event_name);
 
   // A map of data associated with given BrowserContexts.
   DataMap data_;
 
+  // The network requests that are waiting for at least one event handler to
+  // respond, keyed by request ID. IDs are unique across the BrowserContexts
+  // that share this router, and a response can arrive from the cross browser
+  // context, so entries record their owning context and lookup is by ID only.
+  BlockedRequestMap blocked_requests_;
+
   const raw_ptr<content::BrowserContext> browser_context_;
+
+  // Observes the ProcessManagers of the contexts that recorded pending
+  // targets, for worker-stop signals.
+  base::ScopedMultiSourceObservation<ProcessManager, ProcessManagerObserver>
+      process_manager_observations_{this};
+
+  // Observes every render process that hosts a concrete pending target.
+  base::ScopedMultiSourceObservation<content::RenderProcessHost,
+                                     content::RenderProcessHostObserver>
+      render_process_host_observations_{this};
+
+  mojo::AssociatedReceiverSet<mojom::WebRequestHost, content::ChildProcessId>
+      receivers_;
 
   base::WeakPtrFactory<WebRequestEventRouter> weak_ptr_factory_{this};
 };

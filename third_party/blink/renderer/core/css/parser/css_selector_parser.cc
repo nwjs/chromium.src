@@ -11,7 +11,6 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/numerics/safe_conversions.h"
-#include "third_party/blink/renderer/core/css/active_navigation_condition.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/parser/conditional_parser.h"
@@ -128,6 +127,23 @@ bool IsScrollButtonDirectionKeyword(const CSSParserToken& ident) {
   }
 }
 
+// Mark the list as invalid (kInvalidList) if every argument in the
+// list is unparsed-invalid.
+void MarkAsInvalidListIfNeeded(base::span<CSSSelector> selectors) {
+  CSSSelector* first = nullptr;
+  for (CSSSelector& selector : selectors) {
+    if (!selector.IsUnparsedInvalid()) {
+      return;
+    }
+    if (!first) {
+      first = &selector;
+    }
+  }
+  if (first) {
+    first->SetMatch(CSSSelector::kInvalidList);
+  }
+}
+
 }  // namespace
 
 // static
@@ -198,46 +214,6 @@ base::span<CSSSelector> CSSSelectorParser::ParseScopeBoundary(
   }
   parser.RecordUsageAndDeprecations(result, nesting_type);
   return result;
-}
-
-// static
-ActiveNavigationCondition* CSSSelectorParser::ParseActiveNavigationCondition(
-    CSSParserTokenStream& stream) {
-  // https://drafts.csswg.org/css-navigation-1/#typedef-active-navigation-condition
-  //
-  // <active-navigation-condition> =
-  //   <navigation-relation>? [ <route-location> | link-href ]?
-  // <navigation-relation> = at | with | from | to
-  NavigationPreposition preposition = NavigationPreposition::kWith;
-  if (stream.Peek().GetType() == kIdentToken) {
-    // <navigation-relation>?
-    if (std::optional<NavigationPreposition> parsed_preposition =
-            NavigationParser::ParsePrepositionIdent(stream.Peek())) {
-      preposition = *parsed_preposition;
-      stream.ConsumeIncludingWhitespace();
-    }
-  }
-  RouteLocation* route_location = nullptr;
-  // [ <route-location> | link-href ]?
-  if (!stream.AtEnd()) {
-    // Leave route_location as nullptr if "link-href".
-    if (stream.Peek().GetType() == kIdentToken &&
-        EqualIgnoringAsciiCase(stream.Peek().Value(), "link-href")) {
-      stream.ConsumeIncludingWhitespace();
-    } else {
-      route_location = NavigationParser::ParseLocation(stream);
-      if (!route_location) {
-        return nullptr;
-      }
-    }
-    stream.ConsumeWhitespace();
-  }
-
-  if (!stream.AtEnd()) {
-    return nullptr;
-  }
-  return MakeGarbageCollected<ActiveNavigationCondition>(route_location,
-                                                         preposition);
 }
 
 // static
@@ -428,8 +404,12 @@ CSSSelectorParser::ConsumeForgivingComplexSelectorList(
     }
   }
 
-  ResetVectorAfterScope reset_vector(output_);
+  // 'has_trailing_empty_argument' represents that the selector list is
+  // empty (e.g. ':is()') or ends with comma (e.g. ':is(.a,)'), so the
+  // selector list text has a trailing empty argument.
+  bool has_trailing_empty_argument = true;
 
+  ResetVectorAfterScope reset_vector(output_);
   while (!stream.AtEnd()) {
     base::AutoReset<bool> reset_failure(&failed_parsing_, false);
     CSSParserTokenStream::State state = stream.Save();
@@ -446,10 +426,19 @@ CSSSelectorParser::ConsumeForgivingComplexSelectorList(
                     // EOB).
     }
     if (stream.Peek().GetType() != kCommaToken) {
+      has_trailing_empty_argument = false;
       break;
     }
     stream.ConsumeIncludingWhitespace();
   }
+
+  if (has_trailing_empty_argument &&
+      RuntimeEnabledFeatures::
+          SerializeInvalidSelectorsInForgivingSelectorListEnabled()) {
+    PushUnparsedComplexSelector(CSSNestingType::kNone, AtomicString(""));
+  }
+
+  MarkAsInvalidListIfNeeded(reset_vector.AddedElements());
 
   if (reset_vector.AddedElements().empty()) {
     //  Parsed nothing that was supported.
@@ -512,14 +501,13 @@ void CSSSelectorParser::AddPlaceholderSelectorIfNeeded(
   stream.EnsureLookAhead();
   wtf_size_t end = stream.LookAheadOffset();
 
-  if (nesting_type != CSSNestingType::kNone) {
-    CSSSelector placeholder_selector;
-    placeholder_selector.SetMatch(CSSSelector::kPseudoClass);
-    placeholder_selector.SetUnparsedPlaceholder(
-        nesting_type,
-        stream.StringRangeAt(start, end - start).ToAtomicString());
-    placeholder_selector.SetLastInComplexSelector(true);
-    output_.push_back(placeholder_selector);
+  if (nesting_type != CSSNestingType::kNone ||
+      RuntimeEnabledFeatures::
+          SerializeInvalidSelectorsInForgivingSelectorListEnabled()) {
+    PushUnparsedComplexSelector(nesting_type,
+                                stream.StringRangeAt(start, end - start)
+                                    .StripWhiteSpace()
+                                    .ToAtomicString());
   }
 }
 
@@ -535,24 +523,55 @@ CSSSelectorList* CSSSelectorParser::ConsumeForgivingCompoundSelectorList(
     return selector_list;
   }
 
+  // 'has_trailing_empty_argument' represents that the selector list is
+  // empty (e.g. ':is()') or ends with comma (e.g. ':is(.a,)'), so the
+  // selector list text has a trailing empty argument.
+  bool has_trailing_empty_argument = true;
+
   ResetVectorAfterScope reset_vector(output_);
   while (!stream.AtEnd()) {
     base::AutoReset<bool> reset_failure(&failed_parsing_, false);
     wtf_size_t subpos = output_.size();
+    wtf_size_t compound_start = stream.LookAheadOffset();
     base::span<CSSSelector> selector =
         ConsumeCompoundSelector(stream, CSSNestingType::kNone, result_flags);
     stream.ConsumeWhitespace();
-    if (selector.empty() || failed_parsing_ ||
+    if (selector.empty()) {
+      failed_parsing_ = true;
+    }
+    if (failed_parsing_ ||
         (!stream.AtEnd() && stream.Peek().GetType() != kCommaToken)) {
       output_.resize(subpos);  // Drop what we parsed so far.
       stream.SkipUntilPeekedTypeIs<kCommaToken>();
+      if (RuntimeEnabledFeatures::
+              SerializeInvalidSelectorsInForgivingSelectorListEnabled()) {
+        stream.EnsureLookAhead();
+        wtf_size_t compound_length = stream.LookAheadOffset() - compound_start;
+        PushUnparsedComplexSelector(
+            CSSNestingType::kNone,
+            stream.StringRangeAt(compound_start, compound_length)
+                .StripWhiteSpace()
+                .ToAtomicString());
+      }
     } else {
       MarkAsEntireComplexSelector(selector);
     }
-    if (!stream.AtEnd()) {
-      stream.ConsumeIncludingWhitespace();
+
+    if (stream.AtEnd()) {
+      has_trailing_empty_argument = false;
+      break;
     }
+
+    stream.ConsumeIncludingWhitespace();
   }
+
+  if (has_trailing_empty_argument &&
+      RuntimeEnabledFeatures::
+          SerializeInvalidSelectorsInForgivingSelectorListEnabled()) {
+    PushUnparsedComplexSelector(CSSNestingType::kNone, AtomicString(""));
+  }
+
+  MarkAsInvalidListIfNeeded(reset_vector.AddedElements());
 
   if (reset_vector.AddedElements().empty()) {
     return CSSSelectorList::Empty();
@@ -2035,23 +2054,13 @@ bool CSSSelectorParser::ConsumePseudo(CSSParserTokenStream& stream,
       if (!RuntimeEnabledFeatures::RouteMatchingEnabled()) {
         return false;
       }
-      if (RouteLocation* location = NavigationParser::ParseLocation(stream)) {
+      if (NavigationLocation* location =
+              NavigationParser::ParseLocation(stream)) {
         stream.ConsumeWhitespace();
         if (!stream.AtEnd()) {
           return false;
         }
-        selector.SetRouteLocation(location);
-        output_.push_back(std::move(selector));
-        return true;
-      }
-      return false;
-    case CSSSelector::kPseudoActiveNavigation:
-      if (!RuntimeEnabledFeatures::RouteMatchingEnabled()) {
-        return false;
-      }
-      if (ActiveNavigationCondition* active_navigation_condition =
-              ParseActiveNavigationCondition(stream)) {
-        selector.SetActiveNavigationCondition(active_navigation_condition);
+        selector.SetNavigationLocation(location);
         output_.push_back(std::move(selector));
         return true;
       }
@@ -2772,6 +2781,17 @@ bool CSSSelectorParser::ContainsUnknownWebkitPseudoElements(
     }
   }
   return false;
+}
+
+void CSSSelectorParser::PushUnparsedComplexSelector(
+    CSSNestingType nesting_type,
+    AtomicString invalid_selector_text) {
+  CSSSelector placeholder_selector;
+  placeholder_selector.SetMatch(CSSSelector::kPseudoClass);
+  placeholder_selector.SetUnparsedPlaceholder(nesting_type,
+                                              invalid_selector_text);
+  placeholder_selector.SetLastInComplexSelector(true);
+  output_.push_back(placeholder_selector);
 }
 
 }  // namespace blink

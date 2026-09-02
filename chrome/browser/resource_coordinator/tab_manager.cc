@@ -108,7 +108,8 @@ WebContents* TabManager::DiscardTabByExtension(content::WebContents* contents) {
         browser_window_interface
             ? browser_window_interface->GetBrowserForMigrationOnly()
             : nullptr;
-    if (browser && browser->is_type_popup())
+    if (browser &&
+        browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP)
       return nullptr;
     TabLifecycleUnitExternal* tab_lifecycle_unit_external =
         TabLifecycleUnitExternal::FromWebContents(contents);
@@ -166,7 +167,8 @@ content::WebContents* TabManager::DiscardTabImpl(
       browser_window_interface
           ? browser_window_interface->GetBrowserForMigrationOnly()
           : nullptr;
-  if (browser && browser->is_type_popup())
+  if (browser &&
+      browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP)
     return nullptr;
   return contents;
 }

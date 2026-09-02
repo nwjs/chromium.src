@@ -211,6 +211,7 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   // True if the loaded media has a playable video/audio track.
   bool HasVideo() const override;
   bool HasAudio() const override;
+  bool IsHDR() const override;
   bool IsVideoBeingCaptured() const override;
 
   void EnabledAudioTracksChanged(
@@ -222,8 +223,6 @@ class PLATFORM_EXPORT WebMediaPlayerImpl
   gfx::Size NaturalSize() const override;
 
   gfx::Size VisibleSize() const override;
-
-  media::VideoTransformation GetVideoTransformation() const override;
 
   media::VideoSpatialFormat GetSpatialFormat() const override;
 

@@ -23,6 +23,7 @@
 #include "base/path_service.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -50,6 +51,7 @@
 #include "components/download/public/common/download_danger_type.h"
 #include "components/download/public/common/download_features.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
+#include "components/download/public/common/download_item_rename_handler.h"
 #include "components/download/public/common/download_stats.h"
 #include "components/download/public/common/download_target_info.h"
 #include "components/download/public/common/mock_download_item.h"
@@ -74,6 +76,8 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(SAFE_BROWSING_DOWNLOAD_PROTECTION)
+#include "chrome/browser/enterprise/connectors/common.h"
+#include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_service.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
@@ -91,11 +95,8 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/device_info.h"
 #include "chrome/browser/download/download_prompt_status.h"
+#include "components/enterprise/connectors/core/features.h"
 #endif
-
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
-#include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
-#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
 using download::DownloadItem;
 using download::DownloadPathReservationTracker;
@@ -255,6 +256,13 @@ class TestChromeDownloadManagerDelegate : public ChromeDownloadManagerDelegate {
     std::move(callback).Run(virtual_path, virtual_path.BaseName());
   }
 
+  void CallBaseDetermineLocalPath(download::DownloadItem* download,
+                                  const base::FilePath& virtual_path,
+                                  download::LocalPathCallback callback) {
+    ChromeDownloadManagerDelegate::DetermineLocalPath(download, virtual_path,
+                                                      std::move(callback));
+  }
+
  private:
   friend class ChromeDownloadManagerDelegateTest;
 };
@@ -361,11 +369,13 @@ void ChromeDownloadManagerDelegateTest::TearDown() {
   pref_service_ = nullptr;
   delegate_->Shutdown();
   delegate_ = nullptr;
+  ::testing::Mock::VerifyAndClearExpectations(download_manager_.get());
   ChromeRenderViewHostTestHarness::TearDown();
 }
 
 void ChromeDownloadManagerDelegateTest::VerifyAndClearExpectations() {
   ::testing::Mock::VerifyAndClearExpectations(delegate_);
+  ::testing::Mock::VerifyAndClearExpectations(download_manager_.get());
 }
 
 std::unique_ptr<download::MockDownloadItem>
@@ -1781,7 +1791,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, ScheduleCancelForEphemeralWarning) {
   std::unique_ptr<download::MockDownloadItem> download_item =
       CreateActiveDownloadItem(0);
   EXPECT_CALL(*download_item, GetDangerType())
-      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE));
+      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT));
 
   delegate()->ScheduleCancelForEphemeralWarning(download_item->GetGuid());
 
@@ -1828,7 +1838,7 @@ TEST_F(ChromeDownloadManagerDelegateTest, CancelAllEphemeralWarnings) {
       .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS));
   auto dangerous_item = CreateActiveDownloadItem(0);
   EXPECT_CALL(*dangerous_item, GetDangerType())
-      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE));
+      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT));
   auto canceled_item = CreateActiveDownloadItem(0);
   EXPECT_CALL(*canceled_item, GetDangerType())
       .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_DANGEROUS_FILE));
@@ -1888,7 +1898,37 @@ class TestDownloadProtectionService
     return true;
   }
 
+  void UploadSavePackageForDeepScanning(
+      download::DownloadItem* item,
+      base::flat_map<base::FilePath, base::FilePath> save_package_files,
+      safe_browsing::CheckDownloadRepeatingCallback callback,
+      enterprise_connectors::AnalysisSettings analysis_settings) override {
+    last_save_package_files_ = std::move(save_package_files);
+    last_analysis_settings_ = std::move(analysis_settings);
+    last_save_package_callback_ = callback;
+    MockUploadSavePackageForDeepScanning(item);
+  }
+
   MOCK_METHOD0(MockCheckClientDownload, safe_browsing::DownloadCheckResult());
+  MOCK_METHOD1(MockUploadSavePackageForDeepScanning,
+               void(download::DownloadItem*));
+
+  safe_browsing::CheckDownloadRepeatingCallback last_save_package_callback() {
+    return last_save_package_callback_;
+  }
+  const enterprise_connectors::AnalysisSettings& last_analysis_settings()
+      const {
+    return last_analysis_settings_;
+  }
+  const base::flat_map<base::FilePath, base::FilePath>&
+  last_save_package_files() const {
+    return last_save_package_files_;
+  }
+
+ private:
+  safe_browsing::CheckDownloadRepeatingCallback last_save_package_callback_;
+  enterprise_connectors::AnalysisSettings last_analysis_settings_;
+  base::flat_map<base::FilePath, base::FilePath> last_save_package_files_;
 };
 
 class FakeSafeBrowsingService : public safe_browsing::TestSafeBrowsingService {
@@ -2388,6 +2428,199 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
+TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+       CheckSavePackageAllowed_NoSettings) {
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, IsSavePackageDownload())
+      .WillRepeatedly(Return(true));
+
+  base::test::TestFuture<bool> future;
+  delegate()->CheckSavePackageAllowed(download_item.get(), {},
+                                      future.GetCallback());
+  EXPECT_TRUE(future.Get());
+  EXPECT_EQ(nullptr, download_item->GetUserData(
+                         enterprise_connectors::SavePackageScanningData::kKey));
+  VerifyAndClearExpectations();
+}
+
+TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+       CheckSavePackageAllowed_MalwareTagExempted) {
+#if BUILDFLAG(IS_ANDROID)
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      enterprise_connectors::kEnableDownloadEnterpriseScanOnClank);
+#endif
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, IsSavePackageDownload())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
+
+  policy::SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
+  enterprise_connectors::test::SetAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED,
+      R"({
+        "service_provider": "google",
+        "enable": [
+          {
+            "url_list": ["*"],
+            "tags": ["malware"]
+          }
+        ],
+        "block_until_verdict": 1
+      })");
+
+  EXPECT_CALL(*download_protection_service(),
+              MockUploadSavePackageForDeepScanning(_))
+      .Times(0);
+
+  base::test::TestFuture<bool> future;
+  delegate()->CheckSavePackageAllowed(download_item.get(), {},
+                                      future.GetCallback());
+  EXPECT_TRUE(future.Get());
+  EXPECT_EQ(nullptr, download_item->GetUserData(
+                         enterprise_connectors::SavePackageScanningData::kKey));
+  enterprise_connectors::test::ClearAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED);
+  policy::SetDMTokenForTesting(policy::DMToken::CreateEmptyToken());
+  VerifyAndClearExpectations();
+}
+
+TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+       CheckSavePackageAllowed_TriggersScanAndSafeVerdict) {
+#if BUILDFLAG(IS_ANDROID)
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      enterprise_connectors::kEnableDownloadEnterpriseScanOnClank);
+#endif
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, IsSavePackageDownload())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*download_item, GetState())
+      .WillRepeatedly(Return(download::DownloadItem::IN_PROGRESS));
+  EXPECT_CALL(*download_item, GetDangerType())
+      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS));
+
+  policy::SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
+  enterprise_connectors::test::SetAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED,
+      R"({
+        "service_provider": "google",
+        "enable": [
+          {
+            "url_list": ["*"],
+            "tags": ["malware", "dlp"]
+          }
+        ],
+        "block_until_verdict": 1
+      })");
+
+  base::flat_map<base::FilePath, base::FilePath> save_package_files;
+  save_package_files[base::FilePath(FILE_PATH_LITERAL("temp.html"))] =
+      base::FilePath(FILE_PATH_LITERAL("final.html"));
+
+  EXPECT_CALL(*download_protection_service(),
+              MockUploadSavePackageForDeepScanning(download_item.get()))
+      .Times(1);
+
+  base::test::TestFuture<bool> future;
+  delegate()->CheckSavePackageAllowed(download_item.get(), save_package_files,
+                                      future.GetCallback());
+
+  EXPECT_NE(nullptr, download_item->GetUserData(
+                         enterprise_connectors::SavePackageScanningData::kKey));
+  EXPECT_EQ(1u,
+            download_protection_service()->last_analysis_settings().tags.count(
+                "dlp"));
+  EXPECT_EQ(0u,
+            download_protection_service()->last_analysis_settings().tags.count(
+                "malware"));
+  EXPECT_EQ(save_package_files,
+            download_protection_service()->last_save_package_files());
+
+  ON_CALL(*download_manager(), GetDownload(download_item->GetId()))
+      .WillByDefault(Return(download_item.get()));
+
+  EXPECT_CALL(
+      *download_item,
+      OnContentCheckCompleted(download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE,
+                              download::DOWNLOAD_INTERRUPT_REASON_NONE))
+      .Times(1);
+
+  download_protection_service()->last_save_package_callback().Run(
+      safe_browsing::DownloadCheckResult::DEEP_SCANNED_SAFE);
+
+  EXPECT_TRUE(future.Get());
+  enterprise_connectors::test::ClearAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED);
+  policy::SetDMTokenForTesting(policy::DMToken::CreateEmptyToken());
+  VerifyAndClearExpectations();
+}
+
+TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+       CheckSavePackageScanningDone_BlockedVerdict) {
+#if BUILDFLAG(IS_ANDROID)
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      enterprise_connectors::kEnableDownloadEnterpriseScanOnClank);
+#endif
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, IsSavePackageDownload())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*download_item, GetState())
+      .WillRepeatedly(Return(download::DownloadItem::IN_PROGRESS));
+  EXPECT_CALL(*download_item, GetDangerType())
+      .WillRepeatedly(Return(download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS));
+
+  policy::SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
+  enterprise_connectors::test::SetAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED,
+      R"({
+        "service_provider": "google",
+        "enable": [
+          {
+            "url_list": ["*"],
+            "tags": ["dlp"]
+          }
+        ],
+        "block_until_verdict": 1
+      })");
+
+  EXPECT_CALL(*download_protection_service(),
+              MockUploadSavePackageForDeepScanning(download_item.get()))
+      .Times(1);
+
+  base::test::TestFuture<bool> future;
+  delegate()->CheckSavePackageAllowed(download_item.get(), {},
+                                      future.GetCallback());
+
+  ON_CALL(*download_manager(), GetDownload(download_item->GetId()))
+      .WillByDefault(Return(download_item.get()));
+
+  EXPECT_CALL(*download_item,
+              OnContentCheckCompleted(
+                  download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK,
+                  download::DOWNLOAD_INTERRUPT_REASON_FILE_BLOCKED))
+      .Times(1);
+
+  download_protection_service()->last_save_package_callback().Run(
+      safe_browsing::DownloadCheckResult::SENSITIVE_CONTENT_BLOCK);
+
+  EXPECT_FALSE(future.Get());
+  enterprise_connectors::test::ClearAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED);
+  policy::SetDMTokenForTesting(policy::DMToken::CreateEmptyToken());
+  VerifyAndClearExpectations();
+}
+
 // Auto cancel is only available on platforms with download bubble.
 // TODO(crbug.com/397407934): Support auto cancel reports on Android.
 #if !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
@@ -2540,7 +2773,7 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 #endif  // !BUILDFLAG(IS_WIN)
 
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
        ShouldObfuscateDownload) {
   base::test::ScopedFeatureList scoped_feature_list;
@@ -2607,10 +2840,129 @@ TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
 
   EXPECT_FALSE(delegate()->ShouldObfuscateDownload(download_item.get()));
 }
-#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
+
+#if BUILDFLAG(IS_CHROMEOS)
+TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+       GetRenameHandlerForDownload_Obfuscation) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      enterprise_obfuscation::kEnterpriseFileObfuscation);
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath staging_path = temp_dir.GetPath().AppendASCII("staging.txt");
+  base::FilePath local_path = temp_dir.GetPath().AppendASCII("local.txt");
+  base::FilePath virtual_path("/media/fuse/odfs/final.txt");
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(*download_item, GetTargetFilePath())
+      .WillRepeatedly(ReturnRef(staging_path));
+
+  auto mock_protection_service =
+      std::make_unique<::testing::StrictMock<TestDownloadProtectionService>>();
+  EXPECT_CALL(*delegate(), GetDownloadProtectionService())
+      .WillRepeatedly(Return(mock_protection_service.get()));
+
+  policy::SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
+  enterprise_connectors::test::SetAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED,
+      R"({
+        "service_provider": "google",
+        "enable": [
+          {
+            "url_list": ["*"],
+            "tags": ["malware", "dlp"]
+          }
+        ],
+        "block_until_verdict": 1
+      })");
+
+  // Local downloads (staging_path is non-virtual and original_target_path is
+  // not set yet) do not get a rename handler.
+  EXPECT_FALSE(delegate()->GetRenameHandlerForDownload(download_item.get()));
+
+  // Set up original_target_path on the user data that ShouldObfuscateDownload
+  // created (simulating DetermineLocalPath staging a non-local OneDrive
+  // download in temp dir).
+  auto* obfuscation_data =
+      static_cast<enterprise_obfuscation::DownloadObfuscationData*>(
+          download_item->GetUserData(
+              enterprise_obfuscation::DownloadObfuscationData::kUserDataKey));
+  ASSERT_TRUE(obfuscation_data);
+
+  // When original_target_path is a local path (non-virtual), no rename handler.
+  obfuscation_data->original_target_path = local_path;
+  EXPECT_FALSE(delegate()->GetRenameHandlerForDownload(download_item.get()));
+
+  // When original_target_path matches IsVirtualFilesystem, rename handler is
+  // returned.
+  obfuscation_data->original_target_path = virtual_path;
+  EXPECT_TRUE(delegate()->GetRenameHandlerForDownload(download_item.get()));
+}
+
+TEST_F(ChromeDownloadManagerDelegateTestWithSafeBrowsing,
+       DetermineLocalPath_Obfuscation_NonLocalPath) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      enterprise_obfuscation::kEnterpriseFileObfuscation);
+
+  std::unique_ptr<download::MockDownloadItem> download_item =
+      CreateActiveDownloadItem(0);
+  EXPECT_CALL(*download_item, RequireSafetyChecks())
+      .WillRepeatedly(Return(true));
+
+  auto mock_protection_service =
+      std::make_unique<::testing::StrictMock<TestDownloadProtectionService>>();
+  EXPECT_CALL(*delegate(), GetDownloadProtectionService())
+      .WillRepeatedly(Return(mock_protection_service.get()));
+
+  policy::SetDMTokenForTesting(policy::DMToken::CreateValidToken("dm_token"));
+  enterprise_connectors::test::SetAnalysisConnector(
+      pref_service(), enterprise_connectors::FILE_DOWNLOADED,
+      R"({
+        "service_provider": "google",
+        "enable": [
+          {
+            "url_list": ["*"],
+            "tags": ["malware", "dlp"]
+          }
+        ],
+        "block_until_verdict": 1
+      })");
+
+  base::FilePath virtual_path("/media/fuse/odfs/test.doc");
+  base::RunLoop run_loop;
+  base::FilePath res_local_path;
+  delegate()->CallBaseDetermineLocalPath(
+      download_item.get(), virtual_path,
+      base::BindLambdaForTesting([&](const base::FilePath& local_path,
+                                     const base::FilePath& default_name) {
+        res_local_path = local_path;
+        run_loop.Quit();
+      }));
+  run_loop.Run();
+
+  // Local path should have been staged in a temp directory because virtual_path
+  // is non-local and obfuscation is enabled.
+  EXPECT_NE(virtual_path, res_local_path);
+
+  auto* obfuscation_data =
+      static_cast<enterprise_obfuscation::DownloadObfuscationData*>(
+          download_item->GetUserData(
+              enterprise_obfuscation::DownloadObfuscationData::kUserDataKey));
+  ASSERT_TRUE(obfuscation_data);
+  EXPECT_EQ(virtual_path, obfuscation_data->original_target_path);
+
+  base::DeleteFile(res_local_path);
+}
+#endif  // BUILDFLAG(IS_CHROMEOS)
 #endif  // SAFE_BROWSING_DOWNLOAD_PROTECTION
 
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 TEST_F(ChromeDownloadManagerDelegateTest, DeobfuscationBeforeCompletion) {
   base::test::ScopedFeatureList enable_feature(
       enterprise_obfuscation::kEnterpriseFileObfuscation);
@@ -2712,7 +3064,7 @@ TEST_F(ChromeDownloadManagerDelegateTest,
   ASSERT_TRUE(final_data);
   EXPECT_FALSE(final_data->is_obfuscated);
 }
-#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
 

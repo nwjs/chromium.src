@@ -25,6 +25,7 @@
 #include "media/base/decoder_buffer.h"
 #include "media/base/media_util.h"
 #include "media/base/mock_filters.h"
+#include "media/base/video_frame_converter_internals.h"
 #include "third_party/libyuv/include/libyuv.h"
 #include "ui/gfx/geometry/rect.h"
 
@@ -107,6 +108,8 @@ void FillFourColorsFrameYUV(VideoFrame& dest_frame,
                             std::optional<uint32_t> xor_mask) {
   DCHECK(dest_frame.format() == PIXEL_FORMAT_NV12 ||
          dest_frame.format() == PIXEL_FORMAT_NV12A ||
+         dest_frame.format() == PIXEL_FORMAT_NV16 ||
+         dest_frame.format() == PIXEL_FORMAT_NV24 ||
          dest_frame.format() == PIXEL_FORMAT_I420 ||
          dest_frame.format() == PIXEL_FORMAT_I420A ||
          dest_frame.format() == PIXEL_FORMAT_I422 ||
@@ -121,7 +124,10 @@ void FillFourColorsFrameYUV(VideoFrame& dest_frame,
          dest_frame.format() == PIXEL_FORMAT_YUV444P12 ||
          dest_frame.format() == PIXEL_FORMAT_YUV420AP10 ||
          dest_frame.format() == PIXEL_FORMAT_YUV422AP10 ||
-         dest_frame.format() == PIXEL_FORMAT_YUV444AP10)
+         dest_frame.format() == PIXEL_FORMAT_YUV444AP10 ||
+         dest_frame.format() == PIXEL_FORMAT_P010LE ||
+         dest_frame.format() == PIXEL_FORMAT_P210LE ||
+         dest_frame.format() == PIXEL_FORMAT_P410LE)
       << "Unsupported pixel format: "
       << VideoPixelFormatToString(dest_frame.format());
 
@@ -133,7 +139,8 @@ void FillFourColorsFrameYUV(VideoFrame& dest_frame,
       dest_frame.format() == PIXEL_FORMAT_NV12A ||
       dest_frame.format() == PIXEL_FORMAT_YUV420P10 ||
       dest_frame.format() == PIXEL_FORMAT_YUV420P12 ||
-      dest_frame.format() == PIXEL_FORMAT_YUV420AP10) {
+      dest_frame.format() == PIXEL_FORMAT_YUV420AP10 ||
+      dest_frame.format() == PIXEL_FORMAT_P010LE) {
     temp_frame = VideoFrame::CreateZeroInitializedFrame(
         (dest_frame.format() == PIXEL_FORMAT_NV12A ||
          dest_frame.format() == PIXEL_FORMAT_YUV420AP10)
@@ -142,18 +149,22 @@ void FillFourColorsFrameYUV(VideoFrame& dest_frame,
         dest_frame.coded_size(), dest_frame.visible_rect(),
         dest_frame.natural_size(), base::TimeDelta());
     output_frame = temp_frame.get();
-  } else if (dest_frame.format() == PIXEL_FORMAT_YUV422P10 ||
+  } else if (dest_frame.format() == PIXEL_FORMAT_NV16 ||
+             dest_frame.format() == PIXEL_FORMAT_YUV422P10 ||
              dest_frame.format() == PIXEL_FORMAT_YUV422P12 ||
-             dest_frame.format() == PIXEL_FORMAT_YUV422AP10) {
+             dest_frame.format() == PIXEL_FORMAT_YUV422AP10 ||
+             dest_frame.format() == PIXEL_FORMAT_P210LE) {
     temp_frame = VideoFrame::CreateZeroInitializedFrame(
         dest_frame.format() == PIXEL_FORMAT_YUV422AP10 ? PIXEL_FORMAT_I422A
                                                        : PIXEL_FORMAT_I422,
         dest_frame.coded_size(), dest_frame.visible_rect(),
         dest_frame.natural_size(), base::TimeDelta());
     output_frame = temp_frame.get();
-  } else if (dest_frame.format() == PIXEL_FORMAT_YUV444P10 ||
+  } else if (dest_frame.format() == PIXEL_FORMAT_NV24 ||
+             dest_frame.format() == PIXEL_FORMAT_YUV444P10 ||
              dest_frame.format() == PIXEL_FORMAT_YUV444P12 ||
-             dest_frame.format() == PIXEL_FORMAT_YUV444AP10) {
+             dest_frame.format() == PIXEL_FORMAT_YUV444AP10 ||
+             dest_frame.format() == PIXEL_FORMAT_P410LE) {
     temp_frame = VideoFrame::CreateZeroInitializedFrame(
         dest_frame.format() == PIXEL_FORMAT_YUV444AP10 ? PIXEL_FORMAT_I444A
                                                        : PIXEL_FORMAT_I444,
@@ -174,21 +185,21 @@ void FillFourColorsFrameYUV(VideoFrame& dest_frame,
   uint8_t y, u, v, a;
 
   // Yellow top left.
-  std::tie(y, u, v, a) = RGBToYUV(yellow);
+  std::tie(y, u, v, a) = RGBToYUV(yellow, dest_frame.ColorSpace());
   I4xxxRect(output_frame, 0, 0, half_width, half_height, y, u, v, a);
 
   // Red top right.
-  std::tie(y, u, v, a) = RGBToYUV(red);
+  std::tie(y, u, v, a) = RGBToYUV(red, dest_frame.ColorSpace());
   I4xxxRect(output_frame, half_width, 0, remaining_width, half_height, y, u, v,
             a);
 
   // Blue bottom left.
-  std::tie(y, u, v, a) = RGBToYUV(blue);
+  std::tie(y, u, v, a) = RGBToYUV(blue, dest_frame.ColorSpace());
   I4xxxRect(output_frame, 0, half_height, half_width, remaining_height, y, u, v,
             a);
 
   // Green bottom right.
-  std::tie(y, u, v, a) = RGBToYUV(green);
+  std::tie(y, u, v, a) = RGBToYUV(green, dest_frame.ColorSpace());
   I4xxxRect(output_frame, half_width, half_height, remaining_width,
             remaining_height, y, u, v, a);
 
@@ -218,6 +229,68 @@ void FillFourColorsFrameYUV(VideoFrame& dest_frame,
             dest_frame.visible_rect().width(),
             dest_frame.visible_rect().height());
       }
+    } else if (dest_frame.format() == PIXEL_FORMAT_NV16 ||
+               dest_frame.format() == PIXEL_FORMAT_NV24) {
+      libyuv::CopyPlane(
+          temp_frame->visible_data(VideoFrame::Plane::kY),
+          temp_frame->stride(VideoFrame::Plane::kY),
+          dest_frame.GetWritableVisibleData(VideoFrame::Plane::kY),
+          dest_frame.stride(VideoFrame::Plane::kY),
+          dest_frame.visible_rect().width(),
+          dest_frame.visible_rect().height());
+      libyuv::MergeUVPlane(
+          temp_frame->visible_data(VideoFrame::Plane::kU),
+          temp_frame->stride(VideoFrame::Plane::kU),
+          temp_frame->visible_data(VideoFrame::Plane::kV),
+          temp_frame->stride(VideoFrame::Plane::kV),
+          dest_frame.GetWritableVisibleData(VideoFrame::Plane::kUV),
+          dest_frame.stride(VideoFrame::Plane::kUV),
+          dest_frame.GetVisibleColumns(VideoFrame::Plane::kUV),
+          dest_frame.GetVisibleRows(VideoFrame::Plane::kUV));
+    } else if (dest_frame.format() == PIXEL_FORMAT_P010LE ||
+               dest_frame.format() == PIXEL_FORMAT_P210LE ||
+               dest_frame.format() == PIXEL_FORMAT_P410LE) {
+      const VideoPixelFormat planar_format =
+          dest_frame.format() == PIXEL_FORMAT_P010LE
+              ? PIXEL_FORMAT_YUV420P10
+              : (dest_frame.format() == PIXEL_FORMAT_P210LE
+                     ? PIXEL_FORMAT_YUV422P10
+                     : PIXEL_FORMAT_YUV444P10);
+      auto planar_frame = VideoFrame::CreateFrame(
+          planar_format, dest_frame.coded_size(), dest_frame.visible_rect(),
+          dest_frame.natural_size(), base::TimeDelta());
+      CHECK(planar_frame);
+      for (size_t i = 0; i < VideoFrame::NumPlanes(planar_format); ++i) {
+        libyuv::Convert8To16Plane(temp_frame->visible_data(i),
+                                  temp_frame->stride(i),
+                                  reinterpret_cast<uint16_t*>(
+                                      planar_frame->GetWritableVisibleData(i)),
+                                  planar_frame->stride(i) / sizeof(uint16_t),
+                                  1024, planar_frame->GetVisibleColumns(i),
+                                  planar_frame->GetVisibleRows(i));
+      }
+      constexpr int kDepth = 10;
+      libyuv::ConvertToMSBPlane_16(
+          reinterpret_cast<const uint16_t*>(
+              planar_frame->visible_data(VideoFrame::Plane::kY)),
+          planar_frame->stride(VideoFrame::Plane::kY) / sizeof(uint16_t),
+          reinterpret_cast<uint16_t*>(
+              dest_frame.GetWritableVisibleData(VideoFrame::Plane::kY)),
+          dest_frame.stride(VideoFrame::Plane::kY) / sizeof(uint16_t),
+          dest_frame.visible_rect().width(), dest_frame.visible_rect().height(),
+          kDepth);
+      libyuv::MergeUVPlane_16(
+          reinterpret_cast<const uint16_t*>(
+              planar_frame->visible_data(VideoFrame::Plane::kU)),
+          planar_frame->stride(VideoFrame::Plane::kU) / sizeof(uint16_t),
+          reinterpret_cast<const uint16_t*>(
+              planar_frame->visible_data(VideoFrame::Plane::kV)),
+          planar_frame->stride(VideoFrame::Plane::kV) / sizeof(uint16_t),
+          reinterpret_cast<uint16_t*>(
+              dest_frame.GetWritableVisibleData(VideoFrame::Plane::kUV)),
+          dest_frame.stride(VideoFrame::Plane::kUV) / sizeof(uint16_t),
+          dest_frame.GetVisibleColumns(VideoFrame::Plane::kUV),
+          dest_frame.GetVisibleRows(VideoFrame::Plane::kUV), kDepth);
     } else {
       int scale = (dest_frame.format() == PIXEL_FORMAT_YUV420P12 ||
                    dest_frame.format() == PIXEL_FORMAT_YUV422P12 ||
@@ -863,12 +936,16 @@ void FillFourColors(VideoFrame& dest_frame, std::optional<uint32_t> xor_mask) {
   }
 }
 
-std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> RGBToYUV(uint32_t argb) {
+std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> RGBToYUV(
+    uint32_t argb,
+    const gfx::ColorSpace& cs) {
   // We're not trying to test the quality of Y, U, V, A conversion, just that
   // it happened. So use the same internal method to convert ARGB to YUV values.
   uint8_t y, u, v, a;
-  libyuv::ARGBToI444(reinterpret_cast<const uint8_t*>(&argb), 1, &y, 1, &u, 1,
-                     &v, 1, 1, 1);
+  const libyuv::ArgbConstants* matrix =
+      internals::GetArgbConstantsForColorSpace(cs, false);
+  libyuv::ARGBToI444Matrix(reinterpret_cast<const uint8_t*>(&argb), 4, &y, 1,
+                           &u, 1, &v, 1, matrix, 1, 1);
   a = argb >> 24;
   return std::tie(y, u, v, a);
 }

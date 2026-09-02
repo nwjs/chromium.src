@@ -194,24 +194,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="API.StorageAccessHeader.ActivateStorageAccessRetryOutcome"
-    enum="ActivateStorageAccessRetryOutcome" expires_after="2026-09-15">
-  <owner>sledoux@chromium.org</owner>
-  <owner>cfredric@chromium.org</owner>
-  <summary>
-    Records instances of HTTP responses that include the
-    `Activate-Storage-Access` header with a well-formed value indicating the
-    server would like the request to be retried with an active storage access
-    permission. Logs whether the header was honored, or the reason for its
-    rejection if it was not.
-
-    Recorded for each HTTP response received that contains a
-    `Activate-Storage-Access` header with a well-formed retry value.
-  </summary>
-</histogram>
-
 <histogram name="API.StorageAccessHeader.StorageAccessStatusOutcome"
-    enum="StorageAccessStatusOutcome" expires_after="2026-11-22">
+    enum="StorageAccessStatusOutcome" expires_after="2027-01-24">
   <owner>sledoux@chromium.org</owner>
   <owner>cfredric@chromium.org</owner>
   <summary>
@@ -422,7 +406,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.ClientKeepActiveRemotesCount" units="count"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>pmonette@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -460,7 +444,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.Create{Mode}Transaction.NumTransactionsInDatabase"
-    units="transactions" expires_after="2026-12-06">
+    units="transactions" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -623,7 +607,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.NumConnections.OnCreateAbove10k" units="connections"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -635,7 +619,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.NumPendingConnections.OnCreateAbove10k"
-    units="connections" expires_after="2026-12-06">
+    units="connections" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -648,7 +632,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.NumPendingConnections.RequestQueueSize"
-    units="connections" expires_after="2026-12-06">
+    units="connections" expires_after="2027-02-07">
   <owner>etienneb@chromium.org</owner>
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
@@ -661,7 +645,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IndexedDB.NumTransactionsInIDBDatabaseOnTransactionCreated.10kTransactions"
-    units="transactions" expires_after="2026-12-06">
+    units="transactions" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -846,7 +830,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.TransactionTimeout.{TransactionCount}CommitPending"
-    enum="Boolean" expires_after="2026-12-06">
+    enum="Boolean" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -858,7 +842,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.TransactionTimeout.{TransactionCount}IsAborted"
-    enum="IDBTransactionMode" expires_after="2026-12-06">
+    enum="IDBTransactionMode" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -883,7 +867,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.TransactionTimeout.{TransactionCount}Mode"
-    enum="IDBTransactionMode" expires_after="2026-12-06">
+    enum="IDBTransactionMode" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -896,7 +880,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IndexedDB.TransactionTimeout.{TransactionCount}NumTransactionsInConnection"
-    units="transactions" expires_after="2026-12-06">
+    units="transactions" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -910,7 +894,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IndexedDB.TransactionTimeout.{TransactionCount}NumTransactionsInDB"
-    units="transactions" expires_after="2026-12-06">
+    units="transactions" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -923,7 +907,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.TransactionTimeout.{TransactionCount}TaskRunQueued"
-    enum="Boolean" expires_after="2026-12-06">
+    enum="Boolean" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -953,11 +937,15 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LevelDBEnv.DeleteTableBackupFile" enum="BooleanSuccess"
-    expires_after="2025-04-27">
-  <owner>ayui@chromium.org</owner>
+    expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     Tracks the success rate of deleting an unused leveldb table backup file.
+
+    Warning: this histogram was expired from 2025/04 to 2026/08; data may be
+    missing.
   </summary>
 </histogram>
 
@@ -977,12 +965,16 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LevelDBEnv.{LevelDBEnvTypes}IOError"
-    enum="LevelDBIOErrorMethods" expires_after="2026-06-26">
-  <owner>ayui@chromium.org</owner>
+    enum="LevelDBIOErrorMethods" expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     Methods where leveldb's Chromium environment has IO errors.
     {LevelDBEnvTypes}
+
+    Warning: this histogram was expired from 2026/06 to 2026/08; data may be
+    missing.
   </summary>
   <token key="LevelDBEnvTypes" variants="LevelDBEnvTypes">
     <variant name=""/>
@@ -990,13 +982,17 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LevelDBEnv.{LevelDBEnvTypes}MissingFiles" units="files"
-    expires_after="2026-06-26">
-  <owner>ayui@chromium.org</owner>
+    expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     Number of backup files found without corresponding ldb files. As measured by
     GetChildren when used in LevelDB clients other than IndexedDB.
     {LevelDBEnvTypes}
+
+    Warning: this histogram was expired from 2026/06 to 2026/08; data may be
+    missing.
   </summary>
   <token key="LevelDBEnvTypes" variants="LevelDBEnvTypes">
     <variant name=""/>
@@ -1004,8 +1000,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LevelDBWrapper.CommitDelay" units="ms"
-    expires_after="2026-11-01">
-  <owner>ayui@chromium.org</owner>
+    expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     Delay between the browser process receiving changes and those changes being
@@ -1017,7 +1014,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LocalStorage.AccessMetaDataUpdateAtShutdown" enum="Boolean"
-    expires_after="2026-09-22">
+    expires_after="2027-03-31">
   <owner>arichiv@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1032,7 +1029,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="LocalStorage.DatabaseOnDiskSizeKB{DomStorageSqliteRolloutStage}"
-    units="KB" expires_after="2026-11-22">
+    units="KB" expires_after="2027-01-24">
   <owner>fergal@chromium.org</owner>
   <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
@@ -1044,7 +1041,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LocalStorage.DaysSinceLastModified" units="days"
-    expires_after="2026-09-22">
+    expires_after="2027-03-31">
   <owner>arichiv@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1100,7 +1097,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LocalStorage.OrphanStorageAreasOnStartupCount" units="areas"
-    expires_after="2026-09-22">
+    expires_after="2027-03-31">
   <owner>arichiv@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1115,7 +1112,8 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="LocalStorage.RendererAreaCacheHit"
     enum="LocalStorageRendererAreaCacheHitEnum" expires_after="2027-07-08">
-  <owner>ayui@chromium.org</owner>
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     The renderer side cache hit rate metrics for new HTML5 LocalStorage DB
@@ -1127,7 +1125,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LocalStorage.StaleStorageAreasDeletedOnStartupCount"
-    units="areas" expires_after="2026-09-22">
+    units="areas" expires_after="2027-03-31">
   <owner>arichiv@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1141,7 +1139,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LocalStorage.StaleStorageAreasDeletedOnStartupSuccess"
-    enum="BooleanSuccess" expires_after="2026-09-22">
+    enum="BooleanSuccess" expires_after="2027-03-31">
   <owner>arichiv@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1155,30 +1153,34 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="MojoLevelDBEnv.IOError" enum="LevelDBIOErrorMethods"
-    expires_after="2026-06-26">
-  <owner>ayui@chromium.org</owner>
+    expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     Methods where leveldb's Mojo environment has IO errors. This histogram has
     expired between M87-106.
+
+    Warning: this histogram was expired from 2026/06 to 2026/08; data may be
+    missing.
   </summary>
 </histogram>
 
 <histogram name="Storage.Blob.FileReaderLoader.DataPipeNotReadableMojoError"
-    enum="FileReaderLoaderMojoResult" expires_after="2026-07-01">
+    enum="FileReaderLoaderMojoResult" expires_after="2027-07-01">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     Recorded when FileReaderLoader.FailureType2 records a data pipe not readable
     error. This is the specific type of Mojo error.
 
-    Warning: this histogram was expired from 2025/02 to 2025/06; data may be
-    missing.
+    Warning: this histogram was expired from 2025/02 to 2025/06 and from 2026/07
+    to 2026/08; data may be missing.
   </summary>
 </histogram>
 
 <histogram name="Storage.Blob.FileReaderLoader.FailureType2"
-    enum="FileReaderLoaderFailureType" expires_after="2026-05-03">
+    enum="FileReaderLoaderFailureType" expires_after="2027-07-01">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1188,16 +1190,22 @@ chromium-metrics-reviews@google.com.
     renderer-side implementation. For the read error category, see
     Storage.Blob.FileReaderLoader.ReadError for a breakdown of the specific read
     error reasons.
+
+    Warning: this histogram was expired from 2026/05 to 2026/08; data may be
+    missing.
   </summary>
 </histogram>
 
 <histogram name="Storage.Blob.FileReaderLoader.ReadError2" enum="NetErrorCodes"
-    expires_after="2026-05-03">
+    expires_after="2027-07-01">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     The error code reported by the blob system while trying to read a blob in
     the FileReaderLoader.
+
+    Warning: this histogram was expired from 2026/05 to 2026/08; data may be
+    missing.
   </summary>
 </histogram>
 
@@ -1541,44 +1549,6 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
-<histogram name="Storage.ImportantSites.GeneratedReason"
-    enum="ImportantSitesReason" expires_after="2024-08-01">
-  <owner>ayui@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    Recorded when we generate a list of important sites. This can happen when
-    the user opens the Clear Browsing Data dialog on Android, views the Storage
-    tab in Site Settings on Android, or launches 'Manage Storage' from Android
-    System Settings for Chrome. We record every reason each site was chosen in
-    this metric. This means that we can report this metric multiple times for a
-    single site. This histogram has expired between M95-M106.
-  </summary>
-</histogram>
-
-<histogram name="Storage.ImportantSites.GeneratedReasonCount" units="count"
-    expires_after="2024-08-01">
-  <owner>ayui@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    This records the number of reasons qualifying a site for being 'important'.
-    We record this for every site when we generate a list of important sites,
-    described in &quot;Storage.ImportantSites.GeneratedReason&quot;. This
-    histogram has expired between M95-M106.
-  </summary>
-</histogram>
-
-<histogram name="Storage.ImportantSites.GenerationTime" units="ms"
-    expires_after="2024-12-08">
-  <owner>ayui@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    The time it takes to generate the list of 'important' sites. This list is
-    generated when the user enters the 'Clear Browsing Dialog' or the 'Manage
-    Space' screens for Chrome, both of which are on Android. This histogram has
-    expired between M95-M106.
-  </summary>
-</histogram>
-
 <histogram name="Storage.InterestGroup.AdComponentRenderURLSize" units="bytes"
     expires_after="2025-07-13">
   <owner>caraitto@chromium.org</owner>
@@ -1713,7 +1683,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.InterestGroup.DBSize" units="KB"
-    expires_after="2026-11-29">
+    expires_after="2027-01-31">
   <owner>behamilton@google.com</owner>
   <owner>pauljensen@chromium.org</owner>
   <summary>
@@ -1911,8 +1881,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.SessionStorage.RendererAreaCacheHit"
-    enum="LocalStorageRendererAreaCacheHitEnum" expires_after="2026-10-12">
-  <owner>ayui@chromium.org</owner>
+    enum="LocalStorageRendererAreaCacheHitEnum" expires_after="2027-07-01">
+  <owner>leimy@chromium.org</owner>
+  <owner>rahsin@microsoft.com</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
     The renderer side cache hit rate metrics for new HTML5 SessionStorage DB
@@ -1973,17 +1944,6 @@ chromium-metrics-reviews@google.com.
     Records the synchronous duration of StoragePartitionImplMap::Get() on the UI
     thread across all //content embedders. Emitted once every time a storage
     partition is retrieved or created in the map.
-  </summary>
-</histogram>
-
-<histogram name="Storage.StoragePressure.Bubble"
-    enum="StoragePressureBubbleUserAction" expires_after="2025-09-01">
-  <owner>ayui@chromium.org</owner>
-  <owner>chrome-owp-storage@google.com</owner>
-  <summary>
-    How did the user interact with the StoragePressure Bubble? Ignored means the
-    user did not click on the positive button before the bubble is closed
-    (either manually closed or when the browser closes).
   </summary>
 </histogram>
 

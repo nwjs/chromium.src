@@ -25,7 +25,7 @@ export function getHtml(this: HistorySideBarElement) {
   <a id="syncedTabs" role="menuitem" href="/syncedTabs"
       class="page-item cr-nav-menu-item"
       path="syncedTabs" @click="${this.onItemClick_}">
-    <cr-icon icon="cr:phonelink"></cr-icon>
+    <cr-icon icon="cr:devices"></cr-icon>
     $i18n{openTabsMenuItem}
     <cr-ripple></cr-ripple>
   </a>
@@ -48,7 +48,7 @@ export function getHtml(this: HistorySideBarElement) {
   <div id="google-account-footer"
       ?hidden="${!this.showGoogleAccountFooter_}"
       @click="${this.onGoogleAccountFooterClick_}">
-    <cr-icon icon="cr:info-outline"></cr-icon>
+    <cr-icon icon="cr:info"></cr-icon>
     <div ?hidden="${!this.showGMAOnly_}">$i18nRaw{sidebarFooterGMAOnly}</div>
     <div ?hidden="${!this.showGAAOnly_}">$i18nRaw{sidebarFooterGAAOnly}</div>
     <div ?hidden="${!this.showGMAAndGAA_}">$i18nRaw{sidebarFooterGMAAndGAA}</div>

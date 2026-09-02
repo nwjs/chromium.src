@@ -33,6 +33,7 @@ source_set("metrics") {
     "https_engagement_metrics_provider.h",
     "incognito_observer.h",
     "metrics_memory_details.h",
+    "metrics_provider_process_observer.h",
     "metrics_reporting_state.h",
     "network_quality_estimator_provider_impl.h",
     "process_memory_metrics_emitter.h",
@@ -184,6 +185,7 @@ source_set("metrics") {
       "antivirus_metrics_provider_win.h",
       "google_update_metrics_provider_win.h",
       "key_credential_manager_support_reporter_win.h",
+      "oom/commit_limit_oom_recovery_tracker.h",
       "system_memory_list_metrics_provider_win.h",
       "system_pdh_metrics_provider_win.h",
       "tpm_metrics_provider_win.h",
@@ -199,6 +201,7 @@ source_set("metrics") {
     public += [
       "google_update_metrics_provider_mac.h",
       "power/power_metrics_provider_mac.h",
+      "task_info_metrics_provider_mac.h",
     ]
   }
 
@@ -244,6 +247,7 @@ source_set("impl") {
     "https_engagement_metrics_provider.cc",
     "incognito_observer.cc",
     "metrics_memory_details.cc",
+    "metrics_provider_process_observer.cc",
     "metrics_reporting_state.cc",
     "network_quality_estimator_provider_impl.cc",
     "process_memory_metrics_emitter.cc",
@@ -449,6 +453,7 @@ source_set("impl") {
       "antivirus_metrics_provider_win.cc",
       "google_update_metrics_provider_win.cc",
       "key_credential_manager_support_reporter_win.cc",
+      "oom/commit_limit_oom_recovery_tracker.cc",
       "system_memory_list_metrics_provider_win.cc",
       "system_pdh_metrics_provider_win.cc",
       "tpm_metrics_provider_win.cc",
@@ -466,6 +471,7 @@ source_set("impl") {
       "chrome_browser_main_extra_parts_metrics_mac.mm",
       "google_update_metrics_provider_mac.cc",
       "power/power_metrics_provider_mac.mm",
+      "task_info_metrics_provider_mac.cc",
     ]
     deps += [
       "//chrome/browser/updater",
@@ -540,6 +546,7 @@ source_set("unit_tests") {
     "chrome_metrics_service_accessor_unittest.cc",
     "chrome_metrics_service_client_unittest.cc",
     "chrome_metrics_services_manager_client_unittest.cc",
+    "metrics_provider_process_observer_unittest.cc",
     "process_memory_metrics_emitter_unittest.cc",
     "tab_footprint_aggregator_unittest.cc",
     "tab_stats/tab_stats_data_store_unittest.cc",
@@ -551,8 +558,11 @@ source_set("unit_tests") {
     ":metrics",
     "//base/test:test_support",
     "//chrome/browser/performance_manager:test_support",
+    "//chrome/browser/sync",
     "//chrome/browser/ui",
+    "//chrome/browser/ui:ui_features",
     "//chrome/test:test_support",
+    "//components/component_updater:test_support",
     "//components/metrics:test_support",
     "//components/metrics/private_metrics:dwa_recorder",
     "//components/performance_manager/test_support",
@@ -561,6 +571,7 @@ source_set("unit_tests") {
     "//components/sync_preferences:test_support",
     "//components/ukm",
     "//components/ukm:test_support",
+    "//components/ukm:ukm_test_helper",
     "//content/test:test_support",
     "//services/resource_coordinator/public/cpp/memory_instrumentation:browser",
     "//testing/gmock",
@@ -574,19 +585,24 @@ source_set("unit_tests") {
     sources += [
       "accessibility_state_provider_win_unittest.cc",
       "antivirus_metrics_provider_win_unittest.cc",
+      "oom/commit_limit_oom_recovery_tracker_unittest.cc",
       "system_memory_list_metrics_provider_win_unittest.cc",
       "system_pdh_metrics_provider_win_unittest.cc",
       "tpm_metrics_provider_win_unittest.cc",
     ]
     deps += [
       "//chrome/services/util_win:lib",
+      "//components/tabs:test_support",
       "//components/variations",
       "//ui/accessibility",
     ]
   }
 
   if (is_mac) {
-    sources += [ "google_update_metrics_provider_mac_unittest.cc" ]
+    sources += [
+      "google_update_metrics_provider_mac_unittest.cc",
+      "task_info_metrics_provider_mac_unittest.cc",
+    ]
     deps += [
       "//chrome/browser/updater",
       "//chrome/browser/updater:test_support",
@@ -608,6 +624,7 @@ source_set("unit_tests") {
     ]
   } else {
     sources += [
+      "desktop_platform_features_metrics_provider_unittest.cc",
       "desktop_session_duration/desktop_session_duration_tracker_unittest.cc",
       "desktop_session_duration/touch_ui_controller_stats_tracker_unittest.cc",
       "power/battery_discharge_reporter_unittest.cc",
@@ -660,6 +677,7 @@ source_set("unit_tests") {
       "//chrome/browser/sync",
       "//chrome/browser/ui/browser_window/test:test_support",
       "//chrome/browser/unified_consent",
+      "//chromeos/ash/components/install_attributes:test_support",
       "//chromeos/ash/components/login/login_state",
       "//chromeos/ash/components/system",
       "//chromeos/ash/services/multidevice_setup/public/cpp",
@@ -750,6 +768,7 @@ if (!is_android) {
 
     sources = [
       "dwa_browsertest.cc",
+      "metrics_consent_migration_browsertest.cc",
       "metrics_reporting_state_browsertest.cc",
       "metrics_service_browsertest.cc",
       "metrics_service_user_demographics_browsertest.cc",

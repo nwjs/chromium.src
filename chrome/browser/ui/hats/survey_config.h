@@ -99,12 +99,14 @@ extern const char kHatsSurveyTriggerWhatsNew[];
 extern const char kHatsSurveyTriggerReadingModeExit[];
 #else   // BUILDFLAG(IS_ANDROID)
 extern const char kHatsSurveyTriggerAndroidStartupSurvey[];
+extern const char kHatsSurveyTriggerRedWarningAndroid[];
 extern const char kHatsSurveyTriggerSigninFirstRun[];
 extern const char kHatsSurveyTriggerSigninWeb[];
 extern const char kHatsSurveyTriggerSigninNtpSigninButton[];
 extern const char kHatsSurveyTriggerSigninNtpAccountAvatarTap[];
 extern const char kHatsSurveyTriggerSigninNtpPromo[];
 extern const char kHatsSurveyTriggerSigninBookmarkPromo[];
+extern const char kHatsSurveyTriggerSuspiciousSiteWarning[];
 #endif  // #if !BUILDFLAG(IS_ANDROID)
 
 extern const char kHatsSurveyTriggerAutofillAiFilling[];

@@ -75,6 +75,7 @@
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "components/subresource_filter/content/browser/subresource_filter_content_settings_manager.h"
 #include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/unified_consent/pref_names.h"
 #include "components/version_info/version_info.h"
 #include "content/public/browser/navigation_controller.h"
@@ -253,8 +254,11 @@ void ShowInfobar(content::WebContents* web_contents) {
     auto* browser_infobar_manager =
         infobars::BrowserInfoBarManager::From(g_browser_process);
     if (browser_infobar_manager) {
-      browser_infobar_manager->Show(
-          web_contents, infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE);
+      auto* tab = tabs::TabInterface::MaybeGetFromContents(web_contents);
+      if (tab) {
+        browser_infobar_manager->Show(
+            tab, infobars::InfoBarDelegate::PAGE_INFO_INFOBAR_DELEGATE);
+      }
     }
   } else {
     infobars::ContentInfoBarManager* infobar_manager =
@@ -768,18 +772,10 @@ std::optional<GURL> ChromePermissionsClient::GetCanonicalOriginOverride(
 
   // Contextual Tasks:
   // Transform chrome:// origins to the DSE origin so that permissions are
-  // stored under and shared with the DSE. If the embedder is contextual tasks
-  // without the requester being the contextual tasks, do not override the URL.
-  // Only if the embedder is the contextual tasks AND the requester is the
-  // contextual tasks, override the canonical origin to be 'google.com'.
-  if (embedder == GetContextualTasksOrigin()) {
-    if (requester == GetContextualTasksOrigin()) {
-      return GURL(UIThreadSearchTermsData().GoogleBaseURLValue())
-          .DeprecatedGetOriginAsURL();
-    }
-    // The contextual tasks WebUI does not allow 3P origins and there is no
-    // plan to. It is therefore okay to return requesting_origin here.
-    return requesting_origin;
+  // stored under and shared with the DSE.
+  if (embedder == requester && embedder == GetContextualTasksOrigin()) {
+    return GURL(UIThreadSearchTermsData().GoogleBaseURLValue())
+        .DeprecatedGetOriginAsURL();
   }
 
   // Omnibox:
@@ -998,6 +994,15 @@ ChromePermissionsClient::CreatePrompt(
     content::WebContents* web_contents,
     permissions::PermissionPrompt::Delegate* delegate) {
   return CreatePermissionPrompt(web_contents, delegate);
+}
+
+std::unique_ptr<
+    permissions::EmbeddedPermissionPromptFlowModel::PromptContentScrim>
+ChromePermissionsClient::CreatePromptContentScrim(
+    content::WebContents* web_contents,
+    permissions::EmbeddedPermissionPromptFlowModel* flow_model) {
+  CHECK(web_contents);
+  return CreatePermissionPromptContentScrim(*web_contents, flow_model);
 }
 #endif
 

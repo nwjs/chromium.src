@@ -9,6 +9,7 @@ for more details about the presubmit API built into depot_tools.
 """
 
 import os
+import sys
 
 INCLUSION_PREFIXES = ('#import "', '#include "')
 
@@ -62,8 +63,31 @@ def _CheckAbsolutePathInclusionInPublicHeaders(input_api, output_api):
   return [output_api.PresubmitError(error_message)]
 
 
-def CheckChangeOnCommit(input_api, output_api):
+def _CheckCommon(input_api, output_api):
   results = []
   results.extend(
-    _CheckAbsolutePathInclusionInPublicHeaders(input_api, output_api))
+      _CheckAbsolutePathInclusionInPublicHeaders(input_api, output_api))
+
+  # Import shared iOS NFU linter
+  original_sys_path = sys.path[:]
+  try:
+    sys.path.append(input_api.change.RepositoryRoot())
+    from build.ios import presubmit_support
+    results.extend(
+      presubmit_support.CheckNotFatalUntilAdoption(input_api, output_api)
+    )
+    results.extend(
+      presubmit_support.CheckDiscourageCheckDeref(input_api, output_api)
+    )
+  finally:
+    sys.path = original_sys_path
+
   return results
+
+
+def CheckChangeOnUpload(input_api, output_api):
+  return _CheckCommon(input_api, output_api)
+
+
+def CheckChangeOnCommit(input_api, output_api):
+  return _CheckCommon(input_api, output_api)

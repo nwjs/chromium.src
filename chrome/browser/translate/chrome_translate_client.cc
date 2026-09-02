@@ -11,6 +11,8 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/i18n/language_tag.h"
+#include "base/i18n/tag_converters.h"
 #include "base/notreached.h"
 #include "base/path_service.h"
 #include "base/strings/string_split.h"
@@ -28,6 +30,7 @@
 #include "chrome/browser/ui/translate/translate_bubble_factory.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/language/core/browser/accept_languages_service.h"
@@ -50,16 +53,8 @@
 #include "components/variations/service/variations_service.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
-#include "pdf/buildflags.h"
 #include "third_party/metrics_proto/translate_event.pb.h"
-#include "ui/base/ui_base_features.h"
 #include "url/gurl.h"
-
-#if BUILDFLAG(ENABLE_PDF)
-#include "base/barrier_callback.h"
-#include "components/pdf/browser/pdf_document_helper.h"
-#include "mojo/public/cpp/bindings/callback_helpers.h"
-#endif
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/android_theme_resources.h"
@@ -102,6 +97,12 @@ TranslateEventProto::EventType BubbleResultToTranslateEvent(
       NOTREACHED();
   }
 }
+
+bool IsReadAnythingWebContents(content::WebContents* web_contents) {
+  return web_contents->GetLastCommittedURL().GetWithEmptyPath() ==
+         GURL(chrome::kChromeUIUntrustedReadAnythingSidePanelURL)
+             .GetWithEmptyPath();
+}
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
@@ -115,73 +116,6 @@ bool IsAutomaticTranslationType(translate::TranslationType type) {
          type == translate::TranslationType::kForcedTranslationByCommandline;
 }
 #endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(ENABLE_PDF)
-void OnPdfDocumentLoadComplete(
-    base::WeakPtr<ChromeTranslateClient> client,
-    base::OnceCallback<void(bool)> completion_callback) {
-  if (!client) {
-    std::move(completion_callback).Run(false);
-    return;
-  }
-  pdf::PDFDocumentHelper* pdf_helper =
-      pdf::PDFDocumentHelper::MaybeGetForWebContents(client->web_contents());
-  if (!pdf_helper) {
-    std::move(completion_callback).Run(false);
-    return;
-  }
-
-  enum class PdfCheckType { kMeaningfulText, kJavaScript, kPasswordProtected };
-  using PdfCheckResult = std::pair<PdfCheckType, bool>;
-
-  // The first parameter (3) is the number of times `pdf_checks_barrier` must
-  // be called (once for `HasMeaningfulText`, once for `HasJavaScript`, and
-  // once for `IsPasswordProtected`) before executing `completion_callback`.
-  auto pdf_checks_barrier = base::BarrierCallback<PdfCheckResult>(
-      3, base::BindOnce(
-             [](base::OnceCallback<void(bool)> completion_callback,
-                std::vector<PdfCheckResult> results) {
-               bool has_meaningful_text = false;
-               bool has_javascript = true;
-               bool is_password_protected = true;
-               for (const auto& [type, value] : results) {
-                 switch (type) {
-                   case PdfCheckType::kMeaningfulText:
-                     has_meaningful_text = value;
-                     break;
-                   case PdfCheckType::kJavaScript:
-                     has_javascript = value;
-                     break;
-                   case PdfCheckType::kPasswordProtected:
-                     is_password_protected = value;
-                     break;
-                 }
-               }
-               std::move(completion_callback)
-                   .Run(has_meaningful_text && !has_javascript &&
-                        !is_password_protected);
-             },
-             std::move(completion_callback)));
-
-  pdf_helper->HasMeaningfulText(base::BindOnce(
-      [](base::RepeatingCallback<void(PdfCheckResult)> barrier, bool result) {
-        barrier.Run({PdfCheckType::kMeaningfulText, result});
-      },
-      pdf_checks_barrier));
-
-  pdf_helper->HasJavaScript(base::BindOnce(
-      [](base::RepeatingCallback<void(PdfCheckResult)> barrier, bool result) {
-        barrier.Run({PdfCheckType::kJavaScript, result});
-      },
-      pdf_checks_barrier));
-
-  pdf_helper->IsPasswordProtected(base::BindOnce(
-      [](base::RepeatingCallback<void(PdfCheckResult)> barrier, bool result) {
-        barrier.Run({PdfCheckType::kPasswordProtected, result});
-      },
-      pdf_checks_barrier));
-}
-#endif  // BUILDFLAG(ENABLE_PDF)
 
 }  // namespace
 
@@ -388,40 +322,14 @@ void ChromeTranslateClient::ManualTranslateWhenReady() {
 #endif
 
 void ChromeTranslateClient::SetPredefinedTargetLanguage(
-    const std::string& translate_language_code,
+    const base::i18n::LanguageTag& language,
     bool should_auto_translate) {
   translate::TranslateManager* manager = GetTranslateManager();
-  manager->SetPredefinedTargetLanguage(translate_language_code,
-                                       should_auto_translate);
+  manager->SetPredefinedTargetLanguage(language, should_auto_translate);
 }
 
 bool ChromeTranslateClient::IsTranslatableURL(const GURL& url) {
   return TranslateService::IsTranslatableURL(url);
-}
-
-void ChromeTranslateClient::CheckIfPdfIsTranslatable(
-    base::OnceCallback<void(bool)> callback) {
-#if BUILDFLAG(ENABLE_PDF)
-  if (!base::FeatureList::IsEnabled(translate::kEnableTranslatePdf)) {
-    std::move(callback).Run(false);
-    return;
-  }
-  pdf::PDFDocumentHelper* pdf_helper =
-      pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents());
-  if (!pdf_helper) {
-    std::move(callback).Run(false);
-    return;
-  }
-
-  auto wrapped_callback =
-      mojo::WrapCallbackWithDefaultInvokeIfNotRun(std::move(callback), false);
-
-  pdf_helper->RegisterForDocumentLoadComplete(
-      base::BindOnce(&OnPdfDocumentLoadComplete, weak_factory_.GetWeakPtr(),
-                     std::move(wrapped_callback)));
-#else
-  std::move(callback).Run(false);
-#endif
 }
 
 void ChromeTranslateClient::UndoTranslate() {
@@ -503,6 +411,12 @@ ShowTranslateBubbleResult ChromeTranslateClient::ShowBubble(
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           web_contents());
 
+  // If web_contents() is in a side panel, FindBrowserWithTab returns nullptr.
+  // Fall back to the last active browser window.
+  if (!browser && IsReadAnythingWebContents(web_contents())) {
+    browser = GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+  }
+
   // |browser| might be NULL when testing. In this case, Show(...) should be
   // called because the implementation for testing is used.
   if (!browser) {
@@ -511,7 +425,8 @@ ShowTranslateBubbleResult ChromeTranslateClient::ShowBubble(
                                         error_type, is_user_gesture);
   }
 
-  if (web_contents() != browser->GetTabStripModel()->GetActiveWebContents()) {
+  if (web_contents() != browser->GetTabStripModel()->GetActiveWebContents() &&
+      !IsReadAnythingWebContents(web_contents())) {
     return ShowTranslateBubbleResult::kWebContentsNotActive;
   }
 

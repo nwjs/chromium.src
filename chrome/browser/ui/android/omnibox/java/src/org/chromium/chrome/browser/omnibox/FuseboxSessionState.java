@@ -20,13 +20,14 @@ import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteController;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
-import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
+import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteInput.AutocompleteState;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxFocusReason;
+import org.chromium.components.omnibox.PageClassificationUtils;
 import org.chromium.components.omnibox.TextSelection;
 import org.chromium.components.omnibox.ToolModeUtils;
 import org.chromium.content_public.browser.WebContents;
@@ -38,8 +39,9 @@ import java.util.Optional;
  * Fusebox / Omnibox session state object. Captures controllers and state details needed to fulfill
  * or reconstruct the user input. This object is associated with a specific {@link Profile}.
  *
- * <p>Unlike the AutocompleteInput - this class is permitted to hold external controllers required
- * to fulfill navigation request.
+ * <p>Unlike {@link AutocompleteInput} - this class is permitted to hold heavier-weight,
+ * non-serializable objects and external controllers required to fulfill navigation requests, in
+ * addition to {@link AutocompleteInput}.
  *
  * <ul>
  *   <li>All FuseboxSessionState members should be considered `final` from the moment the session is
@@ -117,11 +119,6 @@ public class FuseboxSessionState implements UserData {
         return mWebContents;
     }
 
-    /** Returns whether the session is scoped to a specific AI task. */
-    public boolean isTaskScoped() {
-        return false;
-    }
-
     /** Returns the current {@link Profile} for this session. */
     public @Nullable Profile getProfile() {
         return mProfile;
@@ -170,19 +167,21 @@ public class FuseboxSessionState implements UserData {
             if (canStripTrailingSlash(pageUrl)) {
                 initialUserText = UrlUtilities.stripTrailingSlash(initialUserText);
             }
+            mAutocompleteInput.setPreviewMatchUrl(pageUrl);
             mAutocompleteInput.setInitialUserText(initialUserText);
         } else {
+            mAutocompleteInput.setPreviewMatchUrl(null);
             mAutocompleteInput.setInitialUserText("");
         }
 
         // Apply the initial default value unless user text is already set.
         if (mAutocompleteInput.getUserText().isEmpty()
                 && mAutocompleteInput.getPageClassification()
-                        != PageClassification.ANDROID_SEARCH_WIDGET_VALUE
+                        != PageClassification.ANDROID_SEARCH_WIDGET
                 && mAutocompleteInput.getPageClassification()
-                        != PageClassification.ANDROID_SHORTCUTS_WIDGET_VALUE
-                && mAutocompleteInput.getPageClassification()
-                        != PageClassification.ANDROID_HUB_VALUE) {
+                        != PageClassification.ANDROID_SHORTCUTS_WIDGET
+                && !PageClassificationUtils.isHubOrTabSearch(
+                        mAutocompleteInput.getPageClassification())) {
             mAutocompleteInput
                     .setUserText(mAutocompleteInput.getInitialUserText())
                     .setSelection(
@@ -248,7 +247,7 @@ public class FuseboxSessionState implements UserData {
 
         if (mComposeBoxQueryControllerBridge == null) {
             mComposeBoxQueryControllerBridge =
-                    ComposeboxQueryControllerBridge.create(mProfile, mWebContents, isTaskScoped());
+                    ComposeboxQueryControllerBridge.create(mProfile, mWebContents);
         }
 
         if (mComposeBoxQueryControllerBridge != null && mFuseboxAttachmentModelList == null) {
@@ -279,10 +278,16 @@ public class FuseboxSessionState implements UserData {
 
     @Override
     public void destroy() {
-        if (mIsActive) {
-            deactivate();
-        }
+        // Do not `deactivate()` from here - if TabModel is destroyed before LocationBar is,
+        // deactivate() resets AutocompleteInput, triggering Autocomplete refresh, causing a crash.
+        // When destroying - there's no point in clearing up AutocompleteInput.
         tearDownSessionControllers();
+        if (mProfileSupplier != null && mPendingProfileCallback != null) {
+            mProfileSupplier.removeObserver(mPendingProfileCallback);
+            mPendingProfileCallback = null;
+        }
+        mWebContents = null;
+        mIsActive = false;
         if (OmniboxFeatures.sShowModelPicker.getValue()) {
             mAutocompleteInput.getRequestTypeSupplier().removeObserver(mOnRequestTypeChanged);
         }
@@ -343,11 +348,6 @@ public class FuseboxSessionState implements UserData {
     /** Returns whether the Fusebox session is active. */
     public boolean isSessionActive() {
         return mIsActive;
-    }
-
-    /** Returns whether the session is a contextual tasks session. */
-    public boolean isContextualTasksState() {
-        return false;
     }
 
     /** Modifies this session input to have the values of the given input. */

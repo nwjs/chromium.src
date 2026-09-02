@@ -149,14 +149,12 @@ class CONTENT_EXPORT StoragePartitionImpl
       BackgroundSyncContextImpl* background_sync_context);
   void OverrideSharedWorkerServiceForTesting(
       std::unique_ptr<SharedWorkerServiceImpl> shared_worker_service);
-  void OverrideDeviceBoundSessionManagerForTesting(
-      std::unique_ptr<network::mojom::DeviceBoundSessionManager>
-          device_bound_session_manager);
 
   // StoragePartition interface.
   const StoragePartitionConfig& GetConfig() const override;
   const base::FilePath& GetPath() const override;
   network::mojom::NetworkContext* GetNetworkContext() override;
+  bool IsNetworkContextInitialized() override;
   cert_verifier::mojom::CertVerifierServiceUpdater*
   GetCertVerifierServiceUpdater() override;
   network::mojom::URLLoaderFactoryParamsPtr CreateURLLoaderFactoryParams();
@@ -196,13 +194,15 @@ class CONTENT_EXPORT StoragePartitionImpl
   HostZoomLevelContext* GetHostZoomLevelContext() override;
   ZoomLevelDelegate* GetZoomLevelDelegate() override;
   PlatformNotificationContextImpl* GetPlatformNotificationContext() override;
-  BrowsingTopicsSiteDataManager* GetBrowsingTopicsSiteDataManager() override;
   leveldb_proto::ProtoDatabaseProvider* GetProtoDatabaseProvider() override;
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   CdmStorageDataModel* GetCdmStorageDataModel() override;
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
   network::mojom::DeviceBoundSessionManager* GetDeviceBoundSessionManager()
       override;
+  void OverrideDeviceBoundSessionManagerForTesting(
+      std::unique_ptr<network::mojom::DeviceBoundSessionManager>
+          device_bound_session_manager) override;
 
   void DeleteStaleSessionData() override;
 
@@ -246,7 +246,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   void SetNetworkContextForTesting(
       mojo::PendingRemote<network::mojom::NetworkContext>
           network_context_remote) override;
-  void OverrideDeleteStaleSessionOnlyCookiesDelayForTesting(
+  void OverrideDeleteStaleSessionCleanupDelayForTesting(
       const base::TimeDelta& delay) override;
 
   // TODO(crbug.com/352651664): Consider merging to
@@ -362,12 +362,6 @@ class CONTENT_EXPORT StoragePartitionImpl
   void OnDataUseUpdate(int32_t network_traffic_annotation_id_hash,
                        base::ByteSize recv_bytes,
                        base::ByteSize sent_bytes) override;
-  void OnSharedStorageHeaderReceived(
-      const url::Origin& request_origin,
-      std::vector<network::mojom::SharedStorageModifierMethodWithOptionsPtr>
-          methods_with_options,
-      const std::optional<std::string>& with_lock,
-      OnSharedStorageHeaderReceivedCallback callback) override;
 
   // performance_scenarios::MatchingScenarioObserver overrides:
   void OnScenarioMatchChanged(performance_scenarios::ScenarioScope scope,
@@ -451,7 +445,8 @@ class CONTENT_EXPORT StoragePartitionImpl
   mojo::PendingRemote<network::mojom::URLLoaderNetworkServiceObserver>
   CreateURLLoaderNetworkObserverForServiceOrSharedWorker(
       const network::OriginatingProcessId& process_id,
-      const url::Origin& worker_origin);
+      const url::Origin& worker_origin,
+      const std::optional<blink::StorageKey>& storage_key = std::nullopt);
 
   mojo::PendingRemote<network::mojom::URLLoaderNetworkServiceObserver>
   CreateURLLoaderNetworkObserverForDeviceBoundSessions();
@@ -544,7 +539,14 @@ class CONTENT_EXPORT StoragePartitionImpl
     struct SharedOrServiceWorkerContext {
       network::OriginatingProcessId process_id;
       std::optional<url::Origin> worker_origin;
+      // Holds the storage key of the worker that owns this network context.
+      // When present, `CalculateStorageKey()` uses this key to scope
+      // Clear-Site-Data filter deletions to the worker's top-level site
+      // partition. Is `std::nullopt` for contexts that lack a worker storage
+      // key.
+      std::optional<blink::StorageKey> storage_key;
     };
+
     struct DeviceBoundSessionContext {};
 
     using Context = std::variant<NavigationRequestContext,
@@ -571,7 +573,8 @@ class CONTENT_EXPORT StoragePartitionImpl
     static StoragePartitionImpl::URLLoaderNetworkContext
     CreateForServiceOrSharedWorker(
         const network::OriginatingProcessId& process_id,
-        const url::Origin& worker_origin);
+        const url::Origin& worker_origin,
+        const std::optional<blink::StorageKey>& storage_key = std::nullopt);
 
     // Creates a URLLoaderNetworkContext for background Device Bound Sessions
     // requests.
@@ -604,8 +607,10 @@ class CONTENT_EXPORT StoragePartitionImpl
         GlobalRenderFrameHostId global_render_frame_host_id);
 
     // Used when `context_` holds `SharedOrServiceWorkerContext`.
-    URLLoaderNetworkContext(const network::OriginatingProcessId& process_id,
-                            const url::Origin& worker_origin);
+    URLLoaderNetworkContext(
+        const network::OriginatingProcessId& process_id,
+        const url::Origin& worker_origin,
+        const std::optional<blink::StorageKey>& storage_key = std::nullopt);
 
     // Used when `context_` holds `NavigationRequestContext`.
     explicit URLLoaderNetworkContext(NavigationRequest& navigation_request);
@@ -738,6 +743,7 @@ class CONTENT_EXPORT StoragePartitionImpl
   GlobalRenderFrameHostId GetRenderFrameHostIdFromNetworkContext();
 
   void DeleteStaleSessionOnlyCookiesAfterDelay();
+  void DeleteStaleSessionDataAfterDelay();
 
   void ClearNetworkRestrictionsAfterDelayCallback(
       const std::vector<base::UnguessableToken>& network_restrictions_ids);
@@ -800,8 +806,6 @@ class CONTENT_EXPORT StoragePartitionImpl
       proto_database_provider_;
   scoped_refptr<ContentIndexContextImpl> content_index_context_;
   std::unique_ptr<FontAccessManager> font_access_manager_;
-  std::unique_ptr<BrowsingTopicsSiteDataManager>
-      browsing_topics_site_data_manager_;
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   std::unique_ptr<CdmStorageManager> cdm_storage_manager_;
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
@@ -897,10 +901,9 @@ class CONTENT_EXPORT StoragePartitionImpl
   std::map<base::UnguessableToken, network::ConnectionAllowlists>
       network_restrictions_ids_;
 
-  // We need to delay deleting stale session cookies until after the cookie db
-  // has initialized, otherwise we will bypass lazy loading and block.
-  // See crbug.com/40285083 for more info.
-  base::TimeDelta delete_stale_session_only_cookies_delay_{base::Minutes(1)};
+  // Delay used for deferring stale session cookies deletion and stale session
+  // storage scavenging on browser startup to avoid blocking critical paths.
+  base::TimeDelta stale_session_cleanup_delay_{base::Minutes(1)};
 
   // We need a delay when removing fenced frame nonces from here and from the
   // network service, to avoid races where a fenced frame could regain network

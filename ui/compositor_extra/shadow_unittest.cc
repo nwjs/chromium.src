@@ -4,6 +4,7 @@
 
 #include "ui/compositor_extra/shadow.h"
 
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_discardable_memory_allocator.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -29,21 +30,28 @@ gfx::Insets InsetsForElevation(int elevation) {
          gfx::Insets::TLBR(elevation, 0, -elevation, 0);
 }
 
-gfx::Size NineboxImageSizeForElevationAndCornerRadius(int elevation,
-                                                      int corner_radius) {
-  auto values = gfx::ShadowValue::MakeMdShadowValues(elevation);
+gfx::Size GetNineboxImageSize(int elevation,
+                              const gfx::RoundedCornersF& rounded_corners,
+                              bool is_pill_shaped = false) {
+  auto values = gfx::ShadowValue::MakeMdShadowValues(elevation, SK_ColorBLACK,
+                                                     is_pill_shaped);
   gfx::Rect bounds(0, 0, 1, 1);
-  bounds.Inset(-gfx::ShadowValue::GetBlurRegion(values));
-  bounds.Inset(-gfx::Insets(corner_radius));
+  bounds.Inset(
+      -gfx::ShadowDetails::GetNineboxApertureInsets(values, rounded_corners));
   return bounds.size();
 }
 
 // Calculates the minimum shadow content size for given elevation and corner
 // radius.
-gfx::Size MinContentSizeForElevationAndCornerRadius(int elevation,
-                                                    int corner_radius) {
-  const int dimension = 4 * elevation + 2 * corner_radius;
-  return gfx::Size(dimension, dimension);
+gfx::Size GetMinContentSize(
+    int elevation,
+    const gfx::RoundedCornersF& rounded_corners = gfx::RoundedCornersF(),
+    bool is_pill_shaped = false) {
+  auto values = gfx::ShadowValue::MakeMdShadowValues(elevation, SK_ColorBLACK,
+                                                     is_pill_shaped);
+  gfx::Insets insets =
+      gfx::ShadowDetails::GetNineboxApertureInsets(values, rounded_corners);
+  return gfx::Size(insets.width(), insets.height());
 }
 
 class ShadowTest : public testing::Test {
@@ -121,6 +129,9 @@ TEST_F(ShadowTest, ResetLayerBoundsBySettingSameContentBounds) {
 TEST_F(ShadowTest, AdjustElevationForSmallContents) {
   Shadow shadow;
   shadow.Init(kElevationLarge);
+
+  // Test with corner radius 0.
+  shadow.SetRoundedCornerRadius(0);
   {
     gfx::Rect content_bounds(100, 100, 300, 300);
     shadow.SetContentBounds(content_bounds);
@@ -129,6 +140,26 @@ TEST_F(ShadowTest, AdjustElevationForSmallContents) {
     EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
   }
 
+  {
+    constexpr int kWidth = 80;
+    gfx::Rect content_bounds(100, 100, kWidth, 300);
+    shadow.SetContentBounds(content_bounds);
+    gfx::Rect shadow_bounds(content_bounds);
+    shadow_bounds.Inset(InsetsForElevation(kWidth / 4));
+    EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
+  }
+
+  {
+    constexpr int kHeight = 80;
+    gfx::Rect content_bounds(100, 100, 300, kHeight);
+    shadow.SetContentBounds(content_bounds);
+    gfx::Rect shadow_bounds(content_bounds);
+    shadow_bounds.Inset(InsetsForElevation(kHeight / 4));
+    EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
+  }
+
+  // Test with default corner radius 2.
+  shadow.SetRoundedCornerRadius(2);
   {
     constexpr int kWidth = 80;
     gfx::Rect content_bounds(100, 100, kWidth, 300);
@@ -146,20 +177,87 @@ TEST_F(ShadowTest, AdjustElevationForSmallContents) {
     shadow_bounds.Inset(InsetsForElevation((kHeight - 4) / 4));
     EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
   }
+
+  // Test with pill shaped contents.
+  shadow.SetRoundedCornerRadius(40);
+  {
+    constexpr int kWidth = 80;
+    gfx::Rect content_bounds(100, 100, kWidth, 300);
+    shadow.SetContentBounds(content_bounds);
+    gfx::Rect shadow_bounds(content_bounds);
+    shadow_bounds.Inset(InsetsForElevation(kWidth / 4));
+    EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
+  }
+
+  // Test with variable rounded corners.
+  shadow.SetRoundedCorners(gfx::RoundedCornersF(10, 20, 30, 40));
+  {
+    constexpr int kWidth = 100;
+    gfx::Rect content_bounds(100, 100, kWidth, 300);
+    shadow.SetContentBounds(content_bounds);
+    gfx::Rect shadow_bounds(content_bounds);
+    shadow_bounds.Inset(InsetsForElevation((kWidth - 2 * 40) / 4));
+    EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
+  }
+
+  // Test with variable rounded corners that trigger pill-shape clamping.
+  shadow.SetRoundedCorners(gfx::RoundedCornersF(40, 40, 20, 20));
+  {
+    constexpr int kWidth = 80;
+    gfx::Rect content_bounds(100, 100, kWidth, 300);
+    shadow.SetContentBounds(content_bounds);
+    gfx::Rect shadow_bounds(content_bounds);
+    shadow_bounds.Inset(InsetsForElevation(kWidth / 4));
+    EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
+  }
 }
 
-// Test that rounded corner radius is handled correctly.
-TEST_F(ShadowTest, AdjustRoundedCornerRadius) {
+// Test that rounded corners are handled correctly.
+TEST_F(ShadowTest, AdjustRoundedCorners) {
   Shadow shadow;
   shadow.Init(kElevationSmall);
   gfx::Rect content_bounds(100, 100, 300, 300);
   shadow.SetContentBounds(content_bounds);
   EXPECT_EQ(content_bounds, shadow.content_bounds());
+
   shadow.SetRoundedCornerRadius(0);
   gfx::Rect shadow_bounds(content_bounds);
   shadow_bounds.Inset(InsetsForElevation(kElevationSmall));
   EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
-  EXPECT_EQ(NineboxImageSizeForElevationAndCornerRadius(6, 0),
+  EXPECT_EQ(GetNineboxImageSize(6, gfx::RoundedCornersF()),
+            shadow.details_for_testing()->nine_patch_image.size());
+
+  gfx::RoundedCornersF radii(10, 20, 30, 40);
+  shadow.SetRoundedCorners(radii);
+  EXPECT_EQ(shadow_bounds, shadow.layer()->bounds());
+  EXPECT_EQ(GetNineboxImageSize(6, radii),
+            shadow.details_for_testing()->nine_patch_image.size());
+
+  shadow.SetRoundedCornerRadius(150);
+  EXPECT_EQ(GetNineboxImageSize(6, gfx::RoundedCornersF(150),
+                                /*is_pill_shaped=*/true),
+            shadow.details_for_testing()->nine_patch_image.size());
+}
+
+// Test that rounded corners are size-adjusted using floor precision when
+// content bounds are small to support rounded corners.
+TEST_F(ShadowTest, SizeAdjustedRoundedCorners) {
+  Shadow shadow;
+  shadow.Init(kElevationSmall);
+
+  // Set rounded corners where some corners exceed half the smaller dimension
+  // of the content bounds below (smaller_dimension = 39, half = 19.5).
+  gfx::RoundedCornersF radii(10, 24, 24, 24);
+  shadow.SetRoundedCorners(radii);
+
+  // Set small content bounds (width = 50, height = 39, smaller_dimension = 39).
+  // Max radius with floor precision: std::floor(39 / 2.0f) = 19.0.
+  gfx::Rect small_content_bounds(100, 100, 50, 39);
+  shadow.SetContentBounds(small_content_bounds);
+
+  const gfx::RoundedCornersF expected_adjusted_radii(10, 19, 19, 19);
+  EXPECT_EQ(GetNineboxImageSize(kElevationSmall, expected_adjusted_radii,
+                                /*is_pill_shaped=*/true),
             shadow.details_for_testing()->nine_patch_image.size());
 }
 
@@ -173,8 +271,7 @@ TEST_F(ShadowTest, EvictUniquelyOwnedDetail) {
     shadow_new.Init(kElevationUnique);
     shadow_new.SetRoundedCornerRadius(2);
 
-    const gfx::Size min_content_size =
-        MinContentSizeForElevationAndCornerRadius(kElevationUnique, 2);
+    const gfx::Size min_content_size = GetMinContentSize(kElevationUnique);
     shadow_new.SetContentBounds(gfx::Rect(min_content_size));
     // The cache size should be 1.
     EXPECT_EQ(1u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
@@ -189,7 +286,7 @@ TEST_F(ShadowTest, EvictUniquelyOwnedDetail) {
     EXPECT_EQ(1u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
 
     // Creating a new uniquely owned detail will increase the cache size.
-    gfx::ShadowDetails::Get(kElevationUnique, 3);
+    gfx::ShadowDetails::Get(kElevationUnique, gfx::RoundedCornersF(3));
     EXPECT_EQ(2u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
 
     // Creating a shadow with different details will replace the uniquely owned
@@ -197,8 +294,8 @@ TEST_F(ShadowTest, EvictUniquelyOwnedDetail) {
     Shadow shadow_small;
     shadow_small.Init(kElevationSmall);
     shadow_small.SetRoundedCornerRadius(2);
-    shadow_small.SetContentBounds(gfx::Rect(
-        MinContentSizeForElevationAndCornerRadius(kElevationSmall, 2)));
+    shadow_small.SetContentBounds(
+        gfx::Rect(GetMinContentSize(kElevationSmall)));
     EXPECT_EQ(2u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
 
     // Changing the shadow appearance will insert a new detail in the cache and
@@ -210,6 +307,13 @@ TEST_F(ShadowTest, EvictUniquelyOwnedDetail) {
     // owned detail.
     shadow_small.SetRoundedCornerRadius(4);
     EXPECT_EQ(3u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
+
+    // Changing the shadow to be pill shaped will replace the uniquely owned
+    // detail.
+    shadow_small.SetContentBounds(gfx::Rect(GetMinContentSize(
+        kElevationSmall, gfx::RoundedCornersF(14), /*is_pill_shaped=*/true)));
+    shadow_small.SetRoundedCornerRadius(14);
+    EXPECT_EQ(3u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
   }
 
   // After destroying the all the shadows, the cache has 3 uniquely owned
@@ -220,8 +324,7 @@ TEST_F(ShadowTest, EvictUniquelyOwnedDetail) {
   Shadow shadow_large;
   shadow_large.Init(kElevationLarge);
   shadow_large.SetRoundedCornerRadius(2);
-  shadow_large.SetContentBounds(
-      gfx::Rect(MinContentSizeForElevationAndCornerRadius(kElevationLarge, 2)));
+  shadow_large.SetContentBounds(gfx::Rect(GetMinContentSize(kElevationLarge)));
   // The cache size is unchanged.
   EXPECT_EQ(1u, gfx::ShadowDetails::GetDetailsCacheSizeForTest());
 }
@@ -255,8 +358,7 @@ TEST_P(ShadowColorTest, ElevationToColorsMap) {
   shadow.Init(kElevationSmall);
   shadow.SetShadowStyle(GetParam());
   // Set the content bounds which is big enough for the large elevation.
-  shadow.SetContentBounds(
-      gfx::Rect(MinContentSizeForElevationAndCornerRadius(kElevationLarge, 0)));
+  shadow.SetContentBounds(gfx::Rect(GetMinContentSize(kElevationLarge)));
 
   // Cache the default colors.
   const auto& values = shadow.details_for_testing()->values;

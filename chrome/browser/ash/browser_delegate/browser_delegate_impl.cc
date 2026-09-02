@@ -22,15 +22,18 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
+#include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_info.h"
+#include "components/tabs/public/tab_group.h"
 #include "ui/base/base_window.h"
 
 namespace ash {
@@ -45,11 +48,11 @@ BrowserWindowInterface& BrowserDelegateImpl::GetBrowser() const {
 }
 
 BrowserType BrowserDelegateImpl::GetType() const {
-  return FromInternalBrowserType(browser_->type());
+  return FromInternalBrowserType(browser_->GetType());
 }
 
 SessionID BrowserDelegateImpl::GetSessionID() const {
-  return browser_->session_id();
+  return browser_->GetSessionID();
 }
 
 const AccountId& BrowserDelegateImpl::GetAccountId() const {
@@ -69,12 +72,12 @@ bool BrowserDelegateImpl::IsOffTheRecord() const {
 
 bool BrowserDelegateImpl::IsCreatedByStartupCreator() const {
   return BrowserInitState::From(&*browser_)->creation_source() ==
-         Browser::CreationSource::kStartupCreator;
+         BrowserWindowCreateParams::CreationSource::kStartupCreator;
 }
 
 bool BrowserDelegateImpl::IsCreatedBySessionRestoreForStartupUrls() const {
   return BrowserInitState::From(&*browser_)->creation_source() ==
-         Browser::CreationSource::kLastAndUrlsStartupPref;
+         BrowserWindowCreateParams::CreationSource::kLastAndUrlsStartupPref;
 }
 
 gfx::Rect BrowserDelegateImpl::GetBounds() const {
@@ -92,6 +95,11 @@ size_t BrowserDelegateImpl::GetWebContentsCount() const {
 content::WebContents* BrowserDelegateImpl::GetWebContentsAt(
     size_t index) const {
   return browser_->tab_strip_model()->GetWebContentsAt(index);
+}
+
+tabs::TabIteratorRange BrowserDelegateImpl::GetTabIterator() const {
+  TabStripModel* tab_strip_model = browser_->tab_strip_model();
+  return {tab_strip_model->begin(), tab_strip_model->end()};
 }
 
 content::WebContents* BrowserDelegateImpl::GetInspectedWebContents() const {
@@ -118,9 +126,16 @@ aura::Window* BrowserDelegateImpl::GetNativeWindow() const {
 std::optional<webapps::AppId> BrowserDelegateImpl::GetAppId() const {
   // The implementation of `GetAppIdFromApplicationName()` isn't specific to
   // WebApps, although the function resides in web_app_helpers.cc|h.
-  std::string app_id =
-      web_app::GetAppIdFromApplicationName(browser_->app_name());
+  std::string app_id = web_app::GetAppIdFromApplicationName(
+      BrowserInitState::From(&*browser_)->create_params().app_name);
   return app_id.empty() ? std::nullopt : std::optional<webapps::AppId>(app_id);
+}
+
+std::optional<std::string> BrowserDelegateImpl::GetUserDefinedWindowTitle()
+    const {
+  const std::string& title =
+      CHECK_DEREF(WindowMetadataController::From(&*browser_)).user_title();
+  return title.empty() ? std::nullopt : std::optional<std::string>(title);
 }
 
 bool BrowserDelegateImpl::IsWebApp() const {
@@ -173,6 +188,12 @@ void BrowserDelegateImpl::Close() {
   browser_->GetWindow()->Close();
 }
 
+void BrowserDelegateImpl::SetSkipWarningUserOnClose(bool skip) {
+  if (auto* unload_controller = UnloadController::From(&*browser_)) {
+    unload_controller->set_force_skip_warning_user_on_close(skip);
+  }
+}
+
 void BrowserDelegateImpl::AddTab(const GURL& url,
                                  std::optional<size_t> index,
                                  TabDisposition disposition) {
@@ -194,7 +215,7 @@ content::WebContents* BrowserDelegateImpl::NavigateWebApp(
     std::optional<webapps::LaunchParams> launch_params) {
   CHECK(GetType() == BrowserType::kApp || GetType() == BrowserType::kAppPopup)
       << "Unexpected browser type " << static_cast<int>(GetType()) << "("
-      << browser_->type() << ")";
+      << browser_->GetType() << ")";
 
   NavigateParams nav_params(&browser_.get(), url,
                             ui::PAGE_TRANSITION_AUTO_BOOKMARK);
@@ -223,6 +244,23 @@ void BrowserDelegateImpl::CreateTabGroup(
   const tab_groups::TabGroupId new_group_id =
       tab_strip_model->AddToNewGroup(indices);
   tab_strip_model->ChangeTabGroupVisuals(new_group_id, tab_group.visual_data);
+}
+
+std::vector<tab_groups::TabGroupInfo> BrowserDelegateImpl::GetTabGroupInfos()
+    const {
+  std::vector<tab_groups::TabGroupInfo> tab_groups;
+  const TabGroupModel* group_model = browser_->tab_strip_model()->group_model();
+  if (group_model) {
+    for (const auto& group_id : group_model->ListTabGroups()) {
+      const TabGroup* tab_group = group_model->GetTabGroup(group_id);
+      tab_groups.emplace_back(
+          gfx::Range(tab_group->ListTabs()),
+          tab_groups::TabGroupVisualData(*(tab_group->visual_data())));
+    }
+  } else {
+    CHECK(!browser_->tab_strip_model()->SupportsTabGroups());
+  }
+  return tab_groups;
 }
 
 void BrowserDelegateImpl::PinTab(size_t tab_index) {
@@ -257,7 +295,8 @@ void BrowserDelegateImpl::ResetLocationBar() {
 void BrowserDelegateImpl::EnterLockedFullscreen(bool focus_toolbar) {
   CHECK(!IsLockedFullscreen());
   ash::PinWindow(GetNativeWindow(), /*trusted=*/true);
-  browser_->command_controller()->LockedFullscreenStateChanged();
+  chrome::BrowserCommandController::From(&browser_.get())
+      ->LockedFullscreenStateChanged();
   if (focus_toolbar) {
     BrowserWindow::FromBrowser(&*browser_)->FocusToolbar();
   }
@@ -266,7 +305,8 @@ void BrowserDelegateImpl::EnterLockedFullscreen(bool focus_toolbar) {
 void BrowserDelegateImpl::LeaveLockedFullscreen() {
   CHECK(IsLockedFullscreen());
   ash::UnpinWindow(GetNativeWindow());
-  browser_->command_controller()->LockedFullscreenStateChanged();
+  chrome::BrowserCommandController::From(&browser_.get())
+      ->LockedFullscreenStateChanged();
 }
 
 bool BrowserDelegateImpl::IsLockedFullscreen() const {
@@ -276,7 +316,7 @@ bool BrowserDelegateImpl::IsLockedFullscreen() const {
 
 void BrowserDelegateImpl::SetDevToolsCommandsEnabled(bool enabled) {
   chrome::BrowserCommandController* const command_controller =
-      browser_->command_controller();
+      chrome::BrowserCommandController::From(&browser_.get());
   command_controller->UpdateCommandEnabled(IDC_DEV_TOOLS, enabled);
   command_controller->UpdateCommandEnabled(IDC_DEV_TOOLS_CONSOLE, enabled);
   command_controller->UpdateCommandEnabled(IDC_DEV_TOOLS_DEVICES, enabled);
@@ -285,20 +325,8 @@ void BrowserDelegateImpl::SetDevToolsCommandsEnabled(bool enabled) {
 }
 
 void BrowserDelegateImpl::SetTabSwitchCommandsEnabled(bool enabled) {
-  chrome::BrowserCommandController* const command_controller =
-      browser_->command_controller();
-  command_controller->UpdateCommandEnabled(IDC_SELECT_NEXT_TAB, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_PREVIOUS_TAB, enabled);
-  command_controller->UpdateCommandEnabled(IDC_CYCLE_TO_NEXT_TAB, enabled);
-  command_controller->UpdateCommandEnabled(IDC_CYCLE_TO_PREV_TAB, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_0, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_1, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_2, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_3, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_4, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_5, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_6, enabled);
-  command_controller->UpdateCommandEnabled(IDC_SELECT_TAB_7, enabled);
+  chrome::BrowserCommandController::From(&browser_.get())
+      ->SetTabSwitchCommandsEnabled(enabled);
 }
 
 void BrowserDelegateImpl::ActivateWebContentsAt(size_t index) {

@@ -207,6 +207,7 @@ source_set("tests") {
       "generic_sensor/platform_sensor_and_provider_unittest_win.cc",
       "geolocation/wifi_data_provider_win_unittest.cc",
       "hid/hid_service_win_unittest.cc",
+      "public/cpp/device_features_win_unittest.cc",
       "public/cpp/geolocation/system_geolocation_source_win_unittest.cc",
     ]
     deps += [
@@ -234,12 +235,15 @@ source_set("tests") {
   }
 
   if (is_linux && use_dbus) {
-    sources += [ "battery/battery_status_manager_linux_unittest.cc" ]
-    deps += [ "//dbus:test_support" ]
-
-    if (is_linux) {
-      sources += [ "geolocation/wifi_data_provider_linux_unittest.cc" ]
-    }
+    sources += [
+      "battery/battery_status_manager_linux_unittest.cc",
+      "geolocation/location_provider_linux_portal_unittest.cc",
+      "geolocation/wifi_data_provider_linux_unittest.cc",
+    ]
+    deps += [
+      "//components/dbus",
+      "//dbus:test_support",
+    ]
   }
 
   if (is_chromeos) {
@@ -329,6 +333,10 @@ source_set("tests") {
         "//services/device/serial:native_unittests_jni_headers",
         "//third_party/jni_zero:jni_zero_java",
       ]
+    }
+
+    if (is_win) {
+      sources += [ "serial/serial_device_enumerator_win_unittest.cc" ]
     }
 
     if (is_linux || is_chromeos) {
@@ -535,6 +543,14 @@ source_set("utility") {
       "utils/mac_utils.cc",
       "utils/mac_utils.h",
     ]
+  }
+  if (is_win) {
+    sources += [
+      "utils/setupdi_utils_win.cc",
+      "utils/setupdi_utils_win.h",
+    ]
+    libs = [ "setupapi.lib" ]
+    public_deps = [ "//components/device_event_log" ]
   }
   deps = [ "//base" ]
 }

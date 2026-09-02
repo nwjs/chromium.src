@@ -465,7 +465,9 @@ ApplicationContextImpl::GetActivityReporter() {
             GetSharedURLLoaderFactory(),
             // Never send cookies for activity reports.
             base::BindRepeating([](const GURL& url) { return false; })),
-        base::BindRepeating(&GetChannel), base::DoNothing(), true);
+        base::BindRepeating(&::GetChannel),
+        base::BindRepeating(&ios::provider::GetBrandCode), base::DoNothing(),
+        true);
   }
   return activity_reporter_.get();
 }
@@ -641,7 +643,9 @@ optimization_guide::OptimizationGuideGlobalState*
 ApplicationContextImpl::GetOptimizationGuideGlobalState() {
   if (!optimization_guide_global_state_) {
     optimization_guide_global_state_ =
-        std::make_unique<optimization_guide::OptimizationGuideGlobalState>();
+        std::make_unique<optimization_guide::OptimizationGuideGlobalState>(
+            GetLocalState(), GetProfileManager(), GetApplicationLocaleStorage(),
+            GetSharedURLLoaderFactory());
   }
   return optimization_guide_global_state_.get();
 }

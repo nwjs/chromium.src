@@ -210,20 +210,23 @@ void FakeSendTabToSelfModel::SetSendEntryCallback(SendEntryCallback callback) {
 }
 
 const SendTabToSelfEntry* FakeSendTabToSelfModel::AddEntryRemotely(
+    RemoteEntryParams params) {
+  return AddEntriesRemotely(std::vector<RemoteEntryParams>{std::move(params)})
+      .front();
+}
+
+const SendTabToSelfEntry* FakeSendTabToSelfModel::AddEntryRemotely(
     const GURL& url,
     const std::string& title,
     const std::string& target_device_cache_guid,
     const PageContext& context,
     NavigationHistory navigation_history) {
-  std::vector<RemoteEntryParams> entries_params;
-  entries_params.push_back(
+  return AddEntryRemotely(
       {.url = url,
        .title = title,
        .target_device_cache_guid = target_device_cache_guid,
        .context = context,
        .navigation_history = std::move(navigation_history)});
-  auto results = AddEntriesRemotely(std::move(entries_params));
-  return results.front();
 }
 
 std::vector<const SendTabToSelfEntry*>
@@ -256,13 +259,13 @@ FakeSendTabToSelfModel::AddEntriesRemotely(
   return results;
 }
 
-void FakeSendTabToSelfModel::RemoveEntryRemotely(const std::string& guid) {
+void FakeSendTabToSelfModel::RemoveEntryRemotely(std::string guid) {
   auto it = entries_.find(guid);
   if (it != entries_.end()) {
+    entries_.erase(it);
     for (auto& observer : observers_) {
       observer.OnEntriesRemovedRemotely({guid});
     }
-    entries_.erase(it);
   }
 }
 

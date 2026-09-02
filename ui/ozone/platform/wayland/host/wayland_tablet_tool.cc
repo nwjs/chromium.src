@@ -8,9 +8,7 @@
 #include <linux/input-event-codes.h>
 #include <tablet-unstable-v2-client-protocol.h>
 
-#include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
-#include "ui/ozone/common/features.h"
 #include "ui/ozone/platform/wayland/common/wayland_util.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
 #include "ui/ozone/platform/wayland/host/wayland_cursor_shape.h"
@@ -56,12 +54,6 @@ EventFlags ButtonToEventFlags(uint32_t button) {
   }
 }
 
-wl::EventDispatchPolicy GetEventDispatchPolicy() {
-  return IsDispatchPointerEventsOnFrameEventEnabled()
-             ? wl::EventDispatchPolicy::kOnFrame
-             : wl::EventDispatchPolicy::kImmediate;
-}
-
 }  // namespace
 
 WaylandTabletTool::FrameData::FrameData() = default;
@@ -71,13 +63,8 @@ WaylandTabletTool::FrameData::~FrameData() = default;
 WaylandTabletTool::WaylandTabletTool(zwp_tablet_tool_v2* tool,
                                      WaylandTabletSeat* seat,
                                      WaylandConnection* connection,
-                                     Delegate* delegate,
-                                     WaylandPointer::Delegate* pointer_delegate)
-    : connection_(connection),
-      seat_(seat),
-      delegate_(delegate),
-      pointer_delegate_(pointer_delegate),
-      tool_(tool) {
+                                     Delegate* delegate)
+    : connection_(connection), seat_(seat), delegate_(delegate), tool_(tool) {
   static constexpr zwp_tablet_tool_v2_listener kListener = {
       .type = &Type,
       .hardware_serial = &HardwareSerial,
@@ -136,13 +123,17 @@ void WaylandTabletTool::DispatchBufferedEvents() {
   }
 
   if (frame_data_.proximity_out) {
-    delegate_->OnTabletToolProximityOut(frame_data_.timestamp);
+    delegate_->OnTabletToolProximityOut(frame_data_.pointer_details,
+                                        frame_data_.timestamp);
   }
 }
 
 void WaylandTabletTool::ResetFrameData() {
+  // Tablet tool axes are sticky: the compositor sends an axis event only when
+  // the value changes, so the last known details must survive the frame reset.
+  PointerDetails details = frame_data_.pointer_details;
   frame_data_ = FrameData();
-  frame_data_.pointer_details.pointer_type = pointer_type_;
+  frame_data_.pointer_details = details;
 }
 
 // static
@@ -195,6 +186,13 @@ void WaylandTabletTool::ProximityIn(void* data,
                                     zwp_tablet_v2* tablet,
                                     wl_surface* surface) {
   auto* self = static_cast<WaylandTabletTool*>(data);
+
+  // A tool entering proximity begins a new interaction, so axis state persisted
+  // from the previous one must not leak into it. proximity_in is the first
+  // event in its frame, so a same-frame axis event still takes effect.
+  self->frame_data_.pointer_details = PointerDetails();
+  self->frame_data_.pointer_details.pointer_type = self->pointer_type_;
+
   if (!self->cursor_shape_device_) {
     if (auto* shape = self->connection_->wayland_cursor_shape()) {
       self->cursor_shape_device_ =
@@ -221,10 +219,6 @@ void WaylandTabletTool::ProximityIn(void* data,
   self->frame_data_.proximity_out = false;
   self->frame_data_.proximity_target = window->AsWeakPtr();
   self->frame_data_.proximity_serial = serial;
-
-  self->pointer_delegate_->OnPointerFocusChanged(
-      window, self->pointer_delegate_->GetPointerLocation(), EventTimeForNow(),
-      GetEventDispatchPolicy());
 }
 
 // static
@@ -232,10 +226,6 @@ void WaylandTabletTool::ProximityOut(void* data, zwp_tablet_tool_v2* tool) {
   auto* self = static_cast<WaylandTabletTool*>(data);
   self->frame_data_.proximity_out = true;
   self->frame_data_.proximity_in = false;
-
-  self->pointer_delegate_->OnPointerFocusChanged(
-      nullptr, self->pointer_delegate_->GetPointerLocation(), EventTimeForNow(),
-      GetEventDispatchPolicy());
 }
 
 // static
@@ -254,6 +244,10 @@ void WaylandTabletTool::Up(void* data, zwp_tablet_tool_v2* tool) {
   auto* self = static_cast<WaylandTabletTool*>(data);
   self->frame_data_.up = true;
   self->frame_data_.down = false;
+  // The tip is no longer in contact, so force is zero for the remainder of this
+  // frame. Without this, a persisted force would survive into the release event
+  // if the compositor omits a pressure event from the frame carrying `up`.
+  self->frame_data_.pointer_details.force = 0.0f;
 }
 
 // static

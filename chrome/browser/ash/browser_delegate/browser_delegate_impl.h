@@ -30,10 +30,12 @@ class BrowserDelegateImpl : public BrowserDelegate {
   content::WebContents* GetActiveWebContents() const override;
   size_t GetWebContentsCount() const override;
   content::WebContents* GetWebContentsAt(size_t index) const override;
+  tabs::TabIteratorRange GetTabIterator() const override;
   content::WebContents* GetInspectedWebContents() const override;
   ui::BaseWindow* GetWindow() const override;
   aura::Window* GetNativeWindow() const override;
   std::optional<webapps::AppId> GetAppId() const override;
+  std::optional<std::string> GetUserDefinedWindowTitle() const override;
   bool IsWebApp() const override;
   const SystemWebAppDelegate* GetSWADelegate() const override;
   bool IsClosing() const override;
@@ -46,6 +48,7 @@ class BrowserDelegateImpl : public BrowserDelegate {
   void Activate() override;
   void Minimize() override;
   void Close() override;
+  void SetSkipWarningUserOnClose(bool skip) override;
   void AddTab(const GURL& url,
               std::optional<size_t> index,
               TabDisposition disposition) override;
@@ -56,6 +59,7 @@ class BrowserDelegateImpl : public BrowserDelegate {
       std::optional<webapps::LaunchParams> launch_params =
           std::nullopt) override;
   void CreateTabGroup(const tab_groups::TabGroupInfo& tab_group) override;
+  std::vector<tab_groups::TabGroupInfo> GetTabGroupInfos() const override;
   void PinTab(size_t tab_index) override;
   void MoveTab(size_t tab_index, BrowserDelegate& target_browser) override;
   bool CreateWebAppFromActiveWebContents() override;

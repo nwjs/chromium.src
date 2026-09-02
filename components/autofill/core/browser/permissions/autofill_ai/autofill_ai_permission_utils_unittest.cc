@@ -273,8 +273,10 @@ TEST_P(AutofillAiMayPerformActionTest, FeatureParamForModelCacheUseOff) {
 // enterprise policy.
 TEST_P(AutofillAiMayPerformActionTest,
        ActionsWhenAutofillAiEnterprisePolicyDisabled) {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   base::test::ScopedFeatureList feature_list{
       features::kAutofillAiAvailableByDefault};
+#endif
   client().GetPrefs()->SetInteger(
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed,
@@ -314,8 +316,10 @@ TEST_P(AutofillAiMayPerformActionTest,
 
 // Verifies that only MQLS logging and online model calls require an opt-in.
 TEST_P(AutofillAiMayPerformActionTest, ActionsWhenNotOptedIntoAutofillAi) {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   base::test::ScopedFeatureList feature_list{
       features::kAutofillAiAvailableByDefault};
+#endif
   SetAutofillAiOptInStatus(client(), AutofillAiOptInStatus::kOptedOut);
   constexpr auto kAllowedActions =
       DenseSet({AutofillAiAction::kAddLocalEntityInstanceInSettings,
@@ -629,6 +633,7 @@ TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill) {
       MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
 }
 
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 TEST_F(AutofillAiPermissionUtilsTest, AmbientAutofillFillingRequiresOptIn) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(features::kAutofillAiAvailableByDefault);
@@ -646,6 +651,7 @@ TEST_F(AutofillAiPermissionUtilsTest, AmbientAutofillFillingRequiresOptIn) {
   EXPECT_TRUE(
       MayPerformAutofillAiAction(client(), AutofillAiAction::kAmbientAutofill));
 }
+#endif
 
 TEST_F(AutofillAiPermissionUtilsTest, kAmbientAutofill_G1Tiers) {
   client().set_personal_context_eligibility_state(
@@ -814,28 +820,32 @@ TEST_F(AutofillAiPermissionUtilsTest, OptInStatus) {
 
 TEST_F(AutofillAiPermissionUtilsTest, OptInStatusWithUsePrivateAi) {
   base::test::ScopedFeatureList feature_list{features::kAutofillAiUsePrivateAi};
+  base::HistogramTester histogram_tester;
 
-  // By default, neither the opt-in pref nor the notice shown timestamp is set.
+  // By default, opt-in status is false.
   EXPECT_FALSE(GetAutofillAiOptInStatus(client()));
 
-  client().GetPrefs()->SetBoolean(prefs::kAutofillAiPrivateInferenceOptInStatus,
-                                  true);
-  // Setting only `kAutofillAiPrivateInferenceOptInStatus` is not sufficient
-  // without `kAutofillAiPrivateInferenceNoticeFirstShownTimestamp` being set.
-  EXPECT_FALSE(GetAutofillAiOptInStatus(client()));
-
-  client().GetPrefs()->SetTime(
-      prefs::kAutofillAiPrivateInferenceNoticeFirstShownTimestamp,
-      base::Time::Now());
-  // Both `kAutofillAiPrivateInferenceOptInStatus` is true and
-  // `kAutofillAiPrivateInferenceNoticeFirstShownTimestamp` is set.
+  // `SetAutofillAiOptInStatus` with `kOptedIn` sets both the opt-in pref and
+  // notice shown timestamp.
+  EXPECT_TRUE(
+      SetAutofillAiOptInStatus(client(), AutofillAiOptInStatus::kOptedIn));
   EXPECT_TRUE(GetAutofillAiOptInStatus(client()));
+  EXPECT_FALSE(
+      client()
+          .GetPrefs()
+          ->GetTime(prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp)
+          .is_null());
 
-  client().GetPrefs()->SetBoolean(prefs::kAutofillAiPrivateInferenceOptInStatus,
-                                  false);
-  // Setting `kAutofillAiPrivateInferenceOptInStatus` to false returns false
-  // even if `kAutofillAiPrivateInferenceNoticeFirstShownTimestamp` remains set.
+  // `SetAutofillAiOptInStatus` with `kOptedOut` sets
+  // `kAutofillAiPrivateInferenceOptInStatus` to false.
+  EXPECT_TRUE(
+      SetAutofillAiOptInStatus(client(), AutofillAiOptInStatus::kOptedOut));
   EXPECT_FALSE(GetAutofillAiOptInStatus(client()));
+
+  histogram_tester.ExpectBucketCount("Autofill.Ai.OptIn.Change",
+                                     AutofillAiOptInStatus::kOptedIn, 1);
+  histogram_tester.ExpectBucketCount("Autofill.Ai.OptIn.Change",
+                                     AutofillAiOptInStatus::kOptedOut, 1);
 }
 
 TEST_F(AutofillAiPermissionUtilsTest,
@@ -1007,6 +1017,8 @@ TEST_F(AutofillAiMayPerformImportToWalletTest,
 
 TEST_F(AutofillAiMayPerformImportToWalletTest,
        ImportToWallet_FalseForPrivatePassesIfFeatureIsOff) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAutofillAiWalletPrivatePasses);
   client().SetWalletPublicPassStorageEnabled(true);
   for (const EntityType entity_type : GetPrivatePasses()) {
     EXPECT_FALSE(MayPerformAutofillAiAction(
@@ -1076,8 +1088,11 @@ TEST_F(AutofillAiMayPerformImportToWalletTest,
 
 TEST_F(AutofillAiMayPerformImportToWalletTest,
        ImportToWallet_FalseForPrivatePassesForUnderagedUsers) {
-  base::test::ScopedFeatureList feature_list{
-      features::kAutofillAiWalletPrivatePasses};
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kAutofillAiWalletPrivatePasses},
+      /*disabled_features=*/{
+          features::kAutofillAiWalletPrivatePassesCapability});
   // Simulate that the can_use_model_execution_features() capability is false.
   client().SetCanUseModelExecutionFeatures(false);
   // Expect that Wallet imports for public passes are allowed.

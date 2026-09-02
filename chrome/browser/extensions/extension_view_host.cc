@@ -68,8 +68,11 @@ void ExtensionViewHost::LoadInitialURL() {
   }
 
 #if !BUILDFLAG(IS_ANDROID)
-  // Popups may spawn modal dialogs, which need positioning information.
-  if (extension_host_type() == mojom::ViewType::kExtensionPopup) {
+  // Popups and side panels may spawn modal dialogs (e.g. the directory upload
+  // confirmation for <input webkitdirectory>), which need positioning
+  // information.
+  if (extension_host_type() == mojom::ViewType::kExtensionPopup ||
+      extension_host_type() == mojom::ViewType::kExtensionSidePanel) {
     web_modal_handler_ = std::make_unique<ExtensionViewHostWebModalHandler>(
         host_contents(), view_->GetNativeView());
   }
@@ -146,7 +149,10 @@ bool ExtensionViewHost::HandleKeyboardEvent(
     content::WebContents* source,
     const input::NativeWebKeyboardEvent& event) {
   if (IsEscapeInPopup(event)) {
-    Close();
+    if (event.GetType() == input::NativeWebKeyboardEvent::Type::kRawKeyDown ||
+        event.GetType() == input::NativeWebKeyboardEvent::Type::kKeyDown) {
+      Close();
+    }
     return true;
   }
   return UnhandledKeyboardEvent(source, event);
@@ -160,6 +166,13 @@ void ExtensionViewHost::RunFileChooser(
   // element to click on, so this code only exists for extensions with a view.
   FileSelectHelper::RunFileChooser(render_frame_host, std::move(listener),
                                    params);
+}
+
+void ExtensionViewHost::EnumerateDirectory(
+    content::WebContents* web_contents,
+    scoped_refptr<content::FileSelectListener> listener,
+    const base::FilePath& path) {
+  FileSelectHelper::EnumerateDirectory(web_contents, std::move(listener), path);
 }
 
 std::unique_ptr<content::EyeDropper> ExtensionViewHost::OpenEyeDropper(
@@ -205,7 +218,6 @@ void ExtensionViewHost::OnExtensionHostDocumentElementAvailable(
 bool ExtensionViewHost::IsEscapeInPopup(
     const input::NativeWebKeyboardEvent& event) const {
   return extension_host_type() == mojom::ViewType::kExtensionPopup &&
-         event.GetType() == input::NativeWebKeyboardEvent::Type::kRawKeyDown &&
          event.windows_key_code == ui::VKEY_ESCAPE;
 }
 

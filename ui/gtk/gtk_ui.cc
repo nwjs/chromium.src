@@ -366,6 +366,9 @@ bool GtkUi::Initialize() {
   };
 
   GtkSettings* settings = gtk_settings_get_default();
+  // Pin `gtk-modules` to an empty string with APPLICATION source priority
+  // to prevent XSETTINGS updates from loading GTK modules.
+  g_object_set(settings, "gtk-modules", "", nullptr);
   SanitizeIconThemeName();
   SanitizeThemeName();
   SanitizeCursorThemeName();
@@ -694,9 +697,20 @@ void GtkUi::SetDarkTheme(bool dark) {
   // notify::gtk-application-prefer-dark-theme handler to update the colors.
 }
 
+void GtkUi::SetColorScheme(std::optional<bool> prefer_dark) {
+  // Route the color scheme through the OS settings provider, which sources the
+  // web `NativeTheme::preferred_color_scheme()` via
+  // `UpdateVariablesForToolkitSettings()`.
+  os_settings_provider_->SetColorScheme(prefer_dark);
+}
+
 void GtkUi::SetAccentColor(std::optional<SkColor> accent_color) {
   accent_color_ = accent_color;
-  native_theme_->NotifyOnNativeThemeUpdated();
+  // Route the accent color through the OS settings provider. This updates
+  // `NativeTheme::user_color()` (via `UpdateVariablesForToolkitSettings()`) and
+  // notifies all observing native themes, which re-runs the native color mixer
+  // using the freshly-set `accent_color_`.
+  os_settings_provider_->SetAccentColor(accent_color);
 }
 
 bool GtkUi::AnimationsEnabled() const {
@@ -960,7 +974,7 @@ void GtkUi::OnCursorThemeSizeChanged(GtkSettings* settings,
 
 void GtkUi::OnEnableAnimationsChanged(GtkSettings* settings,
                                       GtkParamSpec* param) {
-  gfx::Animation::UpdatePrefersReducedMotion();
+  NotifyAnimationsEnabledChanged();
 }
 
 void GtkUi::OnPrimaryPasteChanged(GtkSettings* settings, GtkParamSpec* param) {

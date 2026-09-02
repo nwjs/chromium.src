@@ -21,11 +21,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -88,22 +88,23 @@ class SessionRestoreTestChromeOS : public InProcessBrowserTest {
     command_line->RemoveSwitch(wm::switches::kWindowAnimationsDisabled);
   }
 
-  Browser* CreateBrowserWithParams(Browser::CreateParams params) {
-    Browser* browser = Browser::Create(params);
+  BrowserWindowInterface* CreateBrowserWithParams(
+      BrowserWindowCreateParams params) {
+    BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
     AddBlankTabAndShow(browser);
     return browser;
   }
 
-  Browser::CreateParams CreateParamsForApp(const std::string& name,
-                                           bool trusted) {
-    return Browser::CreateParams::CreateForApp(name, trusted, gfx::Rect(),
-                                               profile(), true);
+  BrowserWindowCreateParams CreateParamsForApp(const std::string& name,
+                                               bool trusted) {
+    return BrowserWindowCreateParams::CreateForApp(
+        name, trusted, gfx::Rect(), profile(), /*user_gesture=*/true);
   }
 
-  Browser::CreateParams CreateParamsForAppPopup(const std::string& name,
-                                                bool trusted) {
-    return Browser::CreateParams::CreateForAppPopup(name, trusted, gfx::Rect(),
-                                                    profile(), true);
+  BrowserWindowCreateParams CreateParamsForAppPopup(const std::string& name,
+                                                    bool trusted) {
+    return BrowserWindowCreateParams::CreateForAppPopup(
+        name, trusted, gfx::Rect(), profile(), /*user_gesture=*/true);
   }
 
   // Turn on session restore before we restart.
@@ -126,10 +127,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, PRE_RestoreBrowserWindows) {
   // One browser window is always created by default.
   EXPECT_TRUE(browser());
   // Create a second normal browser window.
-  CreateBrowserWithParams(Browser::CreateParams(profile(), true));
+  CreateBrowserWithParams(
+      BrowserWindowCreateParams(profile(), /*from_user_gesture=*/true));
   // Create a third incognito browser window which should not get restored.
-  CreateBrowserWithParams(Browser::CreateParams(
-      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true), true));
+  CreateBrowserWithParams(BrowserWindowCreateParams(
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true),
+      /*from_user_gesture=*/true));
   TurnOnSessionRestore();
 }
 
@@ -163,8 +166,8 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS,
   // Create a second normal browser window in the second desk by
   // setting window workspace property.
   SwitchToDesk(1);
-  Browser* browser_desk1 =
-      CreateBrowserWithParams(Browser::CreateParams(profile(), true));
+  BrowserWindowInterface* browser_desk1 = CreateBrowserWithParams(
+      BrowserWindowCreateParams(profile(), /*from_user_gesture=*/true));
   WindowMetadataController::From(browser_desk1)->SetWindowUserTitle("1");
   browser_desk1->GetWindow()->GetNativeWindow()->SetProperty(
       aura::client::kWindowWorkspaceKey, 1);
@@ -172,10 +175,11 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS,
   // Create a third normal browser window in the third desk
   // specified with params.initial_workspace.
   SwitchToDesk(2);
-  Browser::CreateParams browser_desk2_params =
-      Browser::CreateParams(profile(), true);
+  BrowserWindowCreateParams browser_desk2_params(profile(),
+                                                 /*from_user_gesture=*/true);
   browser_desk2_params.initial_workspace = "2";
-  Browser* browser_desk2 = CreateBrowserWithParams(browser_desk2_params);
+  BrowserWindowInterface* browser_desk2 =
+      CreateBrowserWithParams(std::move(browser_desk2_params));
   WindowMetadataController::From(browser_desk2)->SetWindowUserTitle("2");
 
   TurnOnSessionRestore();
@@ -227,12 +231,12 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS,
   ash::AutotestDesksApi().CreateNewDesk();
 
   // Create a browser that is visible on all desks.
-  Browser::CreateParams visible_on_all_desks_browser_params =
-      Browser::CreateParams(profile(), true);
+  BrowserWindowCreateParams visible_on_all_desks_browser_params(
+      profile(), /*from_user_gesture=*/true);
   visible_on_all_desks_browser_params.initial_visible_on_all_workspaces_state =
       true;
   BrowserWindowInterface* visible_on_all_desks_browser =
-      CreateBrowserWithParams(visible_on_all_desks_browser_params);
+      CreateBrowserWithParams(std::move(visible_on_all_desks_browser_params));
 
   // Ensure the visible on all desks browser has the right properties.
   auto* visible_on_all_desks_window =
@@ -299,7 +303,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, RestoreAppsV1) {
        &app2_count](BrowserWindowInterface* browser) {
         ++total_count;
         const std::string& app_name =
-            browser->GetBrowserForMigrationOnly()->app_name();
+            BrowserInitState::From(browser)->create_params().app_name;
         if (app_name == test_app_name1) {
           ++app1_count;
         } else if (app_name == test_app_name2) {
@@ -333,7 +337,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, RestoreAppsPopup) {
        &app2_count](BrowserWindowInterface* browser) {
         ++total_count;
         const std::string& app_name =
-            browser->GetBrowserForMigrationOnly()->app_name();
+            BrowserInitState::From(browser)->create_params().app_name;
         if (app_name == test_app_name1) {
           ++app1_count;
         } else if (app_name == test_app_name2) {
@@ -348,7 +352,8 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, RestoreAppsPopup) {
 
 IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, PRE_RestoreNoDevtools) {
   // Create devtools.
-  CreateBrowserWithParams(Browser::CreateParams::CreateForDevTools(profile()));
+  CreateBrowserWithParams(
+      BrowserWindowCreateParams::CreateForDevTools(profile()));
 
   TurnOnSessionRestore();
 }
@@ -372,21 +377,21 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, PRE_RestoreMaximized) {
   // One browser window is always created by default.
   ASSERT_TRUE(browser());
   // Create a second browser window and maximize it.
-  Browser* browser2 =
-      CreateBrowserWithParams(Browser::CreateParams(profile(), true));
+  BrowserWindowInterface* browser2 = CreateBrowserWithParams(
+      BrowserWindowCreateParams(profile(), /*from_user_gesture=*/true));
   browser2->GetWindow()->Maximize();
 
   // Create two app windows and maximize the second one.
-  Browser* app_browser1 =
+  BrowserWindowInterface* app_browser1 =
       CreateBrowserWithParams(CreateParamsForApp(test_app_name1, true));
-  Browser* app_browser2 =
+  BrowserWindowInterface* app_browser2 =
       CreateBrowserWithParams(CreateParamsForApp(test_app_name2, true));
   app_browser2->GetWindow()->Maximize();
 
   // Create two app popup windows and maximize the second one.
-  Browser* app_popup_browser1 =
+  BrowserWindowInterface* app_popup_browser1 =
       CreateBrowserWithParams(CreateParamsForAppPopup(test_app_name1, true));
-  Browser* app_popup_browser2 =
+  BrowserWindowInterface* app_popup_browser2 =
       CreateBrowserWithParams(CreateParamsForAppPopup(test_app_name2, true));
   app_popup_browser2->GetWindow()->Maximize();
 
@@ -413,7 +418,7 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, DISABLED_RestoreMaximized) {
         if (browser->GetWindow()->IsMaximized()) {
           ++total_maximized_count;
           const std::string& app_name =
-              browser->GetBrowserForMigrationOnly()->app_name();
+              BrowserInitState::From(browser)->create_params().app_name;
           if (app_name == test_app_name1) {
             ++app1_maximized_count;
           } else if (app_name == test_app_name2) {
@@ -434,8 +439,8 @@ IN_PROC_BROWSER_TEST_F(SessionRestoreTestChromeOS, PRE_RestoreMinimized) {
   ASSERT_TRUE(browser());
   browser()->GetWindow()->Minimize();
 
-  Browser* browser2 =
-      CreateBrowserWithParams(Browser::CreateParams(profile(), true));
+  BrowserWindowInterface* browser2 = CreateBrowserWithParams(
+      BrowserWindowCreateParams(profile(), /*from_user_gesture=*/true));
   browser2->GetWindow()->Minimize();
 
   EXPECT_TRUE(browser()->GetWindow()->IsMinimized());

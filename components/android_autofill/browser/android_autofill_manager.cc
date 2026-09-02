@@ -99,7 +99,8 @@ void AndroidAutofillManager::OnAskForValuesToFillImpl(
     const FieldGlobalId& field_id,
     const gfx::Rect& caret_bounds,
     AutofillSuggestionTriggerSource trigger_source,
-    std::optional<PasswordSuggestionRequest> password_request) {
+    std::optional<PasswordSuggestionRequest> password_request,
+    base::ScopedClosureRunner scoped_on_after_ask_for_values_to_fill) {
   auto* provider = GetAutofillProvider();
   if (!provider) {
     return;
@@ -259,8 +260,7 @@ void AndroidAutofillManager::FillOrPreviewForm(
   driver().ApplyFormAction(mojom::FormActionType::kFill, action_persistence,
                            fields, FillId::Create(),
                            /*supports_refill=*/false, triggered_origin,
-                           field_type_map,
-                           /*section_for_clear_form_on_ios=*/Section());
+                           field_type_map);
   // We do not call OnAutofillProfileOrCreditCardFormFilled() because WebView
   // doesn't have AutofillProfile or CreditCard.
   if (auto* logger = GetEventFormLogger(field_type_group)) {

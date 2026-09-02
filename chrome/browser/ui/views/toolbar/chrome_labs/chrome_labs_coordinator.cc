@@ -46,7 +46,7 @@ ChromeLabsCoordinator::ChromeLabsCoordinator(Browser* browser)
       PinnedToolbarActionsModel::Get(browser->GetProfile()));
 
   chrome_labs_action_item_ = actions::ActionManager::Get().FindAction(
-      kActionShowChromeLabs, browser->browser_actions()->root_action_item());
+      kActionShowChromeLabs, BrowserActions::From(browser)->root_action_item());
   CHECK(chrome_labs_action_item_);
 
   MaybeInstallDotIndicator();
@@ -62,6 +62,9 @@ void ChromeLabsCoordinator::TearDown() {
         views::Widget::ClosedReason::kUnspecified);
     chrome_labs_bubble_view_tracker_.SetView(nullptr);
   }
+  controller_.reset();
+  flags_storage_.reset();
+  flags_state_ = nullptr;
   pinned_actions_observation_.Reset();
   chrome_labs_action_item_ = nullptr;
 }
@@ -188,6 +191,9 @@ ChromeLabsBubbleView* ChromeLabsCoordinator::GetChromeLabsBubbleView() {
 }
 
 void ChromeLabsCoordinator::OnChromeLabsBubbleClosing() {
+  controller_.reset();
+  flags_storage_.reset();
+  flags_state_ = nullptr;
   chrome_labs_action_item_->SetIsShowingBubble(false);
 
   browser_->GetFeatures()

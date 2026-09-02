@@ -14,6 +14,8 @@
 enum class GeminiFirstRunStepIdentifier {
   kPromo,
   kConsent,
+  kVisualRich,
+  kLightweight,
 };
 
 // Delegate protocol for a step to notify the container of dynamic changes.
@@ -32,6 +34,10 @@ enum class GeminiFirstRunStepIdentifier {
 
 // Delegate to notify the page container of size changes.
 @property(nonatomic, weak) id<GeminiFirstRunStepDelegate> stepDelegate;
+
+// Whether the step should use a fixed fullscreen presentation instead of
+// dynamic content-fitting sheet detents.
+- (BOOL)shouldUseFullscreenPresentation;
 
 @required
 

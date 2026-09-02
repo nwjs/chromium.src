@@ -38,9 +38,16 @@ cargo_crate("lib") {
     "//third_party/rust/icu_normalizer_data/v2:lib",
     "//third_party/rust/icu_provider/v2:lib",
     "//third_party/rust/smallvec/v1:lib",
+    "//third_party/rust/utf16_iter/v1:lib",
+    "//third_party/rust/utf8_iter/v1:lib",
+    "//third_party/rust/write16/v1:lib",
     "//third_party/rust/zerovec/v0_11:lib",
   ]
-  features = [ "compiled_data" ]
+  features = [
+    "compiled_data",
+    "utf16_iter",
+    "utf8_iter",
+  ]
 
   #####################################################################
   # Tweaking which GN `config`s apply to this target.

@@ -62,6 +62,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect_list.h"
+#include "third_party/blink/renderer/core/html/canvas/html_canvas_element.h"
 #include "third_party/blink/renderer/core/html/custom/custom_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_label_element.h"
@@ -398,7 +399,9 @@ bool WebElement::SimulateAccessibilityClick() {
   return true;
 }
 
-void WebElement::PasteText(const WebString& text, bool replace_all) {
+void WebElement::PasteText(const WebString& text,
+                           bool replace_all,
+                           bool smart_replace) {
   if (!IsEditable()) {
     return;
   }
@@ -448,9 +451,9 @@ void WebElement::PasteText(const WebString& text, bool replace_all) {
     return;
   }
   // Fires "textInput" and "input".
-  target->DispatchEvent(
-      *TextEvent::CreateForPlainTextPaste(frame->DomWindow(), text,
-                                          /*should_smart_replace=*/true));
+  target->DispatchEvent(*TextEvent::CreateForPlainTextPaste(
+      frame->DomWindow(), text,
+      /*should_smart_replace=*/smart_replace));
 }
 
 std::vector<WebLabelElement> WebElement::Labels() const {
@@ -546,6 +549,19 @@ std::vector<gfx::Rect> WebElement::ClientRectsInWidget() {
 }
 
 SkBitmap WebElement::ImageContents() {
+  Element* element = Unwrap<Element>();
+  if (!element) {
+    return {};
+  }
+
+  if (auto* canvas = blink::DynamicTo<HTMLCanvasElement>(element)) {
+    scoped_refptr<StaticBitmapImage> image = canvas->Snapshot(kBackBuffer);
+    if (!image) {
+      return {};
+    }
+    return image->AsSkBitmapForCurrentFrame(kRespectImageOrientation);
+  }
+
   Image* image = GetImage();
   if (!image)
     return {};
@@ -553,7 +569,6 @@ SkBitmap WebElement::ImageContents() {
   if (RuntimeEnabledFeatures::SvgFallBackToContainerSizeEnabled()) {
     if (auto* svg_image = blink::DynamicTo<SVGImage>(*image)) {
       // Adapted from ImageElementBase::GetSourceImageFromCanvas.
-      Element* element = Unwrap<Element>();
       const ComputedStyle* style = element->GetComputedStyle();
       auto preferred_color_scheme = element->GetDocument()
                                         .GetStyleEngine()
@@ -746,8 +761,8 @@ class VisibilityObserver final : public GarbageCollected<VisibilityObserver> {
             &VisibilityObserver::VisibilityTimerFired) {
     IntersectionObserver::Params params = {
         .root = nullptr,
-        // Require 100% of the element to be intersecting the viewport.
-        .thresholds = {1.0f},
+        // Require at least 90% of the element to intersect the viewport.
+        .thresholds = {0.90f},
         // Add a delay of 100ms between observer notifications.
         .delay = base::Milliseconds(100),
         // Enable visibility tracking; otherwise `isVisible()` in entries will

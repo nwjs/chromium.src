@@ -31,6 +31,10 @@ BASE_FEATURE(kConsistentLogoDoodleHeight, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNewTabPageRedesign, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kMVTInBottomSheet, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kNewTabPageUICleanup, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #pragma mark - Feature parameters
 
 // Feature parameters for `kOverrideFeedSettings`.
@@ -53,7 +57,27 @@ BASE_FEATURE_PARAM(int,
                    kFeedSwipeInProductHelpArmParam,
                    static_cast<int>(FeedSwipeIPHVariation::kStaticAfterFRE));
 
+const char kNewTabPageUICleanupArmParam[] = "new-tab-page-ui-cleanup-arm";
+
+BASE_FEATURE_PARAM(int,
+                   kNewTabPageUICleanupArmParamFeature,
+                   &kNewTabPageUICleanup,
+                   kNewTabPageUICleanupArmParam,
+                   static_cast<int>(NTPUICleanupVariation::kTightPadding));
+
+const char kNewTabPageRedesignStaticFakeboxParam[] = "static-fakebox";
+
+BASE_FEATURE_PARAM(bool,
+                   kNewTabPageRedesignStaticFakeboxParamFeature,
+                   &kNewTabPageRedesign,
+                   kNewTabPageRedesignStaticFakeboxParam,
+                   false);
+
 #pragma mark - Helpers
+
+bool IsMVTInBottomSheetEnabled() {
+  return base::FeatureList::IsEnabled(kMVTInBottomSheet);
+}
 
 bool IsDiscoverFeedTopSyncPromoEnabled() {
   // Promo should not be shown on FRE, or for users in Great Britain for AADC
@@ -105,4 +129,29 @@ bool IsNTPHeaderTransformsForAnimationsEnabled() {
 bool IsNTPRedesignEnabled() {
   return base::FeatureList::IsEnabled(kNewTabPageRedesign) &&
          ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+}
+
+bool IsNTPRedesignStaticFakeboxEnabled() {
+  return IsNTPRedesignEnabled() &&
+         kNewTabPageRedesignStaticFakeboxParamFeature.Get();
+}
+
+NTPUICleanupVariation GetNewTabPageUICleanupVariation() {
+  if (base::FeatureList::IsEnabled(kNewTabPageUICleanup)) {
+    return static_cast<NTPUICleanupVariation>(
+        kNewTabPageUICleanupArmParamFeature.Get());
+  }
+  return NTPUICleanupVariation::kDisabled;
+}
+
+bool IsNewTabPageUICleanupEnabled() {
+  NTPUICleanupVariation variation = GetNewTabPageUICleanupVariation();
+  return variation == NTPUICleanupVariation::kTightPadding ||
+         variation == NTPUICleanupVariation::kMediumPadding ||
+         variation == NTPUICleanupVariation::kPreferredPadding;
+}
+
+bool IsNewTabPageUICleanupFakeboxOnlyEnabled() {
+  return GetNewTabPageUICleanupVariation() ==
+         NTPUICleanupVariation::kFakeboxBackgroundAndShadow;
 }

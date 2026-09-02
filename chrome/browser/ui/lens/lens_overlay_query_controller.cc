@@ -72,6 +72,7 @@
 #include "third_party/lens_server_proto/lens_overlay_polygon.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_id.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_request_type.pb.h"
+#include "third_party/lens_server_proto/lens_overlay_selection_type.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_service_deps.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_surface.pb.h"
 #include "third_party/lens_server_proto/lens_overlay_visual_search_interaction_data.pb.h"
@@ -237,6 +238,7 @@ LenOverlayEntryPointFromInvocationSource(
     case lens::LensOverlayInvocationSource::kContextualTasksComposebox:
     case lens::LensOverlayInvocationSource::kCobrowseToolbarButton:
     case lens::LensOverlayInvocationSource::kCobrowsePinnedToolbarButton:
+    case lens::LensOverlayInvocationSource::kOmniboxPopupButton:
       // TODO(crbug.com/469463485): This should be contextual tasks specific,
       // not unknown.
       return lens::LensOverlayClientLogs::UNKNOWN_ENTRY_POINT;
@@ -303,13 +305,6 @@ lens::Payload CreatePageContentPayload(
 }
 
 }  // namespace
-
-PageContent::PageContent() : content_type_(lens::MimeType::kUnknown) {}
-PageContent::PageContent(std::vector<uint8_t> bytes,
-                         lens::MimeType content_type)
-    : bytes_(bytes), content_type_(content_type) {}
-PageContent::PageContent(const PageContent& other) = default;
-PageContent::~PageContent() = default;
 
 LensOverlayQueryController::LensOverlayQueryController(
     LensOverlayFullImageResponseCallback full_image_callback,

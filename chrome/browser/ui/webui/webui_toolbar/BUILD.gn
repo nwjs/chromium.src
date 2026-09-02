@@ -69,6 +69,7 @@ source_set("impl") {
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/permissions/chip",
+    "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/waap",
     "//chrome/browser/ui/webui:favicon_source",
     "//chrome/browser/ui/webui:metrics_handler",
@@ -98,6 +99,7 @@ source_set("test_support") {
 source_set("unit_tests") {
   testonly = true
   sources = [
+    "adapters/browser_controls_adapter_impl_unittest.cc",
     "browser_controls_service_unittest.cc",
     "icon_table_unittest.cc",
     "toolbar_ui_service_unittest.cc",
@@ -123,6 +125,7 @@ source_set("unit_tests") {
     "//components/browser_apis/browser_controls:mojom",
     "//components/browser_apis/browser_controls:mojom_data_model",
     "//components/browser_apis/ui_controllers/toolbar:mojom",
+    "//components/omnibox/browser:vector_icons",
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",

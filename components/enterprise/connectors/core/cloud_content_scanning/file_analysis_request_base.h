@@ -62,6 +62,12 @@ class FileAnalysisRequestBase : public BinaryUploadRequest {
   // silently.
   void Cancel();
 
+  // Returns true if `path` is a virtual/FSP file system mount (e.g. ChromeOS
+  // Fusebox).
+  static bool IsVirtualFile(const base::FilePath& path);
+
+  static void SetIsVirtualFileForTesting(bool is_virtual);
+
  protected:
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   virtual void ProcessZipFile(Data data) = 0;

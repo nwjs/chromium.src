@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Checkbox Example (Mixed-State)</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/checkbox-mixed.css" rel="stylesheet">
+    <script src="js/checkbox-mixed.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <fieldset class="checkbox-mixed">
+            <legend>Sandwich Condiments</legend>
+            <div role="checkbox" class="group_checkbox" aria-checked="mixed" aria-controls="cond1 cond2 cond3 cond4" tabindex="0">All condiments</div>
+            <ul class="checkboxes">
+              <li>
+                <label><input type="checkbox" id="cond1">Lettuce</label>
+              </li>
+              <li>
+                <label><input type="checkbox" id="cond2" checked>Tomato</label>
+              </li>
+              <li>
+                <label><input type="checkbox" id="cond3">Mustard</label>
+              </li>
+              <li>
+                <label><input type="checkbox" id="cond4">Sprouts</label>
+              </li>
+            </ul>
+          </fieldset>
+        </div>
+  </body>
+</html>

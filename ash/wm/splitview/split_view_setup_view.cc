@@ -42,7 +42,8 @@ class SplitViewSetupViewSettingsButton : public IconButton {
                    IconButton::Type::kLarge,
                    &kOverviewSettingsIcon,
                    IDS_ASH_OVERVIEW_SETTINGS_BUTTON_LABEL),
-        shadow_(SystemShadow::CreateShadowOnTextureLayer(
+        shadow_(SystemShadow::CreateShadowOnNinePatchLayerForView(
+            this,
             SystemShadow::Type::kElevation4)) {
     SetPaintToLayer();
     layer()->SetFillsBoundsOpaquely(false);
@@ -53,7 +54,8 @@ class SplitViewSetupViewSettingsButton : public IconButton {
     SetBorder(std::make_unique<views::HighlightBorder>(
         settings_button_corner_radius,
         views::HighlightBorder::Type::kHighlightBorderOnShadow));
-    shadow_->SetRoundedCornerRadius(settings_button_corner_radius);
+    shadow_->SetRoundedCorners(
+        gfx::RoundedCornersF(settings_button_corner_radius));
 
     StyleUtil::SetUpFocusRingForView(this, kWindowMiniViewFocusRingHaloInset);
   }
@@ -62,21 +64,6 @@ class SplitViewSetupViewSettingsButton : public IconButton {
   SplitViewSetupViewSettingsButton& operator=(
       const SplitViewSetupViewSettingsButton&) = delete;
   ~SplitViewSetupViewSettingsButton() override = default;
-
-  // views::View:
-  void AddedToWidget() override {
-    // Since the layer of the shadow has to be added as a sibling to this view's
-    // layer, we need to wait until the view is added to the widget.
-    auto* parent = layer()->parent();
-    parent->Add(shadow_->GetLayer());
-    parent->StackAtBottom(shadow_->GetLayer());
-  }
-
-  void OnBoundsChanged(const gfx::Rect& previous_bounds) override {
-    // The shadow layer is a sibling of this view's layer, whose contents bounds
-    // should be the same as the view's bounds.
-    shadow_->SetContentBounds(layer()->bounds());
-  }
 
  private:
   std::unique_ptr<SystemShadow> shadow_;

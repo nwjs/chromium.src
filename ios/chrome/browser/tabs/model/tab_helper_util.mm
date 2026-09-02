@@ -54,7 +54,6 @@
 #import "ios/chrome/browser/enterprise/connectors/device_trust/features.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_tab_helper.h"
 #import "ios/chrome/browser/enterprise/data_protection/model/data_protection_tab_helper.h"
-#import "ios/chrome/browser/enterprise/data_protection/public/features.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
 #import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
@@ -209,7 +208,7 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
             [&]() { return attacher.IsOffTheRecord(); });
   attacher
       .CreateDeferredWhen<ReaderModeTabHelper>(
-          attacher.IsNotInTabHelperFilter() && IsReaderModeAvailable())
+          attacher.IsNotInTabHelperFilter())
       .WithFactory<DistillerServiceFactory>(profile);
 
   attacher.Create<security_interstitials::IOSBlockingPageTabHelper>();
@@ -366,7 +365,7 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
   attacher.Create<EditMenuTabHelper>();
 
   attacher.CreateWhen<MiniMapTabHelper>(
-      (base::FeatureList::IsEnabled(kIOSMiniMapUniversalLink) ||
+      (IsMiniMapUniversalLinkEnabled() ||
        base::FeatureList::IsEnabled(kIOSMiniMapUniversalLinkCounterfactual)) &&
       attacher.IsNotInTabHelperFilter());
 
@@ -394,29 +393,20 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
 
   attacher.Create<WebViewProxyTabHelper>();
 
-  attacher.CreateWhen<ChooseFileTabHelper>(
-      attacher.IsNotInTabHelperFilter() &&
-      (base::FeatureList::IsEnabled(kIOSChooseFromDrive) ||
-       base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu)));
+  attacher.CreateWhen<ChooseFileTabHelper>(attacher.IsNotInTabHelperFilter());
   attacher.CreateWhen<LastTapLocationTabHelper>(
-      attacher.IsNotInTabHelperFilter() &&
-      base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu));
+      attacher.IsNotInTabHelperFilter());
 
   if (!attacher.IsOffTheRecord() && !attacher.IsForPrerender()) {
     if (IsModelBasedPageClassificationEnabled()) {
       ios::provider::AttachClassificationMetricsTabHelper(web_state);
     }
-    // TODO(crbug.com/526992227): Add feature param to
-    // IsGeminiContextualSuggestionsCuesEnabled for on-device classifier.
     attacher.CreateWhen<OnDeviceCategoryClassifierTabHelper>(
-        /*enabled=*/false);
+        IsGeminiContextualSuggestionsCuesOnDeviceClassifierEnabled());
   }
 
   attacher.Create<data_controls::DataControlsTabHelper>();
-  if (IsEnableScreenshotProtectionIOSEnabled() ||
-      IsEnableEnterpriseWatermarkingIOS()) {
-    attacher.Create<DataProtectionTabHelper>();
-  }
+  attacher.Create<DataProtectionTabHelper>();
   attacher.Create<CaptivePortalTabHelper>();
   attacher.Create<PrintTabHelper>();
   attacher.Create<BlockedPopupTabHelper>();

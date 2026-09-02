@@ -26,6 +26,7 @@
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "components/tabs/public/tab_collection_storage.h"
+#include "components/tabs/public/tab_collection_types.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_group_tab_collection.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -48,7 +49,8 @@ constexpr int kGroupLineCornerRadius = 4;
 const TabGroup* GetTabGroupFromNode(TabCollectionNode* node) {
   CHECK(node);
   return static_cast<const tabs::TabGroupTabCollection*>(
-             std::get<const tabs::TabCollection*>(node->GetNodeData()))
+             std::get<tabs::ConstDanglingUntriagedTabCollection>(
+                 node->GetNodeData()))
       ->GetTabGroup();
 }
 }  // namespace
@@ -74,11 +76,14 @@ TabGroupView::TabGroupView(TabCollectionNode* collection_node)
           collection_node_->GetController()->GetStateController(),
           &tab_group_visual_data_))),
       group_line_(AddChildView(std::make_unique<views::View>())),
-      layout_manager_(*SetLayoutManager(
-          std::make_unique<TabCollectionAnimatingLayoutManager>(
-              std::make_unique<TabGroupViewLayout>(
-                  collection_node->orientation()),
-              *this))) {
+      layout_manager_(*SetLayoutManager(std::make_unique<
+                                        TabCollectionAnimatingLayoutManager>(
+          std::make_unique<TabGroupViewLayout>(collection_node->orientation()),
+          *this,
+          collection_node->orientation() == TabStripOrientation::kHorizontal
+              ? TabCollectionAnimatingLayoutManager::AnimationAxis::kHorizontal
+              : TabCollectionAnimatingLayoutManager::AnimationAxis::
+                    kVertical))) {
   collection_node->set_remove_child_from_node(base::BindRepeating(
       &TabCollectionAnimatingLayoutManager::AnimateAndDestroyChildView,
       base::Unretained(&layout_manager_.get())));
@@ -254,6 +259,15 @@ void TabGroupView::OnDataChanged() {
         color, gfx::RoundedCornersF(0, kGroupLineCornerRadius,
                                     kGroupLineCornerRadius, 0)));
   }
+
+  InvalidateLayout();
+}
+
+void TabGroupView::SetIsCollapsed(bool is_collapsed) {
+  if (is_collapsed_ == is_collapsed) {
+    return;
+  }
+  is_collapsed_ = is_collapsed;
   InvalidateLayout();
 }
 
@@ -262,7 +276,7 @@ void TabGroupView::UpdateChildVisibilityForCollapseState(bool collapsed) {
   if (!collection_node_) {
     return;
   }
-  group_line_->SetVisible(!collapsed);
+  SetIsCollapsed(collapsed);
   for (auto* child : collection_node_->GetDirectChildren()) {
     child->SetVisible(!collapsed);
   }
@@ -446,6 +460,14 @@ void TabGroupView::ShiftGroupDown() {
   }
   const TabGroup* group = GetTabGroupFromNode(collection_node_);
   collection_node_->GetController()->ShiftGroupDown(group->id());
+}
+
+bool TabGroupView::IsGroupFocused() const {
+  if (!collection_node_ || !collection_node_->GetController()) {
+    return false;
+  }
+  return collection_node_->GetController()->GetFocusedGroup() ==
+         GetTabGroup().id();
 }
 
 BEGIN_METADATA(TabGroupView)

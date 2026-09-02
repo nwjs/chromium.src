@@ -7,6 +7,10 @@ import("//build/config/chrome_build.gni")
 assert(is_win, "The installer downloader is for windows only")
 assert(is_chrome_branded, "The installer downloader is for chrome branded only")
 
+source_set("constants") {
+  public = [ "installer_downloader_constants.h" ]
+}
+
 source_set("prefs") {
   public = [ "installer_downloader_pref_names.h" ]
 }
@@ -31,6 +35,7 @@ source_set("controller") {
   public_deps = [ "//base" ]
 
   deps = [
+    ":constants",
     ":infobar",
     ":prefs",
     "//base/version_info",
@@ -87,6 +92,7 @@ source_set("infobar_impl") {
   ]
 
   deps = [
+    ":constants",
     ":controller",
     ":infobar",
     "//chrome/app:branded_strings_grit",
@@ -111,6 +117,7 @@ source_set("unit_tests") {
   ]
 
   deps = [
+    ":constants",
     ":controller",
     ":infobar",
     ":prefs",

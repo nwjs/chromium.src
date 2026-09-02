@@ -63,8 +63,10 @@ const char kChromeSuggestionsSettings[] =
 
 const char kGeminiSettings[] = "browser.gemini_settings";
 
+// LINT.IfChange(FindAndFillWithGeminiSettings)
 const char kFindAndFillWithGeminiSettings[] =
     "autofill.personal_context.find_and_fill_with_gemini_settings";
+// LINT.ThenChange(//chrome/browser/ui/android/autofill/internal/java/src/org/chromium/chrome/browser/ui/autofill/AtMemoryBottomSheetMediator.java:FindAndFillWithGeminiSettings)
 }  // namespace prefs
 
 namespace features {
@@ -98,7 +100,7 @@ BASE_FEATURE(kGeminiAntiscamProtectionMqlsLogging,
 
 BASE_FEATURE(kFindsMqlsLogging, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAtMemoryMqlsLogging, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kAtMemoryMqlsLogging, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features
 

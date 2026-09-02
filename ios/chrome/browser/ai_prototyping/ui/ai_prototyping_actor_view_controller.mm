@@ -9,6 +9,7 @@
 #import "ios/chrome/browser/ai_prototyping/ui/ai_prototyping_mutator.h"
 #import "ios/chrome/browser/ai_prototyping/utils/ai_prototyping_constants.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -26,9 +27,14 @@ NSString* const kToolScrollTo = @"Scroll To";
 NSString* const kToolSelect = @"Select";
 NSString* const kToolCloseTab = @"Close Tab";
 NSString* const kToolAttemptLogin = @"Attempt Login";
+NSString* const kToolCreateTab = @"Create Tab";
+NSString* const kToolActivateTab = @"Activate Tab";
 
 // Placeholder macro for tab ID.
 NSString* const kTabIdMacro = @"{{tab_id}}";
+
+// Placeholder macro for window ID.
+NSString* const kWindowIdMacro = @"{{window_id}}";
 
 // Whether the tool injects custom JavaScript on the page. For debugging
 // purposes, more tab related information will be exposed and available for
@@ -61,6 +67,7 @@ bool IsWebActuationTool(NSString* tool) {
   NSString* _selectedTabId;
   NSString* _activeTabId;
   NSString* _selectedFrameId;
+  NSString* _windowId;
 
   // Completion handler for deferred menu element.
   void (^_menuCompletion)(NSArray<UIMenuElement*>*);
@@ -170,15 +177,7 @@ bool IsWebActuationTool(NSString* tool) {
   [_tabIdContainer addSubview:tabStack];
   _tabIdContainer.hidden = YES;
 
-  [NSLayoutConstraint activateConstraints:@[
-    [tabStack.leadingAnchor
-        constraintEqualToAnchor:_tabIdContainer.leadingAnchor],
-    [tabStack.trailingAnchor
-        constraintEqualToAnchor:_tabIdContainer.trailingAnchor],
-    [tabStack.topAnchor constraintEqualToAnchor:_tabIdContainer.topAnchor],
-    [tabStack.bottomAnchor
-        constraintEqualToAnchor:_tabIdContainer.bottomAnchor],
-  ]];
+  AddSameConstraints(tabStack, _tabIdContainer);
 
   _frameIdButton = [UIButton buttonWithType:UIButtonTypeSystem];
   [_frameIdButton setTitle:@"Select Frame" forState:UIControlStateNormal];
@@ -243,15 +242,7 @@ bool IsWebActuationTool(NSString* tool) {
   [_frameIdContainer addSubview:frameStack];
   _frameIdContainer.hidden = YES;
 
-  [NSLayoutConstraint activateConstraints:@[
-    [frameStack.leadingAnchor
-        constraintEqualToAnchor:_frameIdContainer.leadingAnchor],
-    [frameStack.trailingAnchor
-        constraintEqualToAnchor:_frameIdContainer.trailingAnchor],
-    [frameStack.topAnchor constraintEqualToAnchor:_frameIdContainer.topAnchor],
-    [frameStack.bottomAnchor
-        constraintEqualToAnchor:_frameIdContainer.bottomAnchor],
-  ]];
+  AddSameConstraints(frameStack, _frameIdContainer);
 
   _jsonInputView = [[UITextView alloc] init];
   _jsonInputView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -545,6 +536,19 @@ bool IsWebActuationTool(NSString* tool) {
         }
       }
     },
+    kToolCreateTab : @{
+      @"ui" : @[ _jsonContainer ],
+      @"template" : @{
+        @"create_tab" : @{
+          @"foreground" : @YES,
+          @"window_id" : kWindowIdMacro,
+        }
+      }
+    },
+    kToolActivateTab : @{
+      @"ui" : @[ _tabIdContainer, _jsonContainer ],
+      @"template" : @{@"activate_tab" : @{@"tab_id" : kTabIdMacro}}
+    },
   };
 
   _toolPickerButton.menu = [self createToolPickerMenu];
@@ -577,7 +581,8 @@ bool IsWebActuationTool(NSString* tool) {
     return;
   }
   // 2. Update Tab ID.
-  if (tabId) {
+  if (tabId &&
+      (toolDict[@"tab_id"] || (configTemplate && configTemplate[@"tab_id"]))) {
     toolDict[@"tab_id"] = @([tabId intValue]);
   }
 
@@ -648,17 +653,29 @@ bool IsWebActuationTool(NSString* tool) {
     inputData = [_jsonInputView.text dataUsingEncoding:NSUTF8StringEncoding];
   }
 
-  // 2. Replace the tab ID placeholder.
-  if (tabId) {
-    NSMutableString* jsonString =
-        [[NSMutableString alloc] initWithData:inputData
-                                     encoding:NSUTF8StringEncoding];
-    NSString* tabIdMacroAndQuotes =
-        [NSString stringWithFormat:@"\"%@\"", kTabIdMacro];
-    [jsonString replaceOccurrencesOfString:tabIdMacroAndQuotes
-                                withString:tabId
-                                   options:0
-                                     range:NSMakeRange(0, [jsonString length])];
+  // 2. Replace the placeholders.
+  NSMutableString* jsonString =
+      [[NSMutableString alloc] initWithData:inputData
+                                   encoding:NSUTF8StringEncoding];
+  if (jsonString) {
+    if (tabId) {
+      NSString* tabIdMacroAndQuotes =
+          [NSString stringWithFormat:@"\"%@\"", kTabIdMacro];
+      [jsonString
+          replaceOccurrencesOfString:tabIdMacroAndQuotes
+                          withString:tabId
+                             options:0
+                               range:NSMakeRange(0, [jsonString length])];
+    }
+    if (_windowId) {
+      NSString* windowIdMacroAndQuotes =
+          [NSString stringWithFormat:@"\"%@\"", kWindowIdMacro];
+      [jsonString
+          replaceOccurrencesOfString:windowIdMacroAndQuotes
+                          withString:_windowId
+                             options:0
+                               range:NSMakeRange(0, [jsonString length])];
+    }
     inputData = [jsonString dataUsingEncoding:NSUTF8StringEncoding];
   }
 
@@ -787,7 +804,7 @@ bool IsWebActuationTool(NSString* tool) {
   NSArray<NSString*>* orderedTools = @[
     kToolMultiTool, kToolNavigate, kToolClick, kToolType, kToolHistoryBack,
     kToolHistoryForward, kToolWait, kToolScroll, kToolScrollTo, kToolSelect,
-    kToolCloseTab, kToolAttemptLogin
+    kToolCloseTab, kToolAttemptLogin, kToolCreateTab, kToolActivateTab
   ];
 
   for (NSString* toolName in orderedTools) {
@@ -824,6 +841,10 @@ bool IsWebActuationTool(NSString* tool) {
   [self.mutator executeAPCExtractionWithRichExtraction:YES
                                         actionableMode:YES
                                       includeDebugData:YES];
+}
+
+- (void)updateWindowId:(NSString*)windowId {
+  _windowId = windowId;
 }
 
 #pragma mark - AIPrototypingViewControllerProtocol

@@ -17,7 +17,7 @@ import {GlowAnimationState} from 'chrome://resources/cr_components/search/consta
 import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SearchContext, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {SuggestInventory, TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -49,6 +49,7 @@ suite('OmniboxComposeboxTest', () => {
 
     loadTimeData.overrideValues({
       composeboxShowZps: true,
+      askGBlockAutoTabZeroStateSuggestions: false,
     });
 
     testProxy = new TestSearchboxBrowserProxy();
@@ -329,12 +330,13 @@ suite('OmniboxComposeboxTest', () => {
           tabId: 42,
           title: 'Google Search',
           url: 'https://google.com',
+          source: TabAttachmentSource.kContextMenu,
         },
       }],
       toolMode: 0,
     };
 
-    omniboxComposebox.addSearchContext(context);
+    omniboxComposebox.addSearchContext(context as unknown as SearchContext);
     await microtasksFinished();
     await testProxy.handler.whenCalled('addTabContext');
     await microtasksFinished();
@@ -342,6 +344,7 @@ suite('OmniboxComposeboxTest', () => {
     const args = testProxy.handler.getArgs('addTabContext')[0];
     assertEquals(42, args[0]);
     assertFalse(args[1]);
+    assertEquals(TabAttachmentSource.kContextMenu, args[2]);
     assertEquals(1, omniboxComposebox.files.size);
     const addedFile = omniboxComposebox.files.get(mockToken);
     assertTrue(!!addedFile);
@@ -377,6 +380,99 @@ suite('OmniboxComposeboxTest', () => {
         initialCallCount + 1,
         testProxy.handler.getCallCount('queryAutocomplete'));
   });
+
+  test(
+      'addSearchContext skips autocomplete query for tab when flag is enabled' +
+          ' and source is auto-added',
+      async () => {
+        loadTimeData.overrideValues(
+            {askGBlockAutoTabZeroStateSuggestions: true});
+
+        const initialCallCount =
+            testProxy.handler.getCallCount('queryAutocomplete');
+        const context = {
+          input: '',
+          attachments: [{
+            tabAttachment: {
+              tabId: 42,
+              title: 'Google',
+              url: 'https://google.com',
+              source: TabAttachmentSource.kAutoAdded,
+            },
+          }],
+          toolMode: 0,
+        };
+
+        omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await microtasksFinished();
+
+        // Verify query was SKIPPED
+        assertEquals(
+            initialCallCount,
+            testProxy.handler.getCallCount('queryAutocomplete'));
+      });
+
+  test(
+      'addSearchContext does NOT skip autocomplete query for tab when flag' +
+          ' is disabled',
+      async () => {
+        loadTimeData.overrideValues(
+            {askGBlockAutoTabZeroStateSuggestions: false});
+
+        const initialCallCount =
+            testProxy.handler.getCallCount('queryAutocomplete');
+        const context = {
+          input: '',
+          attachments: [{
+            tabAttachment: {
+              tabId: 42,
+              title: 'Google',
+              url: 'https://google.com',
+              source: TabAttachmentSource.kAutoAdded,
+            },
+          }],
+          toolMode: 0,
+        };
+
+        omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await microtasksFinished();
+
+        // Verify query was NOT skipped
+        assertEquals(
+            initialCallCount + 1,
+            testProxy.handler.getCallCount('queryAutocomplete'));
+      });
+
+  test(
+      'addSearchContext does NOT skip autocomplete query for tab when source' +
+          ' is NOT auto-added',
+      async () => {
+        loadTimeData.overrideValues(
+            {askGBlockAutoTabZeroStateSuggestions: true});
+
+        const initialCallCount =
+            testProxy.handler.getCallCount('queryAutocomplete');
+        const context = {
+          input: '',
+          attachments: [{
+            tabAttachment: {
+              tabId: 42,
+              title: 'Google',
+              url: 'https://google.com',
+              source: TabAttachmentSource.kContextMenu,
+            },
+          }],
+          toolMode: 0,
+        };
+
+        omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await microtasksFinished();
+
+        // Verify query was NOT skipped
+        assertEquals(
+            initialCallCount + 1,
+            testProxy.handler.getCallCount('queryAutocomplete'));
+      });
 
   test(
       'Carousel renders when files are present, hides when empty', async () => {
@@ -979,7 +1075,8 @@ suite('OmniboxComposeboxTest', () => {
     cancelIcon.click();
     await microtasksFinished();
 
-    const activeTool = await testProxy.handler.whenCalled('setActiveToolMode');
+    const [activeTool] =
+        await testProxy.handler.whenCalled('setActiveToolMode');
     assertEquals(ToolMode.kUnspecified, activeTool);
     assertFalse(closeEventFired);
   });
@@ -2000,6 +2097,7 @@ suite('OmniboxComposeboxTest', () => {
             tabId: 42,
             title: 'Google Search',
             url: 'about:blank',  // Mojo converts obj to str.
+            source: TabAttachmentSource.kContextMenu,
           },
         }],
         toolMode: 0,
@@ -2056,6 +2154,17 @@ suite('OmniboxComposeboxTest', () => {
       voiceSearchButton.click();
       await microtasksFinished();
       await omniboxComposebox.updateComplete;
+
+      const animatedGlow =
+          omniboxComposebox.shadowRoot.querySelector('search-animated-glow');
+      if (animatedGlow) {
+        await animatedGlow.updateComplete;
+      }
+      const voiceSearch = omniboxComposebox.shadowRoot.querySelector(
+          'cr-composebox-voice-search');
+      if (voiceSearch) {
+        await voiceSearch.updateComplete;
+      }
     }
 
     async function submitVoiceSearch() {
@@ -2483,6 +2592,111 @@ suite('OmniboxComposeboxTest', () => {
       assertFalse(!!getChip());
     });
 
+    test('visible when only auto-added tab is present', async () => {
+      assertTrue(!!getChip());
+      const mockToken = 'mock-tab-token';
+      testProxy.handler.setPromiseResolveFor('addTabContext', mockToken);
+      const context = {
+        input: '',
+        attachments: [{
+          tabAttachment: {
+            tabId: 42,
+            title: 'Google Search',
+            url: 'https://google.com',
+            source: TabAttachmentSource.kAutoAdded,
+          },
+        }],
+        toolMode: 0,
+      };
+
+      omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+      await microtasksFinished();
+      await testProxy.handler.whenCalled('addTabContext');
+      await microtasksFinished();
+
+      assertTrue(!!getChip());
+    });
+
+    test('hidden when manually added tab is present', async () => {
+      assertTrue(!!getChip());
+      const mockToken = 'mock-tab-token';
+      testProxy.handler.setPromiseResolveFor('addTabContext', mockToken);
+      const context = {
+        input: '',
+        attachments: [{
+          tabAttachment: {
+            tabId: 42,
+            title: 'Google Search',
+            url: 'https://google.com',
+            source: TabAttachmentSource.kContextMenu,
+          },
+        }],
+        toolMode: 0,
+      };
+
+      omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+      await microtasksFinished();
+      await testProxy.handler.whenCalled('addTabContext');
+      await microtasksFinished();
+
+      assertFalse(!!getChip());
+    });
+
+    test('hidden when auto-added tab + text input is present', async () => {
+      assertTrue(!!getChip());
+      const mockToken = 'mock-tab-token';
+      testProxy.handler.setPromiseResolveFor('addTabContext', mockToken);
+      const context = {
+        input: '',
+        attachments: [{
+          tabAttachment: {
+            tabId: 42,
+            title: 'Google Search',
+            url: 'https://google.com',
+            source: TabAttachmentSource.kAutoAdded,
+          },
+        }],
+        toolMode: 0,
+      };
+
+      omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+      await microtasksFinished();
+      await testProxy.handler.whenCalled('addTabContext');
+      await microtasksFinished();
+
+      assertTrue(!!getChip());
+
+      omniboxComposebox.input = 'some query';
+      await microtasksFinished();
+
+      assertFalse(!!getChip());
+    });
+
+    test('shown when current tab chip added tab is present', async () => {
+      assertTrue(!!getChip());
+      const mockToken = 'mock-tab-token';
+      testProxy.handler.setPromiseResolveFor('addTabContext', mockToken);
+      const context = {
+        input: '',
+        attachments: [{
+          tabAttachment: {
+            tabId: 42,
+            title: 'Google Search',
+            url: 'https://google.com',
+            source: TabAttachmentSource.kCurrentTabChip,
+          },
+        }],
+        toolMode: 0,
+      };
+
+      omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+      await microtasksFinished();
+      await testProxy.handler.whenCalled('addTabContext');
+      await microtasksFinished();
+
+      assertTrue(!!getChip());
+    });
+
     test('hidden when in tool mode', async () => {
       assertTrue(!!getChip());
       omniboxComposebox.inToolMode = true;
@@ -2543,6 +2757,115 @@ suite('OmniboxComposeboxTest', () => {
         },
         configurable: true,
       });
+    });
+  });
+
+  suite('AskGComposeboxPlaceholder', () => {
+    setup(async () => {
+      loadTimeData.overrideValues({
+        askGComposeboxPlaceholderEnabled: true,
+        askAboutTab: 'Ask about this page',
+        searchboxComposePlaceholder: 'Ask AI Mode',
+        composeDeepSearchPlaceholder: 'Ask Deep Search',
+      });
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      omniboxComposebox = document.createElement('cr-omnibox-composebox');
+      document.body.appendChild(omniboxComposebox);
+      await microtasksFinished();
+    });
+
+    const addTabWithSource = async (source: TabAttachmentSource) => {
+      const mockToken = 'mock-tab-token';
+      testProxy.handler.setPromiseResolveFor('addTabContext', mockToken);
+      const context = {
+        input: '',
+        attachments: [{
+          tabAttachment: {
+            tabId: 42,
+            title: 'Google Search',
+            url: 'https://google.com',
+            source,
+          },
+        }],
+        toolMode: 0,
+      };
+      omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+      await microtasksFinished();
+      await testProxy.handler.whenCalled('addTabContext');
+      await microtasksFinished();
+      return mockToken;
+    };
+
+    const addAutoAddedTab = () =>
+        addTabWithSource(TabAttachmentSource.kAutoAdded);
+
+    test('placeholder is default when flag enabled but no tab attached', () => {
+      assertEquals('Ask AI Mode', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('placeholder is default when tab is manually added', async () => {
+      await addTabWithSource(TabAttachmentSource.kContextMenu);
+      assertEquals('Ask AI Mode', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('placeholder becomes "Ask about this page" when auto-added tab is present', async () => {
+      await addAutoAddedTab();
+      assertEquals('Ask about this page', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('placeholder stays "Ask about this page" after inputState update with auto-added tab', async () => {
+      await addAutoAddedTab();
+
+      const inputState = createDefaultInputState();
+      inputState.hintText = 'Ask anything';
+      omniboxComposebox.inputState = inputState;
+      await microtasksFinished();
+
+      assertEquals('Ask about this page', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('placeholder resets to default when auto-added tab is deleted', async () => {
+      const token = await addAutoAddedTab();
+      assertEquals('Ask about this page', omniboxComposebox.inputPlaceholder);
+
+      omniboxComposebox.deleteFile(token);
+      await microtasksFinished();
+
+      assertEquals('Ask AI Mode', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('tool mode overrides the placeholder when active even with auto-added tab', async () => {
+      await addAutoAddedTab();
+
+      const inputState = createDefaultInputState();
+      inputState.activeTool = ToolMode.kDeepSearch;
+      inputState.toolConfigs = [{
+        tool: ToolMode.kDeepSearch,
+        hintText: 'Ask Deep Search',
+        menuLabel: 'Deep Search',
+        chipLabel: '',
+        disableActiveModelSelection: false,
+        aimUrlParams: [],
+        menuTooltip: '',
+      }];
+      omniboxComposebox.inputState = inputState;
+      await microtasksFinished();
+
+      assertEquals('Ask Deep Search', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('uses default placeholder when flag is disabled even with auto-added tab', async () => {
+      loadTimeData.overrideValues({
+        askGComposeboxPlaceholderEnabled: false,
+      });
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      omniboxComposebox = document.createElement('cr-omnibox-composebox');
+      document.body.appendChild(omniboxComposebox);
+      await microtasksFinished();
+
+      await addAutoAddedTab();
+
+      assertEquals('Ask AI Mode', omniboxComposebox.inputPlaceholder);
     });
   });
 });

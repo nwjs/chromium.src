@@ -5,8 +5,10 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_DICTATION_WAVEFORM_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_DICTATION_WAVEFORM_VIEW_H_
 
+#include <optional>
 #include <vector>
 
+#include "base/gtest_prod_util.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/ui/views/dictation/ui_state.h"
@@ -21,8 +23,8 @@ class InfiniteAnimation;
 namespace dictation {
 
 // A custom View that draws an animated voice waveform consisting of vertical
-// rounded bars. The animation only plays during transcribing, using a
-// spring-damper physics simulation driven by the audio level.
+// rounded bars. The animation plays during transcribing (driven by mic volume)
+// and plays a traveling wave animation during finalizing.
 class WaveformView : public views::View, public gfx::AnimationDelegate {
   METADATA_HEADER(WaveformView, views::View)
 
@@ -54,12 +56,20 @@ class WaveformView : public views::View, public gfx::AnimationDelegate {
   void AnimationProgressed(const gfx::Animation* animation) override;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(DictationBubbleUiTest, FinalizingWaveAnimation);
+  FRIEND_TEST_ALL_PREFIXES(DictationBubbleUiTest, AudioLevelMath);
+
+  struct AnimationState {
+    float center_y = 0.0f;
+    float size = 0.0f;
+  };
   // Animation update ticks (running at 60 FPS).
   void UpdatePhysics(base::TimeDelta delta);
   float GetTargetHeightForBar(size_t index,
-                              double time_sec,
                               float min_height,
                               float max_height) const;
+  AnimationState GetFinalizingAnimationState(size_t index,
+                                             base::TimeTicks now) const;
 
   size_t GetCenterBarIndex() const;
 
@@ -70,17 +80,20 @@ class WaveformView : public views::View, public gfx::AnimationDelegate {
   // Animation timer and tracking.
   std::unique_ptr<gfx::InfiniteAnimation> animation_;
   base::TimeTicks last_update_time_;
+  base::TimeTicks finalizing_start_time_;
 
   // Audio level and ripple history.
   float audio_level_ = 0.0f;
+  std::optional<float> active_volume_;
+  float last_volume_ = 0.0f;
+  bool previous_read_empty_ = false;
   std::vector<float> audio_history_;
   base::TimeDelta history_timer_;
 
   // Physics state for the bars.
   struct BarState {
-    float height = 3.0f;
-    float target_height = 3.0f;
-    float velocity = 0.0f;
+    float height = 4.0f;
+    float target_height = 4.0f;
   };
   std::vector<BarState> bars_;
 

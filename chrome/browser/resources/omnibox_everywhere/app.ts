@@ -6,6 +6,7 @@ import './omnibox.js';
 import './composebox.js';
 import '/strings.m.js';
 import '//resources/cr_components/composebox/composebox_voice_search.js';
+import '//resources/cr_components/most_visited/most_visited.js';
 import '//resources/cr_components/search/animated_glow.js';
 
 import type {ComposeboxState} from '//resources/cr_components/composebox/common.js';
@@ -53,7 +54,10 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
       isOblongShape_: {type: Boolean},
       contextManagementInComposeboxEnabled_: {type: Boolean},
       composeboxState_: {type: Object},
-      showVoiceSearchOverlay_: {type: Boolean},
+      showVoiceSearchOverlay_: {
+        type: Boolean,
+        reflect: true,
+      },
       hasVoiceSearchError_: {type: Boolean},
       voiceSearchTranscript_: {type: String},
       voiceSearchReceivedSpeech_: {type: Boolean},
@@ -61,6 +65,7 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
       voiceIdleTimeoutMs_: {type: Number},
       voiceQueryLengthLimit_: {type: Number},
       callbackRouter_: {type: Object},
+      mostVisitedEnabled_: {type: Boolean},
     };
   }
 
@@ -89,9 +94,9 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
   protected accessor voiceQueryLengthLimit_: number = VOICE_QUERY_LENGTH_LIMIT;
   protected accessor callbackRouter_: PageCallbackRouter =
       SearchboxBrowserProxy.getInstance().callbackRouter;
+  protected accessor mostVisitedEnabled_: boolean =
+      loadTimeData.getBoolean('omniboxEverywhereMostVisitedEnabled');
 
-  private isDebug_: boolean =
-      new URLSearchParams(window.location.search).has('debug');
   private eventTracker_ = new EventTracker();
 
   override connectedCallback() {
@@ -100,12 +105,6 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
         document.documentElement, 'visibilitychange',
         this.onVisibilitychange_.bind(this));
     this.onVisibilitychange_();
-    if (!this.isDebug_) {
-      this.eventTracker_.add(
-          document.documentElement, 'contextmenu', (e: Event) => {
-            e.preventDefault();
-          });
-    }
   }
 
   override disconnectedCallback() {
@@ -125,8 +124,14 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
     }
   }
 
-  protected onCloseComposebox_() {
+  protected async onCloseComposebox_() {
     this.isComposeboxMode_ = false;
+    await this.updateComplete;
+    const searchbox =
+        this.shadowRoot.querySelector('omnibox-everywhere-omnibox');
+    if (searchbox) {
+      searchbox.focusInput();
+    }
   }
 
   protected onComposeboxSubmit_() {
@@ -241,33 +246,56 @@ export class OmniboxEverywhereAppElement extends CrLitElement {
     }
   }
 
-  protected onVoiceSearchFinalResult_(e: CustomEvent<string>) {
+  private handleVoiceSearchResult_(query: string, submit: boolean) {
     this.onVoiceSearchOverlayClose_();
-    const query = e.detail;
-    if (query && query.trim().length > 0) {
-      if (this.isComposeboxMode_) {
-        const composebox =
-            this.shadowRoot?.querySelector<OmniboxEverywhereComposeboxElement>(
-                '#composebox');
-        if (composebox) {
-          composebox.setInputText(query);
+    const trimmedQuery = query?.trim();
+    if (!trimmedQuery) {
+      return;
+    }
+
+    if (this.isComposeboxMode_) {
+      const composebox =
+          this.shadowRoot?.querySelector<OmniboxEverywhereComposeboxElement>(
+              'omnibox-everywhere-composebox');
+      if (composebox) {
+        composebox.setInputText(trimmedQuery);
+        if (submit) {
+          composebox.getSearchboxHandler().submitQuery(
+              trimmedQuery, /*mouse_button=*/ 0, /*alt_key=*/ false,
+              /*ctrl_key=*/ false, /*meta_key=*/ false, /*shift_key=*/ false,
+              /*is_voice_search=*/ true);
+          composebox.submitCleanup();
+        } else {
           composebox.focusInput();
+          composebox.queryAutocomplete(/*clearMatches=*/ false);
         }
-      } else {
-        const searchbox =
-            this.shadowRoot?.querySelector<OmniboxEverywhereOmniboxElement>(
-                '#searchbox');
-        if (searchbox) {
-          searchbox.setInputText(query);
+      }
+    } else {
+      const searchbox =
+          this.shadowRoot?.querySelector<OmniboxEverywhereOmniboxElement>(
+              'omnibox-everywhere-omnibox');
+      if (searchbox) {
+        searchbox.setInputText(trimmedQuery);
+        if (submit) {
+          searchbox.pageHandler().submitQuery(
+              trimmedQuery, /*mouse_button=*/ 0, /*alt_key=*/ false,
+              /*ctrl_key=*/ false, /*meta_key=*/ false, /*shift_key=*/ false,
+              /*is_voice_search=*/ true);
+          searchbox.clearAutocompleteMatches();
+        } else {
           searchbox.focusInput();
-          searchbox.queryAutocomplete(query, false, false);
+          searchbox.queryAutocomplete(trimmedQuery, false, false);
         }
       }
     }
   }
 
+  protected onVoiceSearchFinalResult_(e: CustomEvent<string>) {
+    this.handleVoiceSearchResult_(e.detail, /*submit=*/ true);
+  }
+
   protected onVoiceSearchRecordingStopped_(e: CustomEvent<string>) {
-    this.onVoiceSearchFinalResult_(e);
+    this.handleVoiceSearchResult_(e.detail, /*submit=*/ false);
   }
 }
 

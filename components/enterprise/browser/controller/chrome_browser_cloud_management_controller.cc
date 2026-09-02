@@ -20,7 +20,6 @@
 #include "build/build_config.h"
 #include "components/enterprise/browser/controller/browser_dm_token_storage.h"
 #include "components/enterprise/browser/controller/chrome_browser_cloud_management_helper.h"
-#include "components/enterprise/browser/device_trust/device_trust_key_manager.h"
 #include "components/enterprise/browser/enterprise_switches.h"
 #include "components/enterprise/browser/groups/enterprise_groups_handler.h"
 #include "components/enterprise/browser/reporting/browser_launch/browser_launch_event_controller.h"
@@ -31,6 +30,7 @@
 #include "components/enterprise/browser/reporting/saas_usage/saas_usage_report_scheduler.h"
 #include "components/enterprise/browser/reporting/saas_usage/saas_usage_reporting_delegate_factory.h"
 #include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
+#include "components/enterprise/device_trust/core/device_trust_key_manager.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/client_data_delegate.h"
 #include "components/policy/core/common/cloud/cloud_external_data_manager.h"
@@ -160,7 +160,7 @@ ChromeBrowserCloudManagementController::CreatePolicyManager(
 
   std::unique_ptr<MachineLevelUserCloudPolicyStore> extension_install_store =
       nullptr;
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // This is not supported before M146. A feature flag check is not possible
   // here because finch is not yet initialized.
   if (IsExtensionInstallPolicySupportedOnThisVersion()) {
@@ -173,7 +173,7 @@ ChromeBrowserCloudManagementController::CreatePolicyManager(
                  // always finished.
                  base::TaskShutdownBehavior::BLOCK_SHUTDOWN}));
   }
-#endif  // !BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   return std::make_unique<MachineLevelUserCloudPolicyManager>(
       std::move(policy_store), std::move(extension_install_store), nullptr,
@@ -243,13 +243,13 @@ void ChromeBrowserCloudManagementController::Init(
     return;
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (policy_manager->extension_install_store() &&
       !base::FeatureList::IsEnabled(
           features::kEnableExtensionInstallPolicyFetching)) {
     policy_manager->extension_install_store()->Clear();
   }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
   // If there exists an enrollment token, then there are three states:
   //   1/ There also exists a valid DM token.  This machine is already

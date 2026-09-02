@@ -41,6 +41,16 @@
 @protocol AutofillCommands;
 @class UIViewController;
 
+namespace personal_context {
+enum class PersonalContextEligibilityState;
+class PersonalContextEligibilityService;
+class PersonalContextFirstRunService;
+}  // namespace personal_context
+
+namespace subscription_eligibility {
+class SubscriptionEligibilityService;
+}  // namespace subscription_eligibility
+
 namespace web {
 class WebState;
 }
@@ -102,16 +112,22 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   FieldClassificationModelHandler*
   GetPasswordManagerFieldClassificationModelHandler() override;
   SingleFieldFillRouter& GetSingleFieldFillRouter() override;
+  personal_context::PersonalContextFirstRunService*
+  GetPersonalContextFirstRunService() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() override;
-  AtMemoryQueryService* GetAtMemoryQueryService() override;
   void GetAiPageContent(GetAiPageContentCallback callback) override;
   AutofillAiManager* GetAutofillAiManager() override;
   AutofillAiPersonalContextAccessManager*
   GetAutofillAiPersonalContextAccessManager() override;
   AutofillAiModelCache* GetAutofillAiModelCache() override;
   AutofillAiModelExecutor* GetAutofillAiModelExecutor() override;
-  optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor() override;
   consent_auditor::ConsentAuditor* GetConsentAuditor() final;
+  optimization_guide::RemoteModelExecutor* GetRemoteModelExecutor() override;
+  AtMemoryQueryService* GetAtMemoryQueryService() override;
+  personal_context::PersonalContextEligibilityState
+  GetPersonalContextEligibilityState() const override;
+  personal_context::PersonalContextEligibilityService*
+  GetPersonalContextEligibilityService() const override;
   PrefService* GetPrefs() override;
   const PrefService* GetPrefs() const override;
   syncer::SyncService* GetSyncService() override;
@@ -131,6 +147,8 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   const translate::LanguageState* GetLanguageState() override;
   translate::TranslateDriver* GetTranslateDriver() override;
   GeoIpCountryCode GetVariationConfigCountryCode() const override;
+  const subscription_eligibility::SubscriptionEligibilityService*
+  GetSubscriptionEligibilityService() const override;
   void ShowAutofillSettings(SuggestionType suggestion_type) override;
   void ConfirmSaveAddressProfile(
       const AutofillProfile& profile,
@@ -179,8 +197,6 @@ class ChromeAutofillClientIOS : public AutofillClientIOS {
   void ShowAutofillAiFetchEntityFailureNotification() override;
   void ShowAutofillAiPreFetchFailureNotification() override;
   void ShowAutofillAiPrivateInferenceNotice() override;
-  bool ShouldShowPersonalContextAmbientAutofillNotice() const override;
-  void MarkPersonalContextAmbientAutofillNoticeAsAcknowledged() override;
 
   // Searches infobars managed by the infobar_manager_ for infobar of the type
   // AutofillSaveCardInfoBarDelegateIOS and returns it if found else returns a

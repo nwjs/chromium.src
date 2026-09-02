@@ -17,9 +17,10 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/sessions/session_service_base.h"
 #include "chrome/browser/sessions/session_service_lookup.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_init_state.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
@@ -45,20 +46,22 @@ bool ParseCommaSeparatedIntegers(const std::string& str,
 
 }  // namespace
 
-std::string GetWindowName(const Browser* browser) {
-  if (browser->is_type_popup() && !browser->windows_key().empty())
+std::string GetWindowName(const BrowserWindowInterface* browser) {
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP &&
+      !browser->windows_key().empty())
     return browser->windows_key();
-  switch (browser->type()) {
-    case Browser::TYPE_NORMAL:
+  switch (browser->GetType()) {
+    case BrowserWindowInterface::Type::TYPE_NORMAL:
       return prefs::kBrowserWindowPlacement;
-    case Browser::TYPE_POPUP:
-    case Browser::TYPE_PICTURE_IN_PICTURE:
+    case BrowserWindowInterface::Type::TYPE_POPUP:
+    case BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE:
       return prefs::kBrowserWindowPlacementPopup;
-    case Browser::TYPE_APP:
-    case Browser::TYPE_DEVTOOLS:
-      return browser->app_name();
-    case Browser::TYPE_APP_POPUP:
-      return browser->app_name() + "_popup";
+    case BrowserWindowInterface::Type::TYPE_APP:
+    case BrowserWindowInterface::Type::TYPE_DEVTOOLS:
+      return BrowserInitState::From(browser)->create_params().app_name;
+    case BrowserWindowInterface::Type::TYPE_APP_POPUP:
+      return BrowserInitState::From(browser)->create_params().app_name +
+             "_popup";
   }
 }
 
@@ -104,28 +107,31 @@ const base::DictValue* GetWindowPlacementDictionaryReadOnly(
   return app_windows.FindDict(window_name);
 }
 
-bool ShouldSaveWindowPlacement(const Browser* browser) {
+bool ShouldSaveWindowPlacement(const BrowserWindowInterface* browser) {
   // Never track app windows that do not have a trusted source (i.e. windows
   // spawned by an app).  See similar code in
   // SessionServiceBase::ShouldTrackBrowser().
-  return !(browser->is_type_app() || browser->is_type_app_popup()) ||
+  return !(browser->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+           browser->GetType() ==
+               BrowserWindowInterface::Type::TYPE_APP_POPUP) ||
          WindowFeatureController::From(browser)->IsTrustedSource();
 }
 
-bool SavedBoundsAreContentBounds(const Browser* browser) {
-  return !browser->is_type_devtools();
+bool SavedBoundsAreContentBounds(const BrowserWindowInterface* browser) {
+  return browser->GetType() != BrowserWindowInterface::Type::TYPE_DEVTOOLS;
 #if 0
   // Applications other than web apps (such as devtools) save their window size.
   // Web apps, on the other hand, have the same behavior as popups, and save
   // their content bounds.
-  return !browser->is_type_normal() && !browser->is_type_devtools() &&
+  return browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL &&
+         browser->GetType() != BrowserWindowInterface::Type::TYPE_DEVTOOLS &&
          !WindowFeatureController::From(browser)->IsTrustedSource();
   // bounds should be content bounds for NW.js apps
          //!browser->is_trusted_source();
 #endif
 }
 
-void SaveWindowPlacement(Browser* browser,
+void SaveWindowPlacement(BrowserWindowInterface* browser,
                          const gfx::Rect& bounds,
                          ui::mojom::WindowShowState show_state) {
   // Save to the session storage service, used when reloading a past session.
@@ -134,27 +140,28 @@ void SaveWindowPlacement(Browser* browser,
   // showing, and we don't want to bring in the session service this early.
   SessionServiceBase* service = GetAppropriateSessionServiceIfExisting(browser);
   if (service) {
-    service->SetWindowBounds(browser->session_id(), bounds, show_state);
+    service->SetWindowBounds(browser->GetSessionID(), bounds, show_state);
   }
 }
 
-void SaveWindowWorkspace(Browser* browser, const std::string& workspace) {
+void SaveWindowWorkspace(BrowserWindowInterface* browser,
+                         const std::string& workspace) {
   SessionServiceBase* service = GetAppropriateSessionServiceIfExisting(browser);
   if (service) {
-    service->SetWindowWorkspace(browser->session_id(), workspace);
+    service->SetWindowWorkspace(browser->GetSessionID(), workspace);
   }
 }
 
-void SaveWindowVisibleOnAllWorkspaces(Browser* browser,
+void SaveWindowVisibleOnAllWorkspaces(BrowserWindowInterface* browser,
                                       bool visible_on_all_workspaces) {
   SessionServiceBase* service = GetAppropriateSessionServiceIfExisting(browser);
   if (service) {
-    service->SetWindowVisibleOnAllWorkspaces(browser->session_id(),
+    service->SetWindowVisibleOnAllWorkspaces(browser->GetSessionID(),
                                              visible_on_all_workspaces);
   }
 }
 
-bool GetSavedWindowBoundsAndShowState(Browser* browser,
+bool GetSavedWindowBoundsAndShowState(BrowserWindowInterface* browser,
                                       gfx::Rect* bounds,
                                       ui::mojom::WindowShowState* show_state) {
   DCHECK(browser);

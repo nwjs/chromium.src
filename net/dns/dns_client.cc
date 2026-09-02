@@ -56,15 +56,6 @@ DnsConfigLocalNameserverState GetDnsConfigLocalNameserverState(
   return DnsConfigLocalNameserverState::kNoLocal;
 }
 
-bool IsEqual(const std::optional<DnsConfig>& c1, const DnsConfig* c2) {
-  if (!c1.has_value() && c2 == nullptr)
-    return true;
-
-  if (!c1.has_value() || c2 == nullptr)
-    return false;
-
-  return c1.value() == *c2;
-}
 
 void UpdateConfigForDohUpgrade(DnsConfig* config) {
   config->should_perform_doh_fallback_upgrade = false;
@@ -150,7 +141,9 @@ void UpdateConfigForDohUpgrade(DnsConfig* config) {
 class DnsClientImpl : public DnsClient {
  public:
   DnsClientImpl(NetLog* net_log, const RandIntCallback& rand_int_callback)
-      : net_log_(net_log), rand_int_callback_(rand_int_callback) {}
+      : net_log_(net_log), rand_int_callback_(rand_int_callback) {
+    UpdateSession(BuildEffectiveConfig());
+  }
 
   DnsClientImpl(const DnsClientImpl&) = delete;
   DnsClientImpl& operator=(const DnsClientImpl&) = delete;
@@ -158,15 +151,22 @@ class DnsClientImpl : public DnsClient {
   ~DnsClientImpl() override = default;
 
   bool CanUseSecureDnsTransactions() const override {
-    const DnsConfig* config = GetEffectiveConfig();
-    return config && !config->doh_config.servers().empty();
+    return !GetEffectiveConfig().doh_config.servers().empty();
   }
 
   bool CanUseInsecureDnsTransactions() const override {
-    const DnsConfig* config = GetEffectiveConfig();
-    return config && config->nameservers.size() > 0 &&
-           insecure_dns_mode_ != InsecureDnsMode::kDisabled &&
-           !config->unhandled_options && !config->dns_over_tls_active;
+    switch (insecure_dns_mode_) {
+      case InsecureDnsMode::kDisabled:
+        return false;
+      case InsecureDnsMode::kEnabledPlatform:
+      case InsecureDnsMode::kEnabledPlatformNoSystem:
+        return true;
+      case InsecureDnsMode::kEnabledBuiltIn: {
+        const DnsConfig& config = GetEffectiveConfig();
+        return !config.nameservers.empty() && !config.unhandled_options &&
+               !config.dns_over_tls_active;
+      }
+    }
   }
 
   bool CanQueryAdditionalTypesViaInsecureDns() const override {
@@ -242,28 +242,22 @@ class DnsClientImpl : public DnsClient {
   }
 
   void ReplaceCurrentSession() override {
-    if (!session_)
-      return;
-
+    DCHECK(session_);
     UpdateSession(session_->config());
   }
 
-  DnsSession* GetCurrentSession() override { return session_.get(); }
+  DnsSession* GetCurrentSession() override {
+    DCHECK(session_);
+    return session_.get();
+  }
 
-  const DnsConfig* GetEffectiveConfig() const override {
-    if (!session_)
-      return nullptr;
-
-    DCHECK(session_->config().IsValid());
-    return &session_->config();
+  const DnsConfig& GetEffectiveConfig() const override {
+    DCHECK(session_);
+    return session_->config();
   }
 
   const DnsHosts* GetHosts() const override {
-    const DnsConfig* config = GetEffectiveConfig();
-    if (!config)
-      return nullptr;
-
-    return &config->hosts;
+    return &GetEffectiveConfig().hosts;
   }
 
   std::optional<std::vector<IPEndPoint>> GetPresetAddrs(
@@ -292,7 +286,8 @@ class DnsClientImpl : public DnsClient {
   }
 
   DnsTransactionFactory* GetTransactionFactory() override {
-    return session_.get() ? factory_.get() : nullptr;
+    DCHECK(factory_);
+    return factory_.get();
   }
 
   AddressSorter* GetAddressSorter() override { return address_sorter_.get(); }
@@ -306,10 +301,7 @@ class DnsClientImpl : public DnsClient {
   }
 
   base::DictValue GetDnsConfigAsValueForNetLog() const override {
-    const DnsConfig* config = GetEffectiveConfig();
-    if (config == nullptr)
-      return base::DictValue();
-    base::DictValue dict = config->ToDict();
+    base::DictValue dict = GetEffectiveConfig().ToDict();
     dict.Set("can_use_secure_dns_transactions", CanUseSecureDnsTransactions());
     dict.Set("can_use_insecure_dns_transactions",
              CanUseInsecureDnsTransactions());
@@ -335,15 +327,13 @@ class DnsClientImpl : public DnsClient {
   }
 
  private:
-  std::optional<DnsConfig> BuildEffectiveConfig() const {
+  DnsConfig BuildEffectiveConfig() const {
     DnsConfig config;
     if (config_overrides_.OverridesEverything()) {
       config = config_overrides_.ApplyOverrides(DnsConfig());
     } else {
-      if (!system_config_)
-        return std::nullopt;
-
-      config = config_overrides_.ApplyOverrides(system_config_.value());
+      config = config_overrides_.ApplyOverrides(
+          system_config_.value_or(DnsConfig()));
     }
 
     UpdateConfigForDohUpgrade(&config);
@@ -357,15 +347,12 @@ class DnsClientImpl : public DnsClient {
       config.nameservers.clear();
     }
 
-    if (!config.IsValid())
-      return std::nullopt;
-
     return config;
   }
 
   bool UpdateDnsConfig() {
-    std::optional<DnsConfig> new_effective_config = BuildEffectiveConfig();
-    if (IsEqual(new_effective_config, GetEffectiveConfig()))
+    DnsConfig new_effective_config = BuildEffectiveConfig();
+    if (session_->config() == new_effective_config)
       return false;
 
     insecure_fallback_failures_ = 0;
@@ -380,19 +367,11 @@ class DnsClientImpl : public DnsClient {
     return true;
   }
 
-  void UpdateSession(std::optional<DnsConfig> new_effective_config) {
+  void UpdateSession(DnsConfig new_effective_config) {
     factory_.reset();
-    session_ = nullptr;
-
-    if (new_effective_config) {
-      DCHECK(new_effective_config.value().IsValid());
-
-      session_ = base::MakeRefCounted<DnsSession>(
-          std::move(new_effective_config).value(), rand_int_callback_,
-          net_log_);
-
-      factory_ = DnsTransactionFactory::CreateFactory(session_.get());
-    }
+    session_ = base::MakeRefCounted<DnsSession>(
+        std::move(new_effective_config), rand_int_callback_, net_log_);
+    factory_ = DnsTransactionFactory::CreateFactory(session_.get());
   }
 
   InsecureDnsMode insecure_dns_mode_ = InsecureDnsMode::kDisabled;

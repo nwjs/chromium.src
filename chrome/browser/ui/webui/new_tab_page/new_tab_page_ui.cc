@@ -54,12 +54,12 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/search/ntp_user_data_logger.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
-#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
-#include "chrome/browser/ui/views/side_panel/customize_chrome/side_panel_controller_views.h"
 #include "chrome/browser/ui/webui/browser_command/browser_command_handler.h"
 #include "chrome/browser/ui/webui/cr_components/composebox/composebox_handler.h"
 #include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_handler.h"
+#include "chrome/browser/ui/webui/cr_components/most_visited/most_visited_pref_observer.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h"
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons_handler.h"
 #include "chrome/browser/ui/webui/favicon_source.h"
@@ -145,6 +145,7 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo_handler.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
 
@@ -246,6 +247,9 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean(
       "prerenderOnPressEnabled",
       base::FeatureList::IsEnabled(features::kNewTabPageTriggerForPrerender2));
+  source->AddBoolean("mostVisitedHighDpiFaviconsEnabled",
+                     base::FeatureList::IsEnabled(
+                         ntp_features::kNtpMostVisitedHighDpiFavicons));
 
   source->AddInteger("maxTilesInCollapsedState",
                      ntp_features::GetMaxTilesInCollapsedState());
@@ -331,6 +335,7 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
       "showCustomizeButton",
       base::FeatureList::IsEnabled(ntp_features::kNtpCustomizeWebUiAndroid) ||
           !BUILDFLAG(IS_ANDROID));
+  source->AddBoolean("isAndroid", BUILDFLAG(IS_ANDROID));
 
   source->AddBoolean("ntpRealboxNextEnabled",
                      ntp_realbox::IsNtpRealboxNextEnabled(profile));
@@ -762,9 +767,6 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
   source->AddBoolean("enableThreadsRail", base::FeatureList::IsEnabled(
                                               ntp_features::kNtpThreadsRail));
 
-  source->AddBoolean("useNtpComposeboxFork",
-                     ntp_composebox::kUseNtpComposeboxFork.Get());
-
   // Action Chips LoadTimeData
   const auto* aim_eligibility_service =
       AimEligibilityServiceFactory::GetForProfile(profile);
@@ -785,7 +787,8 @@ content::WebUIDataSource* CreateAndAddNewTabPageUiHtmlSource(
     }
   }
   bool action_chips_eligible =
-      base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChips)
+      (base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChips) ||
+       base::FeatureList::IsEnabled(ntp_features::kNtpScaledActionChipsSmall))
           ? ntp_next_features_enabled
           : (aim_eligibility_service &&
              aim_eligibility_service->IsAimEligible() &&
@@ -992,30 +995,8 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
       });
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
-  pref_change_registrar_.Init(profile_->GetPrefs());
-  pref_change_registrar_.Add(
-      ntp_prefs::kNtpCustomLinksVisible,
-      base::BindRepeating(&NewTabPageUI::OnTileTypesChanged,
-                          weak_ptr_factory_.GetWeakPtr()));
-  pref_change_registrar_.Add(
-      ntp_prefs::kNtpEnterpriseShortcutsVisible,
-      base::BindRepeating(&NewTabPageUI::OnTileTypesChanged,
-                          weak_ptr_factory_.GetWeakPtr()));
-  pref_change_registrar_.Add(
-      ntp_prefs::kNtpPersonalShortcutsVisible,
-      base::BindRepeating(&NewTabPageUI::OnTileTypesChanged,
-                          weak_ptr_factory_.GetWeakPtr()));
-  pref_change_registrar_.Add(
-      ntp_prefs::kNtpShortcutsVisible,
-      base::BindRepeating(&NewTabPageUI::OnTilesVisibilityPrefChanged,
-                          weak_ptr_factory_.GetWeakPtr()));
 // TODO(b/502297163): Implement for Android.
 #if !BUILDFLAG(IS_ANDROID)
-  pref_change_registrar_.Add(
-      ntp_tiles::prefs::kEnterpriseShortcutsPolicyList,
-      base::BindRepeating(&NewTabPageUI::OnEnterpriseShortcutsPolicyChanged,
-                          weak_ptr_factory_.GetWeakPtr()));
-
   // Store basic theme info in load time data to make the background color and
   // background image available as soon as the page loads to prevent a potential
   // white flicker.
@@ -1029,17 +1010,10 @@ NewTabPageUI::NewTabPageUI(content::WebUI* web_ui)
   OnCustomBackgroundImageUpdated();
   OnLoad();
 
-  // TODO(b/502297163): Implement for Android.
-#if !BUILDFLAG(IS_ANDROID)
   ui::TrackedElementHandlerDocumentSingleton::Register(
       this, std::vector<ui::ElementIdentifier>{
                 CustomizeButtonsHandler::kCustomizeChromeButtonElementId,
                 NewTabPageUI::kRealboxContextualEntrypointElementId});
-#else
-  ui::TrackedElementHandlerDocumentSingleton::Register(
-      this, std::vector<ui::ElementIdentifier>{
-                NewTabPageUI::kRealboxContextualEntrypointElementId});
-#endif
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(NewTabPageUI)
@@ -1065,17 +1039,6 @@ bool NewTabPageUI::IsNewTabPageOrigin(const GURL& url) {
 // static
 void NewTabPageUI::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterTimePref(kPrevNavigationTimePrefName, base::Time());
-  registry->RegisterBooleanPref(ntp_prefs::kNtpCustomLinksVisible, true);
-  registry->RegisterBooleanPref(ntp_prefs::kNtpEnterpriseShortcutsVisible,
-                                false);
-  registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsVisible, true);
-  registry->RegisterIntegerPref(ntp_prefs::kNtpShortcutsStalenessCount, 0);
-  registry->RegisterTimePref(ntp_prefs::kNtpLastShortcutsStalenessUpdate,
-                             base::Time());
-  registry->RegisterBooleanPref(ntp_prefs::kNtpShortcutsAutoRemovalDisabled,
-                                false);
-  registry->RegisterBooleanPref(ntp_prefs::kNtpPersonalShortcutsVisible, true);
-  registry->RegisterBooleanPref(ntp_prefs::kNtpShowAllMostVisitedTiles, false);
   registry->RegisterBooleanPref(prefs::kNtpPromoVisible, true);
   registry->RegisterTimePref(ntp_prefs::kNtpLastModuleStalenessUpdate,
                              base::Time());
@@ -1084,81 +1047,18 @@ void NewTabPageUI::RegisterProfilePrefs(PrefRegistrySimple* registry) {
       ntp_prefs::kNtpModulesAutoRemovalDisabledDict);
   registry->RegisterBooleanPref(ntp_prefs::kNtpAnimatedDoodlesEnabled, true);
   registry->RegisterBooleanPref(ntp_prefs::kNtpDoodleMuralsEnabled, true);
-  registry->RegisterInt64Pref(ntp_prefs::kNtpMostVisitedTileHoverCount, 0);
-  registry->RegisterInt64Pref(ntp_prefs::kNtpMostVisitedTileNavigationCount, 0);
 }
 
 // static
 void NewTabPageUI::ResetProfilePrefs(PrefService* prefs) {
-  ntp_tiles::MostVisitedSites::ResetProfilePrefs(prefs);
-  prefs->SetBoolean(ntp_prefs::kNtpCustomLinksVisible, true);
-  prefs->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible, false);
-  prefs->SetBoolean(ntp_prefs::kNtpShortcutsVisible, true);
-  prefs->SetInteger(ntp_prefs::kNtpShortcutsStalenessCount, 0);
-  prefs->SetTime(ntp_prefs::kNtpLastShortcutsStalenessUpdate, base::Time());
-  prefs->SetBoolean(ntp_prefs::kNtpShortcutsAutoRemovalDisabled, false);
-  prefs->SetBoolean(ntp_prefs::kNtpPersonalShortcutsVisible, true);
-  prefs->SetBoolean(ntp_prefs::kNtpShowAllMostVisitedTiles, false);
+  MostVisitedPrefObserver::ResetProfilePrefs(prefs);
   prefs->SetTime(ntp_prefs::kNtpLastModuleStalenessUpdate, base::Time());
   prefs->SetDict(ntp_prefs::kNtpModuleStalenessCountDict, base::DictValue());
   prefs->SetDict(ntp_prefs::kNtpModulesAutoRemovalDisabledDict,
                  base::DictValue());
   prefs->SetBoolean(ntp_prefs::kNtpAnimatedDoodlesEnabled, true);
   prefs->SetBoolean(ntp_prefs::kNtpDoodleMuralsEnabled, true);
-  prefs->SetInt64(ntp_prefs::kNtpMostVisitedTileHoverCount, 0);
-  prefs->SetInt64(ntp_prefs::kNtpMostVisitedTileNavigationCount, 0);
   prefs->SetDict(prefs::kContextMenuAnimationState, base::DictValue());
-}
-
-// static
-void NewTabPageUI::MigrateDeprecatedUseMostVisitedTilesPref(
-    PrefService* prefs) {
-  // Skip migration if the new preference is already set.
-  if (prefs->HasPrefPath(ntp_prefs::kNtpShortcutsType)) {
-    return;
-  }
-  const base::Value* user_value =
-      prefs->GetUserPrefValue(ntp_prefs::kNtpUseMostVisitedTiles);
-  if (user_value) {
-    if (user_value->is_bool()) {
-      prefs->SetInteger(
-          ntp_prefs::kNtpShortcutsType,
-          user_value->GetBool()
-              ? static_cast<int>(ntp_tiles::TileType::kTopSites)
-              : static_cast<int>(ntp_tiles::TileType::kCustomLinks));
-    }
-    prefs->ClearPref(ntp_prefs::kNtpUseMostVisitedTiles);
-  }
-}
-
-// static
-void NewTabPageUI::MigrateDeprecatedShortcutsTypePref(PrefService* prefs) {
-  // Skip migration if the new preferences are already set.
-  if (prefs->HasPrefPath(ntp_prefs::kNtpCustomLinksVisible) ||
-      prefs->HasPrefPath(ntp_prefs::kNtpEnterpriseShortcutsVisible)) {
-    return;
-  }
-  const base::Value* user_value =
-      prefs->GetUserPrefValue(ntp_prefs::kNtpShortcutsType);
-  if (user_value) {
-    if (user_value->is_int()) {
-      switch (static_cast<ntp_tiles::TileType>(user_value->GetInt())) {
-        case ntp_tiles::TileType::kTopSites:
-          prefs->SetBoolean(ntp_prefs::kNtpCustomLinksVisible, false);
-          prefs->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible, false);
-          break;
-        case ntp_tiles::TileType::kCustomLinks:
-          prefs->SetBoolean(ntp_prefs::kNtpCustomLinksVisible, true);
-          prefs->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible, false);
-          break;
-        case ntp_tiles::TileType::kEnterpriseShortcuts:
-          prefs->SetBoolean(ntp_prefs::kNtpCustomLinksVisible, false);
-          prefs->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible, true);
-          break;
-      }
-    }
-    prefs->ClearPref(ntp_prefs::kNtpShortcutsType);
-  }
 }
 
 // static
@@ -1204,6 +1104,11 @@ void NewTabPageUI::BindInterface(
     mojo::PendingReceiver<
         customize_buttons::mojom::CustomizeButtonsHandlerFactory>
         pending_receiver) {
+#if BUILDFLAG(IS_ANDROID)
+  if (!base::FeatureList::IsEnabled(ntp_features::kNtpCustomizeWebUiAndroid)) {
+    return;
+  }
+#endif
   if (customize_buttons_factory_receiver_.is_bound()) {
     customize_buttons_factory_receiver_.reset();
   }
@@ -1382,13 +1287,13 @@ void NewTabPageUI::CreateCustomizeButtonsHandler(
         pending_page,
     mojo::PendingReceiver<customize_buttons::mojom::CustomizeButtonsHandler>
         pending_page_handler) {
-// TODO(b/502297163): Implement for Android.
+  std::unique_ptr<NewTabPageFeaturePromoHelper> promo_helper;
 #if !BUILDFLAG(IS_ANDROID)
+  promo_helper = std::make_unique<NewTabPageFeaturePromoHelper>();
+#endif
   customize_buttons_handler_ = std::make_unique<CustomizeButtonsHandler>(
       std::move(pending_page_handler), std::move(pending_page), web_ui(),
-      webui::GetTabInterface(web_contents()),
-      std::make_unique<NewTabPageFeaturePromoHelper>());
-#endif
+      webui::GetTabInterface(web_contents()), std::move(promo_helper));
 }
 
 void NewTabPageUI::CreatePageHandler(
@@ -1398,10 +1303,13 @@ void NewTabPageUI::CreatePageHandler(
   DCHECK(pending_page.is_valid());
   most_visited_page_handler_ = std::make_unique<MostVisitedHandler>(
       std::move(pending_page_handler), std::move(pending_page), profile_,
-      web_contents(), chrome::ChromeUINewTabPageURLAsGURL(),
-      navigation_start_time_, navigation_start_time_ticks_);
-  UpdateMostVisitedTileTypes();
-  most_visited_page_handler_->SetShortcutsVisible(IsShortcutsVisible());
+      web_contents(),
+      std::make_unique<NTPUserDataLogger>(profile_,
+                                          chrome::ChromeUINewTabPageURLAsGURL(),
+                                          navigation_start_time_ticks_),
+      navigation_start_time_);
+  most_visited_pref_observer_ = std::make_unique<MostVisitedPrefObserver>(
+      profile_, most_visited_page_handler_.get());
 }
 
 void NewTabPageUI::CreatePageHandler(
@@ -1542,41 +1450,7 @@ void NewTabPageUI::DidStartNavigation(
   }
 }
 
-bool NewTabPageUI::IsShortcutsVisible() const {
-  return profile_->GetPrefs()->GetBoolean(ntp_prefs::kNtpShortcutsVisible);
-}
-
-void NewTabPageUI::UpdateMostVisitedTileTypes() {
-  if (most_visited_page_handler_) {
-    auto enabled_types = GetEnabledTileTypes(profile_);
-    most_visited_page_handler_->EnableTileTypes(
-        ntp_tiles::MostVisitedSites::EnableTileTypesOptions()
-            .with_top_sites(
-                enabled_types.contains(ntp_tiles::TileType::kTopSites))
-            .with_custom_links(
-                enabled_types.contains(ntp_tiles::TileType::kCustomLinks))
-            .with_enterprise_shortcuts(enabled_types.contains(
-                ntp_tiles::TileType::kEnterpriseShortcuts)));
-  }
-}
-
-void NewTabPageUI::OnTileTypesChanged() {
-  UpdateMostVisitedTileTypes();
-}
-
-void NewTabPageUI::OnTilesVisibilityPrefChanged() {
-  if (most_visited_page_handler_) {
-    most_visited_page_handler_->SetShortcutsVisible(IsShortcutsVisible());
-  }
-}
-
-void NewTabPageUI::OnEnterpriseShortcutsPolicyChanged() {
-  MaybeEnableEnterpriseShortcutsVisibility();
-  OnTileTypesChanged();
-}
-
 void NewTabPageUI::OnLoad() {
-  MaybeEnableEnterpriseShortcutsVisibility();
   base::DictValue update;
   update.Set("navigationStartTime",
              navigation_start_time_.InMillisecondsFSinceUnixEpoch());
@@ -1591,29 +1465,11 @@ void NewTabPageUI::OnLoad() {
                                    std::move(update));
 }
 
-void NewTabPageUI::MaybeEnableEnterpriseShortcutsVisibility() {
-// TODO(b/502297163): Implement for Android.
-#if !BUILDFLAG(IS_ANDROID)
-  // If enterprise shortcuts are available by policy and the user
-  // has not previously set the visibility preference, then enable enterprise
-  // shortcuts by default.
-  if (!profile_->GetPrefs()
-           ->GetList(ntp_tiles::prefs::kEnterpriseShortcutsPolicyList)
-           .empty() &&
-      !profile_->GetPrefs()->HasPrefPath(
-          ntp_prefs::kNtpEnterpriseShortcutsVisible)) {
-    profile_->GetPrefs()->SetBoolean(ntp_prefs::kNtpEnterpriseShortcutsVisible,
-                                     true);
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
-}
-
 // static
-base::RefCountedMemory* NewTabPageUI::GetFaviconResourceBytes(
+scoped_refptr<base::RefCountedMemory> NewTabPageUI::GetFaviconResourceBytes(
     ui::ResourceScaleFactor scale_factor) {
-  return static_cast<base::RefCountedMemory*>(
-      ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
-          IDR_NTP_FAVICON, scale_factor));
+  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
+      IDR_NTP_FAVICON, scale_factor);
 }
 
 std::string_view NewTabPageUI::GetNtpPromoType() {

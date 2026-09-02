@@ -754,6 +754,7 @@ protocol::Response InspectorDOMAgent::disable() {
   if (!enabled_.Get())
     return protocol::Response::ServerError("DOM agent hasn't been enabled");
   ReleaseForcedPopovers();
+  ReleaseForcedInterestInvokers();
   include_whitespace_.Clear();
   enabled_.Clear();
   instrumenting_agents_->RemoveInspectorDOMAgent(this);
@@ -914,6 +915,7 @@ void InspectorDOMAgent::PushChildNodesToFrontend(int node_id,
 
 void InspectorDOMAgent::DiscardFrontendBindings() {
   ReleaseForcedPopovers();
+  ReleaseForcedInterestInvokers();
   if (history_)
     history_->Reset();
   search_results_.clear();
@@ -2176,10 +2178,6 @@ protocol::Response InspectorDOMAgent::forceShowPopover(
     bool enable,
     std::optional<int> invoker_node_id,
     std::unique_ptr<protocol::Array<int>>* out_node_ids) {
-  if (!base::FeatureList::IsEnabled(features::kDevToolsAllowPopoverForcing)) {
-    return protocol::Response::ServerError("Feature is not enabled");
-  }
-
   Node* node = nullptr;
   protocol::Response response = AssertNode(node_id, node);
   if (!response.IsSuccess()) {
@@ -2215,9 +2213,64 @@ protocol::Response InspectorDOMAgent::forceShowPopover(
 
 void InspectorDOMAgent::WillHidePopover(HTMLElement* element,
                                         bool* force_open) {
-  if (base::FeatureList::IsEnabled(features::kDevToolsAllowPopoverForcing) &&
-      force_open && forced_popovers_.Contains(element)) {
+  if (force_open && forced_popovers_.Contains(element)) {
     *force_open = true;
+  }
+}
+
+void InspectorDOMAgent::ReleaseForcedInterestInvokers() {
+  HeapHashSet<WeakMember<Node>> forced_interest_invokers;
+  forced_interest_invokers_.swap(forced_interest_invokers);
+  for (auto& node : forced_interest_invokers) {
+    if (auto* element = DynamicTo<Element>(node.Get())) {
+      if (auto* target = element->InterestForElement()) {
+        element->InterestLost(target);
+      }
+    }
+  }
+}
+
+protocol::Response InspectorDOMAgent::forceShowInterest(int node_id,
+                                                        bool enable) {
+  if (!base::FeatureList::IsEnabled(features::kDevToolsAllowInterestForcing)) {
+    return protocol::Response::ServerError("Feature is not enabled");
+  }
+
+  Node* node = nullptr;
+  protocol::Response response = AssertNode(node_id, node);
+  if (!response.IsSuccess()) {
+    return response;
+  }
+
+  auto* element = DynamicTo<Element>(node);
+  if (!element) {
+    return protocol::Response::ServerError("node is not an Element");
+  }
+
+  if (enable) {
+    if (!element->InterestForElement()) {
+      return protocol::Response::ServerError("node is not an interest invoker");
+    }
+    bool is_new = forced_interest_invokers_.insert(element).is_new_entry;
+    if (is_new) {
+      element->ShowInterestNow();
+    }
+  } else {
+    if (forced_interest_invokers_.Contains(element)) {
+      forced_interest_invokers_.erase(element);
+      if (auto* target = element->InterestForElement()) {
+        element->InterestLost(target);
+      }
+    }
+  }
+  return protocol::Response::Success();
+}
+
+void InspectorDOMAgent::WillLoseInterest(Element* element,
+                                         bool* force_interest) {
+  if (base::FeatureList::IsEnabled(features::kDevToolsAllowInterestForcing) &&
+      force_interest && forced_interest_invokers_.Contains(element)) {
+    *force_interest = true;
   }
 }
 
@@ -3260,7 +3313,7 @@ protocol::Response InspectorDOMAgent::scrollIntoViewIfNeeded(
       AssertNode(node_id, backend_node_id, object_id, node);
   if (!response.IsSuccess())
     return response;
-  node->GetDocument().EnsurePaintLocationDataValidForNode(
+  node->GetDocument().UpdateStyleAndLayoutForNode(
       node, DocumentUpdateReason::kInspector);
   if (!node->isConnected())
     return protocol::Response::ServerError("Node is detached from document");
@@ -3436,6 +3489,7 @@ void InspectorDOMAgent::Trace(Visitor* visitor) const {
   visitor->Trace(dom_editor_);
   visitor->Trace(node_to_creation_source_location_map_);
   visitor->Trace(forced_popovers_);
+  visitor->Trace(forced_interest_invokers_);
   InspectorBaseAgent::Trace(visitor);
 }
 

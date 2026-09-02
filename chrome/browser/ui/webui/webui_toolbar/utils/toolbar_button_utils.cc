@@ -163,7 +163,7 @@ ActionItemToPinnedToolbarAction(actions::ActionItem* item) {
   if (item->GetImage().IsVectorIcon()) {
     icon = item->GetImage().GetVectorIcon().vector_icon();
   }
-  if (actions::IsActionItemClass<actions::StatefulImageActionItem>(item)) {
+  if (actions::IsActionClass<actions::StatefulImageActionItem>(item)) {
     auto* stateful_item = static_cast<actions::StatefulImageActionItem*>(item);
     if (stateful_item->GetStatefulImage().IsVectorIcon()) {
       icon = stateful_item->GetStatefulImage().GetVectorIcon().vector_icon();
@@ -449,8 +449,8 @@ actions::ActionId MojomPageActionIdToActionId(
       return kActionRecordReplay;
     case MojomPageActionId::kActionShowIntentPicker:
       return kActionShowIntentPicker;
-    case MojomPageActionId::kActionZoomNormal:
-      return kActionZoomNormal;
+    case MojomPageActionId::kActionShowZoomBubble:
+      return kActionShowZoomBubble;
     case MojomPageActionId::kActionSidePanelShowReadAnything:
       return kActionSidePanelShowReadAnything;
     case MojomPageActionId::kActionOffersAndRewardsForPage:
@@ -499,6 +499,8 @@ actions::ActionId MojomPageActionIdToActionId(
       return kActionShowPaymentsChurnedUsersBubble;
     case MojomPageActionId::kActionFakePageActionForDebug:
       return kActionFakePageActionForDebug;
+    case MojomPageActionId::kActionWalletReminderNotice:
+      return kActionWalletReminderNotice;
   }
   NOTREACHED();
 }
@@ -525,8 +527,8 @@ MojomPageActionId ActionIdToMojomPageActionId(actions::ActionId action_id) {
       return MojomPageActionId::kActionRecordReplay;
     case kActionShowIntentPicker:
       return MojomPageActionId::kActionShowIntentPicker;
-    case kActionZoomNormal:
-      return MojomPageActionId::kActionZoomNormal;
+    case kActionShowZoomBubble:
+      return MojomPageActionId::kActionShowZoomBubble;
     case kActionSidePanelShowReadAnything:
       return MojomPageActionId::kActionSidePanelShowReadAnything;
     case kActionOffersAndRewardsForPage:
@@ -575,6 +577,8 @@ MojomPageActionId ActionIdToMojomPageActionId(actions::ActionId action_id) {
       return MojomPageActionId::kActionShowPaymentsChurnedUsersBubble;
     case kActionFakePageActionForDebug:
       return MojomPageActionId::kActionFakePageActionForDebug;
+    case kActionWalletReminderNotice:
+      return MojomPageActionId::kActionWalletReminderNotice;
   }
   NOTREACHED();
 }

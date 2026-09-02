@@ -1,0 +1,26 @@
+include_rules = [
+  "+components/grit/components_resources.h",
+  "+components/keyed_service/core",
+  "+components/metrics",
+  "+components/prefs",
+  "+components/version_info",
+  "+google_apis/google_api_keys.h",
+  "+net",
+  "+services/network/public/cpp",
+  "+services/network/public/mojom",
+  "+services/network/test",
+  "+third_party/federated_compute",
+  "+ui/base/resource/resource_bundle.h",
+]
+
+specific_include_rules = {
+  # FCP files implement FCP's interfaces that need absl.
+  "fcp_.*": [
+    "+third_party/abseil-cpp/absl/strings",
+    "+third_party/abseil-cpp/absl/time",
+    "+third_party/abseil-cpp/absl/status",
+  ],
+  "private_insights_service\\.cc": [
+    "+third_party/abseil-cpp/absl/status",
+  ],
+}

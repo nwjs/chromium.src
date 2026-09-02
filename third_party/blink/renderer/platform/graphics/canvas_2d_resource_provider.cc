@@ -369,6 +369,9 @@ base::ByteSize Canvas2DResourceProvider::EstimatedSizeInBytes() const {
   if (resource_) {
     result += resource_->EstimatedSizeInBytes() * num_inflight_resources_;
   }
+  if (surface_) {
+    result += base::ByteSize(GetSize());
+  }
   return result;
 }
 
@@ -527,11 +530,6 @@ void Canvas2DResourceProvider::ReleaseImageProviderImages() {
     canvas_image_provider_->ReleaseLockedImages();
     canvas_image_provider_->UnbindTextureBackedImages();
   }
-}
-
-const std::optional<cc::PaintRecord>&
-Canvas2DResourceProvider::LastRecording() {
-  return last_recording_;
 }
 
 scoped_refptr<UnacceleratedStaticBitmapImage>

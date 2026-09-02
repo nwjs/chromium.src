@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/memory/ref_counted.h"
+#include "base/types/pass_key.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "components/security_interstitials/content/security_interstitial_page.h"
 #include "components/security_interstitials/core/unsafe_resource.h"
@@ -31,8 +32,10 @@ class HistoryService;
 
 namespace safe_browsing {
 
+class ChromePasswordProtectionService;
 class SafeBrowsingUIManagerTest;
 class SuspiciousSiteControllerAndroid;
+class SuspiciousSiteControllerDesktop;
 
 typedef unsigned ThreatSeverity;
 
@@ -80,7 +83,8 @@ class BaseUIManager : public base::RefCountedThreadSafe<BaseUIManager> {
   // details included as part of a user's response to a HaTS survey.
   virtual void AttachThreatDetailsAndLaunchSurvey(
       content::BrowserContext* browser_context,
-      std::unique_ptr<ClientSafeBrowsingReportRequest> report);
+      std::unique_ptr<ClientSafeBrowsingReportRequest> report,
+      bool is_tab_closed);
 
   // Updates the allowlist URL set for |web_contents|. |navigation_id| is used
   // to ensure the |allowlist_url| for same navigation is only added once.
@@ -177,10 +181,28 @@ class BaseUIManager : public base::RefCountedThreadSafe<BaseUIManager> {
       int64_t navigation_id,
       security_interstitials::UnsafeResource& severest_resource);
 
+  // Removes |allowlist_url| associated with the |navigation_id| from the
+  // allowlist for |web_contents|. Called on the UI thread.
+  void RemoveAllowlistUrlSet(base::PassKey<ChromePasswordProtectionService>,
+                             const GURL& allowlist_url,
+                             const std::optional<int64_t> navigation_id,
+                             content::WebContents* web_contents,
+                             bool from_pending_only);
+
+  // Removes |allowlist_url| associated with the |navigation_id| and matching
+  // |threat_type| from the allowlist for |web_contents|. Called on the UI
+  // thread.
+  void RemoveAllowlistUrlSetThreatType(
+      base::PassKey<SuspiciousSiteControllerAndroid,
+                    SuspiciousSiteControllerDesktop>,
+      const GURL& allowlist_url,
+      const std::optional<int64_t> navigation_id,
+      content::WebContents* web_contents,
+      bool from_pending_only,
+      SBThreatType threat_type);
+
  protected:
-  friend class ChromePasswordProtectionService;
   friend class SafeBrowsingUIManagerTest;
-  friend class SuspiciousSiteControllerAndroid;
 
   virtual ~BaseUIManager();
 

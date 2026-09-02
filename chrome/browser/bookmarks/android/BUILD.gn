@@ -53,6 +53,9 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkAddNewFolderCoordinator.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkBridge.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDelegate.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationCoordinator.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationMediator.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationProperties.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerProperties.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerViewBinder.java",
     "java/src/org/chromium/chrome/browser/bookmarks/BookmarkImageFetcher.java",
@@ -102,6 +105,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarButtonViewBinder.java",
     "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarConstants.java",
     "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarContextMenuDelegate.java",
+    "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarContextMenuMetrics.java",
     "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarItemsLayoutManager.java",
     "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarItemsProvider.java",
     "java/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarPopup.java",
@@ -210,6 +214,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/bookmarks/AddToBookmarksToolbarButtonControllerUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BasicBookmarkQueryHandlerUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkAddNewFolderCoordinatorTest.java",
+    "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkDesktopNavigationMediatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkFolderPickerMediatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkImageFetcherTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkListEntryTest.java",
@@ -229,6 +234,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkToolbarViewBinderTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkUiPrefsUnitTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkUiStateTest.java",
+    "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkUndoControllerTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/BookmarkUtilsTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/FakeBookmarkModelTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/ImprovedBookmarkQueryHandlerTest.java",
@@ -242,6 +248,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/bookmarks/ShoppingAccessoryCoordinatorTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarButtonTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarContextMenuMediatorTest.java",
+    "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarContextMenuMetricsTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarCoordinatorTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarItemsLayoutManagerTest.java",
     "junit/src/org/chromium/chrome/browser/bookmarks/bar/BookmarkBarItemsProviderTest.java",
@@ -256,6 +263,7 @@ robolectric_library("junit") {
   deps = [
     "//chrome/android/junit:chrome_junit_tests_helper",
     "//chrome/browser/ui/android/toolbar:optional_button_java",
+    "//components/browser_ui/widget/android:java",
     "//third_party/androidx:androidx_recyclerview_recyclerview_java",
   ]
 }
@@ -294,5 +302,7 @@ android_library("javatests") {
     "//chrome/android/javatests:chrome_test_java_helper",
     "//chrome/browser/ui/side_ui/public:java",
     "//chrome/browser/user_education:java",
+    "//components/browser_ui/widget/android:java",
+    "//ui/accessibility:ui_accessibility_test_support_java",
   ]
 }

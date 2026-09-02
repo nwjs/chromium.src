@@ -275,6 +275,25 @@ public class PdfUtilsUnitTest {
     }
 
     @Test
+    public void testGetPdfReDownloadUrl_RawHttps() {
+        String downloadUrl = PdfUtils.getPdfReDownloadUrl(PDF_LINK);
+        Assert.assertEquals(
+                "The re-download url should match raw HTTP(S) url", PDF_LINK, downloadUrl);
+    }
+
+    @Test
+    public void testIsPdfUrlMatch() {
+        Assert.assertTrue(PdfUtils.isPdfUrlMatch(PDF_LINK, PDF_LINK_ENCODED));
+        Assert.assertTrue(PdfUtils.isPdfUrlMatch(PDF_LINK_ENCODED, PDF_LINK));
+        Assert.assertTrue(PdfUtils.isPdfUrlMatch(PDF_LINK, PDF_LINK));
+        Assert.assertTrue(PdfUtils.isPdfUrlMatch(CONTENT_URL, CONTENT_URL));
+        Assert.assertFalse(PdfUtils.isPdfUrlMatch(PDF_LINK, "https://www.example.com/other.pdf"));
+        Assert.assertFalse(PdfUtils.isPdfUrlMatch(PDF_LINK, null));
+        Assert.assertFalse(PdfUtils.isPdfUrlMatch(null, PDF_LINK));
+        Assert.assertFalse(PdfUtils.isPdfUrlMatch(null, null));
+    }
+
+    @Test
     public void testGetPdfReDownloadUrl_Invalid() {
         String downloadUrl = PdfUtils.getPdfReDownloadUrl(PDF_LINK_ENCODED_INVALID);
         Assert.assertNull("The re-download url should be null", downloadUrl);
@@ -314,7 +333,7 @@ public class PdfUtilsUnitTest {
         Assert.assertNotNull("Uri should not be null", uri);
         // Should be a file URI or content URI from ChromeFileProvider (which is mocked to
         // CONTENT_URL)
-        Assert.assertEquals(CONTENT_URL, uri.toString());
+        Assert.assertTrue(uri.toString().startsWith(CONTENT_URL));
     }
 
     @Test
@@ -583,6 +602,121 @@ public class PdfUtilsUnitTest {
     public void testIsInlinePdfV2Enabled_SdkT_HighExtension() {
         ShadowSdkExtensions.setExtensionVersion(13);
         Assert.assertTrue(PdfUtils.isInlinePdfV2Enabled());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testIsInlinePdfV2FormFillingEnabled_FeatureDisabled() {
+        Assert.assertFalse(PdfUtils.isInlinePdfV2FormFillingEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2 + ":enable_form_filling/false")
+    @Config(
+            sdk = Build.VERSION_CODES.S,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2FormFillingEnabled_ParamDisabled() {
+        ShadowSdkExtensions.setExtensionVersion(13);
+        Assert.assertFalse(PdfUtils.isInlinePdfV2FormFillingEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2 + ":enable_form_filling/true")
+    @Config(
+            sdk = Build.VERSION_CODES.S,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2FormFillingEnabled_ParamEnabled() {
+        ShadowSdkExtensions.setExtensionVersion(13);
+        Assert.assertTrue(PdfUtils.isInlinePdfV2FormFillingEnabled());
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    public void testIsInlinePdfV2EditEnabled_FeatureDisabled() {
+        Assert.assertFalse(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(sdk = Build.VERSION_CODES.R)
+    public void testIsInlinePdfV2EditEnabled_LowSdk() {
+        Assert.assertFalse(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(
+            sdk = Build.VERSION_CODES.S,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2EditEnabled_SdkS_LowExtension() {
+        ShadowSdkExtensions.setExtensionVersion(17);
+        Assert.assertFalse(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(
+            sdk = Build.VERSION_CODES.S,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2EditEnabled_SdkS_HighExtension() {
+        ShadowSdkExtensions.setExtensionVersion(18);
+        Assert.assertTrue(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(
+            sdk = Build.VERSION_CODES.TIRAMISU,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2EditEnabled_SdkT_LowExtension() {
+        ShadowSdkExtensions.setExtensionVersion(17);
+        Assert.assertFalse(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(
+            sdk = Build.VERSION_CODES.TIRAMISU,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2EditEnabled_SdkT_HighExtension() {
+        ShadowSdkExtensions.setExtensionVersion(18);
+        Assert.assertTrue(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(
+            sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2EditEnabled_SdkV_LowExtension() {
+        ShadowSdkExtensions.setExtensionVersion(17);
+        Assert.assertFalse(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(
+            sdk = Build.VERSION_CODES.VANILLA_ICE_CREAM,
+            shadows = {PdfUtilsUnitTest.ShadowSdkExtensions.class})
+    public void testIsInlinePdfV2EditEnabled_SdkV_HighExtension() {
+        ShadowSdkExtensions.setExtensionVersion(18);
+        Assert.assertTrue(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.INLINE_PDF_V2)
+    @Config(sdk = Build.VERSION_CODES.BAKLAVA)
+    public void testIsInlinePdfV2EditEnabled_SdkBaklava() {
+        Assert.assertTrue(PdfUtils.isInlinePdfV2EditEnabled());
+    }
+
+    @Test
+    public void testIsInlinePdfV2EditEnabled_TestingOverride() {
+        PdfUtils.setInlinePdfV2EditEnabledForTesting(true);
+        Assert.assertTrue(PdfUtils.isInlinePdfV2EditEnabled());
+
+        PdfUtils.setInlinePdfV2EditEnabledForTesting(false);
+        Assert.assertFalse(PdfUtils.isInlinePdfV2EditEnabled());
     }
 
     @Test

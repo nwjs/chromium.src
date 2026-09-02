@@ -17,7 +17,6 @@
 #include "base/threading/sequence_bound.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
-#include "components/private_verification_tokens/common/private_verification_tokens_public_key.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_token.h"
 #include "sql/database.h"
 #include "url/origin.h"
@@ -34,6 +33,21 @@ struct TokenWithId {
 
   int64_t id;
   PrivateVerificationTokensToken token;
+};
+
+// Holds the cached tokens and the count of tokens per issuer.
+struct TokensAndCounts {
+  TokensAndCounts();
+  TokensAndCounts(std::map<url::Origin, TokenWithId> tokens,
+                  std::map<url::Origin, size_t> counts);
+  TokensAndCounts(const TokensAndCounts&);
+  TokensAndCounts& operator=(const TokensAndCounts&);
+  TokensAndCounts(TokensAndCounts&&);
+  TokensAndCounts& operator=(TokensAndCounts&&);
+  ~TokensAndCounts();
+
+  std::map<url::Origin, TokenWithId> tokens;
+  std::map<url::Origin, size_t> counts;
 };
 
 // Implements PVT database operations. Constructor detaches the object
@@ -76,31 +90,15 @@ class PrivateVerificationTokensDatabase {
 
   ~PrivateVerificationTokensDatabase();
 
-  // Store given keys in the database.
-  bool StoreKeys(const std::vector<PrivateVerificationTokensPublicKey>& keys);
-
-  // Remove all Keys for the given issuer.
-  bool RemoveKeysFor(const url::Origin& issuer);
-
-  // Remove the key with the given key_id for the specified issuer.
-  bool RemoveKey(const url::Origin& issuer, uint32_t key_id);
-
-  // Get all keys stored.
-  std::vector<PrivateVerificationTokensPublicKey> GetKeys();
-
   // Store given tokens in the database.
   bool StoreTokens(const std::vector<PrivateVerificationTokensToken>& tokens);
 
-  // Returns a single unredeemed token for the given `issuer`, or
-  // `std::nullopt` if none exist. Calling this successively without calling
-  // `SetRedeemed()` on the returned token might return the same token.
+  // Returns a single token for the given `issuer`, or `std::nullopt` if none
+  // exist.
   std::optional<TokenWithId> GetToken(const url::Origin& issuer);
 
-  // Get one token from each distinct issuer.
-  std::map<url::Origin, TokenWithId> GetTokensFromEach();
-
-  // Delete all tokens that are marked as redeemed.
-  bool DeleteRedeemedTokens();
+  // Get one token and the total token count from each distinct issuer.
+  TokensAndCounts GetTokensFromEach();
 
   // Delete tokens filtered by creation time range [delete_begin, delete_end)
   // and a list of issuer origins. If `issuers` is std::nullopt all rows that
@@ -110,8 +108,8 @@ class PrivateVerificationTokensDatabase {
                     base::Time delete_end,
                     base::optional_ref<const std::vector<url::Origin>> issuers);
 
-  // Mark token with the given id as redeemed.
-  bool SetRedeemed(int64_t token_id);
+  // Delete token with the given id.
+  bool DeleteToken(int64_t token_id);
 
   const base::FilePath& PathToDatabase() const;
 

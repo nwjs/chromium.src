@@ -374,7 +374,8 @@ class NET_EXPORT HostResolverManager
       const NetLogWithSource& source_net_log,
       HostCache* cache,
       std::deque<TaskType>* out_tasks,
-      std::optional<HostCache::EntryStaleness>* out_stale_info);
+      std::optional<HostCache::EntryStaleness>* out_stale_info,
+      bool record_metrics = true);
 
   // Creates and starts a Job to asynchronously attempt to resolve
   // |request|.
@@ -411,7 +412,8 @@ class NET_EXPORT HostResolverManager
       ResolveHostParameters::CacheUsage cache_usage,
       bool ignore_secure,
       const NetLogWithSource& source_net_log,
-      std::optional<HostCache::EntryStaleness>* out_stale_info);
+      std::optional<HostCache::EntryStaleness>* out_stale_info,
+      bool record_metrics = true);
 
   // Returns any preset resolution result from the active DoH configuration that
   // matches |key.host|.
@@ -451,13 +453,16 @@ class NET_EXPORT HostResolverManager
   // Helper method to add DnsTasks and related tasks based on the SecureDnsMode
   // and fallback parameters. If |prioritize_local_lookups| is true, then we
   // may push an insecure cache lookup ahead of a secure DnsTask.
-  void PushDnsTasks(bool system_task_allowed,
-                    SecureDnsMode secure_dns_mode,
-                    InsecureDnsMode insecure_dns_mode,
-                    bool allow_cache,
-                    bool prioritize_local_lookups,
-                    ResolveContext* resolve_context,
-                    std::deque<TaskType>* out_tasks);
+  static void PushDnsTasks(const DnsClient& dns_client,
+                           bool dns_tasks_allowed,
+                           bool allow_fallback_to_systemtask,
+                           bool system_task_allowed,
+                           SecureDnsMode secure_dns_mode,
+                           InsecureDnsMode insecure_dns_mode,
+                           bool allow_cache,
+                           bool prioritize_local_lookups,
+                           ResolveContext* resolve_context,
+                           std::deque<TaskType>* out_tasks);
 
   // Initialized the sequence of tasks to run to resolve a request. The sequence
   // may be adjusted later and not all tasks need to be run.
@@ -548,7 +553,7 @@ class NET_EXPORT HostResolverManager
       NetworkChangeNotifier::ConnectionType type) override;
 
   // SystemDnsConfigChangeNotifier::Observer:
-  void OnSystemDnsConfigChanged(std::optional<DnsConfig> config) override;
+  void OnSystemDnsConfigChanged(const DnsConfig& config) override;
 
   void UpdateJobsForChangedConfig();
 

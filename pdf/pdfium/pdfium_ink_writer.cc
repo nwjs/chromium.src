@@ -9,8 +9,8 @@
 
 #include "base/check.h"
 #include "base/containers/span.h"
-#include "base/memory/raw_ptr_exclusion.h"
 #include "base/memory/raw_ref.h"
+#include "base/memory/raw_span.h"
 #include "pdf/pdf_ink_constants.h"
 #include "pdf/pdf_ink_conversions.h"
 #include "pdf/pdf_transform.h"
@@ -36,9 +36,8 @@ class ModeledShapeOutlinesIterator {
  public:
   struct OutlineData {
     uint32_t group_index;
-    // Guaranteeded to be non-empty.
-    // TODO(367764863) Rewrite to base::raw_span.
-    RAW_PTR_EXCLUSION base::span<const ink::VertexIndexPair> outline;
+    // Guaranteed to be non-empty.
+    base::raw_span<const ink::VertexIndexPair> outline;
   };
 
   explicit ModeledShapeOutlinesIterator(const ink::PartitionedMesh& shape)
@@ -152,9 +151,9 @@ void SetBrushPropertiesForPath(const ink::Brush& brush, FPDF_PAGEOBJECT path) {
 
 }  // namespace
 
-std::vector<FPDF_PAGEOBJECT> WriteStrokeToPage(FPDF_PAGE page,
-                                               const ink::Stroke& stroke) {
-  std::vector<FPDF_PAGEOBJECT> results;
+std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>>
+WriteStrokeToPage(FPDF_PAGE page, const ink::Stroke& stroke) {
+  std::vector<base::RawPtrIfPtrT<FPDF_PAGEOBJECT, DanglingUntriaged>> results;
   if (!page) {
     return results;
   }

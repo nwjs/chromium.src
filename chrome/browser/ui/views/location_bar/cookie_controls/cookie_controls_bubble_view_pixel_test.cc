@@ -18,7 +18,7 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_coordinator.h"
 #include "chrome/browser/ui/views/location_bar/cookie_controls/cookie_controls_bubble_view_controller.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
@@ -192,7 +192,8 @@ class CookieControlsBubbleViewPixelTest
                  int days_to_expiration) {
     // ShowBubble will initialize the view controller.
     cookie_controls_coordinator_->ShowBubble(
-        browser()->GetBrowserView().toolbar_button_provider(),
+        BrowserView::GetBrowserViewForBrowser(browser())
+            ->toolbar_button_provider(),
         browser()->tab_strip_model()->GetActiveWebContents(),
         controller_.get());
     auto expiration = days_to_expiration

@@ -78,6 +78,7 @@
 #import "ios/chrome/browser/reader_mode/model/constants.h"
 #import "ios/chrome/browser/reader_mode/model/features.h"
 #import "ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h"
+#import "ios/chrome/browser/reader_mode/model/reader_mode_web_state_utils.h"
 #import "ios/chrome/browser/reading_list/ui_bundled/reading_list_utils.h"
 #import "ios/chrome/browser/search_engines/model/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/model/search_engines_util.h"
@@ -91,6 +92,7 @@
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/cobalt_commands.h"
 #import "ios/chrome/browser/shared/public/commands/find_in_page_commands.h"
+#import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_overlay_commands.h"
@@ -484,7 +486,7 @@ void GetPresetNTPBackgroundPreview(
     _customizeHomepageAction.symbolTintColor =
         [UIColor colorNamed:kTextQuaternaryColor];
     _customizeHomepageAction.fallbackPreviewImage =
-        DefaultSymbolWithConfiguration(kPencilSymbol, nil);
+        SymbolWithConfiguration(SymbolPencil, nil);
   }
   [self configureThemePreviewForCustomizeHomepageAction];
   return _customizeHomepageAction;
@@ -920,9 +922,7 @@ void GetPresetNTPBackgroundPreview(
     self.askBWGAction = [self openAskBWGAction];
   }
 
-  if (IsReaderModeAvailable()) {
-    self.readerModeAction = [self toggleReaderModeAction];
-  }
+  self.readerModeAction = [self toggleReaderModeAction];
 
   if (send_tab_to_self::AreIOSTabRemindersEnabled()) {
     self.setTabReminderAction = [self newSetTabReminderAction];
@@ -1896,9 +1896,7 @@ void GetPresetNTPBackgroundPreview(
     self.lensOverlayAction.enabled = [self isLensOverlayEnabled];
   }
 
-  if (IsReaderModeAvailable()) {
-    self.readerModeAction.enabled = [self isReaderModeEnabled];
-  }
+  self.readerModeAction.enabled = [self isReaderModeEnabled];
 
   self.askBWGAction.enabled = [self isGeminiAvailable];
 
@@ -1919,8 +1917,7 @@ void GetPresetNTPBackgroundPreview(
   NSMutableArray<OverflowMenuAction*>* appActions =
       [[NSMutableArray alloc] init];
 
-  if ((base::FeatureList::IsEnabled(kShareInOverflowMenu) ||
-       (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible())) &&
+  if (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible() &&
       [self isCurrentURLWebURL]) {
     base::UmaHistogramEnumeration("Mobile.ShareThisPage.Shown",
                                   ShareThisPageLocation::kOverflowMenu);
@@ -2117,10 +2114,7 @@ void GetPresetNTPBackgroundPreview(
 
 // Returns whether translate is enabled on the current page.
 - (BOOL)isTranslateEnabled {
-  return
-      [self canManuallyTranslate:NO] && ![self isLensOverlayVisible] &&
-      (![self isReaderModeActive] ||
-       base::FeatureList::IsEnabled(kEnableReaderModeTranslationWithInfobar));
+  return [self canManuallyTranslate:NO] && ![self isLensOverlayVisible];
 }
 
 // Returns whether lens overlay is enabled on the current page.
@@ -2175,12 +2169,7 @@ void GetPresetNTPBackgroundPreview(
 
 // Whether Reader mode is active.
 - (BOOL)isReaderModeActive {
-  if (!self.webState) {
-    return NO;
-  }
-  ReaderModeTabHelper* helper =
-      ReaderModeTabHelper::FromWebState(self.webState);
-  return helper && helper->IsActive();
+  return IsReaderModeActiveInWebState(self.webState);
 }
 
 // Whether or not text zoom is enabled for this page.
@@ -2646,9 +2635,7 @@ void GetPresetNTPBackgroundPreview(
     actions.push_back(overflow_menu::ActionType::AskBWG);
   }
 
-  if (IsReaderModeAvailable()) {
-    actions.push_back(overflow_menu::ActionType::ReaderMode);
-  }
+  actions.push_back(overflow_menu::ActionType::ReaderMode);
   if (IsHideToolbarEnabled()) {
     actions.push_back(overflow_menu::ActionType::HideToolbars);
   }
@@ -2987,6 +2974,12 @@ void GetPresetNTPBackgroundPreview(
 
 - (void)startCollapseToolbars {
   [self dismissMenu];
+  if (IsFullscreenRefactoringEnabled()) {
+    [self.fullscreenHandler
+        forceFullscreen:YES
+                feature:ForceFullscreenFeature::kHideToolbars];
+    return;
+  }
   [self.browserCoordinatorHandler
       forceFullscreenMode:FullscreenModeTransitionTrigger::kForcedByUser];
 }

@@ -6,6 +6,10 @@
 # Pylint directives to disable warnings in cider.
 # pylint: disable=bad-indentation
 
+from __future__ import annotations
+
+import dataclasses
+import enum
 import io
 import os.path
 import subprocess
@@ -83,6 +87,68 @@ class BadExtensionsTest(unittest.TestCase):
         self.assertEqual(0, len(results))
 
 
+class CheckBuildConfigMacrosWithoutIncludeTest(unittest.TestCase):
+
+    def testGoodFiles(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            # The build-config macros are allowed to be used in build_config.h
+            # without including itself.
+            MockFile('build/build_config.h',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            MockFile('other/path/foo.cc', [
+                '#include "build/build_config.h"',
+                '#if defined(COMPILER_GCC)',
+            ]),
+            MockFile('other/path/foo.h', [
+                '#include "build/build_config.h"',
+                '#if defined(COMPILER_GCC)',
+            ]),
+            # Primary header includes build_config.h.
+            MockFile('other/path/bar.h', ['#include "build/build_config.h"']),
+            MockFile('other/path/bar.cc',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            # Third-party libraries (except Blink) are excluded.
+            MockFile('third_party/foo/foo.h',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            MockFile('third_party/foo/foo.cc',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            MockFile('ios/third_party/foo/foo.h',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            MockFile('ios/third_party/foo/foo.cc',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            # Non-C++ files are not checked.
+            MockFile('other/path/not_checked.txt',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+        ]
+        results = PRESUBMIT.CheckBuildConfigMacrosWithoutInclude(
+            mock_input_api, MockOutputApi())
+        self.assertEqual(0, len(results))
+
+    def testBadFiles(self):
+        mock_input_api = MockInputApi()
+        mock_input_api.files = [
+            MockFile('other/path/foo.h',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            MockFile('other/path/foo.cc',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            # Blink is not excluded, despite being in third-party.
+            MockFile('third_party/blink/foo.h',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+            MockFile('third_party/blink/foo.cc',
+                     ['// comment', '#if defined(COMPILER_GCC)']),
+        ]
+        results = PRESUBMIT.CheckBuildConfigMacrosWithoutInclude(
+            mock_input_api, MockOutputApi())
+        self.assertEqual(1, len(results))
+        self.assertIn('other/path/foo.h:1 COMPILER_GCC', results[0].message)
+        self.assertIn('other/path/foo.cc:1 COMPILER_GCC', results[0].message)
+        self.assertIn('third_party/blink/foo.h:1 COMPILER_GCC',
+                      results[0].message)
+        self.assertIn('third_party/blink/foo.cc:1 COMPILER_GCC',
+                      results[0].message)
+
+
 class CheckForSuperfluousStlIncludesInHeadersTest(unittest.TestCase):
 
     def testGoodFiles(self):
@@ -98,6 +164,11 @@ class CheckForSuperfluousStlIncludesInHeadersTest(unittest.TestCase):
                      ['#include "base/stl_util.h"', 'foobar']),
             MockFile('other/path/baz.h',
                      ['#include "set/vector.h"', 'bazzab']),
+            # Third-party libraries (except Blink) are excluded.
+            MockFile('third_party/foo/foo.h',
+                     ['#include <vector>', 'no_std_namespace']),
+            MockFile('ios/third_party/foo/foo.h',
+                     ['#include <vector>', 'no_std_namespace']),
             # The check is only for header files.
             MockFile('other/path/not_checked.cc',
                      ['#include <vector>', 'bazbaz']),
@@ -113,12 +184,17 @@ class CheckForSuperfluousStlIncludesInHeadersTest(unittest.TestCase):
             MockFile(
                 'other/path/bar.h',
                 ['#include <limits>', '#include <set>', 'no_std_namespace']),
+            # Blink is not excluded, despite being in third-party.
+            MockFile('third_party/blink/foo.h',
+                     ['#include <vector>', 'no_std_namespace']),
         ]
         results = PRESUBMIT.CheckForSuperfluousStlIncludesInHeaders(
             mock_input_api, MockOutputApi())
         self.assertEqual(1, len(results))
         self.assertIn('foo.h: Includes STL', results[0].message)
         self.assertIn('bar.h: Includes STL', results[0].message)
+        self.assertIn('third_party/blink/foo.h: Includes STL',
+                      results[0].message)
 
 
 class CheckSingletonInHeadersTest(unittest.TestCase):
@@ -885,7 +961,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testAddedPydep(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.InitFiles([
             MockAffectedFile('new.pydeps', [], action='A'),
@@ -906,7 +982,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testRemovedPydep(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.InitFiles([
             MockAffectedFile(PRESUBMIT._ALL_PYDEPS_FILES[0], [], action='D'),
@@ -918,7 +994,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testRandomPyIgnored(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.files = [
             MockAffectedFile('random.py', []),
@@ -930,7 +1006,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testRelevantPyNoChange(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.files = [
             MockAffectedFile('A.py', []),
@@ -948,7 +1024,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testRelevantPyOneChange(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.files = [
             MockAffectedFile('A.py', []),
@@ -969,7 +1045,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testRelevantPyTwoChanges(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.files = [
             MockAffectedFile('C.py', []),
@@ -988,7 +1064,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testRelevantAndroidPyInNonAndroidCheckout(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.mock_input_api.files = [
             MockAffectedFile('D.py', []),
@@ -1010,7 +1086,7 @@ class PydepsNeedsUpdatingTest(unittest.TestCase):
     def testGnPathsAndMissingOutputFlag(self):
         # PRESUBMIT.CheckPydepsNeedsUpdating is only implemented for Linux.
         if not self.mock_input_api.platform.startswith('linux'):
-            return []
+            return
 
         self.checker._file_cache = {
             'A.pydeps':
@@ -3154,7 +3230,20 @@ class BannedTypeCheckTest(unittest.TestCase):
                     'std::ranges::subrange(first, last);',
                     # std::ranges::view is a concept and allowed, but the views
                     # library itself is not (see below)
-                    'static_assert(std::ranges::view<SomeType>);'
+                    'static_assert(std::ranges::view<SomeType>);',
+                    'std::ranges::reverse_view rv(vec);',
+                    'std::ranges::zip_view zv(vec1, vec2);',
+                    'std::ranges::as_rvalue_view arv(vec);',
+                    'std::ranges::views::reverse(vec);',
+                    'std::ranges::views::zip(vec1, vec2);',
+                    'std::ranges::views::as_rvalue(vec);',
+                ]),
+            MockFile(
+                'allowed_views_usage.cc',
+                [
+                    'std::views::reverse(vec);',
+                    'std::views::zip(vec1, vec2);',
+                    'std::views::as_rvalue(vec);',
                 ]),
             MockFile(
                 'banned_ranges_usage.cc',
@@ -3162,9 +3251,18 @@ class BannedTypeCheckTest(unittest.TestCase):
                     'std::ranges::borrowed_subrange_t(subrange);',
                     # Edge case: make sure std::ranges::views is disallowed,
                     # even though std::ranges::view is allowed.
-                    'std::ranges::views::take(first, count);'
+                    'std::ranges::views::take(first, count);',
+                    'std::ranges::views::transform(vec, fn);',
+                    'std::ranges::transform_view tv;',
                 ]),
-            MockFile('views_usage.cc', ['std::views::all(vec)']),
+            MockFile(
+                'views_usage.cc',
+                [
+                    'std::views::all(vec);',
+                    'std::views::filter(vec, fn);',
+                    'namespace views = std::views;',
+                    'using std::views::all;',
+                ]),
             MockFile('content/desktop_android.cc', [
                 '// some first line',
                 '#if BUILDFLAG(IS_DESKTOP_ANDROID)',
@@ -3191,7 +3289,7 @@ class BannedTypeCheckTest(unittest.TestCase):
 
         # Each entry in results corresponds to a BanRule with a violation, in
         # the order they were encountered.
-        self.assertEqual(11, len(results))
+        self.assertEqual(16, len(results))
         self.assertIn('some/cpp/problematic/file.cc', results[0].message)
         self.assertIn('third_party/blink/problematic/file.cc',
                       results[1].message)
@@ -3206,16 +3304,23 @@ class BannedTypeCheckTest(unittest.TestCase):
             all('some/cpp/comment/file.cc' not in r.message for r in results))
         self.assertTrue(
             all('allowed_ranges_usage.cc' not in r.message for r in results))
+        self.assertTrue(
+            all('allowed_views_usage.cc' not in r.message for r in results))
         self.assertIn('banned_ranges_usage.cc', results[5].message)
         self.assertIn('banned_ranges_usage.cc', results[6].message)
-        self.assertIn('views_usage.cc', results[7].message)
-        self.assertIn('content/desktop_android.cc', results[8].message)
+        self.assertIn('banned_ranges_usage.cc', results[7].message)
+        self.assertIn('banned_ranges_usage.cc', results[8].message)
+        self.assertIn('views_usage.cc', results[9].message)
+        self.assertIn('views_usage.cc', results[10].message)
+        self.assertIn('views_usage.cc', results[11].message)
+        self.assertIn('views_usage.cc', results[12].message)
+        self.assertIn('content/desktop_android.cc', results[13].message)
         self.assertTrue(
             all('content/desktop_android_test.cc' not in r.message
                 for r in results))
-        self.assertIn('some/cpp/problematic/json_parse.cc', results[9].message)
+        self.assertIn('some/cpp/problematic/json_parse.cc', results[14].message)
         self.assertIn('some/cpp/problematic/json_parse_no_namespace.cc',
-                      results[10].message)
+                      results[15].message)
         self.assertTrue(
             all('third_party/json/ok/json_parse.cc' not in r.message
                 for r in results))
@@ -3225,10 +3330,10 @@ class BannedTypeCheckTest(unittest.TestCase):
             all('v8/ok/v8_json_parse.cc' not in r.message for r in results))
 
         # Check ResultLocation data. Line nums start at 1.
-        self.assertEqual(results[8].locations[0].file_path,
+        self.assertEqual(results[13].locations[0].file_path,
                          'content/desktop_android.cc')
-        self.assertEqual(results[8].locations[0].start_line, 2)
-        self.assertEqual(results[8].locations[0].end_line, 2)
+        self.assertEqual(results[13].locations[0].start_line, 2)
+        self.assertEqual(results[13].locations[0].end_line, 2)
 
     def testBannedMemoryPressureListener(self):
         input_api = MockInputApi()
@@ -5307,83 +5412,6 @@ class AssertAshOnlyCodeTest(unittest.TestCase):
         self.assertEqual(0, len(errors))
 
 
-class CheckRawPtrUsageTest(unittest.TestCase):
-
-    def testAllowedCases(self):
-        mock_input_api = MockInputApi()
-        mock_input_api.files = [
-            # Browser-side files are allowed.
-            MockAffectedFile('test10/browser/foo.h', ['raw_ptr<int>']),
-            MockAffectedFile('test11/browser/foo.cc', ['raw_ptr<int>']),
-            MockAffectedFile('test12/blink/common/foo.cc', ['raw_ptr<int>']),
-            MockAffectedFile('test13/blink/public/common/foo.cc',
-                             ['raw_ptr<int>']),
-            MockAffectedFile('test14/blink/public/platform/foo.cc',
-                             ['raw_ptr<int>']),
-
-            # Non-C++ files are allowed.
-            MockAffectedFile('test20/renderer/foo.md', ['raw_ptr<int>']),
-
-            # Renderer code is generally allowed (except specifically
-            # disallowed directories).
-            MockAffectedFile('test30/renderer/foo.cc', ['raw_ptr<int>']),
-            # `functional.h` carries shared plumbing and is a special
-            # inclusion (against the rest of `platform/wtf/`).
-            MockAffectedFile(
-                'test31/third_party/blink/renderer/platform/wtf/functional.cc',
-                ['raw_ptr<int>']),
-        ]
-        mock_output_api = MockOutputApi()
-        errors = PRESUBMIT.CheckRawPtrUsage(mock_input_api, mock_output_api)
-        self.assertFalse(errors)
-
-    def testDisallowedCases(self):
-        mock_input_api = MockInputApi()
-        mock_input_api.files = [
-            MockAffectedFile('test1/third_party/blink/renderer/core/foo.h',
-                             ['raw_ptr<int>']),
-            MockAffectedFile(
-                'test2/third_party/blink/renderer/platform/heap/foo.cc',
-                ['raw_ptr<int>']),
-            MockAffectedFile(
-                'test3/third_party/blink/renderer/platform/wtf/foo.cc',
-                ['raw_ptr<int>']),
-            MockAffectedFile(
-                'test4/third_party/blink/renderer/platform/fonts/foo.h',
-                ['raw_ptr<int>']),
-            # As above, but with `raw_ref`.
-            MockAffectedFile('test5/third_party/blink/renderer/core/foo.h',
-                             ['raw_ref<int>']),
-            MockAffectedFile(
-                'test6/third_party/blink/renderer/platform/heap/foo.cc',
-                ['raw_ref<int>']),
-            MockAffectedFile(
-                'test7/third_party/blink/renderer/platform/wtf/foo.cc',
-                ['raw_ref<int>']),
-            MockAffectedFile(
-                'test8/third_party/blink/renderer/platform/fonts/foo.h',
-                ['raw_ref<int>']),
-            # As above, but with `raw_span`.
-            MockAffectedFile('test9/third_party/blink/renderer/core/foo.h',
-                             ['raw_span<int>']),
-            MockAffectedFile(
-                'test10/third_party/blink/renderer/platform/heap/foo.cc',
-                ['raw_span<int>']),
-            MockAffectedFile(
-                'test11/third_party/blink/renderer/platform/wtf/foo.cc',
-                ['raw_span<int>']),
-            MockAffectedFile(
-                'test12/third_party/blink/renderer/platform/fonts/foo.h',
-                ['raw_span<int>']),
-        ]
-        mock_output_api = MockOutputApi()
-        errors = PRESUBMIT.CheckRawPtrUsage(mock_input_api, mock_output_api)
-        self.assertEqual(len(mock_input_api.files), len(errors))
-        for error in errors:
-            self.assertIn('` should not be used in this renderer code',
-                          error.message)
-
-
 class CheckAdvancedMemorySafetyChecksUsageTest(unittest.TestCase):
 
     def testAllowedCases(self):
@@ -5483,8 +5511,14 @@ class CheckAndroidTestAnnotations(unittest.TestCase):
 """
         mock_input = MockInputApi()
         mock_input.files = [
-            MockFile('path/OneTest.java', ['public class OneTest']),
-            MockFile('path/TwoTest.java', ['public class TwoTest']),
+            MockFile('path/OneTest.java', [
+                '@RunWith(ChromeJUnit4ClassRunner.class)',
+                'public class OneTest {'
+            ]),
+            MockFile('path/TwoTest.java', [
+                '@RunWith(BaseJUnit4ClassRunner.class)',
+                'public class TwoTest {'
+            ]),
             MockFile('path/ThreeTest.java', [
                 '@Batch(Batch.PER_CLASS)',
                 '@RunWith(BaseRobolectricTestRunner.class)',
@@ -5503,6 +5537,7 @@ class CheckAndroidTestAnnotations(unittest.TestCase):
         self.assertEqual(2, len(errors[0].items))
         self.assertIn('OneTest.java', errors[0].items[0])
         self.assertIn('TwoTest.java', errors[0].items[1])
+        self.assertEqual('error', errors[1].type)
         self.assertEqual(2, len(errors[1].items))
         self.assertIn('ThreeTest.java', errors[1].items[0])
         self.assertIn('FourTest.java', errors[1].items[1])
@@ -5531,12 +5566,12 @@ class CheckAndroidTestAnnotations(unittest.TestCase):
                 '@DoNotBatch(reason = "placeholder reason 2")',
                 'public class Four extends BaseTestB {'
             ]),
+            # Standalone UiAutomator smoke test with ChromeUiAutomatorTestRule (exempt from batch)
             MockFile('path/FiveTest.java', [
-                'import androidx.test.uiautomator.UiDevice;',
-                'public class Five extends BaseTestA {'
-            ], [
-                'import androidx.test.uiautomator.UiDevice;',
-                'public class Five extends BaseTestB {'
+                '@RunWith(AndroidJUnit4ClassRunner.class)',
+                'public class Five extends BaseTestA {',
+                '    public ChromeUiAutomatorTestRule mRule = new ChromeUiAutomatorTestRule();',
+                '}'
             ]),
             MockFile('path/SixTest.java', [
                 '@RunWith(BaseRobolectricTestRunner.class)',
@@ -5568,6 +5603,53 @@ class CheckAndroidTestAnnotations(unittest.TestCase):
         errors = PRESUBMIT.CheckAndroidTestAnnotations(mock_input,
                                                        MockOutputApi())
         self.assertEqual(0, len(errors))
+
+    def testRobolectricBatchErrors(self):
+        """Tests that Robolectric tests with @Batch or @DoNotBatch are rejected."""
+        mock_input = MockInputApi()
+        mock_input.files = [
+            # @RunWith before @Batch
+            MockFile('path/RunnerFirstTest.java', [
+                '@RunWith(BaseRobolectricTestRunner.class)',
+                '@Batch(Batch.UNIT_TESTS)',
+                'public class RunnerFirstTest {'
+            ]),
+            # @RunWith before @DoNotBatch
+            MockFile('path/RunnerFirstDoNotBatchTest.java', [
+                '@RunWith(BaseRobolectricTestRunner.class)',
+                '@DoNotBatch(reason = "placeholder")',
+                'public class RunnerFirstDoNotBatchTest {'
+            ]),
+            # ParameterizedRobolectricTestRunner with @Batch
+            MockFile('path/ParameterizedRoboTest.java', [
+                '@RunWith(ParameterizedRobolectricTestRunner.class)',
+                '@Batch(Batch.UNIT_TESTS)',
+                'public class ParameterizedRoboTest {'
+            ]),
+            # Modified Robolectric test with @Batch
+            MockFile('path/ModifiedRoboTest.java', [
+                '@RunWith(BaseRobolectricTestRunner.class)',
+                '@Batch(Batch.UNIT_TESTS)',
+                'public class ModifiedRoboTest {'
+            ], action='M'),
+            # BaseRobolectricTestRule with @Batch
+            MockFile('path/RuleTest.java', [
+                '@Batch(Batch.UNIT_TESTS)',
+                'public class RuleTest {',
+                '    @Rule public BaseRobolectricTestRule mRule = new BaseRobolectricTestRule();',
+                '}'
+            ]),
+        ]
+        errors = PRESUBMIT.CheckAndroidTestAnnotations(mock_input,
+                                                       MockOutputApi())
+        self.assertEqual(1, len(errors))
+        self.assertEqual('error', errors[0].type)
+        self.assertEqual(5, len(errors[0].items))
+        self.assertIn('RunnerFirstTest.java', errors[0].items[0])
+        self.assertIn('RunnerFirstDoNotBatchTest.java', errors[0].items[1])
+        self.assertIn('ParameterizedRoboTest.java', errors[0].items[2])
+        self.assertIn('ModifiedRoboTest.java', errors[0].items[3])
+        self.assertIn('RuleTest.java', errors[0].items[4])
 
     def testWrongRobolectricTestRunner(self):
         mock_input = MockInputApi()
@@ -6146,44 +6228,70 @@ class CheckInlineConstexprDefinitionsInHeadersTest(unittest.TestCase):
 
 
 class CheckDeprecatedSyncConsentFunctionsTest(unittest.TestCase):
+
+    class Result(enum.Enum):
+        OK = 1
+        WARNING = 2
+        ERROR = 3
+
+    @dataclasses.dataclass(frozen=True)
+    class TestCase:
+        path: str
+        content: str
+        expected_result: Result
+
     """Test the presubmit for deprecated ConsentLevel::kSync functions."""
 
     def testCppPath(self):
+        TestCase = self.TestCase
+        Result = self.Result
+        test_cases = (
+            TestCase('chrome/browser/android/file.cc', 'OtherFunction()',
+                     Result.OK),
+            TestCase(
+                'chrome/browser/sync/test/integration/sync_test_utils_android'
+                '.cc', 'ConsentLevel::kSync', Result.WARNING),
+            TestCase('chrome/android/file.cc', 'ConsentLevel::kSync',
+                     Result.ERROR),
+            TestCase('ios/file.mm', 'CanSyncFeatureStart()', Result.ERROR),
+            TestCase('ios/file.h', 'CanSyncFeatureStart()', Result.ERROR),
+            TestCase('components/mac/foo.mm', 'CanSyncFeatureStart()',
+                     Result.WARNING),
+            TestCase('components/foo/ios/file.cc', 'IsSyncFeatureEnabled()',
+                     Result.ERROR),
+            TestCase('components/foo/delegate_android.cc',
+                     'IsSyncFeatureActive()', Result.ERROR),
+            TestCase('components/foo/delegate_ios.cc', 'IsSyncFeatureActive()',
+                     Result.ERROR),
+            TestCase('components/foo/android_delegate.cc',
+                     'IsSyncFeatureActive()', Result.ERROR),
+            TestCase('components/foo/ios_delegate.cc', 'IsSyncFeatureActive()',
+                     Result.ERROR),
+            TestCase('chrome/browser/file.cc', 'HasSyncConsent()',
+                     Result.WARNING),
+            TestCase('bios/file.cc', 'HasSyncConsent()', Result.WARNING),
+            TestCase('components/kiosk/file.cc', 'HasSyncConsent()',
+                     Result.WARNING),
+        )
         input_api = MockInputApi()
-        input_api.files = [
-            MockFile('chrome/browser/android/file.cc', ['OtherFunction']),
-            MockFile('chrome/android/file.cc', ['HasSyncConsent']),
-            MockFile('ios/file.mm', ['CanSyncFeatureStart']),
-            MockFile('components/foo/ios/file.cc', ['IsSyncFeatureEnabled']),
-            MockFile('components/foo/delegate_android.cc',
-                     ['IsSyncFeatureActive']),
-            MockFile('components/foo/delegate_ios.cc',
-                     ['IsSyncFeatureActive']),
-            MockFile('components/foo/android_delegate.cc',
-                     ['IsSyncFeatureActive']),
-            MockFile('components/foo/ios_delegate.cc',
-                     ['IsSyncFeatureActive']),
-            MockFile('chrome/browser/file.cc', ['HasSyncConsent']),
-            MockFile('bios/file.cc', ['HasSyncConsent']),
-            MockFile('components/kiosk/file.cc', ['HasSyncConsent']),
-        ]
+        input_api.files = [MockFile(t.path, [t.content]) for t in test_cases]
 
         results = PRESUBMIT.CheckNoBannedPatterns(input_api, MockOutputApi())
 
-        self.assertEqual(10, len(results))
-        self.assertTrue(
-            all('chrome/browser/android/file.cc' not in r.message
-                for r in results))
-        self.assertIn('chrome/android/file.cc', results[0].message)
-        self.assertIn('ios/file.mm', results[1].message)
-        self.assertIn('components/foo/ios/file.cc', results[2].message)
-        self.assertIn('components/foo/delegate_android.cc', results[3].message)
-        self.assertIn('components/foo/delegate_ios.cc', results[4].message)
-        self.assertIn('components/foo/android_delegate.cc', results[5].message)
-        self.assertIn('components/foo/ios_delegate.cc', results[6].message)
-        self.assertIn('chrome/browser/file.cc', results[7].message)
-        self.assertIn('bios/file.cc', results[8].message)
-        self.assertIn('components/kiosk/file.cc', results[9].message)
+        i = 0
+        for t in test_cases:
+            if t.expected_result == Result.ERROR:
+                self.assertLess(i, len(results))
+                self.assertIn(t.path, results[i].message)
+                self.assertEqual('error', results[i].type)
+                i += 1
+        for t in test_cases:
+            if t.expected_result == Result.WARNING:
+                self.assertLess(i, len(results))
+                self.assertIn(t.path, results[i].message)
+                self.assertEqual('warning', results[i].type)
+                i += 1
+        self.assertEqual(i, len(results))
 
 
 class CheckAnonymousNamespaceTest(unittest.TestCase):

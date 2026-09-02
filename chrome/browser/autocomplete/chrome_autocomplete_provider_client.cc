@@ -148,9 +148,9 @@ namespace {
 // This list should be kept in sync with chrome/common/webui_url_constants.h.
 // Only include useful sub-pages, confirmation alerts are not useful.
 constexpr auto kChromeSettingsSubPages = std::to_array<base::cstring_view>({
-    chrome::kAddressesSubPage,
     chrome::kAutofillSubPage,
     chrome::kClearBrowserDataSubPage,
+    chrome::kContactInfoSubPage,
     chrome::kContentSettingsSubPage,
     chrome::kLanguageOptionsSubPage,
     chrome::kPasswordManagerSubPage,
@@ -245,7 +245,11 @@ ChromeAutocompleteProviderClient::ChromeAutocompleteProviderClient(
           unified_consent::UrlKeyedDataCollectionConsentHelper::
               NewPersonalizedDataCollectionConsentHelper(
                   SyncServiceFactory::GetForProfile(profile_))),
+#if BUILDFLAG(IS_ANDROID)
+      tab_matcher_(GetTemplateURLService(), profile_, web_contents_getter_),
+#else
       tab_matcher_(GetTemplateURLService(), profile_),
+#endif
       storage_partition_(nullptr),
       omnibox_triggered_feature_service_(
           std::make_unique<OmniboxTriggeredFeatureService>()) {
@@ -831,13 +835,19 @@ void ChromeAutocompleteProviderClient::OpenCoBrowsePanel() {
     std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
         session_handle = tab_helper->TakeSessionHandle();
 
+    contextual_tasks::StartTaskUiOptions options;
+    options.entry_point =
+        omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION;
+
     ui_service->StartTaskUiInSidePanel(bwi, tab, creation_url,
-                                       std::move(session_handle));
+                                       std::move(session_handle), options);
   }
 #endif
 }
 
-void ChromeAutocompleteProviderClient::OpenLensOverlay(bool show) {
+void ChromeAutocompleteProviderClient::OpenLensOverlay(
+    bool show,
+    lens::LensOverlayInvocationSource invocation_source) {
 #if !BUILDFLAG(IS_ANDROID)
   if (auto* lens_search_controller =
           GetLensSearchController(GetWebContents(web_contents_getter_))) {
@@ -845,8 +855,7 @@ void ChromeAutocompleteProviderClient::OpenLensOverlay(bool show) {
       // Force showing the contextual search box in the Lens Overlay, unless
       // kAskGLensChipRoute is enabled.
       bool show_csb = !omnibox::kAskGLensChipRoute.Get();
-      lens_search_controller->OpenLensOverlay(
-          lens::LensOverlayInvocationSource::kOmniboxPageAction, show_csb);
+      lens_search_controller->OpenLensOverlay(invocation_source, show_csb);
     } else {
       // TODO(crbug.com/402497756): For prototyping, reusing the existing
       // omnibox entry point. However, for production, create a new invocation

@@ -49,7 +49,7 @@ class ICloudKeychainRecoveryFactor : public LocalRecoveryFactor {
       RegisterCallback cb) override;
 
  private:
-  trusted_vault_pb::LocalTrustedVaultPerUser* GetPrimaryAccountVault();
+  const UserVault& GetPrimaryAccountVault();
 
   void OnICloudKeysRetrievedForRecovery(
       AttemptRecoveryCallback cb,
@@ -65,18 +65,13 @@ class ICloudKeychainRecoveryFactor : public LocalRecoveryFactor {
   void MarkAsRegistered();
 
   void OnICloudKeysRetrievedForRegistration(
-      RegisterCallback cb,
       std::vector<std::unique_ptr<ICloudRecoveryKey>> local_icloud_keys);
   void OnRecoveryFactorStateDownloadedForRegistration(
-      RegisterCallback cb,
       std::vector<std::unique_ptr<ICloudRecoveryKey>> local_icloud_keys,
       DownloadAuthenticationFactorsRegistrationStateResult result);
   void OnICloudKeyCreatedForRegistration(
-      RegisterCallback cb,
       std::unique_ptr<ICloudRecoveryKey> local_icloud_key);
-  void OnRegistered(RegisterCallback cb,
-                    TrustedVaultRegistrationStatus status,
-                    int key_version);
+  void OnRegistered(TrustedVaultRegistrationStatus status, int key_version);
   void FulfillRegistrationWithFailure(TrustedVaultRegistrationStatus status,
                                       RegisterCallback cb);
 
@@ -95,8 +90,12 @@ class ICloudKeychainRecoveryFactor : public LocalRecoveryFactor {
   // Destroying this will cancel the ongoing request.
   std::unique_ptr<TrustedVaultConnection::Request>
       ongoing_registration_request_;
+  RegisterCallback ongoing_registration_callback_;
 
-  base::WeakPtrFactory<ICloudKeychainRecoveryFactor> weak_ptr_factory_{this};
+  base::WeakPtrFactory<ICloudKeychainRecoveryFactor> recovery_weak_ptr_factory_{
+      this};
+  base::WeakPtrFactory<ICloudKeychainRecoveryFactor>
+      registration_weak_ptr_factory_{this};
 };
 
 }  // namespace trusted_vault

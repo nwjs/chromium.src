@@ -115,6 +115,7 @@ class PrerenderHostRegistry;
 class RenderWidgetHostImpl;
 class SessionStorageNamespace;
 class SiteInstanceGroup;
+class SurfaceEmbedConnector;
 struct ContextMenuParams;
 struct CookieAccessDetails;
 struct GlobalRenderFrameHostId;
@@ -171,6 +172,9 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
 
   // Notifies that the manifest URL is updated.
   virtual void OnManifestUrlChanged(PageImpl& page) {}
+
+  // Notifies the delegate that the primary page is about to be deactivated.
+  virtual void NotifyPrimaryPageWillBeDeactivated(PageImpl& page) {}
 
   // A message was added to the console. |source_id| is a URL.
   // |untrusted_stack_trace| is not present for most messages; only when
@@ -337,6 +341,11 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
   // Indicates an unrecoverable error in accessibility. Gracefully turns off
   // accessibility in all frames.
   virtual void UnrecoverableAccessibilityError() {}
+
+  // Returns the SurfaceEmbedConnector that surface-embeds the WebContents which
+  // owns this frame into a parent WebContents, or nullptr if this WebContents
+  // is not surface-embedded. Used to derive the embedder's accessibility tree.
+  virtual SurfaceEmbedConnector* GetSurfaceEmbedConnector() const;
 
   // Gets the GeolocationContext associated with this delegate.
   virtual device::mojom::GeolocationContext* GetGeolocationContext();

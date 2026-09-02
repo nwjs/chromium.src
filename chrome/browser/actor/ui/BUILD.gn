@@ -178,9 +178,13 @@ source_set("test_support") {
     "test_support/mock_actor_ui_tab_controller.h",
     "test_support/mock_event_dispatcher.cc",
     "test_support/mock_event_dispatcher.h",
-    "test_support/mock_handoff_button_controller.cc",
-    "test_support/mock_handoff_button_controller.h",
   ]
+  if (!skip_android_unmigrated_actor_files) {
+    sources += [
+      "test_support/mock_handoff_button_controller.cc",
+      "test_support/mock_handoff_button_controller.h",
+    ]
+  }
   testonly = true
   public_deps = [
     "//base",
@@ -229,6 +233,7 @@ if (!skip_android_unmigrated_actor_files) {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs/alert:tab_alert",
       "//chrome/browser/ui/views/frame",
+      "//chrome/browser/ui/views/tabs/tab",
       "//chrome/common",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",

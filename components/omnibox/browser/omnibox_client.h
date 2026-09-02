@@ -68,6 +68,13 @@ class OmniboxClient {
 
     // Don't search at all.
     kCancel,
+
+    // No dialog was ever shown. Confirmation turned out to be unnecessary.
+    // The pending navigation must proceed as originally requested. This is
+    // distinct from kCancel: the user made no choice because they were never
+    // asked. Conflating the two silently drops the navigation
+    // (See https://crbug.com/540532980).
+    kNoDialogShown,
   };
 
   OmniboxClient() = default;
@@ -227,6 +234,13 @@ class OmniboxClient {
   // Returns ContextualInputData if available.
   virtual std::optional<lens::ContextualInputData> GetContextualInputData()
       const;
+
+  // Returns true if there is previous submitted thread context (files, tabs,
+  // etc.) in the session. Only relevant for co-browsing / composebox sessions.
+  virtual bool HasPreviousSubmittedThreadContext() const;
+
+  // Returns true if an auto-suggested tab is present or showing.
+  virtual bool HasAutoSuggestedTab() const;
 
   // Asks the `ExtensionOmniboxEventRouter` to process `match` for it.
   // Some more processing is done to separate the keyword from the

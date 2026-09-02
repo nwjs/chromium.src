@@ -27,7 +27,6 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       // TODO(crbug.com/487113801): Investigate why tests are flaky on dbg bots.
       "chrome://accessibility",
 #endif
-      "chrome://personal-context-notice",
 // TODO:(https://crbug.com/40265685): Flakily crashes on ChromeOS.
 #if !BUILDFLAG(IS_CHROMEOS)
       "chrome://app-service-internals",
@@ -51,6 +50,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
       "chrome://connection-help",
       "chrome://connection-monitoring-detected",
       "chrome://connectors-internals",
+      "chrome://content-settings",
 #if !BUILDFLAG(IS_ANDROID)
       "chrome://content-annotator-internals",
       "chrome://contextual-cueing-internals",
@@ -132,9 +132,11 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 #endif
 
       "chrome://optimization-guide-internals",
+#if !BUILDFLAG(IS_ANDROID)
+      "chrome://organizer-panel.top-chrome",
+#endif
       "chrome://password-manager",
       "chrome://password-manager-internals",
-      "chrome://personal-context-internals",
       "chrome://policy",
       "chrome://predictors",
 
@@ -419,7 +421,6 @@ base::span<const std::string_view> GetUntestedChromeUrlsForTest() {
       "chrome://notification-tester",
       "chrome://oobe",
       "chrome://os-credits",
-      "chrome://os-print",
       // Needs html path to be valid.
       "chrome://proximity-auth",
       "chrome://recorder-app",

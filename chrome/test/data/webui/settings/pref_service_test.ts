@@ -31,6 +31,11 @@ suite('PrefService', function() {
         key2: 2,
       },
     },
+    {
+      key: 'browser.list_pref',
+      type: chrome.settingsPrivate.PrefType.LIST,
+      value: ['item1', 'item2'],
+    },
   ];
 
   setup(function() {
@@ -196,6 +201,67 @@ suite('PrefService', function() {
     callArgs = await proxy.fakeApi.whenCalled('setPref');
     assertEquals(key, callArgs.key);
     assertDeepEquals({key1: 10, key2: 2, key3: 3}, callArgs.value);
+  });
+
+  test('DeletePrefDictEntry', async function() {
+    const key = 'browser.dict_pref';
+
+    // Verify initial values.
+    const initialPref = service.getPref<Record<string, number>>(key);
+    assertEquals(1, initialPref.value['key1']);
+    assertEquals(2, initialPref.value['key2']);
+
+    // Delete an entry.
+    const promise = service.deletePrefDictEntry(key, 'key1');
+
+    // Verify synchronous update in cache.
+    const updatedPref = service.getPref<Record<string, number>>(key);
+    assertEquals(undefined, updatedPref.value['key1']);
+    assertEquals(2, updatedPref.value['key2']);
+
+    // Verify promise resolves to true.
+    const success = await promise;
+    assertTrue(success);
+
+    // Verify backend is called with correct params.
+    const callArgs = await proxy.fakeApi.whenCalled('setPref');
+    assertEquals(key, callArgs.key);
+    assertDeepEquals({key2: 2}, callArgs.value);
+  });
+
+  test('AppendPrefListItem', async function() {
+    const key = 'browser.list_pref';
+
+    // Verify initial values.
+    let listPref = service.getPref<string[]>(key);
+    assertDeepEquals(['item1', 'item2'], listPref.value);
+
+    // Append a new item.
+    let promise = service.appendPrefListItem<string>(key, 'item3');
+
+    // Verify synchronous update in cache.
+    listPref = service.getPref<string[]>(key);
+    assertDeepEquals(['item1', 'item2', 'item3'], listPref.value);
+
+    let success = await promise;
+    assertTrue(success);
+
+    // Verify backend is called with correct params.
+    const callArgs = await proxy.fakeApi.whenCalled('setPref');
+    assertEquals(key, callArgs.key);
+    assertDeepEquals(['item1', 'item2', 'item3'], callArgs.value);
+
+    // Append an existing item (no-op).
+    proxy.fakeApi.resetResolver('setPref');
+    promise = service.appendPrefListItem<string>(key, 'item2');
+
+    // Verify cache remains unchanged.
+    listPref = service.getPref<string[]>(key);
+    assertDeepEquals(['item1', 'item2', 'item3'], listPref.value);
+
+    success = await promise;
+    assertTrue(success);
+    assertEquals(0, proxy.fakeApi.getCallCount('setPref'));
   });
 
   test('addObserverSingleExternalChange', async function() {

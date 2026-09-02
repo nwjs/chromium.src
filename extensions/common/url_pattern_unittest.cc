@@ -1355,4 +1355,162 @@ TEST(ExtensionURLPatternTest, ValidSchemeAndPatternIntersection) {
   EXPECT_EQ(std::nullopt, intersection2);
 }
 
+TEST(ExtensionURLPatternTest, CaseInsensitiveMatch) {
+  URLPattern pattern(URLPattern::SCHEME_EXTENSION);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern.Parse("chrome-extension://*/path.html"));
+
+  GURL lowercase_url(
+      "chrome-extension://abcdefghijklmnoabcdefghijklmno/path.html");
+  GURL uppercase_url(
+      "chrome-extension://abcdefghijklmnoabcdefghijklmno/Path.html");
+
+  // By default (case_sensitive = true), matching is case-sensitive.
+  EXPECT_TRUE(pattern.MatchesURL(lowercase_url));
+  EXPECT_FALSE(pattern.MatchesURL(uppercase_url));
+  EXPECT_TRUE(pattern.MatchesPath("/path.html"));
+  EXPECT_FALSE(pattern.MatchesPath("/Path.html"));
+
+  // When case_sensitive = false, path matching is case-insensitive.
+  EXPECT_TRUE(pattern.MatchesURL(lowercase_url, /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern.MatchesURL(uppercase_url, /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern.MatchesPath("/path.html", /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern.MatchesPath("/Path.html", /*case_sensitive=*/false));
+
+  // Test Unicode / non-ASCII UTF-8 case folding.
+  URLPattern utf_pattern(URLPattern::SCHEME_EXTENSION);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            utf_pattern.Parse("chrome-extension://*/café.html"));
+
+  EXPECT_TRUE(utf_pattern.MatchesPath("/café.html"));
+  EXPECT_FALSE(utf_pattern.MatchesPath("/CAFÉ.html"));
+  EXPECT_TRUE(utf_pattern.MatchesPath("/caf%C3%A9.html"));
+  EXPECT_FALSE(utf_pattern.MatchesPath("/CAF%C3%89.html"));
+  EXPECT_TRUE(utf_pattern.MatchesPath("/café.html", /*case_sensitive=*/false));
+  EXPECT_TRUE(utf_pattern.MatchesPath("/CAFÉ.html", /*case_sensitive=*/false));
+  EXPECT_TRUE(utf_pattern.MatchesPath("/Café.html", /*case_sensitive=*/false));
+  EXPECT_TRUE(
+      utf_pattern.MatchesPath("/caf%C3%A9.html", /*case_sensitive=*/false));
+  EXPECT_TRUE(
+      utf_pattern.MatchesPath("/CAF%C3%89.html", /*case_sensitive=*/false));
+}
+
+TEST(ExtensionURLPatternTest, PercentEncodedPathMatchesWildcardSuffix) {
+  URLPattern pattern(kAllSchemes);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern.Parse("http://example.com/café/*"));
+
+  // The pattern ending in "/*" should match both "/café" and "/caf%C3%A9", as
+  // well as paths with trailing slashes and subpaths.
+  EXPECT_TRUE(pattern.MatchesPath("/café"));
+  EXPECT_TRUE(pattern.MatchesPath("/caf%C3%A9"));
+  EXPECT_TRUE(pattern.MatchesPath("/café/"));
+  EXPECT_TRUE(pattern.MatchesPath("/caf%C3%A9/"));
+  EXPECT_TRUE(pattern.MatchesPath("/café/file.html"));
+  EXPECT_TRUE(pattern.MatchesPath("/caf%C3%A9/file.html"));
+
+  // Case sensitivity is preserved.
+  EXPECT_FALSE(pattern.MatchesPath("/CAFÉ"));
+  EXPECT_FALSE(pattern.MatchesPath("/CAF%C3%89"));
+  EXPECT_TRUE(pattern.MatchesPath("/CAFÉ", /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern.MatchesPath("/CAF%C3%89", /*case_sensitive=*/false));
+
+  // MatchesURL should also work as expected with GURL paths.
+  EXPECT_TRUE(pattern.MatchesURL(GURL("http://example.com/café")));
+  EXPECT_TRUE(pattern.MatchesURL(GURL("http://example.com/caf%C3%A9")));
+  EXPECT_TRUE(pattern.MatchesURL(GURL("http://example.com/café/file.html")));
+  EXPECT_FALSE(pattern.MatchesURL(GURL("http://example.com/CAFÉ")));
+  EXPECT_TRUE(pattern.MatchesURL(GURL("http://example.com/CAFÉ"),
+                                 /*case_sensitive=*/false));
+
+  // Verify behavior when the pattern itself contains percent-encoded
+  // characters.
+  URLPattern pattern_escaped(kAllSchemes);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern_escaped.Parse("http://example.com/caf%C3%A9/*"));
+  EXPECT_TRUE(pattern_escaped.MatchesPath("/café"));
+  EXPECT_TRUE(pattern_escaped.MatchesPath("/caf%C3%A9"));
+  EXPECT_TRUE(pattern_escaped.MatchesURL(GURL("http://example.com/café")));
+  EXPECT_TRUE(pattern_escaped.MatchesURL(GURL("http://example.com/caf%C3%A9")));
+  EXPECT_FALSE(pattern_escaped.MatchesURL(GURL("http://example.com/CAFÉ")));
+  EXPECT_TRUE(pattern_escaped.MatchesURL(GURL("http://example.com/CAFÉ"),
+                                         /*case_sensitive=*/false));
+
+  // Both pattern formats should overlap.
+  EXPECT_TRUE(pattern.OverlapsWith(pattern_escaped));
+  EXPECT_TRUE(pattern_escaped.OverlapsWith(pattern));
+}
+
+TEST(ExtensionURLPatternTest, NonUtf8PercentEncodedPathMatching) {
+  // Test percent-encoded bytes that do not form valid UTF-8 sequences (e.g.
+  // isolated lead byte 0xE1 or 0xFF). URLPattern matches these via the raw
+  // percent-encoded string comparison because unescaping creates invalid
+  // UTF-8 bytes that base::MatchPattern() would otherwise reject.
+  URLPattern pattern(kAllSchemes);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern.Parse("http://example.com/foo%E1*"));
+
+  EXPECT_TRUE(pattern.MatchesPath("/foo%E1bar"));
+  EXPECT_TRUE(pattern.MatchesPath("/foo%E1"));
+  EXPECT_FALSE(pattern.MatchesPath("/foo%E2bar"));
+  EXPECT_FALSE(pattern.MatchesPath("/foo%E2bar", /*case_sensitive=*/false));
+
+  // Also test when passed through GURL, which escapes invalid UTF-8 bytes to
+  // percent-encoded ASCII.
+  EXPECT_TRUE(
+      pattern.MatchesURL(GURL("http://example.com/foo\xe1"
+                              "bar")));
+  EXPECT_FALSE(
+      pattern.MatchesURL(GURL("http://example.com/foo\xe2"
+                              "bar")));
+
+  URLPattern pattern2(kAllSchemes);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern2.Parse("http://example.com/café%E1*"));
+
+  EXPECT_TRUE(pattern2.MatchesPath("/café%E1bar"));
+  EXPECT_FALSE(pattern2.MatchesPath("/café%e1bar"));
+  EXPECT_TRUE(pattern2.MatchesPath("/café%e1bar", /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern2.MatchesPath("/café%E1"));
+  EXPECT_FALSE(pattern2.MatchesPath("/café%E2bar"));
+  EXPECT_FALSE(pattern2.MatchesPath("/café%E2bar", /*case_sensitive=*/false));
+
+  // If a path contains BOTH non-ASCII UTF-8 characters and non-UTF-8
+  // percent-encoded bytes (like "café%E1"), case-insensitive matching across
+  // differing UTF-8 character case (e.g. "CAFÉ%E1" vs "café%E1*") will fail.
+  // This is because the non-UTF-8 bytes force fallback to raw ASCII matching,
+  // which cannot fold multi-byte UTF-8 sequences.
+  // This is fine. Anyone doing that doesn't deserve case-insensitivity.
+  EXPECT_FALSE(pattern2.MatchesPath("/CAFÉ%E1bar", /*case_sensitive=*/false));
+  EXPECT_FALSE(
+      pattern2.MatchesPath("/CAF%C3%89%E1bar", /*case_sensitive=*/false));
+}
+
+TEST(ExtensionURLPatternTest, PercentEncodedAsciiPathMatching) {
+  // Test that percent-encoded characters matching pure ASCII strings or
+  // having different hex casing still match correctly via unescaping.
+  URLPattern pattern(kAllSchemes);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern.Parse("http://example.com/foo%C3%A9*"));
+
+  // Both strings are ASCII strings in their escaped forms, but unescaping
+  // normalizes percent-encoding hex casing (%c3%a9 vs %C3%A9).
+  EXPECT_TRUE(pattern.MatchesPath("/foo%c3%a9bar"));
+  EXPECT_TRUE(pattern.MatchesPath("/foo%C3%A9bar"));
+  EXPECT_TRUE(pattern.MatchesPath("/foo%c3%a9bar", /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern.MatchesPath("/foo%C3%A9bar", /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern.MatchesPath("/FOO%c3%a9bar", /*case_sensitive=*/false));
+
+  // Test percent-encoded ASCII characters (e.g. %61 for 'a') vs literal ASCII.
+  URLPattern pattern_ascii_escaped(kAllSchemes);
+  EXPECT_EQ(URLPattern::ParseResult::kSuccess,
+            pattern_ascii_escaped.Parse("http://example.com/foo%61*"));
+  EXPECT_TRUE(pattern_ascii_escaped.MatchesPath("/fooabar"));
+  EXPECT_TRUE(pattern_ascii_escaped.MatchesPath("/foo%61bar"));
+  EXPECT_TRUE(pattern_ascii_escaped.MatchesPath("/FOOABAR",
+                                                /*case_sensitive=*/false));
+  EXPECT_TRUE(pattern_ascii_escaped.MatchesPath("/FOO%61BAR",
+                                                /*case_sensitive=*/false));
+}
+
 }  // namespace

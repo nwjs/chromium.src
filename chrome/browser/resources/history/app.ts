@@ -229,8 +229,14 @@ export class HistoryAppElement extends HistoryAppElementBase {
       loadTimeData.getInteger('lastSelectedTab') || 0;
   protected accessor showTabs_: boolean = false;
   protected accessor showHistoryClusters_: boolean = false;
-  protected accessor tabsIcons_: string[] =
-      ['images/list.svg', 'chrome://resources/images/icon_journeys.svg'];
+  protected accessor tabsIcons_: string[] = [
+    (document.documentElement.hasAttribute('webui-rounded-icons') ?
+         'images/list.svg' :
+         'images/list_old.svg'),
+    (document.documentElement.hasAttribute('webui-rounded-icons') ?
+         'chrome://resources/images/icon_journeys.svg' :
+         'chrome://resources/images/icon_journeys_old.svg'),
+  ];
   protected accessor tabsNames_: string[] = [
     loadTimeData.getString('historyListTabLabel'),
     loadTimeData.getString('historyClustersTabLabel'),
@@ -573,26 +579,26 @@ export class HistoryAppElement extends HistoryAppElementBase {
         HistoryResultType.END);
 
     // MetricsHandler uses a 100 bucket limit, so the max index is 99.
-    const maxIndex = 99;
+    const boundary = 100;
     const clampedIndex = Math.min(e.detail.index, 99);
     browserProxy.recordHistogram(
-        'History.SearchResultClicked.Index', clampedIndex, maxIndex);
+        'History.SearchResultClicked.Index', clampedIndex, boundary);
 
     switch (e.detail.resultType) {
       case HistoryResultType.TRADITIONAL:
         browserProxy.recordHistogram(
             'History.SearchResultClicked.Index.Traditional', clampedIndex,
-            maxIndex);
+            boundary);
         break;
       case HistoryResultType.GROUPED:
         browserProxy.recordHistogram(
             'History.SearchResultClicked.Index.Grouped', clampedIndex,
-            maxIndex);
+            boundary);
         break;
       case HistoryResultType.EMBEDDINGS:
         browserProxy.recordHistogram(
             'History.SearchResultClicked.Index.Embeddings', clampedIndex,
-            maxIndex);
+            boundary);
         break;
       case HistoryResultType.END:
         break;

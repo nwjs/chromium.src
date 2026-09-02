@@ -15,6 +15,7 @@ near-tip-of-tree clang version:
 """
 
 import sys
+
 assert sys.version_info >= (3, 0), 'This script requires Python 3.'
 
 import argparse
@@ -39,40 +40,45 @@ import zlib
 # These fields are written by //tools/clang/scripts/upload_revision.py, and
 # should not be changed manually.
 # They are also read by build/config/compiler/BUILD.gn.
-CLANG_REVISION = 'llvmorg-23-init-19482-g53d18800'
-CLANG_SUB_REVISION = 1
+CLANG_REVISION = 'llvmorg-24-init-3796-g20e97c4b'
+CLANG_SUB_REVISION = 2
 
 PACKAGE_VERSION = '%s-%s' % (CLANG_REVISION, CLANG_SUB_REVISION)
-# TODO(crbug.com/534655507): Bump to 24 in next Clang roll.
-RELEASE_VERSION = '23'
+RELEASE_VERSION = '24'
 
-CDS_URL = os.environ.get('CDS_CLANG_BUCKET_OVERRIDE',
-    'https://commondatastorage.googleapis.com/chromium-browser-clang')
+CDS_URL = os.environ.get(
+  'CDS_CLANG_BUCKET_OVERRIDE',
+  'https://commondatastorage.googleapis.com/chromium-browser-clang',
+)
 
 # Path constants. (All of these should be absolute paths.)
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 CHROMIUM_DIR = os.path.abspath(os.path.join(THIS_DIR, '..', '..', '..'))
-LLVM_BUILD_DIR = os.path.join(CHROMIUM_DIR, 'third_party', 'llvm-build',
-                              'Release+Asserts')
+LLVM_BUILD_DIR = os.path.join(
+  CHROMIUM_DIR, 'third_party', 'llvm-build', 'Release+Asserts'
+)
 
 STAMP_FILENAME = 'cr_build_revision'
 STAMP_FILE = os.path.normpath(os.path.join(LLVM_BUILD_DIR, STAMP_FILENAME))
 OLD_STAMP_FILE = os.path.normpath(
-    os.path.join(LLVM_BUILD_DIR, '..', STAMP_FILENAME))
+  os.path.join(LLVM_BUILD_DIR, '..', STAMP_FILENAME)
+)
 FORCE_HEAD_REVISION_FILENAME = 'force_head_revision'
 FORCE_HEAD_REVISION_FILE = os.path.normpath(
-    os.path.join(LLVM_BUILD_DIR, '..', FORCE_HEAD_REVISION_FILENAME))
+  os.path.join(LLVM_BUILD_DIR, '..', FORCE_HEAD_REVISION_FILENAME)
+)
 
 
 def RmFile(file, must_exist=True):
   """Delete the named file. If must_exist is True,
-     raise an exception if the file doesn't exist."""
+  raise an exception if the file doesn't exist."""
   print(f"Removing {file}")
   try:
     os.remove(file)
   except FileNotFoundError as e:
     if must_exist:
       raise e
+
 
 def RmTree(dir):
   """Delete dir."""
@@ -87,6 +93,7 @@ def RmTree(dir):
       os.chmod(path, stat.S_IWUSR)
       return func(path)
     raise
+
   shutil.rmtree(dir, onerror=ChmodAndRetry)
 
 
@@ -101,8 +108,8 @@ def ReadStampFile(path):
 
 def WriteStampFile(s, path, preserve_hash_files=False):
   """Write s to the stamp file. To tell gcs the directory is locally modified,
-     also delete any gcs hash files (.*_hash) in the stamp files' directory,
-     if they exist"""
+  also delete any gcs hash files (.*_hash) in the stamp files' directory,
+  if they exist"""
   EnsureDirExists(os.path.dirname(path))
   with open(path, 'w') as f:
     f.write(s)
@@ -130,8 +137,9 @@ def DownloadUrl(url, output_file):
       if 'Content-Length' in response.headers:
         total_size = int(response.headers['Content-Length'].strip())
 
-      is_gzipped = response.headers.get('Content-Encoding',
-                                        '').strip() == 'gzip'
+      is_gzipped = (
+        response.headers.get('Content-Encoding', '').strip() == 'gzip'
+      )
       if is_gzipped:
         gzip_decode = zlib.decompressobj(zlib.MAX_WBITS + 16)
 
@@ -154,7 +162,8 @@ def DownloadUrl(url, output_file):
           dots_printed = num_dots
       if total_size is not None and bytes_done != total_size:
         raise urllib.error.URLError(
-            f'only got {bytes_done} of {total_size} bytes')
+          f'only got {bytes_done} of {total_size} bytes'
+        )
       if is_gzipped:
         output_file.write(gzip_decode.flush())
       print(' Done.')
@@ -162,8 +171,11 @@ def DownloadUrl(url, output_file):
     except (ConnectionError, urllib.error.URLError) as e:
       sys.stdout.write('\n')
       print(e)
-      if num_retries == 0 or isinstance(
-          e, urllib.error.HTTPError) and e.code == 404:
+      if (
+        num_retries == 0
+        or isinstance(e, urllib.error.HTTPError)
+        and e.code == 404
+      ):
         raise e
       num_retries -= 1
       output_file.seek(0)
@@ -181,8 +193,8 @@ def EnsureDirExists(path):
 
 def DownloadAndUnpack(url, output_dir, path_prefixes=None, is_known_zip=False):
   """Download an archive from url and extract into output_dir. If path_prefixes
-     is not None, only extract files whose paths within the archive start with
-     any prefix in path_prefixes."""
+  is not None, only extract files whose paths within the archive start with
+  any prefix in path_prefixes."""
   with tempfile.TemporaryFile() as f:
     DownloadUrl(url, f)
     f.seek(0)
@@ -194,8 +206,11 @@ def DownloadAndUnpack(url, output_dir, path_prefixes=None, is_known_zip=False):
       t = tarfile.open(mode='r:*', fileobj=f)
       members = t.getmembers()
       if path_prefixes is not None:
-        members = [m for m in t.getmembers()
-                   if any(m.name.startswith(p) for p in path_prefixes)]
+        members = [
+          m
+          for m in t.getmembers()
+          if any(m.name.startswith(p) for p in path_prefixes)
+        ]
       t.extractall(path=output_dir, members=members)
 
       # Don't set mtime based on the archive metadata; see crbug.com/450551220
@@ -211,18 +226,17 @@ def DownloadAndUnpack(url, output_dir, path_prefixes=None, is_known_zip=False):
 
 def GetPlatformUrlPrefix(host_os):
   _HOST_OS_URL_MAP = {
-      'linux': 'Linux_x64',
-      'mac': 'Mac',
-      'mac-arm64': 'Mac_arm64',
-      'win': 'Win',
+    'linux': 'Linux_x64',
+    'mac': 'Mac',
+    'mac-arm64': 'Mac_arm64',
+    'win': 'Win',
   }
   return CDS_URL + '/' + _HOST_OS_URL_MAP[host_os] + '/'
 
 
-def DownloadAndUnpackPackage(package_file,
-                             output_dir,
-                             host_os,
-                             version=PACKAGE_VERSION):
+def DownloadAndUnpackPackage(
+  package_file, output_dir, host_os, version=PACKAGE_VERSION
+):
   cds_file = "%s-%s.tar.xz" % (package_file, version)
   cds_full_url = GetPlatformUrlPrefix(host_os) + cds_file
   try:
@@ -261,10 +275,23 @@ def DownloadAndUnpackClangWinRuntime(output_dir):
     sys.exit(1)
 
 
-def UpdatePackage(package_name,
-                  host_os,
-                  preserve_gcs_signature,
-                  dir=LLVM_BUILD_DIR):
+def DownloadAndUnpackClangAndroidRuntime(output_dir):
+  cds_file = "clang-android-runtime-library-%s.tar.xz" % PACKAGE_VERSION
+  # The Android compiler-rt runtimes are host-independent target libraries
+  # built by the Linux packager, so they live under the Linux prefix.
+  cds_full_url = GetPlatformUrlPrefix('linux') + cds_file
+  try:
+    DownloadAndUnpack(cds_full_url, output_dir)
+  except urllib.error.URLError:
+    print('Failed to download prebuilt clang %s' % cds_file)
+    print('Use build.py if you want to build locally.')
+    print('Exiting.')
+    sys.exit(1)
+
+
+def UpdatePackage(
+  package_name, host_os, preserve_gcs_signature, dir=LLVM_BUILD_DIR
+):
   stamp_file = None
   package_file = None
 
@@ -293,8 +320,8 @@ def UpdatePackage(package_name,
     # Some projects (ANGLE) keep it in the src dir, others (Chromium) in its
     # parent.
     for gclient_config in [
-        os.path.join(CHROMIUM_DIR, '.gclient'),
-        os.path.join(CHROMIUM_DIR, '..', '.gclient')
+      os.path.join(CHROMIUM_DIR, '.gclient'),
+      os.path.join(CHROMIUM_DIR, '..', '.gclient'),
     ]:
       try:
         env = {}
@@ -331,6 +358,11 @@ def UpdatePackage(package_name,
     # When doing win/cross builds on other hosts, get the Windows runtime
     # libraries, and llvm-symbolizer.exe (needed in asan builds).
     DownloadAndUnpackClangWinRuntime(dir)
+  if package_name == 'clang' and 'android' in target_os and host_os != 'linux':
+    # Non-Linux hosts building for Android need the Android compiler-rt
+    # runtimes; they ship in the Linux clang package, so cross builds pull
+    # them via the standalone clang-android-runtime-library package.
+    DownloadAndUnpackClangAndroidRuntime(dir)
 
   WriteStampFile(expected_stamp, stamp_file, preserve_gcs_signature)
   return 0
@@ -338,10 +370,10 @@ def UpdatePackage(package_name,
 
 def GetDefaultHostOs():
   _PLATFORM_HOST_OS_MAP = {
-      'darwin': 'mac',
-      'cygwin': 'win',
-      'linux2': 'linux',
-      'win32': 'win',
+    'darwin': 'mac',
+    'cygwin': 'win',
+    'linux2': 'linux',
+    'win32': 'win',
   }
   default_host_os = _PLATFORM_HOST_OS_MAP.get(sys.platform, sys.platform)
   if default_host_os == 'mac' and platform.machine() == 'arm64':
@@ -351,36 +383,41 @@ def GetDefaultHostOs():
 
 def main():
   parser = argparse.ArgumentParser(description='Update clang.')
-  parser.add_argument('--output-dir',
-                      help='Where to extract the package.')
-  parser.add_argument('--package',
-                      help='What package to update (default: clang)',
-                      default='clang')
-  parser.add_argument('--host-os',
-                      help=('Which host OS to download for '
-                            '(default: %(default)s)'),
-                      default=GetDefaultHostOs(),
-                      choices=('linux', 'mac', 'mac-arm64', 'win'))
-  parser.add_argument('--print-revision', action='store_true',
-                      help='Print current clang revision and exit.')
-  parser.add_argument('--llvm-force-head-revision', action='store_true',
-                      help='Print locally built revision with --print-revision')
-  parser.add_argument('--print-clang-version', action='store_true',
-                      help=('Print current clang release version (e.g. 9.0.0) '
-                            'and exit.'))
-  parser.add_argument('--preserve-gcs-signature',
-                      action='store_true',
-                      help='By default, this script removes gcs hash files '
-                      'so that third_party/llvm-build is clobbered on the next'
-                      'run of gclient sync. This disables that, so that the'
-                      'directory will be preserved when syncing. Useful for'
-                      'local development.')
+  parser.add_argument('--output-dir', help='Where to extract the package.')
+  parser.add_argument(
+    '--package', help='What package to update (default: clang)', default='clang'
+  )
+  parser.add_argument(
+    '--host-os',
+    help=('Which host OS to download for (default: %(default)s)'),
+    default=GetDefaultHostOs(),
+    choices=('linux', 'mac', 'mac-arm64', 'win'),
+  )
+  parser.add_argument(
+    '--print-revision',
+    action='store_true',
+    help='Print current clang revision and exit.',
+  )
+  parser.add_argument(
+    '--llvm-force-head-revision',
+    action='store_true',
+    help='Print locally built revision with --print-revision',
+  )
+  parser.add_argument(
+    '--print-clang-version',
+    action='store_true',
+    help=('Print current clang release version (e.g. 9.0.0) and exit.'),
+  )
+  parser.add_argument(
+    '--preserve-gcs-signature',
+    action='store_true',
+    help='By default, this script removes gcs hash files '
+    'so that third_party/llvm-build is clobbered on the next'
+    'run of gclient sync. This disables that, so that the'
+    'directory will be preserved when syncing. Useful for'
+    'local development.',
+  )
   args = parser.parse_args()
-
-  # TODO(crbug.com/534655507): Remove in next Clang roll.
-  if args.llvm_force_head_revision:
-    global RELEASE_VERSION
-    RELEASE_VERSION = '24'
 
   if args.print_clang_version:
     print(RELEASE_VERSION)
@@ -403,8 +440,10 @@ def main():
 
     stamp_version = ReadStampFile(STAMP_FILE).partition(',')[0]
     if PACKAGE_VERSION != stamp_version:
-      print('The expected clang version is %s but the actual version is %s' %
-            (PACKAGE_VERSION, stamp_version))
+      print(
+        'The expected clang version is %s but the actual version is %s'
+        % (PACKAGE_VERSION, stamp_version)
+      )
       print('Did you run "gclient sync"?')
       return 1
 
@@ -415,8 +454,9 @@ def main():
     print('--llvm-force-head-revision can only be used for --print-revision')
     return 1
 
-  return UpdatePackage(args.package, args.host_os, args.preserve_gcs_signature,
-                       output_dir)
+  return UpdatePackage(
+    args.package, args.host_os, args.preserve_gcs_signature, output_dir
+  )
 
 
 if __name__ == '__main__':

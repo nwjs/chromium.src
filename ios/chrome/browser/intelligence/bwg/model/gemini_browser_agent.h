@@ -23,8 +23,8 @@
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_controller_observer.h"
+#import "ios/chrome/browser/intelligence/bwg/coordinator/gemini_container_mediator_event_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper_observer.h"
-#import "ios/chrome/browser/intelligence/bwg/model/gemini_view_state_change_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/persist_tab_context/model/persist_tab_context_browser_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_activation_level.h"
@@ -74,7 +74,7 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
                            public BrowserObserver,
                            public signin::IdentityManager::Observer,
                            public TabGridStateObserver,
-                           public GeminiViewStateChangeHandlerTarget {
+                           public GeminiContainerMediatorEventHandler {
  public:
   using AttachedTabsList =
       std::vector<std::pair<web::WebStateID, __strong GeminiPageContext*>>;
@@ -136,9 +136,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   void StartGeminiFlow(UIViewController* base_view_controller,
                        GeminiStartupState* startup_state);
 
-  // Returns the gateway for bridging internal protocols.
-  id<BWGGatewayProtocol> bwg_gateway() const { return bwg_gateway_; }
-
   // Sets the UI command handlers on the session handler.
   void SetSessionCommandHandlers();
 
@@ -167,6 +164,12 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // floaty to be shown.
   void ShowFloatyIfInvoked(bool animated, gemini::FloatyUpdateSource source);
 
+  // Temporarily route SDK events from GeminiContainerMediator to
+  // GeminiBrowserAgent to handle work that is necessary for the overlay UI but
+  // not for the embedded UI. TODO(crbug.com/535579970): Remove this once
+  // migration is complete.
+
+  // GeminiContainerMediatorEventHandler:
   void OnViewStateChanged(ios::provider::GeminiViewState view_state) override;
   void OnProcessingStatusChanged(
       ios::provider::GeminiClientMode processing_status,
@@ -307,9 +310,12 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // temporarily hidden.
   void ForceDismissFloaty();
 
-  // Switches the view mode to Floaty (i.e., chat) mode if the current page is
-  // eligible, or dismisses the floaty if ineligible.
-  void SwitchToChatModeOrDismiss(bool animated);
+  // Switches the view mode to Floaty (i.e., chat) mode with the specified
+  // `target_state` if the current page is eligible, or dismisses the floaty if
+  // ineligible.
+  void SwitchToChatModeOrDismiss(bool animated,
+                                 ios::provider::GeminiViewState target_state =
+                                     ios::provider::GeminiViewState::kExpanded);
 
   // Whether to allow the floaty to be shown given a `source`. If not allowed,
   // the floaty state will be as if a floaty was never shown.
@@ -382,9 +388,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
   // Called for the fullscreen update animation.
   void FullscreenProgressUpdatedForAnimation();
 
-  // Configures Gemini for the authenticated user.
-  void ConfigureGemini();
-
   // Called when the page content sharing preference changes.
   void OnPageContentPrefChanged();
 
@@ -408,37 +411,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
       NSString* tab_id,
       ios::provider::GeminiPageContextAttachmentState new_state);
 
-  // The gateway for bridging internal protocols.
-  __strong id<BWGGatewayProtocol> bwg_gateway_ = nullptr;
-
-  /// TODO(crbug.com/491093929): Rename the below classes to move away from the
-  /// `-Handler` naming scheme used by Chromium Objective-C command protocols.
-  // Handler for opening links from Gemini.
-  __strong GeminiLinkOpeningHandler* gemini_link_opening_handler_ = nullptr;
-
-  // Handler for PageState changes.
-  __strong GeminiPageStateChangeHandler* gemini_page_state_change_handler_ =
-      nullptr;
-
-  // Handler for the Gemini sessions.
-  __strong GeminiSessionHandler* bwg_session_handler_ = nullptr;
-
-  // Handler for Gemini camera.
-  __strong GeminiCameraHandler* gemini_camera_handler_ = nullptr;
-
-  // Handler for Gemini tab picker.
-  __strong GeminiTabPickerHandler* gemini_tab_picker_handler_ = nullptr;
-
-  // Handler for Gemini consent provider.
-  __strong GeminiConsentProviderHandler* gemini_consent_provider_handler_ =
-      nullptr;
-
-  // Handler for Gemini suggestion chips.
-  __strong GeminiSuggestionHandler* gemini_suggestion_handler_ = nullptr;
-
-  // Handler for Gemini actor.
-  __strong GeminiActuationHandler* gemini_actuation_handler_ = nullptr;
-
   // Returns the attached page context for `tab_id`, or nil if not found.
   GeminiPageContext* GetAttachedPageContext(web::WebStateID tab_id) const;
 
@@ -452,9 +424,6 @@ class GeminiBrowserAgent : public BrowserUserData<GeminiBrowserAgent>,
 
   // Mediator for the Gemini container. Remove after bottom sheet migrations.
   __strong GeminiContainerMediator* gemini_container_mediator_ = nil;
-
-  // Delegate implementation for BWGSessionHandler.
-  __strong GeminiViewStateChangeHandler* gemini_view_state_handler_ = nullptr;
 
   // Reference to fullscreen controller. Used to observe fullscreen progress
   // updates related to the Gemini overlay for the legacy fullscreen

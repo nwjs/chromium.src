@@ -1,0 +1,688 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_view_controller.h"
+
+#import "base/apple/foundation_util.h"
+#import "base/check.h"
+#import "build/buildflag.h"
+#import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_constants.h"
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_inline_notice_view.h"
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_consumer.h"
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_item.h"
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_mutator.h"
+#import "ios/chrome/browser/autofill/atmemory/utils/atmemory_ui_util.h"
+#import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/shared/ui/buildflags.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/activity_indicator_content_configuration.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/colorful_symbol_content_configuration.h"
+#import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
+#import "ios/chrome/browser/shared/ui/table_view/table_view_utils.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/grit/ios_strings.h"
+#import "ui/base/l10n/l10n_util.h"
+#import "url/gurl.h"
+
+namespace {
+
+// URL for the AI disclosure footer link.
+constexpr char kAIDisclosureURL[] = "settings://ai_disclosure";
+
+// Section identifiers in the "AtMemory" page table view.
+enum class SectionIdentifier {
+  kSearchSection,
+  kSearchFooterSection,
+  kFetchingSection,
+  kNoDataSection,
+  kNoConnectionSection,
+  kUnsupportedQuerySection,
+  kNoticeSection,
+  kRecentFillsSection,
+  kSearchResultsSection,
+};
+
+// Item identifiers in the "AtMemory" page table view.
+enum class ItemIdentifier {
+  kSearchItem,
+  kFetchingItem,
+  kNoDataItem,
+  kNoConnectionItem,
+  kUnsupportedQueryItem,
+  kNoticeItem,
+};
+
+}  // namespace
+
+@interface AtMemorySearchViewController () <
+    UISearchBarDelegate,
+    UISearchResultsUpdating,
+    AtMemoryInlineNoticeViewDelegate,
+    TableViewLinkHeaderFooterItemDelegate>
+@end
+
+@implementation AtMemorySearchViewController {
+  // The table view for this view controller.
+  UITableViewDiffableDataSource<NSNumber*, id>* _dataSource;
+  // Search controller for users to type a query for performing an AtMemory
+  // search and filtering items.
+  UISearchController* _searchController;
+
+  // Search results to display in the UI.
+  NSArray<AtMemorySearchItem*>* _searchResults;
+
+  // Tells if the notice is visible.
+  BOOL _noticeIsVisible;
+  // Tells if the recent fills are visible.
+  BOOL _recentFillsAreVisible;
+  // The current error type.
+  AtMemoryErrorType _errorType;
+  // Represents the table view background style.
+  AtMemoryBackgroundStyle _backgroundStyle;
+}
+
+#pragma mark - UIViewController
+
+- (void)viewDidLoad {
+  [super viewDidLoad];
+
+  _searchController =
+      [[UISearchController alloc] initWithSearchResultsController:nil];
+  _searchController.obscuresBackgroundDuringPresentation = NO;
+  _searchController.hidesNavigationBarDuringPresentation = NO;
+  _searchController.searchResultsUpdater = self;
+  _searchController.searchBar.delegate = self;
+  _searchController.searchBar.accessibilityIdentifier =
+      kAtMemorySearchBarAccessibilityIdentifier;
+
+  self.definesPresentationContext = YES;
+  self.navigationItem.searchController = _searchController;
+  self.navigationItem.hidesSearchBarWhenScrolling = NO;
+
+  UIBarButtonItem* cancelButton = [[UIBarButtonItem alloc]
+      initWithBarButtonSystemItem:UIBarButtonSystemItemCancel
+                           target:self
+                           action:@selector(handleCancelButton)];
+  cancelButton.accessibilityIdentifier =
+      kAtMemoryCloseButtonAccessibilityIdentifier;
+  self.navigationItem.rightBarButtonItem = cancelButton;
+
+  self.title = l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_FIND_AND_FILL_TITLE);
+
+  RegisterTableViewHeaderFooter<TableViewLinkHeaderFooterView>(self.tableView);
+  [self loadModel];
+}
+
+- (void)loadModel {
+  [AtMemoryInlineNoticeConfiguration registerCellForTableView:self.tableView];
+  [TableViewCellContentConfiguration registerCellForTableView:self.tableView];
+
+  __weak __typeof(self) weakSelf = self;
+  _dataSource = [[UITableViewDiffableDataSource alloc]
+      initWithTableView:self.tableView
+           cellProvider:^UITableViewCell*(UITableView* tableView,
+                                          NSIndexPath* indexPath,
+                                          id itemIdentifier) {
+             if ([itemIdentifier isKindOfClass:[AtMemorySearchItem class]]) {
+               return [weakSelf searchItemCellForTableView:tableView
+                                                 indexPath:indexPath
+                                            itemIdentifier:itemIdentifier];
+             }
+             return
+                 [weakSelf cellForTableView:tableView
+                                  indexPath:indexPath
+                             itemIdentifier:static_cast<ItemIdentifier>(
+                                                [itemIdentifier integerValue])];
+           }];
+  _dataSource.defaultRowAnimation = UITableViewRowAnimationFade;
+  [self createSnapshotForInitialState];
+}
+
+#pragma mark - UISearchBarDelegate
+
+- (void)searchBarSearchButtonClicked:(UISearchBar*)searchBar {
+  [self.mutator startSearchWithQuery:searchBar.text];
+  [self createSnapshotForFetchingState];
+}
+
+#pragma mark - UISearchResultsUpdating
+
+- (void)updateSearchResultsForSearchController:
+    (UISearchController*)searchController {
+  NSString* query = searchController.searchBar.text;
+
+  if (query.length == 0) {
+    [self createSnapshotForInitialState];
+    return;
+  }
+
+  if ([[_dataSource snapshot]
+          indexOfItemIdentifier:@(static_cast<int>(
+                                    ItemIdentifier::kSearchItem))] !=
+      NSNotFound) {
+    [self updateSnapshotForItemIdentifier:ItemIdentifier::kSearchItem];
+  } else {
+    [self createSnapshotForSearchState];
+  }
+}
+
+#pragma mark - UITableViewDelegate
+
+- (void)tableView:(UITableView*)tableView
+    didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
+  id item = [_dataSource itemIdentifierForIndexPath:indexPath];
+  if ([item isKindOfClass:[NSNumber class]] &&
+      static_cast<ItemIdentifier>([item integerValue]) ==
+          ItemIdentifier::kSearchItem) {
+    [self.mutator startSearchWithQuery:_searchController.searchBar.text];
+    [self createSnapshotForFetchingState];
+  } else if ([item isKindOfClass:[AtMemorySearchItem class]]) {
+    AtMemorySearchItem* searchItem =
+        base::apple::ObjCCastStrict<AtMemorySearchItem>(item);
+    [self.mutator didSelectSearchResultItem:searchItem];
+  }
+  [tableView deselectRowAtIndexPath:indexPath animated:YES];
+}
+
+- (UIView*)tableView:(UITableView*)tableView
+    viewForFooterInSection:(NSInteger)section {
+  SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
+      [_dataSource sectionIdentifierForIndex:section].integerValue);
+
+  if (sectionIdentifier == SectionIdentifier::kSearchFooterSection) {
+    TableViewLinkHeaderFooterView* footer =
+        DequeueTableViewHeaderFooter<TableViewLinkHeaderFooterView>(tableView);
+    footer.delegate = self;
+    footer.urls = @[ [[CrURL alloc] initWithGURL:GURL(kAIDisclosureURL)] ];
+    [footer setText:l10n_util::GetNSString(IDS_IOS_AT_MEMORY_AI_DISCLOSURE)
+          withColor:[UIColor colorNamed:kTextSecondaryColor]];
+    return footer;
+  }
+
+  return nil;
+}
+
+- (CGFloat)tableView:(UITableView*)tableView
+    heightForFooterInSection:(NSInteger)section {
+  SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
+      [_dataSource sectionIdentifierForIndex:section].integerValue);
+
+  if (sectionIdentifier == SectionIdentifier::kSearchFooterSection) {
+    return UITableViewAutomaticDimension;
+  }
+
+  return 0;
+}
+
+#pragma mark - TableViewLinkHeaderFooterItemDelegate
+
+- (void)view:(TableViewLinkHeaderFooterView*)view didTapLinkURL:(CrURL*)URL {
+  CHECK(URL.gurl == GURL(kAIDisclosureURL));
+  // TODO(crbug.com/546671261): Open Enhanced Autofill details page.
+}
+
+#pragma mark - Actions
+
+- (void)handleCancelButton {
+  [self.atMemoryHandler dismissAtMemory];
+}
+
+- (void)handleInfoButtonTap:(UIButton*)sender {
+  [self.mutator openGranularFillForSearchResultAtIndex:sender.tag];
+}
+
+#pragma mark - AtMemorySearchConsumer
+
+- (void)setErrorType:(AtMemoryErrorType)errorType {
+  _errorType = errorType;
+  [self createSnapshotForErrorState];
+}
+
+- (void)setNoticeVisible:(BOOL)noticeVisible {
+  if (_noticeIsVisible == noticeVisible) {
+    return;
+  }
+  _noticeIsVisible = noticeVisible;
+  if (_dataSource) {
+    NSDiffableDataSourceSnapshot* snapshot = [_dataSource snapshot];
+    NSNumber* noticeSection =
+        @(static_cast<int>(SectionIdentifier::kNoticeSection));
+    BOOL containsNotice =
+        [snapshot.sectionIdentifiers containsObject:noticeSection];
+
+    if (noticeVisible && !containsNotice) {
+      // TODO(crbug.com/540433768): Update position of the notice section
+      // relative to other sections.
+      if (snapshot.sectionIdentifiers.count > 0) {
+        [snapshot insertSectionsWithIdentifiers:@[ noticeSection ]
+                    beforeSectionWithIdentifier:snapshot.sectionIdentifiers
+                                                    .firstObject];
+      } else {
+        [snapshot appendSectionsWithIdentifiers:@[ noticeSection ]];
+      }
+      [snapshot appendItemsWithIdentifiers:@[ @(static_cast<int>(
+                                               ItemIdentifier::kNoticeItem)) ]
+                 intoSectionWithIdentifier:noticeSection];
+    } else if (!noticeVisible && containsNotice) {
+      [snapshot deleteSectionsWithIdentifiers:@[ noticeSection ]];
+    }
+    [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+  }
+}
+
+- (void)setFetchingSubtitle {
+  // TODO(crbug.com/541237598): Implement fetching subtitle.
+}
+
+- (void)setRecentFills {
+  // TODO(crbug.com/540877897): Implement recent fills.
+}
+
+- (void)setSearchResults:(NSArray<AtMemorySearchItem*>*)searchResults {
+  _searchResults = searchResults;
+  [self createSnapshotForSearchResultsState];
+}
+
+- (void)updateTableViewBackgroundStyle:(AtMemoryBackgroundStyle)style {
+  _backgroundStyle = style;
+  switch (style) {
+    case AtMemoryBackgroundStyle::kEmptyStyle:
+      [self setEmptyTableViewBackground];
+      break;
+    case AtMemoryBackgroundStyle::kDefaultStyle:
+      self.tableView.backgroundView = nil;
+      break;
+  }
+}
+
+#pragma mark - Private
+
+// Creates the `snapshot` for the initial state.
+- (void)createSnapshotForInitialState {
+  [self updateTableViewBackgroundStyle:_backgroundStyle];
+
+  NSDiffableDataSourceSnapshot* snapshot =
+      [[NSDiffableDataSourceSnapshot alloc] init];
+
+  [self appendNoticeSectionToSnapshot:snapshot];
+
+  if (_recentFillsAreVisible) {
+    [snapshot appendSectionsWithIdentifiers:@[
+      @(static_cast<int>(SectionIdentifier::kRecentFillsSection))
+    ]];
+    // TODO(crbug.com/540877897): Call a method that adds the recentFill
+    // results into the kRecentFillsSection.
+  }
+
+  [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+}
+
+// Creates the `snapshot` for the error states.
+- (void)createSnapshotForErrorState {
+  NSDiffableDataSourceSnapshot* snapshot =
+      [[NSDiffableDataSourceSnapshot alloc] init];
+
+  ItemIdentifier errorIdentifier;
+  SectionIdentifier errorSection;
+
+  switch (_errorType) {
+    case AtMemoryErrorType::kNoConnectionError:
+      errorIdentifier = ItemIdentifier::kNoConnectionItem;
+      errorSection = SectionIdentifier::kNoConnectionSection;
+      break;
+    case AtMemoryErrorType::kNoDataError:
+      errorIdentifier = ItemIdentifier::kNoDataItem;
+      errorSection = SectionIdentifier::kNoDataSection;
+      break;
+    case AtMemoryErrorType::kUnsupportedQueryError:
+      errorIdentifier = ItemIdentifier::kUnsupportedQueryItem;
+      errorSection = SectionIdentifier::kUnsupportedQuerySection;
+      break;
+  }
+
+  // Add the correct error section identifier.
+  [snapshot
+      appendSectionsWithIdentifiers:@[ @(static_cast<int>(errorSection)) ]];
+  [snapshot appendItemsWithIdentifiers:@[ @(static_cast<int>(errorIdentifier)) ]
+             intoSectionWithIdentifier:@(static_cast<int>(errorSection))];
+
+  // Add the notice if needed below the error cell.
+  [self appendNoticeSectionToSnapshot:snapshot];
+
+  [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+}
+
+// Creates the diffable data source snapshot for the search state.
+- (void)createSnapshotForSearchState {
+  self.tableView.backgroundView = nil;
+  NSDiffableDataSourceSnapshot* snapshot =
+      [[NSDiffableDataSourceSnapshot alloc] init];
+  [snapshot appendSectionsWithIdentifiers:@[
+    @(static_cast<int>(SectionIdentifier::kSearchSection))
+  ]];
+  [snapshot appendItemsWithIdentifiers:@[ @(static_cast<int>(
+                                           ItemIdentifier::kSearchItem)) ]
+             intoSectionWithIdentifier:@(static_cast<int>(
+                                           SectionIdentifier::kSearchSection))];
+  [snapshot appendSectionsWithIdentifiers:@[
+    @(static_cast<int>(SectionIdentifier::kSearchFooterSection))
+  ]];
+
+  [self appendNoticeSectionToSnapshot:snapshot];
+  [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+}
+
+// Populates `snapshot` for the fetching state.
+- (void)createSnapshotForFetchingState {
+  NSDiffableDataSourceSnapshot* snapshot =
+      [[NSDiffableDataSourceSnapshot alloc] init];
+
+  [snapshot appendSectionsWithIdentifiers:@[
+    @(static_cast<int>(SectionIdentifier::kFetchingSection))
+  ]];
+  [snapshot
+      appendItemsWithIdentifiers:@[ @(static_cast<int>(
+                                     ItemIdentifier::kFetchingItem)) ]
+       intoSectionWithIdentifier:@(static_cast<int>(
+                                     SectionIdentifier::kFetchingSection))];
+
+  [self appendNoticeSectionToSnapshot:snapshot];
+  [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+}
+
+// Populates `snapshot` for the search results state.
+- (void)createSnapshotForSearchResultsState {
+  NSDiffableDataSourceSnapshot* snapshot =
+      [[NSDiffableDataSourceSnapshot alloc] init];
+
+  [self appendNoticeSectionToSnapshot:snapshot];
+  [snapshot appendSectionsWithIdentifiers:@[
+    @(static_cast<int>(SectionIdentifier::kSearchResultsSection))
+  ]];
+  [snapshot appendItemsWithIdentifiers:_searchResults
+             intoSectionWithIdentifier:
+                 @(static_cast<int>(SectionIdentifier::kSearchResultsSection))];
+
+  [_dataSource applySnapshot:snapshot animatingDifferences:YES];
+}
+
+// Appends the notice section and item to `snapshot` if the notice is visible.
+- (void)appendNoticeSectionToSnapshot:(NSDiffableDataSourceSnapshot*)snapshot {
+  if (!_noticeIsVisible) {
+    return;
+  }
+  [snapshot appendSectionsWithIdentifiers:@[
+    @(static_cast<int>(SectionIdentifier::kNoticeSection))
+  ]];
+  [snapshot appendItemsWithIdentifiers:@[ @(static_cast<int>(
+                                           ItemIdentifier::kNoticeItem)) ]
+             intoSectionWithIdentifier:@(static_cast<int>(
+                                           SectionIdentifier::kNoticeSection))];
+}
+
+// Sets the table view background to the empty state.
+- (void)setEmptyTableViewBackground {
+  UIImage* image = [UIImage imageNamed:@"at_memory_empty"];
+  [self addEmptyTableViewWithMessage:
+            l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_ZERO_STATE_SUBTITLE)
+                               image:image];
+}
+
+// Reloads the snapshot for the cell with the given `itemIdentifier`.
+- (void)updateSnapshotForItemIdentifier:(ItemIdentifier)itemIdentifier {
+  NSDiffableDataSourceSnapshot<NSNumber*, id>* snapshot =
+      [_dataSource snapshot];
+  if ([snapshot indexOfItemIdentifier:@(static_cast<int>(itemIdentifier))] ==
+      NSNotFound) {
+    return;
+  }
+  [snapshot
+      reconfigureItemsWithIdentifiers:@[ @(static_cast<int>(itemIdentifier)) ]];
+  [_dataSource applySnapshot:snapshot animatingDifferences:NO];
+}
+
+// Returns the cell for the corresponding `itemIdentifier`.
+- (UITableViewCell*)cellForTableView:(UITableView*)tableView
+                           indexPath:(NSIndexPath*)indexPath
+                      itemIdentifier:(ItemIdentifier)itemIdentifier {
+  UITableViewCell* cell = nil;
+  switch (itemIdentifier) {
+    case ItemIdentifier::kSearchItem:
+      cell = [self searchCellForTableView:tableView];
+      break;
+    case ItemIdentifier::kNoticeItem:
+      cell = [self noticeCellForTableView:tableView];
+      break;
+    case ItemIdentifier::kFetchingItem:
+      cell = [self fetchingCellForTableView:tableView];
+      break;
+    case ItemIdentifier::kNoDataItem:
+      cell = [self noDataCellForTableView:tableView];
+      break;
+    case ItemIdentifier::kNoConnectionItem:
+      cell = [self noConnectionCellForTableView:tableView];
+      break;
+    case ItemIdentifier::kUnsupportedQueryItem:
+      cell = [self unsupportedQueryCellForTableView:tableView];
+      break;
+  }
+  CHECK(cell);
+  return cell;
+}
+
+// Returns the table view cell for an AtMemory search result item.
+- (UITableViewCell*)searchItemCellForTableView:(UITableView*)tableView
+                                     indexPath:(NSIndexPath*)indexPath
+                                itemIdentifier:
+                                    (AtMemorySearchItem*)itemIdentifier {
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = itemIdentifier.title;
+  configuration.titleColor = [UIColor colorNamed:kTextPrimaryColor];
+  configuration.subtitle = itemIdentifier.subtitle;
+
+  if (itemIdentifier.icon) {
+    ColorfulSymbolContentConfiguration* symbolConfiguration =
+        [[ColorfulSymbolContentConfiguration alloc] init];
+    symbolConfiguration.symbolImage = itemIdentifier.icon;
+    symbolConfiguration.symbolTintColor =
+        [UIColor colorNamed:kTextSecondaryColor];
+    configuration.leadingConfiguration = symbolConfiguration;
+  }
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  cell.contentConfiguration = configuration;
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.accessibilityIdentifier =
+      GetAtMemorySearchResultCellAccessibilityIdentifier(itemIdentifier.title);
+
+  cell.accessoryView = [self infoButtonForSearchItem:itemIdentifier];
+
+  return cell;
+}
+
+// Returns a configured info button for the given search result `item`.
+- (UIButton*)infoButtonForSearchItem:(AtMemorySearchItem*)item {
+  UIButton* infoButton = [UIButton buttonWithType:UIButtonTypeInfoLight];
+  [infoButton setImage:SymbolWithPointSize(SymbolInfoCircle, kIconPointSize)
+              forState:UIControlStateNormal];
+  infoButton.tintColor = [UIColor colorNamed:kBlueColor];
+  infoButton.tag = item.index;
+  infoButton.accessibilityIdentifier =
+      GetAtMemorySearchResultInfoButtonAccessibilityIdentifier(item.title);
+  [infoButton addTarget:self
+                 action:@selector(handleInfoButtonTap:)
+       forControlEvents:UIControlEventTouchUpInside];
+  return infoButton;
+}
+
+// Returns the table view cell for the "Search" state.
+- (UITableViewCell*)searchCellForTableView:(UITableView*)tableView {
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = _searchController.searchBar.text;
+  configuration.subtitle =
+      l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_SEARCH_AFFORDANCE_SUBTITLE);
+
+  ColorfulSymbolContentConfiguration* iconConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
+  iconConfiguration.symbolImage =
+      SymbolTemplateWithPointSize(SymbolGeminiBrandedLogo, kIconPointSize);
+#else
+  iconConfiguration.symbolImage =
+      SymbolTemplateWithPointSize(SymbolGeminiNonBrandedLogo, kIconPointSize);
+#endif
+  iconConfiguration.symbolTintColor = [UIColor colorNamed:kTextPrimaryColor];
+
+  configuration.leadingConfiguration = iconConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  cell.contentConfiguration = configuration;
+  cell.accessibilityIdentifier = kAtMemorySearchCellAccessibilityIdentifier;
+
+  return cell;
+}
+
+// Returns the table view cell for the "No Data" state.
+- (UITableViewCell*)noDataCellForTableView:(UITableView*)tableView {
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_NO_DATA);
+  configuration.titleColor = [UIColor colorNamed:kTextPrimaryColor];
+
+  ColorfulSymbolContentConfiguration* symbolConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+  symbolConfiguration.symbolImage =
+      SymbolWithPointSize(SymbolErrorCircle, kIconPointSize);
+  symbolConfiguration.symbolTintColor =
+      [UIColor colorNamed:kTextSecondaryColor];
+  configuration.leadingConfiguration = symbolConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  cell.contentConfiguration = configuration;
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.contentView.alpha = kDefaultCellAlpha;
+  cell.userInteractionEnabled = NO;
+  cell.accessibilityIdentifier = kAtMemoryNoDataCellAccessibilityIdentifier;
+
+  return cell;
+}
+
+// Returns the table view cell for the "No Connection" state.
+- (UITableViewCell*)noConnectionCellForTableView:(UITableView*)tableView {
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = _searchController.searchBar.text;
+  configuration.titleColor = [UIColor colorNamed:kTextPrimaryColor];
+  configuration.subtitle =
+      l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_NO_CONNECTION);
+
+  ColorfulSymbolContentConfiguration* symbolConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+  symbolConfiguration.symbolImage =
+      SymbolWithPointSize(SymbolErrorCircle, kIconPointSize);
+  symbolConfiguration.symbolTintColor =
+      [UIColor colorNamed:kTextSecondaryColor];
+  configuration.leadingConfiguration = symbolConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  cell.contentConfiguration = configuration;
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.contentView.alpha = kDisabledCellAlpha;
+  cell.userInteractionEnabled = NO;
+  cell.accessibilityIdentifier =
+      kAtMemoryNoConnectionCellAccessibilityIdentifier;
+
+  return cell;
+}
+
+// Returns the table view cell for the "Unsupported Query" state.
+- (UITableViewCell*)unsupportedQueryCellForTableView:(UITableView*)tableView {
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title =
+      l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_UNSUPPORTED_QUERY_TITLE);
+  configuration.subtitle = l10n_util::GetNSString(
+      IDS_AUTOFILL_AT_MEMORY_UNSUPPORTED_QUERY_DESCRIPTION);
+
+  ColorfulSymbolContentConfiguration* symbolConfiguration =
+      [[ColorfulSymbolContentConfiguration alloc] init];
+#if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
+  symbolConfiguration.symbolImage =
+      SymbolWithPointSize(SymbolGeminiBrandedLogo, kIconPointSize);
+#else
+  symbolConfiguration.symbolImage =
+      SymbolWithPointSize(SymbolGeminiNonBrandedLogo, kIconPointSize);
+#endif
+  symbolConfiguration.symbolTintColor = [UIColor colorNamed:kTextPrimaryColor];
+  configuration.leadingConfiguration = symbolConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  cell.contentConfiguration = configuration;
+  cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+  cell.contentView.alpha = kDefaultCellAlpha;
+  cell.userInteractionEnabled = YES;
+  cell.accessibilityIdentifier =
+      kAtMemoryUnsupportedQueryCellAccessibilityIdentifier;
+
+  return cell;
+}
+
+// Returns the table view cell for the fetching state.
+- (UITableViewCell*)fetchingCellForTableView:(UITableView*)tableView {
+  TableViewCellContentConfiguration* configuration =
+      [[TableViewCellContentConfiguration alloc] init];
+  configuration.title = _searchController.searchBar.text;
+  configuration.titleColor = [UIColor colorNamed:kTextPrimaryColor];
+  configuration.subtitle =
+      l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_SEARCH_AFFORDANCE_SUBTITLE);
+
+  ActivityIndicatorContentConfiguration* activityIndicatorConfiguration =
+      [[ActivityIndicatorContentConfiguration alloc] init];
+  configuration.leadingConfiguration = activityIndicatorConfiguration;
+
+  UITableViewCell* cell =
+      [TableViewCellContentConfiguration dequeueTableViewCell:tableView];
+  cell.contentConfiguration = configuration;
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.userInteractionEnabled = NO;
+  cell.accessibilityIdentifier = kAtMemoryFetchingCellAccessibilityIdentifier;
+
+  return cell;
+}
+
+// Returns the table view cell for the notice state.
+- (UITableViewCell*)noticeCellForTableView:(UITableView*)tableView {
+  UITableViewCell* cell =
+      [AtMemoryInlineNoticeConfiguration dequeueTableViewCell:tableView];
+  cell.selectionStyle = UITableViewCellSelectionStyleNone;
+  cell.backgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
+
+  AtMemoryInlineNoticeConfiguration* config =
+      [[AtMemoryInlineNoticeConfiguration alloc] init];
+  config.delegate = self;
+  cell.contentConfiguration = config;
+  return cell;
+}
+
+#pragma mark - AtMemoryInlineNoticeViewDelegate
+
+- (void)inlineNoticeViewDidTapOK:(AtMemoryInlineNoticeView*)view {
+  [self.mutator acknowledgePrivacyNotice];
+}
+
+- (void)inlineNoticeViewDidTapSettings:(AtMemoryInlineNoticeView*)view {
+  [self.mutator didTapSettingsLink];
+}
+
+@end

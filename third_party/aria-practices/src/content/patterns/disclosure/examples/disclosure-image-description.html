@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Example Disclosure (Show/Hide) for Image Description</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/disclosure-image-description.css" rel="stylesheet">
+    <script src="js/disclosure-button.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <figure>
+            <img
+              src="images/minard.png"
+              alt="Charles Minard's 1869 chart showing the number of men in Napoleon’s 1812 Russian campaign army, their movements, as well as the temperature they encountered on the return path."
+            >
+            <figcaption>
+              <p>
+                Figurative Map of the successive losses in men of the French Army in the Russian campaign 1812-1813.
+                Drawn by Mr. Minard, Inspector General of Bridges and Roads in retirement.
+                Paris, 20 November 1869.
+              </p>
+              <p>
+                The numbers of men present are represented by the widths of the colored zones in a rate of one millimeter for ten thousand men; these are also written beside the zones.
+                Red designates men moving into Russia, black those on retreat.
+              </p>
+              <p>The information used for drawing the map were taken from the works of Messrs. Thiers, <span lang="fr">de Ségur, de Fezensac, de Chambray</span> and the unpublished diary of Jacob, pharmacist of the Army since 28 October.</p>
+              <p>In order to facilitate the judgement of the eye regarding the diminution of the army, I supposed that the troops under Prince Jèrôme and under Marshal Davoust, who were sent to Minsk and Mobilow and who rejoined near Orscha and Witebsk, had always marched with the army.</p>
+              <p><strong>Note: A French translation from Wikipedia.</strong></p>
+              <button type="button" aria-expanded="true" aria-controls="id_long_desc">Data Table for Minard's Chart</button>
+              <div class="long_desc" id="id_long_desc">
+                <h3 id="id_data_label">Data for Charles Minard's Chart of Napoleon's Invasion of Russia</h3>
+                <table aria-labelledby="id_data_label" class="data">
+                  <thead>
+                    <tr>
+                      <th scope="col">Location</th>
+                      <th scope="col">Approximate Date</th>
+                      <th scope="col">Size of Army</th>
+                      <th scope="col">Temperature C</th>
+                      <th scope="col">Temperature F</th>
+                      <th scope="col">Direction</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Kowno River</th>
+                      <td>June 24th</td>
+                      <td>442,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Wilna</th>
+                      <td>June 30th</td>
+                      <td>400,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Witebsk</th>
+                      <td>na</td>
+                      <td>175,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Smolensk</th>
+                      <td>August 16th</td>
+                      <td>145,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Chjat</th>
+                      <td>na</td>
+                      <td>127,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Mojaisk</th>
+                      <td>September 7th</td>
+                      <td>100,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Moscow</th>
+                      <td>September 14th</td>
+                      <td>100,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Advance</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Malo-jarosewli</th>
+                      <td>October 18th</td>
+                      <td>96,000</td>
+                      <td>0</td>
+                      <td>32</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Mojaisk</th>
+                      <td>October 24th</td>
+                      <td>87,000</td>
+                      <td>0</td>
+                      <td>32</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Wirma</th>
+                      <td>na</td>
+                      <td>55,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Smolensk</th>
+                      <td>November 14th</td>
+                      <td>37,000</td>
+                      <td>-26</td>
+                      <td>-13</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Orscha</th>
+                      <td>na</td>
+                      <td>24,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Botr</th>
+                      <td>na</td>
+                      <td>20,000</td>
+                      <td>-14</td>
+                      <td>-7</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Studienska (reinforcements arrive)</th>
+                      <td>December 1st</td>
+                      <td>50,000</td>
+                      <td>-25</td>
+                      <td>-13</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Minsk</th>
+                      <td>December 1st</td>
+                      <td>28,000</td>
+                      <td>-30</td>
+                      <td>-22</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Moloderno</th>
+                      <td>December 6th</td>
+                      <td>28,000</td>
+                      <td>-38</td>
+                      <td>-34</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Smorgeni</th>
+                      <td>December 7th</td>
+                      <td>12,000</td>
+                      <td>-33</td>
+                      <td>-27</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Wilna</th>
+                      <td>na</td>
+                      <td>8,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Retreat</td>
+                    </tr>
+                    <tr>
+                      <th scope="row">Kowno (reinforcements arrive)</th>
+                      <td>December 14th</td>
+                      <td>10,000</td>
+                      <td>na</td>
+                      <td>na</td>
+                      <td>Retreat</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </figcaption>
+          </figure>
+        </div>
+  </body>
+</html>

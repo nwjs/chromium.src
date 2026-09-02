@@ -43,6 +43,7 @@ namespace autofill {
 
 class AutofillPopupController;
 class PopupBnplFootnoteView;
+class PopupCenteredTextView;
 class PopupSeparatorView;
 class PopupTitleView;
 class PopupWarningView;
@@ -96,6 +97,7 @@ class PopupViewViews : public PopupBaseView,
                                   PopupTitleView*,
                                   PopupWarningView*,
                                   PopupLoadingView*,
+                                  PopupCenteredTextView*,
                                   PopupBnplFootnoteView*>;
 
   // The maximum width of the popup.
@@ -103,6 +105,11 @@ class PopupViewViews : public PopupBaseView,
 
   // The width of the @memory popup.
   static constexpr int kAtMemoryPopupWidth = 320;
+
+  // The maximum number of entries shown before making the popup scrollable. A
+  // decimal number means the last element will appear "cut-off" to indicate
+  // the scroll area.
+  static constexpr double kAutofillPopupMaxVisibleEntries = 5.3;
 
   // The time it takes for a selected cell to open a sub-popup if it has one.
   static constexpr base::TimeDelta kMouseOpenSubPopupDelay =
@@ -340,6 +347,10 @@ class PopupViewViews : public PopupBaseView,
   // sub-popup. This closes the sub-popup and has the effect of going one menu
   // level up. Returns whether this was successful.
   bool SelectParentPopupContentCell();
+
+  // Schedules or stops closing of the open sub-popup.
+  void ScheduleSubPopupClosing();
+  void StopSubPopupClosing();
 
   // The popup can be used for informing the user without providing suggestions
   // to select, e.g. when the suggestions are loading. It has only one

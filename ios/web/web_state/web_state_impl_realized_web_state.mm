@@ -27,6 +27,8 @@
 #import "ios/web/navigation/wk_navigation_util.h"
 #import "ios/web/public/browser_state.h"
 #import "ios/web/public/favicon/favicon_url.h"
+#import "ios/web/public/js_messaging/web_frame.h"
+#import "ios/web/public/js_messaging/web_frames_manager.h"
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/web_state_policy_decider.h"
 #import "ios/web/public/security/certificate_policy_cache.h"
@@ -1100,6 +1102,7 @@ std::unique_ptr<WebUIIOS> WebStateImpl::RealizedWebState::CreateWebUIIOS(
   }
 
   web_ui->SetController(std::move(controller));
+
   return web_ui;
 }
 

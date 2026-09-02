@@ -23,6 +23,7 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListProperties.RailCollapseState;
 import org.chromium.chrome.browser.ui.side_ui.SideUiContainer;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
@@ -35,6 +36,7 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.ui.base.ViewUtils;
+import org.chromium.ui.util.TokenHolder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,7 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
     static final int COLLAPSED_WIDTH_DP = VerticalTabUtils.SIDE_UI_CONTAINER_COLLAPSED_WIDTH_DP;
 
     private final SideUiCoordinator mSideUiCoordinator;
+    private final BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate;
     private final FrameLayout mRootView;
     private final @AnchorSide int mAnchorSide;
     private final VerticalTabListCoordinator mTabListCoordinator;
@@ -63,15 +66,18 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
     // Whether the vertical tab is set to visible via UI. Remains true even if it is temporarily
     // hidden by other conditions such as narrow window i.e. |mIsAutoHiddenSupplier.get()| is true.
     private boolean mManualVisible;
+    private int mBrowserControlsToken = TokenHolder.INVALID_TOKEN;
 
     public VerticalTabsSideUiCoordinator(
             Activity activity,
             SideUiCoordinator sideUiCoordinator,
+            BrowserStateBrowserControlsVisibilityDelegate browserControlsVisibilityDelegate,
             VerticalTabListCoordinator tabListCoordinator,
             SettableNonNullObservableSupplier<Boolean> isVerticalTabsActiveSupplier) {
         mAnchorSide = AnchorSide.LEFT;
 
         mSideUiCoordinator = sideUiCoordinator;
+        mBrowserControlsVisibilityDelegate = browserControlsVisibilityDelegate;
         mTabListCoordinator = tabListCoordinator;
         mCollapseController = mTabListCoordinator.getCollapseController();
         mIsVerticalTabsActiveSupplier = isVerticalTabsActiveSupplier;
@@ -87,9 +93,7 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
                         // current SideUiSpecs. If the window is resized without altering
                         // SideUiSpecs, this callback ensures we still update rail collapse and
                         // button state when crossing the narrow-window threshold.
-                        updateCollapseButtonAndRailState(
-                                newConfig.screenWidthDp
-                                        < VerticalTabUtils.MIN_EXPAND_WINDOW_WIDTH_DP);
+                        updateCollapseButtonAndRailState(isWindowNarrow(newConfig.screenWidthDp));
                     }
                 };
         mRootView.setLayoutParams(
@@ -110,6 +114,11 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
         mManualVisible = show;
         if (!show) {
             updateAutoHiddenState(false);
+            releasePersistentShowingToken();
+        } else {
+            if (mBrowserControlsToken == TokenHolder.INVALID_TOKEN) {
+                mBrowserControlsToken = mBrowserControlsVisibilityDelegate.showControlsPersistent();
+            }
         }
         mSideUiCoordinator.updateUi(new UiUpdateRequest(getSideUiId(), suppressAnimations));
         // Fallback: If hiding VT when spec diff is empty (no hide animation scheduled),
@@ -122,10 +131,37 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
 
     public void destroy() {
         updateAutoHiddenState(false);
+        releasePersistentShowingToken();
         mSideUiCoordinator.removeObserver(this);
         mCollapseController.setRailCollapseListener(null);
         mTabListCoordinator.destroy();
         mIsVerticalTabsActiveSupplier.set(false);
+    }
+
+    /** Requests keyboard focus on the Vertical Tabs rail. */
+    public void requestKeyboardFocus() {
+        mTabListCoordinator.requestKeyboardFocus();
+    }
+
+    /** Returns whether the Vertical Tabs rail contains keyboard focus. */
+    public boolean containsKeyboardFocus() {
+        View view = mTabListCoordinator.getView();
+        return view != null && view.hasFocus();
+    }
+
+    /**
+     * Returns whether or not Tab layout toggle menu can be activated. Used to grey out the menu
+     * item if it cannot be activated due to conditions such as a narrow app Window width.
+     */
+    public boolean canActivateTabLayoutToggleMenu() {
+        return mSideUiCoordinator.canShowSideUi(SideUiId.VERTICAL_TABS);
+    }
+
+    private void releasePersistentShowingToken() {
+        if (mBrowserControlsToken != TokenHolder.INVALID_TOKEN) {
+            mBrowserControlsVisibilityDelegate.releasePersistentShowingToken(mBrowserControlsToken);
+            mBrowserControlsToken = TokenHolder.INVALID_TOKEN;
+        }
     }
 
     // SideUiContainer implementation:
@@ -142,19 +178,15 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
     @Override
     public SideUiSize determineShowableSize(
             @Px int availableWidth, @Px int windowWidth, boolean isFullscreen) {
-        if (isFullscreen) {
+        int targetWidth = calculateWidthPx(windowWidth, availableWidth);
+        int minShowableWidth =
+                VerticalTabUtils.isAutoResizeEnabled() ? mCollapsedViewWidth : targetWidth;
+        boolean shouldHide = availableWidth < minShowableWidth;
+        updateAutoHiddenState(mManualVisible && shouldHide);
+        if (isFullscreen || shouldHide) {
             return new SideUiSize(0, HeightType.NOT_APPLICABLE);
         }
-        int targetWidth =
-                mCollapseController.getEffectiveRailCollapseState(isCurrentWindowNarrow())
-                                == RailCollapseState.COLLAPSED
-                        ? mCollapsedViewWidth
-                        : mExpandedViewWidth;
-        boolean shouldHide = availableWidth < targetWidth;
-        updateAutoHiddenState(mManualVisible && shouldHide);
-        return shouldHide
-                ? new SideUiSize(0, HeightType.NOT_APPLICABLE)
-                : new SideUiSize(targetWidth, HeightType.TOOLBAR);
+        return new SideUiSize(targetWidth, HeightType.TOOLBAR);
     }
 
     private void updateAutoHiddenState(boolean isHiddenDueToNarrowWidth) {
@@ -169,14 +201,6 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
     @Override
     public boolean hasContentToShow() {
         return mManualVisible;
-    }
-
-    /**
-     * Returns whether or not Tab layout toggle menu can be activated. Used to grey out the menu
-     * item if it cannot be activated due to conditions such as a narrow app Window width.
-     */
-    public boolean canActivateTabLayoutToggleMenu() {
-        return mSideUiCoordinator.canShowSideUi(SideUiId.VERTICAL_TABS);
     }
 
     @Override
@@ -223,7 +247,7 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
 
     @Override
     public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
-        updateCollapseButtonAndRailState(isCurrentWindowNarrow());
+        updateCollapseButtonAndRailState(isWindowNarrow());
     }
 
     // Sequence when user requests state change:
@@ -237,7 +261,7 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
         // TODO(crbug.com/527641177): Remove this if check after expand on hovering UI is done.
         if (VerticalTabRailCollapseController.isExpanded(currentState)
                 && VerticalTabRailCollapseController.isExpanded(targetState)) {
-            updateCollapseButtonAndRailState(isCurrentWindowNarrow());
+            updateCollapseButtonAndRailState(isWindowNarrow());
         } else {
             mSideUiCoordinator.updateUi(
                     new UiUpdateRequest(getSideUiId(), /* suppressAnimations= */ false));
@@ -258,13 +282,39 @@ public class VerticalTabsSideUiCoordinator implements SideUiContainer, SideUiObs
         mTabListCoordinator.setCollapseButtonEnabled(!isNarrow);
     }
 
-    private boolean isCurrentWindowNarrow() {
-        return mRootView.getContext().getResources().getConfiguration().screenWidthDp
-                < VerticalTabUtils.MIN_EXPAND_WINDOW_WIDTH_DP;
+    private @Px int calculateWidthPx(@Px int windowWidthPx, @Px int availableWidthPx) {
+        if (mCollapseController.getEffectiveRailCollapseState(isWindowNarrow())
+                == RailCollapseState.COLLAPSED) {
+            return mCollapsedViewWidth;
+        }
+        if (!VerticalTabUtils.isAutoResizeEnabled()) {
+            return mExpandedViewWidth;
+        }
+        int ratioWidthPx = Math.round(windowWidthPx * VerticalTabUtils.EXPANDED_WINDOW_WIDTH_RATIO);
+        return Math.min(mExpandedViewWidth, Math.min(ratioWidthPx, availableWidthPx));
+    }
+
+    private boolean isWindowNarrow() {
+        return isWindowNarrow(
+                mRootView.getContext().getResources().getConfiguration().screenWidthDp);
+    }
+
+    private boolean isWindowNarrow(int windowWidthDp) {
+        if (VerticalTabUtils.isAutoResizeEnabled()) {
+            int minWidthByWebContents =
+                    SideUiCoordinator.MIN_WEB_CONTENTS_WIDTH_DP
+                            + VerticalTabUtils.MIN_EXPANDED_WIDTH_DP;
+            int minWidthByRatio =
+                    Math.round(
+                            VerticalTabUtils.MIN_EXPANDED_WIDTH_DP
+                                    / VerticalTabUtils.EXPANDED_WINDOW_WIDTH_RATIO);
+            return windowWidthDp < Math.max(minWidthByWebContents, minWidthByRatio);
+        }
+        return windowWidthDp < VerticalTabUtils.MIN_EXPAND_WINDOW_WIDTH_DP;
     }
 
     @RailCollapseState
     int getRailCollapseStateForTesting() {
-        return mCollapseController.getEffectiveRailCollapseState(isCurrentWindowNarrow());
+        return mCollapseController.getEffectiveRailCollapseState(isWindowNarrow());
     }
 }

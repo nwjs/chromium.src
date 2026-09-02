@@ -26,8 +26,12 @@
   E_CPONLY(kColorAppMenuExpandedForegroundPrimary) \
   E_CPONLY(kColorAppMenuChipInkDropHover) \
   E_CPONLY(kColorAppMenuChipInkDropRipple) \
+  E_CPONLY(kColorAppMenuYourChromeBackground) \
+  E_CPONLY(kColorAppMenuToolsAndActionsBackground) \
   /* Actor UI colors.*/ \
+  E_CPONLY(kColorActorUiHandoffButtonBackground) \
   E_CPONLY(kColorActorUiHandoffButtonBorder) \
+  E_CPONLY(kColorActorUiHandoffButtonForeground) \
   E_CPONLY(kColorActorUiOverlayBorder) \
   E_CPONLY(kColorActorUiOverlayBorderGlow) \
   E_CPONLY(kColorActorUiScrimStart) \
@@ -709,6 +713,11 @@
   E_CPONLY(kColorReadAnythingPreviousReadAloudHighlightHighContrast) \
   E_CPONLY(kColorReadAnythingPreviousReadAloudHighlightLowContrastLight) \
   E_CPONLY(kColorReadAnythingPreviousReadAloudHighlightLowContrastDark) \
+  E_CPONLY(kColorReadAnythingAiPlaybackBackground) \
+  E_CPONLY(kColorReadAnythingAiPlaybackHoverBackground) \
+  E_CPONLY(kColorReadAnythingAiPlaybackIcon) \
+  E_CPONLY(kColorReadAnythingAiPlaybackActiveBackground) \
+  E_CPONLY(kColorReadAnythingAiPlaybackActiveIcon) \
   E_CPONLY(kColorReadAnythingAudioPlayerBackground) \
   E_CPONLY(kColorReadAnythingAudioPlayerBackgroundBlue) \
   E_CPONLY(kColorReadAnythingAudioPlayerBackgroundDark) \

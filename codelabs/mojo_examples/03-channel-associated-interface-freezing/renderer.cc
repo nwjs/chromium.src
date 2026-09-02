@@ -13,9 +13,7 @@
 #include "codelabs/mojo_examples/mojo_impls.h"
 #include "codelabs/mojo_examples/mojom/interface.mojom.h"
 #include "codelabs/mojo_examples/process_bootstrapper.h"
-#include "ipc/ipc_channel_factory.h"
 #include "ipc/ipc_channel_proxy.h"
-#include "ipc/ipc_sync_channel.h"
 #include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -58,20 +56,16 @@ class RendererIPCListener : public IPC::Listener {
       scoped_refptr<base::SingleThreadTaskRunner> io_task_runner,
       scoped_refptr<base::SingleThreadTaskRunner> initially_frozen_task_runner)
       : initially_frozen_task_runner_(initially_frozen_task_runner) {
-    // The sequence of events we'll need to perform are the following:
-    //   1.) Create the ChannelProxy (specifically a SyncChannel) for the
-    //       receiving end of the IPC communication.
-    //   2.) Accept the incoming mojo invitation. From the invitation, we
-    //       extract a message pipe that we will feed directly into the
-    //       `IPC::ChannelProxy` to initialize it. This bootstraps the
-    //       bidirectional IPC channel between browser <=> renderer.
-
-    // 1.) Create a new IPC::ChannelProxy.
+    // Create a new IPC::ChannelProxy for the receiving end of the IPC
+    // communication.
     channel_proxy_ = std::make_unique<IPC::ChannelProxy>(
         this, io_task_runner,
         base::SingleThreadTaskRunner::GetCurrentDefault());
 
-    // 2.) Accept the mojo invitation.
+    // Accept the incoming mojo invitation. From the invitation, extract a
+    // message pipe that will be fed directly into the `IPC::ChannelProxy`
+    // to initialize it. This bootstraps the bidirectional IPC channel
+    // between browser and renderer.
     mojo::IncomingInvitation invitation = mojo::IncomingInvitation::Accept(
         mojo::PlatformChannel::RecoverPassedEndpointFromCommandLine(
             *base::CommandLine::ForCurrentProcess()));
@@ -80,12 +74,9 @@ class RendererIPCListener : public IPC::Listener {
 
     // Get ready to receive the invitation from the browser process, which bears
     // a message pipe represented by `ipc_bootstrap_pipe`.
-    channel_proxy_->Init(
-        IPC::ChannelFactory::CreateClientFactory(
-            std::move(ipc_bootstrap_pipe), /*ipc_task_runner=*/io_task_runner,
-            /*proxy_task_runner=*/
-            base::SingleThreadTaskRunner::GetCurrentDefault()),
-        /*create_pipe_now=*/true);
+    channel_proxy_->Init(std::move(ipc_bootstrap_pipe),
+                         IPC::Channel::MODE_CLIENT,
+                         /*create_pipe_now=*/true);
   }
 
  private:

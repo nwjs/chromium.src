@@ -35,7 +35,6 @@
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/cert_verifier_browser_test.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -74,7 +73,6 @@
 #include "device/bluetooth/bluetooth_adapter_factory.h"
 #include "device/bluetooth/test/mock_bluetooth_adapter.h"
 #include "device/fido/discoverable_credential_metadata.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_request_handler_base.h"
 #include "device/fido/public/features.h"
 #include "device/fido/public/fido_transport_protocol.h"
@@ -1881,6 +1879,7 @@ class WebAuthnUAFReproductionTest
 
   void OnDestroy(ChromeAuthenticatorRequestDelegate* delegate) override {
     delegate_ = nullptr;
+    delegate_shown_future_.Clear();
   }
 
   // AuthenticatorRequestDialogModel::Observer:
@@ -1922,9 +1921,12 @@ class WebAuthnUAFReproductionTest
     WebAuthnBrowserTest::TearDownOnMainThread();
   }
 
-  raw_ptr<ChromeAuthenticatorRequestDelegate> delegate_ = nullptr;
-  raw_ptr<AuthenticatorRequestDialogModel> model_ = nullptr;
-  base::test::TestFuture<ChromeAuthenticatorRequestDelegate*>
+  raw_ptr<ChromeAuthenticatorRequestDelegate, DisableDanglingPtrDetection>
+      delegate_ = nullptr;
+  raw_ptr<AuthenticatorRequestDialogModel, DisableDanglingPtrDetection> model_ =
+      nullptr;
+  base::test::TestFuture<
+      raw_ptr<ChromeAuthenticatorRequestDelegate, DisableDanglingPtrDetection>>
       delegate_shown_future_;
   bool web_contents_deleted_ = false;
 #if BUILDFLAG(IS_WIN)

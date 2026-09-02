@@ -104,7 +104,10 @@ inspector_protocol_generate("protocol_generated_sources") {
 
 static_library("devtools") {
   # Note: new sources and deps should be generally added in (!is_android) below.
-  sources = []
+  sources = [
+    "chrome_devtools_session_base.cc",
+    "chrome_devtools_session_base.h",
+  ]
 
   configs += [
     "//build/config/compiler:wexit_time_destructors",
@@ -126,6 +129,7 @@ static_library("devtools") {
     "//chrome/browser/search_engines",
     "//chrome/browser/sync",
     "//chrome/browser/ui/autofill",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/dialogs",
     "//chrome/browser/ui/select_file_policy",
     "//components/page_load_metrics/browser",
@@ -159,6 +163,7 @@ static_library("devtools") {
     "//services/metrics/public/cpp:ukm_builders",
     "//services/viz/privileged/mojom/compositing",
     "//third_party/blink/public:buildflags",
+    "//third_party/inspector_protocol:crdtp",
     "//ui/events:dom_keycode_converter",
   ]
 
@@ -246,6 +251,8 @@ static_library("devtools") {
     sources += [
       "chrome_devtools_session_android.cc",
       "chrome_devtools_session_android.h",
+      "devtools_browser_context_manager.cc",
+      "devtools_browser_context_manager.h",
       "devtools_window_android.cc",
       "protocol/browser_handler_android.cc",
       "protocol/browser_handler_android.h",
@@ -253,7 +260,13 @@ static_library("devtools") {
       "protocol/target_handler_android.h",
     ]
 
-    deps += [ "//chrome/android:chrome_jni_headers" ]
+    deps += [
+      "//chrome/android:chrome_jni_headers",
+      "//chrome/browser/ui/android/tab_model",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/browser_window:create_browser_window",
+      "//ui/base",
+    ]
   } else {
     public_deps += [
       "//chrome/browser/ui:browser_tab_strip",
@@ -267,11 +280,13 @@ static_library("devtools") {
       "//chrome/browser/infobars",
       "//chrome/browser/media/router:media_router_feature",
       "//chrome/browser/themes",
+      "//chrome/browser/ui:tab_modal_confirm_dialog",
       "//chrome/browser/ui/exclusive_access",
       "//chrome/browser/ui/navigator",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views:layout_provider",
+      "//chrome/browser/ui/views/frame:scrim_view",
       "//chrome/browser/ui/webui_browser:headers",
       "//chrome/browser/user_education",
       "//chrome/browser/web_applications",
@@ -384,6 +399,7 @@ static_library("devtools") {
 
   if (is_mac) {
     sources += [ "devtools_dock_tile_mac.mm" ]
+    deps += [ "//chrome/browser/renderer_host:history_swiping_control" ]
   } else {
     sources += [ "devtools_dock_tile.cc" ]
   }
@@ -399,6 +415,7 @@ static_library("devtools") {
       "//components/custom_handlers",
       "//components/media_router/browser",
       "//components/media_router/common/mojom:media_router",
+      "//components/origin_gating/core",
       "//components/payments/content",
       "//components/privacy_sandbox/privacy_sandbox_attestations",
       "//components/security_state/content",
@@ -406,7 +423,6 @@ static_library("devtools") {
       "//components/web_package",
       "//components/webapps/browser",
       "//third_party/blink/public/common:headers",
-      "//third_party/inspector_protocol:crdtp",
       "//ui/display/",
       "//ui/display/util",
       "//ui/gfx/geometry",
@@ -582,6 +598,20 @@ source_set("unit_tests") {
       sources += [ "device/cast_device_provider_unittest.cc" ]
     }
   }
+
+  if (is_android) {
+    sources += [ "protocol/browser_handler_android_unittest.cc" ]
+
+    deps += [
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/ui/android/tab_model:test_support",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/browser_window/test:native_unit_test_support_jni",
+      "//components/sessions:session_id",
+      "//content/public/browser",
+      "//ui/base",
+    ]
+  }
 }
 
 if (enable_devtools_frontend) {
@@ -634,7 +664,10 @@ if (enable_devtools_frontend) {
     }
 
     if (is_android) {
-      deps += [ "//components/privacy_sandbox/privacy_sandbox_attestations" ]
+      deps += [
+        "//chrome/browser/ui/android/tab_model:test_support",
+        "//components/privacy_sandbox/privacy_sandbox_attestations",
+      ]
     }
 
     if (!is_android) {

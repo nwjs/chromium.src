@@ -66,7 +66,6 @@
 #include "cc/layers/layer_impl.h"
 #include "cc/layers/render_surface_impl.h"
 #include "cc/layers/surface_layer_impl.h"
-#include "cc/layers/video_layer_impl.h"
 #include "cc/layers/viewport.h"
 #include "cc/metrics/compositor_frame_reporting_controller.h"
 #include "cc/metrics/custom_metrics_recorder.h"
@@ -653,6 +652,12 @@ LayerTreeHostImpl::LayerTreeHostImpl(
             id,
             /*is_trees_in_viz_client=*/
             settings_.TreesInVizInClientProcess());
+#if BUILDFLAG(IS_ANDROID)
+    if (features::ShouldScrollJankV4MetricReportAndroidAppJankStats()) {
+      compositor_frame_reporting_controller_->SetScrollJankOsReporter(
+          weak_factory_.GetWeakPtr());
+    }
+#endif
   }
 
   if (base::FeatureList::IsEnabled(features::kTreesInViz) ||
@@ -689,7 +694,8 @@ LayerTreeHostImpl::LayerTreeHostImpl(
 
   browser_controls_offset_manager_ = BrowserControlsOffsetManager::Create(
       this, settings.top_controls_show_threshold,
-      settings.top_controls_hide_threshold);
+      settings.top_controls_hide_threshold,
+      settings.trees_in_viz_in_viz_process);
 
   SetDebugState(settings.initial_debug_state);
   compositor_frame_reporting_controller_->SetFrameSorter(&frame_sorter_);
@@ -1050,6 +1056,11 @@ bool LayerTreeHostImpl::HasDamage() const {
   // If we have a new LocalSurfaceId, we must always submit a CompositorFrame
   // because the parent is blocking on us.
   if (last_draw_local_surface_id_ != GetCurrentLocalSurfaceId()) {
+    return true;
+  }
+
+  if (unbounded_frame_sink_handler_ &&
+      unbounded_frame_sink_handler_->HasUnsubmittedLocalSurfaceId()) {
     return true;
   }
 
@@ -2348,6 +2359,17 @@ void LayerTreeHostImpl::ReportEventLatency(
   if (auto* recorder = CustomMetricRecorder::Get()) {
     recorder->ReportEventLatency(args, std::move(latencies));
   }
+}
+
+void LayerTreeHostImpl::ReportScrollJankStats(uint32_t total_frames,
+                                              uint32_t janky_frames) {
+  CHECK_LE(janky_frames, total_frames);
+#if BUILDFLAG(IS_ANDROID)
+  if (render_frame_metadata_observer_) {
+    render_frame_metadata_observer_->ReportScrollJankStats(total_frames,
+                                                           janky_frames);
+  }
+#endif
 }
 
 void LayerTreeHostImpl::OnCanDrawStateChangedForTree() {
@@ -3747,7 +3769,7 @@ static void PopulateHitTestRegion(viz::HitTestRegion* hit_test_region,
                                   const LayerImpl* layer,
                                   uint32_t flags,
                                   uint32_t async_hit_test_reasons,
-                                  const gfx::Rect& rect,
+                                  const gfx::RRectF& rect,
                                   const viz::SurfaceId& surface_id,
                                   float device_scale_factor) {
   hit_test_region->frame_sink_id = surface_id.frame_sink_id();
@@ -3816,6 +3838,8 @@ std::optional<viz::HitTestRegionList> LayerTreeHostImpl::BuildHitTestData() {
         continue;
       }
 
+      // Using the enclosing rect to ensure antialised boundary pixels cause
+      // pointer input to be routed to this layer.
       gfx::Rect content_rect(gfx::ScaleToEnclosingRect(
           gfx::Rect(surface_layer->bounds()), device_scale_factor));
 
@@ -3858,8 +3882,8 @@ std::optional<viz::HitTestRegionList> LayerTreeHostImpl::BuildHitTestData() {
       const auto& surface_id = surface_layer->range().end();
       hit_test_region_list->regions.emplace_back();
       PopulateHitTestRegion(&hit_test_region_list->regions.back(), layer, flag,
-                            async_hit_test_reasons, content_rect, surface_id,
-                            device_scale_factor);
+                            async_hit_test_reasons, gfx::RRectF(content_rect),
+                            surface_id, device_scale_factor);
       continue;
     }
 
@@ -4605,6 +4629,10 @@ bool LayerTreeHostImpl::InitializeFrameSink(
   has_valid_layer_tree_frame_sink_ = true;
   if (settings_.TreesInVizInClientProcess()) {
     layer_context_ = layer_tree_frame_sink_->CreateLayerContext(*this);
+    if (unbounded_frame_sink_id_.is_valid()) {
+      layer_context_->SetUnboundedFrameSinkId(unbounded_frame_sink_id_,
+                                              unbounded_local_surface_id_);
+    }
   }
 
   UpdateRasterCapabilities();
@@ -4713,6 +4741,10 @@ gfx::PointF LayerTreeHostImpl::ViewportScrollOffset() const {
   return viewport_->TotalScrollOffset();
 }
 
+float LayerTreeHostImpl::MaxViewportScrollOffsetY() const {
+  return viewport_->MaxUserReachableTotalScrollOffsetY();
+}
+
 void LayerTreeHostImpl::AutoScrollAnimationCreate(
     const ScrollNode& scroll_node,
     const gfx::PointF& target_offset,
@@ -4809,6 +4841,13 @@ void LayerTreeHostImpl::WillScrollContent(ElementId element_id) {
 void LayerTreeHostImpl::DidScrollContent(ElementId element_id,
                                          bool animated,
                                          const gfx::Vector2dF& scroll_delta) {
+  // An animated scroll has not moved content yet; the movement lands on later
+  // animation ticks that do not reach here.
+  if (settings_.enable_scroll_performance_timing && !animated && element_id &&
+      !scroll_delta.IsZero()) {
+    events_metrics_manager_.RecordAppliedScrollObservation(element_id);
+  }
+
   scroll_accumulated_this_frame_ += scroll_delta;
   frame_max_scroll_delta_ =
       std::max(std::abs(scroll_delta.x()), std::abs(scroll_delta.y()));
@@ -6387,9 +6426,30 @@ void LayerTreeHostImpl::SetUnboundedFrameSink(
                                               local_surface_id);
 }
 
+void LayerTreeHostImpl::SetUnboundedFrameSinkId(
+    const viz::FrameSinkId& frame_sink_id,
+    const viz::LocalSurfaceId& local_surface_id) {
+  DCHECK(task_runner_provider_->IsImplThread());
+  CHECK(base::FeatureList::IsEnabled(features::kTreesInViz));
+  CHECK(settings_.TreesInVizInClientProcess());
+  unbounded_frame_sink_id_ = frame_sink_id;
+  unbounded_local_surface_id_ = local_surface_id;
+  if (layer_context_) {
+    layer_context_->SetUnboundedFrameSinkId(frame_sink_id, local_surface_id);
+  }
+}
+
 void LayerTreeHostImpl::DismissUnboundedFrameSink() {
   DCHECK(task_runner_provider_->IsImplThread() ||
          !task_runner_provider_->HasImplThread());
+  if (settings_.TreesInVizInClientProcess()) {
+    unbounded_frame_sink_id_ = viz::FrameSinkId();
+    unbounded_local_surface_id_ = viz::LocalSurfaceId();
+    if (layer_context_) {
+      layer_context_->DismissUnboundedFrameSink();
+    }
+    return;
+  }
   if (unbounded_frame_sink_handler_) {
     unbounded_frame_sink_handler_->DismissFrameSink();
   }
@@ -6398,6 +6458,13 @@ void LayerTreeHostImpl::DismissUnboundedFrameSink() {
 void LayerTreeHostImpl::SetUnboundedLocalSurfaceId(
     const viz::LocalSurfaceId& local_surface_id) {
   DCHECK(task_runner_provider_->IsImplThread());
+  if (settings_.TreesInVizInClientProcess()) {
+    unbounded_local_surface_id_ = local_surface_id;
+    if (layer_context_) {
+      layer_context_->SetUnboundedLocalSurfaceId(local_surface_id);
+    }
+    return;
+  }
   if (unbounded_frame_sink_handler_) {
     unbounded_frame_sink_handler_->SetLocalSurfaceId(local_surface_id);
   }

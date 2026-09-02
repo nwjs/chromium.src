@@ -42,7 +42,6 @@ struct CONTENT_EXPORT PolicyContainerPolicies {
   PolicyContainerPolicies(
       network::mojom::ReferrerPolicy referrer_policy,
       network::mojom::IPAddressSpace ip_address_space,
-      bool allow_non_secure_local_network_access,
       bool is_web_secure_context,
       network::ConnectionAllowlists connection_allowlists,
       std::vector<network::mojom::ContentSecurityPolicyPtr>
@@ -106,14 +105,6 @@ struct CONTENT_EXPORT PolicyContainerPolicies {
   // it is inherited following the general rules of the PolicyContainerHost.
   network::mojom::IPAddressSpace ip_address_space =
       network::mojom::IPAddressSpace::kUnknown;
-
-  // Whether non-secure contexts are allowed to issue Local Network Access
-  // requests.  Even if allowed, they are still bound by permission
-  // requirements.
-  //
-  // Only relevant if network::features::kLocalNetworkAccessChecks is enabled
-  // and blocking.
-  bool allow_non_secure_local_network_access = false;
 
   // Whether the document is a secure context.
   //
@@ -300,20 +291,17 @@ class CONTENT_EXPORT PolicyContainerHost
   void SetCanNavigateTopWithoutUserGesture(
       bool value,
       base::PassKey<NavigationPolicyContainerBuilder> pass_key) {
-    CHECK(!client_);
     policies_.can_navigate_top_without_user_gesture = value;
   }
 
   void set_cross_origin_opener_policy(
       const network::CrossOriginOpenerPolicy& policy,
       base::PassKey<NavigationPolicyContainerBuilder> pass_key) {
-    CHECK(!client_);
     policies_.cross_origin_opener_policy = policy;
   }
 
   void SetCrossOriginIsolationEnabledByDIP(
       base::PassKey<NavigationPolicyContainerBuilder> pass_key) {
-    CHECK(!client_);
     policies_.cross_origin_isolation_enabled_by_dip = true;
   }
 
@@ -322,7 +310,6 @@ class CONTENT_EXPORT PolicyContainerHost
   void set_cross_origin_isolation_key_override(
       const AgentClusterKey::CrossOriginIsolationKey& coi_key,
       base::PassKey<NavigationPolicyContainerBuilder> pass_key) {
-    CHECK(!client_);
     policies_.cross_origin_isolation_key_override = coi_key;
   }
 
@@ -337,6 +324,11 @@ class CONTENT_EXPORT PolicyContainerHost
       const network::CrossOriginEmbedderPolicy& policy) {
     policies_.cross_origin_embedder_policy = policy;
   }
+
+  // This is used in tests to change the referrer policy without changing the
+  // `initiator_state_token` and updating the client.
+  void SetReferrerPolicyForTesting(
+      network::mojom::ReferrerPolicy referrer_policy);
 
   // Return a PolicyContainer containing copies of the policies and a pending
   // mojo remote that can be used to update policies in this object. If called a
@@ -358,8 +350,15 @@ class CONTENT_EXPORT PolicyContainerHost
   class CONTENT_EXPORT Client {
    private:
     friend PolicyContainerHost;
+    // Called when Referrer policy is changed by the renderer process.
     virtual void DidChangeReferrerPolicy(
         network::mojom::ReferrerPolicy referrer_policy) = 0;
+
+    // Called to inform the Client that the initiator state token in the
+    // renderer process changed due to the PolicyContainerPolicies being
+    // updated.
+    virtual void DidUpdateInitiatorStateToken(
+        const base::UnguessableToken& new_initiator_state_token) = 0;
   };
 
   // This should be called as soon as the PolicyContainerHost gets owned by a
@@ -376,10 +375,13 @@ class CONTENT_EXPORT PolicyContainerHost
   // handle updates originating from the renderer process for policies the
   // renderer is allowed to dynamically change (referrer policy and CSP via
   // <meta> tags).
-  void SetReferrerPolicy(network::mojom::ReferrerPolicy referrer_policy) final;
+  void SetReferrerPolicy(
+      network::mojom::ReferrerPolicy referrer_policy,
+      const base::UnguessableToken& new_initiator_state_token) final;
   void AddContentSecurityPolicies(
       std::vector<network::mojom::ContentSecurityPolicyPtr>
-          content_security_policies) final;
+          content_security_policies,
+      const base::UnguessableToken& new_initiator_state_token) final;
 
   // The policies of this PolicyContainerHost.
   PolicyContainerPolicies policies_;

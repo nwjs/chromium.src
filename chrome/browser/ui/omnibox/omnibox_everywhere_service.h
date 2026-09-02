@@ -16,6 +16,7 @@ class Profile;
 
 namespace omnibox_everywhere {
 class OmniboxEverywhereController;
+class OmniboxEverywhereUIManager;
 }
 
 class OmniboxEverywhereService : public KeyedService {
@@ -25,23 +26,23 @@ class OmniboxEverywhereService : public KeyedService {
   OmniboxEverywhereService& operator=(const OmniboxEverywhereService&) = delete;
   ~OmniboxEverywhereService() override;
 
-  void HidePopup();
-  bool IsPopupVisible() const;
-  void ShowProfilePicker();
-  void OpenUrl(const GURL& url,
-               WindowOpenDisposition disposition,
-               ui::PageTransition transition = ui::PAGE_TRANSITION_LINK);
+  virtual void HidePopup();
+  virtual bool IsPopupVisible() const;
+  virtual void ShowProfilePicker();
+  virtual void OnDrivePickerOpened();
+  virtual void OnDrivePickerClosed();
+  void OnScreensharePickerOpened();
+  void OnScreensharePickerClosed();
+  virtual void OpenUrl(const GURL& url,
+                       WindowOpenDisposition disposition,
+                       ui::PageTransition transition);
 
   // KeyedService:
   void Shutdown() override;
 
-  void SetIsNavigating(bool is_navigating);
-
-  void OnDrivePickerOpened();
-  void OnDrivePickerClosed();
-
  private:
   omnibox_everywhere::OmniboxEverywhereController* controller() const;
+  omnibox_everywhere::OmniboxEverywhereUIManager* ui_manager() const;
 
   raw_ptr<Profile> profile_;
 

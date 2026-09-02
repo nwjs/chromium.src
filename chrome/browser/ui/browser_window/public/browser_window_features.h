@@ -1,6 +1,25 @@
 // Copyright 2024 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+//
+// This class is used to construct and hold window-scoped state.
+//
+// This class exists for 3 reasons:
+//  (1) It provides explicit construction and destruction ordering.
+//  (2) It allows for dependency-injection at construction time of features.
+//  (3) It pairs with the UnownedUserData design pattern to ensure dependencies
+//      are precisely specified by BUILD.gn files. This prevents circular
+//      dependencies.
+//
+// If you want to make a new BrowserWindowFeature, following these steps:
+//  (1) Make a regular C++ class. It should NOT inherit from SupportsUserData.
+//  (2) Forward declare the class, and add a std::unique_ptr member to this
+//      header file.
+//  (3) Construct the member in browser_window_features.cc.
+//  (4) If consumers need to access the feature, expose it via
+//      BrowserWindowInterface and UnownedUserData.
+//
+// For more details on UnownedUserData, see ui/base/unowned_user_data/README.md.
 
 #ifndef CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_FEATURES_H_
 #define CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_FEATURES_H_
@@ -18,8 +37,13 @@ class BookmarkBarController;
 class BookmarksSidePanelCoordinator;
 class BookmarksServiceFeature;
 class BreadcrumbManagerBrowserAgent;
+
+namespace geic {
+class GeicSidePanelCoordinator;
+}  // namespace geic
 class Browser;
 class BrowserActions;
+class BrowserActiveStateManager;
 class BrowserAnimationController;
 class BrowserContentSettingBubbleModelDelegate;
 class BrowserElements;
@@ -29,6 +53,7 @@ class BrowserLiveTabContext;
 class BrowserLocationBarModelDelegate;
 class BrowserSelectFileDialogController;
 class BrowserSyncedWindowDelegate;
+class BrowserUiController;
 class BrowserUserEducationInterface;
 class BrowserView;
 class BrowserWebContentsDelegate;
@@ -126,6 +151,10 @@ class ActionItem;
 namespace ash::boca {
 class OnTaskLockedController;
 }  // namespace ash::boca
+
+namespace chromeos {
+class LockedStateController;
+}  // namespace chromeos
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace chrome {
@@ -436,6 +465,10 @@ class BrowserWindowFeatures {
     return searchbox_context_data_.get();
   }
 
+  SessionServiceBrowserHelper* session_service_browser_helper() {
+    return session_service_browser_helper_.get();
+  }
+
   tab_groups::SharedTabGroupFeedbackController*
   shared_tab_group_feedback_controller() {
     return shared_tab_group_feedback_controller_.get();
@@ -503,6 +536,12 @@ class BrowserWindowFeatures {
     return webui_browser_exclusive_access_context_.get();
   }
 
+#if BUILDFLAG(IS_CHROMEOS)
+  chromeos::LockedStateController* locked_state_controller() {
+    return locked_state_controller_.get();
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
   GetUserDataFactoryForTesting();
 
@@ -511,6 +550,7 @@ class BrowserWindowFeatures {
   GetUserDataFactory();
 
   // Members owned by all browser window types.
+  std::unique_ptr<UnloadController> unload_controller_;
   std::unique_ptr<ActorBorderViewController> actor_border_view_controller_;
   std::unique_ptr<ttc::AiOverlayDialogController> ai_overlay_dialog_controller_;
 
@@ -523,18 +563,21 @@ class BrowserWindowFeatures {
   std::unique_ptr<BookmarksServiceFeature> bookmarks_service_feature_;
   std::unique_ptr<BookmarksSidePanelCoordinator>
       bookmarks_side_panel_coordinator_;
+  std::unique_ptr<geic::GeicSidePanelCoordinator> geic_side_panel_coordinator_;
 
   // Listens for browser-related breadcrumb events to be added to crash reports.
   std::unique_ptr<BreadcrumbManagerBrowserAgent>
       breadcrumb_manager_browser_agent_;
 
   std::unique_ptr<BrowserActions> browser_actions_;
+  std::unique_ptr<BrowserActiveStateManager> browser_active_state_manager_;
   std::unique_ptr<BrowserAnimationController> browser_animation_controller_;
   std::unique_ptr<chrome::BrowserCommandController> browser_command_controller_;
   std::unique_ptr<BrowserElements> browser_elements_;
   std::unique_ptr<BrowserFocusController> browser_focus_controller_;
   std::unique_ptr<BrowserSelectFileDialogController>
       browser_select_file_dialog_controller_;
+  std::unique_ptr<BrowserUiController> browser_ui_controller_;
   std::unique_ptr<BrowserWebContentsDelegate> browser_web_contents_delegate_;
   std::unique_ptr<BrowserWindowModalDialogDelegate>
       browser_window_modal_dialog_delegate_;
@@ -564,7 +607,6 @@ class BrowserWindowFeatures {
   std::unique_ptr<content_settings::CookieControlsController>
       cookie_controls_controller_;
   std::unique_ptr<DataSharingBubbleController> data_sharing_bubble_controller_;
-  std::unique_ptr<UnloadController> unload_controller_;
 
   // A collection of features specific to desktop versions of Chrome.
   // Member order dependencies:
@@ -732,6 +774,7 @@ class BrowserWindowFeatures {
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_CHROMEOS)
+  std::unique_ptr<chromeos::LockedStateController> locked_state_controller_;
   std::unique_ptr<ash::boca::OnTaskLockedController> on_task_locked_controller_;
 #endif  // BUILDFLAG(IS_CHROMEOS)
 

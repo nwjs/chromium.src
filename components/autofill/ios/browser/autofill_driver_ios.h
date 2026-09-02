@@ -112,8 +112,8 @@ class AutofillDriverIOS final : public AutofillDriver,
       const FillId& fill_id,
       bool supports_refill,
       const url::Origin& triggered_origin,
-      const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map,
-      const Section& section_for_clear_form_on_ios) override;
+      const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map)
+      override;
   void ApplyFieldAction(mojom::FieldActionType action_type,
                         mojom::ActionPersistence action_persistence,
                         const FieldGlobalId& field_id,
@@ -136,6 +136,7 @@ class AutofillDriverIOS final : public AutofillDriver,
   void TriggerFormExtractionInAllFrames(
       base::OnceCallback<void(bool)> form_extraction_finished_callback)
       override;
+  void ClearFormCacheInAllFrames() override;
   void ObserveFieldVisibility(
       const FieldGlobalId& field_id,
       mojo::PendingRemote<mojom::AutofillVisibilityObserver> observer) override;
@@ -148,11 +149,13 @@ class AutofillDriverIOS final : public AutofillDriver,
       uint32_t number_of_ancestor_levels_to_search,
       base::OnceCallback<void(const std::string& amount)> response_callback)
       override;
-  void SendEmailVerificationToken(
+  void GetNonceForEmailVerification(
       FieldGlobalId email_field_id,
-      const std::string& email,
-      FieldGlobalId token_field_id,
-      const std::string& presentation_token) override;
+      base::OnceCallback<void(const std::optional<std::string>&)> callback)
+      override;
+  void SendEmailVerificationToken(FieldGlobalId email_field_id,
+                                  const std::string& email,
+                                  const std::string& token) override;
   void UpdateEmailVerificationState(
       const FieldGlobalId& email_field_id,
       mojom::EmailVerificationState state) override;

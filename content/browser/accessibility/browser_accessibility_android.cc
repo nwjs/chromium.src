@@ -510,67 +510,8 @@ bool BrowserAccessibilityAndroid::IsTableHeader() const {
   return ui::IsTableHeader(GetRole());
 }
 
-// Returns true if this node acts as a selection boundary that blocks selections
-// from crossing into or out of its sub-hierarchy.
-//
-// RATIONALE:
-// In standard Chromium editing and DOM selection adjustments (implemented by
-// Blink's `SelectionAdjuster` and range checks):
-// 1. Text Fields (Editable Regions / Root Editables): A selection is allowed to
-//    start and end inside the same editable text field, but cannot span from
-//    one editable field to another, or cross the boundaries of an editable
-//    field.
-// 2. Collapsed or Media Widgets: DOM selections (SelectionInDomTree) cannot
-//    cross user-agent shadow root boundaries (e.g. from outside into a
-//    collapsed dropdown option element or a video/audio player). These
-//    collapsed controls and media widgets act as selection boundaries. Thus, we
-//    identify them as boundaries to block selection requests crossing their
-//    edges, while layouted non-collapsed controls (like visible listboxes)
-//    remain valid.
-//
-// TODO(crbug.com/443078007): Consider generalizing this function by exposing a
-// User-Agent shadow root indicator (e.g.
-// ax::mojom::BoolAttribute::kInUserAgentShadowDom) during tree serialization
-// from Blink (blink_ax_tree_source.cc). It will allow the selection validation
-// logic to fully match the Blink implementation without having to enumerate
-// component roles (like kVideo, kAudio, etc.) or states here.
-bool BrowserAccessibilityAndroid::IsSelectionContextBoundary() const {
-  ax::mojom::Role role = GetRole();
-  // Text field containers.
-  if (IsTextField()) {
-    return true;
-  }
-  // Collapsed input/selection controls (e.g. collapsed comboboxes).
-  if (ui::IsControl(role) && HasState(ax::mojom::State::kCollapsed)) {
-    return true;
-  }
-  // Media control widgets (video/audio elements).
-  if (role == ax::mojom::Role::kVideo || role == ax::mojom::Role::kAudio) {
-    return true;
-  }
-  return false;
-}
-
 bool BrowserAccessibilityAndroid::IsTextSelectable() const {
-  // This property tells Android if the node has selectable text, see:
-  // https://developer.android.com/reference/android/view/accessibility/AccessibilityNodeInfo#isTextSelectable%28%29
-  if (IsText() || IsAndroidTextView() || IsTextField()) {
-    return true;
-  }
-  // Apart from text and editable nodes, if a node has text, but does not have
-  // any text selectable children, mark it as text selectable since otherwise
-  // its text cannot be selectable.
-  if (GetTextContentUTF16().empty()) {
-    return false;
-  }
-  for (const auto& child : PlatformChildren()) {
-    if (static_cast<const BrowserAccessibilityAndroid*>(&child)
-            ->IsTextSelectable()) {
-      return false;
-    }
-  }
-
-  return true;
+  return (IsText() || IsAndroidTextView() || IsTextField());
 }
 
 bool BrowserAccessibilityAndroid::IsVisibleToUser() const {
@@ -585,8 +526,7 @@ bool BrowserAccessibilityAndroid::ShouldUsePaneTitle() const {
 bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   // The root is not interesting if it doesn't have a title, even
   // though it's focusable.
-  if (ui::IsPlatformDocument(GetRole()) &&
-      GetSubstringTextContentUTF16(1).empty()) {
+  if (ui::IsPlatformDocument(GetRole()) && !HasTextContent()) {
     return false;
   }
 
@@ -690,10 +630,14 @@ bool BrowserAccessibilityAndroid::IsInterestingOnAndroid() const {
   // Otherwise, the interesting nodes are leaf nodes with non-whitespace
   // accessible name or text content.
 
-  // First, we determine whether we have a nonempty, nonwhitespace name.
-  bool has_nonwhitespace_name = !base::ContainsOnlyChars(
-      GetString16Attribute(ax::mojom::StringAttribute::kName),
-      base::kWhitespaceUTF16);
+  // First, we determine whether we have a nonempty, nonwhitespace name from
+  // attribute or computed contentDescription (such as image annotations).
+  bool has_nonwhitespace_name =
+      !base::ContainsOnlyChars(
+          GetString16Attribute(ax::mojom::StringAttribute::kName),
+          base::kWhitespaceUTF16) ||
+      !base::ContainsOnlyChars(GetAndroidContentDescription(),
+                               base::kWhitespaceUTF16);
 
   // And, whether we have nonempty, nonwhitespace text.
   bool has_nonwhitespace_text =
@@ -959,8 +903,7 @@ bool BrowserAccessibilityAndroid::ComputeIsLeaf() const {
   // are some exceptions where we want nodes to be navigatable despite the
   // screen reader reading the contents twice such as a heading which contains a
   // grid.
-  std::u16string name = GetSubstringTextContentUTF16(1);
-  if (!name.empty() && GetNameFrom() == ax::mojom::NameFrom::kContents &&
+  if (HasTextContent() && GetNameFrom() == ax::mojom::NameFrom::kContents &&
       (HasState(ax::mojom::State::kFocusable) ||
        GetRole() == ax::mojom::Role::kHeading)) {
     return IsLeafConsideringChildren();
@@ -1043,6 +986,10 @@ std::u16string BrowserAccessibilityAndroid::GetBrailleRoleDescription() const {
 
 std::u16string BrowserAccessibilityAndroid::GetTextContentUTF16() const {
   return GetSubstringTextContentUTF16(std::nullopt);
+}
+
+bool BrowserAccessibilityAndroid::HasTextContent() const {
+  return !GetSubstringTextContentUTF16(/*min_length=*/1).empty();
 }
 
 int BrowserAccessibilityAndroid::GetTextContentLengthUTF16() const {
@@ -1265,6 +1212,14 @@ std::u16string BrowserAccessibilityAndroid::GetAndroidStateDescription() const {
     state_descs.push_back(GetMultiselectableStateDescription());
   }
 
+  // For switches, determine the current switch state and append the
+  // corresponding "On" or "Off" to the state description.
+  // TODO(crbug.com/536089300): Consider removing this state description once
+  // all web-based switch controls have equal announcement on Android.
+  if (GetRole() == ax::mojom::Role::kSwitch) {
+    state_descs.push_back(GetSwitchStateDescription());
+  }
+
   // For radio buttons, we will communicate how many radio buttons are in the
   // group and which one is selected/checked (e.g. "in group, option x of y")
   if (GetRole() == ax::mojom::Role::kRadioButton) {
@@ -1322,6 +1277,7 @@ std::u16string BrowserAccessibilityAndroid::GetAndroidContentDescription()
   if (GetRole() == ax::mojom::Role::kCanvas) {
     return GetCanvasAnnotationText();
   }
+
   if (ui::IsImage(GetRole())) {
     return GetImageAnnotationText();
   }
@@ -1392,13 +1348,13 @@ std::u16string BrowserAccessibilityAndroid::GetMultiselectableStateDescription()
       nullptr);
 }
 
-std::u16string BrowserAccessibilityAndroid::GetToggleStateDescription() const {
-  // For checked Toggle buttons and switches, we will return "on", otherwise
-  // "off".
+std::u16string BrowserAccessibilityAndroid::GetSwitchStateDescription() const {
+  // Due to API limitations, switches currently use the checked property to
+  // signal their state. If a switch is marked as "checked", we return "On",
+  // otherwise we return "Off".
   if (IsChecked()) {
     return GetLocalizedString(IDS_AX_TOGGLE_BUTTON_ON);
   }
-
   return GetLocalizedString(IDS_AX_TOGGLE_BUTTON_OFF);
 }
 
@@ -2342,7 +2298,7 @@ void BrowserAccessibilityAndroid::GetLineBoundaries(
     std::vector<int32_t>* line_ends,
     int offset) {
   // If this node has no children, treat it as all one line.
-  if (GetSubstringTextContentUTF16(1).size() > 0 && !InternalChildCount()) {
+  if (HasTextContent() && !InternalChildCount()) {
     line_starts->push_back(offset);
     line_ends->push_back(offset + GetTextContentLengthUTF16());
   }

@@ -200,12 +200,14 @@ void SyncEngineImpl::TriggerRefresh(const DataTypeSet& types) {
 }
 
 void SyncEngineImpl::UpdateCredentials(const SyncCredentials& credentials) {
+  CHECK(!base::FeatureList::IsEnabled(kSyncUsePropagatedAccessToken));
   sync_task_runner_->PostTask(
       FROM_HERE, base::BindOnce(&SyncEngineBackend::DoUpdateCredentials,
                                 backend_, credentials));
 }
 
 void SyncEngineImpl::InvalidateCredentials() {
+  CHECK(!base::FeatureList::IsEnabled(kSyncUsePropagatedAccessToken));
   sync_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&SyncEngineBackend::DoInvalidateCredentials, backend_));
@@ -655,13 +657,19 @@ void SyncEngineImpl::OnCookieJarChangedDoneOnFrontendLoop(
   std::move(callback).Run();
 }
 
+void SyncEngineImpl::FetchAccessTokenOnFrontendLoop(
+    base::OnceCallback<void(signin::AccessTokenInfo)> callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  host_->FetchAccessToken(std::move(callback));
+}
+
 void SyncEngineImpl::OnActiveDevicesChanged() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   sync_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&SyncEngineBackend::DoOnActiveDevicesChanged, backend_,
                      active_devices_provider_->CalculateInvalidationInfo(
-                         cached_status_.cache_guid)));
+                         cached_cache_guid_)));
 }
 
 void SyncEngineImpl::UpdateLastSyncedTime() {

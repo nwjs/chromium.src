@@ -51,6 +51,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/accessibility/ax_tree_id.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/capture_client.h"
 #include "ui/aura/client/capture_client_observer.h"
@@ -145,7 +146,7 @@ std::unique_ptr<ShellSurface> CreateX11TransientShellSurface(
 const viz::CompositorFrame& GetFrameFromSurface(ShellSurface* shell_surface,
                                                 viz::SurfaceManager* manager) {
   viz::SurfaceId surface_id =
-      *shell_surface->host_window()->layer()->GetSurfaceId();
+      *shell_surface->host_window()->layer()->AsSurface()->GetSurfaceId();
   const viz::CompositorFrame& frame =
       manager->GetSurfaceForId(surface_id)->GetActiveFrame();
   return frame;
@@ -3376,7 +3377,7 @@ TEST_F(ShellSurfaceTest, ShadowRoundedCorners) {
   ASSERT_TRUE(shadow);
 
   // Window shadow radius needs to match the window radius.
-  EXPECT_EQ(shadow->rounded_corner_radius_for_testing(), 0);
+  EXPECT_EQ(shadow->rounded_corners_for_testing(), gfx::RoundedCornersF());
 
   // Have a window with radius of 12dp.
   shell_surface->SetWindowCornersRadii(
@@ -3385,7 +3386,8 @@ TEST_F(ShellSurfaceTest, ShadowRoundedCorners) {
 
   shadow = wm::ShadowController::GetShadowForWindow(window);
   ASSERT_TRUE(shadow);
-  EXPECT_EQ(shadow->rounded_corner_radius_for_testing(), kWindowCornerRadius);
+  EXPECT_EQ(shadow->rounded_corners_for_testing(),
+            gfx::RoundedCornersF(kWindowCornerRadius));
 
   // Have a window with radius of 0dp.
   shell_surface->SetWindowCornersRadii(gfx::RoundedCornersF());
@@ -3393,7 +3395,7 @@ TEST_F(ShellSurfaceTest, ShadowRoundedCorners) {
 
   shadow = wm::ShadowController::GetShadowForWindow(window);
   ASSERT_TRUE(shadow);
-  EXPECT_EQ(shadow->rounded_corner_radius_for_testing(), 0);
+  EXPECT_EQ(shadow->rounded_corners_for_testing(), gfx::RoundedCornersF());
 }
 
 TEST_F(ShellSurfaceTest, RoundedWindows) {
@@ -3961,6 +3963,22 @@ TEST_F(ShellSurfaceTest, AccessibleProperties) {
                            .BuildShellSurface();
   EXPECT_EQ(shell_surface->GetViewAccessibility().GetCachedRole(),
             ax::mojom::Role::kClient);
+}
+
+// A shell surface bridges to the tree of an Android application through the
+// child tree id attribute. This test validates that an unknown ID removes that
+// bridge.
+TEST_F(ShellSurfaceTest, SetChildAxTreeIdRemovesTheBridge) {
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+
+  shell_surface->SetChildAxTreeId(ui::AXTreeID::CreateNewAXTreeID());
+  EXPECT_NE(ui::AXTreeIDUnknown(),
+            shell_surface->GetViewAccessibility().GetChildTreeID());
+
+  shell_surface->SetChildAxTreeId(ui::AXTreeIDUnknown());
+  EXPECT_EQ(ui::AXTreeIDUnknown(),
+            shell_surface->GetViewAccessibility().GetChildTreeID());
 }
 
 TEST_F(ShellSurfaceTest, OverlayCanResize) {

@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_
 #define CHROME_BROWSER_UI_BROWSER_WINDOW_PUBLIC_BROWSER_WINDOW_INTERFACE_H_
 
+#include <string>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -40,7 +41,6 @@ class WebContentsModalDialogHost;
 }  // namespace web_modal
 
 class Browser;
-class BrowserActions;
 class BrowserWindowFeatures;
 class DesktopBrowserWindowCapabilities;
 class GURL;
@@ -165,6 +165,13 @@ class BrowserWindowInterface : public content::PageNavigator {
     // BrowserTest.StartMaximized.
   };
   virtual Type GetType() const = 0;
+
+  // Returns the NW.js per-window key used for saving/restoring window
+  // placement. Empty by default.
+  virtual const std::string& windows_key() const {
+    static const std::string kEmptyString;
+    return kEmptyString;
+  }
 
   // Represents the result of a check for whether a new browser window can be
   // created. See also CreateBrowserWindow().
@@ -319,10 +326,6 @@ class BrowserWindowInterface : public content::PageNavigator {
       base::RepeatingCallback<void(BrowserWindowInterface*)>;
   virtual base::CallbackListSubscription RegisterDidBecomeInactive(
       DidBecomeInactiveCallback callback) = 0;
-
-  // This class manages actions that a user can take that are scoped to a
-  // browser window (e.g. most of the 3-dot menu actions).
-  virtual BrowserActions* GetActions() = 0;
 
   // This is used by features that need to operate on most or all tabs in the
   // browser window. Do not use this method to find a specific tab.

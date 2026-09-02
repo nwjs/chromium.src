@@ -1,0 +1,972 @@
+// Copyright 2012 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/safe_browsing/content/renderer/phishing_classifier/content_phishing_classifier_delegate.h"
+
+#include <memory>
+#include <optional>
+
+#include "base/compiler_specific.h"
+#include "base/containers/span.h"
+#include "base/files/scoped_temp_dir.h"
+#include "base/functional/bind.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/ref_counted_memory.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/run_loop.h"
+#include "base/strings/string_number_conversions.h"
+#include "base/strings/utf_string_conversions.h"
+#include "base/test/gmock_callback_support.h"
+#include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
+#include "chrome/test/base/chrome_render_view_test.h"
+#include "chrome/test/base/chrome_unit_test_suite.h"
+#include "components/safe_browsing/content/common/safe_browsing.mojom-shared.h"
+#include "components/safe_browsing/content/renderer/phishing_classifier/content_phishing_classifier.h"
+#include "components/safe_browsing/core/common/fbs/client_model_generated.h"
+#include "components/safe_browsing/core/common/features.h"
+#include "components/safe_browsing/core/common/phishing_classifier/features.h"
+#include "components/safe_browsing/core/common/phishing_classifier/scorer.h"
+#include "components/safe_browsing/core/common/proto/csd.pb.h"
+#include "content/public/renderer/render_frame.h"
+#include "mojo/public/cpp/base/proto_wrapper.h"
+#include "services/service_manager/public/cpp/interface_provider.h"
+#include "testing/gmock/include/gmock/gmock.h"
+#include "third_party/blink/public/platform/web_url.h"
+#include "third_party/blink/public/platform/web_url_request.h"
+#include "url/gurl.h"
+
+using base::ASCIIToUTF16;
+using safe_browsing::mojom::ClientSideDetectionType::kTriggerModels;
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::InSequence;
+using ::testing::Mock;
+using ::testing::Pointee;
+using ::testing::Property;
+using ::testing::StrictMock;
+
+namespace safe_browsing {
+
+namespace {
+
+std::string GetFlatBufferString(int version) {
+  flatbuffers::FlatBufferBuilder builder(1024);
+  std::vector<flatbuffers::Offset<flat::Hash>> hashes;
+  // Make sure this is sorted.
+  std::vector<std::string> hashes_vector = {"feature1", "feature2", "feature3",
+                                            "token one", "token two"};
+  for (std::string& feature : hashes_vector) {
+    std::vector<uint8_t> hash_data(feature.begin(), feature.end());
+    hashes.push_back(flat::CreateHashDirect(builder, &hash_data));
+  }
+  flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flat::Hash>>>
+      hashes_flat = builder.CreateVector(hashes);
+
+  std::vector<flatbuffers::Offset<flat::ClientSideModel_::Rule>> rules;
+  std::vector<int32_t> rule_feature1 = {};
+  std::vector<int32_t> rule_feature2 = {0};
+  std::vector<int32_t> rule_feature3 = {0, 1};
+  rules.push_back(
+      flat::ClientSideModel_::CreateRuleDirect(builder, &rule_feature1, 0.5));
+  rules.push_back(
+      flat::ClientSideModel_::CreateRuleDirect(builder, &rule_feature2, 2));
+  rules.push_back(
+      flat::ClientSideModel_::CreateRuleDirect(builder, &rule_feature3, 3));
+  flatbuffers::Offset<
+      flatbuffers::Vector<flatbuffers::Offset<flat::ClientSideModel_::Rule>>>
+      rules_flat = builder.CreateVector(rules);
+
+  std::vector<int32_t> page_terms_vector = {3, 4};
+  flatbuffers::Offset<flatbuffers::Vector<int32_t>> page_term_flat =
+      builder.CreateVector(page_terms_vector);
+
+  std::vector<uint32_t> page_words_vector = {1000U, 2000U, 3000U};
+  flatbuffers::Offset<flatbuffers::Vector<uint32_t>> page_word_flat =
+      builder.CreateVector(page_words_vector);
+
+  std::vector<
+      flatbuffers::Offset<safe_browsing::flat::TfLiteModelMetadata_::Threshold>>
+      thresholds_vector = {};
+  flatbuffers::Offset<flat::TfLiteModelMetadata> tflite_metadata_flat =
+      flat::CreateTfLiteModelMetadataDirect(builder, 0, &thresholds_vector, 0,
+                                            0);
+
+  flat::ClientSideModelBuilder csd_model_builder(builder);
+  csd_model_builder.add_hashes(hashes_flat);
+  csd_model_builder.add_rule(rules_flat);
+  csd_model_builder.add_page_term(page_term_flat);
+  csd_model_builder.add_page_word(page_word_flat);
+  csd_model_builder.add_max_words_per_term(2);
+  csd_model_builder.add_murmur_hash_seed(12345U);
+  csd_model_builder.add_max_shingles_per_page(10);
+  csd_model_builder.add_shingle_size(3);
+  csd_model_builder.add_tflite_metadata(tflite_metadata_flat);
+  csd_model_builder.add_version(version);
+
+  builder.Finish(csd_model_builder.Finish());
+  return std::string(reinterpret_cast<char*>(builder.GetBufferPointer()),
+                     builder.GetSize());
+}
+
+class MockPhishingClassifier : public ContentPhishingClassifier {
+ public:
+  explicit MockPhishingClassifier(content::RenderFrame* render_frame)
+      : ContentPhishingClassifier(render_frame) {}
+
+  MockPhishingClassifier(const MockPhishingClassifier&) = delete;
+  MockPhishingClassifier& operator=(const MockPhishingClassifier&) = delete;
+
+  ~MockPhishingClassifier() override = default;
+
+  MOCK_METHOD1(BeginClassification, void(DoneCallback));
+  MOCK_METHOD0(CancelPendingClassification, void());
+  MOCK_METHOD1(SetClientSideDetectionType,
+               void(std::optional<safe_browsing::ClientSideDetectionType>));
+};
+}  // namespace
+
+class ContentPhishingClassifierDelegateTest
+    : public ChromeRenderViewTest,
+      public ::testing::WithParamInterface<double> {
+ protected:
+  void SetUp() override {
+    ChromeRenderViewTest::SetUp();
+
+    if (GetParam() >= 0) {
+      feature_list_.InitAndEnableFeatureWithParameters(
+          kClientSideDetectionNewObservers,
+          {{"ClassificationDelay", base::NumberToString(GetParam())}});
+    }
+
+    content::RenderFrame* render_frame = GetMainRenderFrame();
+    classifier_ = new StrictMock<MockPhishingClassifier>(render_frame);
+    render_frame->GetAssociatedInterfaceRegistry()->RemoveInterface(
+        mojom::PhishingDetector::Name_);
+    delegate_ =
+        ContentPhishingClassifierDelegate::Create(render_frame, classifier_);
+    classifier_not_ready_ = false;
+  }
+
+  void TearDown() override {
+    // `delegate_` owns `classifier_` and the RenderFrame owns `delegate_`;
+    // clear these pointers now to avoid dangling references.
+    classifier_ = nullptr;
+    delegate_ = nullptr;
+    ChromeRenderViewTest::TearDown();
+  }
+
+  // Runs the ClassificationDone callback, then verify if message sent
+  // by FakeRenderThread is correct.
+  void RunAndVerifyClassificationDone(const ClientPhishingRequest& verdict) {
+    delegate_->ClassificationDone(verdict,
+                                  ContentPhishingClassifier::Result::kSuccess);
+  }
+
+  void OnStartPhishingDetection(const GURL& url) {
+    EXPECT_CALL(*classifier_, CancelPendingClassification())
+        .Times(testing::AnyNumber());
+    EXPECT_CALL(*classifier_,
+                SetClientSideDetectionType(std::optional(
+                    safe_browsing::ClientSideDetectionType::TRIGGER_MODELS)));
+    delegate_->StartPhishingDetection(
+        url, kTriggerModels,
+        base::BindOnce(
+            &ContentPhishingClassifierDelegateTest::VerifyRequestProto,
+            base::Unretained(this)));
+  }
+
+  void StartPhishingDetectionWithCallback(
+      const GURL& url,
+      ContentPhishingClassifierDelegate::StartPhishingDetectionCallback
+          callback) {
+    EXPECT_CALL(*classifier_, CancelPendingClassification())
+        .Times(testing::AtMost(1));
+    EXPECT_CALL(*classifier_,
+                SetClientSideDetectionType(std::optional(
+                    safe_browsing::ClientSideDetectionType::TRIGGER_MODELS)));
+    delegate_->StartPhishingDetection(url, kTriggerModels, std::move(callback));
+  }
+
+  void SimulateRedirection(const GURL& redir_url) {
+    delegate_->last_url_received_from_browser_ = redir_url;
+  }
+
+  void SimulatePageTrantitionForwardOrBack(const char* html, const char* url) {
+    LoadHTMLWithUrlOverride(html, url);
+    delegate_->last_main_frame_transition_ = ui::PAGE_TRANSITION_FORWARD_BACK;
+  }
+
+  void VerifyRequestProto(mojom::PhishingDetectorResult result,
+                          std::optional<mojo_base::ProtoWrapper> proto) {
+    if (result == mojom::PhishingDetectorResult::CLASSIFIER_NOT_READY) {
+      classifier_not_ready_ = true;
+      return;
+    }
+
+    if (result != mojom::PhishingDetectorResult::SUCCESS) {
+      return;
+    }
+
+    ASSERT_TRUE(proto.has_value());
+    auto verdict = proto->As<ClientPhishingRequest>();
+    ASSERT_TRUE(verdict.has_value());
+    EXPECT_EQ("http://host.test/", verdict->url());
+    EXPECT_EQ(0.8f, verdict->client_score());
+    EXPECT_FALSE(verdict->is_phishing());
+  }
+
+  void SetScorer(int model_version) {
+    std::string model_str = GetFlatBufferString(model_version);
+    base::MappedReadOnlyRegion mapped_region =
+        base::ReadOnlySharedMemoryRegion::Create(model_str.length());
+    mapped_region.mapping.GetMemoryAsSpan<char>().copy_from(model_str);
+    ScorerStorage::GetInstance()->SetScorer(
+        Scorer::Create(mapped_region.region.Duplicate(), base::File()));
+  }
+
+  // Owned by |delegate_|.
+  raw_ptr<StrictMock<MockPhishingClassifier>> classifier_;
+  raw_ptr<ContentPhishingClassifierDelegate>
+      delegate_;  // Owned by the RenderFrame.
+  bool classifier_not_ready_;
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_P(ContentPhishingClassifierDelegateTest, Navigation) {
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  // Test an initial load.  We expect classification to happen normally.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  std::string html = "<html><body>dummy</body></html>";
+  GURL url("http://host.test/index.html");
+  LoadHTMLWithUrlOverride(html.c_str(), url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  OnStartPhishingDetection(url);
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Reloading the same page will trigger a new classification.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  LoadHTMLWithUrlOverride(html.c_str(), url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Start phishing detection without a fresh page should still classify,
+  // because the top level URL still match.
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    OnStartPhishingDetection(url);
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Even if the page is captured first, it shouldn't matter since the
+  // browser request will start the classification.
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    OnStartPhishingDetection(url);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    OnStartPhishingDetection(url);
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Now load a new toplevel page, which is completely different to the browser
+  // side request URL.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL new_url("http://host2.com");
+  LoadHTMLWithUrlOverride("dummy2", new_url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    // Satisfy condition to start classification from both browser and renderer.
+    OnStartPhishingDetection(new_url);
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // No classification should happen on back/forward navigation.
+  // Note: in practice, the browser will not send a StartPhishingDetection IPC
+  // in this case.  However, we want to make sure that the delegate behaves
+  // correctly regardless.
+  EXPECT_CALL(*classifier_, CancelPendingClassification()).Times(1);
+  // Simulate a go back navigation, i.e. back to http://host.test/index.html.
+  SimulatePageTrantitionForwardOrBack(html.c_str(), url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  OnStartPhishingDetection(new_url);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  // Simulate a go forward navigation, i.e. forward to http://host.test
+  SimulatePageTrantitionForwardOrBack("dummy2", new_url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Now go back again and navigate to a different place within
+  // the same page. No classification should happen.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  // Simulate a go back again to http://host.test/index.html
+  SimulatePageTrantitionForwardOrBack(html.c_str(), url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoPhishingModel) {
+  ASSERT_FALSE(classifier_->is_ready());
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  ScorerStorage::GetInstance()->SetScorer(nullptr);
+  // The scorer is nullptr so the classifier should still not be ready.
+  ASSERT_FALSE(classifier_->is_ready());
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, HasFlatBufferModel) {
+  ASSERT_FALSE(classifier_->is_ready());
+
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, HasVisualTfLiteModel) {
+  ASSERT_FALSE(classifier_->is_ready());
+
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath file_path =
+      temp_dir.GetPath().AppendASCII("visual_model.tflite");
+  base::File file(file_path, base::File::FLAG_OPEN_ALWAYS |
+                                 base::File::FLAG_READ |
+                                 base::File::FLAG_WRITE);
+
+  file.WriteAtCurrentPos(base::byte_span_from_cstring("visual model file"));
+
+  std::string model_str = GetFlatBufferString(0);
+  base::MappedReadOnlyRegion mapped_region =
+      base::ReadOnlySharedMemoryRegion::Create(model_str.length());
+  UNSAFE_TODO(memcpy(mapped_region.mapping.memory(), model_str.data(),
+                     model_str.length()));
+  ScorerStorage::GetInstance()->SetScorer(
+      Scorer::Create(mapped_region.region.Duplicate(), std::move(file)));
+  ASSERT_TRUE(classifier_->is_ready());
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoScorerWithRetry) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {{safe_browsing::kClientSideDetectionRetryLimit}}, {});
+  // For this test, we'll create the delegate with no scorer available yet.
+  ASSERT_FALSE(classifier_->is_ready());
+
+  // Queue up a pending classification, cancel it, then queue up another one.
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("dummy", url.spec().c_str());
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  GURL url2("http://host2.com");
+  LoadHTMLWithUrlOverride("dummy", url2.spec().c_str());
+  OnStartPhishingDetection(url2);
+  delegate_->PageCaptured(false);
+
+  // If there is such delay on kCsdClassificationDelay, the retry request will
+  // be started after that delay (plus some buffer for reducing flakiness), but
+  // retry timeout delay is still 0.
+  task_environment_.FastForwardBy(
+      base::Seconds(kCsdClassificationDelay.Get() + 0.2));
+
+  // Now set a scorer, which should cause a classifier to be created, and
+  // classification will happen again because the scorer is set within timeout.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+  SetScorer(/*model_version=*/1);
+  run_loop.Run();
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Manually start a classification, so that when a new scorer is set, it
+  // should cancel.
+  base::RunLoop run_loop2;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop2.QuitClosure()));
+  OnStartPhishingDetection(url2);
+  run_loop2.Run();
+
+  // If we set a new scorer while a classification is going on the
+  // classification should be cancelled.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  SetScorer(/*model_version=*/2);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoScorer_Ref_WithRetry) {
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeatures(
+      {{safe_browsing::kClientSideDetectionRetryLimit}}, {});
+  // Similar to the last test, but navigates within the page before
+  // setting the scorer.
+  ASSERT_FALSE(classifier_->is_ready());
+
+  // Queue up a pending classification, cancel it, then queue up another one.
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("dummy", url.spec().c_str());
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  // If there is such delay on kCsdClassificationDelay, the retry request will
+  // be started after that delay (plus some buffer for reducing flakiness), but
+  // retry timeout delay is still 0.
+  task_environment_.FastForwardBy(
+      base::Seconds(kCsdClassificationDelay.Get() + 0.2));
+
+  // Now set a scorer, which should cause a classifier to be created, and
+  // classification will happen again because the scorer is set within timeout.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+  SetScorer(/*model_version=*/1);
+  run_loop.Run();
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Manually start a classification, so that when a new scorer is set, it
+  // should cancel.
+  base::RunLoop run_loop2;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop2.QuitClosure()));
+  OnStartPhishingDetection(url);
+  run_loop2.Run();
+
+  // If we set a new scorer while a classification is going on the
+  // classification should be cancelled.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  SetScorer(/*model_version=*/2);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoScorer) {
+  std::map<std::string, std::string> feature_params;
+  feature_params["RetryTimeMax"] = "0";
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeaturesAndParameters(
+      {{safe_browsing::kClientSideDetectionRetryLimit, feature_params}}, {});
+
+  // For this test, we'll create the delegate with no scorer available yet.
+  ASSERT_FALSE(classifier_->is_ready());
+
+  // Queue up a pending classification, cancel it, then queue up another one.
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("dummy", url.spec().c_str());
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  GURL url2("http://host2.com");
+  LoadHTMLWithUrlOverride("dummy", url2.spec().c_str());
+  OnStartPhishingDetection(url2);
+  delegate_->PageCaptured(false);
+
+  // If there is such delay on kCsdClassificationDelay, the retry request will
+  // be started after that delay (plus some buffer for reducing flakiness), but
+  // retry timeout delay is still 0.
+  task_environment_.FastForwardBy(
+      base::Seconds(kCsdClassificationDelay.Get() + 0.2));
+
+  // Now set a scorer, which should cause a classifier to be created, but no
+  // classification will start, because the retry timeout is 0.
+  SetScorer(/*model_version=*/1);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Manually start a classification, so that when a new scorer is set, it
+  // should cancel.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+  OnStartPhishingDetection(url2);
+  run_loop.Run();
+
+  // If we set a new scorer while a classification is going on the
+  // classification should be cancelled.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  SetScorer(/*model_version=*/2);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoScorer_Ref) {
+  std::map<std::string, std::string> feature_params;
+  feature_params["RetryTimeMax"] = "0";
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeaturesAndParameters(
+      {{safe_browsing::kClientSideDetectionRetryLimit, feature_params}}, {});
+
+  // Similar to the last test, but navigates within the page before
+  // setting the scorer.
+  ASSERT_FALSE(classifier_->is_ready());
+
+  // Queue up a pending classification, cancel it, then queue up another one.
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("dummy", url.spec().c_str());
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  // If there is such delay on kCsdClassificationDelay, the retry request will
+  // be started after that delay (plus some buffer for reducing flakiness), but
+  // retry timeout delay is still 0.
+  task_environment_.FastForwardBy(
+      base::Seconds(kCsdClassificationDelay.Get() + 0.2));
+
+  // Now set a scorer, which should cause a classifier to be created, but no
+  // classification will start, because the timeout delay is 0 seconds.
+  SetScorer(/*model_version=*/1);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Manually start a classification
+  base::RunLoop run_loop;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+  OnStartPhishingDetection(url);
+  run_loop.Run();
+
+  // If we set a new scorer while a classification is going on the
+  // classification should be cancelled.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  SetScorer(/*model_version=*/2);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoScorerWithinTimeout) {
+  std::map<std::string, std::string> feature_params;
+  feature_params["RetryTimeMax"] = "0";
+  base::test::ScopedFeatureList scoped_list;
+  scoped_list.InitWithFeaturesAndParameters(
+      {{safe_browsing::kClientSideDetectionRetryLimit, feature_params}}, {});
+  // Similar to the last test, but the timeout delay is 0 seconds, so we expect
+  // classifier not ready to occur, and setting the scorer will not retry the
+  // classification.
+  ASSERT_FALSE(classifier_->is_ready());
+  EXPECT_FALSE(classifier_not_ready_);
+
+  // Queue up a pending classification.
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("dummy", url.spec().c_str());
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(false);
+
+  // If there is such delay on kCsdClassificationDelay, the retry request will
+  // be started after that delay (plus some buffer for reducing flakiness), but
+  // retry timeout delay is still 0.
+  task_environment_.FastForwardBy(
+      base::Seconds(kCsdClassificationDelay.Get() + 0.2));
+
+  EXPECT_TRUE(classifier_not_ready_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, NoStartPhishingDetection) {
+  // Tests the behavior when OnStartPhishingDetection has not yet been called
+  // when the page load finishes.
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+  // Now simulate the StartPhishingDetection IPC.  We expect classification
+  // to begin.
+  base::RunLoop run_loop;
+  EXPECT_CALL(*classifier_, BeginClassification(_))
+      .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+  OnStartPhishingDetection(url);
+  run_loop.Run();
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // Now try again, but this time we will navigate the page away before
+  // the IPC is sent.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url2("http://host2.com");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url2.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url3("http://host3.com");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url3.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  OnStartPhishingDetection(url);
+
+  // In this test, the original page is a redirect, which we do not get a
+  // StartPhishingDetection IPC for.  We simulate the redirection event to
+  // load a new page while reusing the original session history entry, and
+  // check that classification begins correctly for the landing page.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url4("http://host4.com");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url4.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+
+  // Now the redirecting URL HTML has been loaded.
+  GURL redir_url("http://host4.com/redir");
+  LoadHTMLWithUrlOverride("123", redir_url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  OnStartPhishingDetection(url4);
+  {
+    base::RunLoop run_loop2;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop2.QuitClosure()));
+    // The below essentially called OnStartPhishingDetection by replacing the
+    // URL.
+    SimulateRedirection(redir_url);
+    // Page has finally captured for the redirecting URL. With the layout
+    // complete, it will start classification on landing page.
+    delegate_->PageCaptured(false);
+    run_loop2.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, CancelWhenScorerCleared) {
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  OnStartPhishingDetection(url);
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Now clear the scorer while classification is ongoing.
+  // It should cancel the pending classification.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  ScorerStorage::GetInstance()->SetScorer(nullptr);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest,
+       IgnorePreliminaryCaptureAndDoesNotCancelClassification) {
+  // Tests that preliminary PageCaptured notifications are ignored.
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  OnStartPhishingDetection(url);
+  delegate_->PageCaptured(true);
+
+  // Once the non-preliminary capture happens, classification should begin.
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest,
+       DuplicatePageCaptureDoesNotCancel) {
+  // Tests that a second PageCaptured notification causes classification to
+  // be cancelled.
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  OnStartPhishingDetection(url);
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  delegate_->PageCaptured(false);
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest, PhishingDetectionDone) {
+  // Tests that a SafeBrowsingHostMsg_PhishingDetectionDone IPC is
+  // sent to the browser whenever we finish classification.
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  // Start by loading a page to populate the delegate's state.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL url("http://host.test");
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+  OnStartPhishingDetection(url);
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Now run the callback to simulate the classifier finishing.
+  ClientPhishingRequest verdict;
+  verdict.set_url(url.spec());
+  verdict.set_client_score(0.8f);
+  verdict.set_is_phishing(false);  // Send IPC even if site is not phishing.
+  RunAndVerifyClassificationDone(verdict);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest,
+       ClassificationDoneWithUrlQueryMismatch) {
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  GURL url("http://host.test/index.html");
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  bool callback_called = false;
+  StartPhishingDetectionWithCallback(
+      url, base::BindOnce(
+               [](bool* called, mojom::PhishingDetectorResult result,
+                  std::optional<mojo_base::ProtoWrapper> proto) {
+                 *called = true;
+                 EXPECT_EQ(mojom::PhishingDetectorResult::SUCCESS, result);
+                 ASSERT_TRUE(proto.has_value());
+                 auto verdict_out = proto->As<ClientPhishingRequest>();
+                 ASSERT_TRUE(verdict_out.has_value());
+                 EXPECT_EQ("http://host.test/index.html?ws=workspace",
+                           verdict_out->url());
+               },
+               &callback_called));
+
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Now run the callback to simulate the classifier finishing.
+  // Set verdict URL to have query parameters.
+  ClientPhishingRequest verdict;
+  verdict.set_url("http://host.test/index.html?ws=workspace");
+  verdict.set_client_score(0.8f);
+  verdict.set_is_phishing(false);
+
+  // This should not crash on DCHECK even though URLs differ by query.
+  RunAndVerifyClassificationDone(verdict);
+
+  EXPECT_TRUE(callback_called);
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest,
+       ClassificationDoneWithUrlPathMismatch) {
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+
+  GURL url("http://host.test/index.html");
+  EXPECT_CALL(*classifier_, CancelPendingClassification())
+      .Times(testing::AnyNumber());
+  LoadHTMLWithUrlOverride("<html><body>phish</body></html>",
+                          url.spec().c_str());
+  Mock::VerifyAndClearExpectations(classifier_);
+
+  bool callback_called = false;
+  StartPhishingDetectionWithCallback(
+      url, base::BindOnce(
+               [](bool* called, mojom::PhishingDetectorResult result,
+                  std::optional<mojo_base::ProtoWrapper> proto) {
+                 *called = true;
+                 EXPECT_EQ(mojom::PhishingDetectorResult::SUCCESS, result);
+                 ASSERT_TRUE(proto.has_value());
+                 auto verdict_out = proto->As<ClientPhishingRequest>();
+                 ASSERT_TRUE(verdict_out.has_value());
+                 EXPECT_EQ("http://host.test/different_path.html",
+                           verdict_out->url());
+               },
+               &callback_called));
+
+  {
+    base::RunLoop run_loop;
+    EXPECT_CALL(*classifier_, BeginClassification(_))
+        .WillOnce(base::test::RunOnceClosure(run_loop.QuitClosure()));
+    delegate_->PageCaptured(/*preliminary_capture=*/false);
+    run_loop.Run();
+    Mock::VerifyAndClearExpectations(classifier_);
+  }
+
+  // Now run the callback to simulate the classifier finishing.
+  // Set verdict URL to have a different path.
+  ClientPhishingRequest verdict;
+  verdict.set_url("http://host.test/different_path.html");
+  verdict.set_client_score(0.8f);
+  verdict.set_is_phishing(false);
+
+  // This should not crash on DCHECK even though URLs differ by path.
+  RunAndVerifyClassificationDone(verdict);
+
+  EXPECT_TRUE(callback_called);
+
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+TEST_P(ContentPhishingClassifierDelegateTest,
+       NewPageLoadWhileBrowserRequestWaitsForLoad) {
+  base::HistogramTester histograms;
+  SetScorer(/*model_version=*/1);
+  ASSERT_TRUE(classifier_->is_ready());
+  GURL url("http://host.test/index.html");
+
+  // 1. Start phishing detection (browser request).
+  OnStartPhishingDetection(url);
+
+  // 2. Navigate away before PageCaptured is called (renderer_layout_finished_
+  // is false). Simulate navigation to a new page.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+  GURL new_url("http://host2.test");
+  LoadHTMLWithUrlOverride("<html><body>new page</body></html>",
+                          new_url.spec().c_str());
+
+  histograms.ExpectBucketCount(
+      "SBClientPhishing.Classifier.Event",
+      static_cast<int>(SBPhishingClassifierEvent::
+                           kNewPageLoadWhileBrowserRequestWaitsForLoad),
+      1);
+
+  // The delegate will cancel pending classification on destruction.
+  EXPECT_CALL(*classifier_, CancelPendingClassification());
+}
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         ContentPhishingClassifierDelegateTest,
+                         ::testing::Values(-1.0, 0.0, 0.5));
+
+}  // namespace safe_browsing

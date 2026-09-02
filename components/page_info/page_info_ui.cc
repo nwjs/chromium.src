@@ -109,6 +109,8 @@ base::span<const PageInfoUI::PermissionUIInfo> GetContentSettingsUIInfo() {
       },
       {ContentSettingsType::USB_GUARD, IDS_SITE_SETTINGS_TYPE_USB_DEVICES,
        IDS_SITE_SETTINGS_TYPE_USB_DEVICES_MID_SENTENCE},
+      {ContentSettingsType::SERIAL_GUARD, IDS_SITE_SETTINGS_TYPE_SERIAL_PORTS,
+       IDS_SITE_SETTINGS_TYPE_SERIAL_PORTS_MID_SENTENCE},
       {ContentSettingsType::BLUETOOTH_GUARD,
        IDS_SITE_SETTINGS_TYPE_BLUETOOTH_DEVICES,
        IDS_SITE_SETTINGS_TYPE_BLUETOOTH_DEVICES_MID_SENTENCE},
@@ -167,8 +169,6 @@ base::span<const PageInfoUI::PermissionUIInfo> GetContentSettingsUIInfo() {
        IDS_SITE_SETTINGS_TYPE_IMAGES_MID_SENTENCE},
       {ContentSettingsType::POINTER_LOCK, IDS_SITE_SETTINGS_TYPE_POINTER_LOCK,
        IDS_SITE_SETTINGS_TYPE_POINTER_LOCK_MID_SENTENCE},
-      {ContentSettingsType::SERIAL_GUARD, IDS_SITE_SETTINGS_TYPE_SERIAL_PORTS,
-       IDS_SITE_SETTINGS_TYPE_SERIAL_PORTS_MID_SENTENCE},
       {ContentSettingsType::WEB_APP_INSTALLATION,
        IDS_SITE_SETTINGS_TYPE_WEB_APP_INSTALLATION,
        IDS_SITE_SETTINGS_TYPE_WEB_APP_INSTALLATION_MID_SENTENCE},
@@ -392,13 +392,6 @@ PageInfoUI::IdentityInfo::~IdentityInfo() = default;
 
 PageInfoUI::PageFeatureInfo::PageFeatureInfo()
     : is_vr_presentation_in_headset(false) {}
-
-bool PageInfoUI::AdPersonalizationInfo::is_empty() const {
-  return !has_joined_user_to_interest_group && accessed_topics.empty();
-}
-
-PageInfoUI::AdPersonalizationInfo::AdPersonalizationInfo() = default;
-PageInfoUI::AdPersonalizationInfo::~AdPersonalizationInfo() = default;
 
 std::unique_ptr<PageInfoUI::SecurityDescription>
 PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {

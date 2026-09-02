@@ -92,6 +92,11 @@ export class SearchboxMatchElement extends CrLitElement {
         reflect: true,
       },
 
+      showContextualDescription: {
+        type: Boolean,
+        reflect: true,
+      },
+
       /**
        * Whether the match features an image (as opposed to an icon or favicon).
        */
@@ -189,6 +194,7 @@ export class SearchboxMatchElement extends CrLitElement {
 
   override accessor ariaLabel: string = '';
   accessor hasAction: boolean = false;
+  accessor showContextualDescription: boolean = false;
   accessor hasImage: boolean = false;
   accessor hasKeywordChip: boolean = false;
   accessor isEntitySuggestion: boolean = false;
@@ -299,6 +305,7 @@ export class SearchboxMatchElement extends CrLitElement {
     // Keyboard activation isn't possible because when the keyword chip is
     // focused, focus is redirected to the omnibox view.
     const event = e.detail.event as PointerEvent;
+    this.fire('keyword-click', {match: this.match});
     this.pageHandler_.activateKeyword(
         this.matchIndex, this.match.destinationUrl, mojoTimeTicks(Date.now()),
         // Distinguish mouse and touch or pen events for logging purposes.
@@ -365,6 +372,7 @@ export class SearchboxMatchElement extends CrLitElement {
     e.preventDefault();   // Prevents default browser action (navigation).
     e.stopPropagation();  // Prevents <iron-selector> from selecting the match.
 
+    this.fire('match-remove');
     this.pageHandler_.deleteAutocompleteMatch(
         this.matchIndex, this.match.destinationUrl);
   }

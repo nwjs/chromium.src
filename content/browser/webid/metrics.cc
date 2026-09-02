@@ -439,6 +439,10 @@ void Metrics::RecordIdpSigninMatchStatus(std::optional<bool> idp_signin_status,
       case ParseStatus::kHttpNotFoundError:
         match_status = IdpSigninMatchStatus::kMismatchWithNetworkError;
         break;
+      case ParseStatus::kBlockedByConnectionAllowlist:
+        match_status =
+            IdpSigninMatchStatus::kMismatchWithConnectionAllowlistBlock;
+        break;
       case ParseStatus::kNoResponseError:
         match_status = IdpSigninMatchStatus::kMismatchWithNoContent;
         break;
@@ -482,7 +486,6 @@ void Metrics::RecordAutoReauthnMetrics(
     bool is_auto_reauthn_setting_blocked,
     bool is_auto_reauthn_embargoed,
     bool is_auto_reauthn_blocked_by_embedder,
-    std::optional<base::TimeDelta> time_from_embargo,
     bool requires_user_mediation) {
   NumAccounts num_returning_accounts = NumAccounts::kZero;
   if (has_single_returning_account.has_value()) {
@@ -507,19 +510,6 @@ void Metrics::RecordAutoReauthnMetrics(
       "Blink.FedCm.AutoReauthn.BlockedByPreventSilentAccess",
       requires_user_mediation);
   ukm::builders::Blink_FedCm* ukm_builder = GetOrCreateFedCmBuilder();
-  if (time_from_embargo) {
-    // Use a custom histogram with the default number of buckets so that we set
-    // the maximum to the permission embargo duration: 10 minutes. See
-    // `kFederatedIdentityAutoReauthnEmbargoDuration`.
-    base::UmaHistogramCustomTimes(
-        "Blink.FedCm.AutoReauthn.TimeFromEmbargoWhenBlocked",
-        *time_from_embargo, base::Milliseconds(10), base::Minutes(10),
-        /*buckets=*/50);
-    ukm_builder->SetAutoReauthn_TimeFromEmbargoWhenBlocked(
-        ukm::GetExponentialBucketMinForUserTiming(
-            time_from_embargo->InMilliseconds()));
-  }
-
   if (has_single_returning_account.has_value()) {
     ukm_builder->SetAutoReauthn_ReturningAccounts(
         static_cast<int>(num_returning_accounts));
@@ -716,19 +706,6 @@ void Metrics::RecordMultipleRequestsRpMode(
   base::UmaHistogramEnumeration("Blink.FedCm.MultipleRequestsRpMode", status);
 }
 
-void Metrics::RecordTimeBetweenUserInfoAndActiveModeAPI(
-    base::TimeDelta duration) {
-  auto SetUkm = [&](auto ukm_builder) {
-    ukm_builder->SetTiming_GetUserInfoToButtonMode(
-        ukm::GetExponentialBucketMinForUserTiming(duration.InMilliseconds()));
-  };
-
-  SetUkm(GetOrCreateFedCmBuilder());
-
-  base::UmaHistogramMediumTimes("Blink.FedCm.Timing.GetUserInfoToButtonMode",
-                                duration);
-}
-
 void Metrics::RecordNumMatchingAccounts(size_t accounts_remaining,
                                         const std::string& filter_type) {
   Metrics::NumAccounts num_matching =
@@ -798,17 +775,6 @@ int Metrics::GetSessionID() const {
   return session_id_;
 }
 
-void RecordPreventSilentAccess(const RequesterFrameType& requester_frame_type,
-                               int source_id) {
-  base::UmaHistogramEnumeration("Blink.FedCm.PreventSilentAccessFrameType",
-                                requester_frame_type);
-
-  ukm::builders::Blink_FedCm ukm_builder(source_id);
-  ukm_builder.SetPreventSilentAccessFrameType(
-      static_cast<int>(requester_frame_type));
-  ukm_builder.Record(ukm::UkmRecorder::Get());
-}
-
 void RecordAccountSelectionScrollPosition(int source_id,
                                           int session_id,
                                           const gfx::Point& scroll_position) {
@@ -842,10 +808,6 @@ void RecordAccountsResponseInvalidReason(
     IdpNetworkRequestManager::AccountsResponseInvalidReason reason) {
   base::UmaHistogramEnumeration(
       "Blink.FedCm.Status.AccountsResponseInvalidReason", reason);
-}
-
-void RecordSetLoginStatusIgnoredReason(SetLoginStatusIgnoredReason reason) {
-  base::UmaHistogramEnumeration("Blink.FedCm.SetLoginStatusIgnored", reason);
 }
 
 void RecordLifecycleStateFailureReason(LifecycleStateFailureReason reason) {

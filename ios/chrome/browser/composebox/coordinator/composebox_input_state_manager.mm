@@ -59,6 +59,8 @@ ComposeboxModelOption ModelOptionForModelMode(omnibox::ModelMode model_mode) {
     case omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR:
     case omnibox::ModelMode::MODEL_MODE_UNSPECIFIED:
       return kRegular;
+    case omnibox::ModelMode::MODEL_MODE_GEMINI_FLASH_LATEST:
+      return kFlash;
     default:
       base::debug::DumpWithoutCrashing();
       return kRegular;
@@ -81,6 +83,8 @@ omnibox::ModelMode ModelModeForModelOption(
       return omnibox::ModelMode::MODEL_MODE_GEMINI_PRO;
     case kThinkingNoGenUI:
       return omnibox::ModelMode::MODEL_MODE_GEMINI_PRO_NO_GEN_UI;
+    case kFlash:
+      return omnibox::ModelMode::MODEL_MODE_GEMINI_FLASH_LATEST;
   }
 }
 
@@ -787,7 +791,8 @@ contextual_search::DriveConsentState ConsentStateFromDisclaimerStatus(
 
   _inputStateModel = std::make_unique<contextual_search::InputStateModel>(
       *_sessionHandle, *searchboxConfig, GURL(), _isIncognito,
-      has_primary_account);
+      /*is_signed_in=*/has_primary_account,
+      /*browser_identity_matches_aim_identity=*/has_primary_account);
   if (_prefService) {
     _inputStateModel->SetPrefService(_prefService);
   }

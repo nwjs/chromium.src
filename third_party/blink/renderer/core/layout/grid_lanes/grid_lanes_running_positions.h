@@ -47,6 +47,9 @@ class CORE_EXPORT GridLanesRunningPositions {
     }
 
     Member<GridItemData> item;
+    // Without a lane graph, this indexes the container builder's children. With
+    // a lane graph (gap decorations or fragmentation collection), it indexes
+    // either the item or its root spanner in the item's start lane.
     wtf_size_t item_index{kNotFound};
     // This is only needed for stretch aligned items as they will need to be
     // relaid out once we know the final alignment candidate for a given track
@@ -78,10 +81,10 @@ class CORE_EXPORT GridLanesRunningPositions {
     // axis.
     AlignmentCandidate alignment_candidate;
 
-    // The index into the corresponding `GridLaneData::item_data` of the spanner
-    // directly below this opening. Dense items placed into the opening are
-    // nested under this entry for fragmentation.
-    wtf_size_t spanner_below_index{kNotFound};
+    // The index into the corresponding `GridLaneData::item_data` of the item
+    // directly below this opening. Dense items placed into the opening can be
+    // nested under this entry.
+    wtf_size_t item_below_index{kNotFound};
   };
 
   GridLanesRunningPositions(const GridLayoutTrackCollection& track_collection,
@@ -134,11 +137,13 @@ class CORE_EXPORT GridLanesRunningPositions {
   // not include the size of the item that we are laying out and placing, and is
   // used to determine if a opening will be formed once the item is placed.
   //
-  // `item_index` is the index of the item's fragment in the container
-  // builder, and `layout_subtree` is the item's layout subtree (only
-  // non-null for subgrids). `grid_lanes`, when provided during fragmentation
-  // collection, determines the index at which this item will be added to each
-  // lane so new openings can refer to the spanner below them.
+  // Without a lane graph, `item_index` indexes the item's fragment in the
+  // container builder. With a lane graph (gap decorations or fragmentation
+  // collection), it indexes either the item or the lane entry below its opening
+  // in the item's start lane. `layout_subtree` is the item's layout subtree
+  // (only non-null for subgrids). When `grid_lanes` is provided, it determines
+  // where this item will be added to each lane so new openings can refer to the
+  // item below them.
   //
   // Example of how `max_running_position_for_span` is used when dense-packing
   // is enabled: |Track 1|Track 2|Track 3|
@@ -177,21 +182,25 @@ class CORE_EXPORT GridLanesRunningPositions {
       const GridArea& resolved_position,
       const GridTrackSizingDirection grid_axis_direction);
 
-  // If we can find an eligible track opening to fit the item that is higher
-  // than `auto_placement_stacking_axis_offset`, set `grid_lanes_item` to have
-  // the updated span location, adjust the track opening as needed (either
-  // erasing it or reducing the size), and return the running position at which
-  // the item will be placed. `item_index` is the index of the item's fragment
-  // in the container builder, and is used in the creation a stacking axis
-  // alignment candidate above any new track openings created. This method is
-  // only used when dense-packing is set. In the case where a multi-span item is
-  // densely-packed across the open ending of a track after the current running
-  // position, the running position of that track will be updated in this
-  // method. For an example, see the comment for
+  // If we can find an eligible track opening that is higher than
+  // `auto_placement_stacking_axis_offset`, or at the same running position but
+  // earlier in track-flow order, set `grid_lanes_item` to have the updated span
+  // location, adjust the track opening as needed (either erasing it or reducing
+  // the size), and return the running position at which the item will be
+  // placed. Without a lane graph, `item_index` identifies the item's fragment
+  // in the container builder. With a lane graph (gap decorations or
+  // fragmentation collection), the start-lane index is
+  // determined from the selected openings instead. The index is used when
+  // creating a stacking-axis alignment candidate above any new track openings.
+  // This method is only used when dense-packing is set. In the case where a
+  // multi-span item is densely-packed across the open ending of a track after
+  // the current running position, the running position of that track will be
+  // updated in this method. For an example, see the comment for
   // `AccumulateTrackOpeningsToAccommodateItem`. If provided,
-  // `spanner_indices_below_opening` receives the index into each corresponding
-  // `GridLaneData::item_data` of the spanner below the selected opening.
-  LayoutUnit GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
+  // `item_indices_below_opening` receives the index into each corresponding
+  // `GridLaneData::item_data` of the item below the selected opening. This
+  // method returns `std::nullopt` if no eligible track opening was found.
+  std::optional<LayoutUnit> GetEligibleTrackOpeningAndUpdateGridLanesItemSpan(
       wtf_size_t start_offset,
       const LayoutUnit item_stacking_axis_contribution,
       const LayoutUnit auto_placement_stacking_axis_offset,
@@ -199,7 +208,8 @@ class CORE_EXPORT GridLanesRunningPositions {
       GridItemData& grid_lanes_item,
       wtf_size_t item_index = kNotFound,
       GridLayoutSubtree* layout_subtree = nullptr,
-      Vector<wtf_size_t>* spanner_indices_below_opening = nullptr);
+      const GridLanesDataVector* grid_lanes = nullptr,
+      Vector<wtf_size_t>* item_indices_below_opening = nullptr);
 
   // If the span of `grid_lanes_item` is indefinite this method will find and
   // set the span where the item should be placed. Then, this method will return
@@ -326,13 +336,22 @@ class CORE_EXPORT GridLanesRunningPositions {
   // element in `track_opening_indices` is the specific index within a track's
   // vector of openings. `start_position` refers to the highest possible
   // position that an item can be placed; this would be the lowest running
-  // position of all the openings in the path.
+  // position of all the openings in the path. `end_position` is the end of the
+  // intersection of all openings in the path.
   struct EligibleTrackOpeningPath {
     bool IsValid() const { return !track_opening_indices.empty(); }
+
+    // If the track opening consists only of unbounded openings at the end of
+    // the track, placing an item in this path would not actually densely-pack
+    // it.
+    bool ContainsTrackOpening() const {
+      return IsValid() && end_position != LayoutUnit::Max();
+    }
 
     wtf_size_t starting_track_index{0};
     Vector<wtf_size_t> track_opening_indices;
     LayoutUnit start_position{LayoutUnit::Max()};
+    LayoutUnit end_position{LayoutUnit::Max()};
   };
 
   // For testing only.
@@ -394,6 +413,17 @@ class CORE_EXPORT GridLanesRunningPositions {
       wtf_size_t num_tracks_remaining,
       wtf_size_t track_to_check_for_openings,
       EligibleTrackOpeningPath& eligible_track_opening_result);
+
+  // Chooses the first eligible track opening path in track-flow order within
+  // `tie_threshold_` of `minimum_track_opening_running_position` that is higher
+  // than auto-placement, or at the same running position but earlier in
+  // track-flow order. Returns `std::nullopt` when auto-placement should be
+  // retained.
+  std::optional<wtf_size_t> ChooseFirstEligibleTrackOpeningPath(
+      const Vector<EligibleTrackOpeningPath>& eligible_track_opening_results,
+      LayoutUnit minimum_track_opening_running_position,
+      LayoutUnit auto_placement_stacking_axis_offset,
+      wtf_size_t initial_span_start_line) const;
 
   // The current running position for a given track is the start position of the
   // final opening.

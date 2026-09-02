@@ -8,7 +8,6 @@
 #include "base/numerics/ranges.h"
 #include "base/trace_event/typed_macros.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
-#include "ui/android/ui_android_features.h"
 #include "ui/android/window_android.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/events/android/drag_event_android.h"
@@ -31,10 +30,7 @@ using base::android::JavaRef;
 using base::android::ScopedJavaLocalRef;
 }  // namespace
 
-EventForwarder::EventForwarder(ViewAndroid* view)
-    : view_(view),
-      send_touch_moves_to_observers(base::FeatureList::IsEnabled(
-          kSendTouchMovesToEventForwarderObservers)) {}
+EventForwarder::EventForwarder(ViewAndroid* view) : view_(view) {}
 
 EventForwarder::~EventForwarder() {
   JNIEnv* env = jni_zero::AttachCurrentThread();
@@ -159,18 +155,6 @@ bool EventForwarder::OnTouchEvent(JNIEnv* env,
       /*raw_offset_y_pixels=*/
       JNI_MotionEvent::Java_MotionEvent_getRawY(env, motion_event) - pos_y_0,
       for_touch_handle, &pointer0, pointer1.get(), is_latest_event_resampled);
-
-  if (send_touch_moves_to_observers ||
-      android_action !=
-          MotionEventAndroid::GetAndroidAction(MotionEvent::Action::MOVE)) {
-    // Don't send touch moves to observers. Currently we just have one observer
-    // which shouldn't be affected by this. This is a temporary change until we
-    // have confirmed touch moves are not required by the observer and we can
-    // cleanup the observer API.
-    // TODO(b/328601354): Confirm touch moves are not required, and if they are
-    // not required cleanup the observer API.
-    observers_.Notify(&Observer::OnTouchEvent, *event);
-  }
 
   return view_->OnTouchEvent(*event);
 }

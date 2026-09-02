@@ -60,7 +60,6 @@
 #include "chrome/browser/resource_coordinator/lifecycle_unit_observer.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
 #include "chrome/browser/resource_coordinator/utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"  // nogncheck
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck
@@ -270,6 +269,8 @@ const char TabStatsTracker::UmaStatsReportingDelegate::
 const char TabStatsTracker::UmaStatsReportingDelegate::
     kKeyboardTabSwitchModeHistogramName[] =
         "TabStrip.Tab.KeyboardTabSwitchMode";
+const char TabStatsTracker::UmaStatsReportingDelegate::
+    kFocusModeIsActiveHistogramName[] = "Tabs.FocusMode.IsActive";
 const char
     TabStatsTracker::UmaStatsReportingDelegate::kPinnedTabCountHistogramName[] =
         "Tabs.PinnedTabCount";
@@ -965,6 +966,13 @@ void TabStatsTracker::UmaStatsReportingDelegate::ReportHeartbeatMetrics(
         kTabCountHistogramName, tab_strip, tab_strip.GetTabCount());
     UmaHistogramCounts10000WithTabStripModeVariant(
         kPinnedTabCountHistogramName, tab_strip, tab_strip.GetPinnedTabCount());
+
+    const TabStripModel* tab_strip_model =
+        tab_strip.browser_window_interface()->GetTabStripModel();
+    const bool is_in_focus_mode =
+        tab_strip_model && tab_strip_model->GetFocusedGroup().has_value();
+    base::UmaHistogramBoolean(kFocusModeIsActiveHistogramName,
+                              is_in_focus_mode);
 
     auto* controller = tabs::VerticalTabStripStateController::From(
         tab_strip.browser_window_interface());

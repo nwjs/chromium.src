@@ -20,6 +20,8 @@
 #include "components/bookmarks/browser/bookmark_model_observer.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/common/bookmark_metrics.h"
+#include "components/browser_apis/bookmarks/bookmark_event_translator.h"
+#include "components/browser_apis/bookmarks/bookmark_uuid_mapper.h"
 #include "components/browser_apis/bookmarks/bookmarks_api.mojom.h"
 #include "components/browser_apis/bookmarks/bookmarks_view.h"
 #include "url/gurl.h"
@@ -31,7 +33,7 @@ class ManagedBookmarkService;
 // Implements BookmarksView directly on top of BookmarkModel (which manages both
 // local and account bookmark nodes) and ManagedBookmarkService.
 //
-// NOTE on special behavior and UUID collision avoidance:
+// NOTE on special behavior, UUID collision avoidance, and Managed Bookmarks:
 // 1. Unlike BookmarkMergedSurfaceView (which merges local and account bookmarks
 //    into a single default parent folder per permanent folder type),
 //    CombinedBookmarksView returns all permanent nodes (both the local and
@@ -40,6 +42,14 @@ class ManagedBookmarkService;
 //    kBookmarkBarNodeUuid) for both account and local permanent folders,
 //    CombinedBookmarksView maintains a bidirectional mapping between the
 //    permanent node ID (int64_t) and unique random V4 UUIDs.
+// 3. Managed Bookmarks: Enterprise managed bookmarks are provided via
+//    ManagedBookmarkService and attached directly to
+//    BookmarkModel::root_node(). Because managed bookmarks are authoritative
+//    enterprise policies, they are never synced across user accounts or
+//    duplicated into account storage. model_->root_node()->children() already
+//    contains the single canonical managed permanent node. In the WebUI,
+//    managed bookmarks reside under local/device storage and can be
+//    collapsed/expanded independently without affecting sync or model state.
 class CombinedBookmarksView : public bookmarks_api::BookmarksView,
                               public bookmarks::BookmarkModelObserver {
  public:
@@ -63,7 +73,9 @@ class CombinedBookmarksView : public bookmarks_api::BookmarksView,
   bool IsPermanentNode(const bookmarks::BookmarkNode* node) const override;
   bookmarks_api::mojom::PermanentFolderType GetPermanentFolderType(
       const bookmarks::BookmarkNode* node) const override;
+  base::Uuid GetUuid(const bookmarks::BookmarkNode* node) override;
   bool IsSynced(const bookmarks::BookmarkNode* node) const override;
+  bookmarks_api::BookmarkEventTranslator& GetEventTranslator() override;
   const bookmarks::BookmarkNode* AddURL(const bookmarks::BookmarkNode* parent,
                                         size_t index,
                                         const std::u16string& title,
@@ -105,23 +117,26 @@ class CombinedBookmarksView : public bookmarks_api::BookmarksView,
                            const base::Location& location) override;
   void BookmarkAllUserNodesRemoved(const std::set<GURL>& removed_urls,
                                    const base::Location& location) override;
+  void OnWillRemoveAllUserBookmarks(const base::Location& location) override;
   void BookmarkNodeChanged(const bookmarks::BookmarkNode* node) override;
   void BookmarkNodeFaviconChanged(const bookmarks::BookmarkNode* node) override;
+  void OnWillReorderBookmarkNode(const bookmarks::BookmarkNode* node) override;
   void BookmarkNodeChildrenReordered(
       const bookmarks::BookmarkNode* node) override;
+  void BookmarkPermanentNodeVisibilityChanged(
+      const bookmarks::BookmarkPermanentNode* node) override;
   void ExtensiveBookmarkChangesBeginning() override;
   void ExtensiveBookmarkChangesEnded() override;
 
  private:
-  void RebuildPermanentNodeUuids();
   void Notify(std::vector<bookmarks_api::mojom::BookmarksEventPtr> events);
+  void RegisterAccountNodeOverrides();
 
   raw_ptr<bookmarks::BookmarkModel> model_;
   raw_ptr<bookmarks::ManagedBookmarkService> managed_bookmark_service_;
   std::unique_ptr<bookmarks::BookmarkNode> synthetic_root_node_;
-
-  base::flat_map<int64_t, base::Uuid> node_id_to_uuid_;
-  base::flat_map<base::Uuid, int64_t> uuid_to_node_id_;
+  bookmarks_api::BookmarkUuidMapper uuid_mapper_;
+  bookmarks_api::BookmarkEventTranslator translator_{this};
 
   base::ObserverList<bookmarks_api::BookmarksViewObserver> observers_;
   base::ScopedObservation<bookmarks::BookmarkModel,

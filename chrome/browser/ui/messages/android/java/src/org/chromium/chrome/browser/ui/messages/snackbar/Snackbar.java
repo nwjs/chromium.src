@@ -93,7 +93,7 @@ public class Snackbar {
     // Obsolete; don't use: UMA_CONDITIONAL_TAB_STRIP_DISMISS_UNDO = 35;
     public static final int UMA_PAINT_PREVIEW_UPGRADE_NOTIFICATION = 36;
     public static final int UMA_READING_LIST_BOOKMARK_ADDED = 37;
-    public static final int UMA_PRIVACY_SANDBOX_PAGE_OPEN = 38;
+    // Obsolete; don't use: public static final int UMA_PRIVACY_SANDBOX_PAGE_OPEN = 38;
     // Obsolete; don't use: public static final int UMA_WEB_FEED_FOLLOW_SUCCESS = 39;
     // Obsolete; don't use: public static final int UMA_WEB_FEED_FOLLOW_FAILURE = 40;
     // Obsolete; don't use: public static final int UMA_WEB_FEED_UNFOLLOW_SUCCESS = 41;
@@ -149,6 +149,8 @@ public class Snackbar {
     public static final int UMA_TIPS_OPT_IN = 91;
     public static final int UMA_NTP_THEME_TIP = 92;
     public static final int UMA_SEND_TAB_TO_SELF = 93;
+    public static final int UMA_FACILITATED_PAYMENTS_PIX_ACCOUNT_LINKING_ERROR = 94;
+    public static final int UMA_GLIC_UNPIN_UNDO = 95;
     // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:SnackbarIdentifier)
 
     private final @Nullable SnackbarController mController;

@@ -1277,6 +1277,9 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kMathStyle:
       return value_id == CSSValueID::kNormal ||
              value_id == CSSValueID::kCompact;
+    case CSSPropertyID::kMaxContentSizing:
+      return value_id == CSSValueID::kAuto ||
+             value_id == CSSValueID::kShrinkToFit;
     case CSSPropertyID::kObjectFit:
       return value_id == CSSValueID::kFill ||
              value_id == CSSValueID::kContain ||
@@ -1725,11 +1728,14 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
     case CSSPropertyID::kBlockEllipsis:
       return value_id == CSSValueID::kEllipsis ||
              value_id == CSSValueID::kNoEllipsis;
-    case CSSPropertyID::kInternalOverscrollArea:
+    case CSSPropertyID::kOverscrollContainerType:
       return value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto ||
-             value_id == CSSValueID::kOverlay;
+             value_id == CSSValueID::kPush || value_id == CSSValueID::kOverlay;
+    case CSSPropertyID::kInternalOverscrollContainer:
     case CSSPropertyID::kInternalOverscrollPosition:
       return value_id == CSSValueID::kNone || value_id == CSSValueID::kAuto;
+    case CSSPropertyID::kInternalUnbounded:
+      return value_id == CSSValueID::kNone || value_id == CSSValueID::kActive;
     default:
       NOTREACHED();
   }
@@ -1784,6 +1790,7 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kMaskType,
     CSSPropertyID::kMathShift,
     CSSPropertyID::kMathStyle,
+    CSSPropertyID::kMaxContentSizing,
     CSSPropertyID::kObjectFit,
     CSSPropertyID::kOutlineStyle,
     CSSPropertyID::kOverflowAnchor,
@@ -1880,8 +1887,10 @@ CSSBitset CSSParserFastPaths::handled_by_keyword_fast_paths_properties_{{
     CSSPropertyID::kTextBoxTrim,
     CSSPropertyID::kScrollInitialTarget,
     CSSPropertyID::kInteractivity,
-    CSSPropertyID::kInternalOverscrollArea,
+    CSSPropertyID::kOverscrollContainerType,
+    CSSPropertyID::kInternalOverscrollContainer,
     CSSPropertyID::kInternalOverscrollPosition,
+    CSSPropertyID::kInternalUnbounded,
 }};
 
 bool CSSParserFastPaths::IsValidSystemFont(CSSValueID value_id) {

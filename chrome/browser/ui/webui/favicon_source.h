@@ -8,7 +8,7 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "components/favicon/core/favicon_service.h"
@@ -28,11 +28,6 @@ struct ParsedFaviconPath;
 namespace ui {
 class NativeTheme;
 }
-
-enum class DefaultFaviconBehavior {
-  kUseGlobeIcon = 0,
-  kUseEmptyIcon = 1,
-};
 
 // FaviconSource is the gateway between network-level chrome:
 // requests for favicons and the history backend that serves these.
@@ -69,14 +64,17 @@ class FaviconSource : public content::URLDataSource {
 
  protected:
   // Exposed for testing.
-  virtual base::RefCountedMemory* LoadIconBytes(float scale_factor,
-                                                int resource_id);
+  virtual scoped_refptr<base::RefCountedMemory> LoadIconBytes(
+      float scale_factor,
+      int resource_id);
 
   raw_ptr<Profile, DanglingUntriaged> profile_;
 
  private:
-  // Defines the allowed pixel sizes for requested favicons.
-  enum IconSize { SIZE_16, SIZE_32, SIZE_64, NUM_SIZES };
+  enum class DefaultFaviconBehavior {
+    kUseGlobeIcon = 0,
+    kUseEmptyIcon = 1,
+  };
 
   ui::NativeTheme* GetNativeTheme(
       const content::WebContents::Getter& wc_getter);

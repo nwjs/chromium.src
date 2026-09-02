@@ -196,7 +196,7 @@ public class ExtensionWindowControllerBridgeIntegrationTest {
         WebPageStation blankPageStation = mFreshCtaTransitTestRule.startOnBlankPage();
         ExtensionWindowControllerBridgeImpl.initializeWindowControllerListObserverForTesting();
         IncognitoNewTabPageStation incognitoNtpStation =
-                blankPageStation.openRegularTabAppMenu().openNewIncognitoWindow();
+                blankPageStation.openNewIncognitoWindowFast();
         int incognitoTaskId = incognitoNtpStation.getActivity().getTaskId();
         var extensionWindowControllerBridge =
                 getExtensionWindowControllerBridge(

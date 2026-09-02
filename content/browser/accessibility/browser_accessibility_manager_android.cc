@@ -10,6 +10,7 @@
 #include "base/android/android_info.h"
 #include "base/check.h"
 #include "base/i18n/char_iterator.h"
+#include "base/notreached.h"
 #include "base/strings/utf_string_conversions.h"
 #include "content/browser/accessibility/browser_accessibility_android.h"
 #include "content/browser/accessibility/web_contents_accessibility_android.h"
@@ -518,9 +519,7 @@ void BrowserAccessibilityManagerAndroid::FireGeneratedEvent(
         wcax->HandleSliderChanged(android_node->GetUniqueId());
       } else if ((android_node->GetRole() == ax::mojom::Role::kSpinButton &&
                   !android_node->IsTextField()) ||
-                 (base::FeatureList::IsEnabled(
-                      features::kAccessibilityMeterEventsOnAndroid) &&
-                  android_node->GetRole() == ax::mojom::Role::kMeter)) {
+                 android_node->GetRole() == ax::mojom::Role::kMeter) {
         // TalkBack expects non-editable SpinButtons and Meter value to be
         // changed via state description.
         if (isNodeLikelyKnownForExperiment(wcax, android_node->GetUniqueId())) {
@@ -1020,22 +1019,46 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
     return std::nullopt;
   }
 
+  BrowserAccessibilityAndroid* lowest_platform_ancestor =
+      static_cast<BrowserAccessibilityAndroid*>(
+          android_node->PlatformGetLowestPlatformAncestor());
+  if (!lowest_platform_ancestor) {
+    return std::nullopt;
+  }
+
+  // If a tree position's lowest platform ancestor is a text-selectable leaf on
+  // the platform with text content, convert it to a text position. This will
+  // result in more accurate representation of the position on Android as the
+  // child node are flattened.
+  if (position->IsTreePosition() && lowest_platform_ancestor->IsLeaf() &&
+      lowest_platform_ancestor->HasTextContent() &&
+      lowest_platform_ancestor->IsTextSelectable()) {
+    position = position->AsTextPosition();
+  }
+
   if (position->IsTextPosition()) {
-    ui::BrowserAccessibility* platform_ancestor =
-        android_node->PlatformGetLowestPlatformAncestor();
-    CHECK(platform_ancestor);
     // Move Chrome position up to the lowest leaf in Android and perform the
     // right adjustments for offset and affinity.
-    while (position->GetAnchor()->id() != platform_ancestor->GetId()) {
+    while (position->GetAnchor()->id() != lowest_platform_ancestor->GetId()) {
       position = position->CreateParentPosition();
     }
     CHECK(position->IsTextPosition());
-    return AndroidPosition{
-        static_cast<BrowserAccessibilityAndroid*>(platform_ancestor),
-        position->text_offset(), ExtendedSelectionOffsetType::OFFSET_TYPE_TEXT};
+
+    if (lowest_platform_ancestor->IsTextSelectable()) {
+      return AndroidPosition{lowest_platform_ancestor, position->text_offset(),
+                             ExtendedSelectionOffsetType::OFFSET_TYPE_TEXT};
+    }
+
+    // A non-text-selectable node can only be represented as a child offset
+    // within its (unignored) parent. If it has no unignored parent (e.g.
+    // childless root), no valid Android position can be formed.
+    if (!lowest_platform_ancestor->node()->GetUnignoredParent()) {
+      return std::nullopt;
+    }
+    position = position->AsTreePosition();
   }
 
-  // Since the parent of the target node may be ignored, find the target node in
+  // Since the parent of the target node may be ignored, find the target node
   // in Android accessibility tree, then find its parent in Android and compute
   // the offset based on that.
   // The conversion below is lossy and should be improved by including affinity
@@ -1082,8 +1105,14 @@ BrowserAccessibilityManagerAndroid::ConvertChromeSelectionPositionToAndroid(
   BrowserAccessibilityAndroid* parent_node =
       static_cast<BrowserAccessibilityAndroid*>(
           GetFromAXNode(target_node->GetUnignoredParent()));
-  // TODO(crbug.com/498376490): Find a test case that triggers this behavior.
+
+  // `parent_node` cannot be null because tree positions only occur on anchors
+  // with children, resolving `target_node` to a child, and
+  // `GetUnignoredParent()` walks up to the nearest unignored ancestor (up to
+  // RootWebArea). Childless root nodes are treated as leaves by
+  // `AXNodePosition` and handled earlier in the text position branch.
   if (!parent_node) {
+    DUMP_WILL_BE_NOTREACHED();
     return std::nullopt;
   }
 
@@ -1097,7 +1126,19 @@ BrowserAccessibilityManagerAndroid::ConvertAndroidSelectionPositionToChrome(
     int32_t offset,
     ExtendedSelectionOffsetType offset_type) {
   if (offset_type == ExtendedSelectionOffsetType::OFFSET_TYPE_TEXT) {
-    return node->CreatePositionForSelectionAt(offset);
+    ui::BrowserAccessibility::AXPosition position =
+        node->CreatePositionForSelectionAt(offset);
+    // If the node is an empty text-selectable container (e.g., an empty
+    // paragraph or heading treated as an Android TextView) with no text
+    // descendants, `CreatePositionForSelectionAt` returns a text position
+    // anchored at the container itself. Blink expects text positions only on
+    // text nodes or text fields, so convert it to a tree position.
+    if (position->IsTextPosition() &&
+        !position->GetAnchor()->data().IsTextField() &&
+        !position->GetAnchor()->IsText()) {
+      return position->AsTreePosition();
+    }
+    return position;
   }
 
   // When node 'c' is a child of node 'p' in the Android accessibility tree,

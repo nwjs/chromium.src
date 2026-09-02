@@ -450,6 +450,25 @@ TEST_F(WebViewUnitTest, AccessibilityDisconnectsFocusAndAXTree) {
   EXPECT_EQ(test_web_view, focus_manager->GetFocusedView());
 }
 
+// A web view bridges to the tree of its web contents through the child tree id
+// attribute. This test validates that losing the web contents removes that
+// bridge.
+TEST_F(WebViewUnitTest, RemovesTheBridgeWithoutWebContents) {
+  const std::unique_ptr<content::WebContents> web_contents =
+      CreateTestWebContents();
+  WebView* test_web_view = web_view();
+  test_web_view->SetWebContents(web_contents.get());
+
+  // Set the bridge directly, since we can't commit a navigation from here.
+  test_web_view->GetViewAccessibility().SetChildTreeID(
+      ui::AXTreeID::CreateNewAXTreeID());
+
+  test_web_view->SetWebContents(nullptr);
+
+  EXPECT_EQ(ui::AXTreeIDUnknown(),
+            test_web_view->GetViewAccessibility().GetChildTreeID());
+}
+
 // Verifies that there is no crash in WebView destructor
 // if WebView is already removed from Widget.
 TEST_F(WebViewUnitTest, DetachedWebViewDestructor) {
@@ -571,6 +590,29 @@ TEST_F(WebViewUnitTest, DefaultConstructability) {
   auto* web_contents = web_view->GetWebContents();
   EXPECT_NE(nullptr, web_contents);
   EXPECT_EQ(browser_context.get(), web_contents->GetBrowserContext());
+}
+
+// The holder of the native view needs the accessible of an ancestor that
+// platform APIs expose. That ancestor is never the web view, because the
+// accessible of the web view belongs to the web contents. Both states of the
+// ViewsAX feature agree on this.
+TEST_F(WebViewUnitTest, HolderSkipsTheWebViewForItsParentAccessible) {
+  const std::unique_ptr<content::WebContents> web_contents =
+      CreateWebContents();
+  WebView* test_web_view = web_view();
+  test_web_view->SetWebContents(web_contents.get());
+  ASSERT_TRUE(test_web_view->parent());
+
+  if (!test_web_view->parent()->GetNativeViewAccessible()) {
+    // Some platforms give a view no accessible of its own in a unit test. Both
+    // sides are then null, thus this test cannot tell the two views apart.
+    GTEST_SKIP() << "The platform gives the parent view no accessible.";
+  }
+
+  EXPECT_EQ(test_web_view->parent()->GetNativeViewAccessible(),
+            test_web_view->holder()->GetParentAccessible());
+  EXPECT_NE(static_cast<View*>(test_web_view)->GetNativeViewAccessible(),
+            test_web_view->holder()->GetParentAccessible());
 }
 
 // Tests that when a web view is reparented to a different widget hierarchy its
@@ -742,6 +784,39 @@ TEST_F(WebViewAXTreeEnabledTest, AlreadyEnabledManagerSkipsObservation) {
   EXPECT_FALSE(IsObservingWidgetAXManager());
 }
 
+// The holder of the native view needs the accessible of an ancestor that
+// platform APIs expose. That ancestor is never the web view, because the
+// accessible of the web view belongs to the web contents. Both states of the
+// ViewsAX feature agree on this.
+TEST_F(WebViewAXTreeEnabledTest,
+       HolderSkipsTheWebViewForItsParentAccessible) {
+  if (!ViewAccessibility::IsViewsAccessibilityTreeEnabled()) {
+    // Not all platforms support ViewsAX, e.g. ChromeOS.
+    return;
+  }
+
+  // A view gives its own accessible only while the manager of the widget
+  // is on.
+  ui::AXPlatform::GetInstance().NotifyModeAdded(ui::AXMode::kNativeAPIs);
+
+  const std::unique_ptr<content::WebContents> web_contents =
+      CreateWebContents();
+  WebView* test_web_view = web_view();
+  test_web_view->SetWebContents(web_contents.get());
+  ASSERT_TRUE(test_web_view->parent());
+
+  if (!test_web_view->parent()->GetNativeViewAccessible()) {
+    // Some platforms give a view no accessible of its own in a unit test. Both
+    // sides are then null, thus this test cannot tell the two views apart.
+    GTEST_SKIP() << "The platform gives the parent view no accessible.";
+  }
+
+  EXPECT_EQ(test_web_view->parent()->GetNativeViewAccessible(),
+            test_web_view->holder()->GetParentAccessible());
+  EXPECT_NE(static_cast<View*>(test_web_view)->GetNativeViewAccessible(),
+            test_web_view->holder()->GetParentAccessible());
+}
+
 TEST_F(WebViewAXTreeEnabledTest, ReparentingUpdatesParentAccessible) {
   const std::unique_ptr<content::WebContents> web_contents =
       CreateWebContents();
@@ -752,9 +827,9 @@ TEST_F(WebViewAXTreeEnabledTest, ReparentingUpdatesParentAccessible) {
   View* contents_view_1 = widget_1->GetContentsView();
   WebView* added_web_view = contents_view_1->AddChildView(std::move(web_view));
 
-  // After being added to the widget hierarchy the holder's NativeViewAccessible
-  // should match that of the web view.
-  EXPECT_EQ(static_cast<View*>(added_web_view)->GetNativeViewAccessible(),
+  // The holder hangs off the exposed parent, because the web view's own
+  // accessible belongs to the web contents.
+  EXPECT_EQ(added_web_view->parent()->GetNativeViewAccessible(),
             added_web_view->holder()->GetParentAccessible());
 
   WidgetAutoclosePtr widget_2(CreateTopLevelPlatformWidget());
@@ -768,9 +843,7 @@ TEST_F(WebViewAXTreeEnabledTest, ReparentingUpdatesParentAccessible) {
             added_web_view->holder()->GetParentAccessible());
   added_web_view = contents_view_2->AddChildView(std::move(removed_view));
 
-  // After reparenting the holder's NativeViewAccessible should match that of
-  // the web view's.
-  EXPECT_EQ(static_cast<View*>(added_web_view)->GetNativeViewAccessible(),
+  EXPECT_EQ(added_web_view->parent()->GetNativeViewAccessible(),
             added_web_view->holder()->GetParentAccessible());
 }
 

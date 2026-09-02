@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/command_line.h"
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -37,6 +38,8 @@
 #include "chrome/browser/extensions/api/identity/identity_launch_web_auth_flow_function.h"
 #include "chrome/browser/extensions/api/identity/identity_remove_cached_auth_token_function.h"
 #include "chrome/browser/extensions/api/identity/launch_web_auth_flow_delegate.h"
+#include "chrome/browser/extensions/api/identity/web_auth_flow.h"
+#include "chrome/browser/extensions/browser_window_util.h"
 #include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
@@ -51,7 +54,10 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/test/browser_event_waiter.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/identity.h"
 #include "chrome/common/pref_names.h"
@@ -101,15 +107,15 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/base_window.h"
 #include "ui/base/idle/idle.h"
 #include "ui/base/idle/scoped_set_idle_state.h"
 #include "ui/gfx/geometry/rect.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/guest_view/browser/guest_view_manager_delegate.h"
@@ -159,10 +165,8 @@ const char kGetAuthTokenResultHistogramName[] =
 const char kGetAuthTokenResultAfterConsentApprovedHistogramName[] =
     "Signin.Extensions.GetAuthTokenResult.RemoteConsentApproved";
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 const char kLaunchWebAuthFlowResultHistogramName[] =
     "Signin.Extensions.LaunchWebAuthFlowResult";
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 // Asynchronous function runner allows tests to manipulate the browser window
 // after the call happens.
@@ -322,13 +326,12 @@ class TestOAuth2MintTokenFlow : public OAuth2MintTokenFlow {
   raw_ptr<OAuth2MintTokenFlow::Delegate> delegate_;
 };
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 std::unique_ptr<net::EmbeddedTestServer> LaunchHttpsServer() {
   std::unique_ptr<net::EmbeddedTestServer> https_server =
       std::make_unique<net::EmbeddedTestServer>(
           net::EmbeddedTestServer::TYPE_HTTPS);
-  https_server->ServeFilesFromSourceDirectory(
-      "chrome/test/data/extensions/api_test/identity");
+  https_server->AddDefaultHandlers(base::FilePath(
+      FILE_PATH_LITERAL("chrome/test/data/extensions/api_test/identity")));
   EXPECT_TRUE(https_server->Start());
 
   return https_server;
@@ -366,7 +369,6 @@ void SimulateCustomUrlRedirect(const std::string& redirect_url,
             content::EvalJs(auth_web_contents, "window.location.replace(\"" +
                                                    redirect_url + "\");"));
 }
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 }  // namespace
 
@@ -3598,7 +3600,6 @@ IN_PROC_BROWSER_TEST_F(RemoveCachedAuthTokenFunctionTest, MatchingToken) {
             GetCachedToken().status());
 }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 class LaunchWebAuthFlowFunctionTest : public AsyncExtensionBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -3606,6 +3607,13 @@ class LaunchWebAuthFlowFunctionTest : public AsyncExtensionBrowserTest {
     // Reduce performance test variance by disabling background networking.
     command_line->AppendSwitch(switches::kDisableBackgroundNetworking);
   }
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+  void CloseBrowserSynchronously(BrowserWindowInterface* browser) {
+    BrowserEventWaiter waiter(BrowserEventWaiter::Event::CLOSED, browser);
+    browser->GetWindow()->Close();
+  }
+#endif
 
   base::HistogramTester* histogram_tester() { return &histogram_tester_; }
 
@@ -3682,9 +3690,15 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest,
 
 // Checks that when a page fails to fully load before timeout in silent mode,
 // `launchWebAuthFlow()` terminates with an error after a specific timeout.
-IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, LoadTimedOut) {
+// TODO(crbug.com/545344228): Flaky on Mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_LoadTimedOut DISABLED_LoadTimedOut
+#else
+#define MAYBE_LoadTimedOut LoadTimedOut
+#endif
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, MAYBE_LoadTimedOut) {
   std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
-  GURL auth_url(https_server->GetURL("/interaction_required.html"));
+  GURL auth_url(https_server->GetURL("/hung"));
 
   scoped_refptr<IdentityLaunchWebAuthFlowFunction> function =
       CreateLaunchWebAuthFlowFunction();
@@ -3816,23 +3830,31 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, UserCloseWindow) {
   scoped_refptr<IdentityLaunchWebAuthFlowFunction> function =
       CreateLaunchWebAuthFlowFunction();
 
-  content::TestNavigationObserver url_obvserver(auth_url);
-  url_obvserver.StartWatchingNewWebContents();
+  content::TestNavigationObserver url_observer(auth_url);
+  url_observer.StartWatchingNewWebContents();
 
   std::string args =
       "[{\"interactive\": true, \"url\": \"" + auth_url.spec() + "\"}]";
   RunFunctionAsync(function.get(), args);
 
-  url_obvserver.Wait();
+  url_observer.Wait();
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+  // On Android, wait for the window to be created.
+  base::test::TestFuture<void> future;
+  WebAuthFlow* flow = function->GetWebAuthFlowForTesting();
+  flow->SetPopupDisplayedCallbackForTesting(future.GetCallback());
+  EXPECT_TRUE(future.Wait());
+#endif
 
   BrowserWindowInterface* popup_browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           function->GetWebAuthFlowForTesting()->web_contents());
-  TabStripModel* tabs = popup_browser->GetTabStripModel();
-  EXPECT_NE(browser(), popup_browser);
-  ASSERT_EQ(tabs->GetActiveWebContents()->GetURL(), auth_url);
+  TabListInterface* tabs = TabListInterface::From(popup_browser);
+  EXPECT_NE(browser_window_interface(), popup_browser);
+  ASSERT_EQ(tabs->GetActiveTab()->GetContents()->GetURL(), auth_url);
   // Close the opened auth web contents.
-  tabs->CloseWebContentsAt(tabs->active_index(), 0);
+  tabs->GetActiveTab()->Close();
 
   EXPECT_EQ(std::string(errors::kUserRejected), WaitForError(function.get()));
   histogram_tester()->ExpectUniqueSample(
@@ -3840,13 +3862,9 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, UserCloseWindow) {
       IdentityLaunchWebAuthFlowFunction::Error::kUserRejected, 1);
 }
 
-#if !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(ENABLE_EXTENSIONS)
 IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, CloseBrowser) {
-  std::unique_ptr<net::EmbeddedTestServer> https_server =
-      std::make_unique<net::EmbeddedTestServer>(
-          net::EmbeddedTestServer::TYPE_HTTPS);
-  net::test_server::RegisterDefaultHandlers(https_server.get());
-  EXPECT_TRUE(https_server->Start());
+  std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   // We want to interrupt the flow before `auth_url` gets loaded. To ensure that
   // an URL doesn't load prematurely, use a default test URL that never returns
   // a response.
@@ -3858,7 +3876,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, CloseBrowser) {
   std::string args =
       "[{\"interactive\": true, \"url\": \"" + auth_url.spec() + "\"}]";
   RunFunctionAsync(function.get(), args);
-  CloseBrowserSynchronously(browser());
+  CloseBrowserSynchronously(browser_window_interface());
 
   // The ongoing navigation to auth_url will be skipped if the profile shutdown
   // has already started, hence the error message below will reflect a shutdown
@@ -3877,11 +3895,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, DestroyProfile) {
   Profile& profile2 =
       profiles::testing::CreateProfileSync(profile_manager, path_profile2);
 
-  std::unique_ptr<net::EmbeddedTestServer> https_server =
-      std::make_unique<net::EmbeddedTestServer>(
-          net::EmbeddedTestServer::TYPE_HTTPS);
-  net::test_server::RegisterDefaultHandlers(https_server.get());
-  EXPECT_TRUE(https_server->Start());
+  std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   // Make sure we can shutdown profile before getting response.
   GURL auth_url(https_server->GetURL("/hung"));
   auto keep_alive = std::make_unique<ScopedKeepAlive>(
@@ -3908,7 +3922,31 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, DestroyProfile) {
             func_runner.WaitForError(function.get()));
 }
 
-#endif  // !BUILDFLAG(IS_CHROMEOS)
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest, RunAfterShutdownStarted) {
+  ProfileManager* profile_manager = g_browser_process->profile_manager();
+  base::FilePath path_profile2 =
+      profile_manager->GenerateNextProfileDirectoryPath();
+  Profile& profile2 =
+      profiles::testing::CreateProfileSync(profile_manager, path_profile2);
+
+  profile2.NotifyWillBeDestroyed();
+  ASSERT_TRUE(profile2.ShutdownStarted());
+
+  scoped_refptr<IdentityLaunchWebAuthFlowFunction> function =
+      CreateLaunchWebAuthFlowFunction();
+
+  std::string args =
+      "[{\"interactive\": true, \"url\": \"https://example.com\"}]";
+
+  std::string error =
+      utils::RunFunctionAndReturnError(function.get(), args, &profile2);
+
+  EXPECT_EQ(std::string(errors::kBrowserContextShutDown), error);
+  histogram_tester()->ExpectUniqueSample(
+      kLaunchWebAuthFlowResultHistogramName,
+      IdentityLaunchWebAuthFlowFunction::Error::kBrowserContextShutDown, 1);
+}
+#endif  // !BUILDFLAG(IS_CHROMEOS) && BUILDFLAG(ENABLE_EXTENSIONS)
 
 // Regression test for http://b/290733700.
 IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest,
@@ -3929,7 +3967,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTest,
       IdentityLaunchWebAuthFlowFunction::Error::kInvalidURLScheme, 1);
 }
 
-class LaunchWebAuthFlowFunctionTestWithBrowserTab
+class LaunchWebAuthFlowFunctionTestWithPopupWindow
     : public LaunchWebAuthFlowFunctionTest {
  protected:
   void RunFunctionAndWaitForNavigation(
@@ -3943,7 +3981,7 @@ class LaunchWebAuthFlowFunctionTestWithBrowserTab
   }
 };
 
-IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithPopupWindow,
                        PageNavigateFromInitURLToFinalURL) {
   std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   scoped_refptr<IdentityLaunchWebAuthFlowFunction> function =
@@ -3984,7 +4022,7 @@ class TestDelegate : public LaunchWebAuthFlowDelegate {
   static constexpr gfx::Rect kTestBounds = gfx::Rect(23, 27, 400, 400);
 };
 
-IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithPopupWindow,
                        PopupBoundsComeFromDelegate) {
   std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   GURL auth_url(https_server->GetURL("/interaction_required.html"));
@@ -3994,14 +4032,28 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
   function->SetLaunchWebAuthFlowDelegateForTesting(
       std::make_unique<TestDelegate>());
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
   ui_test_utils::BrowserCreatedObserver browser_opened;
+#endif
 
   std::string args =
       "[{\"interactive\": true, \"url\": \"" + auth_url.spec() + "\"}]";
   RunFunctionAsync(function.get(), args);
 
-  Browser* popup_browser = browser_opened.Wait();
-  gfx::Rect bounds = popup_browser->GetWindow()->GetBounds();
+  gfx::Rect bounds;
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  BrowserWindowInterface* popup_browser = browser_opened.Wait();
+  bounds = popup_browser->GetWindow()->GetBounds();
+#else
+  // On Android, wait for the window to be created.
+  base::test::TestFuture<void> future;
+  WebAuthFlow* flow = function->GetWebAuthFlowForTesting();
+  flow->SetPopupDisplayedCallbackForTesting(future.GetCallback());
+  EXPECT_TRUE(future.Wait());
+  BrowserWindowInterface* popup_browser =
+      browser_window_util::GetBrowserForTabContents(*flow->web_contents());
+  bounds = popup_browser->GetWindow()->GetBounds();
+#endif
   EXPECT_EQ(bounds.x(), TestDelegate::kTestBounds.x());
   EXPECT_EQ(bounds.y(), TestDelegate::kTestBounds.y());
   // The final width and height can contain platform-specific offsets for the
@@ -4010,7 +4062,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
   EXPECT_GE(bounds.height(), TestDelegate::kTestBounds.height());
 }
 
-IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithPopupWindow,
                        PageNavigateFromInitURLToCustomFinalURL) {
   std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   scoped_refptr<IdentityLaunchWebAuthFlowFunction> function =
@@ -4048,7 +4100,7 @@ struct WebAuthFlowTestParams {
 };
 
 class ParameterizedLaunchWebAuthFlowTest
-    : public LaunchWebAuthFlowFunctionTestWithBrowserTab,
+    : public LaunchWebAuthFlowFunctionTestWithPopupWindow,
       public testing::WithParamInterface<WebAuthFlowTestParams> {};
 
 IN_PROC_BROWSER_TEST_P(ParameterizedLaunchWebAuthFlowTest, RedirectMatching) {
@@ -4098,7 +4150,7 @@ INSTANTIATE_TEST_SUITE_P(
                               .redirect_url = "https://example.com/ab",
                               .expect_allowed = false}));
 
-IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithPopupWindow,
                        ConcurrentCallsFromSameExtensionShouldFail) {
   std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   scoped_refptr<IdentityLaunchWebAuthFlowFunction> function1 =
@@ -4161,7 +4213,7 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
                  1)));
 }
 
-IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
+IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithPopupWindow,
                        DifferentExtensionsShouldGenerateDifferentFlows) {
   std::unique_ptr<net::EmbeddedTestServer> https_server = LaunchHttpsServer();
   scoped_refptr<IdentityLaunchWebAuthFlowFunction> function1 =
@@ -4216,8 +4268,6 @@ IN_PROC_BROWSER_TEST_F(LaunchWebAuthFlowFunctionTestWithBrowserTab,
       kLaunchWebAuthFlowResultHistogramName,
       IdentityLaunchWebAuthFlowFunction::Error::kNone, 2);
 }
-
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 class ClearAllCachedAuthTokensFunctionTest : public AsyncExtensionBrowserTest {
  public:

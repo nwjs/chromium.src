@@ -277,6 +277,9 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
   if ([self isRunningTest:@selector(DISABLED_testAutoSubmission)]) {
     config.features_enabled.push_back(
         password_manager::features::kIOSPasswordAutoSubmission);
+  } else {
+    config.features_disabled.push_back(
+        password_manager::features::kIOSPasswordAutoSubmission);
   }
 
   return config;
@@ -531,11 +534,6 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
 // This test verifies that the credential bottom sheet does not open when the
 // webpage has enabled passkey login.
 - (void)testOpenKeyboardOnPasskey {
-  // TODO(crbug.com/349804536): Test is flaky on iPad.
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Test is flaky on iPad.")
-  }
-
   [PasswordManagerAppInterface
       storeCredentialWithUsername:@"user"
                          password:@"password"
@@ -553,11 +551,6 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
 // Tests that a password from the credential bottom sheet can be used on a
 // webpage where conditional passkey login is enabled.
 - (void)testOpenCredentialBottomSheetUsePasswordOnConditionalLogin {
-  // TODO(crbug.com/349804536): Test is disabled on iPad.
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Test is disabled on iPad.")
-  }
-
   [PasswordManagerAppInterface
       storeCredentialWithUsername:@"user"
                          password:@"password"
@@ -631,11 +624,6 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
 
 // Tests that showing the keyboard from the bottom sheet works.
 - (void)testOpenCredentialBottomSheetTapUseKeyboardShowKeyboard {
-  // TODO(crbug.com/349804536): Test is flaky on iPad.
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Test is flaky on iPad.")
-  }
-
   [self saveGenericPasswordAndLoadLoginPage];
 
   [[EarlGrey selectElementWithMatcher:WebViewMatcher()]
@@ -980,11 +968,6 @@ void LongPressElementOnceVisible(id<GREYMatcher> matcher) {
 }
 
 - (void)testPasswordBottomSheetDismiss3TimesNotShownAnymore {
-  // TODO(crbug.com/349804536): Test is flaky on iPad.
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Test is flaky on iPad.")
-  }
-
   // Dismiss #1.
   [self saveGenericPasswordAndLoadLoginPage];
 

@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_with_button_view.h"
 #include "chrome/test/views/chrome_views_test_base.h"
+#include "components/autofill/core/browser/at_memory/at_memory_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -41,7 +42,23 @@ namespace autofill {
 
 namespace {
 constexpr float kDisabledBnplOpacity = 0.38f;
+
+// Helper function to recursively find a `views::Label` with matching text
+// inside `view`.
+views::Label* FindLabelWithText(views::View* view, const std::u16string& text) {
+  for (views::View* child : view->children()) {
+    if (auto* label = views::AsViewClass<views::Label>(child)) {
+      if (label->GetText() == text) {
+        return label;
+      }
+    }
+    if (auto* found = FindLabelWithText(child, text)) {
+      return found;
+    }
+  }
+  return nullptr;
 }
+}  // namespace
 
 class PopupRowFactoryUtilsTest : public ChromeViewsTestBase {
  public:
@@ -207,7 +224,7 @@ TEST_F(BnplPopupRowViewTest, LinkedPill_Deactivated) {
                            BnplIssuer::IssuerId::kBnplZip, {});
   suggestion.payload = Suggestion::BnplIssuer(linked_issuer);
   suggestion.acceptability =
-      Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle;
+      Suggestion::Acceptability::kUnselectableAndUnacceptable;
 
   ShowSuggestion(suggestion);
 
@@ -222,7 +239,7 @@ TEST_F(BnplPopupRowViewTest, Deactivated_IconOpacity) {
   Suggestion suggestion(u"Bnpl", SuggestionType::kBnplEntry);
   suggestion.icon = Suggestion::Icon::kBnplGeneric;
   suggestion.acceptability =
-      Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle;
+      Suggestion::Acceptability::kUnselectableAndUnacceptable;
 
   ShowSuggestion(suggestion);
 
@@ -260,27 +277,13 @@ TEST_F(PopupRowFactoryUtilsTest, AtMemorySuggestionIgnoresFilterMatchBolding) {
   AutofillPopupController::SuggestionFilterMatch filter_match{
       .main_text_match = gfx::Range(0, 25)};
 
-  // Helper lambda to recursively find the main text Label view.
-  auto find_main_text_label = [](auto& self,
-                                 views::View* view) -> views::Label* {
-    for (views::View* child : view->children()) {
-      if (auto* label = views::AsViewClass<views::Label>(child)) {
-        return label;
-      }
-      if (auto* found = self(self, child)) {
-        return found;
-      }
-    }
-    return nullptr;
-  };
-
   // Create content view directly WITH filter_match applied (bolded).
   std::unique_ptr<PopupRowContentView> content_view_with_bolding =
       CreatePopupRowContentView(atmemory_suggestion,
                                 /*show_new_badge=*/std::nullopt,
                                 FillingProduct::kAtMemory, filter_match);
-  views::Label* bolded_label = find_main_text_label(
-      find_main_text_label, content_view_with_bolding.get());
+  views::Label* bolded_label = FindLabelWithText(
+      content_view_with_bolding.get(), u"@memory query text search");
   ASSERT_THAT(bolded_label, NotNull());
   int bolded_width = bolded_label->GetPreferredSize().width();
 
@@ -290,14 +293,45 @@ TEST_F(PopupRowFactoryUtilsTest, AtMemorySuggestionIgnoresFilterMatchBolding) {
   auto row_view =
       CreatePopupRowView(controller().GetWeakPtr(), a11y_selection_delegate(),
                          selection_delegate(), 0, filter_match);
-  views::Label* atmemory_label =
-      find_main_text_label(find_main_text_label, &row_view->GetContentView());
+  views::Label* atmemory_label = FindLabelWithText(
+      &row_view->GetContentView(), u"@memory query text search");
   ASSERT_THAT(atmemory_label, NotNull());
   int atmemory_label_width = atmemory_label->GetPreferredSize().width();
 
   // Verify that AtMemory main text label is narrower than the bolded version
   // because filter_match bolding was ignored.
   EXPECT_LT(atmemory_label_width, bolded_width);
+}
+
+// Tests that kAtMemorySourceAttribution uses Body 4 text style and
+// onSurfaceSubtle text color.
+TEST_F(PopupRowFactoryUtilsTest, AtMemorySourceAttributionStyle) {
+  Suggestion suggestion = AtMemoryManager::CreateSourceAttributionSuggestion();
+  ShowSuggestion(suggestion);
+
+  std::u16string expected_text = l10n_util::GetStringUTF16(
+      IDS_AUTOFILL_AT_MEMORY_SOURCE_ATTRIBUTION_PERSONAL_INTELLIGENCE);
+  views::Label* label =
+      FindLabelWithText(&row_view().GetContentView(), expected_text);
+  ASSERT_THAT(label, NotNull());
+  EXPECT_EQ(label->GetTextStyle(), views::style::STYLE_BODY_4);
+  EXPECT_EQ(label->GetEnabledColor(), row_view().GetColorProvider()->GetColor(
+                                          ui::kColorSysOnSurfaceSubtle));
+}
+
+TEST_F(PopupRowFactoryUtilsTest, RemoveAutofillAiRowView) {
+  Suggestion suggestion(u"Remove this info", SuggestionType::kRemoveAutofillAi);
+  suggestion.icon = Suggestion::Icon::kClose;
+  ShowSuggestion(suggestion);
+
+  views::Label* label =
+      FindLabelWithText(&row_view().GetContentView(), u"Remove this info");
+  ASSERT_THAT(label, NotNull());
+  EXPECT_EQ(label->GetHorizontalAlignment(), gfx::ALIGN_TO_HEAD);
+
+  ASSERT_FALSE(row_view().GetContentView().children().empty());
+  EXPECT_TRUE(views::IsViewClass<views::ImageView>(
+      row_view().GetContentView().children().front()));
 }
 
 }  // namespace autofill

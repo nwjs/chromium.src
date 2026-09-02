@@ -178,6 +178,12 @@ struct ChromeMLGenerateOutput {
   // calls during generation.
   const ChromeMLToolCall* tool_calls = nullptr;
   size_t tool_calls_size = 0;
+
+  // The tokens decoded after generate has completed. Should be -1 if `status`
+  // is not `kComplete`. If `tokens_decoded` is -1 and `status` is `kComplete`,
+  // then the caller will have to determine tokens decoded via callback
+  // counting.
+  int tokens_decoded = -1;
 };
 using ChromeMLExecutionOutput = ChromeMLGenerateOutput;
 
@@ -438,6 +444,7 @@ struct ChromeMLASRStreamOptions {
   // Function to call with transcribed audio.
   const ChromeMLASRStreamOutputFn* output_fn;
   int32_t decoder_prefill_backoff;
+  const char* language;
 };
 
 struct ChromeMLASRAPI {
@@ -603,8 +610,18 @@ struct ChromeMLAPI {
   ChromeMLASRAPI asr_api;
 };
 
-// Signature of the GetChromeMLAPI() function which the shared library exports.
+enum class ChromeMLBackendMode : uint32_t {
+  kLegacy = 0,
+  kLiteRtLmSession = 1,
+  kLiteRtLmConversation = 2,
+};
+
+// TODO(crbug.com/539590008): Remove GetChromeMLAPI(bool) and rename
+// GetChromeMLAPIV2 to GetChromeMLAPI once transitionary period passes.
 using ChromeMLAPIGetter = const ChromeMLAPI* (*)(bool enable_litert_lm);
+
+// Signature of the new GetChromeMLAPIV2() function.
+using ChromeMLAPIGetterV2 = const ChromeMLAPI* (*)(ChromeMLBackendMode mode);
 
 }  // extern "C"
 

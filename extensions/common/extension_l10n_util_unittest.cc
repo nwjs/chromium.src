@@ -119,77 +119,6 @@ TEST(ExtensionL10nUtil, ValidateLocalesWithErroneousLocalizations) {
                   "There is no \"message\" element for key name.")));
 }
 
-TEST(ExtensionL10nUtil, GetValidLocalesEmptyLocaleFolder) {
-  base::ScopedTempDir temp;
-  ASSERT_TRUE(temp.CreateUniqueTempDir());
-
-  base::FilePath src_path = temp.GetPath().Append(kLocaleFolder);
-  ASSERT_TRUE(base::CreateDirectory(src_path));
-
-  std::string error;
-  std::set<std::string> locales;
-  EXPECT_FALSE(
-      extension_l10n_util::GetValidLocales(src_path, &locales, &error));
-
-  EXPECT_TRUE(locales.empty());
-}
-
-TEST(ExtensionL10nUtil, GetValidLocalesWithValidLocaleNoMessagesFile) {
-  base::ScopedTempDir temp;
-  ASSERT_TRUE(temp.CreateUniqueTempDir());
-
-  base::FilePath src_path = temp.GetPath().Append(kLocaleFolder);
-  ASSERT_TRUE(base::CreateDirectory(src_path));
-  ASSERT_TRUE(base::CreateDirectory(src_path.AppendASCII("sr")));
-
-  std::string error;
-  std::set<std::string> locales;
-  EXPECT_FALSE(
-      extension_l10n_util::GetValidLocales(src_path, &locales, &error));
-
-  EXPECT_TRUE(locales.empty());
-}
-
-TEST(ExtensionL10nUtil, GetValidLocalesWithUnsupportedLocale) {
-  base::ScopedTempDir temp;
-  ASSERT_TRUE(temp.CreateUniqueTempDir());
-
-  base::FilePath src_path = temp.GetPath().Append(kLocaleFolder);
-  ASSERT_TRUE(base::CreateDirectory(src_path));
-  // Supported locale.
-  base::FilePath locale_1 = src_path.AppendASCII("sr");
-  ASSERT_TRUE(base::CreateDirectory(locale_1));
-  ASSERT_TRUE(base::WriteFile(locale_1.Append(kMessagesFilename), ""));
-  // Unsupported locale.
-  base::FilePath locale_2 = src_path.AppendASCII("xxx_yyy");
-  ASSERT_TRUE(base::CreateDirectory(locale_2));
-  ASSERT_TRUE(base::WriteFile(locale_2.Append(kMessagesFilename), ""));
-
-  std::string error;
-  std::set<std::string> locales;
-  EXPECT_TRUE(extension_l10n_util::GetValidLocales(src_path, &locales, &error));
-
-  EXPECT_FALSE(locales.empty());
-  EXPECT_TRUE(locales.contains("sr"));
-  EXPECT_FALSE(locales.contains("xxx_yyy"));
-}
-
-TEST(ExtensionL10nUtil, GetValidLocalesWithValidLocalesAndMessagesFile) {
-  base::FilePath install_dir;
-  ASSERT_TRUE(base::PathService::Get(DIR_TEST_DATA, &install_dir));
-  install_dir =
-      install_dir.AppendASCII("extension_with_locales").Append(kLocaleFolder);
-
-  std::string error;
-  std::set<std::string> locales;
-  EXPECT_TRUE(
-      extension_l10n_util::GetValidLocales(install_dir, &locales, &error));
-  EXPECT_EQ(3U, locales.size());
-  EXPECT_TRUE(locales.contains("sr"));
-  EXPECT_TRUE(locales.contains("en"));
-  EXPECT_TRUE(locales.contains("en_US"));
-}
-
 TEST(ExtensionL10nUtil, LoadMessageCatalogsValidFallback) {
   extension_l10n_util::ScopedLocaleForTest scoped_locale("en-US");
   base::FilePath install_dir;
@@ -834,27 +763,44 @@ TEST(ExtensionL10nUtil,
   EXPECT_TRUE(extension_l10n_util::ShouldRelocalizeManifest(manifest));
 }
 
-TEST(ExtensionL10nUtil, GetAllFallbackLocales) {
-  extension_l10n_util::ScopedLocaleForTest scoped_locale("en-US");
-  std::vector<std::string> fallback_locales;
-  extension_l10n_util::GetAllFallbackLocales("all", &fallback_locales);
-  ASSERT_EQ(3U, fallback_locales.size());
+// Tests that "zh_CN" and "zh_TW" are not skipped for validation.
+TEST(ExtensionL10nUtil, ShouldNotSkipValidationForChineseLocales) {
+  base::ScopedTempDir temp;
+  ASSERT_TRUE(temp.CreateUniqueTempDir());
 
-  EXPECT_EQ("en_US", fallback_locales[0]);
-  EXPECT_EQ("en", fallback_locales[1]);
-  EXPECT_EQ("all", fallback_locales[2]);
+  base::FilePath src_path = temp.GetPath().Append(kLocaleFolder);
+  ASSERT_TRUE(base::CreateDirectory(src_path));
+
+  std::set<std::string> all_locales;
+  extension_l10n_util::GetAllLocales(&all_locales);
+
+  // Neither "zh_CN" nor "zh_TW" should be skipped for validation.
+  EXPECT_FALSE(extension_l10n_util::ShouldSkipValidation(
+      src_path, src_path.AppendASCII("zh_CN"), all_locales));
+  EXPECT_FALSE(extension_l10n_util::ShouldSkipValidation(
+      src_path, src_path.AppendASCII("zh_TW"), all_locales));
 }
 
-TEST(ExtensionL10nUtil, GetAllFallbackLocalesWithPreferredLocale) {
-  extension_l10n_util::ScopedLocaleForTest scoped_locale("en-GB", "en-CA");
-  std::vector<std::string> fallback_locales;
-  extension_l10n_util::GetAllFallbackLocales("all", &fallback_locales);
-  ASSERT_EQ(4U, fallback_locales.size());
+// Tests that extensions with "zh_CN" default locale can be validated.
+TEST(ExtensionL10nUtil, ValidateLocalesWithChineseLocale) {
+  base::ScopedTempDir temp;
+  ASSERT_TRUE(temp.CreateUniqueTempDir());
 
-  EXPECT_EQ("en_CA", fallback_locales[0]);
-  EXPECT_EQ("en_GB", fallback_locales[1]);
-  EXPECT_EQ("en", fallback_locales[2]);
-  EXPECT_EQ("all", fallback_locales[3]);
+  base::FilePath src_path = temp.GetPath().Append(kLocaleFolder);
+  ASSERT_TRUE(base::CreateDirectory(src_path));
+
+  // Add valid default localization file for "zh_CN".
+  base::FilePath zh_locale = src_path.AppendASCII("zh_CN");
+  ASSERT_TRUE(base::CreateDirectory(zh_locale));
+  base::FilePath zh_messages_file = zh_locale.Append(kMessagesFilename);
+  const std::string zh_data = R"({ "name": { "message": "default" } })";
+  ASSERT_TRUE(base::WriteFile(zh_messages_file, zh_data));
+
+  const auto manifest = base::DictValue().Set(keys::kDefaultLocale, "zh_CN");
+  std::u16string error;
+  EXPECT_TRUE(extension_l10n_util::ValidateExtensionLocales(temp.GetPath(),
+                                                            manifest, &error))
+      << base::UTF16ToUTF8(error);
 }
 
 }  // namespace

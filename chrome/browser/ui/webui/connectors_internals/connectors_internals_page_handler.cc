@@ -16,10 +16,7 @@
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/enterprise/client_certificates/certificate_provisioning_service_factory.h"
-#include "chrome/browser/enterprise/connectors/device_trust/common/common_types.h"
-#include "chrome/browser/enterprise/connectors/device_trust/device_trust_connector_service.h"
 #include "chrome/browser/enterprise/connectors/device_trust/device_trust_connector_service_factory.h"
-#include "chrome/browser/enterprise/connectors/device_trust/device_trust_service.h"
 #include "chrome/browser/enterprise/connectors/device_trust/device_trust_service_factory.h"
 #include "chrome/browser/enterprise/reporting/cloud_profile_reporting_service.h"
 #include "chrome/browser/enterprise/reporting/cloud_profile_reporting_service_factory.h"
@@ -36,6 +33,8 @@
 #include "components/enterprise/client_certificates/core/certificate_provisioning_service.h"
 #include "components/enterprise/connectors/connectors_internals.mojom.h"
 #include "components/enterprise/connectors/core/connectors_internals_utils.h"
+#include "components/enterprise/device_trust/core/common_types.h"
+#include "components/enterprise/device_trust/core/device_trust_service.h"
 #include "components/prefs/pref_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -45,6 +44,7 @@
 #include "chrome/browser/enterprise/reporting/reporting_delegate_factory_android.h"
 #else
 #include "chrome/browser/enterprise/reporting/reporting_delegate_factory_desktop.h"
+#include "components/enterprise/device_trust/core/device_trust_connector_service.h"  // nogncheck
 #endif
 
 #if BUILDFLAG(IS_MAC)

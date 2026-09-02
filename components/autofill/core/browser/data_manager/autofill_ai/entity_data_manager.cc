@@ -21,6 +21,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
 #include "components/autofill/core/browser/country_type.h"
@@ -28,11 +29,13 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/metrics/autofill_ai_metrics.h"
 #include "components/autofill/core/browser/manual_testing_import.h"
+#include "components/autofill/core/browser/metrics/autofill_settings_metrics.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/browser/strike_databases/autofill_ai/autofill_ai_save_strike_database_by_host.h"
 #include "components/autofill/core/browser/webdata/autofill_change.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_prefs.h"
 #include "components/history/core/browser/history_service.h"
 #include "components/prefs/pref_service.h"
@@ -43,6 +46,37 @@
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 
 namespace autofill {
+
+namespace {
+
+absl::flat_hash_set<EntityInstance::EntityId>
+FindDuplicatePersonalContextEntities(
+    base::flat_set<EntityInstance, EntityInstance::CompareByGuid> entities) {
+  absl::flat_hash_set<EntityInstance::EntityId> duplicate_guids;
+  for (const EntityInstance& entity : entities) {
+    if (entity.record_type() != EntityInstance::RecordType::kPersonalContext) {
+      continue;
+    }
+
+    const bool is_duplicate =
+        std::ranges::any_of(entities, [&](const EntityInstance& other) {
+          switch (other.record_type()) {
+            case EntityInstance::RecordType::kLocal:
+            case EntityInstance::RecordType::kServerWallet:
+              return entity.MatchesMergeConstraintsOf(other);
+            case EntityInstance::RecordType::kPersonalContext:
+              return false;
+          }
+        });
+
+    if (is_duplicate) {
+      duplicate_guids.insert(entity.guid());
+    }
+  }
+  return duplicate_guids;
+}
+
+}  // namespace
 
 EntityDataManager::EntityDataManager(
     PrefService* pref_service,
@@ -76,6 +110,23 @@ EntityDataManager::EntityDataManager(
       GetAutofillAiOptInStatus(pref_service, identity_manager)
           ? AutofillAiOptInStatus::kOptedIn
           : AutofillAiOptInStatus::kOptedOut);
+
+  // A user who is already opted-in to online model runs does not need to see
+  // the notice.
+  if (GetObsoleteAutofillAiOptInStatus(pref_service, identity_manager) &&
+      pref_service
+          ->GetTime(
+              prefs::kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp)
+          .is_null() &&
+      base::FeatureList::IsEnabled(features::kAutofillAiUsePrivateAi)) {
+    pref_service->SetTime(
+        prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp,
+        base::Time::Now());
+    pref_service->SetTime(
+        prefs::kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp,
+        base::Time::Now());
+  }
+  autofill_metrics::LogAutofillAiSettingsAtStartup(*pref_service);
 }
 
 EntityDataManager::~EntityDataManager() {
@@ -343,32 +394,30 @@ void EntityDataManager::EnforceEntityReauthRequirements() {
 }
 
 void EntityDataManager::DedupePersonalContextEntities() {
-  // TODO(crbug.com/519175075): Move this method to a background thread.
-  absl::flat_hash_set<EntityInstance::EntityId> duplicate_guids;
-  for (const EntityInstance& entity : entities_) {
-    if (entity.record_type() != EntityInstance::RecordType::kPersonalContext) {
-      continue;
-    }
+  // Unlike address deduplication which is run using `BEST_EFFORT`, this runs on
+  // every prefetch. `USER_VISIBLE` is used as we want them ready for
+  // suggestions.
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+      base::BindOnce(&FindDuplicatePersonalContextEntities, entities_),
+      base::BindOnce(&EntityDataManager::RemoveDuplicatePersonalContextEntities,
+                     GetWeakPtr()));
+}
 
-    const bool is_duplicate =
-        std::ranges::any_of(entities_, [&](const EntityInstance& other) {
-          switch (other.record_type()) {
-            case EntityInstance::RecordType::kLocal:
-            case EntityInstance::RecordType::kServerWallet:
-              return entity.MatchesMergeConstraintsOf(other);
-            case EntityInstance::RecordType::kPersonalContext:
-              return false;
-          }
-        });
-
-    if (is_duplicate) {
-      duplicate_guids.insert(entity.guid());
-    }
+void EntityDataManager::RemoveDuplicatePersonalContextEntities(
+    absl::flat_hash_set<EntityInstance::EntityId> duplicate_guids) {
+  if (duplicate_guids.empty()) {
+    return;
   }
 
-  base::EraseIf(entities_, [&](const EntityInstance& entity) {
-    return duplicate_guids.contains(entity.guid());
-  });
+  const size_t removed_count =
+      base::EraseIf(entities_, [&](const EntityInstance& entity) {
+        return duplicate_guids.contains(entity.guid());
+      });
+
+  if (removed_count > 0) {
+    NotifyEntityInstancesChanged();
+  }
 }
 
 const GeoIpCountryCode& EntityDataManager::GetVariationCountryCode() const {

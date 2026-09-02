@@ -2,6 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+source_set("metrics") {
+  public = [ "metrics.h" ]
+  sources = [ "metrics.cc" ]
+  public_deps = [ "//base" ]
+}
+
 source_set("dictation") {
   public = [
     "application_registration_delegate.h",
@@ -12,7 +18,6 @@ source_set("dictation") {
     "features.h",
     "local_hotkey_manager.h",
     "logging.h",
-    "metrics.h",
     "onboarding_manager.h",
     "session_controller.h",
     "session_controller_delegate.h",
@@ -29,6 +34,7 @@ source_set("dictation") {
     "//content/public/browser",
   ]
   deps = [
+    ":metrics",
     "//chrome/browser/ui/views/dictation",
     "//components/prefs",
   ]
@@ -49,7 +55,7 @@ source_set("impl") {
     "listener_stream_provider.cc",
     "listener_stream_provider.h",
     "local_hotkey_manager.cc",
-    "metrics.cc",
+    "logging.cc",
     "onboarding_manager.cc",
     "session_controller.cc",
     "session_state.cc",
@@ -60,6 +66,7 @@ source_set("impl") {
 
   deps = [
     ":dictation",
+    ":metrics",
     "//base",
     "//chrome/browser/component_updater",
     "//chrome/browser/extensions",
@@ -88,6 +95,10 @@ source_set("impl") {
 source_set("test_support") {
   testonly = true
   sources = [
+    "dictation_browser_test_base.cc",
+    "dictation_browser_test_base.h",
+    "dictation_interactive_browser_test_base.cc",
+    "dictation_interactive_browser_test_base.h",
     "test_util.cc",
     "test_util.h",
   ]
@@ -117,18 +128,21 @@ source_set("unit_tests") {
   sources = [
     "dictation_keyed_service_unittest.cc",
     "local_hotkey_manager_unittest.cc",
+    "logging_unittest.cc",
     "session_controller_unittest.cc",
     "target_unittest.cc",
   ]
 
   deps = [
     ":impl",
+    ":metrics",
     ":test_support",
     "//base/test:test_support",
     "//chrome/browser/ui:test_support",
     "//chrome/test:test_support",
     "//components/tabs:test_support",
     "//content/test:test_support",
+    "//extensions/browser:test_support",
   ]
 }
 
@@ -136,11 +150,7 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = [
-    "dictation_browser_test_base.cc",
-    "dictation_browser_test_base.h",
     "dictation_context_browsertest.cc",
-    "dictation_interactive_browser_test_base.cc",
-    "dictation_interactive_browser_test_base.h",
     "dictation_keyed_service_browsertest.cc",
     "dictation_onboarding_browsertest.cc",
     "metrics_browsertest.cc",
@@ -149,9 +159,29 @@ source_set("browser_tests") {
   ]
   deps = [
     ":impl",
+    ":metrics",
     ":test_support",
     "//chrome/browser/glic/test_support",
     "//chrome/browser/policy:test_support",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/tabs",
+    "//chrome/browser/ui/toasts",
+    "//chrome/browser/ui/toasts/api:toasts",
+    "//chrome/browser/ui/views/dictation",
+    "//chrome/test:test_support",
+    "//components/tabs:test_support",
+    "//content/test:test_support",
+  ]
+}
+
+source_set("interactive_ui_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [ "session_ui_impl_interactive_uitest.cc" ]
+  deps = [
+    ":impl",
+    ":test_support",
+    "//chrome/browser/glic/test_support",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/tabs",
     "//chrome/browser/ui/toasts",

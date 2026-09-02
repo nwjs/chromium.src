@@ -40,8 +40,9 @@ class TabDragWindowAdapter {
   // Returns the window bounds in screen coordinates.
   virtual gfx::Rect GetBoundsInScreen() const = 0;
 
-  // Returns true if the given dragged tab count represents the entire window.
-  virtual bool IsDraggingEntireWindow(size_t dragged_tab_count) const = 0;
+  // Returns true if dragging the given number of tabs should drag the whole
+  // window.
+  virtual bool ShouldDragWholeWindow(size_t dragged_tab_count) const = 0;
 
   // Converts a point in screen coordinates to local coordinates relative to the
   // given `target_view`.
@@ -57,6 +58,9 @@ class TabDragWindowAdapter {
 
   // Returns true if this window has capture.
   virtual bool HasCapture() const = 0;
+
+  // Activates and brings the browser window to the front.
+  virtual void Activate() = 0;
 
   // Detaches the given tabs from this window and inserts them into a newly
   // created window. Returns the ID of the new window.

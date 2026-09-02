@@ -6,6 +6,7 @@
 
 #include "base/strings/string_number_conversions.h"
 #include "base/types/expected_macros.h"
+#include "chrome/browser/extensions/api/tabs/tabs_constants.h"
 #include "chrome/browser/extensions/browser_window_util.h"
 #include "chrome/browser/extensions/chrome_extension_function_details.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
@@ -16,20 +17,27 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
-#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_function.h"
 #include "extensions/common/constants.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "ui/base/base_window.h"
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/unload_controller.h"
+#include "components/split_tabs/split_tab_id.h"
+#include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tabs/public/tab_interface.h"
 #endif
 
 namespace extensions {
@@ -40,7 +48,7 @@ namespace {
 // creation / initialization is an async process.
 BrowserWindowInterface* CreateAndShowBrowser(Profile* profile,
                                              bool user_gesture) {
-  if (Browser::GetCreationStatusForProfile(profile) !=
+  if (GetBrowserWindowCreationStatusForProfile(*profile) !=
       Browser::CreationStatus::kOk) {
     return nullptr;
   }
@@ -107,8 +115,7 @@ OpenTabHelper::FindOrCreateBrowser(const GURL& validated_url,
   // back to the dawn of time, AKA the initial implementation in 2014:
   // https://codereview.chromium.org/245933002.
   if (browser && browser->GetType() != BrowserWindowInterface::TYPE_NORMAL &&
-      UnloadController::From(browser->GetBrowserForMigrationOnly())
-          ->is_attempting_to_close_browser()) {
+      UnloadController::From(browser)->is_attempting_to_close_browser()) {
     browser = nullptr;
     fallback_to_tabbed_browser = true;
   }
@@ -154,6 +161,14 @@ base::expected<content::WebContents*, std::string> OpenTabHelper::OpenTab(
     const Params& params) {
   auto* const extension = function.extension();
 
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(https://crbug.com/480192698): Remove this restriction once split tabs
+  // are supported on Desktop Android.
+  if (params.split_with_tab_id.has_value()) {
+    return base::unexpected(tabs_constants::kSplitViewCreationFailedError);
+  }
+#endif
+
   // DCHECK because the input should already have been validated, and this is
   // a somewhat costly function.
   DCHECK(ExtensionTabUtil::PrepareURLForNavigation(
@@ -182,12 +197,37 @@ base::expected<content::WebContents*, std::string> OpenTabHelper::OpenTab(
   navigate_params.disposition = active
                                     ? WindowOpenDisposition::NEW_FOREGROUND_TAB
                                     : WindowOpenDisposition::NEW_BACKGROUND_TAB;
+
+  // If splitWithTabId is specified, determine the relative positioning of the
+  // new tab. Defaults to the right of the target tab if index is not specified.
+  tabs::TabInterface* split_tab = nullptr;
+  if (params.split_with_tab_id.has_value() &&
+      base::FeatureList::IsEnabled(extensions_features::kApiTabsSplitView)) {
+    content::WebContents* split_contents = nullptr;
+    int split_index = -1;
+    if (ExtensionTabUtil::GetTabById(*params.split_with_tab_id,
+                                     function.browser_context(),
+                                     function.include_incognito_information(),
+                                     /*window=*/nullptr,
+                                     /*contents=*/&split_contents,
+                                     /*tab_index=*/&split_index)) {
+      if (index != split_index) {
+        index = split_index + 1;
+      }
+      if (split_contents) {
+        split_tab = tabs::TabInterface::GetFromContents(split_contents);
+        CHECK(split_tab);
+      }
+    }
+  }
+
   navigate_params.tabstrip_index = index;
   navigate_params.user_gesture = false;
 
-  // Default to not pinning the tab. Setting the 'pinned' property to true
-  // will override this default.
-  bool pinned = params.pinned.value_or(false);
+  // Default to not pinning the tab unless splitting with a pinned tab.
+  // Setting the 'pinned' property explicitly will override this default.
+  bool pinned =
+      params.pinned.value_or(split_tab ? split_tab->IsPinned() : false);
 
   int add_types = active ? AddTabTypes::ADD_ACTIVE : AddTabTypes::ADD_NONE;
   add_types |= AddTabTypes::ADD_FORCE_INDEX;
@@ -219,6 +259,20 @@ base::expected<content::WebContents*, std::string> OpenTabHelper::OpenTab(
   // This happens in locked fullscreen mode.
   if (!new_contents) {
     return base::unexpected(ExtensionTabUtil::kLockedFullscreenModeNewTabError);
+  }
+
+  // Split the tab if the splitWithTabId is specified and the tab is valid.
+  // Returns an error and cleans up the newly created tab if the split view
+  // cannot be created.
+  if (split_tab) {
+    tabs::TabInterface* new_tab =
+        tabs::TabInterface::GetFromContents(new_contents);
+    CHECK(new_tab);
+    if (!tab_list->CreateSplit(
+            {split_tab->GetHandle(), new_tab->GetHandle()})) {
+      tab_list->CloseTab(new_tab->GetHandle());
+      return base::unexpected(tabs_constants::kSplitViewCreationFailedError);
+    }
   }
 
   if (active) {

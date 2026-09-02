@@ -45,11 +45,13 @@ import org.chromium.chrome.browser.omnibox.status.PageInfoIphController;
 import org.chromium.chrome.browser.omnibox.status.PermissionStatusHandler;
 import org.chromium.chrome.browser.omnibox.status.StatusMediator;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.permissions.PermissionTestRule;
 import org.chromium.chrome.browser.permissions.RuntimePermissionTestUtils;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
+import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.chrome.test.batch.BlankCTATabInitialStateRule;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
@@ -87,8 +89,7 @@ public class PageInfoDiscoverabilityTest {
     public final BlankCTATabInitialStateRule mInitialStateRule =
             new BlankCTATabInitialStateRule(sActivityTestRule.getActivityTestRule(), false);
 
-    private static final String GEOLOCATION_TEST =
-            "/chrome/test/data/geolocation/geolocation_on_load.html";
+    private static final String GEOLOCATION_TEST = "/chrome/test/data/geolocation/geolocation.html";
 
     /**
      * Parameter provider for testing the different |RequestType|s that affect discoverability. The
@@ -252,6 +253,8 @@ public class PageInfoDiscoverabilityTest {
                     TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
                     mMediator =
                             new StatusMediator(
+                                    new OmniboxResourceProvider(
+                                            mContext, BrandedColorScheme.APP_DEFAULT),
                                     mModel,
                                     mContext,
                                     mLocationBarDataProvider,
@@ -324,7 +327,7 @@ public class PageInfoDiscoverabilityTest {
                 /* promptDecision= */ PermissionTestRule.PromptDecision.ALLOW,
                 /* waitForMissingPermissionPrompt= */ false,
                 /* waitForUpdater= */ true,
-                /* javascriptToExecute= */ null,
+                "initiate_geolocation()",
                 /* missingPermissionPromptTextId= */ 0);
 
         Assert.assertEquals(
@@ -359,7 +362,7 @@ public class PageInfoDiscoverabilityTest {
                 /* promptDecision= */ PermissionTestRule.PromptDecision.DENY,
                 /* waitForMissingPermissionPrompt= */ false,
                 /* waitForUpdater= */ true,
-                /* javascriptToExecute= */ null,
+                "initiate_geolocation()",
                 /* missingPermissionPromptTextId= */ 0);
 
         Assert.assertEquals(

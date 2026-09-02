@@ -333,6 +333,36 @@ TEST_F(StyleAdjusterTest, SingleAxisScrollerUseCount) {
   GetDocument().ClearUseCounterForTesting(WebFeature::kSingleAxisScroller);
 }
 
+TEST_F(StyleAdjusterTest, SingleAxisScrollerOverscrollBehaviorUseCount) {
+  SetBodyInnerHTML(R"HTML(
+    <div style='overflow-x: clip; overflow-y: auto;
+                overscroll-behavior-y: contain'></div>
+    <div style='overflow-x: scroll; overflow-y: clip;
+                overscroll-behavior-x: contain'></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(GetDocument().IsUseCounted(
+      WebFeature::kSingleAxisScrollerOverscrollBehavior));
+
+  SetBodyInnerHTML(R"HTML(
+    <div style='overflow-x: clip; overflow-y: auto;
+                overscroll-behavior-x: none'></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsUseCounted(
+      WebFeature::kSingleAxisScrollerOverscrollBehavior));
+  GetDocument().ClearUseCounterForTesting(
+      WebFeature::kSingleAxisScrollerOverscrollBehavior);
+
+  SetBodyInnerHTML(R"HTML(
+    <div style='overflow-x: scroll; overflow-y: clip;
+                overscroll-behavior-y: contain'></div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(GetDocument().IsUseCounted(
+      WebFeature::kSingleAxisScrollerOverscrollBehavior));
+}
+
 // crbug.com/392643253
 TEST_F(StyleAdjusterTest, AdjustForDisplayInlinify) {
   SetBodyInnerHTML(R"HTML(<ruby><video></video><audio></audio></ruby>)HTML");
@@ -360,6 +390,51 @@ TEST_F(StyleAdjusterTest, AdjustForSVGCrash) {
                       ->getElementById(AtomicString("text5"));
   EXPECT_EQ(EDominantBaseline::kHanging,
             text->GetComputedStyle()->CssDominantBaseline());
+}
+
+TEST_F(StyleAdjusterTest, AdjustForCanvasDrawableDescendant) {
+  ScopedCanvasDrawElementForTest forced_canvas_draw_element_feature(true);
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      div { width: 100px; height: 100px; }
+    </style>
+    <canvas id="canvas" width="300" height="300" layoutsubtree>
+      <div id="a">
+        <div id="aa" drawable style="background: red;">
+          <div id="aaa">a1</div>
+          <div id="aab" drawable style="background: green;">
+            <div id="aaba">a2</div>
+          </div>
+          <div id="aac">a3</div>
+          <span id="nested_span" drawable>nested</span>
+        </div>
+        <div id="ab">b1</div>
+      </div>
+      <div id="b" drawable style="background: blue;">
+        <div id="ba" drawable></div>
+      </div>
+      <span id="immediate_span">immediate</span>
+    </canvas>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+  // TODO(paint-dev): Uncomment this check when we stop treating direct children
+  // of a canvas as implicitly `drawable`.
+  // EXPECT_FALSE(GetLayoutObjectByElementId("a")->IsStackingContenxt());
+  EXPECT_TRUE(GetLayoutObjectByElementId("aa")->IsStackingContext());
+  EXPECT_FALSE(GetLayoutObjectByElementId("aaa")->IsStackingContext());
+  EXPECT_TRUE(GetLayoutObjectByElementId("aab")->IsStackingContext());
+  EXPECT_FALSE(GetLayoutObjectByElementId("aaba")->IsStackingContext());
+  EXPECT_FALSE(GetLayoutObjectByElementId("aac")->IsStackingContext());
+  EXPECT_FALSE(GetLayoutObjectByElementId("ab")->IsStackingContext());
+  EXPECT_TRUE(GetLayoutObjectByElementId("b")->IsStackingContext());
+  EXPECT_TRUE(GetLayoutObjectByElementId("ba")->IsStackingContext());
+  EXPECT_EQ(EDisplay::kBlock,
+            GetLayoutObjectByElementId("immediate_span")->StyleRef().Display());
+  EXPECT_TRUE(
+      GetLayoutObjectByElementId("immediate_span")->IsStackingContext());
+  EXPECT_EQ(EDisplay::kInlineBlock,
+            GetLayoutObjectByElementId("nested_span")->StyleRef().Display());
+  EXPECT_TRUE(GetLayoutObjectByElementId("nested_span")->IsStackingContext());
 }
 
 }  // namespace blink

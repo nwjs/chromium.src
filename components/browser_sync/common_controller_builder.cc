@@ -53,9 +53,6 @@
 #include "components/password_manager/core/browser/sharing/password_sender_service.h"
 #include "components/password_manager/core/browser/sync/password_data_type_controller.h"
 #include "components/password_manager/core/browser/sync/password_local_data_batch_uploader.h"
-#include "components/plus_addresses/core/browser/settings/plus_address_setting_service.h"
-#include "components/plus_addresses/core/browser/sync_utils/plus_address_data_type_controller.h"
-#include "components/plus_addresses/core/browser/webdata/plus_address_webdata_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/reading_list/core/dual_reading_list_model.h"
 #include "components/reading_list/core/reading_list_local_data_batch_uploader.h"
@@ -377,15 +374,6 @@ void CommonControllerBuilder::SetPasswordStore(
   account_password_store_.Set(account_password_store);
 }
 
-#if !BUILDFLAG(IS_IOS)
-void CommonControllerBuilder::SetPlusAddressServices(
-    plus_addresses::PlusAddressSettingService* plus_address_setting_service,
-    const scoped_refptr<plus_addresses::PlusAddressWebDataService>&
-        plus_address_webdata_service) {
-  plus_address_setting_service_.Set(plus_address_setting_service);
-  plus_address_webdata_service_.Set(plus_address_webdata_service);
-}
-#endif  // !BUILDFLAG(IS_IOS)
 
 void CommonControllerBuilder::SetPrefService(PrefService* pref_service) {
   pref_service_.Set(pref_service);
@@ -530,15 +518,6 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
         CreateOutgoingPasswordSharingInvitationDataTypeController(sync_service));
   }
 
-#if !BUILDFLAG(IS_IOS)
-  if (!disabled_types.Has(syncer::PLUS_ADDRESS)) {
-    add_controller(CreatePlusAddressDataTypeController());
-  }
-
-  if (!disabled_types.Has(syncer::PLUS_ADDRESS_SETTING)) {
-    add_controller(CreatePlusAddressSettingDataTypeController());
-  }
-#endif  // !BUILDFLAG(IS_IOS)
 
   if (!disabled_types.Has(syncer::PREFERENCES)) {
     add_controller(CreatePreferencesDataTypeController(channel));
@@ -622,6 +601,10 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
     add_controller(CreateNotebookDataTypeController());
   }
 
+  if (!disabled_types.Has(syncer::JOURNEY)) {
+    add_controller(CreateJourneyDataTypeController());
+  }
+
   if (!disabled_types.Has(syncer::CONTEXTUAL_TASK)) {
     add_controller(CreateContextualTaskDataTypeController());
   }
@@ -639,7 +622,8 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  add_controller(CreateFamilyLinkSettingsDataTypeController(channel));
+  add_controller(
+      CreateFamilyLinkSettingsDataTypeController(sync_service, channel));
 #endif
 
   if (!disabled_types.Has(syncer::COLLABORATION_GROUP)) {
@@ -877,39 +861,6 @@ std::unique_ptr<syncer::DataTypeController> CommonControllerBuilder::
       sync_service, password_sender_service_.value(), pref_service_.value());
 }
 
-#if !BUILDFLAG(IS_IOS)
-std::unique_ptr<syncer::DataTypeController>
-CommonControllerBuilder::CreatePlusAddressDataTypeController() {
-  // `plus_address_webdata_service_` is null on iOS WebView.
-  if (!plus_address_webdata_service_.value() ||
-      !google_groups_manager_.value()) {
-    return nullptr;
-  }
-  return std::make_unique<plus_addresses::PlusAddressDataTypeController>(
-      syncer::PLUS_ADDRESS,
-      /*delegate_for_full_sync_mode=*/
-      plus_address_webdata_service_.value()->GetSyncControllerDelegate(),
-      /*delegate_for_transport_mode=*/
-      plus_address_webdata_service_.value()->GetSyncControllerDelegate(),
-      google_groups_manager_.value());
-}
-
-std::unique_ptr<syncer::DataTypeController>
-CommonControllerBuilder::CreatePlusAddressSettingDataTypeController() {
-  // `plus_address_setting_service_` is null on iOS WebView.
-  if (!plus_address_setting_service_.value() ||
-      !google_groups_manager_.value()) {
-    return nullptr;
-  }
-  return std::make_unique<plus_addresses::PlusAddressDataTypeController>(
-      syncer::PLUS_ADDRESS_SETTING,
-      /*delegate_for_full_sync_mode=*/
-      plus_address_setting_service_.value()->GetSyncControllerDelegate(),
-      /*delegate_for_transport_mode=*/
-      plus_address_setting_service_.value()->GetSyncControllerDelegate(),
-      google_groups_manager_.value());
-}
-#endif  // !BUILDFLAG(IS_IOS)
 
 std::unique_ptr<syncer::DataTypeController>
 CommonControllerBuilder::CreatePreferencesDataTypeController(
@@ -1300,6 +1251,27 @@ CommonControllerBuilder::CreateNotebookDataTypeController() {
       std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(delegate));
 }
 
+std::unique_ptr<syncer::DataTypeController>
+CommonControllerBuilder::CreateJourneyDataTypeController() {
+  if (!base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
+    return nullptr;
+  }
+
+  // TODO(crbug.com/526686844): In CL #4, register the type, i.e. instantiate
+  // the DataTypeController. There is more than one way to go about it,
+  // but one option is:
+  // - Create a trivial implementation of DataTypeSyncBridge which lives in
+  //   your feature's directory. It should have synchronous access to your
+  //   data model (e.g. DualReadingListModel) and be (indirectly) owned by a
+  //   CoolKeyedService (often the model itself).
+  // - Expose CoolKeyedService::GetControllerDelegate() which calls
+  //   bridge->change_processor()->GetControllerDelegate().
+  // - Inject CoolKeyedService in this class and call GetControllerDelegate()
+  //   on it to create the DataTypeController.
+  // In CLs #5, #6, ..., implement the bridge and keep adding unit tests.
+  return nullptr;
+}
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 std::unique_ptr<syncer::DataTypeController>
 CommonControllerBuilder::CreateSkillDataTypeController(
@@ -1343,6 +1315,7 @@ CommonControllerBuilder::CreateWebauthnCredentialDataTypeController(
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 std::unique_ptr<syncer::DataTypeController>
 CommonControllerBuilder::CreateFamilyLinkSettingsDataTypeController(
+    syncer::SyncService* sync_service,
     version_info::Channel channel) {
   if (!family_link_settings_service_.value()) {
     return nullptr;
@@ -1351,7 +1324,7 @@ CommonControllerBuilder::CreateFamilyLinkSettingsDataTypeController(
       base::BindRepeating(&syncer::ReportUnrecoverableError, channel),
       data_type_store_service_.value()->GetStoreFactory(),
       family_link_settings_service_.value()->AsWeakPtr(),
-      pref_service_.value());
+      pref_service_.value(), sync_service);
 }
 #endif
 

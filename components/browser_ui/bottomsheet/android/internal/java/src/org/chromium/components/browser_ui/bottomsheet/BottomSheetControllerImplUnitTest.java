@@ -37,7 +37,9 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.desktop_windowing.AppHeaderState;
@@ -301,7 +303,7 @@ public class BottomSheetControllerImplUnitTest {
     @Test
     public void testRequestShowContent_FailsIfRootViewIsNull() {
         // Create a new supplier that returns null to simulate a destroyed activity.
-        Supplier<ViewGroup> nullRootSupplier = () -> null;
+        Supplier<ViewGroup> nullRootSupplier = SupplierUtils.ofNull();
         BottomSheetControllerImpl controllerWithNullRoot =
                 new BottomSheetControllerImpl(
                         mScrimManagerSupplier,
@@ -656,5 +658,47 @@ public class BottomSheetControllerImplUnitTest {
         mController.unsuppressSheet(token);
 
         verify(mBottomSheet, never()).showContent(currentContent);
+    }
+
+    @Test
+    public void testMetrics_ShowNextContent_RecordsShownHistogram() {
+        mController.runSheetInitializerForTesting();
+
+        BottomSheetContent content = mock(BottomSheetContent.class);
+        when(content.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        when(mBottomSheet.getSheetState()).thenReturn(SheetState.HIDDEN);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectBooleanRecord("Android.BottomSheet.Shown", true)
+                        .build();
+
+        mController.requestShowContent(content, /* animate= */ false);
+
+        watcher.assertExpected();
+    }
+
+    @Test
+    public void testMetrics_SheetHidden_RecordsClosedReason() {
+        mController.runSheetInitializerForTesting();
+        verify(mBottomSheet).addObserver(mBottomSheetObserverCaptor.capture());
+
+        BottomSheetContent content = mock(BottomSheetContent.class);
+        when(content.getBackPressStateChangedSupplier())
+                .thenReturn(ObservableSuppliers.alwaysFalse());
+        when(mBottomSheet.getCurrentSheetContent()).thenReturn(content);
+
+        var watcher =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecord(
+                                "Android.BottomSheet.Closed", StateChangeReason.BACK_PRESS)
+                        .build();
+
+        mBottomSheetObserverCaptor
+                .getValue()
+                .onSheetStateChanged(SheetState.HIDDEN, StateChangeReason.BACK_PRESS);
+
+        watcher.assertExpected();
     }
 }

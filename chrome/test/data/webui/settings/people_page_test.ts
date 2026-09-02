@@ -9,10 +9,11 @@ import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {loadTimeData} from 'chrome://settings/settings.js';
 import type {CrLinkRowElement, SettingsPeoplePageElement} from 'chrome://settings/settings.js';
-import {ProfileInfoBrowserProxyImpl, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
+import {PrefService, PrefsBrowserProxy, ProfileInfoBrowserProxyImpl, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {isChildVisible} from 'chrome://webui-test/test_util.js';
 
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 import {simulateSyncStatus} from './sync_test_util.js';
 import {TestProfileInfoBrowserProxy} from './test_profile_info_browser_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
@@ -28,6 +29,7 @@ import {listenOnce} from 'chrome://resources/js/util.js';
 import type {CrCheckboxElement} from 'chrome://settings/lazy_load.js';
 import {assertLT} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks, waitBeforeNextRender} from 'chrome://webui-test/polymer_test_util.js';
+import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 import type {StoredAccount} from 'chrome://settings/settings.js';
 
 import {simulateStoredAccounts} from './sync_test_util.js';
@@ -89,7 +91,62 @@ suite('ProfileInfoTests', function() {
     // </if>
   });
 
+  function getInitialPrefs(): chrome.settingsPrivate.PrefObject[] {
+    return [
+      {
+        key: 'signin.allowed_on_next_startup',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'import_dialog_bookmarks',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'spellcheck.dictionaries',
+        type: chrome.settingsPrivate.PrefType.LIST,
+        value: ['en-US'],
+      },
+      {
+        key: 'spellcheck.use_spelling_service',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'search.suggest_enabled',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'url_keyed_anonymized_data_collection.enabled',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'profile.password_manager_leak_detection',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'safebrowsing.enabled',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+      {
+        key: 'safebrowsing.scout_reporting_enabled',
+        type: chrome.settingsPrivate.PrefType.BOOLEAN,
+        value: true,
+      },
+    ];
+  }
+
   setup(async function() {
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await PrefService.getInstance().whenInitialized();
+
     profileInfoBrowserProxy = new TestProfileInfoBrowserProxy();
     ProfileInfoBrowserProxyImpl.setInstance(profileInfoBrowserProxy);
 
@@ -288,7 +345,7 @@ suite('SyncStatusTests', function() {
         peoplePage.shadowRoot!.querySelector('settings-signout-dialog')!;
     assertTrue(signoutDialog.$.dialog.open);
     const deleteProfileCheckbox =
-        signoutDialog.shadowRoot!.querySelector<CrCheckboxElement>(
+        signoutDialog.shadowRoot.querySelector<CrCheckboxElement>(
             '#deleteProfile');
     assertTrue(!!deleteProfileCheckbox);
     assertFalse(deleteProfileCheckbox.hidden);
@@ -323,7 +380,7 @@ suite('SyncStatusTests', function() {
         peoplePage.shadowRoot!.querySelector('settings-sync-account-control')!;
     await waitBeforeNextRender(accountControl);
     const turnOffButton =
-        accountControl.shadowRoot!.querySelector<HTMLElement>('#turn-off')!;
+        accountControl.shadowRoot.querySelector<HTMLElement>('#turn-off')!;
     turnOffButton.click();
     flush();
 
@@ -331,10 +388,10 @@ suite('SyncStatusTests', function() {
     const signoutDialog =
         peoplePage.shadowRoot!.querySelector('settings-signout-dialog')!;
     assertTrue(signoutDialog.$.dialog.open);
-    assertTrue(!!signoutDialog.shadowRoot!.querySelector('#deleteProfile'));
+    assertTrue(!!signoutDialog.shadowRoot.querySelector('#deleteProfile'));
 
     const disconnectConfirm =
-        signoutDialog.shadowRoot!.querySelector<HTMLElement>(
+        signoutDialog.shadowRoot.querySelector<HTMLElement>(
             '#disconnectConfirm');
     assertTrue(!!disconnectConfirm);
     assertFalse(disconnectConfirm.hidden);
@@ -371,7 +428,7 @@ suite('SyncStatusTests', function() {
     assertTrue(!!signoutDialog);
     assertTrue(signoutDialog.$.dialog.open);
 
-    const dialogBody = signoutDialog.shadowRoot!.querySelector('[slot=body]');
+    const dialogBody = signoutDialog.shadowRoot.querySelector('[slot=body]');
     assertTrue(!!dialogBody);
     assertEquals(
         'Explanation example.com<a href="http://example.com">link</a>',
@@ -389,22 +446,25 @@ suite('SyncStatusTests', function() {
     assertTrue(signoutDialog.$.dialog.open);
 
     // Assert the warning message is as expected.
-    const warningMessage = signoutDialog.shadowRoot!.querySelector<HTMLElement>(
+    const warningMessage = signoutDialog.shadowRoot.querySelector<HTMLElement>(
         '.delete-profile-warning')!;
 
     webUIListenerCallback('profile-stats-count-ready', 0);
+    await microtasksFinished();
     assertEquals(
         loadTimeData.getStringF(
             'deleteProfileWarningWithoutCounts', 'fakeUsername'),
         warningMessage.textContent.trim());
 
     webUIListenerCallback('profile-stats-count-ready', 1);
+    await microtasksFinished();
     assertEquals(
         loadTimeData.getStringF(
             'deleteProfileWarningWithCountsSingular', 'fakeUsername'),
         warningMessage.textContent.trim());
 
     webUIListenerCallback('profile-stats-count-ready', 2);
+    await microtasksFinished();
     assertEquals(
         loadTimeData.getStringF(
             'deleteProfileWarningWithCountsPlural', 2, 'fakeUsername'),

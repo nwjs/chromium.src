@@ -7,13 +7,13 @@
 #include <stddef.h>
 
 #include <memory>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "base/containers/adapters.h"
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
@@ -29,14 +29,14 @@
 #include "chrome/browser/search_engines/template_url_service_factory_test_util.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/chrome_omnibox_client.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
-#include "chrome/test/base/test_browser_window.h"
+#include "chrome/browser/ui/views/omnibox/test_location_bar.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/omnibox/browser/test_location_bar_model.h"
@@ -191,7 +191,7 @@ void TestingOmniboxView::CheckUpdatePopupNotCalled() {
 std::optional<SkColor> TestingOmniboxView::GetLatestColorForRange(
     const gfx::Range& range) {
   // Iterate backwards to get the most recently applied color for |range|.
-  for (const auto& [color, other_range] : base::Reversed(range_colors_)) {
+  for (const auto& [color, other_range] : std::views::reverse(range_colors_)) {
     if (range == other_range) {
       return color;
     }
@@ -203,7 +203,7 @@ std::optional<std::pair<gfx::TextStyle, bool>>
 TestingOmniboxView::GetLatestStyleForRange(const gfx::Range& range) const {
   // Iterate backwards to get the most recently applied style for |range|.
   for (const auto& [style, value, other_range] :
-       base::Reversed(range_styles_)) {
+       std::views::reverse(range_styles_)) {
     if (range == other_range) {
       return std::make_pair(style, value);
     }
@@ -260,74 +260,6 @@ void TestingOmniboxView::ApplyStyle(gfx::TextStyle style,
   range_styles_.emplace_back(style, value, range);
   OmniboxViewViews::ApplyStyle(style, value, range);
 }
-
-// TestLocationBar -------------------------------------------------------------
-
-class TestLocationBar : public LocationBar {
- public:
-  TestLocationBar(CommandUpdater* command_updater,
-                  LocationBarModel* location_bar_model)
-      : LocationBar(command_updater), location_bar_model_(location_bar_model) {}
-  TestLocationBar(const TestLocationBar&) = delete;
-  TestLocationBar& operator=(const TestLocationBar&) = delete;
-  ~TestLocationBar() override = default;
-
-  void set_omnibox_view(OmniboxViewViews* view) { omnibox_view_ = view; }
-  void set_profile(Profile* profile) { profile_ = profile; }
-
-  // LocationBar:
-  void FocusLocation(bool select_all, bool clear_focus_if_failed) override {}
-  void FocusSearch() override {}
-  void UpdateFocusBehavior(bool toolbar_visible) override {}
-  void UpdateContentSettingsIcons() override {}
-  void SaveStateToContents(content::WebContents* contents) override {}
-  void Revert() override {}
-  OmniboxView* GetOmniboxView() override { return nullptr; }
-  OmniboxPopupView* GetOmniboxPopupView() override { return nullptr; }
-  OmniboxController* GetOmniboxController() override { return nullptr; }
-  bool ShouldCloseOmniboxPopup(ui::MouseEvent* event) override { return false; }
-  ChipController* GetChipController() override { return nullptr; }
-  LocationBarTesting* GetLocationBarForTesting() override { return nullptr; }
-  LocationBarModel* GetLocationBarModel() override {
-    return location_bar_model_;
-  }
-  content::WebContents* GetWebContents() override { return nullptr; }
-  std::optional<bubble_anchor_util::AnchorConfiguration> GetChipAnchor()
-      override {
-    return {};
-  }
-  void OnChanged() override {}
-  void UpdateWithoutTabRestore() override {
-    // This is a minimal amount of what LocationBarView does. Not all tests
-    // set |omnibox_view_|.
-    if (omnibox_view_) {
-      omnibox_view_->Update();
-    }
-  }
-
-  ui::TrackedElement* GetAnchorOrNull() override { return nullptr; }
-  BrowserWindowInterface* GetBrowser() override { return nullptr; }
-  Profile* GetProfile() override { return profile_; }
-  bool IsInitialized() const override { return true; }
-  bool IsVisible() const override { return true; }
-  bool IsDrawn() const override { return true; }
-  bool IsFullscreen() const override { return false; }
-  bool IsEditingOrEmpty() const override { return false; }
-  bool IsMouseHovered() const override { return false; }
-  bool IsFocusWithin() const override { return false; }
-  void InvalidateLayout() override {}
-  gfx::Rect Bounds() const override { return gfx::Rect(); }
-  gfx::Rect BoundsInScreen() const override { return gfx::Rect(); }
-  gfx::Size MinimumSize() const override { return gfx::Size(); }
-  gfx::Size PreferredSize() const override { return gfx::Size(); }
-  void Update(content::WebContents* contents) override {}
-  void ResetTabState(content::WebContents* contents) override {}
-  bool HasSecurityStateChanged() override { return false; }
-
-  raw_ptr<LocationBarModel> location_bar_model_;
-  raw_ptr<OmniboxViewViews> omnibox_view_ = nullptr;
-  raw_ptr<Profile> profile_ = nullptr;
-};
 
 // OmniboxViewViewsTest -------------------------------------------------------
 
@@ -406,7 +338,6 @@ class OmniboxViewViewsTest : public OmniboxViewViewsTestBase {
   }
 
  protected:
-  Browser* browser() { return browser_.get(); }
   Profile* profile() { return profile_.get(); }
   TestLocationBar* location_bar() { return &location_bar_; }
 
@@ -432,7 +363,6 @@ class OmniboxViewViewsTest : public OmniboxViewViewsTestBase {
  private:
   network::TestURLLoaderFactory test_url_loader_factory_;
   std::unique_ptr<TestingProfile> profile_;
-  std::unique_ptr<Browser> browser_;
   std::unique_ptr<TemplateURLServiceFactoryTestUtil> util_;
   CommandUpdaterImpl command_updater_;
   TestLocationBarModel location_bar_model_;
@@ -484,11 +414,6 @@ void OmniboxViewViewsTest::SetUp() {
                           &test_url_loader_factory_));
   profile_ = profile_builder.Build();
   location_bar_.set_profile(profile_.get());
-  auto browser_window = std::make_unique<TestBrowserWindow>();
-  Browser::CreateParams params(profile(), /*user_gesture*/ true);
-  params.type = Browser::TYPE_NORMAL;
-  params.window = browser_window.release();
-  browser_ = Browser::DeprecatedCreateOwnedForTesting(params);
 
   util_ = std::make_unique<TemplateURLServiceFactoryTestUtil>(profile_.get());
 
@@ -502,7 +427,7 @@ void OmniboxViewViewsTest::SetUp() {
 
   // Create the controller and the view and wire them together.
   auto omnibox_client = std::make_unique<ChromeOmniboxClient>(
-      &location_bar_, browser(), profile());
+      &location_bar_, nullptr, profile());
   omnibox_controller_ =
       std::make_unique<OmniboxController>(std::move(omnibox_client));
   auto omnibox_view = std::make_unique<TestingOmniboxView>(
@@ -526,9 +451,6 @@ void OmniboxViewViewsTest::TearDown() {
   omnibox_view_ = nullptr;
   widget_.reset();
   omnibox_controller_.reset();
-
-  browser_->tab_strip_model()->CloseAllTabs();
-  browser_ = nullptr;
 
   util_.reset();
   location_bar()->set_profile(nullptr);
@@ -1147,16 +1069,8 @@ TEST_F(OmniboxViewViewsTest, SchemeStrikethrough) {
 }
 
 #if BUILDFLAG(SUPPORTS_AX_TEXT_OFFSETS)
-#if BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
-// TODO(crbug.com/533683545): Fix this test on Win ARM64.
-#define MAYBE_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange \
-  DISABLED_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange
-#else
-#define MAYBE_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange \
-  AccessibleTextOffsetsUpdatesAfterElideBehaviorChange
-#endif
 TEST_F(OmniboxViewViewsTest,
-       MAYBE_AccessibleTextOffsetsUpdatesAfterElideBehaviorChange) {
+       AccessibleTextOffsetsUpdatesAfterElideBehaviorChange) {
   EnableDeferredLoadingAccessibility();
   CHECK(omnibox_view()->GetViewAccessibility().is_initialized());
 

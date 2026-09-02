@@ -98,6 +98,32 @@ class BnplStrategy {
     kMaxValue = kRemoveBnplUi,
   };
 
+  // Defines the action to take when the user decides to use saved cards / Pay
+  // Now tab.
+  enum class UserDecisionToUseSavedCardsNextAction {
+    // Desktop: Update inline popup items / throbbers in the autofill dropdown.
+    kUpdateDesktopPopupSuggestions = 0,
+
+    // Android: Clear/reset selected issuer choice or flow state for tabbed
+    // sheet.
+    kResetSelectedIssuerOrFlowStateOnAndroid = 1,
+
+    kMaxValue = kResetSelectedIssuerOrFlowStateOnAndroid,
+  };
+
+  // Defines the action to take when the user decides to use BNPL again (e.g.
+  // returned to Pay Later tab when flow state already exists).
+  enum class UserDecisionToUseBnplAgainNextAction {
+    // Desktop: Do nothing (user has already navigated or flow is ongoing).
+    kDoNothing = 0,
+
+    // Android: Re-show the BNPL issuer selection UI with cached checkout
+    // amount.
+    kReshowSelectBnplIssuerUiOnAndroid = 1,
+
+    kMaxValue = kReshowSelectBnplIssuerUiOnAndroid,
+  };
+
   virtual ~BnplStrategy();
 
   // Returns the next action to take after the user has been shown a payment
@@ -107,6 +133,10 @@ class BnplStrategy {
   // Returns the next action to take after the user has decided to use BNPL.
   virtual UserDecisionToUseBnplNextAction
   GetNextActionOnUserDecisionToUseBnpl();
+
+  // Returns the next action to take when the user decides to use BNPL again.
+  virtual UserDecisionToUseBnplAgainNextAction
+  GetNextActionOnUserDecisionToUseBnplAgain();
 
   // Returns the next action to take after the amount extraction is finished.
   virtual BnplAmountExtractionReturnedNextAction
@@ -119,6 +149,10 @@ class BnplStrategy {
   // finished.
   virtual BnplAiBasedAmountExtractionReturnedNextAction
   GetNextActionOnAiBasedAmountExtractionReturned();
+
+  // Returns the next action to take when the user decides to use saved cards.
+  virtual UserDecisionToUseSavedCardsNextAction
+  GetNextActionOnUserDecisionToUseSavedCards();
 
   // Returns the action to take to dismiss the active BNPL UI.
   virtual UiDismissalAction GetUiDismissalAction();

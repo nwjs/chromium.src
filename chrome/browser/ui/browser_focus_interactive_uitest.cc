@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/frame/window_frame_util.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
@@ -434,7 +435,9 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, BackgroundBrowserDontStealFocus) {
 
   // Open a new browser window.
   Browser* background_browser =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   chrome::AddTabAt(background_browser, GURL(), -1, true);
   background_browser->GetWindow()->Show();
 
@@ -507,7 +510,7 @@ IN_PROC_BROWSER_TEST_F(BrowserFocusTest, FocusTraversal) {
   ASSERT_TRUE(IsViewFocused(VIEW_ID_OMNIBOX));
 
   // Simulate ESC being pressed to close the omnibox suggestions popup.
-  browser()->browser_window_features()->omnibox_popup_closer()->CloseWithReason(
+  browser()->GetFeatures().omnibox_popup_closer()->CloseWithReason(
       omnibox::PopupCloseReason::kEscapeKeyPressed);
 
   // Loop through the focus chain twice in each direction for good measure.

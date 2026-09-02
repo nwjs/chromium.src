@@ -43,9 +43,6 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kCustomPolicyRegistrationDelay);
 POLICY_EXPORT extern const base::FeatureParam<base::TimeDelta>
     kPolicyRegistrationDelay;
 
-// Used to enable future_on policies on Desktop Android.
-POLICY_EXPORT BASE_DECLARE_FEATURE(kFuturePoliciesOnDesktopAndroid);
-
 // A blocklist of policies supported on Desktop Android.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kDesktopAndroidPolicy);
 POLICY_EXPORT extern const base::FeatureParam<std::string>
@@ -100,6 +97,13 @@ POLICY_EXPORT BASE_DECLARE_FEATURE(kURLBlocklistOverridesIncognitoAllowlist);
 
 // Enables the export of platform policies as JSON on the chrome://policy page.
 POLICY_EXPORT BASE_DECLARE_FEATURE(kExportPlatformPoliciesJson);
+
+// When enabled, migrates user cloud management status and sign-in interception
+// policy fetching from the legacy SecureConnect endpoint to Device Management
+// Server.
+POLICY_EXPORT BASE_DECLARE_FEATURE(kMigrateSecureConnectApiToDmServer);
+POLICY_EXPORT extern const base::FeatureParam<base::TimeDelta>
+    kMigrateSecureConnectApiToDmServerFetchTimeout;
 
 }  // namespace policy::features
 

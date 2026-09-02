@@ -5,6 +5,7 @@
 #include "components/search_engines/template_url_prepopulate_data_resolver.h"
 
 #include <optional>
+#include <string_view>
 
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
@@ -48,6 +49,13 @@ std::unique_ptr<TemplateURLData> Resolver::GetEngineFromFullList(
       profile_prefs_.get(),
       regional_capabilities_->GetRegionalPrepopulatedEngines(),
       prepopulated_id);
+}
+
+std::unique_ptr<TemplateURLData> Resolver::GetEngineFromFullList(
+    std::u16string_view keyword) const {
+  return TemplateURLPrepopulateData::GetPrepopulatedEngineFromFullList(
+      profile_prefs_.get(),
+      regional_capabilities_->GetRegionalPrepopulatedEngines(), keyword);
 }
 
 std::unique_ptr<TemplateURLData> Resolver::GetFallbackSearch() const {
@@ -134,7 +142,7 @@ bool Resolver::IsMatch(MigrationMatch match) {
 Resolver::MigrationMatch Resolver::CompareEngineUnderMigration(
     const TemplateURLData& checked_data,
     const PrepopulatedEngine* deprecated_engine) const {
-  CHECK(deprecated_engine->migrate_to_id != 0, base::NotFatalUntil::M149);
+  CHECK_NE(deprecated_engine->migrate_to_id, 0);
 
   if (checked_data.prepopulate_id != deprecated_engine->id) {
     return MigrationMatch::kIdsDontMatch;
@@ -172,11 +180,8 @@ std::unique_ptr<TemplateURLData> Resolver::TryGetMigratedEngine(
     return {};
   }
 
-  if (pre_migration_engine.prepopulate_id == 0) {
-    // Should only be requested for prepopulated engines.
-    NOTREACHED(base::NotFatalUntil::M149);
-    return {};
-  }
+  // Should only be requested for prepopulated engines.
+  CHECK_NE(pre_migration_engine.prepopulate_id, 0);
 
   const auto& migrating_engines =
       regional_capabilities::GetMigratingPrepopulatedEngines();

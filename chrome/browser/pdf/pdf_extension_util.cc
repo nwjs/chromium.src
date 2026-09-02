@@ -39,6 +39,7 @@
 #include "pdf/pdf_features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "url/gurl.h"
 
@@ -86,6 +87,9 @@ base::DictValue GetCommonStrings() {
   dict.Set("presetZoomFactors", zoom::GetPresetZoomFactorsAsJSON());
   dict.Set("pdfOopifEnabled",
            chrome_pdf::features::IsOopifPdfEnabled() ? "pdfOopifEnabled" : "");
+  dict.Set(
+      "webuiRoundedIconsAttribute",
+      features::IsWebUIRoundedIconsEnabled() ? "webui-rounded-icons" : "");
   return dict;
 }
 
@@ -168,6 +172,8 @@ base::DictValue GetPdfViewerStrings() {
       {"annotationRedo", IDS_PDF_ANNOTATION_REDO},
       {"annotationUndo", IDS_PDF_ANNOTATION_UNDO},
       {"cancelButton", IDS_CANCEL},
+      {"ink2AnnotationRedone", IDS_PDF_INK2_ANNOTATION_REDONE},
+      {"ink2AnnotationUndone", IDS_PDF_INK2_ANNOTATION_UNDONE},
       {"ink2BrushColorBlue1", IDS_PDF_INK2_ANNOTATION_COLOR_BLUE_1},
       {"ink2BrushColorBlue2", IDS_PDF_INK2_ANNOTATION_COLOR_BLUE_2},
       {"ink2BrushColorBlue3", IDS_PDF_INK2_ANNOTATION_COLOR_BLUE_3},
@@ -293,7 +299,6 @@ bool IsPdfInk2AnnotationsEnabled(content::BrowserContext* context) {
 #if BUILDFLAG(ENABLE_PDF_SAVE_TO_DRIVE)
 bool IsPdfSaveToDriveEnabled(content::BrowserContext* context) {
 #if BUILDFLAG(IS_CHROMEOS)
-  // TODO(crbug.com/488428177): Write unit test for this logic.
   // On ChromeOS, only regular user session has accounts associated with the
   // browser.
 

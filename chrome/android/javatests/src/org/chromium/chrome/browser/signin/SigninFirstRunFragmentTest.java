@@ -41,7 +41,6 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.text.TextUtils;
 import android.view.View;
 
@@ -76,7 +75,6 @@ import org.chromium.base.test.transit.ViewFinder;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -88,7 +86,6 @@ import org.chromium.chrome.browser.firstrun.FirstRunPageDelegate;
 import org.chromium.chrome.browser.firstrun.FirstRunUtils;
 import org.chromium.chrome.browser.firstrun.FirstRunUtilsJni;
 import org.chromium.chrome.browser.firstrun.MobileFreProgress;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.prefs.LocalStatePrefs;
@@ -124,7 +121,6 @@ import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.ui.UiUtils;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.DeviceRestriction;
 import org.chromium.ui.test.util.NightModeTestUtils;
@@ -247,6 +243,7 @@ public class SigninFirstRunFragmentTest {
                             UserPrefs.get(ProfileManager.getLastUsedRegularProfile());
                     prefService.clearPref(Pref.SIGNIN_ALLOWED);
                 });
+        ActivityTestUtils.clearActivityOrientation(mActivityTestRule.getActivity());
     }
 
     @Test
@@ -329,7 +326,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287626
     public void testRemovingAllAccountsDismissesAccountPickerDialog() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
@@ -594,7 +590,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @EnableFeatures({ChromeFeatureList.XPLAT_SYNCED_SETUP})
     public void testSigninAnimationWithLargeProfilePicture() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
@@ -993,17 +988,6 @@ public class SigninFirstRunFragmentTest {
 
     @Test
     @MediumTest
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287626
-    public void testFragmentWhenClickingOnTosLink() {
-        launchActivityWithFragment();
-
-        onView(withId(R.id.signin_fre_footer)).perform(clickOnTosLink());
-
-        verify(mFirstRunPageDelegateMock).showInfoPage(R.string.google_terms_of_service_url);
-    }
-
-    @Test
-    @MediumTest
     @ParameterAnnotations.UseMethodParameter(NightModeTestUtils.NightModeParams.class)
     public void testFragmentWhenClickingOnTosLinkInDarkMode(boolean nightModeEnabled) {
         launchActivityWithFragment();
@@ -1020,7 +1004,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287626
     public void testUIStateChangeOnContinueButtonPress_XplatSyncedSetup() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
@@ -1039,7 +1022,7 @@ public class SigninFirstRunFragmentTest {
                         .getString(
                                 R.string.signed_in_fre_title, TestAccounts.ACCOUNT1.getGivenName());
         final String expectedLoadingText =
-                mActivityTestRule.getActivity().getString(R.string.fre_signing_in_2);
+                mActivityTestRule.getActivity().getString(R.string.fre_signing_in);
         onView(allOf(withId(R.id.title), withText(expectedTitle))).check(matches(isDisplayed()));
         onView(withId(R.id.fre_icon)).check(matches(isDisplayed()));
         onView(withId(R.id.fre_icon))
@@ -1052,7 +1035,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287626
     public void testSuccessfulSignInFlow_XplatSyncedSetup() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
@@ -1126,7 +1108,7 @@ public class SigninFirstRunFragmentTest {
                                 R.string.signed_in_fre_title,
                                 TestAccounts.CHILD_ACCOUNT.getGivenName());
         final String expectedLoadingText =
-                mActivityTestRule.getActivity().getString(R.string.fre_signing_in_2);
+                mActivityTestRule.getActivity().getString(R.string.fre_signing_in);
         onView(allOf(withId(R.id.title), withText(expectedTitle))).check(matches(isDisplayed()));
         onView(withId(R.id.fre_browser_managed_by)).check(matches(isDisplayed()));
         onView(withText(R.string.fre_browser_managed_by_parent)).check(matches(isDisplayed()));
@@ -1138,7 +1120,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287626
     public void testStatePreservationOnRotation_XplatSyncedSetup() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
@@ -1260,7 +1241,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511287626
     public void testContinueButtonWhenAllowCrashUploadTurnedOff() {
         mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
         launchActivityWithFragment();
@@ -1317,9 +1297,6 @@ public class SigninFirstRunFragmentTest {
     @Test
     @MediumTest
     @Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO})
-    @DisableIf.Build(
-            sdk_is_greater_than = Build.VERSION_CODES.S_V2,
-            message = "Flaky, crbug.com/358148764")
     public void testFragmentSigninWhenAddedAccountIsNotYetAvailable() {
         // This will freeze AccountManagerFacade with the currently available list of accounts.
         // The added account from add account flow later on will not be available.
@@ -1652,7 +1629,7 @@ public class SigninFirstRunFragmentTest {
     private void checkFragmentWithSignInSpinner(
             AccountInfo accountInfo, String continueAsText, boolean isChildAccount) {
         onView(withId(R.id.fre_signin_progress_spinner)).check(matches(isDisplayed()));
-        onView(withText(R.string.fre_signing_in_2)).check(matches(isDisplayed()));
+        onView(withText(R.string.fre_signing_in)).check(matches(isDisplayed()));
         final DisplayableProfileData profileData =
                 new DisplayableProfileData(
                         accountInfo.getId(),

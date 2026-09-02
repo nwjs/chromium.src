@@ -13,6 +13,7 @@ import android.view.View;
 import androidx.annotation.VisibleForTesting;
 import androidx.preference.Preference;
 
+import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -22,7 +23,9 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchConfigManager;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchControllerFactory;
+import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchHooks;
 import org.chromium.chrome.browser.auxiliary_search.AuxiliarySearchUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -59,6 +62,10 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
             "share_titles_and_urls_with_os_learn_more";
 
     @VisibleForTesting
+    static final String PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH =
+            "share_browsing_data_with_on_device_intelligence_switch";
+
+    @VisibleForTesting
     static final String LEARN_MORE_URL = "https://support.google.com/chrome/?p=share_titles_urls";
 
     private final SettableMonotonicObservableSupplier<String> mPageTitle =
@@ -71,6 +78,7 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
 
         configureAutoOpenSyncedTabGroupsSwitch();
         configureShareTitlesAndUrlsWithOsSwitch();
+        configureShareBrowsingDataWithOnDeviceIntelligenceSwitch();
     }
 
     @Override
@@ -151,16 +159,41 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
                     return true;
                 });
 
+        String learnMoreText =
+                getResources()
+                        .getString(R.string.share_titles_and_urls_with_os_learn_more_setting_text);
         learnMoreTextMessagePreference.setSummary(
                 SpanApplier.applySpans(
-                        getResources()
-                                .getString(
-                                        R.string
-                                                .share_titles_and_urls_with_os_learn_more_setting_text),
+                        learnMoreText,
                         new SpanApplier.SpanInfo(
                                 "<link>",
                                 "</link>",
                                 new ChromeClickableSpan(getContext(), this::onLearnMoreClicked))));
+    }
+
+    private void configureShareBrowsingDataWithOnDeviceIntelligenceSwitch() {
+        ChromeSwitchPreference shareBrowsingDataSwitch =
+                (ChromeSwitchPreference)
+                        findPreference(PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH);
+
+        // LINT.IfChange(isShareBrowsingDataWithOnDeviceIntelligenceEnabled)
+        if (!isShareBrowsingDataWithOnDeviceIntelligenceEnabled()) {
+            shareBrowsingDataSwitch.setVisible(false);
+            return;
+        }
+        // LINT.ThenChange(:isShareBrowsingDataWithOnDeviceIntelligenceEnabledIndex)
+
+        PrefService prefService = UserPrefs.get(getProfile());
+        boolean isEnabled =
+                prefService.getBoolean(Pref.AUXILIARY_SEARCH_BROWSING_DATA_DONATION_ENABLED);
+        shareBrowsingDataSwitch.setChecked(isEnabled);
+        shareBrowsingDataSwitch.setOnPreferenceChangeListener(
+                (preference, newValue) -> {
+                    boolean enabled = (boolean) newValue;
+                    prefService.setBoolean(
+                            Pref.AUXILIARY_SEARCH_BROWSING_DATA_DONATION_ENABLED, enabled);
+                    return true;
+                });
     }
 
     @VisibleForTesting
@@ -186,6 +219,14 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
         return AuxiliarySearchControllerFactory.getInstance().isEnabledAndDeviceCompatible();
     }
 
+    private static boolean isShareBrowsingDataWithOnDeviceIntelligenceEnabled() {
+        if (!ChromeFeatureList.sAuxiliarySearchHistoryDonation.isEnabled()) {
+            return false;
+        }
+        AuxiliarySearchHooks hooks = ServiceLoaderUtil.maybeCreate(AuxiliarySearchHooks.class);
+        return hooks != null && hooks.isBrowsingDataDonationSupported();
+    }
+
     public static final ChromeBaseSearchIndexProvider SEARCH_INDEX_DATA_PROVIDER =
             new ChromeBaseSearchIndexProvider(TabsSettings.class.getName(), R.xml.tabs_settings) {
 
@@ -208,6 +249,13 @@ public class TabsSettings extends ChromeBaseSettingsFragment {
                     indexData.removeEntry(
                             getUniqueId(PREF_SHARE_TITLES_AND_URLS_WITH_OS_LEARN_MORE));
                     // LINT.ThenChange(:isShareTitlesAndUrlsEnabled)
+
+                    // LINT.IfChange(isShareBrowsingDataWithOnDeviceIntelligenceEnabledIndex)
+                    if (!isShareBrowsingDataWithOnDeviceIntelligenceEnabled()) {
+                        String pref = PREF_SHARE_BROWSING_DATA_WITH_ON_DEVICE_INTELLIGENCE_SWITCH;
+                        indexData.removeEntry(getUniqueId(pref));
+                    }
+                    // LINT.ThenChange(:isShareBrowsingDataWithOnDeviceIntelligenceEnabled)
                 }
             };
 }

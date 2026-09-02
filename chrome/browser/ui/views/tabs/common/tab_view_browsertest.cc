@@ -14,7 +14,6 @@
 #include "chrome/browser/performance_manager/public/user_tuning/user_performance_tuning_manager.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/animation/browser_animation_controller.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
@@ -43,6 +42,7 @@
 #include "media/base/media_switches.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/events/base_event_utils.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/controls/label.h"
@@ -165,7 +165,7 @@ IN_PROC_BROWSER_TEST_F(TabViewTest, IconDataChanged) {
 
   // After setting the tab as needing attention, expect the attention indicator
   // to be showing.
-  tab_strip_model()->SetTabNeedsAttentionAt(0, true);
+  tab_strip_model()->SetTabNeedsAttention(web_contents, true);
   EXPECT_TRUE(icon->GetShowingAttentionIndicator());
 
   // After discarding the tab, the icon should show the discard indicator.
@@ -420,18 +420,15 @@ IN_PROC_BROWSER_TEST_F(TabViewTest, CloseButtonVisibilityActiveTab) {
       base::test::RunUntil([&]() { return !close_button->GetVisible(); }));
 }
 
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_CloseButtonVisibilityHover DISABLED_CloseButtonVisibilityHover
-#else
-#define MAYBE_CloseButtonVisibilityHover CloseButtonVisibilityHover
-#endif
-IN_PROC_BROWSER_TEST_F(TabViewTest, MAYBE_CloseButtonVisibilityHover) {
+IN_PROC_BROWSER_TEST_F(TabViewTest, CloseButtonVisibilityHover) {
   TabCollectionNode* tab_node = unpinned_collection_node()->children()[0].get();
   TabView* tab_view = views::AsViewClass<TabView>(tab_node->view());
   TabCloseButton* close_button = tab_view->close_button_for_testing();
 
-  // Deactivate the tab.
+  // Deactivate the tab and explicitly reset hovered state so mouse cursor
+  // placement doesn't keep the close button visible.
   AppendTab();
+  tab_view->UpdateHovered(false);
   ASSERT_TRUE(
       base::test::RunUntil([&]() { return !close_button->GetVisible(); }));
 
@@ -796,9 +793,10 @@ IN_PROC_BROWSER_TEST_F(TabViewDataSharingEnabledTest, LogsTabSwitchMetrics) {
                    "TabGroups.Shared.SwitchGroupedTab"));
   ASSERT_EQ(0, user_action_tester.GetActionCount("SwitchTab_Click"));
 
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   ui::test::EventGenerator event_generator(
-      views::GetRootWindow(browser()->GetBrowserView().GetWidget()),
-      browser()->GetBrowserView().GetNativeWindow());
+      views::GetRootWindow(browser_view->GetWidget()),
+      browser_view->GetNativeWindow());
   event_generator.MoveMouseTo(tab_view->GetBoundsInScreen().CenterPoint());
   event_generator.ClickLeftButton();
 
@@ -817,7 +815,8 @@ IN_PROC_BROWSER_TEST_F(TabViewTest, AlertIndicatorDecorateOnCollapse) {
   // Wait for the collapse animation to finish and ensure the width reaches
   // kCollapsedWidth.
   VerticalTabStripRegionView* const region_view =
-      browser()->GetBrowserView().vertical_tab_strip_region_view_for_testing();
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->vertical_tab_strip_region_view_for_testing();
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return !BrowserAnimationController::From(browser())->IsAnimating(
                TabStripAnimations::kVerticalTabStrip) &&
@@ -852,4 +851,64 @@ IN_PROC_BROWSER_TEST_F(TabViewTest, AlertIndicatorDecorateOnCollapse) {
   const gfx::Rect expected_bounds(tab_bounds.width() / 2,
                                   tab_bounds.height() / 2, 0, 0);
   EXPECT_EQ(expected_bounds, alert_indicator->bounds());
+}
+
+IN_PROC_BROWSER_TEST_F(TabViewTest, MultiSelectUserActions) {
+  base::UserActionTester user_action_tester;
+  AppendTab();
+  AppendTab();
+  AppendTab();
+  tab_strip_model()->ActivateTabAt(0);
+
+  views::View* tab_view_1 = unpinned_collection_node()->children()[1]->view();
+  views::View* tab_view_2 = unpinned_collection_node()->children()[2]->view();
+  views::View* tab_view_3 = unpinned_collection_node()->children()[3]->view();
+
+  const ui::EventFlags ctrl_modifier =
+#if BUILDFLAG(IS_MAC)
+      ui::EF_COMMAND_DOWN;
+#else
+      ui::EF_CONTROL_DOWN;
+#endif
+
+  ui::MouseEvent ctrl_click(ui::EventType::kMousePressed, gfx::Point(0, 0),
+                            gfx::Point(0, 0), ui::EventTimeForNow(),
+                            ui::EF_LEFT_MOUSE_BUTTON | ctrl_modifier,
+                            ui::EF_LEFT_MOUSE_BUTTON);
+  tab_view_1->OnMousePressed(ctrl_click);
+  EXPECT_EQ(1,
+            user_action_tester.GetActionCount("TabMultiSelect_ToggleSelected"));
+  ui::MouseEvent release_ctrl(ui::EventType::kMouseReleased, gfx::Point(0, 0),
+                              gfx::Point(0, 0), ui::EventTimeForNow(),
+                              ui::EF_LEFT_MOUSE_BUTTON | ctrl_modifier,
+                              ui::EF_LEFT_MOUSE_BUTTON);
+  tab_view_1->OnMouseReleased(release_ctrl);
+
+  ui::MouseEvent shift_click(ui::EventType::kMousePressed, gfx::Point(0, 0),
+                             gfx::Point(0, 0), ui::EventTimeForNow(),
+                             ui::EF_LEFT_MOUSE_BUTTON | ui::EF_SHIFT_DOWN,
+                             ui::EF_LEFT_MOUSE_BUTTON);
+  tab_view_2->OnMousePressed(shift_click);
+  EXPECT_EQ(
+      1, user_action_tester.GetActionCount("TabMultiSelect_ExtendSelectionTo"));
+  ui::MouseEvent release_shift(ui::EventType::kMouseReleased, gfx::Point(0, 0),
+                               gfx::Point(0, 0), ui::EventTimeForNow(),
+                               ui::EF_LEFT_MOUSE_BUTTON | ui::EF_SHIFT_DOWN,
+                               ui::EF_LEFT_MOUSE_BUTTON);
+  tab_view_2->OnMouseReleased(release_shift);
+
+  ui::MouseEvent shift_ctrl_click(
+      ui::EventType::kMousePressed, gfx::Point(0, 0), gfx::Point(0, 0),
+      ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON | ui::EF_SHIFT_DOWN | ctrl_modifier,
+      ui::EF_LEFT_MOUSE_BUTTON);
+  tab_view_3->OnMousePressed(shift_ctrl_click);
+  EXPECT_EQ(1, user_action_tester.GetActionCount(
+                   "TabMultiSelect_AddSelectionFromAnchorTo"));
+  ui::MouseEvent release_shift_ctrl(
+      ui::EventType::kMouseReleased, gfx::Point(0, 0), gfx::Point(0, 0),
+      ui::EventTimeForNow(),
+      ui::EF_LEFT_MOUSE_BUTTON | ui::EF_SHIFT_DOWN | ctrl_modifier,
+      ui::EF_LEFT_MOUSE_BUTTON);
+  tab_view_3->OnMouseReleased(release_shift_ctrl);
 }

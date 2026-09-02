@@ -25,6 +25,24 @@ enum class SuspiciousSiteWarningOutcome {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/safe_browsing/enums.xml:SuspiciousSiteWarningOutcome)
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// LINT.IfChange(SuspiciousSiteWarningUserInteraction)
+enum class SuspiciousSiteWarningUserInteraction {
+  kUnknown = 0,
+  kShown = 1,
+  kMarkAsSafe = 2,
+  kBackToSafetyButton = 3,
+  kDismissed = 4,
+  kManualNavigation = 5,
+  kCloseTab = 6,
+  kLearnMore = 7,
+  kSystemBack = 8,
+  kDestroyed = 9,
+  kMaxValue = kDestroyed,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/safe_browsing/enums.xml:SuspiciousSiteWarningUserInteraction)
+
 // Stores local allowlist decisions for Suspicious Site Warnings (SSW).
 // When a user clicks "Mark as Safe" (or "Continue anyway") on an SSW warning,
 // the host is added to this local allowlist for a 30-day TTL.

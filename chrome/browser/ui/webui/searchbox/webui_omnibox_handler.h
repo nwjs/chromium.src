@@ -57,11 +57,21 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
   void OpenLensSearch() override;
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
+                     searchbox::mojom::TabAttachmentSource source,
                      AddTabContextCallback) override;
+  void QueryAutocomplete(int32_t query_id,
+                         const std::u16string& input,
+                         bool prevent_inline_autocomplete,
+                         uint32_t cursor_position,
+                         omnibox::SuggestInventory suggest_inventory,
+                         bool is_on_focus,
+                         const std::string& keyword,
+                         searchbox::mojom::InputMethod input_method) override;
 
   void StepSelection(OmniboxPopupSelection::Direction direction,
                      OmniboxPopupSelection::Step step);
   void OpenCurrentSelection(WindowOpenDisposition disposition);
+  void ResetPopupToInitialState();
   void SetAimButtonVisible(bool visible) override;
 
   // SearchboxHandler:
@@ -78,6 +88,7 @@ class WebuiOmniboxHandler : public ContextualSearchboxHandler,
       bookmarks::BookmarkModel* bookmark_model,
       const omnibox::GroupConfigMap& suggestion_groups_map,
       const TemplateURLService* turl_service) const override;
+  bool ShouldShowFirstContextualDescription() const override;
   void OnFocusChanged(bool focused) override;
 
   // AutocompleteController::Observer:

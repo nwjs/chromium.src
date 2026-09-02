@@ -43,7 +43,7 @@
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/optimization_guide/core/filters/bloom_filter.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
+#include "components/optimization_guide/core/hints/hints_manager.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/tabs/public/tab_interface.h"
@@ -552,10 +552,11 @@ PageTarget MakeTarget(const gfx::Point& point) {
 }
 
 std::unique_ptr<ToolRequest> MakeClickRequest(content::RenderFrameHost& rfh,
-                                              int content_node_id) {
+                                              int content_node_id,
+                                              mojom::ClickType type,
+                                              mojom::ClickCount count) {
   return std::make_unique<ClickToolRequest>(
-      GetTabHandleForFrame(rfh), MakeTarget(rfh, content_node_id),
-      mojom::ClickType::kLeft, mojom::ClickCount::kSingle);
+      GetTabHandleForFrame(rfh), MakeTarget(rfh, content_node_id), type, count);
 }
 
 std::unique_ptr<ToolRequest> MakeDirectElementActivationClickRequest(
@@ -567,10 +568,11 @@ std::unique_ptr<ToolRequest> MakeDirectElementActivationClickRequest(
 }
 
 std::unique_ptr<ToolRequest> MakeClickRequest(TabInterface& tab,
-                                              const gfx::Point& click_point) {
+                                              const gfx::Point& click_point,
+                                              mojom::ClickType type,
+                                              mojom::ClickCount count) {
   return std::make_unique<ClickToolRequest>(
-      tab.GetHandle(), MakeTarget(click_point), mojom::ClickType::kLeft,
-      mojom::ClickCount::kSingle);
+      tab.GetHandle(), MakeTarget(click_point), type, count);
 }
 
 std::unique_ptr<ToolRequest> MakeHistoryBackRequest(TabInterface& tab) {
@@ -800,7 +802,7 @@ bool SetUpOptimizationGuideComponentBlocklist(const base::FilePath& path,
 void SetUpBlocklist(base::CommandLine* command_line,
                     const std::string& blocked_host) {
   command_line->AppendSwitchASCII(
-      optimization_guide::switches::kHintsProtoOverride,
+      optimization_guide::kHintsProtoOverrideSwitch,
       base::Base64Encode(CreateOptimizationGuideConfig(blocked_host)));
 }
 

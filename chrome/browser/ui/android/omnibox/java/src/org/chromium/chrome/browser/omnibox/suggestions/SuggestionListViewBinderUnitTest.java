@@ -34,6 +34,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.Mode;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionListViewBinder.SuggestionListViewHolder;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
@@ -50,9 +51,9 @@ import java.util.List;
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
 public class SuggestionListViewBinderUnitTest {
-    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private @Mock DropdownItemViewInfo mDropdownItem;
+    @Mock private DropdownItemViewInfo mDropdownItem;
 
     private PropertyModel mListModel;
     private OmniboxSuggestionsContainer mContainer;
@@ -64,9 +65,11 @@ public class SuggestionListViewBinderUnitTest {
     @Before
     public void setUp() {
         mSuggestionModels = new ModelList();
+        mResourceProvider = new OmniboxResourceProvider(mActivity, BrandedColorScheme.APP_DEFAULT);
         mListModel =
                 new PropertyModel.Builder(SuggestionListProperties.ALL_KEYS)
                         .with(SuggestionListProperties.SUGGESTION_MODELS, mSuggestionModels)
+                        .with(SuggestionListProperties.RESOURCE_PROVIDER, mResourceProvider)
                         .build();
 
         mContainer =
@@ -75,12 +78,10 @@ public class SuggestionListViewBinderUnitTest {
                                 .inflate(R.layout.suggestions_result_container, /* root= */ null);
         mDropdown = spy(mContainer.findViewById(R.id.omnibox_suggestions_dropdown));
 
-        mResourceProvider = new OmniboxResourceProvider(mActivity, BrandedColorScheme.APP_DEFAULT);
-
         PropertyModelChangeProcessor.create(
                 mListModel,
                 new SuggestionListViewHolder(mContainer, mDropdown),
-                new SuggestionListViewBinder(mResourceProvider));
+                new SuggestionListViewBinder());
     }
 
     @Test
@@ -210,12 +211,12 @@ public class SuggestionListViewBinderUnitTest {
     }
 
     @Test
-    public void allowParkingAtSentinel() {
-        mListModel.set(SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL, true);
-        verify(mDropdown).setAllowParkingAtSentinel(true);
+    public void selectionMode() {
+        mListModel.set(SuggestionListProperties.SELECTION_MODE, Mode.WRAPPING);
+        verify(mDropdown).setSelectionMode(Mode.WRAPPING);
 
-        mListModel.set(SuggestionListProperties.ALLOW_PARKING_AT_SENTINEL, false);
-        verify(mDropdown).setAllowParkingAtSentinel(false);
+        mListModel.set(SuggestionListProperties.SELECTION_MODE, Mode.WRAPPING_WITH_SENTINEL);
+        verify(mDropdown).setSelectionMode(Mode.WRAPPING_WITH_SENTINEL);
     }
 
     @Test
@@ -235,5 +236,16 @@ public class SuggestionListViewBinderUnitTest {
         layoutParams = (ViewGroup.MarginLayoutParams) mContainer.getLayoutParams();
         assertNotNull(layoutParams);
         assertEquals(collapsedWidthPx, layoutParams.leftMargin);
+    }
+
+    @Test
+    public void applyVerticalPadding() {
+        mListModel.set(SuggestionListProperties.APPLY_VERTICAL_PADDING, false);
+        assertEquals(0, mDropdown.getPaddingTop());
+        assertEquals(0, mDropdown.getPaddingBottom());
+
+        mListModel.set(SuggestionListProperties.APPLY_VERTICAL_PADDING, true);
+        assertEquals(mResourceProvider.getDropdownTopPadding(), mDropdown.getPaddingTop());
+        assertEquals(mResourceProvider.getDropdownBottomPadding(), mDropdown.getPaddingBottom());
     }
 }

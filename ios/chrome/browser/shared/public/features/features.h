@@ -42,8 +42,6 @@ BASE_DECLARE_FEATURE(kSharedHighlightingIOS);
 // Feature flag to log metrics for the edit menu.
 BASE_DECLARE_FEATURE(kIOSBrowserEditMenuMetrics);
 
-// Feature flag to enable the custom file upload menu.
-BASE_DECLARE_FEATURE(kIOSCustomFileUploadMenu);
 
 // Docking Promo experiment variations.
 extern const char kIOSDockingPromoV2VariationParam[];
@@ -139,10 +137,6 @@ bool ShouldHideSafetyCheckModuleIfNoIssues();
 
 // Whether the refactored implementation of the `OmahaService` is enabled.
 bool IsOmahaServiceRefactorEnabled();
-
-// Feature flag enabling Choose from Drive.
-// TODO(crbug.com/473788390): Clean-up feature once file upload menu is ready.
-BASE_DECLARE_FEATURE(kIOSChooseFromDrive);
 
 // Feature flag enabling Choose from Drive for signed out users.
 BASE_DECLARE_FEATURE(kIOSChooseFromDriveSignedOut);
@@ -343,7 +337,6 @@ BASE_DECLARE_FEATURE(kInactiveNavigationAfterAppLaunchKillSwitch);
 bool IsPinnedTabsEnabled();
 
 // Feature flag for caching the ios module ranker.
-BASE_DECLARE_FEATURE(kSegmentationPlatformIosModuleRankerCaching);
 
 // Feature flag to enable app background refresh.
 // Use IsAppBackgroundRefreshEnabled() instead of this constant directly.
@@ -423,10 +416,8 @@ BASE_DECLARE_FEATURE(kIOSOneTimeDefaultBrowserNotification);
 
 // Feature flag to show an alert to the user when only provisiona notifications
 // are allowed.
-BASE_DECLARE_FEATURE(kProvisionalNotificationAlert);
 
 // Returns whether `kIOSReactivationNotifications` is enabled.
-bool IsProvisionalNotificationAlertEnabled();
 
 // Feature to enable different text for the main header text on FRE sign-in
 // promo.
@@ -534,6 +525,10 @@ BASE_DECLARE_FEATURE(kIOSMiniMapUniversalLink);
 // experiment.
 BASE_DECLARE_FEATURE(kIOSMiniMapUniversalLinkCounterfactual);
 
+// Returns true if kIOSMiniMapUniversalLink is enabled and the current country
+// is not in the excluded list.
+bool IsMiniMapUniversalLinkEnabled();
+
 // Feature flag to open linkified address in Maps native preview.
 BASE_DECLARE_FEATURE(kIOSMiniMapLinkifiedAddress);
 
@@ -566,6 +561,8 @@ bool IsRunDefaultStatusCheckEnabled();
 
 // Feature flag to highlight the app's features during the FRE.
 BASE_DECLARE_FEATURE(kBestOfAppFRE);
+
+extern const base::FeatureParam<std::string> kBestOfAppFREVariantParam;
 
 // Whether the feature to highlight the app's features during the FRE is
 // enabled.
@@ -629,39 +626,6 @@ bool ShouldShowEditMenuItemsSynchronously();
 BASE_DECLARE_FEATURE(kIOSTipsNotificationsAlternativeStrings);
 bool IsTipsNotificationsAlternativeStringsEnabled();
 
-// Name of the parameter that controls tips notifications alternative string
-// version.
-extern const char kTipsNotificationsAlternativeStringVersion[];
-
-// Tips notifications alternative string version for
-// ```kIOSTipsNotificationsAlternativeStrings``` experiment.
-enum class TipsNotificationsAlternativeStringVersion {
-  kDefault = 0,
-  kAlternative1 = 1,
-  kAlternative2 = 2,
-  kAlternative3 = 3,
-};
-
-// Returns the string alternative version for
-// ```kIOSTipsNotificationsAlternativeStrings``` experiment.
-TipsNotificationsAlternativeStringVersion
-GetTipsNotificationsAlternativeStringVersion();
-
-// Feature for applying cross device settings through the Synced Set Up
-// experience.
-BASE_DECLARE_FEATURE(kIOSSyncedSetUp);
-
-// Returns true if `kIOSSyncedSetUp` is enabled.
-bool IsSyncedSetUpEnabled();
-
-// Name of the Finch parameter controlling the maximum number of impressions
-// allowed for the Synced Set Up promo.
-extern const char kSyncedSetUpImpressionLimit[];
-
-// Returns the maximum number of impressions allowed for the Synced Set Up
-// promo, as specified by the `kSyncedSetUpImpressionLimit` Finch parameter.
-int GetSyncedSetUpImpressionLimit();
-
 // Enables the DisableKeyboardAccessory feature.
 BASE_DECLARE_FEATURE(kDisableKeyboardAccessory);
 
@@ -711,12 +675,6 @@ BASE_DECLARE_FEATURE(kOmniboxCrashFixKillSwitch);
 
 // Returns true if the OmniboxCrashFixKillSwitch feature is enabled.
 bool IsOmniboxCrashFixKillSwitchEnabled();
-
-// Enables the AlertCrashFixKillSwitch feature.
-BASE_DECLARE_FEATURE(kAlertCrashFixKillSwitch);
-
-// Returns true if the AlertCrashFixKillSwitch feature is enabled.
-bool IsAlertCrashFixKillSwitchEnabled();
 
 // Enables the AIMEligibilityServiceStartWithProfile feature.
 BASE_DECLARE_FEATURE(kAIMEligibilityServiceStartWithProfile);
@@ -812,12 +770,6 @@ void SaveEnableNewStartupFlowForNextStart();
 // Resets the cached value for IsEnableNewStartupFlowEnabled, needed for tests.
 void ResetEnableNewStartupFlowEnabledForTesting();
 
-// Flags for Share Ablation study.
-BASE_DECLARE_FEATURE(kDisableShareButton);
-BASE_DECLARE_FEATURE(kShareInOmniboxLongPress);
-BASE_DECLARE_FEATURE(kShareInOverflowMenu);
-BASE_DECLARE_FEATURE(kShareInVerbatimMatch);
-
 BASE_DECLARE_FEATURE(kUseSceneViewController);
 
 // Returns true if the UseSceneViewController feature is enabled.
@@ -833,14 +785,6 @@ BASE_DECLARE_FEATURE(kDisableComposeboxFromAIMNTP);
 
 // Returns true if the DisableComposeboxFromAIMNTP feature is enabled.
 bool IsDisableComposeboxFromAIMNTPEnabled();
-
-extern const char kAIMCobrowseHeaderParam[];
-extern const char kAIMCobrowseHeaderParamOptionA[];
-extern const char kAIMCobrowseHeaderParamOptionB[];
-extern const char kAIMCobrowseHeaderParamOptionC[];
-
-// Variation for the Cobrowse header.
-BASE_DECLARE_FEATURE(kAIMCobrowseHeader);
 
 // Enables recording the number of recent days with active sessions.
 BASE_DECLARE_FEATURE(kRecordRecentActiveDays);
@@ -898,6 +842,12 @@ BASE_DECLARE_FEATURE(kFullscreenRefactoring);
 
 // Returns true if the FullscreenRefactoring feature or ChromeNext is enabled.
 bool IsFullscreenRefactoringEnabled();
+
+// Enables the FullscreenEasedTransitions feature.
+BASE_DECLARE_FEATURE(kFullscreenEasedTransitions);
+
+// Returns true if the FullscreenEasedTransitions feature is enabled.
+bool IsFullscreenEasedTransitionsEnabled();
 
 // Enables the AskAboutThisPage feature.
 BASE_DECLARE_FEATURE(kAskAboutThisPage);
@@ -987,11 +937,12 @@ BASE_DECLARE_FEATURE(kIdentityAwareness);
 // Returns true if the IdentityAwareness feature is enabled.
 bool IsIdentityAwarenessEnabled();
 
-// Display a ring around the avatar if the user has a AI Tier
-BASE_DECLARE_FEATURE(kAiAvatarRingIos);
+// Finch experiment flag to display a ring around the avatar for users with an
+// AI subscription.
+BASE_DECLARE_FEATURE(kAiSubscriptionAvatarRingIOS);
 
-// Returns true if the AiAvatarRing feature is enabled.
-bool IsAiAvatarRingIosEnabled();
+// Returns true if the AiSubscriptionAvatarRingIOS feature is enabled.
+bool IsAiSubscriptionAvatarRingIOSEnabled();
 
 // Feature flag to enable the Infobar Banner Revamp (UI Refactor of the
 // Infobar/Banner Component).
@@ -1059,5 +1010,11 @@ BASE_DECLARE_FEATURE(kNextOldDesign);
 
 // Returns true if the NextOldDesign feature is enabled.
 bool IsNextOldDesignEnabled();
+
+// Feature to enable mic permissions for voice search.
+BASE_DECLARE_FEATURE(kVoiceSearchMicPermissions);
+
+// Returns true if VoiceSearchMicPermissions is enabled.
+bool IsVoiceSearchMicPermissionsEnabled();
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

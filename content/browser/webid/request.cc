@@ -369,14 +369,6 @@ bool Request::RequestToken(
   // TODO(crbug.com/40218857): handle active mode with multiple IdP.
   if (idp_get_params_ptrs[0]->mode == blink::mojom::RpMode::kActive) {
     rp_mode_ = RpMode::kActive;
-    std::optional<base::TimeTicks> user_info_accounts_response_time =
-        GetPageData(render_frame_host().GetPage())
-            ->ConsumeUserInfoAccountsResponseTime(
-                idp_get_params_ptrs[0]->providers[0]->config->config_url);
-    if (user_info_accounts_response_time) {
-      fedcm_metrics_->RecordTimeBetweenUserInfoAndActiveModeAPI(
-          start_time_ - user_info_accounts_response_time.value());
-    }
     if (!had_transient_user_activation_) {
       CompleteRequestWithError(
           FederatedRequestResult::kMissingTransientUserActivation,
@@ -586,6 +578,26 @@ void Request::FetchEndpointsForIdps(const std::set<GURL>& idp_config_urls) {
           rp_mode_, icon_ideal_size, icon_minimum_size, mediation_requirement_),
       base::BindOnce(&Request::OnAccountsResultsReceived,
                      weak_ptr_factory_.GetWeakPtr()));
+
+  // When retrying (e.g. after IDP sign-in failure popup), there is only 1 IDP
+  // requested and its .well-known and config endpoints/metadata are already
+  // cached in `idp_infos_`. In this case, bypass ConfigFetcher and directly
+  // fetch accounts for the cached IDP.
+  if (idps.size() == 1u) {
+    auto it = idp_infos_.find(idps[0].identity_provider_config_url);
+    if (it != idp_infos_.end() && it->second) {
+      std::vector<std::unique_ptr<IdentityProviderInfo>> cached_idp_infos;
+      cached_idp_infos.push_back(
+          std::make_unique<IdentityProviderInfo>(*it->second));
+      fedcm_accounts_fetcher_->FetchAccountsForIdps(
+          cached_idp_infos, token_request_get_infos_, fedcm_metrics_.get(),
+          GetEmbeddingOrigin(),
+          base::BindRepeating(&Request::FilterAccounts,
+                              weak_ptr_factory_.GetWeakPtr()));
+      return;
+    }
+  }
+
   fedcm_accounts_fetcher_->FetchEndpointsForIdps(
       idps, token_request_get_infos_, fedcm_metrics_.get(),
       GetEmbeddingOrigin(),
@@ -623,7 +635,9 @@ void Request::FilterAccounts(const GURL& idp_config_url,
 void Request::OnAccountsResultsReceived(
     base::TimeTicks well_known_and_config_fetched_time,
     std::vector<AccountsFetcher::Result> results) {
-  SetWellKnownAndConfigFetchedTime(well_known_and_config_fetched_time);
+  if (!well_known_and_config_fetched_time.is_null()) {
+    SetWellKnownAndConfigFetchedTime(well_known_and_config_fetched_time);
+  }
 
   for (auto& result : results) {
     if (result.idp_info) {
@@ -876,13 +890,7 @@ Request::AutoReauthnInfo Request::CheckAutoReauthnEligibility() {
       auto_reauthn_permission_delegate()->IsAutoReauthnDisabledByEmbedder(
           WebContents::FromRenderFrameHost(&render_frame_host()));
 
-  std::optional<base::TimeDelta> time_from_embargo;
   if (is_auto_reauthn_embargoed) {
-    time_from_embargo =
-        base::Time::Now() -
-        auto_reauthn_permission_delegate()->GetAutoReauthnEmbargoStartTime(
-            GetEmbeddingOrigin());
-
     // See `kFederatedIdentityAutoReauthnEmbargoDuration`.
     render_frame_host().AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kInfo,
@@ -905,8 +913,7 @@ Request::AutoReauthnInfo Request::CheckAutoReauthnEligibility() {
   fedcm_metrics_->RecordAutoReauthnMetrics(
       has_single_returning_account, auto_reauthn_account.get(), is_eligible,
       !is_auto_reauthn_setting_enabled, is_auto_reauthn_embargoed,
-      is_auto_reauthn_blocked_by_embedder, time_from_embargo,
-      requires_user_mediation);
+      is_auto_reauthn_blocked_by_embedder, requires_user_mediation);
 
   if (is_eligible) {
     result.is_eligible = true;
@@ -1491,16 +1498,18 @@ void Request::ShowModalDialog(DialogType dialog_type,
   // the popup window is open. When using the active flow the dialog may
   // still be up in some cases, but we do not expect that browser automation
   // needs to interact with the account chooser in this case.
-  if (dialog_type_ != DialogType::kNone) {
+  if (dialog_type_ != DialogType::kNone && dialog_type_ != dialog_type) {
     // This call ensures that we send a dialogClosed event if an account
     // chooser or mismatch dialog is open.
     devtools_instrumentation::DidCloseFedCmDialog(render_frame_host());
   }
   // TODO(crbug.com/336815315): Should we notify browser automation of this
   // dialog?
+  if (dialog_type_ != dialog_type) {
+    UMA_HISTOGRAM_ENUMERATION("Blink.FedCm.Popup.DialogType", dialog_type);
+  }
   dialog_type_ = dialog_type;
   config_url_ = idp_config_url;
-  UMA_HISTOGRAM_ENUMERATION("Blink.FedCm.Popup.DialogType", dialog_type_);
 
   auto create_registry_async = [](base::WeakPtr<Request> weak_this,
                                   const GURL& idp_config_url,
@@ -1516,6 +1525,9 @@ void Request::ShowModalDialog(DialogType dialog_type,
       base::BindOnce(&Request::OnDialogDismissed,
                      weak_ptr_factory_.GetWeakPtr()),
       base::BindOnce(create_registry_async, weak_ptr_factory_.GetWeakPtr(),
+                     idp_config_url),
+      base::BindOnce(&Request::OnNativeAppResult,
+                     weak_ptr_factory_.GetWeakPtr(), dialog_type,
                      idp_config_url));
   did_show_ui_ = true;
   // This may be null on Android, as the method cannot return the WebContents of
@@ -1719,14 +1731,14 @@ void Request::OnTokenResponseReceived(
   // takes a long time due to latency etc. In case that the fetching process is
   // fast, we still want to show the "Verify" sheet for at least
   // `kTokenRequestDelay` seconds for better UX.
-  // Note that for active flow or conditional flow we can complete without delay
-  // because there is no contextual UI displayed to users.
+  // Note that for active flow, conditional flow, or when an error occurs we can
+  // complete without delay.
   id_assertion_response_time_ = base::TimeTicks::Now();
   base::TimeDelta fetch_time =
       id_assertion_response_time_ - select_account_time_;
   if (should_complete_request_immediately_ || rp_mode_ == RpMode::kActive ||
       mediation_requirement_ == MediationRequirement::kConditional ||
-      fetch_time >= kTokenRequestDelay) {
+      should_show_error_ui || fetch_time >= kTokenRequestDelay) {
     std::move(complete_request_callback).Run();
     return;
   }
@@ -2178,6 +2190,49 @@ void Request::OnOriginMismatch(Method method,
       blink::mojom::ConsoleMessageLevel::kError, error_messsage);
 }
 
+void Request::OnIntentResolved(const std::string& token) {
+  blink::mojom::ResolveTokenParamsPtr params =
+      blink::mojom::ResolveTokenParams::NewToken(base::Value(token));
+  OnResolve(config_url_, std::nullopt, std::move(params));
+}
+
+void Request::OnNativeAppResult(
+    DialogType dialog_type,
+    const GURL& idp_config_url,
+    IdentityRequestDialogController::NativeAppResult result) {
+  if (!request_token_callback_) {
+    return;
+  }
+  if (result.type ==
+      IdentityRequestDialogController::NativeAppResult::Type::kToken) {
+    if (dialog_type != DialogType::kContinueOnPopup) {
+      CompleteRequestWithError(FederatedRequestResult::kError,
+                               TokenStatus::kLoginPopupClosedWithoutSignin,
+                               /*should_delay_callback=*/false);
+      return;
+    }
+    OnIntentResolved(result.token);
+  } else if (result.type == IdentityRequestDialogController::NativeAppResult::
+                                Type::kLoginFinished) {
+    if (dialog_type != DialogType::kLoginToIdpPopup) {
+      CompleteRequestWithError(FederatedRequestResult::kError,
+                               TokenStatus::kContinuationPopupClosedByUser,
+                               /*should_delay_callback=*/false);
+      return;
+    }
+    OnNativeAppLoginFinished(idp_config_url);
+  }
+}
+
+void Request::OnNativeAppLoginFinished(const GURL& idp_config_url) {
+  GetDialogController()->CloseModalDialog();
+  permission_delegate()->RemoveIdpSigninStatusObserver(this);
+  permission_delegate()->SetIdpSigninStatus(
+      url::Origin::Create(idp_config_url), /*is_signed_in=*/true, std::nullopt);
+  idps_user_tried_to_signin_to_.insert(idp_config_url);
+  FetchEndpointsForIdps({idp_config_url});
+}
+
 FederatedApiPermissionStatus Request::GetApiPermissionStatus() {
   DCHECK(api_permission_delegate());
   return api_permission_delegate()->GetApiPermissionStatus(
@@ -2323,12 +2378,7 @@ bool Request::ShouldFailBeforeFetchingAccounts(const GURL& config_url) {
   bool is_auto_reauthn_embargoed =
       auto_reauthn_permission_delegate()->IsAutoReauthnEmbargoed(
           GetEmbeddingOrigin());
-  std::optional<base::TimeDelta> time_from_embargo;
   if (is_auto_reauthn_embargoed) {
-    time_from_embargo =
-        base::Time::Now() -
-        auto_reauthn_permission_delegate()->GetAutoReauthnEmbargoStartTime(
-            GetEmbeddingOrigin());
     render_frame_host().AddMessageToConsole(
         blink::mojom::ConsoleMessageLevel::kError,
         "Silent mediation issue: auto re-authn is in quiet period because it "
@@ -2365,7 +2415,7 @@ bool Request::ShouldFailBeforeFetchingAccounts(const GURL& config_url) {
         /*auto_signin_account=*/nullptr,
         /*auto_reauthn_success=*/false, !is_auto_reauthn_setting_enabled,
         is_auto_reauthn_embargoed, is_auto_reauthn_blocked_by_embedder,
-        time_from_embargo, requires_user_mediation);
+        requires_user_mediation);
     return true;
   }
   return false;
@@ -2392,6 +2442,12 @@ void Request::LoginToIdP(bool can_append_hints,
     // needed.
     MaybeAppendQueryParameters(it->second, &login_url);
   }
+
+  if (dialog_type_ == DialogType::kLoginToIdpPopup) {
+    ShowModalDialog(DialogType::kLoginToIdpPopup, idp_config_url, login_url);
+    return;
+  }
+
   permission_delegate()->AddIdpSigninStatusObserver(this);
 
   account_ids_before_login_.clear();

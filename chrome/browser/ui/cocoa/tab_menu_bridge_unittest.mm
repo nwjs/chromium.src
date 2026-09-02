@@ -125,7 +125,7 @@ class TabMenuBridgeTest : public ::testing::Test {
       // The way WebContentsTester updates the title avoids the usual
       // notification mechanism for TabStripModel, so manually synthesize the
       // update notification here.
-      model()->UpdateWebContentsStateAt(index, TabChangeType::kAll);
+      model()->UpdateWebContentsState(contents, TabChangeType::kAll);
     }
   }
 
@@ -134,7 +134,8 @@ class TabMenuBridgeTest : public ::testing::Test {
     int index = ModelIndexForTabNamed(old_name);
     if (index >= 0) {
       std::unique_ptr<content::WebContents> old_contents =
-          model()->DiscardWebContentsAt(index, CreateWebContents(new_name));
+          model()->DiscardWebContents(model()->GetWebContentsAt(index),
+                                      CreateWebContents(new_name));
       // Let the old WebContents be destroyed here.
     }
   }
@@ -313,7 +314,8 @@ TEST_F(TabMenuBridgeTest, SwappingBridgeRecreatesMenu) {
 
   // Simulate one of the tabs in the model being updated - if the computed
   // indexes are wrong, this call will DCHECK.
-  model2->UpdateWebContentsStateAt(0, TabChangeType::kAll);
+  model2->UpdateWebContentsState(model2->GetWebContentsAt(0),
+                                 TabChangeType::kAll);
 
   model2->CloseAllTabs();
 

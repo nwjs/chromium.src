@@ -56,6 +56,7 @@ import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.lens.LensIntentParams;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp.NewTabPageManager;
+import org.chromium.chrome.browser.ntp.NewTabPageUtils;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridge;
 import org.chromium.chrome.browser.omnibox.fusebox.ComposeboxQueryControllerBridgeJni;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
@@ -325,7 +326,7 @@ public class SearchBoxMediatorUnitTest {
                 ComposeplateUtils.getSearchBoxIconColorTint(
                         mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ true);
         mMediator.applyWhiteBackground(true);
-        assertTrue(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND));
+        assertTrue(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_AND_SHADOW));
         assertEquals(resId, mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
         assertEquals(
                 colorStateList,
@@ -339,7 +340,7 @@ public class SearchBoxMediatorUnitTest {
                 ComposeplateUtils.getSearchBoxIconColorTint(
                         mContext, /* shouldApplyWhiteBackgroundOnSearchBox= */ false);
         mMediator.applyWhiteBackground(false);
-        assertFalse(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND));
+        assertFalse(mPropertyModel.get(SearchBoxProperties.APPLY_WHITE_BACKGROUND_AND_SHADOW));
         assertEquals(resId, mPropertyModel.get(SearchBoxProperties.SEARCH_BOX_TEXT_STYLE_RES_ID));
         assertEquals(
                 colorStateList,
@@ -664,17 +665,33 @@ public class SearchBoxMediatorUnitTest {
     }
 
     private void verifyApplyBackground(View view) {
-        // Verifies that the background is set to color white.
-        Drawable whiteBackground = view.getBackground();
-        assertTrue(whiteBackground instanceof GradientDrawable);
-        assertEquals(
-                Color.WHITE, ((GradientDrawable) whiteBackground).getColor().getDefaultColor());
+        View searchBoxShadowContainer = view.findViewById(R.id.search_box_shadow_container);
+        Drawable whiteBackground = searchBoxShadowContainer.getBackground();
+        if (NewTabPageUtils.isNtpAuroraEnabled()) {
+            assertEquals(
+                    R.drawable.fake_search_box_white_with_primary_color_alpha_2,
+                    shadowOf(whiteBackground).getCreatedFromResId());
+        } else {
+            // Verifies that the background is set to color white.
+            assertTrue(whiteBackground instanceof GradientDrawable);
+            assertEquals(
+                    Color.WHITE, ((GradientDrawable) whiteBackground).getColor().getDefaultColor());
+        }
     }
 
     private void verifyResetBackground(View view, Drawable defaultBackground) {
-        // Verifies that the background of the view is to reset.
-        assertEquals(
-                ((GradientDrawable) defaultBackground).getColor().getDefaultColor(),
-                ((GradientDrawable) view.getBackground()).getColor().getDefaultColor());
+        View searchBoxShadowContainer = view.findViewById(R.id.search_box_shadow_container);
+        if (NewTabPageUtils.isNtpAuroraEnabled()) {
+            assertEquals(
+                    R.drawable.fake_search_box_background,
+                    shadowOf(searchBoxShadowContainer.getBackground()).getCreatedFromResId());
+        } else {
+            // Verifies that the background of the view is to reset.
+            assertEquals(
+                    ((GradientDrawable) defaultBackground).getColor().getDefaultColor(),
+                    ((GradientDrawable) searchBoxShadowContainer.getBackground())
+                            .getColor()
+                            .getDefaultColor());
+        }
     }
 }

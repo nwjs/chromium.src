@@ -57,6 +57,7 @@ found in the LICENSE file.
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:maxLines="1"
+                android:maxEms="2"
                 android:textAppearance="@style/TextAppearance.TextSmall.Primary"
                 android:background="@drawable/modern_toolbar_input_field_background"
                 android:inputType="number"
@@ -84,9 +85,9 @@ found in the LICENSE file.
                 android:textAppearance="@style/TextAppearance.TextSmall.Primary"
                 android:paddingEnd="12dp" />
 
-            <!-- page_zoom_divider -->
+            <!-- nav_zoom_divider -->
             <View
-                android:id="@+id/page_zoom_divider"
+                android:id="@+id/nav_zoom_divider"
                 android:layout_width="1dp"
                 android:layout_height="24dp"
                 android:background="@color/divider_color"

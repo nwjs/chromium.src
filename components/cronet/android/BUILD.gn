@@ -38,6 +38,7 @@ generate_jni("cronet_jni_headers") {
     "java/src/org/chromium/net/impl/CronetBidirectionalStream.java",
     "java/src/org/chromium/net/impl/CronetLibraryLoader.java",
     "java/src/org/chromium/net/impl/CronetMetrics.java",
+    "java/src/org/chromium/net/impl/CronetPccAuditLogger.java",
     "java/src/org/chromium/net/impl/CronetUmaRecorder.java",
     "java/src/org/chromium/net/impl/CronetUploadDataStream.java",
     "java/src/org/chromium/net/impl/CronetUrlRequest.java",
@@ -46,16 +47,12 @@ generate_jni("cronet_jni_headers") {
   ]
 }
 
-generate_jni_registration("cronet_jni_registration") {
+generate_final_jni("cronet_final_jni") {
   java_targets = [ ":cronet_impl_native_java" ]
   manual_jni_registration = true
 
   # JNI generated is used for test and non-test apks.
   include_testonly = true
-
-  _subdir = rebase_path(target_gen_dir, root_gen_dir)
-  cpp_codegen_output =
-      "$jni_headers_dir/$_subdir/cronet_jni_registration_generated.h"
 }
 
 generate_build_config_srcjar("cronet_build_config_srcjar") {
@@ -67,9 +64,9 @@ android_library("cronet_build_config_java") {
 }
 
 # Use java_library instead of android_library to avoid stripping GEN_JNI.java
-java_library("cronet_jni_registration_java") {
+java_library("cronet_final_jni_java") {
   supports_android = true
-  srcjar_deps = [ ":cronet_jni_registration" ]
+  srcjar_deps = [ ":cronet_final_jni" ]
 }
 
 java_cpp_enum("effective_connection_type_java") {
@@ -186,8 +183,8 @@ source_set("cronet_static") {
   deps = [
     ":base_feature_overrides_proto",
     ":cronet_base_feature",
+    ":cronet_final_jni_source_set",
     ":cronet_jni_headers",
-    ":cronet_jni_registration",
     "//base",
     "//components/cronet:cronet_common",
     "//components/cronet:cronet_version_header",
@@ -556,6 +553,7 @@ android_library("cronet_impl_platform_java") {
     "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
   ]
+  proguard_configs = [ "cronet_impl_platform_proguard.cfg" ]
 }
 
 # cronet_impl_fake_java.jar - Fake implementation of Cronet.
@@ -579,6 +577,7 @@ android_library("cronet_impl_fake_java") {
     "//base:log_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
   ]
+  proguard_configs = [ "cronet_impl_fake_proguard.cfg" ]
 }
 
 android_library("cronet_urlconnection_impl_java") {
@@ -613,6 +612,7 @@ cronet_impl_native_java_deps_to_package = [
   "//base/version_info/android:version_constants_java",
   "//base:tasks_java",
   "//base:command_line_java",
+  "//base:jni_android_java",
   "//base:resetters_java",
   "//base:time_utils_java",
   "//base:metrics_java",
@@ -620,6 +620,7 @@ cronet_impl_native_java_deps_to_package = [
   "//base:callback_java",
   "//base:jni_utils_java",
   "//base:bundle_utils_java",
+  "//base:pii_elider_java",
   "//base:wrapped_class_loader_java",
   "//base:build_info_java",
   "//third_party/jni_zero:generate_jni_java",
@@ -644,8 +645,8 @@ android_library("cronet_impl_native_java") {
     "java/src/org/chromium/net/impl/CronetUploadDataStream.java",
     "java/src/org/chromium/net/impl/CronetUrlRequest.java",
     "java/src/org/chromium/net/impl/CronetUrlRequestContext.java",
+    "java/src/org/chromium/net/impl/DebugFlags.java",
     "java/src/org/chromium/net/impl/NativeCronetEngineBuilderImpl.java",
-    "java/src/org/chromium/net/impl/NativeCronetEngineBuilderWithLibraryLoaderImpl.java",
     "java/src/org/chromium/net/impl/NativeCronetProvider.java",
     "java/src/org/chromium/net/impl/ProxyCallbackRequestImpl.java",
   ]
@@ -720,6 +721,7 @@ android_library("httpengine_native_provider_java") {
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/jni_zero:jni_zero_java",
   ]
+  proguard_configs = [ "httpengine_native_provider_proguard.cfg" ]
 }
 
 # Groups all Cronet code (API and impl) into a single Java dependency.
@@ -866,7 +868,7 @@ collect_proguard_configs("httpengine_combine_proguard_flags") {
   ]
   deps = [
     ":cronet_build_config_java",
-    ":cronet_jni_registration_java",
+    ":cronet_final_jni_java",
     ":repackage_api",
     ":repackage_native_impl",
   ]
@@ -930,8 +932,8 @@ collect_proguard_configs("package_impl_common_proguard_flags") {
 collect_proguard_configs("package_impl_native_proguard_flags") {
   output = "$_package_proguard_dir/cronet_impl_native_proguard.cfg"
   deps = cronet_impl_native_java_deps_to_package + [
+           ":cronet_final_jni_java",
            ":cronet_impl_native_java",
-           ":cronet_jni_registration_java",
          ]
   direct_deps_only = true
   rename_rules = _cronet_proguard_rename_rules
@@ -1426,7 +1428,7 @@ repackage_jars("repackage_httpengine_native_provider") {
 repackage_jars("repackage_native") {
   output = "$_package_dir/cronet_impl_native_java.jar"
   deps = [
-    ":cronet_jni_registration_java",
+    ":cronet_final_jni_java",
     ":repackage_native_java",
   ]
   jar_excluded_patterns = _jar_excluded_patterns
@@ -1759,7 +1761,6 @@ android_library("cronet_javatests") {
     "test/javatests/src/org/chromium/net/CronetStressTest.java",
     "test/javatests/src/org/chromium/net/CronetTestRuleTest.java",
     "test/javatests/src/org/chromium/net/CronetUploadTest.java",
-    "test/javatests/src/org/chromium/net/CronetUrlRequestContextNoTestRuleTest.java",
     "test/javatests/src/org/chromium/net/CronetUrlRequestContextTest.java",
     "test/javatests/src/org/chromium/net/CronetUrlRequestH2Test.java",
     "test/javatests/src/org/chromium/net/CronetUrlRequestHTTPSTest.java",
@@ -1924,8 +1925,8 @@ cronet_instrumentation_test_apk("cronet_test_instrumentation_apk") {
     proguard_configs = [ "test/proguard.cfg" ]
   }
   srcjar_deps = [
-    ":cronet_jni_registration",
-    ":cronet_tests_jni_registration",
+    ":cronet_final_jni",
+    ":cronet_tests_final_jni",
   ]
 }
 
@@ -1964,7 +1965,7 @@ instrumentation_test_apk(
     ]
   }
 
-  srcjar_deps = [ ":cronet_jni_registration" ]
+  srcjar_deps = [ ":cronet_final_jni" ]
 }
 
 instrumentation_test_apk(
@@ -1997,8 +1998,8 @@ instrumentation_test_apk(
   }
 
   srcjar_deps = [
-    ":cronet_jni_registration",
-    ":cronet_tests_jni_registration",
+    ":cronet_final_jni",
+    ":cronet_tests_final_jni",
   ]
 }
 
@@ -2043,8 +2044,8 @@ cronet_instrumentation_test_apk("cronet_smoketests_apk") {
   proguard_enabled = true
   proguard_configs = [ "test/proguard.cfg" ]
   srcjar_deps = [
-    ":cronet_jni_registration",
-    ":cronet_tests_jni_registration",
+    ":cronet_final_jni",
+    ":cronet_tests_final_jni",
   ]
 }
 
@@ -2068,9 +2069,7 @@ cronet_test("cronet_unittests_android") {
 
   data = [ "//components/cronet/android/test/test_server/data/" ]
 
-  if (is_android) {
-    shard_timeout = 180
-  }
+  shard_timeout = 180
 }
 
 _test_deps = cronet_javatests_deps_to_package + [
@@ -2100,20 +2099,16 @@ android_java_prebuilt("repackage_test_jars_without_jni_java") {
 }
 
 # ...then, generate the final, merged GEN_JNI class...
-generate_jni_registration("cronet_tests_jni_registration") {
+generate_final_jni("cronet_tests_final_jni") {
   java_targets = _test_deps
-  manual_jni_registration = true
   testonly = true
   module_name = "cronet_tests"
-  _subdir = rebase_path(target_gen_dir, root_gen_dir)
-  cpp_codegen_output =
-      "$jni_headers_dir/$_subdir/cronet_tests_jni_registration_generated.h"
 }
 
 # Use java_library instead of android_library to avoid stripping GEN_JNI.java
-java_library("cronet_tests_jni_registration_java") {
+java_library("cronet_tests_final_jni_java") {
   supports_android = true
-  srcjar_deps = [ ":cronet_tests_jni_registration" ]
+  srcjar_deps = [ ":cronet_tests_final_jni" ]
   testonly = true
 }
 
@@ -2122,7 +2117,7 @@ repackage_jars("repackage_test_jars") {
   output = "$_test_package_dir/cronet_tests_java.jar"
   testonly = true
   deps = [
-    ":cronet_tests_jni_registration_java",
+    ":cronet_tests_final_jni_java",
     ":repackage_test_jars_without_jni_java",
   ]
 }
@@ -2175,7 +2170,7 @@ jar_src("jar_cronet_impl_native_java_source") {
 
   srcjar_deps = cronet_impl_native_java_srcjar_deps
   srcjar_deps += [
-    ":cronet_jni_registration",
+    ":cronet_final_jni",
     "//base:base_android_java_enums_srcjar",
     "//net/android:net_android_java_enums_srcjar",
     "//net/android:net_errors_java",

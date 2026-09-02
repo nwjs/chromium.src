@@ -27,6 +27,8 @@ extern const char kEnableFieldTrialTestingConfig[];
 COMPONENT_EXPORT(VARIATIONS)
 extern const char kFakeVariationsChannel[];
 COMPONENT_EXPORT(VARIATIONS)
+extern const char kFakeVariationsPlatform[];
+COMPONENT_EXPORT(VARIATIONS)
 extern const char kForceFieldTrialParams[];
 COMPONENT_EXPORT(VARIATIONS)
 extern const char kForceVariationIds[];
@@ -38,6 +40,8 @@ COMPONENT_EXPORT(VARIATIONS)
 extern const char kVariationsSeedVersion[];
 COMPONENT_EXPORT(VARIATIONS)
 extern const char kVariationsOverrideCountry[];
+COMPONENT_EXPORT(VARIATIONS)
+extern const char kVariationsOverrideGeoLevel1[];
 COMPONENT_EXPORT(VARIATIONS)
 extern const char kVariationsTestSeedJsonPath[];
 COMPONENT_EXPORT(VARIATIONS)

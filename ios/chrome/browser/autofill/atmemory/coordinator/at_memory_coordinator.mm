@@ -4,46 +4,56 @@
 
 #import "ios/chrome/browser/autofill/atmemory/coordinator/at_memory_coordinator.h"
 
-#import "ios/chrome/browser/autofill/atmemory/coordinator/at_memory_mediator.h"
+#import "ios/chrome/browser/autofill/atmemory/coordinator/at_memory_granular_fill_coordinator.h"
+#import "ios/chrome/browser/autofill/atmemory/coordinator/at_memory_search_coordinator.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
-#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_view_controller.h"
-#import "ios/chrome/browser/autofill/manual_fill/model/manual_fill_injection_handler.h"
-#import "ios/chrome/browser/net/model/crurl.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_fill_commands.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_search_result_commands.h"
+#import "ios/chrome/browser/autofill/manual_fill/public/manual_fill_content_injector.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
-#import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
-#import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 
-@interface AtMemoryCoordinator ()
+@interface AtMemoryCoordinator () <AtMemoryFillCommands,
+                                   AtMemorySearchResultCommands,
+                                   UIAdaptivePresentationControllerDelegate>
 @end
 
 @implementation AtMemoryCoordinator {
-  // ViewController for the AtMemory screen.
-  AtMemoryViewController* _viewController;
-  // Mediator for the AtMemory coordinator.
-  AtMemoryMediator* _mediator;
+  // NavigationController for the AtMemory flow.
+  UINavigationController* _navigationController;
+  // Injector for manual fill data.
+  id<ManualFillContentInjector> _contentInjector;
+  // Coordinator for AtMemory search.
+  AtMemorySearchCoordinator* _atMemorySearchCoordinator;
+  // Coordinator for AtMemory granular fill.
+  AtMemoryGranularFillCoordinator* _atMemoryGranularFillCoordinator;
 }
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController
-                                   browser:(Browser*)browser {
+                                   browser:(Browser*)browser
+                           contentInjector:
+                               (id<ManualFillContentInjector>)contentInjector {
   self = [super initWithBaseViewController:viewController browser:browser];
+  if (self) {
+    _contentInjector = contentInjector;
+  }
   return self;
 }
 
 - (void)start {
-  _viewController = [[AtMemoryViewController alloc] init];
-  id<AtMemoryCommands> handler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), AtMemoryCommands);
-  _viewController.atMemoryHandler = handler;
-  _viewController.presentationController.delegate = self;
+  _navigationController = [[UINavigationController alloc] init];
+  _navigationController.presentationController.delegate = self;
 
-  _mediator = [[AtMemoryMediator alloc] init];
-  _mediator.consumer = _viewController;
-  _viewController.delegate = _mediator;
+  _atMemorySearchCoordinator = [[AtMemorySearchCoordinator alloc]
+      initWithBaseNavigationController:_navigationController
+                               browser:self.browser];
+  _atMemorySearchCoordinator.searchResultHandler = self;
+  _atMemorySearchCoordinator.fillHandler = self;
+  [_atMemorySearchCoordinator start];
 
-  _viewController.modalPresentationStyle = UIModalPresentationPageSheet;
+  _navigationController.modalPresentationStyle = UIModalPresentationPageSheet;
   UISheetPresentationController* sheet =
-      _viewController.sheetPresentationController;
+      _navigationController.sheetPresentationController;
   if (sheet) {
     sheet.detents = @[
       [UISheetPresentationControllerDetent mediumDetent],
@@ -54,19 +64,47 @@
     sheet.prefersEdgeAttachedInCompactHeight = YES;
   }
 
-  [self.baseViewController presentViewController:_viewController
+  [self.baseViewController presentViewController:_navigationController
                                         animated:YES
                                       completion:nil];
 }
 
 - (void)stop {
-  if (_viewController.presentingViewController) {
-    [_viewController.presentingViewController
-        dismissViewControllerAnimated:YES
-                           completion:nil];
-  }
-  _viewController = nil;
-  _mediator = nil;
+  [_atMemoryGranularFillCoordinator stop];
+  _atMemoryGranularFillCoordinator = nil;
+
+  [_atMemorySearchCoordinator stop];
+  _atMemorySearchCoordinator = nil;
+
+  [_navigationController.presentingViewController
+      dismissViewControllerAnimated:YES
+                         completion:nil];
+  _navigationController = nil;
+}
+
+#pragma mark - AtMemorySearchResultCommands
+
+- (void)showAtMemoryGranularFillWithResult:
+    (const autofill::MemorySearchResult&)result {
+  [_atMemoryGranularFillCoordinator stop];
+
+  _atMemoryGranularFillCoordinator = [[AtMemoryGranularFillCoordinator alloc]
+      initWithBaseNavigationController:_navigationController
+                               browser:self.browser
+                                result:result];
+  _atMemoryGranularFillCoordinator.fillHandler = self;
+  [_atMemoryGranularFillCoordinator start];
+}
+
+#pragma mark - AtMemoryFillCommands
+
+- (void)fillWithContent:(NSString*)content {
+  [_contentInjector userDidPickContent:content
+                         passwordField:NO
+                         requiresHTTPS:YES
+                       jumpToNextField:NO
+                            actionType:autofill::mojom::FieldActionType::
+                                           kReplaceSelectionForAtMemory];
 }
 
 #pragma mark - UIAdaptivePresentationControllerDelegate
@@ -76,15 +114,6 @@
   id<AtMemoryCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), AtMemoryCommands);
   [handler dismissAtMemory];
-}
-
-#pragma mark - AtMemoryCommands
-
-- (void)openURL:(CrURL*)URL {
-  id<SceneCommands> sceneHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
-  [sceneHandler
-      openURLInNewTab:[OpenNewTabCommand commandWithURLFromChrome:URL.gurl]];
 }
 
 @end

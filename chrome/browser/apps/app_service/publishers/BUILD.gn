@@ -38,6 +38,8 @@ source_set("publishers") {
     "//chrome/browser/prefs",
     "//chrome/browser/ui",
     "//chrome/browser/ui:chrome_pages",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/extensions:extension_enable_flow_delegate",
     "//chrome/browser/web_applications",
@@ -67,8 +69,6 @@ source_set("publishers") {
       "extension_apps_chromeos.h",
       "guest_os_apps.cc",
       "guest_os_apps.h",
-      "plugin_vm_apps.cc",
-      "plugin_vm_apps.h",
       "remote_apps.cc",
       "remote_apps.h",
     ]
@@ -95,7 +95,6 @@ source_set("publishers") {
       "//chrome/browser/ash/file_manager",
       "//chrome/browser/ash/guest_os",
       "//chrome/browser/ash/guest_os/public",
-      "//chrome/browser/ash/plugin_vm",
       "//chrome/browser/ash/remote_apps",
       "//chrome/browser/chromeos/arc",
       "//chrome/browser/policy:system_features_disable_list",
@@ -161,7 +160,6 @@ source_set("unit_tests") {
       "bruschetta_apps_unittest.cc",
       "crostini_apps_unittest.cc",
       "guest_os_apps_unittest.cc",
-      "plugin_vm_apps_unittest.cc",
     ]
 
     deps += [
@@ -177,8 +175,6 @@ source_set("unit_tests") {
       "//chrome/browser/ash/guest_os",
       "//chrome/browser/ash/guest_os:test_support",
       "//chrome/browser/ash/guest_os/public",
-      "//chrome/browser/ash/plugin_vm",
-      "//chrome/browser/ash/plugin_vm:test_support",
       "//chrome/browser/policy:system_features_disable_list",
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/ash/components/dbus/chunneld",

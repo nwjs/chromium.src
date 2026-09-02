@@ -129,9 +129,34 @@ public class PageZoomManager {
         return mDelegate.isCurrentTabNull();
     }
 
-    /** Returns true if the window/activity for this manager currently has window focus. */
-    public boolean isActivityFocused() {
-        return mDelegate.isActivityFocused();
+    /**
+     * Returns true if the window/activity for this manager currently has window focus, the current
+     * tab is not a native page, the overflow menu is not showing, and the zoom event host matches
+     * the current/pending tab.
+     */
+    public boolean canShowPopupWindow(String eventHost) {
+        if (!mDelegate.canShowPopupWindow()) return false;
+
+        WebContents webContents = getWebContents();
+        if (webContents == null) return false;
+
+        String targetHost;
+        var navEntry = webContents.getNavigationController().getPendingEntry();
+
+        // First check if we are navigating; if so, check against the pending host.
+        // If not, check against the current committed host.
+        if (navEntry != null) {
+            targetHost = navEntry.getUrl().getHost();
+        } else {
+            targetHost = webContents.getLastCommittedUrl().getHost();
+        }
+
+        // In both cases, if the hosts don't match, return false.
+        if (eventHost != null && !eventHost.equals(targetHost)) {
+            return false;
+        }
+
+        return true;
     }
 
     // Snaps the zoom level of the current WebContents to the zoom factor at the given index in the

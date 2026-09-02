@@ -207,10 +207,7 @@ class SaveCardBubbleControllerImplTest
  public:
   SaveCardBubbleControllerImplTest()
       : ChromeRenderViewHostTestHarness(
-            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
-    scoped_feature_list_.InitAndDisableFeature(
-        features::kAutofillShowBubblesBasedOnPriorities);
-  }
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
 
   SaveCardBubbleControllerImplTest(SaveCardBubbleControllerImplTest&) = delete;
   SaveCardBubbleControllerImplTest& operator=(
@@ -447,9 +444,6 @@ class SaveCardBubbleControllerImplTest
   ExposeBubbleAutofillBubbleHandler test_autofill_bubble_handler_;
   std::unique_ptr<ui::ScopedUnownedUserData<AutofillBubbleHandler>>
       scoped_autofill_bubble_handler_;
-
-  base::test::ScopedFeatureList scoped_feature_list_;
-
   base::WeakPtrFactory<SaveCardBubbleControllerImplTest> weak_ptr_factory_{
       this};
 };
@@ -795,6 +789,10 @@ class SaveCardBubbleLoggingTest
       result += ".WithMultipleLegalLines";
     }
 
+    if (GetSaveCreditCardOptions().legal_lines_mention_personalization) {
+      result += ".LegalMessageLinesMentionPersonalization";
+    }
+
     if (GetSaveCreditCardOptions()
             .has_same_last_four_as_server_card_but_different_expiration_date) {
       result += ".WithSameLastFourButDifferentExpiration";
@@ -1045,6 +1043,30 @@ TEST_P(SaveCreditCardPromptOfferMetricTest,
 }
 
 TEST_P(SaveCreditCardPromptOfferMetricTest,
+       LogsBubbleShown_ForPromptWithLegalLinesMentioningPersonalization) {
+  if (!IsUploadSave()) {
+    GTEST_SKIP() << "Not applicable for local save, as legal lines are "
+                    "present only in server save scenarios";
+  }
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillParseLegalMessageLines};
+
+  base::HistogramTester histogram_tester;
+  TriggerFlow(
+      /*show_prompt=*/true,
+      SaveCreditCardOptions()
+          .with_legal_lines_mention_personalization(true)
+          .with_card_save_type(CardSaveType::kCardSaveOnly));
+
+  histogram_tester.ExpectUniqueSample(GetBaseHistogramName(),
+                                      SaveCardPromptOffer::kShown, 1);
+  histogram_tester.ExpectUniqueSample(
+      base::StrCat(
+          {GetBaseHistogramName(), ".LegalMessageLinesMentionPersonalization"}),
+      SaveCardPromptOffer::kShown, 1);
+}
+
+TEST_P(SaveCreditCardPromptOfferMetricTest,
        LogsBubbleShown_ForCardWithSameLastFourButDifferentExpiration) {
   if (!IsUploadSave()) {
     GTEST_SKIP() << "Not applicable for local save, as the condition (same "
@@ -1282,6 +1304,29 @@ TEST_P(SaveCreditCardPromptResultDesktopMetricTestParameterized,
                                       SaveCardPromptResultDesktop::kClosed, 1);
   histogram_tester.ExpectUniqueSample(
       base::StrCat({GetBaseHistogramName(), ".WithMultipleLegalLines"}),
+      SaveCardPromptResultDesktop::kClosed, 1);
+}
+
+TEST_P(SaveCreditCardPromptResultDesktopMetricTestParameterized,
+       LogsSaveCardResult_ForPromptWithLegalLinesMentioningPersonalization) {
+  if (!IsUploadSave()) {
+    GTEST_SKIP() << "Not applicable for local save, as legal lines are "
+                    "present only in server save scenarios";
+  }
+  base::test::ScopedFeatureList feature_list{
+      features::kAutofillParseLegalMessageLines};
+
+  base::HistogramTester histogram_tester;
+  TriggerFlow(SaveCreditCardOptions()
+                  .with_legal_lines_mention_personalization(true)
+                  .with_card_save_type(CardSaveType::kCardSaveOnly));
+  CloseBubble(PaymentsUiClosedReason::kClosed);
+
+  histogram_tester.ExpectUniqueSample(GetBaseHistogramName(),
+                                      SaveCardPromptResultDesktop::kClosed, 1);
+  histogram_tester.ExpectUniqueSample(
+      base::StrCat(
+          {GetBaseHistogramName(), ".LegalMessageLinesMentionPersonalization"}),
       SaveCardPromptResultDesktop::kClosed, 1);
 }
 

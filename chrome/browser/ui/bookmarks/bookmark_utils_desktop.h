@@ -16,7 +16,6 @@
 #include "ui/base/window_open_disposition.h"
 #include "ui/gfx/native_ui_types.h"
 
-class Browser;
 class BrowserWindowInterface;
 struct NavigateParams;
 class TabGroup;
@@ -28,15 +27,11 @@ class NavigationHandle;
 }  // namespace content
 
 namespace tab_groups {
-class SavedTabGroup;
 class TabGroupSyncService;
 }  // namespace tab_groups
 
 namespace bookmarks {
 class BookmarkNode;
-
-inline constexpr char kReplaceOrCreateGroupDialogName[] =
-    "ReplaceOrCreateGroupDialog";
 
 enum OpenAllBookmarksContext {
   kNone = 0,     // Open all bookmarks as separate tabs.
@@ -79,7 +74,7 @@ extern size_t kNumBookmarkUrlsBeforePrompting;
 // TODO(crbug.com/40914589): This should be made non-optional once all callsites
 // have all the information needed to correctly construct the `launch_action`.
 void OpenAllIfAllowed(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const std::vector<
         raw_ptr<const bookmarks::BookmarkNode, VectorExperimental>>& nodes,
     WindowOpenDisposition initial_disposition,
@@ -108,16 +103,6 @@ bool ConfirmDeleteBookmarkNode(gfx::NativeWindow window,
 // Shows the bookmark all tabs dialog.
 void ShowBookmarkAllTabsDialog(BrowserWindowInterface* browser);
 
-// Shows the bookmark tab group dialog.
-void ShowBookmarkTabGroupDialog(
-    Browser* browser,
-    const TabGroup& tab_group,
-    base::OnceCallback<void(Browser*, const tab_groups::TabGroupId&)>
-        on_save_callback = base::DoNothing());
-
-// Shows the bookmark tab group dialog for a saved tab group.
-void ShowBookmarkSavedTabGroupDialog(Browser* browser,
-                                     const tab_groups::SavedTabGroup& group);
 
 // Returns true if OpenAll() can open at least one bookmark of type url
 // in |selection|.

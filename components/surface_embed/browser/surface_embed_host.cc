@@ -5,6 +5,7 @@
 #include "components/surface_embed/browser/surface_embed_host.h"
 
 #include <algorithm>
+#include <optional>
 
 #include "base/check.h"
 #include "base/functional/bind.h"
@@ -15,8 +16,11 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/surface_embed_connector.h"
 #include "content/public/browser/web_contents.h"
+#include "mojo/public/cpp/bindings/message.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "third_party/blink/public/common/frame/frame_visual_properties.h"
+#include "ui/accessibility/ax_node_id_forward.h"
+#include "ui/accessibility/ax_tree_id.h"
 
 namespace surface_embed {
 
@@ -147,8 +151,11 @@ void SurfaceEmbedHost::AttachConnector(
   content::SurfaceEmbedConnector::Attach(
       web_contents_to_attach, &collection_->render_frame_host(), this);
 
-  // TODO(surface-embed): If accessibility info was received before the
-  // connector was attached, pass it to the connector now.
+  // If accessibility info was received before the connector was attached,
+  // pass it to the connector now.
+  if (container_accessibility_node_id_ != ui::kInvalidAXNodeID) {
+    ForwardParentAccessibilityInfo();
+  }
 }
 
 void SurfaceEmbedHost::DetachConnector() {
@@ -195,13 +202,55 @@ void SurfaceEmbedHost::OnEmbedElementFocused(
     return;
   }
 
+  // A page-focus event is fired for the active element when the window receives
+  // OS focus and the page becomes focused. It does not indicate that the
+  // focused element changed.
+  if (focus_type == blink::mojom::FocusType::kPage) {
+    return;
+  }
+
   if (focus_type == blink::mojom::FocusType::kForward) {
     child_contents_->FocusThroughTabTraversal(/*reverse=*/false);
   } else if (focus_type == blink::mojom::FocusType::kBackward) {
     child_contents_->FocusThroughTabTraversal(/*reverse=*/true);
-  } else {
+  }
+
+  if (!child_contents_->ContainsOrIsFocusedWebContents()) {
     child_contents_->Focus();
   }
+}
+
+void SurfaceEmbedHost::OnEmbedElementThrottlingStatusChanged(
+    mojom::RenderThrottlingStatusPtr status) {
+  if (content::SurfaceEmbedConnector* connector = GetConnector()) {
+    connector->UpdateRenderThrottlingStatus(status->is_throttled,
+                                            status->subtree_throttled,
+                                            status->display_locked);
+  }
+}
+
+void SurfaceEmbedHost::SetParentAccessibilityInfo(ui::AXNodeID ax_node_id) {
+  if (!ui::IsValidAXNodeIDFromRenderer(ax_node_id)) {
+    mojo::ReportBadMessage("Invalid AXNodeID in SetParentAccessibilityInfo.");
+    return;
+  }
+
+  container_accessibility_node_id_ = ax_node_id;
+
+  ForwardParentAccessibilityInfo();
+}
+
+void SurfaceEmbedHost::ForwardParentAccessibilityInfo() {
+  content::SurfaceEmbedConnector* connector = GetConnector();
+  if (!connector) {
+    return;
+  }
+  ui::AXTreeID ax_tree_id = collection_->render_frame_host().GetAXTreeID();
+  if (ax_tree_id == ui::AXTreeIDUnknown()) {
+    return;
+  }
+  connector->SetParentAccessibilityInfo(container_accessibility_node_id_,
+                                        ax_tree_id);
 }
 
 void SurfaceEmbedHost::SetFrameSinkId(const viz::FrameSinkId& frame_sink_id,
@@ -234,7 +283,7 @@ void SurfaceEmbedHost::DetachedByHost() {
   DetachConnector();
 }
 
-void SurfaceEmbedHost::RequestFocus() {
+void SurfaceEmbedHost::RequestFocusOnEmbedElement() {
   if (pending_request_focus_on_embed_element_) {
     return;
   }
@@ -250,6 +299,12 @@ void SurfaceEmbedHost::RequestFocus() {
 void SurfaceEmbedHost::OnRequestFocusOnEmbedElementCompleted() {
   CHECK(pending_request_focus_on_embed_element_);
   pending_request_focus_on_embed_element_ = false;
+}
+
+void SurfaceEmbedHost::AdvanceFocusFromEmbedElement(bool reverse) {
+  if (surface_embed_) {
+    surface_embed_->AdvanceFocusFromEmbedElement(reverse);
+  }
 }
 
 bool SurfaceEmbedHost::IsAttachedForTesting() const {

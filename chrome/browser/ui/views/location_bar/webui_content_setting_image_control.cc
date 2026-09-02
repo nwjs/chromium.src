@@ -55,7 +55,6 @@ toolbar_ui_api::mojom::ContentSettingImageStatePtr GetImageStateForModel(
     state->accessibility_string =
         l10n_util::GetStringUTF16(model->AccessibilityAnnouncementStringId());
   }
-  state->should_run_animation = model->ShouldRunAnimation(web_contents);
 
   return state;
 }
@@ -100,8 +99,6 @@ WebUIContentSettingImageControl::ProcessContentSettingState(
     auto image_state = GetImageStateForModel(
         model.get(), setting_view_delegate_.get(), web_contents);
     if (image_state) {
-      state.push_back(std::move(image_state));
-
       // After gathering the state, we need to notify the model that it's been
       // shown / notified so it doesn't repeat itself in the next update.
       if (model->ShouldNotifyAccessibility(web_contents)) {
@@ -122,14 +119,16 @@ WebUIContentSettingImageControl::ProcessContentSettingState(
         model->SetBubbleWasAutoOpened(web_contents);
       }
       if (model->ShouldRunAnimation(web_contents)) {
-        // TODO: crbug.com/489109708 - Investigate why the animation sometimes
-        // re-runs when typing in the location bar post-animation.
         int string_id = model->explanatory_string_id();
         if (string_id && webui_delegate_) {
+          // Mimics IconLabelBubbleView::AnimateIn(), which announces the text
+          // it's animating in addition to standard accessibility announcements.
           webui_delegate_->AnnounceAlert(l10n_util::GetStringUTF16(string_id));
         }
         model->SetAnimationHasRun(web_contents);
       }
+
+      state.push_back(std::move(image_state));
     }
   }
 
@@ -143,11 +142,33 @@ ContentSettingImageModel* WebUIContentSettingImageControl::GetModel(
   return it != models_.end() ? it->get() : nullptr;
 }
 
+void WebUIContentSettingImageControl::OnContentSettingImagePointerDown(
+    ImageType type) {
+  // Only suppress the click if the mouse press occurred on the exact same chip
+  // that corresponds to the observed bubble. Clicking a different chip should
+  // legitimately open a new bubble, even if another one just closed.
+  if (last_tracked_bubble_type_ == type) {
+    bubble_reopen_suppressor_.OnMousePressed();
+  }
+}
+
 void WebUIContentSettingImageControl::ShowContentSettingsBubble(
     ImageType type,
+    bool is_pointer_interaction,
     toolbar_ui_api::mojom::ToolbarUIService::ShowContentSettingsBubbleCallback
         callback) {
+  bool should_suppress = bubble_reopen_suppressor_.ShouldSuppressBubbleShow(
+      is_pointer_interaction);
+
+  if (should_suppress) {
+    std::move(callback).Run(std::monostate());
+    return;
+  }
   std::move(callback).Run(ShowContentSettingsBubbleImpl(type));
+}
+
+bool WebUIContentSettingImageControl::IsBubbleShowing() const {
+  return bubble_reopen_suppressor_.IsShowing();
 }
 
 base::expected<std::monostate, mojo_base::mojom::ErrorPtr>
@@ -191,8 +212,13 @@ WebUIContentSettingImageControl::ShowContentSettingsBubbleImpl(ImageType type) {
       views::BubbleBorder::TOP_RIGHT);
   bubble_contents->SetHighlightedElement(model->GetElementIdentifier());
 
-  views::BubbleDialogDelegateView::CreateBubble(std::move(bubble_contents))
-      ->Show();
+  views::Widget* bubble_widget =
+      views::BubbleDialogDelegateView::CreateBubble(std::move(bubble_contents));
+  if (bubble_widget) {
+    bubble_reopen_suppressor_.Observe(bubble_widget);
+    last_tracked_bubble_type_ = type;
+    bubble_widget->Show();
+  }
 
   return std::monostate();
 }

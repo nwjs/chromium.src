@@ -12,6 +12,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "components/variations/scoped_variations_ids_provider.h"
+#include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/test/preloading_test_util.h"
@@ -199,8 +200,8 @@ class ScopedMockContentBrowserClient : public TestContentBrowserClient {
        bool* bypass_redirect_checks,
        bool* disable_secure_dns,
        network::mojom::URLLoaderFactoryOverridePtr* factory_override,
-       scoped_refptr<base::SequencedTaskRunner>
-           navigation_response_task_runner),
+       scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner,
+       bool is_for_network_service),
       (override));
 
  private:
@@ -357,6 +358,9 @@ struct PrefetchRearchParam final {
   static std::vector<PrefetchRearchParam> Params();
 
   bool force_off_the_main_thread;
+  bool check_will_create_url_loader_factory;
+  std::optional<features::PrefetchMatchResolverUnblockAsyncPolicy>
+      unblock_async_policy;
 };
 
 class WithPrefetchRearchParam {
@@ -371,6 +375,7 @@ class WithPrefetchRearchParam {
  private:
   PrefetchRearchParam param_;
   base::test::ScopedFeatureList feature_list_force_off_the_main_thread_;
+  base::test::ScopedFeatureList feature_list_unblock_async_;
 };
 
 // A wrapper for `PrefetchService::SetInjectedEligibilityCheckForTesting`.

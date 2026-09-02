@@ -28,6 +28,7 @@
 #include "net/disk_cache/sql/entry_write_buffer.h"
 #include "net/disk_cache/sql/sql_backend_aliases.h"
 #include "net/disk_cache/sql/sql_persistent_store_in_memory_index.h"
+#include "net/disk_cache/sql/sql_read_cache_memory_monitor.h"
 #include "url/gurl.h"
 
 // This backend is experimental and only available when the build flag is set.
@@ -48,6 +49,8 @@ namespace disk_cache {
 
 class BackendCleanupTracker;
 class SqlAsyncTaskManager;
+class SqlSharedCacheBlobHandle;
+class SqlSharedCacheHandle;
 class SqlSharedCacheManager;
 
 // This class serves as the main entry point for the SQL-based disk cache's
@@ -157,6 +160,15 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
     scoped_refptr<net::GrowableIOBuffer> head;
     // The resource ID of the shared cache database where the blobs are stored.
     std::optional<SqlSharedCacheResourceId> shared_cache_resource_id;
+
+    // The shared cache handle and blob handle for accessing shared cache blobs.
+    // Populated automatically for `OpenEntry` and `OpenOrCreateEntry` when
+    // `shared_cache_resource_id` is present.
+    // Note: These handles are omitted (left null) in `OpenNextEntry` for
+    // performance reasons to avoid asynchronous fetch overhead during
+    // iteration.
+    scoped_refptr<SqlSharedCacheHandle> shared_cache_handle;
+    scoped_refptr<SqlSharedCacheBlobHandle> shared_cache_blob_handle;
 
     // True if the entry was opened, false if it was newly created.
     bool opened = false;
@@ -285,13 +297,17 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
 
   // The result of an eviction operation.
   struct EvictionResult {
-    EvictionResult(Error error, size_t evicted_entry_count);
+    EvictionResult(
+        Error error,
+        size_t evicted_entry_count,
+        std::vector<SqlSharedCacheResourceId> deleted_shared_cache_resources);
     ~EvictionResult();
     EvictionResult(EvictionResult&& other);
     EvictionResult& operator=(EvictionResult&& other);
 
     Error error;
     size_t evicted_entry_count;
+    std::vector<SqlSharedCacheResourceId> deleted_shared_cache_resources;
   };
 
   struct EvictionResultWithMetadata {
@@ -336,10 +352,6 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   using Int64Callback = base::OnceCallback<void(int64_t)>;
   using EntryInfoOrError = base::expected<EntryInfo, Error>;
   using EntryInfoOrErrorCallback = base::OnceCallback<void(EntryInfoOrError)>;
-  using OptionalEntryInfoOrError =
-      base::expected<std::optional<EntryInfo>, Error>;
-  using OptionalEntryInfoOrErrorCallback =
-      base::OnceCallback<void(OptionalEntryInfoOrError)>;
   using OptionalEntryInfoWithKeyAndIterator =
       std::optional<EntryInfoWithKeyAndIterator>;
   using OptionalEntryInfoWithKeyAndIteratorCallback =
@@ -369,15 +381,42 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   using ResIdOrErrorAndStoreStatus = ResultAndStoreStatus<ResIdOrError>;
   using HashAndResIdListOrErrorAndStoreStatus =
       ResultAndStoreStatus<HashAndResIdListOrError>;
+  struct HashAndSharedCacheResource {
+    CacheEntryKey::Hash hash;
+    std::optional<SqlSharedCacheResourceId> shared_cache_resource_id;
+  };
+  using HashAndSharedCacheResourceOrError =
+      base::expected<HashAndSharedCacheResource, Error>;
   using HashOrError = base::expected<CacheEntryKey::Hash, Error>;
   struct UsageAndHash {
     int64_t bytes_usage;
     CacheEntryKey::Hash hash;
+    std::optional<SqlSharedCacheResourceId> shared_cache_resource_id;
   };
   using UsageAndHashOrError = base::expected<UsageAndHash, Error>;
   using EvictionResultCallback = base::OnceCallback<void(EvictionResult)>;
   using EvictionResultWithMetadataCallback =
       base::OnceCallback<void(EvictionResultWithMetadata)>;
+  using DeletedSharedCacheResourceOrError =
+      base::expected<std::optional<SqlSharedCacheResourceId>, Error>;
+  using DeletedSharedCacheResourceOrErrorCallback =
+      base::OnceCallback<void(DeletedSharedCacheResourceOrError)>;
+  using DeletedSharedCacheResourcesOrError =
+      base::expected<std::vector<SqlSharedCacheResourceId>, Error>;
+  using DeletedSharedCacheResourcesOrErrorCallback =
+      base::OnceCallback<void(DeletedSharedCacheResourcesOrError)>;
+
+  struct DeleteLiveEntryResult {
+    HashAndResIdList deleted_hash_and_res_ids;
+    std::vector<SqlSharedCacheResourceId> deleted_shared_cache_resources;
+  };
+  using DeleteLiveEntryResultOrError =
+      base::expected<DeleteLiveEntryResult, Error>;
+  using DeleteLiveEntryResultOrErrorAndStoreStatus =
+      ResultAndStoreStatus<DeleteLiveEntryResultOrError>;
+  using DeleteLiveEntryResultOrErrorCallback =
+      base::OnceCallback<void(DeleteLiveEntryResultOrError)>;
+
   using InMemoryIndexAndDoomedResIdsOrError =
       base::expected<InMemoryIndexAndDoomedResIds, Error>;
 
@@ -406,9 +445,8 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
 
   // Opens an existing entry with the given `key`.
   // The `callback` is invoked with the entry's information on success. If the
-  // entry does not exist, the `callback` is invoked with `std::nullopt`.
-  void OpenEntry(const CacheEntryKey& key,
-                 OptionalEntryInfoOrErrorCallback callback);
+  // entry does not exist, the `callback` is invoked with `Error::kNotFound`.
+  void OpenEntry(const CacheEntryKey& key, EntryInfoOrErrorCallback callback);
 
   // Creates a new entry with the given `key`. `creation_time` is the time the
   // entry is created and will be used as the initial `last_used` time.
@@ -658,6 +696,44 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
       scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
       base::OnceCallback<void(bool)> callback);
 
+  // Notifies the SqlSharedCacheManager that the specified shared cache
+  // resources were deleted from the store shards, so that corresponding entries
+  // in the shared cache database can be cleaned up.
+  void OnSharedCacheResourcesDeleted(std::vector<SqlSharedCacheResourceId> ids);
+
+  enum class OpenEntryMode { kOpenEntry, kOpenOrCreateEntry };
+
+  // Called when shard opening for `key` finishes. If successful and
+  // `shared_cache_resource_id` is present on the entry, populates
+  // `shared_cache_handle` and `shared_cache_blob_handle`.
+  // If fetching shared cache handles fails, deletes the existing entry from the
+  // store, and depending on `mode`, either recreates a new entry
+  // (kOpenOrCreateEntry) or returns kNotFound (kOpenEntry).
+  void OnOpenEntryFinished(CacheEntryKey key,
+                           OpenEntryMode mode,
+                           EntryInfoOrErrorCallback callback,
+                           EntryInfoOrError result);
+
+  // Handles failure when retrieving shared cache handles or blob handles.
+  // Deletes the invalid entry from the store, and depending on `mode`, either
+  // recreates a new entry (kOpenOrCreateEntry) or returns kNotFound
+  // (kOpenEntry).
+  void OnSharedCacheFetchFailed(const CacheEntryKey& key,
+                                OpenEntryMode mode,
+                                EntryInfoOrErrorCallback callback);
+
+  // Wraps an ErrorCallback to handle deletion of a single shared cache
+  // resource. When the shard operation completes successfully, if a shared
+  // cache resource was deleted, triggers OnSharedCacheResourcesDeleted.
+  DeletedSharedCacheResourceOrErrorCallback
+  WrapCallbackWithSingleSharedCacheDelete(ErrorCallback callback);
+
+  // Wraps an ErrorCallback to handle deletion of multiple shared cache
+  // resources. When the shard operation completes successfully, if shared cache
+  // resources were deleted, triggers OnSharedCacheResourcesDeleted.
+  DeletedSharedCacheResourcesOrErrorCallback WrapCallbackWithSharedCacheDelete(
+      ErrorCallback callback);
+
   enum class IndexState {
     // The in-memory index is not available (e.g., not yet loaded or
     // invalidated).
@@ -679,12 +755,6 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   // Retrieves the hints for the specified entry from the in-memory index, if
   // available.
   std::optional<MemoryEntryDataHints> GetInMemoryEntryDataHints(
-      CacheEntryKey::Hash key_hash) const;
-
-  // Attempts to retrieve a single resource ID associated with the given key
-  // hash from the in-memory index. Returns the resource ID if a unique entry
-  // exists for the hash; otherwise, returns std::nullopt.
-  std::optional<ResId> TryGetSingleResIdFromInMemoryIndex(
       CacheEntryKey::Hash key_hash) const;
 
   // Returns the shard ID for a given cache key hash.
@@ -758,6 +828,7 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
       const base::FilePath& path,
       net::CacheType type,
       bool shared_cache_enabled,
+      scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor,
       std::vector<scoped_refptr<base::SequencedTaskRunner>>
           background_task_runners,
       SqlAsyncTaskManager& async_task_manager,
@@ -809,6 +880,7 @@ class NET_EXPORT_PRIVATE SqlPersistentStore {
   const std::vector<scoped_refptr<base::SequencedTaskRunner>>
       background_task_runners_;
   const raw_ref<SqlAsyncTaskManager> async_task_manager_;
+  scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor_;
   std::unique_ptr<SqlSharedCacheManager> shared_cache_manager_;
   const std::vector<std::unique_ptr<BackendShard>> backend_shards_;
   const int64_t user_max_bytes_;

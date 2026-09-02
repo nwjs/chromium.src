@@ -161,10 +161,10 @@ PageSchedulerImpl::PageSchedulerImpl(
       page_visibility_changed_time_(main_thread_scheduler_->NowTicks()),
       audio_state_(AudioState::kSilent),
       audio_state_changed_time_(page_visibility_changed_time_),
+      is_fullscreen_video_(false),
       is_frozen_(false),
       opted_out_from_aggressive_throttling_(false),
       nested_runloop_(false),
-      is_main_frame_local_(false),
       is_cpu_time_throttled_(false),
       are_wake_ups_intensively_throttled_(false),
       had_recent_title_or_favicon_update_(false),
@@ -341,10 +341,6 @@ void PageSchedulerImpl::SetUpIPCTaskDetection() {
   }
 }
 
-bool PageSchedulerImpl::IsMainFrameLocal() const {
-  return is_main_frame_local_;
-}
-
 bool PageSchedulerImpl::IsLoading() const {
   return IsWaitingForMainFrameContentfulPaint() ||
          IsWaitingForMainFrameMeaningfulPaint();
@@ -354,10 +350,6 @@ bool PageSchedulerImpl::IsOrdinary() const {
   if (!delegate_)
     return true;
   return delegate_->IsOrdinary();
-}
-
-void PageSchedulerImpl::SetIsMainFrameLocal(bool is_local) {
-  is_main_frame_local_ = is_local;
 }
 
 void PageSchedulerImpl::RegisterFrameSchedulerImpl(
@@ -426,6 +418,19 @@ void PageSchedulerImpl::OnAudioSilent() {
   PolicyUpdater policy_updater;
   UpdateFrozenState(policy_updater);
   policy_updater.UpdatePagePolicy(this);
+}
+
+void PageSchedulerImpl::SetIsFullscreenVideo(bool is_fullscreen_video) {
+  if (is_fullscreen_video == is_fullscreen_video_) {
+    return;
+  }
+  is_fullscreen_video_ = is_fullscreen_video;
+  PolicyUpdater policy_updater;
+  policy_updater.UpdatePagePolicy(this);
+}
+
+bool PageSchedulerImpl::IsFullscreenVideo() const {
+  return is_fullscreen_video_;
 }
 
 bool PageSchedulerImpl::IsExemptFromBudgetBasedThrottling() const {
@@ -612,7 +617,8 @@ void PageSchedulerImpl::MaybeInitializeBackgroundCPUTimeBudgetPool(
     return;
 
   cpu_time_budget_pool_ = std::make_unique<CPUTimeBudgetPool>(
-      "background", &tracing_controller_, lazy_now->Now());
+      "background", &tracing_controller_, lazy_now->Now(),
+      "Scheduler.BackgroundBudgetMs", main_thread_scheduler_->TracingTrack());
 
   BackgroundThrottlingSettings settings = GetBackgroundThrottlingSettings();
 

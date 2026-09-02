@@ -649,13 +649,13 @@ TEST_F(SyncUserSettingsImplTest, ShouldSyncSessionsOnlyIfOpenTabsIsSelected) {
                    SAVED_TAB_GROUP, SHARED_COMMENT, SHARED_TAB_GROUP_DATA,
                    SESSIONS, USER_EVENTS, SHARED_TAB_GROUP_ACCOUNT_DATA,
                    WORKSPACE_DESK, ENCRYPTED_TAB_CONTEXT_CONTAINER,
-                   ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK}));
+                   ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK, JOURNEY}));
 #else
   EXPECT_EQ(GetPreferredUserTypes(*sync_user_settings),
             Union(AlwaysPreferredUserTypes(),
                   {HISTORY, HISTORY_DELETE_DIRECTIVES, SESSIONS, USER_EVENTS,
                    WORKSPACE_DESK, ENCRYPTED_TAB_CONTEXT_CONTAINER,
-                   ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK}));
+                   ENCRYPTED_TAB_CONTEXT_ITEM, NOTEBOOK, JOURNEY}));
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
   // History only: SESSIONS-related types are gone.
@@ -664,7 +664,7 @@ TEST_F(SyncUserSettingsImplTest, ShouldSyncSessionsOnlyIfOpenTabsIsSelected) {
       /*types=*/{UserSelectableType::kHistory});
   EXPECT_EQ(GetPreferredUserTypes(*sync_user_settings),
             Union(AlwaysPreferredUserTypes(),
-                  {HISTORY, HISTORY_DELETE_DIRECTIVES, USER_EVENTS}));
+                  {HISTORY, HISTORY_DELETE_DIRECTIVES, USER_EVENTS, JOURNEY}));
 
   // OpenTabs only: HISTORY-related types are gone.
   sync_user_settings->SetSelectedTypes(

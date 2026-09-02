@@ -19,7 +19,6 @@
 #include "components/facilitated_payments/core/browser/facilitated_payments_client.h"
 #include "components/facilitated_payments/core/features/features.h"
 #include "components/facilitated_payments/core/metrics/facilitated_payments_metrics.h"
-#include "components/strike_database/strike_database.h"
 #include "url/origin.h"
 
 namespace payments::facilitated {
@@ -71,7 +70,8 @@ void PixAccountLinkingManager::DoOnAccountLinkingResult(
         LogAccountLinkingResult(kPixFopSuffix, /*is_successful=*/false);
         LogAccountLinkingFlowExitedReason(
             kPixFopSuffix, AccountLinkingFlowExitedReason::kGmsCoreFlowFailed);
-        // TODO(crbug.com/532367369): Trigger error notification.
+        client()->ShowAccountLinkingFailureNotification(
+            FacilitatedPaymentsType::kPix);
       }
       break;
     case AccountLinkingResultCode::kResultCanceled:
@@ -86,7 +86,8 @@ void PixAccountLinkingManager::DoOnAccountLinkingResult(
       LogAccountLinkingResult(kPixFopSuffix, /*is_successful=*/false);
       LogAccountLinkingFlowExitedReason(
           kPixFopSuffix, AccountLinkingFlowExitedReason::kGmsCoreFlowFailed);
-      // TODO(crbug.com/532367369): Trigger error notification.
+      client()->ShowAccountLinkingFailureNotification(
+          FacilitatedPaymentsType::kPix);
       break;
     case AccountLinkingResultCode::kCouldNotInvoke:
       // Default result passed during early exit paths in the base class. The
@@ -102,35 +103,7 @@ void PixAccountLinkingManager::MaybeShowPixAccountLinkingPrompt(
   Reset();
   pix_payment_page_origin_ = pix_payment_page_origin;
 
-  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
-    auto decision = strike_database->GetStrikeDatabaseDecision();
-    switch (decision) {
-      case PixAccountLinkingStrikeDatabase::kDoNotBlock:
-        break;
-      case PixAccountLinkingStrikeDatabase::kMaxStrikeLimitReached:
-        LogAccountLinkingFlowExitedReason(
-            kPixFopSuffix, AccountLinkingFlowExitedReason::kMaxStrikes);
-        return;
-      case PixAccountLinkingStrikeDatabase::kRequiredDelayNotPassed:
-        LogAccountLinkingFlowExitedReason(
-            kPixFopSuffix,
-            AccountLinkingFlowExitedReason::kRequiredDelayNotPassed);
-        return;
-    }
-  }
-
-  if (!client()
-           ->GetPaymentsDataManager()
-           ->IsFacilitatedPaymentsPixAccountLinkingUserPrefEnabled()) {
-    LogAccountLinkingFlowExitedReason(
-        kPixFopSuffix, AccountLinkingFlowExitedReason::kUserOptedOut);
-    return;
-  }
-
-  if (!client()->HasScreenlockOrBiometricSetup()) {
-    LogAccountLinkingFlowExitedReason(
-        kPixFopSuffix,
-        AccountLinkingFlowExitedReason::kNoScreenlockOrBiometricSetup);
+  if (!CanPromptUser()) {
     return;
   }
 
@@ -138,15 +111,14 @@ void PixAccountLinkingManager::MaybeShowPixAccountLinkingPrompt(
   // initiate the GetDetailsForCreatePaymentInstrument network call to check
   // eligibility and retrieve the action token.
   FetchClientToken();
-  // TODO(crbug.com/417330610): Move this to after the user comes back to Chrome
-  // and GetDetailsForCreatePaymentInstrument is completed.
   client()->GetDeviceDelegate()->SetOnReturnToChromeCallbackAndObserveAppState(
-      base::BindOnce(
-          &PixAccountLinkingManager::ShowPixAccountLinkingPromptIfEligible,
-          weak_ptr_factory_.GetWeakPtr()));
+      base::BindOnce(&PixAccountLinkingManager::OnUserReturnedToChrome,
+                     weak_ptr_factory_.GetWeakPtr()));
 }
 
 void PixAccountLinkingManager::Reset() {
+  has_user_returned_to_chrome_ = false;
+  has_post_return_delay_passed_ = false;
   is_eligible_for_pix_account_linking_ = std::nullopt;
   if (is_prompt_showing_) {
     // This should NOT happen as the account linking flow cannot be triggered
@@ -162,13 +134,37 @@ void PixAccountLinkingManager::Reset() {
   weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
+void PixAccountLinkingManager::OnUserReturnedToChrome() {
+  has_user_returned_to_chrome_ = true;
+  base::TimeDelta delay =
+      base::Seconds(kPixAccountLinkingNativeTriggerDelaySeconds.Get());
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE,
+      base::BindOnce(&PixAccountLinkingManager::OnPostReturnDelayPassed,
+                     weak_ptr_factory_.GetWeakPtr()),
+      delay);
+}
+
+void PixAccountLinkingManager::OnPostReturnDelayPassed() {
+  has_post_return_delay_passed_ = true;
+  ShowPixAccountLinkingPromptIfEligible();
+}
+
 void PixAccountLinkingManager::ShowPixAccountLinkingPromptIfEligible() {
-  // If the server-side eligibility check is incomplete, or if ineligible for
-  // account linking, exit.
-  if (!is_eligible_for_pix_account_linking_.has_value() ||
-      !is_eligible_for_pix_account_linking_.value()) {
-    LogAccountLinkingFlowExitedReason(
-        kPixFopSuffix, AccountLinkingFlowExitedReason::kServerSideIneligible);
+  // Wait until all barriers are complete: user return AND delay passed AND
+  // server response.
+  if (!has_user_returned_to_chrome_ || !has_post_return_delay_passed_ ||
+      !is_eligible_for_pix_account_linking_.has_value()) {
+    return;
+  }
+
+  // If ineligible for account linking per payments backend, exit.
+  if (!is_eligible_for_pix_account_linking_.value()) {
+    return;
+  }
+
+  // Prevent showing the prompt multiple times if already showing.
+  if (is_prompt_showing_) {
     return;
   }
 
@@ -189,14 +185,7 @@ void PixAccountLinkingManager::ShowPixAccountLinkingPromptIfEligible() {
     return;
   }
 
-  base::TimeDelta delay =
-      base::Seconds(kPixAccountLinkingNativeTriggerDelaySeconds.Get());
-  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(
-          &PixAccountLinkingManager::ShowPixAccountLinkingPromptAfterDelay,
-          weak_ptr_factory_.GetWeakPtr()),
-      delay);
+  ShowPixAccountLinkingPromptAfterDelay();
 }
 
 void PixAccountLinkingManager::ShowPixAccountLinkingPromptAfterDelay() {
@@ -216,22 +205,19 @@ void PixAccountLinkingManager::ShowPixAccountLinkingPromptAfterDelay() {
                      weak_ptr_factory_.GetWeakPtr()));
 }
 
-void PixAccountLinkingManager::DismissPrompt() {
-  NativeAccountLinkingHandler::DismissPrompt();
+strike_database::StrikeDatabaseIntegratorBase*
+PixAccountLinkingManager::GetStrikeDatabase() {
+  return GetOrCreateStrikeDatabase();
+}
+
+bool PixAccountLinkingManager::IsUserPrefEnabled() const {
+  return client()
+      ->GetPaymentsDataManager()
+      ->IsFacilitatedPaymentsPixAccountLinkingUserPrefEnabled();
 }
 
 void PixAccountLinkingManager::DoOnAccepted() {
   is_prompt_accepted_ = true;
-  // Clear strikes when user accepts the prompt.
-  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
-    strike_database->ClearStrikes();
-  }
-}
-
-void PixAccountLinkingManager::DoOnDeclined() {
-  if (auto* strike_database = GetOrCreateStrikeDatabase()) {
-    strike_database->AddStrike();
-  }
 }
 
 void PixAccountLinkingManager::OnUiScreenEvent(UiEvent ui_event_type) {
@@ -272,6 +258,11 @@ void PixAccountLinkingManager::OnUiScreenEvent(UiEvent ui_event_type) {
 void PixAccountLinkingManager::DoOnGetDetailsForCreatePaymentInstrumentResponse(
     bool is_eligible) {
   is_eligible_for_pix_account_linking_ = is_eligible;
+  // If the user has already returned to Chrome and the post-return delay has
+  // passed, trigger prompt display check now that server response is available.
+  if (has_user_returned_to_chrome_ && has_post_return_delay_passed_) {
+    ShowPixAccountLinkingPromptIfEligible();
+  }
 }
 
 PixAccountLinkingStrikeDatabase*

@@ -24,6 +24,7 @@ try_.defaults.set(
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     experiments = {
         "chromium_tests.resultdb_module": 100,
+        "luci.buildbucket.run_in_turboci": 25,
     },
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -142,6 +143,9 @@ try_.builder(
         ],
     ),
     free_space = builders.free_space.high,
+    experiments = {
+        "luci.buildbucket.run_in_turboci": 100,
+    },
 )
 
 try_.builder(

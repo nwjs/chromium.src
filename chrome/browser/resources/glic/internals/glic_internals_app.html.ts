@@ -240,6 +240,12 @@ export function getHtml(this: GlicInternalsAppElement) {
                   @change="${this.onInvokeTakeScreenshotChange_}">
               Test Take Screenshot
             </label>
+            <label style="flex: 1 1 calc(50% - 8px);">
+              <input type="checkbox"
+                  .checked="${this.invokeSupersedeIfInProgress_}"
+                  @change="${this.onInvokeSupersedeIfInProgressChange_}">
+              Supersede if In Progress
+            </label>
           </div>
           ${this.invokeTakeScreenshot_ ? html`
             <div style="display: flex; flex-direction: column; gap: 8px;
@@ -379,6 +385,45 @@ export function getHtml(this: GlicInternalsAppElement) {
             ` : html``}
           </div>
 
+          <div style="display: flex; gap: 8px; align-items: flex-start;
+                      margin-top: 8px;">
+            ${this.invokeSpecificTabsToShareIndices_.length === 0 ? html`
+              <cr-button @click="${this.onAddTabsToShareIndexClick_}">
+                Add Tabs to Share
+              </cr-button>
+            ` : html`
+              <label style="margin-top: 4px;">Tabs to Share</label>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                ${this.invokeSpecificTabsToShareIndices_.map(
+                    (selectedIndex, indexInArray) => html`
+                  <div style="display: flex; gap: 4px;">
+                    <select .value="${selectedIndex.toString()}"
+                        data-index="${indexInArray}"
+                        @change="${
+                            this.onInvokeSpecificTabsToShareIndexChange_}">
+                      ${this.availableTabs_.map((tabTitle, tabIndex) => html`
+                        <option value="${tabIndex}">
+                          ${tabIndex}: ${tabTitle}
+                        </option>
+                      `)}
+                    </select>
+                    <cr-button data-index="${indexInArray}"
+                        @click="${this.onRemoveTabsToShareIndexClick_}">
+                      x
+                    </cr-button>
+                  </div>
+                `)}
+                <cr-button @click="${this.onAddTabsToShareIndexClick_}"
+                    style="align-self: flex-start;">
+                  +
+                </cr-button>
+              </div>
+              <cr-button @click="${this.onRefreshTabsClick_}">
+                Refresh Tabs
+              </cr-button>
+            `}
+          </div>
+
           <div style="display: flex; gap: 8px; align-items: center;
                       margin-top: 8px;">
             <label for="invokeConversationTypeSelect">
@@ -413,9 +458,24 @@ export function getHtml(this: GlicInternalsAppElement) {
               log => html`<pre style="margin: 0;">${log}</pre>`)}
           </div>
           ${this.data_?.experimentalTriggeringEnabled ? html`
-            <h3>Experimental Opt-In</h3>
-            <div style="display: flex; gap: 16px; align-items: center;">
-              <cr-button @click="${this.onExperimentalOptInClick_}">
+            <h3>Consents</h3>
+            <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+              <cr-checkbox ?checked="${this.data_?.enablement?.freIsConsented}"
+                           ?disabled="${!this.data_?.enablement?.freIsConsented}"
+                           @change="${this.onGlicConsentChange_}">
+                Glic Consent
+              </cr-checkbox>
+              <cr-checkbox ?checked="${this.data_?.enablement?.actuationIsConsented}"
+                           ?disabled="${!this.data_?.enablement?.actuationIsConsented}"
+                           @change="${this.onActuationConsentChange_}">
+                Actuation Consent
+              </cr-checkbox>
+              <cr-checkbox ?checked="${this.isExperimentalOptInConsentMet_()}"
+                           ?disabled="${!this.isExperimentalOptInConsentMet_()}"
+                           @change="${this.onExperimentalConsentChange_}">
+                Experimental Triggering Consent
+              </cr-checkbox>
+              <cr-button ?disabled="${this.isAllConsentMet_()}" @click="${this.onExperimentalOptInClick_}">
                 Show Experimental Opt-In
               </cr-button>
             </div>

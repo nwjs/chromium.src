@@ -119,8 +119,10 @@ class CONTENT_EXPORT Request
                         const url::Origin& expected,
                         const url::Origin& actual) override;
 
-  // AutofillSource:
-  const std::optional<std::vector<scoped_refptr<IdentityRequestAccount>>>
+  void OnIntentResolved(const std::string& token);
+
+  // content::webid::AutofillSource
+  const std::optional<std::vector<IdentityRequestAccountPtr>>
   GetAutofillSuggestions() const override;
   void NotifyAutofillSuggestionAccepted(
       const GURL& idp,
@@ -170,6 +172,12 @@ class CONTENT_EXPORT Request
   };
 
   // LINT.ThenChange(//tools/metrics/histograms/metadata/blink/enums.xml:FedCmDialogType)
+
+  void OnNativeAppResult(
+      DialogType dialog_type,
+      const GURL& idp_config_url,
+      IdentityRequestDialogController::NativeAppResult result);
+  void OnNativeAppLoginFinished(const GURL& idp_config_url);
 
   DialogType GetDialogType() const { return dialog_type_; }
 
@@ -298,6 +306,9 @@ class CONTENT_EXPORT Request
 
   // Fetch well-known, config, accounts and client metadata endpoints for
   // passed-in IdPs. Uses parameters from `token_request_get_infos_`.
+  // When retrying a single IdP whose .well-known and config endpoints are
+  // already cached in `idp_infos_`, bypasses ConfigFetcher and directly
+  // fetches the accounts endpoint.
   void FetchEndpointsForIdps(const std::set<GURL>& idp_config_urls);
 
   std::vector<blink::mojom::IdentityProviderRequestOptionsPtr>

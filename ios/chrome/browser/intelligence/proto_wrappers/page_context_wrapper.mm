@@ -52,6 +52,8 @@
 #import "ios/web/public/js_messaging/content_world.h"
 #import "ios/web/public/js_messaging/web_frame.h"
 #import "ios/web/public/js_messaging/web_frames_manager.h"
+#import "ios/web/public/ui/crw_web_view_proxy.h"
+#import "ios/web/public/ui/crw_web_view_scroll_view_proxy.h"
 #import "ios/web/public/web_state.h"
 #import "net/base/schemeful_site.h"
 #import "url/gurl.h"
@@ -107,10 +109,12 @@ constexpr const char kRemoteFrameTokenKey[] = "remoteToken";
 // The JavaScript to be executed on each WebState's WebFrames, which retrieves
 // the innerText of the document body, and recursively traverses through
 // same-origin nested iframes to retrieve their innerTexts as well,
-// constructing a tree structure. iframes are marked as processed with a nonce
-// to avoid duplicate text from frames, but only for the current run. Early
-// returns if the PageContext should be detached, or the frame is not the
-// top-most same-origin frame.
+// constructing a tree structure. The innerText of a node also includes text
+// inside open Shadow DOM roots, which is otherwise excluded from
+// Element.innerText. iframes are marked as processed with a nonce to avoid
+// duplicate text from frames, but only for the current run. Early returns if
+// the PageContext should be detached, or the frame is not the top-most
+// same-origin frame.
 constexpr const char16_t* kInnerTextTreeJavaScript = uR"DELIM(
 (() => {
     // Checks whether the PageContext should be detached.
@@ -131,6 +135,66 @@ constexpr const char16_t* kInnerTextTreeJavaScript = uR"DELIM(
         // Not the top-most same-origin frame, early exit.
         return null;
     }
+
+    // Direct references to `Element` members, used to read shadow roots and
+    // query descendants without going through instance properties that a
+    // hostile page could clobber (e.g. a form control named `querySelectorAll`
+    // or `shadowRoot`).
+    const shadowRootGetter =
+        Object.getOwnPropertyDescriptor(Element.prototype, 'shadowRoot')?.get;
+    const querySelectorAllMethod = Element.prototype.querySelectorAll;
+    const safeShadowRoot = (element) =>
+        element ? (shadowRootGetter ? shadowRootGetter.call(element) :
+                                      element.shadowRoot) :
+                  null;
+    const safeQuerySelectorAllAsArray = (element, selector) =>
+        Array.from(querySelectorAllMethod.call(element, selector));
+
+    // Keep this implementation in sync with `getInnerTextIncludingShadowDom()`
+    // in page_context_extractor.ts.
+    // Collects the innerText of a node, additionally piercing open Shadow DOM
+    // roots whose text is not reflected in Element.innerText. Nested shadow
+    // roots are handled through the recursion. Closed shadow roots are
+    // inaccessible from script and are skipped.
+    const getInnerTextIncludingShadowDom = (node) => {
+        if (!node) {
+            return '';
+        }
+        const texts = [];
+        if (node.innerText) {
+            texts.push(node.innerText);
+        }
+        // The node itself and its light-DOM descendants may be shadow hosts.
+        // querySelectorAll does not cross shadow boundaries, so shadow hosts
+        // nested inside another shadow tree are reached via the recursion.
+        const hosts = safeQuerySelectorAllAsArray(node, '*');
+        if (safeShadowRoot(node)) {
+            hosts.unshift(node);
+        }
+        for (const host of hosts) {
+            const shadowRoot = safeShadowRoot(host);
+            if (!shadowRoot) {
+                continue;
+            }
+            // Iterate all child nodes (not just elements) so text authored
+            // directly under the shadow root is not dropped.
+            for (const shadowChild of shadowRoot.childNodes) {
+                let shadowText = '';
+                if (shadowChild.nodeType === Node.ELEMENT_NODE) {
+                    shadowText = getInnerTextIncludingShadowDom(shadowChild);
+                } else if (shadowChild.nodeType === Node.TEXT_NODE) {
+                    shadowText = (shadowChild.textContent || '').trim();
+                }
+                if (shadowText) {
+                    texts.push(shadowText);
+                }
+            }
+        }
+        // `innerText` above collects all light-DOM text at once. Shadow-DOM
+        // chunks are therefore appended after it rather than inserted at their
+        // visual positions.
+        return texts.join('\n');
+    };
 
     // Recursively constructs the innerText tree for the passed node and its
     // children same-origin iframes.
@@ -167,7 +231,7 @@ constexpr const char16_t* kInnerTextTreeJavaScript = uR"DELIM(
         });
 
         const result = {
-            currentNodeInnerText: node.innerText,
+            currentNodeInnerText: getInnerTextIncludingShadowDom(node),
             children: childNodeInnerTexts.filter(item => item !== null),
             sourceUrl: frameURL,
             title: frameTitle,
@@ -246,6 +310,11 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   // Unique pointer to the PageContext proto.
   std::unique_ptr<optimization_guide::proto::PageContext> _pageContext;
 
+  // The boxes to redact over the screenshot.
+  std::vector<CGRect> _universalBoundingBoxesForRedaction;
+
+  // Raw screenshot image before redaction masking is applied.
+  UIImage* _rawScreenshotImage;
   // The current PageContext instance's metrics logger. Only created when async
   // tasks execution is started.
   PageContextWrapperMetrics* _pageContextMetrics;
@@ -523,7 +592,7 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
       return;
     }
 
-    [strongSelf encodeImageAndSetTabScreenshot:image];
+    [strongSelf stashRawScreenshotImage:image];
     barrier.Run();
   };
 
@@ -612,7 +681,8 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
         _config->use_rich_extraction_with_actionable(),
         _config->extract_paid_content(),
         _config->attempt_paid_content_json_fixing(),
-        _config->include_sensitive_payments_for_redaction(), nonce, jsTimeout,
+        _config->include_sensitive_payments_for_redaction(),
+        _config->extract_autofill_otp_redactions(), nonce, jsTimeout,
         base::BindOnce(
             callbackJson, weakSelf, annotatedPageContentBarrier, isMainFrame,
             frame->GetSecurityOrigin(),
@@ -642,7 +712,8 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
         _config->use_rich_extraction_with_actionable(),
         _config->extract_paid_content(),
         _config->attempt_paid_content_json_fixing(),
-        _config->include_sensitive_payments_for_redaction(), nonce, jsTimeout,
+        _config->include_sensitive_payments_for_redaction(),
+        _config->extract_autofill_otp_redactions(), nonce, jsTimeout,
         base::BindOnce(
             callback, weakSelf, annotatedPageContentBarrier, isMainFrame,
             frame->GetSecurityOrigin(),
@@ -903,6 +974,9 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
           _grafter, registrar, _config->include_same_site_only(),
           _pageContext->mutable_annotated_page_content());
     }
+    if (_rawScreenshotImage) {
+      [self applyRedactionsAndEncodeScreenshot:_rawScreenshotImage];
+    }
     response = base::ok(std::move(_pageContext));
     completionStatus = PageContextCompletionStatus::kSuccess;
   }
@@ -933,7 +1007,7 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
         if (!strongSelf) {
           return;
         }
-        [strongSelf encodeImageAndSetTabScreenshot:image];
+        [strongSelf stashRawScreenshotImage:image];
         barrier.Run();
       });
 }
@@ -948,17 +1022,64 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   }
 }
 
-// Convert UIImage snapshot to PNG, and then to base64 encoded string. Set the
-// tab screenshot on the current PageContext.
-- (void)encodeImageAndSetTabScreenshot:(UIImage*)image {
-  [self stopTextHighlighting];
+// Returns YES for any RedactionDecision enums that require screenshot
+// redaction.
+- (BOOL)shouldRedactDecisionForScreenshot:
+    (optimization_guide::proto::RedactionDecision)decision {
+  switch (decision) {
+    case optimization_guide::proto::
+        REDACTION_DECISION_REDACTED_IS_SENSITIVE_PAYMENT_FIELD:
+      return _config->include_sensitive_payments_for_redaction();
+    case optimization_guide::proto::REDACTION_DECISION_REDACTED_IS_OTP:
+      return _config->extract_autofill_otp_redactions();
+    default:
+      return NO;
+  }
+}
 
-  if (!image) {
-    [_pageContextMetrics
-        executionFinishedForTask:PageContextTask::kScreenshot
-            withCompletionStatus:PageContextCompletionStatus::kFailure];
-    DLOG(WARNING) << "Failed to fetch webpage screenshot.";
-    return;
+- (void)applyRedactionsAndEncodeScreenshot:(UIImage*)image {
+  if (_pageContext && _pageContext->has_annotated_page_content()) {
+    _grafter.CollectFormControlRedactionBoxesFromTree(
+        _pageContext->annotated_page_content().root_node());
+  }
+
+  // If the page has a non-standard zoomScale, we scale the extracted DOM layout
+  // coordinates by zoomScale so that they align 1:1 with the pixels in the
+  // screenshot bitmap captured from WKWebView.
+  CGFloat zoomScale = 1.0;
+  if (_webState && _webState->GetWebViewProxy() &&
+      _webState->GetWebViewProxy().scrollViewProxy) {
+    zoomScale = _webState->GetWebViewProxy().scrollViewProxy.zoomScale;
+  }
+
+  _universalBoundingBoxesForRedaction.clear();
+
+  for (const auto& entry : _grafter.universal_bounding_boxes_for_redaction()) {
+    if ([self shouldRedactDecisionForScreenshot:entry.decision]) {
+      _universalBoundingBoxesForRedaction.push_back(
+          CGRectMake(entry.visible_box.origin.x * zoomScale,
+                     entry.visible_box.origin.y * zoomScale,
+                     entry.visible_box.size.width * zoomScale,
+                     entry.visible_box.size.height * zoomScale));
+    }
+  }
+
+  if (!_universalBoundingBoxesForRedaction.empty()) {
+    UIGraphicsImageRendererFormat* format =
+        [UIGraphicsImageRendererFormat defaultFormat];
+    format.scale = image.scale;
+    format.opaque = NO;
+
+    UIGraphicsImageRenderer* renderer =
+        [[UIGraphicsImageRenderer alloc] initWithSize:image.size format:format];
+    image =
+        [renderer imageWithActions:^(UIGraphicsImageRendererContext* context) {
+          [image drawAtPoint:CGPointZero];
+          [[UIColor blackColor] setFill];
+          for (const CGRect& rect : _universalBoundingBoxesForRedaction) {
+            [[UIBezierPath bezierPathWithRect:rect] fill];
+          }
+        }];
   }
 
   NSData* imageData = UIImagePNGRepresentation(image);
@@ -973,9 +1094,29 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
   NSString* base64String = [imageData base64EncodedStringWithOptions:0];
   _pageContext->set_tab_screenshot(base::SysNSStringToUTF8(base64String));
 
+  _universalBoundingBoxesForRedaction.clear();
+  _rawScreenshotImage = nil;
+
   [_pageContextMetrics
       executionFinishedForTask:PageContextTask::kScreenshot
           withCompletionStatus:PageContextCompletionStatus::kSuccess];
+}
+
+// Temporarily saves the raw screenshot image captured from the WebState so that
+// redactions can be applied and PNG encoding performed after APC extraction and
+// iframe coordinate grafting complete.
+- (void)stashRawScreenshotImage:(UIImage*)image {
+  [self stopTextHighlighting];
+
+  if (!image) {
+    [_pageContextMetrics
+        executionFinishedForTask:PageContextTask::kScreenshot
+            withCompletionStatus:PageContextCompletionStatus::kFailure];
+    DLOG(WARNING) << "Failed to fetch webpage screenshot.";
+    return;
+  }
+
+  _rawScreenshotImage = image;
 }
 
 // If it exists, convert the PDF data to base64 encoded string and set it in
@@ -1109,9 +1250,13 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
           });
 
   std::optional<AutofillExtractionContext> autofill_context;
-  if (_config->extract_autofill()) {
+  if (_config->extract_autofill() ||
+      _config->extract_autofill_credit_card_redactions() ||
+      _config->include_sensitive_payments_for_redaction() ||
+      _config->extract_autofill_otp_redactions()) {
     autofill_context.emplace(_webState, localFrameToken,
                              _config->extract_autofill_credit_card_redactions(),
+                             _config->extract_autofill_otp_redactions(),
                              &_autofillSectionNumbers);
   }
 
@@ -1620,6 +1765,30 @@ const NSUInteger kMaxPDFByteLimit = 64 * 1024 * 1024;
 
   std::move(_completionCallback)
       .Run(base::unexpected(PageContextWrapperError::kTimeout));
+}
+
+#pragma mark - Testing
+
+// Test-only hooks to allow synchronous unit testing of the screenshot masking
+// and redaction bounding box collection engine without requiring an
+// asynchronous WKWebView E2E snapshot round-trip.
+- (void)encodeImageAndSetTabScreenshotForTesting:(UIImage*)image {
+  [self stashRawScreenshotImage:image];
+  if (_rawScreenshotImage) {
+    [self applyRedactionsAndEncodeScreenshot:_rawScreenshotImage];
+  }
+}
+
+- (void)setBoxesToRedactForTesting:(const std::vector<CGRect>&)boxes {
+  _universalBoundingBoxesForRedaction = boxes;
+}
+
+- (const std::vector<CGRect>&)boxesToRedactForTesting {
+  return _universalBoundingBoxesForRedaction;
+}
+
+- (optimization_guide::proto::PageContext*)pageContextForTesting {
+  return _pageContext.get();
 }
 
 @end

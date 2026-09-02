@@ -23,8 +23,8 @@
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/extensions/app_launch_params.h"
@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/extensions/extension_enable_flow.h"
 #include "chrome/browser/ui/extensions/extension_enable_flow_delegate.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/extensions/extension_metrics.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
@@ -471,11 +472,10 @@ void ExtensionAppsBase::OpenNativeSettings(const std::string& app_id) {
     BrowserWindowInterface* browser =
         ProfileBrowserCollection::GetForProfile(profile_)->FindTabbedBrowser();
     if (!browser) {
-      browser = Browser::Create(Browser::CreateParams(profile_, true));
+      browser = CreateBrowserWindow(BrowserWindowCreateParams(profile_, true));
     }
 
-    chrome::ShowExtensions(browser->GetBrowserForMigrationOnly(),
-                           extension->id());
+    chrome::ShowExtensions(browser, extension->id());
   }
 }
 

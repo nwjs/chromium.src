@@ -8,9 +8,8 @@ import("//third_party/angle/dotfile_settings.gni")
 # The location of the build configuration file.
 buildconfig = "//build/config/BUILDCONFIG.gn"
 
-# The python interpreter to use by default. On Windows, this will look
-# for python3.exe and python3.bat.
-script_executable = "python3"
+# The hermetic Python interpreter to use by default.
+script_executable = "//third_party/cpython3/host/bin/python3"
 
 # These arguments override the default values for items in a declare_args
 # block. "gn args" in turn can override these.
@@ -177,4 +176,8 @@ exec_script_allowlist =
       "//third_party/dawn/third_party/meson/meson_target.gni",
     ]
 
-expand_directory_allowlist = build_dotfile_settings.expand_directory_allowlist
+expand_directory_allowlist =
+    build_dotfile_settings.expand_directory_allowlist + [
+      # Requires to enumerate policy template yaml files.
+      "//components/policy/BUILD.gn",
+    ]

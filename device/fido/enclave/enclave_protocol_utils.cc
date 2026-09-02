@@ -9,10 +9,12 @@
 #include <variant>
 
 #include "base/compiler_specific.h"
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
+#include "base/notreached.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
@@ -30,9 +32,9 @@
 #include "device/fido/attestation_statement.h"
 #include "device/fido/authenticator_data.h"
 #include "device/fido/authenticator_make_credential_response.h"
+#include "device/fido/cbor_util.h"
 #include "device/fido/enclave/constants.h"
 #include "device/fido/enclave/types.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/json_request.h"
 #include "device/fido/p256_public_key.h"
 #include "device/fido/public/features.h"
@@ -101,8 +103,9 @@ constexpr std::array<std::string_view, 2> kGetAssertionKeys = {"rpId",
 constexpr std::array<std::string_view, 2> kMakeCredentialKeys = {
     "pubKeyCredParams", "extensions"};
 
-const cbor::Value::MapValue* cborFindMap(const cbor::Value::MapValue& map,
-                                         std::string key) {
+const cbor::Value::MapValue* cborFindMap(const cbor::Value::MapValue& map
+                                             LIFETIME_BOUND,
+                                         std::string_view key) {
   auto value_it = map.find(cbor::Value(key));
   if (value_it == map.end() || !value_it->second.is_map()) {
     return nullptr;
@@ -110,8 +113,9 @@ const cbor::Value::MapValue* cborFindMap(const cbor::Value::MapValue& map,
   return &value_it->second.GetMap();
 }
 
-const std::vector<uint8_t>* cborFindBytestring(const cbor::Value::MapValue& map,
-                                               std::string key) {
+const std::vector<uint8_t>* cborFindBytestring(const cbor::Value::MapValue& map
+                                                   LIFETIME_BOUND,
+                                               std::string_view key) {
   auto value_it = map.find(cbor::Value(key));
   if (value_it == map.end() || !value_it->second.is_bytestring()) {
     return nullptr;
@@ -128,7 +132,10 @@ cbor::Value toCbor(const base::Value& json) {
     case base::Value::Type::INTEGER:
       return cbor::Value(json.GetInt());
     case base::Value::Type::DOUBLE:
-      return cbor::Value(json.GetDouble());
+      // CBOR doesn't support floating-point values, and no inputs to this
+      // function currently contain them:
+      // http://crrev.com/c/8249404/comment/2632dca4_e363144e/.
+      NOTREACHED();
     case base::Value::Type::STRING:
       return cbor::Value(json.GetString());
     case base::Value::Type::BINARY:
@@ -209,7 +216,7 @@ AuthenticatorGetAssertionResponseFromValue(const cbor::Value::MapValue& map) {
         PublicKeyCredentialUserEntity(std::move(*user_handle));
   }
 
-  return std::move(response);
+  return response;
 }
 
 std::optional<std::vector<uint8_t>> ParsePrfResponse(const cbor::Value& v) {
@@ -217,18 +224,14 @@ std::optional<std::vector<uint8_t>> ParsePrfResponse(const cbor::Value& v) {
     return std::nullopt;
   }
   const cbor::Value::MapValue& map = v.GetMap();
-  auto it = map.find(cbor::Value(kPrfFirst));
-  if (it == map.end() || !it->second.is_bytestring()) {
-    return std::nullopt;
-  }
-  const std::vector<uint8_t>& first = it->second.GetBytestring();
-  if (first.size() != 32) {
-    return std::nullopt;
-  }
-  std::vector<uint8_t> ret = first;
 
-  it = map.find(cbor::Value(kPrfSecond));
-  if (it != map.end()) {
+  const std::vector<uint8_t>* first = cborFindBytestring(map, kPrfFirst);
+  if (!first || first->size() != 32) {
+    return std::nullopt;
+  }
+  std::vector<uint8_t> ret = *first;
+
+  if (auto it = map.find(cbor::Value(kPrfSecond)); it != map.end()) {
     if (!it->second.is_bytestring()) {
       return std::nullopt;
     }
@@ -285,8 +288,7 @@ ParseGetAssertionResponse(cbor::Value response_value,
         return ErrorResponse("Command response contained invalid error field.");
       }
     }
-    if (response_map.find(cbor::Value(kResponseSuccessKey)) ==
-        response_map.end()) {
+    if (!response_map.contains(cbor::Value(kResponseSuccessKey))) {
       return ErrorResponse(
           "Command response did not contain a successful "
           "response or an error.");
@@ -324,19 +326,16 @@ ParseGetAssertionResponse(cbor::Value response_value,
   }
 
   response->credential = PublicKeyCredentialDescriptor(
-      CredentialType::kPublicKey,
-      fido_parsing_utils::Materialize(credential_id));
+      CredentialType::kPublicKey, base::ToVector(credential_id));
   response->hmac_secret = std::move(prf_results);
 
-  const std::vector<uint8_t>* updated_encrypted_passkey =
-      cborFindBytestring(*last_response, kEncryptedKey);
-  if (updated_encrypted_passkey) {
+  if (const std::vector<uint8_t>* updated_encrypted_passkey =
+          cborFindBytestring(*last_response, kEncryptedKey)) {
     response->updated_encrypted_passkey = *updated_encrypted_passkey;
   }
 
-  const cbor::Value::MapValue* large_blob_map =
-      cborFindMap(*last_response, kLargeBlobKey);
-  if (large_blob_map) {
+  if (const cbor::Value::MapValue* large_blob_map =
+          cborFindMap(*last_response, kLargeBlobKey)) {
     const auto* data = cborFindBytestring(*large_blob_map, kLargeBlobDataKey);
     auto size_it = large_blob_map->find(cbor::Value(kLargeBlobSizeKey));
     const bool has_data = data != nullptr;
@@ -383,19 +382,18 @@ ParseGetAssertionResponse(cbor::Value response_value,
     }
   }
 
-  auto cmtg_it = last_response->find(cbor::Value(kResponseCmtgKey));
-  if (cmtg_it != last_response->end() && cmtg_it->second.is_map()) {
-    const auto& cmtg_map = cmtg_it->second.GetMap();
-    auto key_it = cmtg_map.find(cbor::Value(kResponseCmtgKey));
-    auto sig_it = cmtg_map.find(cbor::Value(kResponseCmtgSignature));
-    if (key_it != cmtg_map.end() && key_it->second.is_bytestring() &&
-        sig_it != cmtg_map.end() && sig_it->second.is_bytestring()) {
-      response->cmtg_key.emplace(key_it->second.GetBytestring(),
-                                 sig_it->second.GetBytestring());
+  if (const cbor::Value::MapValue* cmtg_map =
+          cborFindMap(*last_response, kResponseCmtgKey)) {
+    const std::vector<uint8_t>* key =
+        cborFindBytestring(*cmtg_map, kResponseCmtgKey);
+    const std::vector<uint8_t>* sig =
+        cborFindBytestring(*cmtg_map, kResponseCmtgSignature);
+    if (key && sig) {
+      response->cmtg_key.emplace(*key, *sig);
     }
   }
 
-  return std::move(*response);
+  return *std::move(response);
 }
 
 std::variant<std::pair<AuthenticatorMakeCredentialResponse,
@@ -429,8 +427,7 @@ ParseMakeCredentialResponse(cbor::Value response_value,
         return ErrorResponse("Command response contained invalid error field.");
       }
     }
-    if (response_map.find(cbor::Value(kResponseSuccessKey)) ==
-        response_map.end()) {
+    if (!response_map.contains(cbor::Value(kResponseSuccessKey))) {
       return ErrorResponse(
           "Command response did not contain a successful "
           "response or an error.");
@@ -565,15 +562,14 @@ ParseMakeCredentialResponse(cbor::Value response_value,
   response.prf_enabled = prf_enabled;
   response.prf_results = std::move(prf_results);
 
-  auto cmtg_it = last_response->find(cbor::Value(kResponseCmtgKey));
-  if (cmtg_it != last_response->end() && cmtg_it->second.is_map()) {
-    const auto& cmtg_map = cmtg_it->second.GetMap();
-    auto key_it = cmtg_map.find(cbor::Value(kResponseCmtgKey));
-    auto sig_it = cmtg_map.find(cbor::Value(kResponseCmtgSignature));
-    if (key_it != cmtg_map.end() && key_it->second.is_bytestring() &&
-        sig_it != cmtg_map.end() && sig_it->second.is_bytestring()) {
-      response.cmtg_key.emplace(key_it->second.GetBytestring(),
-                                sig_it->second.GetBytestring());
+  if (const cbor::Value::MapValue* cmtg_map =
+          cborFindMap(*last_response, kResponseCmtgKey)) {
+    const std::vector<uint8_t>* key =
+        cborFindBytestring(*cmtg_map, kResponseCmtgKey);
+    const std::vector<uint8_t>* sig =
+        cborFindBytestring(*cmtg_map, kResponseCmtgSignature);
+    if (key && sig) {
+      response.cmtg_key.emplace(*key, *sig);
     }
   }
 
@@ -641,7 +637,7 @@ cbor::Value BuildGetAssertionCommand(
                       std::move(claimed_pin->wrapped_pin));
   }
 
-  return cbor::Value(entry_map);
+  return cbor::Value(std::move(entry_map));
 }
 
 cbor::Value BuildMakeCredentialCommand(
@@ -710,7 +706,7 @@ cbor::Value BuildMakeCredentialCommand(
                       cbor::Value(std::move(*cmtg_device_key)));
   }
 
-  return cbor::Value(entry_map);
+  return cbor::Value(std::move(entry_map));
 }
 
 cbor::Value BuildAddUVKeyCommand(base::span<const uint8_t> uv_public_key) {
@@ -720,7 +716,7 @@ cbor::Value BuildAddUVKeyCommand(base::span<const uint8_t> uv_public_key) {
                     cbor::Value(kAddUVKeyCommandName));
   entry_map.emplace(cbor::Value(kAddUVKeyPubKey), cbor::Value(uv_public_key));
 
-  return cbor::Value(entry_map);
+  return cbor::Value(std::move(entry_map));
 }
 
 void BuildCommandRequestBody(
@@ -780,7 +776,7 @@ void BuildCommandRequestBody(
             cbor::Value(std::move(client_signature->signature)));
         std::optional<std::vector<uint8_t>> serialized_request =
             cbor::Writer::Write(cbor::Value(std::move(request_body_map)));
-        std::move(complete_callback).Run(*serialized_request);
+        std::move(complete_callback).Run(*std::move(serialized_request));
       };
 
   std::move(signing_callback)
@@ -791,21 +787,17 @@ void BuildCommandRequestBody(
 }
 
 cbor::Value RedactEnclaveRequest(const cbor::Value& cbor) {
-  return fido_parsing_utils::RedactCbor(
-      cbor,
-      std::array{fido_parsing_utils::ToCborVector(kRequestSecretKey),
-                 fido_parsing_utils::ToCborVector(kWrappingKeyToWrap),
-                 fido_parsing_utils::ToCborVector(kClaimKey),
-                 fido_parsing_utils::ToCborVector(kRequestCmtgDeviceKeys),
-                 fido_parsing_utils::ToCborVector(kRequestCmtgDeviceKey)});
+  using fido_cbor_util::Path;
+  return fido_cbor_util::RedactValueAtPaths(
+      cbor, Path(kRequestSecretKey), Path(kWrappingKeyToWrap), Path(kClaimKey),
+      Path(kRequestCmtgDeviceKeys), Path(kRequestCmtgDeviceKey));
 }
 
 cbor::Value RedactEnclaveResponse(const cbor::Value& cbor) {
-  return fido_parsing_utils::RedactCbor(
-      cbor,
-      std::array{fido_parsing_utils::ToCborVector("ok", "ok", "largeBlob"),
-                 fido_parsing_utils::ToCborVector("ok", "ok", "prf"),
-                 fido_parsing_utils::ToCborVector("ok", "ok", "wrapped", "certs_in_path")});
+  using fido_cbor_util::Path;
+  return fido_cbor_util::RedactValueAtPaths(
+      cbor, Path("ok", "ok", "largeBlob"), Path("ok", "ok", "prf"),
+      Path("ok", "ok", "wrapped", "certs_in_path"));
 }
 
 }  // namespace device::enclave

@@ -11,8 +11,6 @@
 #include "base/android/device_info.h"
 #include "base/check_deref.h"
 #include "base/functional/callback_helpers.h"
-#include "chrome/browser/android/tab_android.h"
-#include "chrome/browser/android/tab_web_contents_delegate_android.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/facilitated_payments/ui/android/facilitated_payments_controller.h"
@@ -41,7 +39,8 @@
 
 ChromeFacilitatedPaymentsClient::ChromeFacilitatedPaymentsClient(
     content::WebContents* web_contents,
-    optimization_guide::OptimizationGuideDecider* optimization_guide_decider)
+    optimization_guide::OptimizationGuideDecider* optimization_guide_decider,
+    base::RepeatingCallback<bool(content::WebContents*)> is_cct_callback)
     : content::WebContentsUserData<ChromeFacilitatedPaymentsClient>(
           *web_contents),
       driver_factory_(web_contents,
@@ -49,6 +48,7 @@ ChromeFacilitatedPaymentsClient::ChromeFacilitatedPaymentsClient(
       facilitated_payments_controller_(
           std::make_unique<FacilitatedPaymentsController>(web_contents)),
       optimization_guide_decider_(optimization_guide_decider),
+      is_cct_callback_(std::move(is_cct_callback)),
       device_delegate_(web_contents) {
   RegisterAllowlists();
 }
@@ -119,11 +119,7 @@ bool ChromeFacilitatedPaymentsClient::IsFoldable() {
 }
 
 bool ChromeFacilitatedPaymentsClient::IsInChromeCustomTabMode() {
-  auto* delegate = TabAndroid::FromWebContents(&GetWebContents())
-                       ? static_cast<android::TabWebContentsDelegateAndroid*>(
-                             GetWebContents().GetDelegate())
-                       : nullptr;
-  return delegate && delegate->IsCustomTab();
+  return is_cct_callback_ && is_cct_callback_.Run(&GetWebContents());
 }
 
 optimization_guide::OptimizationGuideDecider*
@@ -206,8 +202,13 @@ void ChromeFacilitatedPaymentsClient::ShowPixAccountLinkingPrompt(
     int strike_count,
     base::OnceCallback<void()> on_accepted,
     base::OnceCallback<void()> on_declined) {
+  std::optional<CoreAccountInfo> account_info = GetCoreAccountInfo();
+  if (!account_info.has_value() || account_info->email.empty()) {
+    return;
+  }
   facilitated_payments_controller_->ShowPixAccountLinkingPrompt(
-      strike_count, std::move(on_accepted), std::move(on_declined));
+      strike_count, account_info->email, std::move(on_accepted),
+      std::move(on_declined));
 }
 
 void ChromeFacilitatedPaymentsClient::ShowPixAccountLinkingSuccessScreen() {
@@ -222,6 +223,12 @@ void ChromeFacilitatedPaymentsClient::ShowAccountLinkingPrompt(
   facilitated_payments_controller_->ShowAccountLinkingPrompt(
       params, std::move(on_accepted), std::move(on_declined),
       std::move(on_dismissed));
+}
+
+void ChromeFacilitatedPaymentsClient::ShowAccountLinkingFailureNotification(
+    payments::facilitated::FacilitatedPaymentsType fop_type) {
+  facilitated_payments_controller_->ShowAccountLinkingFailureNotification(
+      fop_type);
 }
 
 bool ChromeFacilitatedPaymentsClient::HasScreenlockOrBiometricSetup() {

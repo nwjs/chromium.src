@@ -41,6 +41,7 @@
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/enterprise/signin/profile_management_disclaimer_service.h"
 #include "chrome/browser/enterprise/signin/profile_management_disclaimer_service_factory.h"
+#include "chrome/browser/enterprise/signin/signals_disclaimer_metrics.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/interstitials/chrome_settings_page_helper.h"
@@ -62,6 +63,7 @@
 #include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_test_util.h"
 #include "chrome/browser/signin/dice_tab_helper.h"
@@ -76,6 +78,7 @@
 #include "chrome/browser/themes/theme_syncable_service.h"
 #include "chrome/browser/trusted_vault/trusted_vault_encryption_keys_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -163,7 +166,6 @@
 #include "google_apis/gaia/gaia_id.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "google_apis/gaia/google_service_auth_error.h"
-#include "net/base/url_util.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -556,12 +558,9 @@ void WaitForBrowserUrl(const GURL& url, content::WebContents* target) {
 }
 
 GURL GetManagedUserProfileNoticeUrl() {
-  if (base::FeatureList::IsEnabled(switches::kFirstRunDesktopRefresh)) {
-    const ManagedUserProfileNoticeUI::ScreenType default_type =
-        ManagedUserProfileNoticeUI::ScreenType::kProfilePicker;
-    return ManagedUserProfileNoticeUI::GetURLForType(default_type);
-  }
-  return GURL(chrome::kChromeUIManagedUserProfileNoticeUrl);
+  return base::FeatureList::IsEnabled(switches::kFirstRunDesktopRefresh)
+             ? GURL(chrome::kChromeUIManagedUserProfileNoticeRefreshURL)
+             : GURL(chrome::kChromeUIManagedUserProfileNoticeUrl);
 }
 
 // Browser extra part used to be notified early enough to track the
@@ -4381,7 +4380,7 @@ class ProfilePickerDeviceSignalsDisclaimerBrowserTest
         const interval = setInterval(() => {
           const link = document.querySelector('managed-user-profile-notice-app')
                            ?.shadowRoot?.querySelector('signals-disclaimer')
-                           ?.shadowRoot?.querySelector('.subtitle a');
+                           ?.shadowRoot?.querySelector('#learnMoreLink');
           if (link && !link.hidden) {
             clearInterval(interval);
             link.click();
@@ -4393,9 +4392,14 @@ class ProfilePickerDeviceSignalsDisclaimerBrowserTest
     return content::ExecJs(wc, script);
   }
 
+  const base::HistogramTester& histogram_tester() const {
+    return histogram_tester_;
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   base::FilePath managed_profile_path_;
+  base::HistogramTester histogram_tester_;
 };
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4418,6 +4422,11 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
   WaitForPickerClosed();
   EXPECT_TRUE(new_browser->GetProfile()->GetPrefs()->GetBoolean(
       device_signals::prefs::kDeviceSignalsPermanentConsentReceived));
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerShown, true, 1);
+  histogram_tester().ExpectUniqueSample(
+      kEnterpriseSignalsDisclaimerProfilePickerResult,
+      EnterpriseSignalsDisclaimerProfilePickerResult::kAccepted, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4442,6 +4451,34 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
       g_browser_process->profile_manager()->GetProfile(managed_profile_path());
   EXPECT_FALSE(managed_profile->GetPrefs()->GetBoolean(
       device_signals::prefs::kDeviceSignalsPermanentConsentReceived));
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerShown, true, 1);
+  histogram_tester().ExpectUniqueSample(
+      kEnterpriseSignalsDisclaimerProfilePickerResult,
+      EnterpriseSignalsDisclaimerProfilePickerResult::kDeclined, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
+                       OpenProfileFromPickerCancelAndReopen) {
+  ASSERT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
+
+  ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
+      ProfilePicker::EntryPoint::kProfileMenuManageProfiles));
+  WaitForLoadStop(GURL(chrome::kChromeUIProfilePickerUrl));
+  EXPECT_TRUE(ProfilePicker::IsOpen());
+
+  OpenProfileFromPicker(managed_profile_path(), /*open_settings=*/false);
+
+  WaitForLoadStop(GURL(chrome::kChromeUIManagedUserProfileNoticeUrl));
+  ClickDisclaimerButton("cancel-button");
+
+  WaitForLoadStop(GURL(chrome::kChromeUIProfilePickerUrl));
+  EXPECT_TRUE(ProfilePicker::IsOpen());
+
+  // Picking the profile again should re-show the disclaimer without crashing.
+  OpenProfileFromPicker(managed_profile_path(), /*open_settings=*/false);
+  WaitForLoadStop(GURL(chrome::kChromeUIManagedUserProfileNoticeUrl));
+  EXPECT_TRUE(ProfilePicker::IsOpen());
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4465,6 +4502,11 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
       g_browser_process->profile_manager()->GetProfile(managed_profile_path());
   EXPECT_FALSE(managed_profile->GetPrefs()->GetBoolean(
       device_signals::prefs::kDeviceSignalsPermanentConsentReceived));
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerShown, true, 1);
+  histogram_tester().ExpectUniqueSample(
+      kEnterpriseSignalsDisclaimerProfilePickerResult,
+      EnterpriseSignalsDisclaimerProfilePickerResult::kProfilePickerClosed, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4489,6 +4531,10 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
   WaitForPickerClosed();
   EXPECT_TRUE(new_browser->GetProfile()->GetPrefs()->GetBoolean(
       device_signals::prefs::kDeviceSignalsPermanentConsentReceived));
+  histogram_tester().ExpectTotalCount(
+      kEnterpriseSignalsDisclaimerProfilePickerShown, 0);
+  histogram_tester().ExpectTotalCount(
+      kEnterpriseSignalsDisclaimerProfilePickerResult, 0);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4513,6 +4559,11 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
   WaitForPickerClosed();
   EXPECT_TRUE(new_browser->GetProfile()->GetPrefs()->GetBoolean(
       device_signals::prefs::kDeviceSignalsPermanentConsentReceived));
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerShown, true, 1);
+  histogram_tester().ExpectUniqueSample(
+      kEnterpriseSignalsDisclaimerProfilePickerResult,
+      EnterpriseSignalsDisclaimerProfilePickerResult::kAccepted, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4542,6 +4593,11 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
   WaitForPickerClosed();
   EXPECT_TRUE(new_browser->GetProfile()->GetPrefs()->GetBoolean(
       device_signals::prefs::kDeviceSignalsPermanentConsentReceived));
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerShown, true, 1);
+  histogram_tester().ExpectUniqueSample(
+      kEnterpriseSignalsDisclaimerProfilePickerResult,
+      EnterpriseSignalsDisclaimerProfilePickerResult::kAccepted, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4575,6 +4631,8 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
 
   EXPECT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
   EXPECT_TRUE(ProfilePicker::IsOpen());
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerLearnMoreClicked, true, 1);
 }
 
 IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
@@ -4598,7 +4656,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
   ASSERT_TRUE(popup_browser);
   EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
 
-  popup_browser->DidBecomeInactive();
+  BrowserActiveStateManager::From(popup_browser)->DidBecomeInactive();
   widget()->Activate();
 
   // Click Learn More again.
@@ -4608,4 +4666,66 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
   // No new window should open, instead the existing popup should be focused.
   ui_test_utils::WaitUntilBrowserBecomeActive(popup_browser);
   EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerLearnMoreClicked, true, 2);
+}
+
+IN_PROC_BROWSER_TEST_F(ProfilePickerDeviceSignalsDisclaimerBrowserTest,
+                       OpenProfileFromPickerLearnMoreDoesNotRestoreSession) {
+  ASSERT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
+
+  Profile* managed_profile =
+      g_browser_process->profile_manager()->GetProfile(managed_profile_path());
+  ASSERT_TRUE(managed_profile);
+
+  // Set the profile startup setting to "Continue where you left off".
+  SessionStartupPref pref(SessionStartupPref::LAST);
+  SessionStartupPref::SetStartupPref(managed_profile, pref);
+
+  // Temporarily grant consent so the modal dialog does not block opening
+  // chrome://policy.
+  managed_profile->GetPrefs()->SetBoolean(
+      device_signals::prefs::kDeviceSignalsPermanentConsentReceived, true);
+
+  // Open a browser for the managed profile and navigate to chrome://policy so
+  // there is a session to restore.
+  Browser* profile_browser = CreateBrowser(managed_profile);
+  ASSERT_TRUE(
+      ui_test_utils::NavigateToURL(profile_browser, GURL("chrome://policy")));
+
+  // Reset consent back to false so the disclaimer flow can be tested.
+  managed_profile->GetPrefs()->SetBoolean(
+      device_signals::prefs::kDeviceSignalsPermanentConsentReceived, false);
+
+  ScopedProfileKeepAlive profile_keep_alive(
+      managed_profile, ProfileKeepAliveOrigin::kBrowserWindow);
+  CloseBrowserSynchronously(profile_browser);
+
+  ProfilePicker::Show(ProfilePicker::Params::FromEntryPoint(
+      ProfilePicker::EntryPoint::kProfileMenuManageProfiles));
+  WaitForLoadStop(GURL(chrome::kChromeUIProfilePickerUrl));
+  EXPECT_TRUE(ProfilePicker::IsOpen());
+
+  // Wait for popup browser to open when Learn More is clicked.
+  ui_test_utils::BrowserCreatedObserver browser_creation_observer;
+
+  OpenProfileFromPicker(managed_profile_path(), /*open_settings=*/false);
+  WaitForLoadStop(GURL(chrome::kChromeUIManagedUserProfileNoticeUrl));
+
+  ASSERT_TRUE(ClickLearnMoreLink());
+
+  Browser* const popup_browser = browser_creation_observer.Wait();
+  ASSERT_TRUE(popup_browser);
+
+  // Verify that the managed profile is not restoring a session.
+  EXPECT_FALSE(SessionRestore::IsRestoring(managed_profile));
+  EXPECT_FALSE(SessionRestore::IsAnySessionRestored());
+
+  // Verify that only the Learn More popup browser window and the default test
+  // browser exist (no restored normal browser).
+  EXPECT_EQ(2u, GlobalBrowserCollection::GetInstance()->GetSize());
+  EXPECT_EQ(popup_browser->GetType(), BrowserWindowInterface::Type::TYPE_POPUP);
+  EXPECT_TRUE(ProfilePicker::IsOpen());
+  histogram_tester().ExpectBucketCount(
+      kEnterpriseSignalsDisclaimerProfilePickerLearnMoreClicked, true, 1);
 }

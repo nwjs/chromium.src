@@ -22,6 +22,7 @@ public interface MonotonicObservableSupplier<T> extends NullableObservableSuppli
         int NONE = 0;
         int NOTIFY_ON_ADD = 1;
         int POST_ON_ADD = 1 << 1;
+        int ALLOW_NULL_ON_ADD = 1 << 2;
     }
 
     @SuppressWarnings("NullAway") // Changing nullness of Callback<T>
@@ -50,13 +51,25 @@ public interface MonotonicObservableSupplier<T> extends NullableObservableSuppli
         return addObserver(obs, NotifyBehavior.NOTIFY_ON_ADD | NotifyBehavior.POST_ON_ADD);
     }
 
+    @SuppressWarnings("NullAway") // Changing nullness of Callback<T>
+    @Override
+    default @Nullable T addSyncObserverAndCall(Callback<T> obs) {
+        return NullableObservableSupplier.super.addSyncObserverAndCall(obs);
+    }
+
+    @SuppressWarnings("NullAway") // Changing nullness of Callback<T>
+    @Override
+    default @Nullable T addSyncObserverAndPost(Callback<T> obs) {
+        return NullableObservableSupplier.super.addSyncObserverAndPost(obs);
+    }
+
     /**
      * @return A {@link NonNullObservableSupplier} if the supplied value is not null.
      */
     @SuppressWarnings("unchecked")
     default NonNullObservableSupplier<T> asNonNull() {
         // Cast from monotonic non-null -> non-null.
-        assert !Boolean.TRUE.equals(BaseObservableSupplierImpl.allowsSetToNull(this))
+        assert !BaseObservableSupplierImpl.allowsSetToNull(this)
                 : "Cannot cast a non-monotonic supplier to a NonNull one.";
         assert get() != null : "Supplier is monotonic, but does not yet have a value.";
         return (NonNullObservableSupplier<T>) this;

@@ -70,6 +70,8 @@
 
 using autofill::FieldRendererId;
 using autofill::FormRendererId;
+using ActivityType = autofill::FormActivityParams::ActivityType;
+using FieldType = autofill::FormActivityParams::FieldType;
 using base::test::ios::kWaitForActionTimeout;
 using base::test::ios::WaitUntilConditionOrTimeout;
 
@@ -199,7 +201,7 @@ class CWVAutofillControllerTest : public web::WebTest {
     autofill::FormActivityParams params;
     params.form_name = base::SysNSStringToUTF8(kTestFormName);
     params.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier);
-    params.type = "focus";
+    params.type = ActivityType::kFocus;
     params.has_user_gesture = has_user_gesture;
     form_activity_tab_helper_->FormActivityRegistered(frame_ptr, params);
   }
@@ -232,11 +234,12 @@ class CWVAutofillControllerTest : public web::WebTest {
           }
         };
 
-    [autofill_controller_ fetchSuggestionsForFormWithName:kTestFormName
-                                          fieldIdentifier:kTestFieldIdentifier
-                                                fieldType:@""
-                                                  frameID:frame_id_
-                                        completionHandler:completion_block];
+    [autofill_controller_
+        fetchSuggestionsForFormWithName:kTestFormName
+                        fieldIdentifier:kTestFieldIdentifier
+                              fieldType:(NSInteger)FieldType::kUnknown
+                                frameID:frame_id_
+                      completionHandler:completion_block];
 
     EXPECT_TRUE(suggestions_future.Wait());
   }
@@ -295,11 +298,12 @@ TEST_F(CWVAutofillControllerTest, FetchProfileSuggestions) {
     EXPECT_NSEQ(kTestFormName, autofillSuggestion.formName);
     fetch_completion_was_called = YES;
   };
-  [autofill_controller_ fetchSuggestionsForFormWithName:kTestFormName
-                                        fieldIdentifier:kTestFieldIdentifier
-                                              fieldType:@""
-                                                frameID:frame_id_
-                                      completionHandler:fetch_completion];
+  [autofill_controller_
+      fetchSuggestionsForFormWithName:kTestFormName
+                      fieldIdentifier:kTestFieldIdentifier
+                            fieldType:(NSInteger)FieldType::kUnknown
+                              frameID:frame_id_
+                    completionHandler:fetch_completion];
 
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout,
                                           /*run_message_loop=*/true, ^bool {
@@ -347,11 +351,12 @@ TEST_F(CWVAutofillControllerTest, FetchPasswordSuggestions) {
     EXPECT_NSEQ(kTestFormName, autofillSuggestion.formName);
     fetch_completion_was_called = YES;
   };
-  [autofill_controller_ fetchSuggestionsForFormWithName:kTestFormName
-                                        fieldIdentifier:kTestFieldIdentifier
-                                              fieldType:@""
-                                                frameID:frame_id_
-                                      completionHandler:fetch_completion];
+  [autofill_controller_
+      fetchSuggestionsForFormWithName:kTestFormName
+                      fieldIdentifier:kTestFieldIdentifier
+                            fieldType:(NSInteger)FieldType::kUnknown
+                              frameID:frame_id_
+                    completionHandler:fetch_completion];
 
   EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForActionTimeout,
                                           /*run_message_loop=*/true, ^bool {
@@ -435,7 +440,7 @@ TEST_F(CWVAutofillControllerTest, AcceptSuggestionAfterFocusShift) {
   [autofill_controller_
       fetchSuggestionsForFormWithName:kTestFormName
                       fieldIdentifier:kTestFieldIdentifier
-                            fieldType:@""
+                            fieldType:(NSInteger)FieldType::kUnknown
                               frameID:frame_id_1
                     completionHandler:^(
                         NSArray<CWVAutofillSuggestion*>* suggestions) {
@@ -461,7 +466,7 @@ TEST_F(CWVAutofillControllerTest, AcceptSuggestionAfterFocusShift) {
   autofill::FormActivityParams params_2;
   params_2.form_name = base::SysNSStringToUTF8(kTestFormName2);
   params_2.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier2);
-  params_2.type = "focus";
+  params_2.type = ActivityType::kFocus;
   params_2.has_user_gesture = true;
   form_activity_tab_helper_->FormActivityRegistered(frame_ptr_2, params_2);
 
@@ -560,7 +565,7 @@ TEST_F(CWVAutofillControllerTest, FocusCallback) {
 
   [[delegate expect] autofillController:autofill_controller_
           didFocusOnFieldWithIdentifier:kTestFieldIdentifier
-                              fieldType:@""
+                              fieldType:(NSInteger)FieldType::kUnknown
                                formName:kTestFormName
                                 frameID:frame_id_
                                   value:kTestFieldValue
@@ -574,7 +579,7 @@ TEST_F(CWVAutofillControllerTest, FocusCallback) {
   params.value = base::SysNSStringToUTF8(kTestFieldValue);
   params.frame_id = web::kMainFakeFrameId;
   params.has_user_gesture = true;
-  params.type = "focus";
+  params.type = ActivityType::kFocus;
   auto frame = web::FakeWebFrame::CreateMainWebFrame(GURL());
   form_activity_tab_helper_->FormActivityRegistered(frame.get(), params);
   [delegate verify];
@@ -587,7 +592,7 @@ TEST_F(CWVAutofillControllerTest, InputCallback) {
 
   [[delegate expect] autofillController:autofill_controller_
           didInputInFieldWithIdentifier:kTestFieldIdentifier
-                              fieldType:@""
+                              fieldType:(NSInteger)FieldType::kUnknown
                                formName:kTestFormName
                                 frameID:frame_id_
                                   value:kTestFieldValue
@@ -598,7 +603,7 @@ TEST_F(CWVAutofillControllerTest, InputCallback) {
   params.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier);
   params.value = base::SysNSStringToUTF8(kTestFieldValue);
   params.frame_id = web::kMainFakeFrameId;
-  params.type = "input";
+  params.type = ActivityType::kInput;
   params.has_user_gesture = true;
   auto frame = web::FakeWebFrame::CreateMainWebFrame(GURL());
   form_activity_tab_helper_->FormActivityRegistered(frame.get(), params);
@@ -613,7 +618,7 @@ TEST_F(CWVAutofillControllerTest, InputCallbackFromKeyup) {
 
   [[delegate expect] autofillController:autofill_controller_
           didInputInFieldWithIdentifier:kTestFieldIdentifier
-                              fieldType:@""
+                              fieldType:(NSInteger)FieldType::kUnknown
                                formName:kTestFormName
                                 frameID:frame_id_
                                   value:kTestFieldValue
@@ -624,7 +629,7 @@ TEST_F(CWVAutofillControllerTest, InputCallbackFromKeyup) {
   params.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier);
   params.value = base::SysNSStringToUTF8(kTestFieldValue);
   params.frame_id = web::kMainFakeFrameId;
-  params.type = "keyup";
+  params.type = ActivityType::kKeyUp;
   params.has_user_gesture = true;
   auto frame = web::FakeWebFrame::CreateMainWebFrame(GURL());
   form_activity_tab_helper_->FormActivityRegistered(frame.get(), params);
@@ -638,7 +643,7 @@ TEST_F(CWVAutofillControllerTest, BlurCallback) {
 
   [[delegate expect] autofillController:autofill_controller_
            didBlurOnFieldWithIdentifier:kTestFieldIdentifier
-                              fieldType:@""
+                              fieldType:(NSInteger)FieldType::kUnknown
                                formName:kTestFormName
                                 frameID:frame_id_
                                   value:kTestFieldValue
@@ -649,7 +654,7 @@ TEST_F(CWVAutofillControllerTest, BlurCallback) {
   params.field_identifier = base::SysNSStringToUTF8(kTestFieldIdentifier);
   params.value = base::SysNSStringToUTF8(kTestFieldValue);
   params.frame_id = web::kMainFakeFrameId;
-  params.type = "blur";
+  params.type = ActivityType::kBlur;
   params.has_user_gesture = true;
   auto frame = web::FakeWebFrame::CreateMainWebFrame(GURL());
   form_activity_tab_helper_->FormActivityRegistered(frame.get(), params);
@@ -771,7 +776,7 @@ TEST_F(CWVAutofillControllerTest, FetchFullCardDetailsNoDriver) {
   // Simulate form activity to set _lastFormActivityWebFrameID.
   autofill::FormActivityParams params;
   params.frame_id = frame_id;
-  params.type = "focus";
+  params.type = ActivityType::kFocus;
   form_activity_tab_helper_->FormActivityRegistered(frame_ptr, params);
 
   // Simulate missing driver by notifying the factory that the WebState is being
@@ -805,7 +810,7 @@ TEST_F(CWVAutofillControllerTest, FetchFullCardDetails) {
   // Simulate form activity to set _lastFormActivityWebFrameID.
   autofill::FormActivityParams params;
   params.frame_id = frame_id;
-  params.type = "focus";
+  params.type = ActivityType::kFocus;
   web::WebFrame* main_frame = web_frames_manager_->GetMainWebFrame();
   form_activity_tab_helper_->FormActivityRegistered(main_frame, params);
 
@@ -1295,11 +1300,12 @@ TEST_F(CWVAutofillControllerTest, WebStateDestroyedDuringFetch) {
   id fetch_completion = ^(NSArray<CWVAutofillSuggestion*>* suggestions) {
     fetch_completion_was_called = YES;
   };
-  [autofill_controller_ fetchSuggestionsForFormWithName:kTestFormName
-                                        fieldIdentifier:kTestFieldIdentifier
-                                              fieldType:@""
-                                                frameID:frame_id_
-                                      completionHandler:fetch_completion];
+  [autofill_controller_
+      fetchSuggestionsForFormWithName:kTestFormName
+                      fieldIdentifier:kTestFieldIdentifier
+                            fieldType:(NSInteger)FieldType::kUnknown
+                              frameID:frame_id_
+                    completionHandler:fetch_completion];
 
   // Verify that suggestionsAvailable was captured.
   ASSERT_TRUE(suggestionsAvailable);

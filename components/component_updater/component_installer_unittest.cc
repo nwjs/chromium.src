@@ -8,7 +8,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -315,14 +314,13 @@ std::optional<base::FilePath> CreateComponentDirectory(
     return std::nullopt;
   }
 
-  static constexpr std::string_view kManifestData = R"({
+  return base::WriteFile(component_dir.AppendASCII("manifest.json"),
+                         absl::StrFormat(R"({
     "name": "%s",
     "version": "%s",
     "min_env_version": "%s"
-  })";
-  return base::WriteFile(component_dir.AppendASCII("manifest.json"),
-                         absl::StrFormat(kManifestData.data(), name, version,
-                                         min_env_version))
+  })",
+                                         name, version, min_env_version))
              ? std::make_optional(component_dir)
              : std::nullopt;
 }
@@ -527,7 +525,7 @@ TEST_F(ComponentInstallerTest, UnpackPathInstallError) {
         EXPECT_EQ(result.result.category,
                   update_client::ErrorCategory::kInstall);
         EXPECT_EQ(result.result.code,
-                  static_cast<int>(
+                  std::to_underlying(
                       update_client::InstallError::NO_DIR_COMPONENT_USER));
       }));
 

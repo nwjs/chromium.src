@@ -23,6 +23,10 @@ enum class ActionType {
   kDownload = 2,
   kSettingChange = 3,
   kCredentialAccess = 4,
+  kGooglePasswordManager = 5,
+  kFederatedLogin = 6,
+  kCredentialsOtp = 7,
+  kMaxValue = kCredentialsOtp,
 };
 
 // Source features that generate critical actions.
@@ -30,7 +34,8 @@ enum class ActionType {
 enum class ActionSource {
   kUnknown = 0,
   kPasswordManager = 1,
-  kMaxValue = kPasswordManager,
+  kActor = 2,
+  kMaxValue = kActor,
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/critical_actions/histograms.xml:ActionSource)
 
@@ -42,6 +47,12 @@ struct CriticalActionEntry {
   CriticalActionEntry& operator=(const CriticalActionEntry&);
   CriticalActionEntry& operator=(CriticalActionEntry&&) noexcept;
   ~CriticalActionEntry();
+
+  // Returns the user-facing localized label for the critical action.
+  std::string GetLabel() const;
+
+  // Returns the user-facing localized tooltip / description for the action.
+  std::string GetTooltip() const;
 
   std::string critical_action_id;  // Client-generated UUID
   base::Time timestamp;
@@ -72,6 +83,8 @@ struct CriticalActionQueryOptions {
 
   // If set, only records with these action types are returned.
   std::vector<ActionType> action_types;
+  // If set, only records with these visit IDs are returned.
+  std::vector<int64_t> visit_ids;
   // If set, only records with this conversation_id are returned.
   std::optional<std::string> conversation_id;
   // If set, only records with this actor_task_id are returned.

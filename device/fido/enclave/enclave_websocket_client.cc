@@ -7,11 +7,11 @@
 #include <limits>
 #include <utility>
 
+#include "base/containers/to_vector.h"
 #include "base/feature_list.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "components/device_event_log/device_event_log.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/network_context_factory.h"
 #include "device/fido/public/features.h"
 #include "device/fido/public/fido_constants.h"
@@ -114,7 +114,7 @@ void EnclaveWebSocketClient::Write(base::span<const uint8_t> data) {
   }
 
   if (state_ != State::kOpen) {
-    pending_write_data_ = fido_parsing_utils::Materialize(data);
+    pending_write_data_ = base::ToVector(data);
     return;
   }
 
@@ -160,7 +160,8 @@ void EnclaveWebSocketClient::Connect() {
       /*throttling_profile_id=*/std::nullopt,
       // This is a browser-internal connection to the passkey enclave service.
       // It does not belong to any webpage, so we bypass connection allowlists.
-      network::GetNoOpNetworkRestrictionsId());
+      network::GetNoOpNetworkRestrictionsId(),
+      /*target_address_space=*/network::mojom::IPAddressSpace::kUnknown);
 }
 
 void EnclaveWebSocketClient::InternalWrite(base::span<const uint8_t> data) {

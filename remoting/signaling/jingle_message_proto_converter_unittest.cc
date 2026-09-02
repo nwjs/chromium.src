@@ -6,9 +6,12 @@
 
 #include <string>
 
+#include "remoting/signaling/content_description.h"
 #include "remoting/signaling/jingle_data_structures.h"
 #include "remoting/signaling/signaling_address.h"
+#include "remoting/signaling/signaling_id_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/webrtc/api/jsep.h"
 
 namespace remoting {
 
@@ -19,6 +22,44 @@ const char kToLocalId[] = "to_user@gmail.com";
 const char kToRegistrationId[] = "to_registration_id";
 const char kMessageId[] = "test_message_id";
 const char kSid[] = "test_sid";
+
+constexpr char kTestSenderLocal[] = "user";
+constexpr char kTestSenderDomain[] = "test_domain.com";
+constexpr char kTestSenderEmail[] = "user@test_domain.com";
+constexpr char kTestSenderRegistration[] =
+    "00000000-1111-2222-3333-444444444444";
+
+constexpr char kTestReceiverLocal[] = "host";
+constexpr char kTestReceiverDomain[] = "robot_domain.com";
+constexpr char kTestReceiverEmail[] = "host@robot_domain.com";
+constexpr char kTestReceiverRegistration[] =
+    "00000000-1111-2222-3333-555555555555";
+constexpr char kSessionAuthzHostToken[] = "aG9zdF90b2tlbl9zYW1wbGU=";
+constexpr char kSessionAuthzSessionToken[] = "c2Vzc2lvbl90b2tlbl9zYW1wbGU=";
+
+JingleAuthentication CreateTestAuthentication() {
+  JingleAuthentication auth;
+  auth.supported_methods = {
+      AuthenticationMethod::SHARED_SECRET_SPAKE2_CURVE25519,
+      AuthenticationMethod::PAIRED_SPAKE2_CURVE25519};
+  auth.method = AuthenticationMethod::SHARED_SECRET_SPAKE2_CURVE25519;
+  auth.spake_message = {1, 2, 3, 4};
+  auth.verification_hash = {5, 6, 7, 8};
+  auth.session_authz_host_token = kSessionAuthzHostToken;
+  auth.session_authz_session_token = kSessionAuthzSessionToken;
+  return auth;
+}
+
+void VerifyAuthentication(const JingleAuthentication& actual,
+                          const JingleAuthentication& expected) {
+  EXPECT_EQ(actual.supported_methods, expected.supported_methods);
+  EXPECT_EQ(actual.method, expected.method);
+  EXPECT_EQ(actual.spake_message, expected.spake_message);
+  EXPECT_EQ(actual.verification_hash, expected.verification_hash);
+  EXPECT_EQ(actual.session_authz_host_token, expected.session_authz_host_token);
+  EXPECT_EQ(actual.session_authz_session_token,
+            expected.session_authz_session_token);
+}
 }  // namespace
 
 class JingleMessageProtoConverterTest : public testing::Test {
@@ -46,9 +87,11 @@ TEST_F(JingleMessageProtoConverterTest, ConvertSessionInitiate) {
   ftl::IqStanza stanza = message.ToFtlIqStanza();
 
   EXPECT_EQ(stanza.id(), kMessageId);
-  EXPECT_EQ(stanza.sender().local_part(), kFromLocalId);
+  EXPECT_EQ(stanza.sender().local_part(), "from_user");
+  EXPECT_EQ(stanza.sender().domain_part(), "gmail.com");
   EXPECT_EQ(stanza.sender().resource_part(), kFromRegistrationId);
-  EXPECT_EQ(stanza.receiver().local_part(), kToLocalId);
+  EXPECT_EQ(stanza.receiver().local_part(), "to_user");
+  EXPECT_EQ(stanza.receiver().domain_part(), "gmail.com");
   EXPECT_EQ(stanza.receiver().resource_part(), kToRegistrationId);
 
   EXPECT_TRUE(stanza.has_jingle());
@@ -101,6 +144,50 @@ TEST_F(JingleMessageProtoConverterTest, ConvertSessionTerminate) {
   EXPECT_EQ(converted_terminate->error_details, "The peer is offline.");
 }
 
+TEST_F(JingleMessageProtoConverterTest,
+       ConvertSessionTerminateWithDirectFields) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  message.reason = SessionTerminate::Reason::kGeneralError;
+  message.error_code = ErrorCode::HOST_OVERLOAD;
+  message.error_details = "Host is overloaded";
+  message.error_location = "host.cc:123";
+  message.SetPayload(SessionTerminate());
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  EXPECT_TRUE(stanza.jingle().has_session_terminate());
+  EXPECT_EQ(stanza.jingle().session_terminate().reason(),
+            ftl::SessionTerminate::GENERAL_ERROR);
+  EXPECT_EQ(stanza.jingle().session_terminate().error_code(), "HOST_OVERLOAD");
+  EXPECT_EQ(stanza.jingle().session_terminate().error_details(),
+            "Host is overloaded");
+  EXPECT_EQ(stanza.jingle().session_terminate().error_location(),
+            "host.cc:123");
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+
+  EXPECT_EQ(converted_message.reason, SessionTerminate::Reason::kGeneralError);
+  EXPECT_EQ(converted_message.error_code, ErrorCode::HOST_OVERLOAD);
+  EXPECT_EQ(converted_message.error_details, "Host is overloaded");
+  EXPECT_EQ(converted_message.error_location, "host.cc:123");
+
+  auto* converted_terminate =
+      std::get_if<SessionTerminate>(&converted_message.payload());
+  ASSERT_TRUE(converted_terminate);
+  EXPECT_EQ(converted_terminate->reason,
+            SessionTerminate::Reason::kGeneralError);
+  EXPECT_EQ(converted_terminate->error_code, "HOST_OVERLOAD");
+  EXPECT_EQ(converted_terminate->error_details, "Host is overloaded");
+  EXPECT_EQ(converted_terminate->error_location, "host.cc:123");
+}
+
 TEST_F(JingleMessageProtoConverterTest, ConvertReplyResult) {
   JingleMessageReply reply;
   reply.from = from_address_;
@@ -112,8 +199,10 @@ TEST_F(JingleMessageProtoConverterTest, ConvertReplyResult) {
 
   EXPECT_EQ(stanza.id(), kMessageId);
   EXPECT_TRUE(stanza.has_reply());
-  EXPECT_EQ(stanza.sender().local_part(), kFromLocalId);
-  EXPECT_EQ(stanza.receiver().local_part(), kToLocalId);
+  EXPECT_EQ(stanza.sender().local_part(), "from_user");
+  EXPECT_EQ(stanza.sender().domain_part(), "gmail.com");
+  EXPECT_EQ(stanza.receiver().local_part(), "to_user");
+  EXPECT_EQ(stanza.receiver().domain_part(), "gmail.com");
 
   JingleMessageReply converted_reply;
   ASSERT_TRUE(JingleMessageReplyFromProto(stanza, &converted_reply));
@@ -143,6 +232,436 @@ TEST_F(JingleMessageProtoConverterTest, ConvertReplyError) {
   EXPECT_EQ(converted_reply.reply_type, JingleMessageReply::REPLY_ERROR);
   EXPECT_EQ(converted_reply.error_type, JingleMessageReply::INVALID_SID);
   EXPECT_EQ(converted_reply.text, "Invalid session ID");
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertSessionInitiateWithAuth) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  message.initiator = kFromLocalId;
+  SessionInitiate initiate;
+  JingleAuthentication auth = CreateTestAuthentication();
+  initiate.authentication = auth;
+  message.SetPayload(std::move(initiate));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  EXPECT_TRUE(stanza.jingle().has_session_initiate());
+  EXPECT_EQ(stanza.jingle().session_initiate().initiator().local_part(),
+            "from_user");
+  EXPECT_EQ(stanza.jingle().session_initiate().initiator().domain_part(),
+            "gmail.com");
+  EXPECT_TRUE(stanza.jingle().session_initiate().has_authentication());
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+  EXPECT_EQ(converted_message.initiator, kFromLocalId);
+  auto* converted_initiate =
+      std::get_if<SessionInitiate>(&converted_message.payload());
+  ASSERT_TRUE(converted_initiate);
+  ASSERT_TRUE(converted_initiate->authentication.has_value());
+  VerifyAuthentication(*converted_initiate->authentication, auth);
+
+  ASSERT_TRUE(converted_message.description);
+  VerifyAuthentication(converted_message.description->authentication(), auth);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertSessionAcceptWithAuth) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  SessionAccept accept;
+  JingleAuthentication auth = CreateTestAuthentication();
+  accept.authentication = auth;
+  message.SetPayload(std::move(accept));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  EXPECT_TRUE(stanza.jingle().has_session_accept());
+  EXPECT_TRUE(stanza.jingle().session_accept().has_authentication());
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+  auto* converted_accept =
+      std::get_if<SessionAccept>(&converted_message.payload());
+  ASSERT_TRUE(converted_accept);
+  ASSERT_TRUE(converted_accept->authentication.has_value());
+  VerifyAuthentication(*converted_accept->authentication, auth);
+
+  ASSERT_TRUE(converted_message.description);
+  VerifyAuthentication(converted_message.description->authentication(), auth);
+}
+
+TEST_F(JingleMessageProtoConverterTest,
+       ConvertSessionAcceptWithDescriptionAuth) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  message.SetPayload(SessionAccept());
+  JingleAuthentication auth = CreateTestAuthentication();
+  message.description = std::make_unique<ContentDescription>(auth);
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  EXPECT_TRUE(stanza.jingle().has_session_accept());
+  EXPECT_TRUE(stanza.jingle().session_accept().has_authentication());
+  EXPECT_EQ(stanza.jingle().session_accept().authentication().method(),
+            ftl::AUTHENTICATION_METHOD_SPAKE2_CURVE25519);
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+  ASSERT_TRUE(converted_message.description);
+  VerifyAuthentication(converted_message.description->authentication(), auth);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertSessionInfoWithAuth) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  SessionInfo session_info;
+  JingleAuthentication auth = CreateTestAuthentication();
+  session_info.authentication = auth;
+  message.SetPayload(std::move(session_info));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  EXPECT_TRUE(stanza.jingle().has_session_info());
+  EXPECT_TRUE(stanza.jingle().session_info().has_authentication());
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+  auto* converted_session_info =
+      std::get_if<SessionInfo>(&converted_message.payload());
+  ASSERT_TRUE(converted_session_info);
+  ASSERT_TRUE(converted_session_info->authentication.has_value());
+  VerifyAuthentication(*converted_session_info->authentication, auth);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertTransportInfo) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+
+  JingleTransportInfo transport;
+  SessionDescription sdp;
+  sdp.type = SessionDescription::Type::kOffer;
+  sdp.sdp = "test_sdp";
+  sdp.signature = {9, 10, 11};
+  transport.session_description = sdp;
+
+  webrtc::SdpParseError error;
+  std::unique_ptr<webrtc::IceCandidate> webrtc_candidate =
+      webrtc::IceCandidate::Create(
+          "audio", 0,
+          "candidate:842163049 1 udp 16777215 127.0.0.1 12345 typ host",
+          &error);
+  ASSERT_TRUE(webrtc_candidate) << error.description;
+  IceTransportInfo::NamedCandidate candidate("audio",
+                                             webrtc_candidate->candidate(), 0);
+  transport.candidates.push_back(candidate);
+
+  message.SetPayload(std::move(transport));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  EXPECT_TRUE(stanza.jingle().has_transport_info());
+  EXPECT_TRUE(stanza.jingle().transport_info().has_session_description());
+  EXPECT_EQ(stanza.jingle().transport_info().session_description().sdp(),
+            "test_sdp");
+  EXPECT_EQ(stanza.jingle().transport_info().candidates_size(), 1);
+
+  JingleMessage converted_message;
+  std::string conversion_error;
+  ASSERT_TRUE(
+      JingleMessageFromProto(stanza, &converted_message, &conversion_error))
+      << conversion_error;
+  auto* converted_transport =
+      std::get_if<JingleTransportInfo>(&converted_message.payload());
+  ASSERT_TRUE(converted_transport);
+  ASSERT_TRUE(converted_transport->session_description.has_value());
+  EXPECT_EQ(converted_transport->session_description->sdp, "test_sdp");
+  EXPECT_EQ(converted_transport->session_description->type,
+            SessionDescription::Type::kOffer);
+  EXPECT_EQ(converted_transport->session_description->signature, sdp.signature);
+
+  ASSERT_EQ(converted_transport->candidates.size(), 1u);
+  EXPECT_EQ(converted_transport->candidates[0].name, "audio");
+  EXPECT_EQ(*converted_transport->candidates[0].sdp_m_line_index, 0);
+  EXPECT_EQ(converted_transport->candidates[0].candidate.protocol(), "udp");
+  EXPECT_EQ(converted_transport->candidates[0]
+                .candidate.address()
+                .ipaddr()
+                .ToString(),
+            "127.0.0.1");
+}
+
+TEST_F(JingleMessageProtoConverterTest,
+       ConvertTransportInfoWithMalformedCandidates) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+
+  JingleTransportInfo transport;
+  SessionDescription sdp;
+  sdp.type = SessionDescription::Type::kOffer;
+  sdp.sdp = "test_sdp";
+  transport.session_description = sdp;
+
+  webrtc::SdpParseError error;
+  std::unique_ptr<webrtc::IceCandidate> webrtc_candidate =
+      webrtc::IceCandidate::Create(
+          "audio", 0,
+          "candidate:842163049 1 udp 16777215 127.0.0.1 12345 typ host",
+          &error);
+  ASSERT_TRUE(webrtc_candidate) << error.description;
+  IceTransportInfo::NamedCandidate candidate("audio",
+                                             webrtc_candidate->candidate(), 0);
+  transport.candidates.push_back(candidate);
+
+  message.SetPayload(std::move(transport));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  // Now manually add malformed candidates to the proto stanza.
+  auto* jingle_stanza = stanza.mutable_jingle();
+  auto* transport_info = jingle_stanza->mutable_transport_info();
+
+  // 1. Incomplete candidate (missing sdp_m_line_index)
+  auto* incomplete_candidate = transport_info->add_candidates();
+  incomplete_candidate->set_sdp_mid("video");
+  incomplete_candidate->set_candidate(
+      "candidate:842163049 1 udp 16777215 127.0.0.1 12346 typ host");
+
+  // 2. Malformed candidate (invalid candidate string)
+  auto* malformed_candidate = transport_info->add_candidates();
+  malformed_candidate->set_sdp_mid("video");
+  malformed_candidate->set_sdp_m_line_index(1);
+  malformed_candidate->set_candidate("invalid candidate string");
+
+  JingleMessage converted_message;
+  std::string conversion_error;
+  ASSERT_TRUE(
+      JingleMessageFromProto(stanza, &converted_message, &conversion_error))
+      << conversion_error;
+
+  auto* converted_transport =
+      std::get_if<JingleTransportInfo>(&converted_message.payload());
+  ASSERT_TRUE(converted_transport);
+
+  // Should only have the one valid candidate.
+  ASSERT_EQ(converted_transport->candidates.size(), 1u);
+  EXPECT_EQ(converted_transport->candidates[0].name, "audio");
+  EXPECT_EQ(*converted_transport->candidates[0].sdp_m_line_index, 0);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertIncomingSplitSender) {
+  ftl::IqStanza stanza;
+  stanza.set_id(kMessageId);
+
+  auto* sender = stanza.mutable_sender();
+  sender->set_local_part(kTestSenderLocal);
+  sender->set_domain_part(kTestSenderDomain);
+  sender->set_resource_part(std::string(kFtlResourcePrefix) +
+                            kTestSenderRegistration);
+
+  auto* receiver = stanza.mutable_receiver();
+  receiver->set_local_part(kTestReceiverLocal);
+  receiver->set_domain_part(kTestReceiverDomain);
+  receiver->set_resource_part(std::string(kFtlResourcePrefix) +
+                              kTestReceiverRegistration);
+
+  stanza.mutable_jingle()->set_session_id(kSid);
+  stanza.mutable_jingle()->mutable_session_initiate();
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+
+  std::string expected_from = SignalingAddress::CreateFtlSignalingAddress(
+                                  kTestSenderEmail, kTestSenderRegistration)
+                                  .id();
+  std::string expected_to = SignalingAddress::CreateFtlSignalingAddress(
+                                kTestReceiverEmail, kTestReceiverRegistration)
+                                .id();
+  EXPECT_EQ(converted_message.from.id(), expected_from);
+  EXPECT_EQ(converted_message.to.id(), expected_to);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertIncomingReplySplitSender) {
+  ftl::IqStanza stanza;
+  stanza.set_id(kMessageId);
+
+  auto* sender = stanza.mutable_sender();
+  sender->set_local_part(kTestSenderLocal);
+  sender->set_domain_part(kTestSenderDomain);
+  sender->set_resource_part(std::string(kFtlResourcePrefix) +
+                            kTestSenderRegistration);
+
+  auto* receiver = stanza.mutable_receiver();
+  receiver->set_local_part(kTestReceiverLocal);
+  receiver->set_domain_part(kTestReceiverDomain);
+  receiver->set_resource_part(std::string(kFtlResourcePrefix) +
+                              kTestReceiverRegistration);
+
+  stanza.mutable_reply();
+
+  JingleMessageReply converted_reply;
+  ASSERT_TRUE(JingleMessageReplyFromProto(stanza, &converted_reply));
+
+  std::string expected_from = SignalingAddress::CreateFtlSignalingAddress(
+                                  kTestSenderEmail, kTestSenderRegistration)
+                                  .id();
+  std::string expected_to = SignalingAddress::CreateFtlSignalingAddress(
+                                kTestReceiverEmail, kTestReceiverRegistration)
+                                .id();
+  EXPECT_EQ(converted_reply.from.id(), expected_from);
+  EXPECT_EQ(converted_reply.to.id(), expected_to);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertAttachmentsRoundTrip) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  message.SetPayload(SessionInitiate());
+
+  Attachment host_attr_attachment;
+  HostAttributesAttachment host_attributes;
+  host_attributes.attribute.push_back("Debug-Build");
+  host_attributes.attribute.push_back("HWEncoder");
+  host_attr_attachment.host_attributes = std::move(host_attributes);
+  message.attachments.push_back(std::move(host_attr_attachment));
+
+  Attachment host_config_attachment;
+  HostConfigAttachment host_config;
+  host_config.settings["Av1-Encoder-Speed"] = "11";
+  host_config_attachment.host_config = std::move(host_config);
+  message.attachments.push_back(std::move(host_config_attachment));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+  ASSERT_EQ(stanza.jingle().attachments_size(), 2);
+
+  JingleMessage converted_message;
+  std::string error;
+  ASSERT_TRUE(JingleMessageFromProto(stanza, &converted_message, &error))
+      << error;
+
+  ASSERT_EQ(converted_message.attachments.size(), 2u);
+  ASSERT_TRUE(converted_message.attachments[0].host_attributes.has_value());
+  EXPECT_EQ(converted_message.attachments[0].host_attributes->attribute.size(),
+            2u);
+  EXPECT_EQ(converted_message.attachments[0].host_attributes->attribute[0],
+            "Debug-Build");
+  EXPECT_EQ(converted_message.attachments[0].host_attributes->attribute[1],
+            "HWEncoder");
+
+  ASSERT_TRUE(converted_message.attachments[1].host_config.has_value());
+  EXPECT_EQ(converted_message.attachments[1].host_config->settings.size(), 1u);
+  EXPECT_EQ(converted_message.attachments[1]
+                .host_config->settings["Av1-Encoder-Speed"],
+            "11");
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertUnknownTerminateReason) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  SessionTerminate terminate;
+  terminate.reason = static_cast<SessionTerminate::Reason>(999);
+  message.SetPayload(std::move(terminate));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+  EXPECT_EQ(stanza.jingle().session_terminate().reason(),
+            ftl::SessionTerminate::UNKNOWN_REASON);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertUnknownAuthMethod) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+  SessionInitiate initiate;
+  JingleAuthentication auth;
+  auth.supported_methods = {static_cast<AuthenticationMethod>(999)};
+  auth.method = static_cast<AuthenticationMethod>(999);
+  initiate.authentication = auth;
+  message.SetPayload(std::move(initiate));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+  EXPECT_TRUE(stanza.jingle().has_session_initiate());
+  EXPECT_TRUE(stanza.jingle().session_initiate().has_authentication());
+  EXPECT_EQ(
+      stanza.jingle().session_initiate().authentication().supported_methods(0),
+      ftl::AUTHENTICATION_METHOD_UNSPECIFIED);
+  EXPECT_EQ(stanza.jingle().session_initiate().authentication().method(),
+            ftl::AUTHENTICATION_METHOD_UNSPECIFIED);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertUnknownSdpType) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = kSid;
+
+  JingleTransportInfo transport;
+  SessionDescription sdp;
+  sdp.type = static_cast<SessionDescription::Type>(999);
+  sdp.sdp = "test_sdp";
+  transport.session_description = sdp;
+  message.SetPayload(std::move(transport));
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+  EXPECT_TRUE(stanza.jingle().has_transport_info());
+  EXPECT_TRUE(stanza.jingle().transport_info().has_session_description());
+  EXPECT_EQ(stanza.jingle().transport_info().session_description().type(),
+            ftl::SessionDescription::SDP_TYPE_UNSPECIFIED);
+}
+
+TEST_F(JingleMessageProtoConverterTest, ConvertMissingHeaders) {
+  JingleMessage message;
+  message.from = from_address_;
+  message.to = to_address_;
+  message.message_id = kMessageId;
+  message.sid = "";
+  message.SetPayload(SessionInitiate());
+
+  ftl::IqStanza stanza = message.ToFtlIqStanza();
+
+  JingleMessage converted_message;
+  std::string error;
+  EXPECT_FALSE(JingleMessageFromProto(stanza, &converted_message, &error));
+  EXPECT_EQ(error, "sid attribute is missing");
+
+  stanza.mutable_jingle()->set_session_id(kSid);
+  stanza.clear_sender();
+  EXPECT_FALSE(JingleMessageFromProto(stanza, &converted_message, &error));
+  EXPECT_TRUE(error.starts_with("Missing signaling address"));
 }
 
 }  // namespace remoting

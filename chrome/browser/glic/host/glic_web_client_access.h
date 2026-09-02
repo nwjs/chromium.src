@@ -19,6 +19,8 @@ namespace glic {
 class GlicWebClientAccess {
  public:
   virtual ~GlicWebClientAccess() = default;
+  virtual mojom::WebClient* web_client() = 0;
+  virtual mojom::WebClientState web_client_state() const = 0;
 
   using PanelWillOpenCallback = mojom::WebClient::NotifyPanelWillOpenCallback;
 
@@ -52,13 +54,12 @@ class GlicWebClientAccess {
   // Informs the web client that an actor task list row was clicked.
   virtual void NotifyActorTaskListRowClicked(int32_t task_id) = 0;
 
-  virtual void NotifyZeroStateSuggestionsChanged(
-      mojom::ZeroStateSuggestionsV2Ptr suggestions,
-      mojom::ZeroStateSuggestionsOptionsPtr options) = 0;
-
   // Informs the web client that the browser wants to invoke Glic.
   virtual void Invoke(mojom::InvokeOptionsPtr options,
                       base::OnceClosure callback) = 0;
+
+  // Simulates a user input submission.
+  virtual void OnUserInputSubmittedForTesting(mojom::WebClientMode mode) = 0;
 };
 
 }  // namespace glic

@@ -581,9 +581,12 @@ CGFloat GPayIconTopAnchorOffset() {
       base::UserMetricsAction([self createMetricsAction:@"SelectCardNumber"]));
 
   if (self.card.canFillDirectly) {
-    [self.contentInjector userDidPickContent:number
-                               passwordField:NO
-                               requiresHTTPS:YES];
+    [self.contentInjector
+        userDidPickContent:number
+             passwordField:NO
+             requiresHTTPS:YES
+           jumpToNextField:YES
+                actionType:autofill::mojom::FieldActionType::kReplaceAll];
   } else {
     [self.navigationDelegate
         requestFullCreditCard:self.card
@@ -594,9 +597,12 @@ CGFloat GPayIconTopAnchorOffset() {
 - (void)userDidTapCardholderName:(UIButton*)sender {
   base::RecordAction(base::UserMetricsAction(
       [self createMetricsAction:@"SelectCardholderName"]));
-  [self.contentInjector userDidPickContent:sender.titleLabel.text
-                             passwordField:NO
-                             requiresHTTPS:NO];
+  [self.contentInjector
+      userDidPickContent:sender.titleLabel.text
+           passwordField:NO
+           requiresHTTPS:NO
+         jumpToNextField:YES
+              actionType:autofill::mojom::FieldActionType::kReplaceAll];
 }
 
 - (void)userDidTapExpirationMonth:(UIButton*)sender {
@@ -607,9 +613,12 @@ CGFloat GPayIconTopAnchorOffset() {
         requestFullCreditCard:self.card
                     fieldType:manual_fill::PaymentFieldType::kExpirationMonth];
   } else {
-    [self.contentInjector userDidPickContent:sender.titleLabel.text
-                               passwordField:NO
-                               requiresHTTPS:NO];
+    [self.contentInjector
+        userDidPickContent:sender.titleLabel.text
+             passwordField:NO
+             requiresHTTPS:NO
+           jumpToNextField:YES
+                actionType:autofill::mojom::FieldActionType::kReplaceAll];
   }
 }
 
@@ -621,9 +630,12 @@ CGFloat GPayIconTopAnchorOffset() {
         requestFullCreditCard:self.card
                     fieldType:manual_fill::PaymentFieldType::kExpirationYear];
   } else {
-    [self.contentInjector userDidPickContent:sender.titleLabel.text
-                               passwordField:NO
-                               requiresHTTPS:NO];
+    [self.contentInjector
+        userDidPickContent:sender.titleLabel.text
+             passwordField:NO
+             requiresHTTPS:NO
+           jumpToNextField:YES
+                actionType:autofill::mojom::FieldActionType::kReplaceAll];
   }
 }
 
@@ -638,9 +650,12 @@ CGFloat GPayIconTopAnchorOffset() {
                                               requiresHTTPS:YES]) {
       return;
     }
-    [self.contentInjector userDidPickContent:self.card.CVC
-                               passwordField:NO
-                               requiresHTTPS:YES];
+    [self.contentInjector
+        userDidPickContent:self.card.CVC
+             passwordField:NO
+             requiresHTTPS:YES
+           jumpToNextField:YES
+                actionType:autofill::mojom::FieldActionType::kReplaceAll];
   } else {
     [self.navigationDelegate
         requestFullCreditCard:self.card

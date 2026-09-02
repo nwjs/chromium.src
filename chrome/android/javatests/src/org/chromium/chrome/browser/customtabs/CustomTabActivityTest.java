@@ -328,6 +328,9 @@ public class CustomTabActivityTest {
                 });
 
         CustomTabsTestUtils.cleanupSessions();
+        if (getActivity() != null) {
+            ActivityTestUtils.clearActivityOrientation(getActivity());
+        }
     }
 
     private CustomTabActivity getActivity() {
@@ -401,7 +404,7 @@ public class CustomTabActivityTest {
         intent.putExtra(CustomTabsIntent.EXTRA_TOOLBAR_COLOR, color);
     }
 
-    private Bundle makeBottomBarBundle(int id, Bitmap icon, String description) {
+    private Bundle makeBottomBarBundle(Bitmap icon, String description) {
         Bundle bundle = new Bundle();
         PendingIntent pi =
                 PendingIntent.getBroadcast(
@@ -771,7 +774,7 @@ public class CustomTabActivityTest {
         Intent intent = createMinimalCustomTabIntent();
         ArrayList<Bundle> bundles = new ArrayList<>();
         for (int i = 1; i <= numItems; i++) {
-            Bundle bundle = makeBottomBarBundle(i, expectedIcon, Integer.toString(i));
+            Bundle bundle = makeBottomBarBundle(expectedIcon, Integer.toString(i));
             bundles.add(bundle);
         }
         intent.putExtra(CustomTabsIntent.EXTRA_TOOLBAR_ITEMS, bundles);
@@ -827,7 +830,7 @@ public class CustomTabActivityTest {
         Intent intent = createMinimalCustomTabIntent();
         ArrayList<Bundle> bundles = new ArrayList<>();
         for (int i = 1; i <= numItems; i++) {
-            Bundle bundle = makeBottomBarBundle(i, expectedIcon, Integer.toString(i));
+            Bundle bundle = makeBottomBarBundle(expectedIcon, Integer.toString(i));
             bundles.add(bundle);
         }
         intent.putExtra(CustomTabsIntent.EXTRA_TOOLBAR_ITEMS, bundles);
@@ -894,6 +897,39 @@ public class CustomTabActivityTest {
     public void testLaunchWithSession() throws Exception {
         var session = warmUpAndLaunchUrlWithSession();
         assertEquals(getActivity().getIntentDataProvider().getSession(), session);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.M)
+    public void testNetworkBoundCustomTabIntent() throws Exception {
+        CustomTabsConnection realConnection = CustomTabsConnection.getInstance();
+        CustomTabsConnection mockConnection = Mockito.spy(realConnection);
+        CustomTabsConnection.setInstanceForTesting(mockConnection);
+
+        // This Network object has to be sent via an Intent extra. With that in mind, it's much
+        // easier to create a "real" Network object, instead of mocking it. This requires a bit of
+        // "magic".
+        long fakeNetId = 99999;
+        long magic = 0xcafed00dL;
+        long fakeNetworkHandle = (fakeNetId << 32) | magic;
+        android.net.Network network = android.net.Network.fromNetworkHandle(fakeNetworkHandle);
+        doReturn(network).when(mockConnection).extractTargetNetwork(any(), any());
+
+        Intent intent =
+                CustomTabsIntentTestUtils.createMinimalCustomTabIntent(
+                        ApplicationProvider.getApplicationContext(), mTestPage);
+        intent.putExtra(CustomTabsIntent.EXTRA_NETWORK, network);
+
+        // We need a session to make it valid.
+        var token = SessionHolder.getSessionHolderFromIntent(intent);
+        realConnection.newSession(token.getSessionAsCustomTab());
+
+        // Launch. It should attempt to load mTestPage but fail due to invalid network.
+        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
+
+        Tab tab = getActivity().getActivityTab();
+        assertTrue(tab.isShowingErrorPage());
     }
 
     @Test

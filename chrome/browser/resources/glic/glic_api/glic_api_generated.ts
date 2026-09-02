@@ -100,6 +100,8 @@ export enum ActorTaskInterruptReason {
   WAITING_IRRELEVANT_USER_INPUT = 6,
   // Actor task was waiting for user to respond to unsafe counter-abuse verdict.
   WAITING_UNSAFE_COUNTER_ABUSE_VERDICT = 7,
+  // Actor task was waiting for user to consent on experimental triggering.
+  WAITING_FOR_EXPERIMENTAL_TRIGGERING_CONSENT = 8,
 }
 
 // Reason why capturing desktop screenshot failed. NOTE: This may be extended in
@@ -204,6 +206,10 @@ export enum SkillSource {
   USER_CREATED = 2,
   // Skill derived from a first party skill.
   DERIVED_FROM_FIRST_PARTY = 3,
+  // Skill sourced from the EnterprisePublishedSkills enterprise policy.
+  ENTERPRISE = 4,
+  // Skill derived from an enterprise skill.
+  DERIVED_FROM_ENTERPRISE = 5,
 }
 
 // Enum to specify the skills web client event for metrics recording.
@@ -419,6 +425,8 @@ export enum InvocationSource {
   RESHOW_INACTIVE = 40,
   // From the tab context menu.
   TAB_CONTEXT_MENU = 41,
+  // From Web Continuity.
+  WEB_CONTINUITY = 42,
 }
 
 // Target for actuation.
@@ -635,6 +643,10 @@ export enum FeatureMode {
   UNIVERSAL_CART = 4,
   // Client feature mode for Promotion Page.
   PROMOTION_PAGE = 5,
+  // Client feature mode to initiate actuation for Password Change.
+  PASSWORD_CHANGE = 6,
+  // Client feature mode for Web Continuity.
+  WEB_CONTINUITY = 7,
 }
 
 // Settings for Gemini Enterprise.
@@ -829,6 +841,10 @@ export declare interface SkillPreview {
   curatedBy?: string;
   // The image URL to show when rendering this skill.
   imageUrl?: string;
+  // The category of the skill.
+  category?: string;
+  // The time when the skill was created.
+  creationTime?: Date;
 }
 
 // A single skill.
@@ -1008,6 +1024,17 @@ export declare interface PanelState {
   windowId?: string;
 }
 
+// Payload for invoking a skill.
+export declare interface SkillsPayload {
+  // Skill ID to trigger.
+  skillId: string;
+  // Skill name to show in the Glic client. Empty string is the null state.
+  skillName: string;
+  // Skill icon (emoji) to show in the Glic client.
+  // Empty string is the null state.
+  skillIcon: string;
+}
+
 // Payload for Universal Cart invocation.
 export declare interface UniversalCartPayload {
   // This metadata is received from the same Google endpoint we receive the
@@ -1032,6 +1059,7 @@ export declare interface InvokeOptions {
   // Whether to suppress Zero State Suggestions.
   disableZeroStateSuggestions: boolean;
   // Skill ID to trigger.
+  // Deprecated: Use payload.skills_payload.skill_id instead.
   skillId?: string;
   // Configuration to override the default ZSS behavior for the invocation.
   zssConfig?: ZssConfig;
@@ -1270,6 +1298,8 @@ export declare interface TaskOptions {
   duration?: TaskDuration;
   // The feature mode for the task.
   featureMode?: FeatureMode;
+  // The initial target tab to actuate on.
+  actuationTabId?: string;
 }
 
 // A credential used for the auto-login.

@@ -896,20 +896,15 @@ std::optional<base::ScopedTempDir> CreateSecureTempDir() {
   // instead of just `base::ScopedTempDir::CreateUniqueTempDir`, because the
   // former allows setting a more recognizable prefix of
   // `COMPANY_SHORTNAME_STRING` on the temp directory.
-  base::FilePath parent_dir;
-  if (::IsUserAnAdmin()) {
-    if (!base::PathService::Get(base::DIR_SYSTEM_TEMP, &parent_dir)) {
-      return std::nullopt;
-    }
-  } else {
-    if (!base::GetTempDir(&parent_dir)) {
-      return std::nullopt;
-    }
+  std::optional<base::FilePath> parent_dir = GetUpdaterTempDir();
+  if (!parent_dir) {
+    return std::nullopt;
   }
 
   base::FilePath temp_dir;
   if (!base::CreateTemporaryDirInDir(
-          parent_dir, FILE_PATH_LITERAL(COMPANY_SHORTNAME_STRING), &temp_dir)) {
+          *parent_dir, FILE_PATH_LITERAL(COMPANY_SHORTNAME_STRING),
+          &temp_dir)) {
     return std::nullopt;
   }
 
@@ -1605,7 +1600,7 @@ HResultOr<std::wstring> GetCommandLineForPid(DWORD process_id) {
     return base::unexpected(HRESULTFromLastError());
   }
   cmd_line.resize(bytes_read / sizeof(wchar_t));
-  if (cmd_line.back() == L'\0') {
+  if (!cmd_line.empty() && cmd_line.back() == L'\0') {
     cmd_line.pop_back();
   }
   return cmd_line;

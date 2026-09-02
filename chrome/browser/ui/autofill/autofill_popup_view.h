@@ -31,6 +31,7 @@ class AutofillPopupView {
  public:
   struct SearchBarConfig {
     std::u16string placeholder;
+    std::u16string initial_value;
     std::u16string no_results_message;
   };
 
@@ -48,13 +49,6 @@ class AutofillPopupView {
       TabbedPaneTabType type;
       std::u16string title;
     };
-
-    explicit TabbedPaneConfig(std::vector<TabbedPaneConfig::Tab> tabs);
-    TabbedPaneConfig(const TabbedPaneConfig&);
-    TabbedPaneConfig(TabbedPaneConfig&&);
-    TabbedPaneConfig& operator=(const TabbedPaneConfig&);
-    TabbedPaneConfig& operator=(TabbedPaneConfig&&);
-    ~TabbedPaneConfig();
 
     // The ordered list of tabs that should be displayed in the tabbed pane.
     std::vector<Tab> tabs;

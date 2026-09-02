@@ -12,6 +12,7 @@
 #include "base/base_paths.h"
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
+#include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -31,7 +32,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
-#include "chrome/browser/win/installer_downloader/installer_downloader_feature.h"
+#include "chrome/browser/win/installer_downloader/installer_downloader_constants.h"
 #include "chrome/browser/win/installer_downloader/installer_downloader_infobar_window_active_tab_tracker.h"
 #include "chrome/browser/win/installer_downloader/installer_downloader_model.h"
 #include "chrome/browser/win/installer_downloader/installer_downloader_model_impl.h"
@@ -57,8 +58,7 @@ namespace installer_downloader {
 
 namespace {
 
-constexpr const char kUrlPrefix[] =
-    "https://dl.google.com/tag/s/appguid%3D%7B";
+constexpr const char kUrlPrefix[] = "https://dl.google.com/tag/s/appguid%3D%7B";
 constexpr const char kUrlSuffix[] =
     "%7D%26iid%3D%7BIIDGUID%7D%26lang%3DLANGUAGE%26browser%3D4%26usagestats%"
     "3DSTATS%26appname%3DGoogle%2520Chrome%26needsadmin%3Dprefers%26ap%"
@@ -89,10 +89,7 @@ std::string GetDefaultInstallerDownloadUrlTemplate() {
 }
 
 std::optional<GURL> BuildInstallerDownloadUrl(bool is_metrics_enabled) {
-  std::string installer_url_template = kInstallerUrlTemplateParam.Get();
-  if (installer_url_template.empty()) {
-    installer_url_template = GetDefaultInstallerDownloadUrlTemplate();
-  }
+  std::string installer_url_template = GetDefaultInstallerDownloadUrlTemplate();
 
   base::ReplaceFirstSubstringAfterOffset(
       &installer_url_template, /*start_offset=*/0, "IIDGUID",
@@ -170,11 +167,16 @@ void InstallerDownloaderController::RegisterInfoBar() {
           .SetMessageText(
               l10n_util::GetStringUTF16(IDS_INSTALLER_DOWNLOADER_DISCLAIMER))
           .SetLinkText(l10n_util::GetStringUTF16(IDS_INSTALLER_DOWNLOADER_LINK))
-          .SetLinkNavigationUrl(GURL(kLearnMoreUrl.Get()))
+          .SetLinkNavigationUrl(GURL(kLearnMoreUrl))
           .SetIcon(features::IsRoundedIconsEnabled()
                        ? omnibox::kChromeProductIcon
                        : vector_icons::kProductRefreshIcon)
           .SetScope(infobars::InfoBarScope::kGlobal)
+          // The infobar should not be shown on guest profiles.
+          .SetBrowserFilter(
+              base::BindRepeating([](BrowserWindowInterface* browser) {
+                return !browser->GetProfile()->IsGuestSession();
+              }))
           .SetExpireOnNavigation(false)
           // InstallerDownloaderController is registered as a global feature and
           // this controller is a global feature outliving any infobar
@@ -336,6 +338,11 @@ void InstallerDownloaderController::OnEligibilityReady(
     model_->IncrementShowCount();
     base::UmaHistogramBoolean("Windows.InstallerDownloader.InfobarShown",
                               /*sample=*/true);
+    // Log cycle index with exclusive max of 8 to future-proof against
+    // increases in max cycle count. Current max is 3.
+    base::UmaHistogramExactLinear(
+        "Windows.InstallerDownloader.Reengagement.InfobarShown",
+        model_->GetCurrentCycle(), 8);
     return;
   }
 
@@ -389,6 +396,11 @@ void InstallerDownloaderController::OnEligibilityReady(
     model_->IncrementShowCount();
     base::UmaHistogramBoolean("Windows.InstallerDownloader.InfobarShown",
                               /*sample=*/true);
+    // Log cycle index with exclusive max of 8 to future-proof against
+    // increases in max cycle count. Current max is 3.
+    base::UmaHistogramExactLinear(
+        "Windows.InstallerDownloader.Reengagement.InfobarShown",
+        model_->GetCurrentCycle(), 8);
   }
 }
 
@@ -423,6 +435,11 @@ void InstallerDownloaderController::OnDownloadRequestAccepted(
     const base::FilePath& destination) {
   base::UmaHistogramBoolean("Windows.InstallerDownloader.RequestAccepted",
                             true);
+  // Log cycle index with exclusive max of 8 to future-proof against
+  // increases in max cycle count. Current max is 3.
+  base::UmaHistogramExactLinear(
+      "Windows.InstallerDownloader.Reengagement.RequestAccepted",
+      model_->GetCurrentCycle(), 8);
 
   user_initiated_info_bar_close_pending_ = true;
   infobar_closed_ = true;
@@ -448,7 +465,7 @@ void InstallerDownloaderController::OnDownloadRequestAccepted(
 
   model_->StartDownload(
       installer_url.value(),
-      destination.AppendASCII(kDownloadedInstallerFileName.Get()),
+      destination.AppendASCII(kDownloadedInstallerFileName),
       CHECK_DEREF(profile->GetDownloadManager()),
       base::BindOnce(&InstallerDownloaderController::OnDownloadCompleted,
                      base::Unretained(this), std::move(keep_alive)));
@@ -460,6 +477,9 @@ void InstallerDownloaderController::OnDownloadCompleted(
   base::UmaHistogramBoolean("Windows.InstallerDownloader.DownloadSucceed",
                             success);
   model_->PreventFutureDisplay();
+  if (success) {
+    model_->RecordDownloadCompleted();
+  }
 }
 
 void InstallerDownloaderController::SetActiveWebContentsCallbackForTesting(

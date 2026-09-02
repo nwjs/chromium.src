@@ -29,7 +29,6 @@
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
-#include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_entry.h"
 #include "components/autofill/core/browser/webdata/autocomplete/autocomplete_table_label_sensitive.h"
@@ -363,7 +362,6 @@ struct Suggestion {
     ShouldTruncate should_truncate = ShouldTruncate(false);
   };
 
-  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.ui.suggestion
   enum class Icon {
     // kNoIcon is kept at the top of the list.
     kNoIcon,
@@ -382,8 +380,7 @@ struct Suggestion {
     // Generic icons start
     kAccount,
     kAndroidMessages,
-    // TODO(crbug.com/40266549): Rename to Undo.
-    kClear,
+    kClose,
     kCode,
     kDelete,
     kDevice,
@@ -477,17 +474,18 @@ struct Suggestion {
     kStatic,
   };
 
-  // Describes whether a suggestion can be accepted and how it should be styled
-  // when it cannot be.
+  // Describes the behavioral interaction contract of a suggestion: whether it
+  // can be selected/focused and whether it can be accepted (clicked/filled).
+  //
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.autofill
   enum class Acceptability {
-    // The suggestion can be accepted.
-    kAcceptable,
-    // The suggestion cannot be accepted (i.e. trying to accept it is ignored by
-    // the UI controller).
-    kUnacceptable,
-    // The suggestion cannot be accepted and is displayed in a
-    // disabled/grayed-out form.
-    kUnacceptableWithDeactivatedStyle,
+    // The suggestion can be selected and accepted.
+    kSelectableAndAcceptable,
+    // The suggestion can be selected, but cannot be accepted (i.e. trying to
+    // accept it is ignored by the UI controller).
+    kSelectableButUnacceptable,
+    // The suggestion cannot be selected/focused and cannot be accepted.
+    kUnselectableAndUnacceptable,
   };
 
   explicit Suggestion(SuggestionType type);
@@ -544,6 +542,7 @@ struct Suggestion {
         return std::holds_alternative<Guid>(payload) ||
                std::holds_alternative<InstrumentId>(payload);
       case SuggestionType::kFillAutofillAi:
+      case SuggestionType::kRemoveAutofillAi:
         return std::holds_alternative<AutofillAiPayload>(payload);
       case SuggestionType::kCreditCardEntry:
       case SuggestionType::kVirtualCreditCardEntry:
@@ -683,19 +682,19 @@ struct Suggestion {
   FiltrationPolicy filtration_policy = FiltrationPolicy::kFilterable;
 
   // The acceptability of the suggestion, see the enum values doc for details.
-  // Note that even if `acceptability` is `kAcceptable`, some `SuggestionType`
-  // are still not acceptable. See `IsAcceptable()` for details.
-  Acceptability acceptability = Acceptability::kAcceptable;
+  // Note that even if `acceptability` is `kSelectableAndAcceptable`, some
+  // `SuggestionType` are still not acceptable. See `IsAcceptable()` for
+  // details.
+  Acceptability acceptability = Acceptability::kSelectableAndAcceptable;
 
   // Returns whether the user is able to preview the suggestion by hovering on
   // it or accept it by clicking on it. Checks both whether the suggestion type
   // is acceptable (i.e. not a separator, title, etc.) and whether
-  // `acceptability == Acceptability::kAcceptable`.
+  // `acceptability == Acceptability::kSelectableAndAcceptable`.
   bool IsAcceptable() const;
 
-  // Returns whether the user will see the suggestion in
-  // a "disabled and grayed-out" form.
-  bool HasDeactivatedStyle() const;
+  // Returns whether the user is able to focus or select the suggestion.
+  bool IsSelectable() const;
 };
 
 void PrintTo(const Suggestion& suggestion, std::ostream* os);

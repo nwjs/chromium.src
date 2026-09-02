@@ -163,11 +163,20 @@ template("cpp_api_from_rust") {
     args += [
       "--",
 
+      # TODO(https://gn.issues.chromium.org/490160737): Enable this interface
+      # once we can get paths to rmeta files in GN.
+      "--enable-rmeta-interface=false",
+
       "--h-out",
       rebase_path(_h_out, root_build_dir),
 
       "--rs-out",
       rebase_path(_rs_out, root_build_dir),
+
+      # TODO(https://crbug.com/539569491): Remove this flag once/when it no
+      # longer works.  (Crubit will remove this flag once its clients no longer
+      # depend on the old behavior.)
+      "--portable-abi-compatible",
 
       "--crubit-support-path-format",
       _crubit_support_path_format,
@@ -243,8 +252,11 @@ template("cpp_api_from_rust") {
     deps += [
       ":$_action_target_name",
       ":$_rust_impl_target_name",
-      "//build/rust/crubit:cpp_api_from_rust_bindings_cpp_deps",
     ]
+
+    # `**public**_deps` to propagate `include_dirs` for including Crubit
+    # support libraries.
+    public_deps = [ "//build/rust/crubit:cpp_api_from_rust_bindings_cpp_deps" ]
 
     _gen_dir_relative_h_out = rebase_path(_h_out, root_gen_dir)
     metadata = {

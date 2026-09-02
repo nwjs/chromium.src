@@ -24,11 +24,11 @@
 #include "base/time/time.h"
 #include "base/trace_event/named_trigger.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -39,6 +39,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/tabs/split_tab_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar_controller_util.h"
@@ -74,6 +75,7 @@
 #include "content/public/browser/reload_type.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
@@ -90,6 +92,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/display/screen.h"
+#include "ui/events/blink/web_input_event.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/rect_conversions.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -140,6 +143,51 @@ WebUIToolbarUI* GetWebUIToolbarUIFromWebContents(
   return controller ? controller->GetAs<WebUIToolbarUI>() : nullptr;
 }
 
+//  The approach used by RoundedOmniboxResultsFrame on Mac to forward mouse
+//  events received by the popup to the underlying windows ultimately ends up
+//  with the event received at Views level at NativeViewHost, which doesn't know
+//  what to do with them. This is set up as a fallback handler to receive these,
+//  and forward them on further till the WebView.
+class WebUIToolbarEventForwarder : public ui::EventHandler {
+ public:
+  WebUIToolbarEventForwarder(WebUIToolbarControlDelegate& control_delegate,
+                             views::WebView& web_view)
+      : control_delegate_(control_delegate), web_view_(web_view) {}
+
+  void OnMouseEvent(ui::MouseEvent* event) override {
+    if (!HaveOpenOmniboxPopup()) {
+      return;
+    }
+    content::RenderWidgetHost* target =
+        web_view_->GetWebContents()->GetRenderViewHost()->GetWidget();
+    if (event->type() == ui::EventType::kMousewheel) {
+      // We purposefully don't forward wheel events. They need special phase
+      // handling and it doesn't seem like we actually do anything with them.
+      return;
+    } else {
+      target->ForwardMouseEvent(ui::MakeWebMouseEvent(*event));
+    }
+  }
+
+  bool HaveOpenOmniboxPopup() {
+    auto* bwi = control_delegate_->GetBrowser();
+    if (!bwi) {
+      return false;
+    }
+    // Note that this may be WebUILocationBar or LocationBarView, dependent
+    // on flags.
+    auto* location_bar = BrowserWindow::FromBrowser(bwi)->GetLocationBar();
+    if (!location_bar) {
+      return false;
+    }
+    return location_bar->GetOmniboxController()->IsPopupOpen();
+  }
+
+ private:
+  const raw_ref<WebUIToolbarControlDelegate> control_delegate_;
+  const raw_ref<views::WebView> web_view_;
+};
+
 }  // namespace
 
 class WebUIToolbarInternalWebView : public views::WebView {
@@ -149,8 +197,19 @@ class WebUIToolbarInternalWebView : public views::WebView {
   WebUIToolbarInternalWebView(content::BrowserContext* browser_context,
                               WebUIToolbarWebView* webui_toolbar_web_view)
       : views::WebView(browser_context),
-        webui_toolbar_web_view_(webui_toolbar_web_view) {}
-  ~WebUIToolbarInternalWebView() override = default;
+        webui_toolbar_web_view_(webui_toolbar_web_view) {
+#if BUILDFLAG(IS_MAC)
+    forwarder_ = std::make_unique<WebUIToolbarEventForwarder>(
+        *webui_toolbar_web_view, *this);
+    holder()->SetMouseEventFallback(forwarder_.get());
+#endif
+  }
+
+  ~WebUIToolbarInternalWebView() override {
+#if BUILDFLAG(IS_MAC)
+    holder()->SetMouseEventFallback(nullptr);
+#endif
+  }
 
   // views::WebView:
   void PreHandleDragUpdate(const content::DropData& drop_data,
@@ -251,6 +310,9 @@ class WebUIToolbarInternalWebView : public views::WebView {
   }
 
  private:
+#if BUILDFLAG(IS_MAC)
+  std::unique_ptr<WebUIToolbarEventForwarder> forwarder_;
+#endif
   // owns `this` as a child view.
   raw_ptr<WebUIToolbarWebView> webui_toolbar_web_view_;
   // A handler to handle unhandled keyboard messages coming back from the
@@ -273,9 +335,10 @@ WebUIToolbarWebView::WebUIToolbarWebView(
       reload_control_(this),
       split_tabs_control_(this),
       home_control_(this),
+      performance_intervention_control_(this),
       app_menu_control_(*this),
       battery_saver_control_(this),
-      avatar_control_(this, browser->GetBrowserForMigrationOnly()),
+      avatar_control_(this),
       location_bar_(std::move(location_bar)),
       extensions_container_(this),
       back_control_(this, BackForwardButton::Direction::kBack),
@@ -294,6 +357,8 @@ WebUIToolbarWebView::WebUIToolbarWebView(
       toolbar_ui_api::mojom::HomeControlState::New();
   last_queued_state_.battery_saver_button_visible =
       battery_saver_control_.IsVisible();
+  last_queued_state_.performance_intervention_control_state =
+      toolbar_ui_api::mojom::PerformanceInterventionControlState::New();
   last_queued_state_.location_bar_state =
       toolbar_ui_api::mojom::LocationBarState::New();
   last_queued_state_.location_bar_state->omnibox_view_state =
@@ -306,6 +371,7 @@ WebUIToolbarWebView::WebUIToolbarWebView(
               toolbar_ui_api::IconHandle(),
               toolbar_ui_api::mojom::SecurityLevel::kNone,
               /*text=*/std::u16string(),
+              /*tooltip=*/std::u16string(),
               toolbar_ui_api::mojom::SecurityChipAccessibilityState::New(
                   /*label=*/std::u16string(),
                   /*description=*/std::u16string()),
@@ -441,6 +507,9 @@ void WebUIToolbarWebView::AddedToWidget() {
     if (features::IsWebUIBatterySaverButtonEnabled()) {
       battery_saver_control_.Init();
     }
+    if (features::IsWebUIPerformanceInterventionButtonEnabled()) {
+      performance_intervention_control_.Init();
+    }
     if (features::IsWebUIPinnedToolbarActionsEnabled()) {
       pinned_toolbar_actions_.Init();
     }
@@ -457,6 +526,7 @@ void WebUIToolbarWebView::AddedToWidget() {
 
 void WebUIToolbarWebView::OnThemeChanged() {
   views::View::OnThemeChanged();
+  UpdateProfileThemeColors(browser_, GetColorProvider());
   avatar_control_.UpdateIcon();
   if (location_bar_) {
     location_bar_->OnThemeChanged();
@@ -465,6 +535,7 @@ void WebUIToolbarWebView::OnThemeChanged() {
     pinned_toolbar_actions_.OnThemeChanged();
   }
   extensions_container_.OnThemeChanged();
+  icon_table_.OnThemeChanged();
 }
 
 gfx::Size WebUIToolbarWebView::GetMinimumSize() const {
@@ -583,17 +654,26 @@ void WebUIToolbarWebView::HandleContextMenu(
 
 void WebUIToolbarWebView::ShowContentSettingsBubble(
     ::toolbar_ui_api::mojom::ContentSettingImageType type,
+    bool is_pointer_interaction,
     toolbar_ui_api::ToolbarUIService::ShowContentSettingsBubbleCallback
         callback) {
   if (location_bar_) {
     location_bar_->content_setting_image_control().ShowContentSettingsBubble(
-        type, std::move(callback));
+        type, is_pointer_interaction, std::move(callback));
   } else {
     std::move(callback).Run(base::unexpected(Error::New(
         Code::kFailedPrecondition,
         base::StringPrintf("WebUIToolbarWebView: cannot create bubble without "
                            "location_bar_ for type: %d",
                            static_cast<int32_t>(type)))));
+  }
+}
+
+void WebUIToolbarWebView::OnContentSettingImagePointerDown(
+    ::toolbar_ui_api::mojom::ContentSettingImageType type) {
+  if (location_bar_) {
+    location_bar_->content_setting_image_control()
+        .OnContentSettingImagePointerDown(type);
   }
 }
 
@@ -649,6 +729,13 @@ void WebUIToolbarWebView::MaybeInitializePageDependentControls() {
 void WebUIToolbarWebView::OnPageInitialized() {
   SetInitializationState(InitializationState::kInitialized);
   MaybeInitializePageDependentControls();
+
+  if (pending_focus_request_) {
+    if (WebUIToolbarUI* web_ui = GetWebUIToolbarUI()) {
+      web_ui->OnFocusRequested(*pending_focus_request_);
+    }
+    pending_focus_request_.reset();
+  }
 
   if (auto* manager = InitialWebUIManager::From(browser_)) {
     manager->OnWebUIToolbarLoaded();
@@ -771,6 +858,15 @@ WebUIToolbarWebView::AdjustOmniboxTextForCopy(const std::u16string& text,
   return result;
 }
 
+void WebUIToolbarWebView::OnPerformanceInterventionButtonClicked(
+    bool is_mouse_interaction) {
+  performance_intervention_control_.OnClicked(is_mouse_interaction);
+}
+
+void WebUIToolbarWebView::OnPerformanceInterventionButtonMousePressed() {
+  performance_intervention_control_.OnMousePressed();
+}
+
 ReloadControl* WebUIToolbarWebView::GetReloadControl() {
   return &reload_control_;
 }
@@ -798,6 +894,10 @@ chrome::BrowserCommandController* WebUIToolbarWebView::GetCommandController() {
 
 views::View* WebUIToolbarWebView::GetView() {
   return this;
+}
+
+views::View* WebUIToolbarWebView::GetInternalWebView() {
+  return web_view_.get();
 }
 
 content::WebContents* WebUIToolbarWebView::GetWebContents() {
@@ -894,16 +994,13 @@ void WebUIToolbarWebView::DidFinishNavigation(
   ui->Init(this);
 }
 
-void WebUIToolbarWebView::SetBackButtonLeadingMargin(int margin) {
-  // This is called every time ToolbarView::Layout() is called, almost always
-  // with the same value as before. Best to avoid the expensive
-  // PreferredSizeChanged() call if nothing actually changed.
-  if (margin == back_button_leading_margin_) {
+void WebUIToolbarWebView::SetIsMaximizedOrFullscreen(
+    bool maximized_or_fullscreen) {
+  if (maximized_or_fullscreen == window_is_maximized_or_fullscreen_) {
     return;
   }
-  back_button_leading_margin_ = margin;
+  window_is_maximized_or_fullscreen_ = maximized_or_fullscreen;
   OnBackForwardStateChanged();
-  PreferredSizeChanged();
 }
 
 void WebUIToolbarWebView::SetBackForwardEnabled(int command_id, bool enabled) {
@@ -1071,6 +1168,12 @@ float WebUIToolbarWebView::GetScaleFactor() const {
 views::FlexSpecification WebUIToolbarWebView::GetFlexSpecification(
     int navigation_button_flex_order,
     int location_bar_flex_order) {
+  // If the all controls are using WebUI, don't need to integrate with the Views
+  // overflow logic, and flex orders don't really make any sense, so this method
+  // should not be called. Instead, the caller should set a basic
+  // FlexSpecification itself.
+  CHECK(!is_webui_toolbar_fully_enabled_);
+
   // This is the base flex rule when using the lowest order / highest priority
   // for the WebUIToolbarWebView. If there's enough space for all the highest
   // priority controls, then we'll switch to the lower priority flex rule for
@@ -1275,6 +1378,15 @@ void WebUIToolbarWebView::OnHomeControlStateChanged(
   }
 }
 
+void WebUIToolbarWebView::OnPerformanceInterventionControlStateChanged(
+    toolbar_ui_api::mojom::PerformanceInterventionControlStatePtr state) {
+  if (*state != *last_queued_state_.performance_intervention_control_state) {
+    last_queued_state_.performance_intervention_control_state =
+        std::move(state);
+    PostPushNavigationState();
+  }
+}
+
 void WebUIToolbarWebView::OnAppMenuControlStateChanged(
     toolbar_ui_api::mojom::AppMenuControlStatePtr state) {
   if (*state != *last_queued_state_.app_menu_control_state) {
@@ -1432,8 +1544,12 @@ void WebUIToolbarWebView::OnFocusRequested(
     toolbar_ui_api::mojom::FocusRequestTarget target) {
   // We need to focus the WebView as well, besides the JS focus.
   web_view_->RequestFocus();
-  if (WebUIToolbarUI* web_ui = GetWebUIToolbarUI()) {
-    web_ui->OnFocusRequested(target);
+  if (initialization_state_ == InitializationState::kInitialized) {
+    if (WebUIToolbarUI* web_ui = GetWebUIToolbarUI()) {
+      web_ui->OnFocusRequested(target);
+    }
+  } else {
+    pending_focus_request_ = target;
   }
 }
 
@@ -1494,7 +1610,7 @@ WebUIToolbarWebView::GetBackForwardState() const {
   auto state = toolbar_ui_api::mojom::BackForwardControlState::New();
   state->back_button_state = back_control_.GetButtonState();
   state->forward_button_state = forward_control_.GetButtonState();
-  state->back_button_leading_margin = back_button_leading_margin_;
+  state->window_is_maximized_or_fullscreen = window_is_maximized_or_fullscreen_;
   return state;
 }
 
@@ -1513,6 +1629,9 @@ gfx::Size WebUIToolbarWebView::ComputeLayout(
   button_count += features::IsWebUIAvatarButtonEnabled();
   button_count += features::IsWebUIBatterySaverButtonEnabled() &&
                   battery_saver_control_.IsVisible();
+  button_count += features::IsWebUIPerformanceInterventionButtonEnabled() &&
+                  performance_intervention_control_.IsButtonShowing();
+  button_count += features::IsWebUIAppMenuButtonEnabled();
 
   const int size = GetLayoutConstant(LayoutConstant::kToolbarButtonHeight);
   const int gap = GetLayoutConstant(LayoutConstant::kToolbarIconDefaultMargin);
@@ -1523,7 +1642,15 @@ gfx::Size WebUIToolbarWebView::ComputeLayout(
 
   // TODO(crbug.com/517948314): This isn't sizing the forward button correctly.
   if (features::IsWebUIBackForwardButtonEnabled()) {
-    width += back_button_leading_margin_;
+    const gfx::Insets default_insets =
+        ::GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
+    width += GetMirrored() ? default_insets.right() : default_insets.left();
+  }
+
+  if (features::IsWebUIAppMenuButtonEnabled()) {
+    const gfx::Insets default_insets =
+        ::GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
+    width += GetMirrored() ? default_insets.left() : default_insets.right();
   }
 
   // Handle overflowable / resizable controls here, with highest priority
@@ -1636,6 +1763,12 @@ gfx::Size WebUIToolbarWebView::ComputeLayout(
 }
 
 void WebUIToolbarWebView::UpdateButtonOverflowState() {
+  // If all controls are being managed by WebUI, overflow is handled entirely in
+  // Javascript instead of C++.
+  if (is_webui_toolbar_fully_enabled_) {
+    return;
+  }
+
   // Compute layout to determine which buttons to hide. Ignore the returned
   // Size.
   ButtonOverflowInfo button_overflow_info;

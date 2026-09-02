@@ -40,6 +40,7 @@ import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.JavaExceptionReporter;
 import org.chromium.base.TimeUtils;
@@ -161,7 +162,6 @@ import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabCreatorUtil;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabstrip.TabStripTopControlLayer;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUi;
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupUiOneshotSupplier;
@@ -221,6 +221,8 @@ import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.TopInsetProvider;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
+import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiObserver;
 import org.chromium.chrome.browser.ui.side_ui.SideUiStateProvider;
@@ -350,7 +352,6 @@ public class ToolbarManager
             ObservableSuppliers.createMonotonic();
     private @MonotonicNonNull TabModelSelector mTabModelSelector;
     private final Callback<TabModel> mCurrentTabModelObserver;
-    private TabModelSelectorObserver mTabModelSelectorObserver;
     private MonotonicObservableSupplier<TabModelSelector> mTabModelSelectorSupplier;
     private ActivityTabProvider.ActivityTabTabObserver mActivityTabTabObserver;
     private final ActivityTabProvider mActivityTabProvider;
@@ -502,6 +503,7 @@ public class ToolbarManager
     private @Nullable ToolbarPositionController mToolbarPositionController;
     private @Nullable UndoBarThrottle mUndoBarThrottle;
     private final @Nullable BottomBarHostManager mBottomBarHostManager;
+    private final @Nullable OneshotSupplier<String> mCountrySupplier;
 
     private OverridableTabCount mOverridableTabCount;
     private int mIncognitoNtpViewIdForA11y = View.NO_ID;
@@ -623,13 +625,17 @@ public class ToolbarManager
                 return;
             }
 
-            mHandler.onBackProgressed(
+            if (!mHandler.onBackProgressed(
                     backEvent.getProgress(),
                     backEvent.getSwipeEdge() == BackEventCompat.EDGE_LEFT
                             ? BackGestureEventSwipeEdge.LEFT
                             : BackGestureEventSwipeEdge.RIGHT,
                     isForward(),
-                    mIsGestureMode);
+                    mIsGestureMode)) {
+                // The gesture is ours again, so handleBackPress() must fall back to the
+                // regular back handling instead of waiting for a transition.
+                mHandler = null;
+            }
         }
 
         @Override
@@ -763,6 +769,7 @@ public class ToolbarManager
      * @param pageZoomManager The {@link PageZoomManager} used to manage the page zoom.
      * @param omniboxChipManager The {@link OmniboxChipManager} to show chips in the omnibox.
      * @param bottomBarHostManager The {@link BottomBarHostManager} to manage the bottom bar.
+     * @param countrySupplier The supplier for the variations country code.
      * @param suppressTabStripAtStart if {@code true}, suppress tab strip when Chrome starts.
      */
     public ToolbarManager(
@@ -825,10 +832,12 @@ public class ToolbarManager
             @Nullable OmniboxChipManager omniboxChipManager,
             @Nullable BottomBarHostManager bottomBarHostManager,
             @Nullable ActionRegistry actionRegistry,
+            @Nullable OneshotSupplier<String> countrySupplier,
             GlicButtonDelegate toggleGlicCallback,
             boolean suppressTabStripAtStart) {
         TraceEvent.begin("ToolbarManager.ToolbarManager");
         mActionRegistry = actionRegistry;
+        mCountrySupplier = countrySupplier;
         mToggleGlicCallback = toggleGlicCallback;
         mActivity = activity;
         mWindowAndroid = windowAndroid;
@@ -1141,7 +1150,7 @@ public class ToolbarManager
                             mIncognitoStateProvider,
                             mActivityTabProvider.asObservable(),
                             mToolbarNavControlsEnabledSupplier,
-                            /* onNavigationPopupShown= */ () -> {},
+                            /* onNavigationPopupShown= */ CallbackUtils.emptyRunnable(),
                             historyDelegate,
                             /* isWebApp= */ false);
         }
@@ -1896,7 +1905,8 @@ public class ToolbarManager
         // after fixing the initialization order.
         var currentSideUiSpecs = sideUiStateProvider.getCurrentSideUiSpecs();
 
-        mControlContainerSideUiObserver = new ToolbarMarginAdjusterForSideUi(mControlContainer);
+        mControlContainerSideUiObserver =
+                new ToolbarMarginAdjusterForSideUi(mControlContainer, mToolbar);
         mControlContainerSideUiObserver.onSideUiSpecsChanged(currentSideUiSpecs);
         mSideUiStateProvider.addObserver(mControlContainerSideUiObserver);
 
@@ -1908,8 +1918,11 @@ public class ToolbarManager
     }
 
     private static class ToolbarMarginAdjusterForSideUi extends ViewMarginAdjusterForSideUi {
-        ToolbarMarginAdjusterForSideUi(View view) {
+        private final TopToolbarCoordinator mToolbar;
+
+        ToolbarMarginAdjusterForSideUi(View view, TopToolbarCoordinator toolbar) {
             super(view, /* forToolbarElement= */ true);
+            mToolbar = toolbar;
         }
 
         @Override
@@ -1926,6 +1939,16 @@ public class ToolbarManager
             Transition transition = super.onPreSideUiSpecsChange(sideUiSpecs);
             super.triggerSynchronousMeasureAndLayout();
             return transition;
+        }
+
+        @Override
+        public void onSideUiSpecsChanged(SideUiSpecs sideUiSpecs) {
+            super.onSideUiSpecsChanged(sideUiSpecs);
+            int xOffset = 0;
+            if (sideUiSpecs.getHeightType(AnchorSide.LEFT) == HeightType.TOOLBAR) {
+                xOffset = sideUiSpecs.getWidth(AnchorSide.LEFT);
+            }
+            mToolbar.setXOffset(xOffset);
         }
     }
 
@@ -2484,6 +2507,9 @@ public class ToolbarManager
         var bottomBarContainerOneshotSupplier =
                 new OneshotSupplierImpl<BottomControlsContentDelegate>();
 
+        OneshotSupplier<String> countrySupplier =
+                mCountrySupplier != null ? mCountrySupplier : new OneshotSupplierImpl<>();
+
         BottomBarContainerCoordinator bottomBarContainerCoordinator =
                 new BottomBarContainerCoordinator(
                         bottomAppBarContainer.findViewById(R.id.bottom_container_slot),
@@ -2493,6 +2519,7 @@ public class ToolbarManager
                         mAppThemeColorProvider,
                         mHomepageEnabledSupplier,
                         mProfileSupplier,
+                        countrySupplier,
                         mOmniboxFocusStateSupplier,
                         mModalDialogManagerSupplier,
                         mAppMenuCoordinatorSupplier,
@@ -2580,14 +2607,6 @@ public class ToolbarManager
         mUndoBarThrottle = undoBarThrottle;
 
         mTabModelSelector = tabModelSelector;
-        mTabModelSelectorObserver =
-                new TabModelSelectorObserver() {
-                    @Override
-                    public void onTabHidden(Tab tab) {
-                        suspendFuseboxInput();
-                    }
-                };
-        mTabModelSelector.addObserver(mTabModelSelectorObserver);
         if (mActionRegistry != null) {
             PropertyModel newTabModel = mActionRegistry.get(ActionId.NEW_TAB).get();
             assert newTabModel != null : "NEW_TAB action should be registered";
@@ -2903,9 +2922,6 @@ public class ToolbarManager
         }
         if (mTabModelSelectorSupplier != null) {
             mTabModelSelectorSupplier = null;
-        }
-        if (mTabModelSelectorObserver != null) {
-            mTabModelSelector.removeObserver(mTabModelSelectorObserver);
         }
         if (mTabModelSelector != null) {
             mTabModelSelector.getCurrentTabModelSupplier().removeObserver(mCurrentTabModelObserver);

@@ -6,9 +6,9 @@
 
 #include <vector>
 
+#include "base/containers/to_vector.h"
 #include "components/cbor/reader.h"
 #include "components/cbor/writer.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_test_data.h"
 #include "device/fido/opaque_attestation_statement.h"
 #include "device/fido/public/fido_constants.h"
@@ -85,18 +85,17 @@ constexpr uint8_t kCertificates[] = {
 TEST(PackedAttestationStatementTest, CBOR) {
   EXPECT_THAT(
       *cbor::Writer::Write(AsCBOR(PackedAttestationStatement(
-          CoseAlgorithmIdentifier::kEs256,
-          fido_parsing_utils::Materialize(kSignature),
-          {fido_parsing_utils::Materialize(kCertificates)}))),
+          CoseAlgorithmIdentifier::kEs256, base::ToVector(kSignature),
+          {base::ToVector(kCertificates)}))),
       testing::ElementsAreArray(test_data::kPackedAttestationStatementCBOR));
 }
 
 TEST(PackedAttestationStatementTest, CBOR_NoCerts) {
-  EXPECT_THAT(*cbor::Writer::Write(AsCBOR(PackedAttestationStatement(
-                  CoseAlgorithmIdentifier::kEs256,
-                  fido_parsing_utils::Materialize(kSignature), {}))),
-              testing::ElementsAreArray(
-                  test_data::kPackedAttestationStatementCBORNoCerts));
+  EXPECT_THAT(
+      *cbor::Writer::Write(AsCBOR(PackedAttestationStatement(
+          CoseAlgorithmIdentifier::kEs256, base::ToVector(kSignature), {}))),
+      testing::ElementsAreArray(
+          test_data::kPackedAttestationStatementCBORNoCerts));
 }
 
 TEST(OpaqueAttestationStatementTest, GetLeafCertificate) {
@@ -108,6 +107,29 @@ TEST(OpaqueAttestationStatementTest, GetLeafCertificate) {
   auto leaf_cert = statement.GetLeafCertificate();
   ASSERT_TRUE(leaf_cert);
   EXPECT_EQ(590u, leaf_cert->size());
+}
+
+// Tests creating a FidoAttestationStatement from valid U2F register response
+// data.
+TEST(FidoAttestationStatementTest, CreateFromU2fRegisterResponseValid) {
+  auto statement = FidoAttestationStatement::CreateFromU2fRegisterResponse(
+      test_data::kTestU2fRegisterResponse);
+  ASSERT_TRUE(statement);
+  EXPECT_FALSE(statement->IsSelfAttestation());
+  auto leaf_cert = statement->GetLeafCertificate();
+  ASSERT_TRUE(leaf_cert);
+  EXPECT_EQ(sizeof(kCertificates), leaf_cert->size());
+}
+
+// Tests creating a FidoAttestationStatement from invalid or truncated data.
+TEST(FidoAttestationStatementTest, CreateFromU2fRegisterResponseInvalid) {
+  // Empty response must fail.
+  EXPECT_FALSE(
+      FidoAttestationStatement::CreateFromU2fRegisterResponse({}));
+
+  // Truncated response before key handle length must fail.
+  EXPECT_FALSE(FidoAttestationStatement::CreateFromU2fRegisterResponse(
+      base::span(test_data::kTestU2fRegisterResponse).first(10u)));
 }
 
 }  // namespace

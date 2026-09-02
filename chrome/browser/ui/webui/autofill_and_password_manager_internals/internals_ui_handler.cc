@@ -17,19 +17,24 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/autofill/autofill_ai_model_cache_factory.h"
+#include "chrome/browser/autofill/autofill_ai_personal_context_access_manager_factory.h"
+#include "chrome/browser/autofill/autofill_entity_data_manager_factory.h"
 #include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/channel_info.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/logging/log_router.h"
 #include "components/autofill/core/browser/ml_model/autofill_ai/autofill_ai_model_cache.h"
 #include "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #include "components/autofill/core/common/logging/log_buffer.h"
+#include "components/device_reauth/device_authenticator.h"
 #include "components/embedder_support/user_agent_utils.h"
 #include "components/grit/autofill_and_password_manager_internals_resources.h"
 #include "components/grit/autofill_and_password_manager_internals_resources_map.h"
@@ -142,6 +147,15 @@ void InternalsUIHandler::RegisterMessages() {
       base::BindRepeating(&InternalsUIHandler::OnGetAutofillAiCache,
                           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
+      "getAutofillAiEntities",
+      base::BindRepeating(&InternalsUIHandler::OnGetAutofillAiEntities,
+                          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "authenticateToRevealMaskedEntities",
+      base::BindRepeating(
+          &InternalsUIHandler::OnAuthenticateToRevealMaskedEntities,
+          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
       "removeAutofillAiCacheEntry",
       base::BindRepeating(&InternalsUIHandler::OnDeleteAutofillAiCacheEntry,
                           base::Unretained(this)));
@@ -229,6 +243,177 @@ void InternalsUIHandler::OnGetAutofillAiCache(const base::ListValue& args) {
   }
 
   FireWebUIListener("display-autofill-ai-cache", std::move(results));
+}
+
+namespace {
+
+// Returns a human-readable string representation of
+// `EntityInstance::RecordType` such as `kLocal`, `kServerWallet`, or
+// `kPersonalContext`.
+std::string_view RecordTypeToStringView(
+    EntityInstance::RecordType record_type) {
+  switch (record_type) {
+    case EntityInstance::RecordType::kLocal:
+      return "Local";
+    case EntityInstance::RecordType::kServerWallet:
+      return "Server Wallet";
+    case EntityInstance::RecordType::kPersonalContext:
+      return "Personal Context";
+  }
+}
+
+}  // namespace
+
+void InternalsUIHandler::OnGetAutofillAiEntities(const base::ListValue& args) {
+  EntityDataManager* entity_data_manager =
+      AutofillEntityDataManagerFactory::GetForProfile(
+          Profile::FromWebUI(web_ui()));
+  if (entity_data_manager && !entity_data_observation_.IsObserving()) {
+    entity_data_observation_.Observe(entity_data_manager);
+  }
+
+  AutofillAiPersonalContextAccessManager* pcam =
+      AutofillAiPersonalContextAccessManagerFactory::GetForProfile(
+          Profile::FromWebUI(web_ui()));
+  if (pcam) {
+    // OnGetAutofillAiEntities can be called repeatedly on tab clicks or
+    // refreshes; avoid CHECK-failing if already observing.
+    if (!pcontext_observation_.IsObserving()) {
+      pcontext_observation_.Observe(pcam);
+    }
+    pending_prefetch_types_.clear();
+    for (EntityType entity_type : DenseSet<EntityType>::all()) {
+      pending_prefetch_types_.push_back(entity_type);
+    }
+    current_prefetch_type_ = std::nullopt;
+    FetchNextPersonalContextType();
+  }
+
+  SendAutofillAiEntitiesToWebUI();
+}
+
+void InternalsUIHandler::OnEntityInstancesChanged() {
+  SendAutofillAiEntitiesToWebUI();
+}
+
+// Fetches personal context entity types sequentially, one by one. Sequential
+// queuing is required because PersonalContextManager::FetchContext limits
+// parallel fetchers per feature to 2; dispatching all types simultaneously
+// would cause newer requests to evict and cancel pending requests.
+void InternalsUIHandler::FetchNextPersonalContextType() {
+  if (pending_prefetch_types_.empty()) {
+    current_prefetch_type_ = std::nullopt;
+    FireWebUIListener("display-autofill-ai-loading-status", base::Value(""));
+    return;
+  }
+
+  current_prefetch_type_ = pending_prefetch_types_.front();
+  pending_prefetch_types_.pop_front();
+
+  AutofillAiPersonalContextAccessManager* pcam =
+      AutofillAiPersonalContextAccessManagerFactory::GetForProfile(
+          Profile::FromWebUI(web_ui()));
+  if (pcam &&
+      pcam->GetPrefetchStatusByEntityType(*current_prefetch_type_) !=
+          AutofillAiPersonalContextAccessManager::RequestStatus::kNotStarted) {
+    current_prefetch_type_ = std::nullopt;
+    FetchNextPersonalContextType();
+    return;
+  }
+
+  std::string msg =
+      base::StrCat({"Fetching ", current_prefetch_type_->name_as_string(),
+                    " entities from CMS..."});
+  FireWebUIListener("display-autofill-ai-loading-status", base::Value(msg));
+
+  if (pcam) {
+    pcam->PrefetchContext({*current_prefetch_type_});
+  }
+}
+
+void InternalsUIHandler::OnPrefetchContextComplete(
+    const AutofillAiPersonalContextAccessManager& manager,
+    std::optional<base::span<const EntityInstance>> entities) {
+  // Guard against spurious global observer broadcasts or intermediate presence
+  // signal callbacks while our target entity type is still actively in flight.
+  if (!current_prefetch_type_ ||
+      manager.GetPrefetchStatusByEntityType(*current_prefetch_type_) ==
+          AutofillAiPersonalContextAccessManager::RequestStatus::kPending) {
+    SendAutofillAiEntitiesToWebUI();
+    return;
+  }
+  current_prefetch_type_ = std::nullopt;
+  FetchNextPersonalContextType();
+  SendAutofillAiEntitiesToWebUI();
+}
+
+void InternalsUIHandler::SendAutofillAiEntitiesToWebUI(
+    bool is_user_reauthenticated) {
+  EntityDataManager* entity_data_manager =
+      AutofillEntityDataManagerFactory::GetForProfile(
+          Profile::FromWebUI(web_ui()));
+  if (!entity_data_manager) {
+    FireWebUIListener("display-autofill-ai-entities", base::ListValue());
+    return;
+  }
+
+  base::ListValue results;
+  for (const EntityInstance& entity :
+       entity_data_manager->GetEntityInstances()) {
+    base::ListValue attributes_list;
+    for (AttributeType attribute_type : entity.type().attributes()) {
+      base::optional_ref<const AttributeInstance> attribute_instance =
+          entity.attribute(attribute_type);
+      std::string value;
+      if (attribute_instance &&
+          !attribute_instance->GetCompleteRawInfo().empty()) {
+        value =
+            (attribute_type.is_obfuscated() && !is_user_reauthenticated)
+                ? "<redacted>"
+                : base::UTF16ToUTF8(attribute_instance->GetCompleteRawInfo());
+      }
+      attributes_list.Append(base::DictValue()
+                                 .Set("name", attribute_type.name_as_string())
+                                 .Set("value", std::move(value)));
+    }
+    results.Append(
+        base::DictValue()
+            .Set("guid", entity.guid().value())
+            .Set("nickname", entity.nickname())
+            .Set("entityType", entity.type().name_as_string())
+            .Set("recordType", RecordTypeToStringView(entity.record_type()))
+            .Set("attributes", std::move(attributes_list)));
+  }
+
+  FireWebUIListener("display-autofill-ai-entities", std::move(results));
+}
+
+void InternalsUIHandler::OnAuthenticateToRevealMaskedEntities(
+    const base::ListValue& args) {
+  if (!authenticator_) {
+    ContentAutofillClient* client =
+        ContentAutofillClient::FromWebContents(web_ui()->GetWebContents());
+    if (!client) {
+      return;
+    }
+    authenticator_ = client->GetDeviceAuthenticator();
+  }
+  if (!authenticator_ ||
+      !authenticator_->CanAuthenticateWithBiometricOrScreenLock()) {
+    OnReauthCompleted(/*auth_succeeded=*/true);
+    return;
+  }
+  std::u16string message = u"Authenticate to view sensitive Autofill AI data.";
+  authenticator_->AuthenticateWithMessage(
+      message, base::BindOnce(&InternalsUIHandler::OnReauthCompleted,
+                              weak_ptr_factory_.GetWeakPtr()));
+}
+
+void InternalsUIHandler::OnReauthCompleted(bool auth_succeeded) {
+  authenticator_.reset();
+  if (auth_succeeded) {
+    SendAutofillAiEntitiesToWebUI(/*is_user_reauthenticated=*/true);
+  }
 }
 
 void InternalsUIHandler::OnLoaded(const base::ListValue& args) {

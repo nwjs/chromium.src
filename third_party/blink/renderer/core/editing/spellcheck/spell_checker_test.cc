@@ -42,7 +42,7 @@ class SpellCheckerTest : public SpellCheckTestBase,
     }
   }
 
-  unsigned LayoutCount() const {
+  wtf_size_t LayoutCount() const {
     return Page().GetFrameView().LayoutCountForTesting();
   }
   DummyPageHolder& Page() const { return GetDummyPageHolder(); }
@@ -58,11 +58,7 @@ class SpellCheckerTest : public SpellCheckTestBase,
 INSTANTIATE_TEST_SUITE_P(All, SpellCheckerTest, testing::Bool());
 
 void SpellCheckerTest::ForceLayout() {
-  LocalFrameView& frame_view = Page().GetFrameView();
-  gfx::Rect frame_rect = frame_view.FrameRect();
-  frame_rect.set_width(frame_rect.width() + 1);
-  frame_rect.set_height(frame_rect.height() + 1);
-  Page().GetFrameView().SetFrameRect(frame_rect);
+  GetDocument().View()->SetNeedsLayout();
   GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
 }
 
@@ -120,7 +116,7 @@ TEST_P(SpellCheckerTest, SpellCheckDoesNotCauseUpdateLayout) {
 
   EXPECT_TRUE(GetSpellChecker().IsSpellCheckingEnabled());
   ForceLayout();
-  unsigned start_count = LayoutCount();
+  wtf_size_t start_count = LayoutCount();
   GetSpellChecker().RespondToChangedSelection();
   EXPECT_EQ(start_count, LayoutCount());
 }

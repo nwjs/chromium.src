@@ -256,10 +256,7 @@ if (enable_vr) {
         "openxr/scoped_openxr_object.h",
       ]
 
-      deps += [
-        ":vr_test_hook",
-        "//third_party/blink/public:blink_headers",
-      ]
+      deps += [ "//third_party/blink/public:blink_headers" ]
 
       if (is_win) {
         libs = [
@@ -325,12 +322,14 @@ if (enable_vr) {
     }
   }
 
-  component("vr_test_hook") {
-    defines = [ "IS_VR_TEST_HOOK_IMPL" ]
+  component("vr_test_utils") {
+    testonly = true
+
+    defines = [ "IS_VR_TEST_UTILS_IMPL" ]
 
     sources = [
-      "test/test_hook.cc",
-      "test/test_hook.h",
+      "test/webxr_test_gamepad_utils.cc",
+      "test/webxr_test_gamepad_utils.h",
     ]
 
     deps = [
@@ -428,7 +427,6 @@ if (enable_openxr) {
         "openxr/test/fake_openxr_impl_api.h",
         "openxr/test/openxr_mock_helper.cc",
         "openxr/test/openxr_mock_helper.h",
-        "openxr/test/openxr_negotiate.h",
         "openxr/test/openxr_test_helper.cc",
         "openxr/test/openxr_test_helper.h",
       ]
@@ -437,7 +435,7 @@ if (enable_openxr) {
         ":openxr_data",
         ":vr",
         ":vr_base",
-        ":vr_test_hook",
+        ":vr_test_utils",
         "//base",
         "//components/version_info",
         "//device/gamepad/public/cpp:shared_with_blink",

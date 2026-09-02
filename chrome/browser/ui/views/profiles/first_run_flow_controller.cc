@@ -35,7 +35,6 @@
 #include "chrome/browser/search_engine_choice/search_engine_choice_dialog_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_hats_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/hats/survey_config.h"
 #include "chrome/browser/ui/singleton_tabs.h"
@@ -975,12 +974,6 @@ ProfilePickerToolbar::Builder FirstRunFlowController::CreateToolbarBuilder() {
   return builder;
 }
 
-void FirstRunFlowController::PlaySignInCelebrationSound() {
-  if (sounds_manager_ && AreEffectsEnabled()) {
-    sounds_manager_->Play(kWelcomeBackSoundKey);
-  }
-}
-
 void FirstRunFlowController::StartBrowsing() {
   CHECK_EQ(current_step(), Step::kFeatureShowcase);
   base::UmaHistogramEnumeration(
@@ -1106,10 +1099,10 @@ FirstRunFlowController::CreatePostSignInAdapter(
                      // Unretained ok: the callback is passed to a step that
                      // the `this` will own and outlive.
                      base::Unretained(this), base::Unretained(profile_)),
-      base::BindOnce(&FirstRunFlowController::PlaySignInCelebrationSound,
+      base::BindOnce(&FirstRunFlowController::PlaySound,
                      // Unretained ok: the callback is passed to a step
                      // that the `this` will own and outlive.
-                     base::Unretained(this)));
+                     base::Unretained(this), kWelcomeBackSoundKey));
 }
 
 void FirstRunFlowController::RunFinishFlowCallback() {
@@ -1155,18 +1148,6 @@ void FirstRunFlowController::UpdateAmbientSound(
 void FirstRunFlowController::ToggleFeatureShowcaseAmbientSound(bool active) {
   UpdateAmbientSound(active ? kFeatureShowcaseAmbientSoundKey
                             : kAmbientSoundKey);
-}
-
-void FirstRunFlowController::PlayFeatureShowcaseProgressSound() {
-  if (sounds_manager_ && AreEffectsEnabled()) {
-    sounds_manager_->Play(kFeatureShowcaseProgressSoundKey);
-  }
-}
-
-void FirstRunFlowController::PlayAllSetSound() {
-  if (sounds_manager_ && AreEffectsEnabled()) {
-    sounds_manager_->Play(kAllSetSoundKey);
-  }
 }
 
 void FirstRunFlowController::ToggleMediaEffects(bool active) {
@@ -1282,11 +1263,11 @@ FirstRunFlowController::RegisterPostIdentitySteps(
     auto feature_showcase_step =
         std::make_unique<FeatureShowcaseStepController>(
             host(), profile_, std::move(feature_showcase_step_completed),
-            base::BindRepeating(
-                &FirstRunFlowController::PlayFeatureShowcaseProgressSound,
-                // `Unretained` is ok because `this` owns the step and
-                // will outlive it.
-                base::Unretained(this)),
+            base::BindRepeating(&FirstRunFlowController::PlaySound,
+                                // `Unretained` is ok because `this` owns the
+                                // step and will outlive it.
+                                base::Unretained(this),
+                                kFeatureShowcaseProgressSoundKey),
             base::BindRepeating(
                 &FirstRunFlowController::ToggleFeatureShowcaseAmbientSound,
                 // `Unretained` is ok because `this` owns the step and
@@ -1314,10 +1295,10 @@ FirstRunFlowController::RegisterPostIdentitySteps(
                                 // step that `this` will own and outlive.
                                 base::Unretained(this)),
             std::move(finish_or_continue_step_completed),
-            base::BindOnce(&FirstRunFlowController::PlayAllSetSound,
+            base::BindOnce(&FirstRunFlowController::PlaySound,
                            // Unretained ok: the callback is passed to a
                            // step that `this` will own and outlive.
-                           base::Unretained(this)),
+                           base::Unretained(this), kAllSetSoundKey),
             /*effects_button_shown_by_default=*/
             base::FeatureList::IsEnabled(
                 switches::kFirstRunDesktopRevampSound)));
@@ -1333,6 +1314,13 @@ FirstRunFlowController::RegisterPostIdentitySteps(
   post_identity_steps.emplace(
       ProfileManagementFlowController::Step::kFinishFlow);
   return post_identity_steps;
+}
+
+void FirstRunFlowController::PlaySound(
+    audio::SoundsManager::SoundKey sound_key) {
+  if (sounds_manager_ && AreEffectsEnabled()) {
+    sounds_manager_->Play(sound_key);
+  }
 }
 
 // static

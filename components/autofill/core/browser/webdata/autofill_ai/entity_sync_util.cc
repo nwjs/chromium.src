@@ -12,10 +12,14 @@
 
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/to_vector.h"
+#include "base/feature_list.h"
 #include "base/i18n/time_formatting.h"
 #include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -29,6 +33,7 @@
 #include "components/autofill/core/browser/proto/autofill_ai_chrome_metadata.pb.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/browser/webdata/valuables/valuables_sync_util.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/sync/protocol/autofill_valuable_specifics.pb.h"
 #include "components/sync/protocol/entity_data.h"
 #include "third_party/icu/source/i18n/unicode/timezone.h"
@@ -160,6 +165,10 @@ void AddAttribute(
     std::optional<AttributeInstance::MarkAsMaskedPasskey> passkey,
     base::flat_set<AttributeInstance, AttributeInstance::CompareByType>&
         attributes) {
+  if (value.empty() && base::FeatureList::IsEnabled(
+                           features::kAutofillAiImportConstraintsForSync)) {
+    return;
+  }
   AttributeInstance attribute{AttributeType(type)};
   // The VerificationStatus is set to `kNoStatus` because it is irrelevant for
   // string types or will be overwritten by metadata deserialization.
@@ -186,6 +195,11 @@ void AddDateAttribute(
     const sync_pb::NaiveDate& date,
     base::flat_set<AttributeInstance, AttributeInstance::CompareByType>&
         attributes) {
+  if ((!date.has_year() || !date.has_month() || !date.has_day()) &&
+      base::FeatureList::IsEnabled(
+          features::kAutofillAiImportConstraintsForSync)) {
+    return;
+  }
   AddAttribute(type,
                base::StringPrintf("%04d-%02d-%02d", date.year(), date.month(),
                                   date.day()),
@@ -572,6 +586,111 @@ sync_pb::AutofillValuableSpecifics GetKnownTravelerNumberSpecifics(
   return specifics;
 }
 
+base::flat_set<AttributeInstance, AttributeInstance::CompareByType>
+GetOrderAttributesFromSpecifics(const sync_pb::Order& order,
+                                const sync_pb::Any& serialized_metadata) {
+  base::flat_set<AttributeInstance, AttributeInstance::CompareByType>
+      attributes;
+  AddAttribute(kOrderId, order.id(), attributes);
+  AddAttribute(kOrderAccount, order.account(), attributes);
+  AddDateAttribute(kOrderDate, order.order_date(), attributes);
+  AddAttribute(kOrderMerchantName, order.merchant_name(), attributes);
+  AddAttribute(kOrderMerchantDomain, order.merchant_domain(), attributes);
+  AddAttribute(kOrderProductNames,
+               base::JoinString(base::ToVector(order.product_names()), ", "),
+               attributes);
+  FinalizeEntityAttributes(EntityType(EntityTypeName::kOrder),
+                           serialized_metadata, attributes);
+  return attributes;
+}
+
+sync_pb::AutofillValuableSpecifics GetOrderSpecifics(
+    const EntityInstance& entity,
+    const sync_pb::AutofillValuableSpecifics& base_specifics) {
+  CHECK_EQ(entity.type().name(), EntityTypeName::kOrder);
+
+  sync_pb::AutofillValuableSpecifics specifics = base_specifics;
+  specifics.set_id(*entity.guid());
+  specifics.set_is_editable(!entity.are_attributes_read_only());
+
+  sync_pb::Order& order = *specifics.mutable_order();
+  SET_OR_CLEAR_STRING_FIELD(entity, kOrderId, id, order);
+  SET_OR_CLEAR_STRING_FIELD(entity, kOrderAccount, account, order);
+  SetDateInSpecifics(entity, kOrderDate, order.mutable_order_date());
+  SET_OR_CLEAR_STRING_FIELD(entity, kOrderMerchantName, merchant_name, order);
+  SET_OR_CLEAR_STRING_FIELD(entity, kOrderMerchantDomain, merchant_domain,
+                            order);
+  // Best-effort reversal of `GetOrderAttributesFromSpecifics()`'s JoinString().
+  if (base::optional_ref<const AttributeInstance> attr =
+          entity.attribute(AttributeType(kOrderProductNames))) {
+    for (std::string_view name : base::SplitStringPiece(
+             base::UTF16ToUTF8(attr->GetCompleteRawInfo()), ", ",
+             base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+      order.add_product_names(std::string(name));
+    }
+  }
+
+  *specifics.mutable_serialized_chrome_valuables_metadata() =
+      AnyWrapProto(SerializeChromeValuablesMetadata(entity));
+  return specifics;
+}
+
+base::flat_set<AttributeInstance, AttributeInstance::CompareByType>
+GetShipmentAttributesFromSpecifics(const sync_pb::Shipment& shipment,
+                                   const sync_pb::Any& serialized_metadata) {
+  base::flat_set<AttributeInstance, AttributeInstance::CompareByType>
+      attributes;
+  AddAttribute(kShipmentTrackingNumber, shipment.tracking_number(), attributes);
+  AddAttribute(kShipmentDeliveryZipCode, shipment.delivery_zip_code(),
+               attributes);
+  AddDateAttribute(kShipmentShippedDate, shipment.shipping_date(), attributes);
+  AddAttribute(kShipmentCarrierName, shipment.carrier_name(), attributes);
+  AddAttribute(kShipmentCarrierDomain, shipment.carrier_domain(), attributes);
+  AddAttribute(
+      kShipmentOrderIds,
+      base::JoinString(base::ToVector(shipment.associated_order_ids()), ", "),
+      attributes);
+  FinalizeEntityAttributes(EntityType(EntityTypeName::kShipment),
+                           serialized_metadata, attributes);
+  return attributes;
+}
+
+sync_pb::AutofillValuableSpecifics GetShipmentSpecifics(
+    const EntityInstance& entity,
+    const sync_pb::AutofillValuableSpecifics& base_specifics) {
+  CHECK_EQ(entity.type().name(), EntityTypeName::kShipment);
+
+  sync_pb::AutofillValuableSpecifics specifics = base_specifics;
+  specifics.set_id(*entity.guid());
+  specifics.set_is_editable(!entity.are_attributes_read_only());
+
+  sync_pb::Shipment& shipment = *specifics.mutable_shipment();
+  SET_OR_CLEAR_STRING_FIELD(entity, kShipmentTrackingNumber, tracking_number,
+                            shipment);
+  SET_OR_CLEAR_STRING_FIELD(entity, kShipmentDeliveryZipCode, delivery_zip_code,
+                            shipment);
+  SetDateInSpecifics(entity, kShipmentShippedDate,
+                     shipment.mutable_shipping_date());
+  SET_OR_CLEAR_STRING_FIELD(entity, kShipmentCarrierName, carrier_name,
+                            shipment);
+  SET_OR_CLEAR_STRING_FIELD(entity, kShipmentCarrierDomain, carrier_domain,
+                            shipment);
+  // Best-effort reversal of `GetShipmentAttributesFromSpecifics()`'s
+  // JoinString().
+  if (base::optional_ref<const AttributeInstance> attr =
+          entity.attribute(AttributeType(kShipmentOrderIds))) {
+    for (std::string_view name : base::SplitStringPiece(
+             base::UTF16ToUTF8(attr->GetCompleteRawInfo()), ", ",
+             base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
+      shipment.add_associated_order_ids(std::string(name));
+    }
+  }
+
+  *specifics.mutable_serialized_chrome_valuables_metadata() =
+      AnyWrapProto(SerializeChromeValuablesMetadata(entity));
+  return specifics;
+}
+
 #undef SET_OR_CLEAR_STRING_FIELD
 
 }  // namespace
@@ -645,11 +764,9 @@ sync_pb::AutofillValuableSpecifics CreateSpecificsFromEntityInstance(
     case EntityTypeName::kKnownTravelerNumber:
       return GetKnownTravelerNumberSpecifics(entity, base_specifics);
     case EntityTypeName::kOrder:
+      return GetOrderSpecifics(entity, base_specifics);
     case EntityTypeName::kShipment:
-      // Order and Shipment entities are not saved on the sync server
-      // (only on kPersonalContext) and therefore this method should not
-      // be called for them.
-      NOTREACHED();
+      return GetShipmentSpecifics(entity, base_specifics);
   }
   NOTREACHED();
 }
@@ -666,7 +783,7 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               specifics.serialized_chrome_valuables_metadata()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           /*frecency_override=*/"");
     }
@@ -686,7 +803,7 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               specifics.serialized_chrome_valuables_metadata()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           frecency_override);
     }
@@ -699,7 +816,7 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               AttributeInstance::MarkAsMaskedPasskey()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           /*frecency_override=*/"");
     }
@@ -712,7 +829,7 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               AttributeInstance::MarkAsMaskedPasskey()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           /*frecency_override=*/"");
     }
@@ -725,7 +842,7 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               AttributeInstance::MarkAsMaskedPasskey()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           /*frecency_override=*/"");
     }
@@ -738,7 +855,7 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               AttributeInstance::MarkAsMaskedPasskey()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           /*frecency_override=*/"");
     }
@@ -751,7 +868,31 @@ std::optional<EntityInstance> CreateEntityInstanceFromSpecifics(
               AttributeInstance::MarkAsMaskedPasskey()),
           guid,
           /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
-          /*use_date=*/{}, EntityInstance::RecordType::kServerWallet,
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
+          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
+          /*frecency_override=*/"");
+    }
+    case sync_pb::AutofillValuableSpecifics::kOrder: {
+      return EntityInstance(
+          EntityType(EntityTypeName::kOrder),
+          GetOrderAttributesFromSpecifics(
+              specifics.order(),
+              specifics.serialized_chrome_valuables_metadata()),
+          guid,
+          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
+          EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
+          /*frecency_override=*/"");
+    }
+    case sync_pb::AutofillValuableSpecifics::kShipment: {
+      return EntityInstance(
+          EntityType(EntityTypeName::kShipment),
+          GetShipmentAttributesFromSpecifics(
+              specifics.shipment(),
+              specifics.serialized_chrome_valuables_metadata()),
+          guid,
+          /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/{},
+          /*use_date=*/{}, EntityInstance::WalletRecordTypePayload{},
           EntityInstance::AreAttributesReadOnly(!specifics.is_editable()),
           /*frecency_override=*/"");
     }
@@ -824,9 +965,9 @@ EntityTypeToPassType(EntityType entity_type) {
     case EntityTypeName::kRedressNumber:
       return sync_pb::AutofillValuableMetadataSpecifics::REDRESS_NUMBER;
     case EntityTypeName::kOrder:
+      return sync_pb::AutofillValuableMetadataSpecifics::ORDER;
     case EntityTypeName::kShipment:
-      // Those entity types are not synced.
-      return std::nullopt;
+      return sync_pb::AutofillValuableMetadataSpecifics::SHIPMENT;
   }
   NOTREACHED();
 }

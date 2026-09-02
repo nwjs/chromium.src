@@ -17,6 +17,7 @@ class PasswordChangeDelegate {
   // Internal state of a password change flow. Corresponds to
   // `PasswordChangeFlowState` in enums.xml. These values are persisted to logs.
   // Entries should not be renumbered and numeric values should never be reused.
+  // TODO(b/537619236): Remove the state management from the delegate to UI.
   // LINT.IfChange(State)
   enum class State {
     // Password change is being offered to the user, waiting from the to accept
@@ -99,9 +100,6 @@ class PasswordChangeDelegate {
   // the observer via `PasswordChangeDelegate::AddObserver`.
   class Observer : public base::CheckedObserver {
    public:
-    // Notifies listeners about new state.
-    virtual void OnStateChanged(State new_state) {}
-
     // Invoked before `delegate` is destroyed. Should be used to stop observing.
     virtual void OnPasswordChangeStopped(PasswordChangeDelegate* delegate) {}
   };

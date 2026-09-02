@@ -29,8 +29,9 @@ found in the LICENSE file.
 
     <org.chromium.ui.widget.ChromeImageButton
         android:id="@+id/peek_close_button"
-        android:layout_width="?attr/minInteractTargetSize"
-        android:layout_height="?attr/minInteractTargetSize"
+        android:layout_width="@dimen/tab_bottom_sheet_peek_close_button_size"
+        android:layout_height="@dimen/tab_bottom_sheet_peek_close_button_size"
+        android:layout_marginEnd="@dimen/tab_bottom_sheet_peek_close_button_margin_end"
         android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
         android:src="@drawable/material_ic_close_24dp"
@@ -75,7 +76,7 @@ found in the LICENSE file.
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="start"
-            android:textAppearance="@style/TextAppearance.TextMediumThick.Primary"
+            android:textAppearance="@style/TextAppearance.TextAccentMediumThick.Primary"
             android:ellipsize="end"
             android:singleLine="true" />
 

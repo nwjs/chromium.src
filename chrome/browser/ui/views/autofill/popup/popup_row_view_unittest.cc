@@ -82,8 +82,8 @@ class PopupRowViewTest : public ChromeViewsTestBase {
     std::vector<Suggestion> suggestions(line_number + 1, Suggestion(type));
     suggestions[line_number].type = type;
     suggestions[line_number].acceptability =
-        is_acceptable ? Suggestion::Acceptability::kAcceptable
-                      : Suggestion::Acceptability::kUnacceptable;
+        is_acceptable ? Suggestion::Acceptability::kSelectableAndAcceptable
+                      : Suggestion::Acceptability::kSelectableButUnacceptable;
     suggestions[line_number].main_text = Suggestion::Text(u"Suggestion");
     if (has_control) {
       suggestions[line_number].children = {Suggestion(type)};
@@ -274,6 +274,19 @@ TEST_F(PopupRowViewTest, SetSelectedCellVerifiesArgumentsNoControl) {
   // control surface.
   EXPECT_CALL(a11y_selection_delegate(), NotifyAXSelection).Times(0);
   row_view().SetSelectedCell(CellType::kControl);
+  EXPECT_FALSE(row_view().GetSelectedCell().has_value());
+}
+
+TEST_F(PopupRowViewTest, SetSelectedCellIgnoresUnselectableSuggestions) {
+  Suggestion suggestion(u"Source attribution",
+                        SuggestionType::kAtMemorySourceAttribution);
+  suggestion.acceptability =
+      Suggestion::Acceptability::kUnselectableAndUnacceptable;
+  ShowView(/*line_number=*/0, {suggestion});
+  EXPECT_FALSE(row_view().GetSelectedCell().has_value());
+
+  EXPECT_CALL(a11y_selection_delegate(), NotifyAXSelection).Times(0);
+  row_view().SetSelectedCell(CellType::kContent);
   EXPECT_FALSE(row_view().GetSelectedCell().has_value());
 }
 
@@ -654,6 +667,11 @@ TEST_F(PopupRowViewAcceptGuardEnabledTest,
 }
 #endif  // !BUILDFLAG(IS_MAC)
 
+// TODO(crbug.com/500960278): Test case is flaky on macOS runners (frequently
+// running into timeout).
+#if !BUILDFLAG(IS_MAC)
+// Tests that a suggestion can be selected as soon as the row has been visible
+// for 500ms.
 TEST_F(PopupRowViewAcceptGuardEnabledTest,
        SuggestionIsAcceptedIfVisibleLongEnough) {
   base::HistogramTester histogram_tester;
@@ -673,6 +691,7 @@ TEST_F(PopupRowViewAcceptGuardEnabledTest,
   histogram_tester.ExpectUniqueSample(
       "Autofill.AcceptedSuggestionDesktopRowViewVisibleEnough", 1, 1);
 }
+#endif  // !BUILDFLAG(IS_MAC)
 
 }  // namespace
 }  // namespace autofill

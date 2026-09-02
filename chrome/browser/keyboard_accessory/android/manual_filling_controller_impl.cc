@@ -42,7 +42,7 @@ namespace {
 
 constexpr auto kAllowedFillingSources = base::MakeFixedFlatSet<FillingSource>(
     {FillingSource::PASSWORD_FALLBACKS, FillingSource::CREDIT_CARD_FALLBACKS,
-     FillingSource::ADDRESS_FALLBACKS});
+     FillingSource::ADDRESS_FALLBACKS, FillingSource::AT_MEMORY});
 
 constexpr char
     kUmaAccessoryActionSelectedForNonCredentialFieldWithoutSuggestions[] =
@@ -85,6 +85,7 @@ void ManualFillingControllerImpl::CreateForWebContentsForTesting(
   DCHECK(pwd_controller);
   DCHECK(address_controller);
   DCHECK(payment_method_controller);
+  DCHECK(at_memory_controller);
   DCHECK(view);
 
   web_contents->SetUserData(
@@ -333,6 +334,16 @@ bool ManualFillingControllerImpl::ShouldShowAccessoryForLastFocusedFieldType()
     case FocusedFieldType::kUnfillableElement:
     case FocusedFieldType::kUnknown:
       return available_sources_.contains(FillingSource::AUTOFILL);
+
+    // AtMemory suggestions are supported for contenteditable fields on Android.
+    // Unlike database-backed fallback sheets (passwords, addresses, payments)
+    // which signal availability asynchronously via `available_sources_`,
+    // AtMemory availability on contenteditables is purely focus-driven and
+    // only requires that the `AtMemoryAccessoryController` is available.
+    // Note: `PasswordAutofillAgent` verifies the feature enablement.
+    case FocusedFieldType::kContenteditableField:
+      return at_memory_controller_ &&
+             at_memory_controller_->IsAtMemoryAvailable();
   }
 }
 
@@ -342,6 +353,12 @@ void ManualFillingControllerImpl::UpdateVisibility() {
     for (const FillingSource& source : available_sources_) {
       if (source == FillingSource::AUTOFILL) {
         continue;  // Autofill suggestions have no sheet.
+      }
+      // On contenteditable elements, only AtMemory is supported. Suppress
+      // pushing fallback sheet data (passwords, addresses, payments).
+      if (last_focused_field_type_ == FocusedFieldType::kContenteditableField &&
+          source != FillingSource::AT_MEMORY) {
+        continue;
       }
       AccessoryController* controller = GetControllerForFillingSource(source);
       if (!controller) {
@@ -357,12 +374,17 @@ void ManualFillingControllerImpl::UpdateVisibility() {
         ManualFillingViewInterface::WaitForKeyboard(
             last_focused_field_type_ != FocusedFieldType::kUnfillableElement &&
             last_focused_field_type_ != FocusedFieldType::kUnknown),
-        ManualFillingViewInterface::IsCredentialFieldOrHasAutofillSuggestions(
+        ManualFillingViewInterface::ShouldShowOnLargeFormFactor(
             last_focused_field_type_ ==
                 FocusedFieldType::kFillableUsernameField ||
             last_focused_field_type_ ==
                 FocusedFieldType::kFillablePasswordField ||
-            available_sources_.contains(FillingSource::AUTOFILL)));
+            last_focused_field_type_ ==
+                FocusedFieldType::kContenteditableField ||
+            available_sources_.contains(FillingSource::AUTOFILL)),
+        ManualFillingViewInterface::IsContentEditable(
+            last_focused_field_type_ ==
+                FocusedFieldType::kContenteditableField));
   } else {
     view_->Hide();
   }
@@ -392,7 +414,12 @@ void ManualFillingControllerImpl::OnSourceAvailabilityChanged(
   // TODO(crbug.com/40165275): Remove once all sheets pull this information
   // instead of waiting to get it pushed.
   if (sheet.has_value()) {
-    view_->OnItemsAvailable(std::move(sheet.value()));
+    // Suppress forwarding fallback sheet data for contenteditable elements
+    // so only the AtMemory sheet is made available to the view.
+    if (last_focused_field_type_ != FocusedFieldType::kContenteditableField ||
+        source == FillingSource::AT_MEMORY) {
+      view_->OnItemsAvailable(std::move(sheet.value()));
+    }
   }
   UpdateSourceAvailability(source, show_filling_source);
 }
@@ -451,6 +478,8 @@ AccessoryController* ManualFillingControllerImpl::GetControllerForFillingSource(
       return payment_method_controller_.get();
     case FillingSource::ADDRESS_FALLBACKS:
       return address_controller_.get();
+    case FillingSource::AT_MEMORY:
+      return at_memory_controller_.get();
     case FillingSource::AUTOFILL:
       NOTREACHED() << "Controller not defined for filling source: "
                    << static_cast<int>(filling_source);

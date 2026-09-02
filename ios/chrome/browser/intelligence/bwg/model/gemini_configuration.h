@@ -86,6 +86,9 @@ class PageContext;
 // Whether the zero-state suggestion chips should be shown.
 @property(nonatomic, assign) BOOL shouldShowSuggestionChips;
 
+// Whether to show the account snackbar when the active account is mismatched.
+@property(nonatomic, assign) BOOL shouldShowAccountSnackbar;
+
 // Label displayed from a Gemini contextual cue chip.
 @property(nonatomic, copy) NSString* contextualCueChipLabel;
 
@@ -116,6 +119,13 @@ class PageContext;
 
 // Whether the account requires capability-based restriction.
 @property(nonatomic, assign) BOOL needsAccountCapabilityRestriction;
+
+// Whether query submission should be blocked while page context is loading.
+@property(nonatomic, assign) BOOL blockQuerySubmissionWhileLoading;
+
+// Whether to display the page loading snackbar on the opening invocation while
+// page context is loading.
+@property(nonatomic, assign) BOOL showPageLoadingSnackbarOnOpeningInvocation;
 
 @end
 

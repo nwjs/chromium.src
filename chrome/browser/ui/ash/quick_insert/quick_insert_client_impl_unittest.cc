@@ -17,6 +17,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ash/app_list/search/test/test_ranker_manager.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/template_url_service_provider_impl.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #include "chrome/browser/ash/drive/drive_integration_service_factory.h"
 #include "chrome/browser/ash/drive/drivefs_test_support.h"
@@ -27,6 +28,7 @@
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/quick_insert/quick_insert_file_suggester.h"
 #include "chrome/browser/ui/webui/ash/mako/mako_bubble_coordinator.h"
 #include "chrome/common/extensions/api/file_manager_private.h"
@@ -126,8 +128,9 @@ std::unique_ptr<KeyedService> BuildTestDriveIntegrationService(
   fake_drivefs_helper =
       std::make_unique<drive::FakeDriveFsHelper>(profile, mount_path);
   auto service = std::make_unique<drive::DriveIntegrationService>(
-      TestingBrowserProcess::GetGlobal()->local_state(), profile, "drivefs",
-      mount_path, fake_drivefs_helper->CreateFakeDriveFsListenerFactory());
+      TestingBrowserProcess::GetGlobal()->local_state(), profile,
+      IdentityManagerFactory::GetForProfile(profile), "drivefs", mount_path,
+      fake_drivefs_helper->CreateFakeDriveFsListenerFactory());
 
   // Wait until the DriveIntegrationService is initialized.
   while (!service->IsMounted() || !service->GetDriveFsInterface()) {
@@ -223,20 +226,13 @@ class QuickInsertClientImplTest : public BrowserWithTestWindowTest {
                 &ash::input_method::EditorMediatorFactory::BuildInstanceFor)}};
   }
 
-  void LogIn(std::string_view email, const GaiaId& gaia_id) override {
-    // DriveFS needs the account to have an ID.
-    const AccountId account_id = AccountId::FromUserEmailGaiaId(email, gaia_id);
-    user_manager()->AddGaiaUser(account_id, user_manager::UserType::kRegular);
-    user_manager()->UserLoggedIn(
-        account_id, user_manager::TestHelper::GetFakeUsernameHash(account_id));
-  }
-
   void SwitchActiveUser(const std::string& email) override {
     user_manager()->SwitchActiveUser(
         AccountId::FromUserEmailGaiaId(email, GaiaId(email)));
   }
 
  private:
+  ash::TemplateURLServiceProviderImpl template_url_service_provider_;
   scoped_refptr<network::SharedURLLoaderFactory>
       test_shared_url_loader_factory_;
   std::unique_ptr<drive::FakeDriveFsHelper> fake_drivefs_helper_;

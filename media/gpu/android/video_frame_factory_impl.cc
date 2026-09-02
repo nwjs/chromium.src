@@ -285,24 +285,8 @@ void VideoFrameFactoryImpl::CreateVideoFrame_OnImageReady(
 
   frame->metadata().copy_required = video_frame_copy_required;
 
-  const bool is_surface_control =
-      overlay_mode == OverlayMode::kSurfaceControlSecure ||
-      overlay_mode == OverlayMode::kSurfaceControlInsecure;
   const bool wants_promotion_hints =
       overlay_mode == OverlayMode::kRequestPromotionHints;
-
-  bool allow_overlay = false;
-  if (is_surface_control) {
-    DCHECK(is_texture_owner_backed);
-    allow_overlay = true;
-  } else {
-    // We unconditionally mark the picture as overlayable, even if
-    // |!is_texture_owner_backed|, if we want to get hints.  It's
-    // required, else we won't get hints.
-    allow_overlay = !is_texture_owner_backed || wants_promotion_hints;
-  }
-
-  frame->metadata().allow_overlay = allow_overlay;
   frame->metadata().wants_promotion_hint = wants_promotion_hints;
   frame->metadata().in_surface_view = !is_texture_owner_backed;
 

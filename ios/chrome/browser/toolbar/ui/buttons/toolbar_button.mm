@@ -42,6 +42,7 @@ UIColor* NormalTintColor() {
   UIView* _backgroundView;
   UIView* _blueDotView;
   UIView* _gradientView;
+  BOOL _incognito;
 }
 
 @synthesize image = _image;
@@ -51,6 +52,7 @@ UIColor* NormalTintColor() {
   if ((self = [super initWithFrame:CGRectMake(0, 0, kToolbarButtonSize,
                                               kToolbarButtonSize)])) {
     _imageLoader = [imageLoader copy];
+    _incognito = incognito;
 
     [NSLayoutConstraint activateConstraints:@[
       [self.widthAnchor constraintEqualToConstant:kToolbarButtonSize],
@@ -79,8 +81,22 @@ UIColor* NormalTintColor() {
       UITraitVerticalSizeClass.class, UITraitHorizontalSizeClass.class
     ]
                        withAction:@selector(updateAppearance)];
+
+    [self registerForTraitChanges:@[ UITraitUserInterfaceStyle.class ]
+                       withAction:@selector(userInterfaceStyleDidChange)];
   }
   return self;
+}
+
+#pragma mark - ToolbarElementWithBackground
+
+- (void)setBackgroundAlpha:(CGFloat)backgroundAlpha {
+  if (!IsGlassToolbarEnabled() || _shadowAndBackgroundRemoved) {
+    return;
+  }
+
+  _backgroundView.backgroundColor =
+      ToolbarElementBackgroundColor(_incognito, backgroundAlpha);
 }
 
 #pragma mark - HighlightButton
@@ -132,6 +148,9 @@ UIColor* NormalTintColor() {
 #pragma mark - UIControl
 
 - (void)setEnabled:(BOOL)enabled {
+  if (self.enabled == enabled) {
+    return;
+  }
   [super setEnabled:enabled];
   if (enabled) {
     self.imageView.tintColor = NormalTintColor();
@@ -149,6 +168,23 @@ UIColor* NormalTintColor() {
     _image = _imageLoader();
   }
   return _image;
+}
+
+- (void)setShadowAndBackgroundRemoved:(BOOL)shadowAndBackgroundRemoved {
+  if (_shadowAndBackgroundRemoved == shadowAndBackgroundRemoved) {
+    return;
+  }
+  _shadowAndBackgroundRemoved = shadowAndBackgroundRemoved;
+  if (_shadowAndBackgroundRemoved) {
+    _backgroundView.backgroundColor = UIColor.clearColor;
+    self.layer.shadowColor = nil;
+    self.layer.shadowOpacity = 0.0;
+    self.layer.shadowOffset = CGSizeZero;
+    self.layer.shadowRadius = 0;
+  } else {
+    _backgroundView.backgroundColor = ToolbarElementBackgroundColor(_incognito);
+    ConfigureShadowForToolbarElement(self);
+  }
 }
 
 - (void)setForceHidden:(BOOL)forceHidden {
@@ -259,9 +295,7 @@ UIColor* NormalTintColor() {
       self.hidden = !isCurrentCompactHeight;
       break;
     case ToolbarButtonVisibility::kWhenEnabled:
-      self.hidden = IsNextOldDesignEnabled()
-                        ? !(isCurrentRegularRegular || self.enabled)
-                        : !self.enabled;
+      self.hidden = !self.enabled;
       break;
   }
   [self checkImageVisibility];
@@ -275,6 +309,13 @@ UIColor* NormalTintColor() {
     ConfigureCornerRadiusForToolbarButtonContainer(_backgroundView,
                                                    self.traitCollection);
     [self updateMask];
+  }
+}
+
+// Handles user interface style trait collection changes.
+- (void)userInterfaceStyleDidChange {
+  if (!_shadowAndBackgroundRemoved) {
+    ConfigureShadowForToolbarElement(self);
   }
 }
 

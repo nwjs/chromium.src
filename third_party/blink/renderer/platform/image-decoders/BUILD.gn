@@ -29,15 +29,23 @@ component("image_decoders") {
     "fast_shared_buffer_reader.h",
     "gif/gif_image_decoder.cc",
     "gif/gif_image_decoder.h",
+    "ico/ico_decoder_factory.cc",
+    "ico/ico_decoder_factory.h",
     "ico/ico_image_decoder.cc",
     "ico/ico_image_decoder.h",
+    "ico/ico_rust_image_decoder.cc",
+    "ico/ico_rust_image_decoder.h",
     "image_animation.h",
     "image_decoder.cc",
     "image_decoder.h",
     "image_frame.cc",
     "image_frame.h",
+    "jpeg/jpeg_decoder_factory.cc",
+    "jpeg/jpeg_decoder_factory.h",
     "jpeg/jpeg_image_decoder.cc",
     "jpeg/jpeg_image_decoder.h",
+    "jpeg/jpeg_rust_image_decoder.cc",
+    "jpeg/jpeg_rust_image_decoder.h",
     "png/png_image_decoder.cc",
     "png/png_image_decoder.h",
     "rw_buffer.cc",
@@ -91,7 +99,7 @@ component("image_decoders") {
       "jxl/jxl_image_decoder.cc",
       "jxl/jxl_image_decoder.h",
     ]
-    deps += [ "//third_party/rust/jxl/v0_4/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_5/wrapper:jxl_rs" ]
   }
 }
 
@@ -134,7 +142,7 @@ source_set("unit_tests") {
 
   if (enable_jxl_decoder) {
     sources += [ "jxl/jxl_image_decoder_test.cc" ]
-    deps += [ "//third_party/rust/jxl/v0_4/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_5/wrapper:jxl_rs" ]
   }
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and

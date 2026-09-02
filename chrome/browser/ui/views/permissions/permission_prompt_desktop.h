@@ -7,12 +7,10 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_style.h"
 #include "components/permissions/permission_prompt.h"
 
-class Browser;
 class BrowserWindowInterface;
 class LocationBar;
 
@@ -40,7 +38,6 @@ class PermissionPromptDesktop : public permissions::PermissionPrompt {
       const override = 0;
   bool IsAskPrompt() const override;
   std::optional<gfx::Rect> GetViewBoundsInScreen() const override;
-  bool ShouldFinalizeRequestAfterDecided() const override;
   std::vector<permissions::ElementAnchoredBubbleVariant> GetPromptVariants()
       const override;
   std::optional<permissions::feature_params::PermissionElementPromptPosition>
@@ -50,10 +47,6 @@ class PermissionPromptDesktop : public permissions::PermissionPrompt {
 
  protected:
   LocationBar* GetLocationBar();
-
-  Browser* browser() const {
-    return browser_ ? browser_->GetBrowserForMigrationOnly() : nullptr;
-  }
 
   bool UpdateBrowser();
 

@@ -1663,6 +1663,7 @@
     // both
     "mandatory",
     "proximity",
+    "pair",
 
     // scroll-snap-align
     // none
@@ -1809,6 +1810,8 @@
     "numeric",
     "additive",
     "extends",
+    // symbols() function (https://drafts.csswg.org/css-counter-styles-3/#symbols-function)
+    "symbols",
     // Predefined counter styles that don't use the above systems
     "-internal-simp-chinese-informal",
     "-internal-simp-chinese-formal",
@@ -2146,5 +2149,12 @@
     // ruby-overhang
     // "auto",
     "spaces",
+
+    // max-content-sizing
+    "shrink-to-fit",
+
+    // overscroll-container-type
+    // "none", "auto", "overlay" already exist above
+    "push",
   ],
 }

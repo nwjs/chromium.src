@@ -15,6 +15,7 @@
 #include "chrome/browser/profiles/profile_destroyer.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -83,10 +84,9 @@ void BrowserWithTestWindowTest::SetUp() {
 
   ash_test_helper_.emplace();
 
-  if (!user_manager::UserManager::IsInitialized()) {
-    user_manager_.Reset(std::make_unique<user_manager::FakeUserManager>(
-        g_browser_process->local_state()));
-  }
+  CHECK(!user_manager::UserManager::IsInitialized());
+  user_manager_.Reset(std::make_unique<user_manager::FakeUserManager>(
+      g_browser_process->local_state()));
   session_manager::SessionManager::Get()->OnUserManagerCreated(
       user_manager::UserManager::Get());
 
@@ -319,18 +319,18 @@ std::unique_ptr<Browser> BrowserWithTestWindowTest::CreateBrowser(
     Browser::Type browser_type,
     bool hosted_app,
     BrowserWindow* browser_window) {
-  Browser::CreateParams params(profile, true);
+  BrowserWindowCreateParams params(profile, true);
   if (hosted_app) {
-    params = Browser::CreateParams::CreateForApp(
+    params = BrowserWindowCreateParams::CreateForApp(
         "Test", /*trusted_source=*/true, /*window_bounds=*/gfx::Rect(), profile,
         /*user_gesture=*/true);
-  } else if (browser_type == Browser::TYPE_DEVTOOLS) {
-    params = Browser::CreateParams::CreateForDevTools(profile);
+  } else if (browser_type == BrowserWindowInterface::Type::TYPE_DEVTOOLS) {
+    params = BrowserWindowCreateParams::CreateForDevTools(profile);
   } else {
     params.type = browser_type;
   }
   params.window = browser_window;
-  return Browser::DeprecatedCreateOwnedForTesting(params);
+  return DeprecatedCreateOwnedBrowserWindowForTesting(std::move(params));
 }
 
 std::unique_ptr<Browser> BrowserWithTestWindowTest::CreateBrowser(

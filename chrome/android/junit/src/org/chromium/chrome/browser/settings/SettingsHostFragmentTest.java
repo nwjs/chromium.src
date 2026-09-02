@@ -5,13 +5,18 @@
 package org.chromium.chrome.browser.settings;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.View;
 
@@ -22,38 +27,45 @@ import androidx.preference.PreferenceScreen;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
+import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ActivityState;
+import org.chromium.base.ApplicationStatus;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.components.browser_ui.settings.PaddedItemDecorationWithDivider;
+import org.chromium.components.browser_ui.site_settings.BaseSiteSettingsFragment;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.sync.SyncService;
-import org.chromium.ui.base.TestActivity;
 
 /** Unit tests for {@link SettingsHostFragment}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(qualifiers = "sw600dp")
+@Config(qualifiers = "w720dp-h1024dp")
 @EnableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_MULTI_COLUMN})
 public class SettingsHostFragmentTest {
     @Rule
-    public ActivityScenarioRule<TestActivity> mActivityScenarios =
-            new ActivityScenarioRule<>(TestActivity.class);
+    public ActivityScenarioRule<TestChromeBaseAppCompatActivity> mActivityScenarios =
+            new ActivityScenarioRule<>(TestChromeBaseAppCompatActivity.class);
 
-    private TestActivity mActivity;
+    private TestChromeBaseAppCompatActivity mActivity;
     private SettingsHostFragment mSettingsHostFragment;
 
     /** Subclass SettingsHostFragment to mock initial fragment instantiation. */
@@ -68,10 +80,21 @@ public class SettingsHostFragmentTest {
     public void setUp() {
         mActivityScenarios
                 .getScenario()
-                .onActivity(activity -> mActivity = (TestActivity) activity);
+                .onActivity(
+                        activity -> {
+                            mActivity = activity;
+                            ApplicationStatus.onStateChangeForTesting(
+                                    activity, ActivityState.RESUMED);
+                        });
+        ProfileManager.setLastUsedProfileForTesting(mock(Profile.class));
         IdentityServicesProvider.setSigninManagerForTesting(mock(SigninManager.class));
         TemplateUrlServiceFactory.setInstanceForTesting(mock(TemplateUrlService.class));
         SyncServiceFactory.setInstanceForTesting(mock(SyncService.class));
+    }
+
+    @After
+    public void tearDown() {
+        DeviceInfo.resetIsDesktopForTesting();
     }
 
     private void attachHostFragment() {
@@ -86,11 +109,11 @@ public class SettingsHostFragmentTest {
                 .commitNow();
     }
 
-    @Test(expected = AssertionError.class)
+    @Test
     @DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
     public void testConstructor_SettingsInTabDisabled_ThrowsAssertionError() {
-        // Should throw.
-        new SettingsHostFragment();
+        Assume.assumeTrue(BuildConfig.ENABLE_ASSERTS);
+        assertThrows(AssertionError.class, SettingsHostFragment::new);
     }
 
     @Test
@@ -227,6 +250,50 @@ public class SettingsHostFragmentTest {
     }
 
     @Test
+    @Config(qualifiers = "w320dp")
+    public void testIsTwoColumn_UnlaidOutFallback_NarrowDisplay() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+        assertFalse(
+                "isTwoColumn should return false on narrow display before layout pass",
+                multiColumnSettings.isTwoColumn());
+    }
+
+    @Test
+    @Config(qualifiers = "w1024dp")
+    public void testIsTwoColumn_UnlaidOutFallback_WideDisplay() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+        assertTrue(
+                "isTwoColumn should return true on wide display before layout pass",
+                multiColumnSettings.isTwoColumn());
+    }
+
+    @Test
     public void testShowFragment_MainSettingsFragment_ResetsDetailFragment() {
         mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
         mActivity
@@ -327,6 +394,107 @@ public class SettingsHostFragmentTest {
                 hasPaddedDecoration);
     }
 
+    @Test
+    public void testSetDependencyProvider_appliesDependenciesToExistingChildFragments() {
+        attachHostFragment();
+        TestMainSettings mainSettings = new TestMainSettings();
+        mSettingsHostFragment.showFragment(
+                mainSettings, /* addToBackStack= */ false, /* tag= */ null);
+        mSettingsHostFragment.getChildFragmentManager().executePendingTransactions();
+
+        FragmentDependencyProvider mockProvider = mock(FragmentDependencyProvider.class);
+        mSettingsHostFragment.setDependencyProvider(mockProvider);
+
+        verify(mockProvider)
+                .attachDependencies(mSettingsHostFragment.getChildFragmentManager(), mainSettings);
+    }
+
+    @Test
+    public void testActivityRecreation_themeSwitch_populatesDependenciesOnRestoredFragments() {
+        attachHostFragment();
+        TestMainSettings mainSettings = new TestMainSettings();
+        mSettingsHostFragment.showFragment(
+                mainSettings, /* addToBackStack= */ false, /* tag= */ null);
+        mSettingsHostFragment.getChildFragmentManager().executePendingTransactions();
+
+        // Simulate activity recreation (e.g. OS theme switch or screen rotation).
+        mActivityScenarios.getScenario().recreate();
+
+        mActivityScenarios
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            var manager = activity.getSupportFragmentManager();
+                            SettingsHostFragment restoredHost =
+                                    (SettingsHostFragment)
+                                            manager.findFragmentByTag(
+                                                    SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG);
+                            assertNotNull("Restored host fragment should exist", restoredHost);
+
+                            Fragment restoredChild = restoredHost.getActiveFragment();
+                            assertNotNull("Restored child fragment should exist", restoredChild);
+                            assertTrue(
+                                    "Restored child fragment should be MainSettings",
+                                    restoredChild instanceof MainSettings);
+
+                            MainSettings restoredMain = (MainSettings) restoredChild;
+                            assertNotNull("Profile should be set", restoredMain.getProfile());
+                            assertNotNull(
+                                    "ModalDialogManagerSupplier should be set",
+                                    restoredMain.getModalDialogManagerSupplierForTesting());
+                            assertNotNull(
+                                    "ModalDialogManager should be present",
+                                    restoredMain.getModalDialogManagerSupplierForTesting().get());
+                        });
+    }
+
+    @Test
+    public void testActivityRecreation_siteSettings_populatesDependenciesOnRestoredFragments() {
+        attachHostFragment();
+        TestSiteSettingsFragment siteSettingsFragment = new TestSiteSettingsFragment();
+        mSettingsHostFragment.showFragment(
+                siteSettingsFragment, /* addToBackStack= */ false, /* tag= */ null);
+        mSettingsHostFragment.getChildFragmentManager().executePendingTransactions();
+
+        // Simulate activity recreation (e.g. font size change, OS theme switch).
+        mActivityScenarios.getScenario().recreate();
+
+        mActivityScenarios
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            var manager = activity.getSupportFragmentManager();
+                            SettingsHostFragment restoredHost =
+                                    (SettingsHostFragment)
+                                            manager.findFragmentByTag(
+                                                    SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG);
+                            assertNotNull("Restored host fragment should exist", restoredHost);
+
+                            Fragment restoredChild = restoredHost.getActiveFragment();
+                            assertNotNull("Restored child fragment should exist", restoredChild);
+                            assertTrue(
+                                    "Restored child fragment should be BaseSiteSettingsFragment",
+                                    restoredChild instanceof BaseSiteSettingsFragment);
+
+                            BaseSiteSettingsFragment restoredSiteSettings =
+                                    (BaseSiteSettingsFragment) restoredChild;
+                            assertTrue(
+                                    "SiteSettingsDelegate should be set",
+                                    restoredSiteSettings.hasSiteSettingsDelegate());
+                        });
+    }
+
+    @Test
+    public void testOnConfigurationChanged_updatesContainment() {
+        attachHostFragment();
+        SettingsContainmentHelper mockHelper = mock(SettingsContainmentHelper.class);
+        mSettingsHostFragment.setContainmentHelperForTesting(mockHelper);
+
+        mSettingsHostFragment.onConfigurationChanged(new Configuration());
+
+        verify(mockHelper).updateContainmentForAttachedFragments(any());
+    }
+
     /** A test PreferenceFragmentCompat subclass. */
     public static class TestPreferenceFragment extends PreferenceFragmentCompat {
         @Override
@@ -363,6 +531,7 @@ public class SettingsHostFragmentTest {
 
         public TestMainSettings() {
             setProfile(mMockProfile);
+            setSkipUpdatePreferencesForTesting(true);
         }
 
         @Override
@@ -389,6 +558,17 @@ public class SettingsHostFragmentTest {
         @Override
         public Fragment onCreateInitialDetailFragment() {
             return new FirstFakeSettingsFragment();
+        }
+    }
+
+    /** Subclass of BaseSiteSettingsFragment to test dependency injection on restore. */
+    public static class TestSiteSettingsFragment extends BaseSiteSettingsFragment {
+        public TestSiteSettingsFragment() {}
+
+        @Override
+        public void onCreatePreferences(
+                @Nullable Bundle savedInstanceState, @Nullable String rootKey) {
+            setPreferenceScreen(getPreferenceManager().createPreferenceScreen(requireContext()));
         }
     }
 }

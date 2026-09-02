@@ -593,6 +593,7 @@ test("gl_unittests") {
   use_xvfb = use_xvfb_in_this_config
 
   sources = [
+    "angle_platform_impl_unittest.cc",
     "egl_api_unittest.cc",
     "gl_api_unittest.cc",
     "gl_display_manager_unittest.cc",
@@ -616,6 +617,10 @@ test("gl_unittests") {
       "os_compositor_tree_base_unittest.cc",
       "solid_color_pool_base_unittest.cc",
     ]
+  }
+
+  if (is_android) {
+    sources += [ "gl_surface_egl_surface_control_unittest.cc" ]
   }
 
   deps = [

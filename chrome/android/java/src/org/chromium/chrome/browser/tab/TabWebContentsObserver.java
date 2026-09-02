@@ -148,11 +148,14 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
 
                 /* buttonAction= */ () -> {
                     if (sadTab.showSendFeedbackView()) {
-                        assumeNonNull(mTab.getActivity())
-                                .startHelpAndFeedback(
-                                        mTab.getUrl().getSpec(),
-                                        "MobileSadTabFeedback",
-                                        mTab.getProfile());
+                        Activity activity = TabUtils.getActivity(mTab);
+                        if (activity != null) {
+                            HelpAndFeedbackLauncherImpl.getForProfile(mTab.getProfile())
+                                    .showHelpAndFeedbackForUrl(
+                                            activity,
+                                            mTab.getUrl().getSpec(),
+                                            "MobileSadTabFeedback");
+                        }
                     } else {
                         mTab.reload();
                     }
@@ -240,6 +243,17 @@ public class TabWebContentsObserver extends TabWebContentsUserData {
                     mTab.pushNativePageStateToNavigationEntry();
                 }
                 mTab.didFinishPageLoad(url);
+            }
+        }
+
+        @Override
+        public void documentLoadedInPrimaryMainFrame(
+                Page page, GlobalRenderFrameHostId rfhId, @LifecycleState int rfhLifecycleState) {
+            if (rfhLifecycleState == LifecycleState.ACTIVE) {
+                RewindableIterator<TabObserver> observers = mTab.getTabObservers();
+                while (observers.hasNext()) {
+                    observers.next().onDocumentLoadedInPrimaryMainFrame(mTab);
+                }
             }
         }
 

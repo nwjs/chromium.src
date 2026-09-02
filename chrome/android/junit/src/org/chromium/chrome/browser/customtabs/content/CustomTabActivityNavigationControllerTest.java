@@ -304,6 +304,97 @@ public class CustomTabActivityNavigationControllerTest {
         mNavigationController.openCurrentUrlInBrowser();
         verify(mTabController, never()).detachAndStartReparenting(any(), any(), any());
         verify(env.activity).startActivity(any(), any());
+        // The TWA client app must be kept alive, so the activity must not be finished.
+        verify(mFinishHandler, never()).onFinish(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void doesNotFinish_WhenOpenInBrowserCalled_AndIsWebapp() {
+        // Regression test for crbug.com/41495930 / crbug.com/510460240: "Open in
+        // browser" from an installed webapp must open the URL in the browser without
+        // finishing (and thus closing) the webapp.
+        ExternalNavigationDelegateImpl.setWillChromeHandleIntentHookForTesting(intent -> true);
+        when(env.intentDataProvider.getActivityType()).thenReturn(ActivityType.WEBAPP);
+
+        mNavigationController.openCurrentUrlInBrowser();
+
+        verify(mTabController, never()).detachAndStartReparenting(any(), any(), any());
+        verify(env.activity).startActivity(any(), any());
+        verify(mFinishHandler, never()).onFinish(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void doesNotFinish_WhenOpenInBrowserCalled_AndIsWebApk() {
+        // Regression test for crbug.com/41495930: "Open in browser" from a WebAPK must
+        // open the URL in the browser without finishing (and thus crashing) the WebAPK.
+        ExternalNavigationDelegateImpl.setWillChromeHandleIntentHookForTesting(intent -> true);
+        when(env.intentDataProvider.getActivityType()).thenReturn(ActivityType.WEB_APK);
+
+        mNavigationController.openCurrentUrlInBrowser();
+
+        verify(mTabController, never()).detachAndStartReparenting(any(), any(), any());
+        verify(env.activity).startActivity(any(), any());
+        verify(mFinishHandler, never()).onFinish(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void reparentsWithoutFinishing_WhenOpenInBrowserCalled_AndIsWebappWithChildTab() {
+        // Follow-up for crbug.com/41495930: when the in-app browser of an installed
+        // webapp shows a child tab (target="_blank"), "Open in browser" should move
+        // the actual tab to the browser (preserving its state) and return the webapp
+        // to its own tab, without finishing the activity.
+        ExternalNavigationDelegateImpl.setWillChromeHandleIntentHookForTesting(intent -> true);
+        when(env.intentDataProvider.getActivityType()).thenReturn(ActivityType.WEBAPP);
+        when(mTabController.getTabCount()).thenReturn(2);
+        ArgumentCaptor<Runnable> callbackCaptor = ArgumentCaptor.forClass(Runnable.class);
+        doNothing()
+                .when(mTabController)
+                .detachAndStartReparenting(any(), any(), callbackCaptor.capture());
+
+        mNavigationController.openCurrentUrlInBrowser();
+
+        verify(env.activity, never()).startActivity(any(), any());
+        verify(mTabController).detachAndStartReparenting(any(), any(), any());
+        // The webapp must stay alive, even once reparenting completes.
+        callbackCaptor.getValue().run();
+        verify(mFinishHandler, never()).onFinish(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void reparentsWithoutFinishing_WhenOpenInBrowserCalled_AndIsWebApkWithChildTab() {
+        ExternalNavigationDelegateImpl.setWillChromeHandleIntentHookForTesting(intent -> true);
+        when(env.intentDataProvider.getActivityType()).thenReturn(ActivityType.WEB_APK);
+        when(mTabController.getTabCount()).thenReturn(2);
+        ArgumentCaptor<Runnable> callbackCaptor = ArgumentCaptor.forClass(Runnable.class);
+        doNothing()
+                .when(mTabController)
+                .detachAndStartReparenting(any(), any(), callbackCaptor.capture());
+
+        mNavigationController.openCurrentUrlInBrowser();
+
+        verify(env.activity, never()).startActivity(any(), any());
+        verify(mTabController).detachAndStartReparenting(any(), any(), any());
+        callbackCaptor.getValue().run();
+        verify(mFinishHandler, never()).onFinish(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void reparentsWithoutFinishing_WhenOpenInBrowserCalled_AndIsTwaWithChildTab() {
+        ExternalNavigationDelegateImpl.setWillChromeHandleIntentHookForTesting(intent -> true);
+        when(env.intentDataProvider.getActivityType())
+                .thenReturn(ActivityType.TRUSTED_WEB_ACTIVITY);
+        when(mTabController.getTabCount()).thenReturn(2);
+        ArgumentCaptor<Runnable> callbackCaptor = ArgumentCaptor.forClass(Runnable.class);
+        doNothing()
+                .when(mTabController)
+                .detachAndStartReparenting(any(), any(), callbackCaptor.capture());
+
+        mNavigationController.openCurrentUrlInBrowser();
+
+        verify(env.activity, never()).startActivity(any(), any());
+        verify(mTabController).detachAndStartReparenting(any(), any(), any());
+        callbackCaptor.getValue().run();
+        verify(mFinishHandler, never()).onFinish(anyInt(), anyBoolean());
     }
 
     @Test

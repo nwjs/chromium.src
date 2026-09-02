@@ -24,6 +24,8 @@ FRAME_KEY = 'frame-075b-4da1-b6ba-e579c2d3230a'
 WINDOW_KEY = 'window-fcc6-11e5-b4f8-330a88ab9d7f'
 MAX_RETRY_COUNT = 5
 
+_UNSET = object()
+
 def _ExceptionForLegacyResponse(response):
   exception_class_map = {
     6: InvalidSessionId,
@@ -721,9 +723,11 @@ class ChromeDriver(object):
 
   def AddCredential(self, authenticatorId=None, credentialId=None,
                     isResidentCredential=None, rpId=None, privateKey=None,
-                    userHandle=None, signCount=None, largeBlob=None,
+                    userHandle=None, signCount=_UNSET, largeBlob=None,
                     backupState=None, backupEligibility=None,userName=None,
-                    userDisplayName=None):
+                    userDisplayName=None, cmtgKeys=None,
+                    activeCmtgKeyIndex=None,
+                    generateCmtgKeyOnNextOperation=None):
     options = {}
     if authenticatorId is not None:
       options['authenticatorId'] = authenticatorId
@@ -737,7 +741,7 @@ class ChromeDriver(object):
       options['privateKey'] = privateKey
     if userHandle is not None:
       options['userHandle'] = userHandle
-    if signCount is not None:
+    if signCount is not _UNSET:
       options['signCount'] = signCount
     if largeBlob is not None:
       options['largeBlob'] = largeBlob
@@ -749,6 +753,12 @@ class ChromeDriver(object):
       options['userName'] = userName
     if userDisplayName is not None:
       options['userDisplayName'] = userDisplayName
+    if cmtgKeys is not None:
+      options['cmtgKeys'] = cmtgKeys
+    if activeCmtgKeyIndex is not None:
+      options['activeCmtgKeyIndex'] = activeCmtgKeyIndex
+    if generateCmtgKeyOnNextOperation is not None:
+      options['generateCmtgKeyOnNextOperation'] = generateCmtgKeyOnNextOperation
     return self.ExecuteCommand(Command.ADD_CREDENTIAL, options)
 
   def GetCredentials(self, authenticatorId):
@@ -770,12 +780,21 @@ class ChromeDriver(object):
     return self.ExecuteCommand(Command.SET_USER_VERIFIED, params)
 
   def SetCredentialProperties(self, authenticatorId, credentialId,
-                              backupState=None, backupEligibility=None):
+                              backupState=None, backupEligibility=None,
+                              signCount=_UNSET,
+                              activeCmtgKeyIndex=None,
+                              generateCmtgKeyOnNextOperation=None):
     params = {'authenticatorId': authenticatorId, 'credentialId': credentialId}
     if backupState is not None:
       params['backupState'] = backupState
     if backupEligibility is not None:
       params['backupEligibility'] = backupEligibility
+    if signCount is not _UNSET:
+      params['signCount'] = signCount
+    if activeCmtgKeyIndex is not None:
+      params['activeCmtgKeyIndex'] = activeCmtgKeyIndex
+    if generateCmtgKeyOnNextOperation is not None:
+      params['generateCmtgKeyOnNextOperation'] = generateCmtgKeyOnNextOperation
     return self.ExecuteCommand(Command.SET_CREDENTIAL_PROPERTIES, params)
 
   def SetSPCTransactionMode(self, mode):

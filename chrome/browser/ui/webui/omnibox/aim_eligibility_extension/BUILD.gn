@@ -8,6 +8,8 @@ assert(enable_extensions_core)
 
 source_set("aim_eligibility_extension") {
   sources = [
+    "aim_eligibility_extension_binder_provider.cc",
+    "aim_eligibility_extension_binder_provider.h",
     "aim_eligibility_extension_bridge.cc",
     "aim_eligibility_extension_bridge.h",
     "aim_eligibility_extension_bridge_factory.cc",
@@ -47,6 +49,7 @@ source_set("browser_tests") {
     "//chrome/browser/extensions",
     "//chrome/browser/extensions:test_support",
     "//chrome/common:constants",
+    "//components/crash/content/browser/error_reporting",
     "//components/omnibox/browser:test_support",
     "//components/omnibox/common",
     "//content/test:browsertest_support",

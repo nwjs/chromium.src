@@ -24,12 +24,13 @@
 #include "chrome/browser/accessibility/page_colors_controller_factory.h"
 #include "chrome/browser/browser_features.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/custom_handlers/protocol_handler_registry_factory.h"
 #include "chrome/browser/enterprise/connectors/test/fake_clipboard_request_handler.h"
 #include "chrome/browser/external_protocol/external_protocol_handler.h"
+#include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
-#include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/instant_service.h"
@@ -50,6 +51,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/custom_handlers/protocol_handler.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
@@ -446,8 +448,7 @@ IN_PROC_BROWSER_TEST_F(PageColorsBrowserClientTest,
                    "getPropertyValue('color').toString()"));
 }
 
-// TODO(crbug.com/537849089): Simplify this test suite to GlicBrowserTest.
-using PrefersColorSchemeTestBase = glic::NonInteractiveGlicTest;
+using PrefersColorSchemeTestBase = glic::GlicBrowserTest;
 
 // Tests for the preferred color scheme for a given WebContents. The first param
 // controls whether the web NativeTheme is light or dark the second controls
@@ -456,6 +457,8 @@ class PrefersColorSchemeTest
     : public testing::WithParamInterface<std::tuple<bool, bool>>,
       public PrefersColorSchemeTestBase {
  public:
+  using PlatformBrowserTest::CreateIncognitoBrowser;
+
   void SetUpOnMainThread() override {
     PrefersColorSchemeTestBase::SetUpOnMainThread();
 
@@ -465,9 +468,9 @@ class PrefersColorSchemeTest
 
     guest_view_manager_ =
         guest_view_manager_factory_.GetOrCreateTestGuestViewManager(
-            browser()->GetProfile(), extensions::ExtensionsAPIClient::Get()
-                                         ->CreateGuestViewManagerDelegate());
-    ApplyColorProvider(*browser()->tab_strip_model()->GetActiveWebContents());
+            GetBrowser()->GetProfile(), extensions::ExtensionsAPIClient::Get()
+                                            ->CreateGuestViewManagerDelegate());
+    ApplyColorProvider(*GetTabListInterface()->GetActiveTab()->GetContents());
   }
 
   void TearDownOnMainThread() override {
@@ -480,9 +483,9 @@ class PrefersColorSchemeTest
     // Most web content should follow the browser theme, with the exception of
     // non-WebUI incognito pages, which follow the device theme directly.
     const auto* const web_contents =
-        browser()->tab_strip_model()->GetActiveWebContents();
+        GetTabListInterface()->GetActiveTab()->GetContents();
     const bool use_os_theme =
-        browser()->GetProfile()->IsIncognitoProfile() &&
+        GetBrowser()->GetProfile()->IsIncognitoProfile() &&
         !web_contents->GetLastCommittedURL().SchemeIs(content::kChromeUIScheme);
     const bool dark_mode = use_os_theme ? DarkOs() : DarkColorProvider();
     return dark_mode ? "dark" : "light";
@@ -540,35 +543,37 @@ class PrefersColorSchemeTest
 };
 
 IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, PrefersColorScheme) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(),
+  ASSERT_TRUE(content::NavigateToURL(
+      GetTabListInterface()->GetActiveTab()->GetContents(),
       chrome_test_utils::GetTestUrl(
           base::FilePath(base::FilePath::kCurrentDirectory),
           base::FilePath(FILE_PATH_LITERAL("prefers-color-scheme.html")))));
-  std::u16string tab_title;
-  ASSERT_TRUE(ui_test_utils::GetCurrentTabTitle(browser(), &tab_title));
-  EXPECT_EQ(base::ASCIIToUTF16(ExpectedColorScheme()), tab_title);
+  EXPECT_EQ(base::ASCIIToUTF16(ExpectedColorScheme()),
+            GetTabListInterface()->GetActiveTab()->GetContents()->GetTitle());
 }
 
 IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, FeatureOverridesChromeSchemes) {
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), GURL(chrome::kChromeUIDownloadsURL)));
+  ASSERT_TRUE(content::NavigateToURL(
+      GetTabListInterface()->GetActiveTab()->GetContents(),
+      GURL(chrome::kChromeUIDownloadsURL)));
 
   EXPECT_EQ(
       true,
-      EvalJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      EvalJs(GetTabListInterface()->GetActiveTab()->GetContents(),
              base::StringPrintf(
                  "window.matchMedia('(prefers-color-scheme: %s)').matches",
                  ExpectedColorScheme())));
 }
 
 IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, PrefersColorSchemeGlic) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents));
-  content::RenderFrameHost* webui_frame =
-      GetWebFrame(TargetWebContents::kGlicWebUi).value();
-  ApplyColorProvider(*content::WebContents::FromRenderFrameHost(webui_frame));
+  ASSERT_OK_AND_ASSIGN(auto* instance, OpenGlicForActiveTab());
+  ASSERT_OK(WaitForGlicClient(instance));
+  content::WebContents* webui_contents = instance->host().webui_contents();
+  ASSERT_TRUE(webui_contents);
+  ApplyColorProvider(*webui_contents);
 
-  auto* frame = GetWebFrame(TargetWebContents::kGlicClient).value();
+  content::RenderFrameHost* frame = instance->host().GetGuestMainFrame();
+  ASSERT_TRUE(frame);
 
   EXPECT_EQ(
       true,
@@ -584,12 +589,14 @@ IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, PrefersColorSchemeGlic) {
 // browser theme.
 IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, ChromeSearchTheme) {
   // Open an incognito browser and navigate to search scheme.
-  Browser* incognito_browser = CreateIncognitoBrowser(browser()->GetProfile());
+  Browser* incognito_browser =
+      CreateIncognitoBrowser(GetBrowser()->GetProfile());
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       incognito_browser, GURL("chrome-search://most-visited/title.html")));
 
-  auto* incognito_ntp_web_contents =
-      incognito_browser->tab_strip_model()->GetActiveWebContents();
+  auto* tab_list = TabListInterface::From(incognito_browser);
+  ASSERT_TRUE(tab_list);
+  auto* incognito_ntp_web_contents = tab_list->GetActiveTab()->GetContents();
   auto& security_principal = incognito_ntp_web_contents->GetPrimaryMainFrame()
                                  ->GetSiteInstance()
                                  ->GetSecurityPrincipal();
@@ -609,11 +616,12 @@ IN_PROC_BROWSER_TEST_P(PrefersColorSchemeTest, FeatureOverridesPdfUI) {
   pdf_extension_url.append(url::kStandardSchemeSeparator);
   pdf_extension_url.append(extension_misc::kPdfExtensionId);
   GURL pdf_index = GURL(pdf_extension_url).Resolve("/index.html");
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), pdf_index));
+  ASSERT_TRUE(content::NavigateToURL(
+      GetTabListInterface()->GetActiveTab()->GetContents(), pdf_index));
 
   EXPECT_EQ(
       true,
-      EvalJs(browser()->tab_strip_model()->GetActiveWebContents(),
+      EvalJs(GetTabListInterface()->GetActiveTab()->GetContents(),
              base::StringPrintf(
                  "window.matchMedia('(prefers-color-scheme: %s)').matches",
                  ExpectedColorScheme())));
@@ -1768,6 +1776,102 @@ IN_PROC_BROWSER_TEST_F(IsClipboardPasteAllowedTest,
 
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
+class ChromeContentBrowserClientClipboardTest : public InProcessBrowserTest {
+ public:
+  ChromeContentBrowserClientClipboardTest() = default;
+
+  void SetPermission(const GURL& url,
+                     ContentSettingsType type,
+                     ContentSetting setting) {
+    HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile())
+        ->SetContentSettingDefaultScope(url, url, type, setting);
+  }
+
+  bool IsClipboardPasteAllowed(content::RenderFrameHost* rfh) {
+    return content::GetContentClientForTesting()
+        ->browser()
+        ->IsClipboardPasteAllowed(rfh);
+  }
+};
+
+// Verifies that even when persistent clipboard permission is granted,
+// IsClipboardPasteAllowed requires the requesting frame to be focused.
+// If a page loses focus (e.g., when a popup window is opened), clipboard
+// access is disallowed until focus is restored.
+IN_PROC_BROWSER_TEST_F(ChromeContentBrowserClientClipboardTest,
+                       PasteAllowedByPermission_RequiresFrameFocus) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL test_url = embedded_test_server()->GetURL("/empty.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+
+  content::RenderFrameHost* rfh = browser()
+                                      ->tab_strip_model()
+                                      ->GetActiveWebContents()
+                                      ->GetPrimaryMainFrame();
+  SetPermission(test_url, ContentSettingsType::CLIPBOARD_READ_WRITE,
+                CONTENT_SETTING_ALLOW);
+  rfh->GetRenderWidgetHost()->Focus();
+
+  // Active, focused foreground tab with permission granted returns true.
+  EXPECT_TRUE(IsClipboardPasteAllowed(rfh));
+
+  // Even with permission granted, clipboard access is disallowed while
+  // unfocused.
+  rfh->GetRenderWidgetHost()->Blur();
+  EXPECT_FALSE(rfh->IsFocused());
+  EXPECT_FALSE(IsClipboardPasteAllowed(rfh));
+
+  // Restoring focus allows clipboard access again.
+  rfh->GetRenderWidgetHost()->Focus();
+  EXPECT_TRUE(rfh->IsFocused());
+  EXPECT_TRUE(IsClipboardPasteAllowed(rfh));
+}
+
+// Verifies that IsClipboardPasteAllowed mirrors Blink's Document::hasFocus()
+// for subframes:
+// - Unfocused child iframes are blocked from reading the clipboard.
+// - Focused child iframes are allowed to read the clipboard.
+// - When a child iframe is focused, its ancestor main frame is also allowed.
+// - When the top-level tab loses focus, all frames are blocked.
+IN_PROC_BROWSER_TEST_F(ChromeContentBrowserClientClipboardTest,
+                       PasteAllowedByPermission_Subframes) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL test_url = embedded_test_server()->GetURL("/iframe.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), test_url));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  content::RenderFrameHost* parent_rfh = web_contents->GetPrimaryMainFrame();
+  content::RenderFrameHost* child_rfh = content::ChildFrameAt(parent_rfh, 0);
+  ASSERT_TRUE(child_rfh);
+
+  SetPermission(test_url, ContentSettingsType::CLIPBOARD_READ_WRITE,
+                CONTENT_SETTING_ALLOW);
+  parent_rfh->GetRenderWidgetHost()->Focus();
+
+  // An unfocused child iframe is not allowed to read the clipboard.
+  EXPECT_FALSE(child_rfh->IsFocused());
+  EXPECT_FALSE(IsClipboardPasteAllowed(child_rfh));
+
+  // Focusing the child iframe in the frame tree allows clipboard access.
+  ASSERT_TRUE(
+      content::ExecJs(parent_rfh, "document.getElementById('test').focus();"));
+  ASSERT_TRUE(content::ExecJs(child_rfh, "window.focus();"));
+  EXPECT_TRUE(child_rfh->IsFocused());
+  EXPECT_TRUE(IsClipboardPasteAllowed(child_rfh));
+
+  // When a child iframe is focused, its ancestor main frame is also allowed.
+  EXPECT_TRUE(parent_rfh->IsFocused());
+  EXPECT_TRUE(IsClipboardPasteAllowed(parent_rfh));
+
+  // When the top-level tab loses focus, both child and parent are blocked.
+  child_rfh->GetRenderWidgetHost()->Blur();
+  EXPECT_FALSE(child_rfh->IsFocused());
+  EXPECT_FALSE(IsClipboardPasteAllowed(child_rfh));
+  EXPECT_FALSE(parent_rfh->IsFocused());
+  EXPECT_FALSE(IsClipboardPasteAllowed(parent_rfh));
+}
+
 class TopChromeChromeContentBrowserClientTest
     : public ChromeContentBrowserClientBrowserTest {
  public:
@@ -1784,95 +1888,6 @@ class TopChromeChromeContentBrowserClientTest
   raw_ptr<ChromeContentBrowserClient> client_ = nullptr;
   base::test::ScopedFeatureList feature_list_;
 };
-
-IN_PROC_BROWSER_TEST_F(TopChromeChromeContentBrowserClientTest,
-                       UnboundRequestDoesNothing) {
-#if BUILDFLAG(IS_ANDROID)
-  network::URLLoaderFactoryBuilder factory_builder;
-  client()->MaybeProxyNetworkBoundRequest(browser()->GetProfile(),
-                                          net::handles::kInvalidNetworkHandle,
-                                          factory_builder, nullptr);
-  EXPECT_EQ(
-      client()
-          ->get_target_network_for_network_bound_network_context_for_testing(),
-      net::handles::kInvalidNetworkHandle);
-  EXPECT_FALSE(
-      client()->get_network_bound_network_context_for_testing().is_bound());
-#else   // !BUILDFLAG(IS_ANDROID)
-  GTEST_SKIP() << "proxying bound requests is supported only on Android";
-#endif  // BUILDFLAG(IS_ANDROID)
-}
-
-IN_PROC_BROWSER_TEST_F(TopChromeChromeContentBrowserClientTest,
-                       BoundRequestCreatesNetworkContext) {
-#if BUILDFLAG(IS_ANDROID)
-  constexpr net::handles::NetworkHandle network = 1;
-  network::URLLoaderFactoryBuilder factory_builder;
-  client()->MaybeProxyNetworkBoundRequest(browser()->GetProfile(), network,
-                                          factory_builder, nullptr);
-  EXPECT_EQ(
-      client()
-          ->get_target_network_for_network_bound_network_context_for_testing(),
-      network);
-  EXPECT_TRUE(
-      client()->get_network_bound_network_context_for_testing().is_bound());
-  EXPECT_TRUE(
-      client()->get_network_bound_network_context_for_testing().is_connected());
-  {
-    base::RunLoop run_loop;
-    client()
-        ->get_network_bound_network_context_for_testing()
-        ->GetBoundNetworkForTesting(base::BindOnce(
-            [](base::OnceClosure callback,
-               net::handles::NetworkHandle bound_network) {
-              EXPECT_EQ(bound_network, network);
-              std::move(callback).Run();
-            },
-            run_loop.QuitClosure()));
-    run_loop.Run();
-  }
-#else   // !BUILDFLAG(IS_ANDROID)
-  GTEST_SKIP() << "proxying bound requests is supported only on Android";
-#endif  // BUILDFLAG(IS_ANDROID)
-}
-
-IN_PROC_BROWSER_TEST_F(TopChromeChromeContentBrowserClientTest,
-                       BoundRequestWithOverrideCreatesNetworkContext) {
-#if BUILDFLAG(IS_ANDROID)
-  constexpr net::handles::NetworkHandle network = 1;
-  network::URLLoaderFactoryBuilder factory_builder;
-  network::mojom::URLLoaderFactoryOverridePtr factory_override;
-  EXPECT_FALSE(factory_override);
-  client()->MaybeProxyNetworkBoundRequest(browser()->GetProfile(), network,
-                                          factory_builder, &factory_override);
-  EXPECT_EQ(
-      client()
-          ->get_target_network_for_network_bound_network_context_for_testing(),
-      network);
-  EXPECT_TRUE(
-      client()->get_network_bound_network_context_for_testing().is_bound());
-  EXPECT_TRUE(
-      client()->get_network_bound_network_context_for_testing().is_connected());
-  EXPECT_TRUE(factory_override->overriding_factory);
-  mojo::Remote<network::mojom::URLLoaderFactory> overridden_factory;
-  overridden_factory.Bind(std::move(factory_override->overriding_factory));
-  {
-    base::RunLoop run_loop;
-    client()
-        ->get_network_bound_network_context_for_testing()
-        ->GetBoundNetworkForTesting(base::BindOnce(
-            [](base::OnceClosure callback,
-               net::handles::NetworkHandle bound_network) {
-              EXPECT_EQ(bound_network, network);
-              std::move(callback).Run();
-            },
-            run_loop.QuitClosure()));
-    run_loop.Run();
-  }
-#else   // !BUILDFLAG(IS_ANDROID)
-  GTEST_SKIP() << "proxying bound requests is supported only on Android";
-#endif  // BUILDFLAG(IS_ANDROID)
-}
 
 IN_PROC_BROWSER_TEST_F(TopChromeChromeContentBrowserClientTest,
                        ShouldReuseRendererWhenTopChromePagesPresent) {

@@ -67,8 +67,6 @@ class PLATFORM_EXPORT PageSchedulerImpl : public PageScheduler {
   bool IsPageVisible() const override;
   void SetPageFrozen(bool) override;
   void SetPageBackForwardCached(bool) override;
-  bool IsMainFrameLocal() const override;
-  void SetIsMainFrameLocal(bool is_local) override;
   base::TimeTicks GetStoredInBackForwardCacheTimestamp() {
     return stored_in_back_forward_cache_timestamp_;
   }
@@ -84,10 +82,15 @@ class PLATFORM_EXPORT PageSchedulerImpl : public PageScheduler {
       FrameScheduler::FrameType) override;
   void AudioStateChanged(bool is_audio_playing) override;
   bool IsAudioPlaying() const override;
+  void SetIsFullscreenVideo(bool is_fullscreen_video) override;
   bool IsExemptFromBudgetBasedThrottling() const override;
   bool OptedOutFromAggressiveThrottlingForTest() const override;
   scoped_refptr<WidgetScheduler> CreateWidgetScheduler(
       WidgetScheduler::Delegate*) override;
+
+  // Returns whether the page currently contains an effectively-fullscreen
+  // video.
+  bool IsFullscreenVideo() const;
 
   bool IsFrozen() const;
   bool OptedOutFromAggressiveThrottling() const;
@@ -230,10 +233,10 @@ class PLATFORM_EXPORT PageSchedulerImpl : public PageScheduler {
   base::TimeTicks page_visibility_changed_time_;
   AudioState audio_state_;
   base::TimeTicks audio_state_changed_time_;
+  bool is_fullscreen_video_;
   bool is_frozen_;
   bool opted_out_from_aggressive_throttling_;
   bool nested_runloop_;
-  bool is_main_frame_local_;
   bool is_cpu_time_throttled_;
   bool are_wake_ups_intensively_throttled_;
   bool had_recent_title_or_favicon_update_;

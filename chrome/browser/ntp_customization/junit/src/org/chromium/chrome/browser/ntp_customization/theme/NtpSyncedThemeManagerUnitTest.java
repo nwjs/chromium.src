@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ntp_customization.theme;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -42,6 +43,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.theme.chrome_colors.NtpThemeColorInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.CustomBackgroundInfo;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.CrossDeviceThemeTracker;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.image_fetcher.ImageFetcher;
 import org.chromium.url.JUnitTestGURLs;
@@ -55,8 +57,11 @@ public class NtpSyncedThemeManagerUnitTest {
     @Mock private Profile mProfile;
     @Mock private ImageFetcher mImageFetcher;
     @Mock private NtpSyncedThemeBridge.Natives mNatives;
+    @Mock private CrossDeviceThemeTracker.Natives mCrossDeviceThemeTrackerNatives;
     @Captor private ArgumentCaptor<NtpSyncedThemeBridge> mBridgeCaptor;
     @Captor private ArgumentCaptor<Callback<Bitmap>> mBitmapCallbackCaptor;
+
+    private static final String TEST_COLLECTION_ID = "collectionId";
 
     private NtpSyncedThemeManager mNtpSyncedThemeManager;
     private Context mContext;
@@ -66,6 +71,7 @@ public class NtpSyncedThemeManagerUnitTest {
         mContext = ApplicationProvider.getApplicationContext();
         NtpCustomizationUtils.setImageFetcherForTesting(mImageFetcher);
         NtpSyncedThemeBridgeJni.setInstanceForTesting(mNatives);
+        CrossDeviceThemeTracker.setInstanceForTesting(mCrossDeviceThemeTrackerNatives);
         when(mNatives.init(any(), any())).thenReturn(1L);
         NtpCustomizationUtils.resetSharedPreferenceForTesting();
     }
@@ -175,5 +181,35 @@ public class NtpSyncedThemeManagerUnitTest {
         mNtpSyncedThemeManager = new NtpSyncedThemeManager(mContext, mProfile);
         mNtpSyncedThemeManager.destroy();
         verify(mNatives).destroy(anyLong());
+    }
+
+    @Test
+    public void testOnCustomBackgroundImageUpdated_syncedStaticThemeCollection() {
+        mNtpSyncedThemeManager = new NtpSyncedThemeManager(mContext, mProfile);
+        mNtpSyncedThemeManager.fetchNextThemeCollectionImageAfterDailyRefreshApplied();
+
+        verify(mNatives).init(eq(mProfile), mBridgeCaptor.capture());
+        NtpSyncedThemeBridge bridge = mBridgeCaptor.getValue();
+
+        CustomBackgroundInfo syncedInfo =
+                new CustomBackgroundInfo(
+                        JUnitTestGURLs.URL_1,
+                        TEST_COLLECTION_ID,
+                        /* isUploadedImage= */ false,
+                        /* isDailyRefreshEnabled= */ false);
+        when(mNatives.getCustomBackgroundInfo(anyLong())).thenReturn(syncedInfo);
+        when(mNatives.isProcessingSyncUpdate(anyLong())).thenReturn(true);
+
+        bridge.onCustomBackgroundImageUpdated();
+
+        verify(mImageFetcher).fetchImage(any(), mBitmapCallbackCaptor.capture());
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
+        mBitmapCallbackCaptor.getValue().onResult(bitmap);
+
+        RobolectricUtil.runAllBackgroundAndUi();
+
+        assertEquals(
+                THEME_COLLECTION, NtpCustomizationUtils.getNtpBackgroundTypeFromSharedPreference());
+        assertNotNull(NtpCustomizationUtils.getCustomBackgroundInfoFromSharedPreference());
     }
 }

@@ -104,7 +104,7 @@ void LayoutInline::Trace(Visitor* visitor) const {
   LayoutBoxModelObject::Trace(visitor);
 }
 
-LayoutInline* LayoutInline::CreateAnonymous(Document* document) {
+LayoutInline* LayoutInline::CreateAnonymous(Document& document) {
   LayoutInline* layout_inline = MakeGarbageCollected<LayoutInline>(nullptr);
   layout_inline->SetDocumentForAnonymous(document);
   return layout_inline;
@@ -147,11 +147,11 @@ void LayoutInline::InLayoutNGInlineFormattingContextWillChange(bool new_value) {
 void LayoutInline::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutBoxModelObject::StyleDidChange(diff, old_style, style_change_context);
-
-  const ComputedStyle& new_style = StyleRef();
+  LayoutBoxModelObject::StyleDidChange(diff, old_style, new_style,
+                                       style_change_context);
   if (!IsInLayoutNGInlineFormattingContext()) {
     if (!AlwaysCreateLineBoxes()) {
       bool always_create_line_boxes_new =
@@ -374,8 +374,8 @@ LayoutBlockFlow* LayoutInline::CreateAnonymousContainerForBlockChildren()
   // for continuations.
   new_style_builder.SetDirection(containing_block->StyleRef().Direction());
 
-  return LayoutBlockFlow::CreateAnonymous(&GetDocument(),
-                                          new_style_builder.TakeStyle());
+  return LayoutBlockFlow::CreateAnonymous(GetDocument(),
+                                          *new_style_builder.TakeStyle());
 }
 
 LayoutBox* LayoutInline::CreateAnonymousBoxToSplit(
@@ -419,15 +419,17 @@ void LayoutInline::CollectLineBoxRects(
 
 void LayoutInline::QuadsInAncestorInternal(Vector<gfx::QuadF>& quads,
                                            const LayoutBoxModelObject* ancestor,
-                                           MapCoordinatesFlags mode) const {
+                                           MapCoordinatesFlags mode,
+                                           BoxQuadType box_type) const {
   NOT_DESTROYED();
-  QuadsForSelfInternal(quads, ancestor, mode, true);
+  QuadsForSelfInternal(quads, ancestor, mode, true, box_type);
 }
 
 void LayoutInline::QuadsForSelfInternal(Vector<gfx::QuadF>& quads,
                                         const LayoutBoxModelObject* ancestor,
                                         MapCoordinatesFlags mode,
-                                        bool map_to_ancestor) const {
+                                        bool map_to_ancestor,
+                                        BoxQuadType box_type) const {
   NOT_DESTROYED();
   std::optional<gfx::Transform> mapping_to_ancestor;
   auto PushAncestorQuad = [&mapping_to_ancestor, &quads, ancestor, mode,
@@ -438,15 +440,49 @@ void LayoutInline::QuadsForSelfInternal(Vector<gfx::QuadF>& quads,
     quads.push_back(mapping_to_ancestor->MapQuad(gfx::QuadF(gfx::RectF(rect))));
   };
 
-  CollectLineBoxRects(
-      [&PushAncestorQuad, &map_to_ancestor, &quads](const PhysicalRect& rect) {
-        if (map_to_ancestor) {
-          PushAncestorQuad(rect);
-        } else {
-          quads.push_back(gfx::QuadF(gfx::RectF(rect)));
+  bool found_quad = false;
+  if (IsInLayoutNGInlineFormattingContext()) {
+    InlineCursor cursor;
+    cursor.MoveToIncludingCulledInline(*this);
+    for (; cursor; cursor.MoveToNextForSameLayoutObject()) {
+      if (IsInChildRubyText(*this, cursor.Current().GetLayoutObject())) {
+        continue;
+      }
+
+      PhysicalRect rect = cursor.CurrentRectInFirstContainerFragment();
+      if (box_type == BoxQuadType::kMargin) {
+        BoxStrut margins =
+            MarginOutsets().ConvertToLogical(StyleRef().GetWritingDirection());
+        if (!cursor.Current()->IsFirstForNode()) {
+          margins.inline_start = LayoutUnit();
         }
-      });
-  if (quads.empty()) {
+        if (!cursor.Current()->IsLastForNode()) {
+          margins.inline_end = LayoutUnit();
+        }
+        rect.Expand(
+            margins.ConvertToPhysical(StyleRef().GetWritingDirection()));
+      } else if (const PhysicalBoxFragment* fragment =
+                     cursor.Current().BoxFragment()) {
+        PhysicalOffset fragment_offset = rect.offset;
+        rect = LocalRectForBoxQuad(*fragment, box_type);
+        rect.offset += fragment_offset;
+      } else if (box_type == BoxQuadType::kPadding) {
+        rect.Contract(BorderOutsets());
+      } else if (box_type == BoxQuadType::kContent) {
+        rect.Contract(BorderOutsets() + PaddingOutsets());
+      }
+      rect.size.width = rect.size.width.ClampNegativeToZero();
+      rect.size.height = rect.size.height.ClampNegativeToZero();
+
+      if (map_to_ancestor) {
+        PushAncestorQuad(rect);
+      } else {
+        quads.push_back(gfx::QuadF(gfx::RectF(rect)));
+      }
+      found_quad = true;
+    }
+  }
+  if (!found_quad) {
     if (map_to_ancestor) {
       PushAncestorQuad(PhysicalRect());
     } else {
@@ -843,7 +879,7 @@ void LayoutInline::AddOutlineRectsInternal(
 gfx::RectF LayoutInline::LocalBoundingBoxRectF() const {
   NOT_DESTROYED();
   Vector<gfx::QuadF> quads;
-  QuadsForSelfInternal(quads, /*ancestor=*/nullptr, 0, false);
+  QuadsForSelfInternal(quads, /*ancestor=*/nullptr, {}, false);
 
   wtf_size_t n = quads.size();
   if (n == 0) {
@@ -889,8 +925,8 @@ void LayoutInline::AddDraggableRegions(Vector<DraggableRegionValue>& regions) {
 
   // TODO(crbug.com/966048): The kIgnoreTransforms seems incorrect. We probably
   // want to map visual rect (with clips applied).
-  region.bounds.offset +=
-      container->LocalToAbsolutePoint(PhysicalOffset(), kIgnoreTransforms);
+  region.bounds.offset += container->LocalToAbsolutePoint(
+      PhysicalOffset(), {MapCoordinatesMode::kIgnoreTransforms});
   regions.push_back(region);
 }
 

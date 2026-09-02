@@ -9,8 +9,7 @@ assert(enable_webui_ntp)
 # The public API target.
 source_set("new_tab_page") {
   public = [
-    "chrome_colors/chrome_colors_factory.h",
-    "chrome_colors/chrome_colors_service.h",
+    "feature_promo_helper/new_tab_page_feature_promo_helper.h",
     "microsoft_auth/microsoft_auth_service.h",
     "microsoft_auth/microsoft_auth_service_factory.h",
     "microsoft_auth/microsoft_auth_service_observer.h",
@@ -58,13 +57,13 @@ source_set("new_tab_page") {
     "//google_apis/calendar",
     "//google_apis/common",
     "//mojo/public/mojom/base",
-    "//services/data_decoder/public/cpp",
     "//skia",
   ]
 
   if (!is_android) {
     public += [
-      "feature_promo_helper/new_tab_page_feature_promo_helper.h",
+      "chrome_colors/chrome_colors_factory.h",
+      "chrome_colors/chrome_colors_service.h",
       "modules/v2/tab_groups/tab_groups_page_handler.h",
     ]
     public_deps += [
@@ -77,8 +76,7 @@ source_set("new_tab_page") {
 # The implementation target.
 source_set("impl") {
   sources = [
-    "chrome_colors/chrome_colors_factory.cc",
-    "chrome_colors/chrome_colors_service.cc",
+    "feature_promo_helper/new_tab_page_feature_promo_helper.cc",
     "microsoft_auth/microsoft_auth_service.cc",
     "microsoft_auth/microsoft_auth_service_factory.cc",
     "modules/file_suggestion/drive_service.cc",
@@ -143,7 +141,8 @@ source_set("impl") {
 
   if (!is_android) {
     sources += [
-      "feature_promo_helper/new_tab_page_feature_promo_helper.cc",
+      "chrome_colors/chrome_colors_factory.cc",
+      "chrome_colors/chrome_colors_service.cc",
       "modules/v2/tab_groups/tab_groups_page_handler.cc",
     ]
     deps += [
@@ -185,7 +184,6 @@ source_set("unit_tests") {
     "//chrome/browser",
     "//chrome/browser/sync",
     "//chrome/browser/tab_group_sync:factories",
-    "//chrome/browser/ui/views/user_education",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/visited_url_ranking",
     "//chrome/test:test_support",
@@ -221,6 +219,7 @@ source_set("unit_tests") {
     ]
     deps += [
       "//chrome/browser/ui/tabs:test_support",
+      "//chrome/browser/ui/views/user_education",
       "//chrome/browser/user_education",
     ]
   }
@@ -243,6 +242,7 @@ if (!is_android) {
       "//chrome/browser/new_tab_page/chrome_colors",
       "//chrome/browser/new_tab_page/chrome_colors:generate_chrome_colors_info",
       "//chrome/browser/optimization_guide",
+      "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/sync",
       "//chrome/browser/ui/views/user_education",
       "//chrome/browser/ui/webui/cr_components/theme_color_picker",
@@ -282,8 +282,10 @@ if (!is_android) {
       "//chrome/browser/autocomplete:aim_eligibility_service",
       "//chrome/browser/contextual_search",
       "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/side_panel",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
+      "//chrome/browser/ui/views/user_education",
       "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//chrome/browser/user_education",
       "//chrome/test:test_support",

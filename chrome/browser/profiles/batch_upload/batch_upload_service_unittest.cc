@@ -13,6 +13,7 @@
 #include "chrome/browser/profiles/batch_upload/batch_upload_delegate.h"
 #include "chrome/browser/profiles/batch_upload/batch_upload_service_test_helper.h"
 #include "chrome/browser/signin/signin_promo_util.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -35,7 +36,7 @@ class BatchUploadDelegateMock : public BatchUploadDelegate {
   MOCK_METHOD(
       void,
       ShowBatchUploadDialog,
-      (Browser * browser,
+      (BrowserWindowInterface * browser,
        std::vector<syncer::LocalDataDescription> local_data_description_list,
        BatchUploadService::EntryPoint entry_point,
        BatchUploadSelectedDataTypeItemsCallback complete_callback),
@@ -279,7 +280,7 @@ TEST_F(BatchUploadServiceTest, LocalDataOrderBasedOnEntryPoint) {
     EXPECT_CALL(delegate_mock(),
                 ShowBatchUploadDialog(_, expected_descriptions, _, _))
         .WillOnce(
-            [&](Browser* browser,
+            [&](BrowserWindowInterface* browser,
                 const std::vector<syncer::LocalDataDescription>&
                     local_data_description_list,
                 BatchUploadService::EntryPoint entry_point,
@@ -398,7 +399,7 @@ TEST_F(BatchUploadServiceTest, LocalDataReturnedShowsDialogAndReturnIdToMove) {
   EXPECT_CALL(delegate_mock(),
               ShowBatchUploadDialog(_, expected_descriptions, _, _))
       .WillOnce(
-          [&](Browser* browser,
+          [&](BrowserWindowInterface* browser,
               const std::vector<syncer::LocalDataDescription>&
                   local_data_description_list,
               BatchUploadService::EntryPoint entry_point,
@@ -443,7 +444,7 @@ TEST_F(BatchUploadServiceTest,
   EXPECT_CALL(delegate_mock(),
               ShowBatchUploadDialog(_, expected_descriptions, _, _))
       .WillOnce(
-          [&](Browser* browser,
+          [&](BrowserWindowInterface* browser,
               const std::vector<syncer::LocalDataDescription>&
                   local_data_description_list,
               BatchUploadService::EntryPoint entry_point,
@@ -522,8 +523,9 @@ TEST_P(BatchUploadServiceWithAvatarPromoEntryPointTest,
   SigninWithFullInfo();
 
   // Simulate the promo being shown twice.
-  signin::AvatarButtonPromoManager avatar_promo_manager(&identity_manager(),
-                                                        &pref_service());
+  signin::AvatarButtonPromoManager avatar_promo_manager(
+      &identity_manager(), /*account_preview_data_service=*/nullptr,
+      &pref_service());
   const int avatar_promo_shown_count = 2;
   for (int i = 0; i < avatar_promo_shown_count; ++i) {
     avatar_promo_manager.RecordPromoShown(GetParam().promo_type);
@@ -540,7 +542,7 @@ TEST_P(BatchUploadServiceWithAvatarPromoEntryPointTest,
   BatchUploadSelectedDataTypeItemsCallback returned_complete_callback;
   EXPECT_CALL(delegate_mock(), ShowBatchUploadDialog(_, _, _, _))
       .WillOnce(
-          [&](Browser* browser,
+          [&](BrowserWindowInterface* browser,
               const std::vector<syncer::LocalDataDescription>&
                   local_data_description_list,
               BatchUploadService::EntryPoint entry_point,

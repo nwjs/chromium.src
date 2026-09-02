@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Radio Group Example Using aria-activedescendant</title>
+
+    <!-- JS and CSS for this example -->
+    <link rel="stylesheet" href="css/radio.css">
+    <script src="js/radio-activedescendant.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <h3 id="group_label_1">Pizza Crust</h3>
+
+          <ul class="radiogroup-activedescendant" role="radiogroup" aria-labelledby="group_label_1" aria-activedescendant="rb11" tabindex="0">
+            <li id="rb11" role="radio" aria-checked="false">Regular crust</li>
+            <li id="rb12" role="radio" aria-checked="false">Deep dish</li>
+            <li id="rb13" role="radio" aria-checked="false">Thin crust</li>
+          </ul>
+
+          <h3 id="group_label_2">Pizza Delivery</h3>
+
+          <ul class="radiogroup-activedescendant" role="radiogroup" aria-labelledby="group_label_2" aria-activedescendant="rb21" tabindex="0">
+            <li id="rb21" role="radio" aria-checked="false">Pick up</li>
+            <li id="rb22" role="radio" aria-checked="false">Home Delivery</li>
+            <li id="rb23" role="radio" aria-checked="false">Dine in Restaurant</li>
+          </ul>
+        </div>
+  </body>
+</html>

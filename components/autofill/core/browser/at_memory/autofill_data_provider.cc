@@ -17,12 +17,12 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/extend.h"
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
-#include "components/autofill/core/browser/at_memory/at_memory_data_type.h"
-#include "components/autofill/core/browser/at_memory/at_memory_utils.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
@@ -41,6 +41,8 @@
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 #include "components/autofill/core/browser/suggestions/payments/payments_suggestion_generator_util.h"
 #include "components/autofill/core/browser/ui/addresses/autofill_address_util.h"
+#include "components/autofill/core/common/autofill_features.h"
+#include "components/personal_context/proto/features/at_memory.pb.h"
 #include "components/strings/grit/components_strings.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -49,26 +51,72 @@ namespace autofill {
 
 namespace {
 
+using ::personal_context::proto::TypedValue;
+
 constexpr size_t kVisibleSuffixLength = 4;
 
-// Adds metadata from `form_group` to `entry` if `metadata_entry_type` maps to a
-// `FieldType` and differs from `primary_field_type`.
+// Extracts a `TypedValue` from `attribute` if there is a non-empty one.
+std::optional<TypedValue> GetAttributeTypedValue(
+    const AttributeInstance& attribute) {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillAtMemoryTypedFetchPlan)) {
+    return std::nullopt;
+  }
+  TypedValue typed_val = attribute.GetTypedValue();
+  return typed_val.value_case() == TypedValue::VALUE_NOT_SET
+             ? std::nullopt
+             : std::optional(std::move(typed_val));
+}
+
+// Extracts the expiration date as a `TypedValue` if it is non-empty.
+std::optional<TypedValue> GetExpirationDateTypedValue(const CreditCard& card) {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillAtMemoryTypedFetchPlan)) {
+    return std::nullopt;
+  }
+  const int expiration_year = card.expiration_year();
+  const int expiration_month = card.expiration_month();
+  if (expiration_year == 0 || expiration_month == 0) {
+    return std::nullopt;
+  }
+
+  TypedValue typed_val;
+  typed_val.mutable_date()->set_year(expiration_year);
+  typed_val.mutable_date()->set_month(expiration_month);
+
+  return typed_val;
+}
+
+// Extracts the home country as a `TypedValue` if it is non-empty.
+std::optional<TypedValue> GetHomeCountryTypedValue(
+    const AutofillProfile& profile) {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillAtMemoryTypedFetchPlan)) {
+    return std::nullopt;
+  }
+  std::string country_code =
+      base::UTF16ToASCII(profile.GetRawInfo(ADDRESS_HOME_COUNTRY));
+  if (country_code.length() != 2) {
+    return std::nullopt;
+  }
+  TypedValue typed_val;
+  typed_val.set_country_code(country_code);
+  return typed_val;
+}
+
+// Adds metadata from `form_group` to `entry` if `metadata_entry_type` maps to
+// a `FieldType` and differs from `primary_field_type`.
 void AddMetadataToResult(MemorySearchResult& entry,
                          const FormGroup& form_group,
                          MemoryDataType metadata_entry_type,
                          FieldType primary_field_type,
                          const std::string& app_locale) {
-  std::optional<AtMemoryDataType> data_type =
-      ToAtMemoryDataType(metadata_entry_type);
-  if (!data_type || !std::holds_alternative<FieldType>(*data_type)) {
-    return;
-  }
-  FieldType other_field_type = std::get<FieldType>(*data_type);
-  if (other_field_type == primary_field_type) {
+  std::optional<FieldType> other_field_type = ToFieldType(metadata_entry_type);
+  if (!other_field_type || other_field_type == primary_field_type) {
     return;
   }
   std::u16string metadata_value =
-      form_group.GetInfo(other_field_type, app_locale);
+      form_group.GetInfo(*other_field_type, app_locale);
   if (!metadata_value.empty()) {
     entry.metadata_list.emplace_back(
         metadata_entry_type, GetMemoryDataTypeNameForI18n(metadata_entry_type),
@@ -107,7 +155,7 @@ std::vector<EntryMetadata> GetMetadataFromEntityAttributes(
     MemoryDataType metadata_type = AttributeTypeToMemoryDataType(attr.type());
     metadata.emplace_back(metadata_type,
                           GetMemoryDataTypeNameForI18n(metadata_type),
-                          std::move(attr_value));
+                          std::move(attr_value), GetAttributeTypedValue(attr));
   }
   return metadata;
 }
@@ -141,6 +189,10 @@ MemorySearchResult CreateMemorySearchResultForEntity(
     }
     NOTREACHED();
   }();
+  if (base::optional_ref<const AttributeInstance> attribute =
+          entity.attribute(primary_attribute_type)) {
+    entry.typed_value = GetAttributeTypedValue(*attribute);
+  }
   return entry;
 }
 
@@ -182,6 +234,19 @@ MemorySearchResult CreateResultFromAddressProfile(
                       app_locale);
   AddMetadataToResult(entry, profile, MemoryDataType::kAddressCountry,
                       field_type, app_locale);
+
+  if (std::optional<TypedValue> typed_home_country =
+          GetHomeCountryTypedValue(profile)) {
+    if (auto it = std::ranges::find(entry.metadata_list,
+                                    MemoryDataType::kAddressCountry,
+                                    &EntryMetadata::type);
+        it != entry.metadata_list.end()) {
+      it->typed_value = typed_home_country;
+    }
+    if (memory_data_type == MemoryDataType::kAddressCountry) {
+      entry.typed_value = std::move(typed_home_country);
+    }
+  }
 
   entry.confidence_score = profile.GetRankingScore(base::Time::Now());
   return entry;
@@ -242,38 +307,6 @@ std::vector<MemorySearchResult> FetchFullAddressData(
   return entries;
 }
 
-// Fetches data from EntityDataManager (Autofill AI) for the requested entity.
-std::vector<MemorySearchResult> FetchAutofillAiEntityData(
-    const EntityDataManager* entity_data_manager,
-    EntityType entity_type,
-    std::string_view app_locale) {
-  std::vector<MemorySearchResult> entries;
-  if (!entity_data_manager) {
-    return entries;
-  }
-  entries.reserve(entity_data_manager->GetEntityInstances().size());
-  for (const EntityInstance& entity :
-       entity_data_manager->GetEntityInstances()) {
-    if (entity.type() != entity_type) {
-      continue;
-    }
-
-    std::optional<AttributeType> primary_attribute_type =
-        GetPrimaryAttributeType(entity);
-    if (!primary_attribute_type) {
-      continue;
-    }
-
-    base::optional_ref<const AttributeInstance> attr =
-        entity.attribute(*primary_attribute_type);
-    CHECK(attr);
-    entries.push_back(CreateMemorySearchResultForEntity(
-        entity, *primary_attribute_type, attr->GetCompleteInfo(app_locale),
-        app_locale));
-  }
-  return entries;
-}
-
 // Fetches data from EntityDataManager (Autofill AI) for the requested
 // attribute.
 std::vector<MemorySearchResult> FetchAutofillAiAttributeData(
@@ -322,53 +355,65 @@ void AutofillDataProvider::RetrieveAll(
     base::OnceCallback<void(std::vector<MemorySearchResult>)> callback) {
   std::vector<MemorySearchResult> combined_results;
   for (MemoryDataType memory_data_type : types) {
-    std::optional<AtMemoryDataType> at_memory_type =
-        ToAtMemoryDataType(memory_data_type);
-    if (!at_memory_type) {
+    if (memory_data_type == MemoryDataType::kUnknown) {
       continue;
     }
-    base::Extend(combined_results,
-                 GetAutofillData(memory_data_type, *at_memory_type));
+    base::Extend(combined_results, GetAutofillData(memory_data_type));
   }
   std::move(callback).Run(std::move(combined_results));
 }
 
 std::vector<MemorySearchResult> AutofillDataProvider::GetAutofillData(
-    MemoryDataType memory_data_type,
-    AtMemoryDataType at_memory_type) {
+    MemoryDataType memory_data_type) {
   if (!personal_data_manager_) {
     return {};
   }
-  std::vector<MemorySearchResult> entries = std::visit(
-      absl::Overload{
-          [this, memory_data_type](
-              FieldType field_type) -> std::vector<MemorySearchResult> {
-            if (field_type == IBAN_VALUE) {
-              return FetchIbanData();
-            }
-            if (field_type == ADDRESS_HOME_ADDRESS) {
-              return FetchFullAddressData(*personal_data_manager_);
-            }
-            if (GroupTypeOfFieldType(field_type) ==
-                FieldTypeGroup::kCreditCard) {
-              return FetchCreditCardData(field_type, memory_data_type);
-            }
-            return FetchDataFromAddressProfiles(*personal_data_manager_,
-                                                field_type, memory_data_type);
-          },
-          [this](EntityType entity_type) -> std::vector<MemorySearchResult> {
-            return FetchAutofillAiEntityData(
-                entity_data_manager_, entity_type,
-                personal_data_manager_->address_data_manager().app_locale());
-          },
-          [this](
-              AttributeType attribute_type) -> std::vector<MemorySearchResult> {
-            return FetchAutofillAiAttributeData(
-                entity_data_manager_, attribute_type,
-                personal_data_manager_->address_data_manager().app_locale());
-          },
-      },
-      at_memory_type);
+  std::vector<MemorySearchResult> entries;
+  switch (GetMemoryDataTypeCategory(memory_data_type)) {
+    case MemoryDataTypeCategory::kContactInfo: {
+      if (memory_data_type == MemoryDataType::kAddressFull) {
+        entries = FetchFullAddressData(*personal_data_manager_);
+      } else {
+        std::optional<FieldType> field_type = ToFieldType(memory_data_type);
+        if (field_type) {
+          entries = FetchDataFromAddressProfiles(*personal_data_manager_,
+                                                 *field_type, memory_data_type);
+        }
+      }
+      break;
+    }
+    case MemoryDataTypeCategory::kCreditCard: {
+      std::optional<FieldType> field_type = ToFieldType(memory_data_type);
+      if (field_type) {
+        entries = FetchCreditCardData(*field_type, memory_data_type);
+      }
+      break;
+    }
+    case MemoryDataTypeCategory::kIban: {
+      entries = FetchIbanData();
+      break;
+    }
+    case MemoryDataTypeCategory::kPassport:
+    case MemoryDataTypeCategory::kDriversLicense:
+    case MemoryDataTypeCategory::kNationalIdCard:
+    case MemoryDataTypeCategory::kFlightReservation:
+    case MemoryDataTypeCategory::kKnownTravelerNumber:
+    case MemoryDataTypeCategory::kRedressNumber:
+    case MemoryDataTypeCategory::kVehicle:
+    case MemoryDataTypeCategory::kOrder:
+    case MemoryDataTypeCategory::kShipment: {
+      std::optional<AttributeType> attribute_type =
+          ToAttributeType(memory_data_type);
+      if (attribute_type) {
+        entries = FetchAutofillAiAttributeData(
+            entity_data_manager_, *attribute_type,
+            personal_data_manager_->address_data_manager().app_locale());
+      }
+      break;
+    }
+    case MemoryDataTypeCategory::kUnknown:
+      break;
+  }
 
   std::ranges::stable_sort(
       entries, [](const MemorySearchResult& a, const MemorySearchResult& b) {
@@ -496,6 +541,19 @@ std::vector<MemorySearchResult> AutofillDataProvider::FetchCreditCardData(
           MemoryDataType::kCreditCardNickname,
           GetMemoryDataTypeNameForI18n(MemoryDataType::kCreditCardNickname),
           std::u16string(credit_card->nickname()));
+    }
+
+    if (std::optional<TypedValue> typed_value =
+            GetExpirationDateTypedValue(*credit_card)) {
+      if (auto it = std::ranges::find(entry.metadata_list,
+                                      MemoryDataType::kCreditCardExpirationDate,
+                                      &EntryMetadata::type);
+          it != entry.metadata_list.end()) {
+        it->typed_value = typed_value;
+      }
+      if (memory_data_type == MemoryDataType::kCreditCardExpirationDate) {
+        entry.typed_value = std::move(typed_value);
+      }
     }
 
     entries.push_back(std::move(entry));

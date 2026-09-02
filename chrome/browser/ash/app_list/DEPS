@@ -20,7 +20,6 @@ include_rules = [
   "+chrome/browser/ash/guest_os",
   "+chrome/browser/ash/hats",
   "+chrome/browser/ash/login",
-  "+chrome/browser/ash/plugin_vm",
   "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/release_notes",
   "+chrome/browser/ash/remote_apps",
@@ -46,17 +45,13 @@ include_rules = [
   "+chrome/browser/policy",
   "+chrome/browser/profiles",
   "+chrome/browser/screen_ai",
-  "+chrome/browser/search_engines",
   "+chrome/browser/signin",
   "+chrome/browser/sync",
   "+chrome/browser/trusted_vault",
   "+chrome/browser/ui/ash",
-  "+chrome/browser/ui/browser_commands.h",
   "+chrome/browser/ui/browser.h",
-  "+chrome/browser/ui/browser_window.h",
   "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
   "+chrome/browser/ui/browser_window/public/profile_browser_collection.h",
-  "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/navigator/browser_navigator.h",
   "+chrome/browser/ui/navigator/browser_navigator_params.h",
   "+chrome/browser/ui/web_applications",
@@ -83,6 +78,7 @@ include_rules = [
   "+ash/app_list/model",
   "+ash/resources",
   "+ash/strings",
+  "+chromeos/ash/components/search_engines",
   "+components/app_constants",
   "+components/app_icon_loader",
   "+components/constrained_window",
@@ -121,7 +117,14 @@ specific_include_rules = {
     "+chrome/grit",
   ],
 
+  # Tests still need to install TemplateURLService through the //chrome-side
+  # Profile-keyed factory because ChromeAutocompleteProviderClient (constructed
+  # inside OmniboxProvider) calls TemplateURLServiceFactory::GetForProfile()
+  # unconditionally. Production code reaches the service through the
+  # //chromeos/ash/components/search_engines interface.
   "app_list_client_impl_browsertest\\.cc": [
+    "+chrome/browser/search_engines",
+    "+chrome/browser/ui/browser_window.h",
     "+chrome/browser/ui/settings_window_manager_chromeos.h",
     "+ui/message_center/test/message_center_waiter.h",
   ],

@@ -31,7 +31,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -566,7 +565,7 @@ IN_PROC_BROWSER_TEST_F(GlicProfileManagerDidSelectProfileTest,
   auto* service = GetMockGlicKeyedService(profile);
 
   EXPECT_CALL(*service,
-              ToggleUI(nullptr, true, mojom::InvocationSource::kProfilePicker));
+              ShowUI(nullptr, mojom::InvocationSource::kProfilePicker));
 
   GlicProfileManager::GetInstance()->DidSelectProfile(profile);
 }
@@ -586,8 +585,8 @@ IN_PROC_BROWSER_TEST_F(GlicProfileManagerDidSelectProfileTest,
 
   auto* service = GetMockGlicKeyedService(profile);
 
-  EXPECT_CALL(*service, ToggleUI(testing::IsNull(), true,
-                                 mojom::InvocationSource::kProfilePicker));
+  EXPECT_CALL(*service, ShowUI(testing::IsNull(),
+                               mojom::InvocationSource::kProfilePicker));
 
   GlicProfileManager::GetInstance()->DidSelectProfile(profile);
 }

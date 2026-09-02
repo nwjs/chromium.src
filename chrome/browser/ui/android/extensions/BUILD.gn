@@ -46,6 +46,7 @@ if (enable_extensions_core) {
     deps = [
       "//base",
       "//chrome/app:generated_resources",
+      "//chrome/browser/devtools",
       "//chrome/browser/extensions",
       "//chrome/browser/extensions/api/omnibox",
       "//chrome/browser/extensions/api/web_navigation",
@@ -63,6 +64,7 @@ if (enable_extensions_core) {
       "//extensions/browser:extension_action_enums",
       "//extensions/common",
       "//net",
+      "//ui/display",
       "//ui/menus",
       "//url",
     ]

@@ -12,6 +12,7 @@
 #include "base/check_deref.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/containers/span.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "components/certificate_model/x509_certificate_constants.h"
 #include "components/strings/grit/components_strings.h"
@@ -24,11 +25,13 @@
 #include "third_party/boringssl/src/include/openssl/evp.h"
 #include "third_party/boringssl/src/include/openssl/mem.h"
 #include "third_party/boringssl/src/pki/cert_errors.h"
+#include "third_party/boringssl/src/pki/certificate_policies.h"
 #include "third_party/boringssl/src/pki/extended_key_usage.h"
 #include "third_party/boringssl/src/pki/general_names.h"
 #include "third_party/boringssl/src/pki/input.h"
 #include "third_party/boringssl/src/pki/parse_certificate.h"
 #include "third_party/boringssl/src/pki/parse_name.h"
+#include "third_party/boringssl/src/pki/parse_values.h"
 #include "third_party/boringssl/src/pki/parser.h"
 #include "third_party/boringssl/src/pki/signature_algorithm.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -294,27 +297,142 @@ std::vector<X509CertificateModel::GeneralName> ToGeneralNameList(
   return result;
 }
 
-std::vector<X509CertificateModel::GeneralName> ProcessGeneralNamesValue(
-    bssl::der::Input general_names_value) {
+std::optional<std::vector<X509CertificateModel::GeneralName>>
+ProcessGeneralNamesValue(bssl::der::Input general_names_value) {
   bssl::CertErrors unused_errors;
   std::unique_ptr<bssl::GeneralNames> general_names =
       bssl::GeneralNames::CreateFromValue(general_names_value, &unused_errors);
   if (!general_names) {
-    return {};
+    return std::nullopt;
   }
   return ToGeneralNameList(*general_names);
 }
 
-std::vector<X509CertificateModel::GeneralName> ProcessGeneralNamesTlv(
-    bssl::der::Input extension_data) {
+std::optional<std::vector<X509CertificateModel::GeneralName>>
+ProcessGeneralNamesTlv(bssl::der::Input extension_data) {
   bssl::CertErrors unused_errors;
   std::unique_ptr<bssl::GeneralNames> general_names =
       bssl::GeneralNames::Create(extension_data, &unused_errors);
   if (!general_names) {
-    return {};
+    return std::nullopt;
   }
   return ToGeneralNameList(*general_names);
 }
+
+std::optional<X509CertificateModel::UserNotice> ProcessUserNotice(
+    bssl::der::Input qualifier) {
+  // RFC 5280 section 4.2.1.4:
+  //
+  //    UserNotice ::= SEQUENCE {
+  //         noticeRef        NoticeReference OPTIONAL,
+  //         explicitText     DisplayText OPTIONAL }
+  //
+  //    NoticeReference ::= SEQUENCE {
+  //         organization     DisplayText,
+  //         noticeNumbers    SEQUENCE OF INTEGER }
+  //
+  //    DisplayText ::= CHOICE {
+  //         ia5String        IA5String      (SIZE (1..200)),
+  //         visibleString    VisibleString  (SIZE (1..200)),
+  //         bmpString        BMPString      (SIZE (1..200)),
+  //         utf8String       UTF8String     (SIZE (1..200)) }
+  bssl::der::Parser outer_parser(qualifier);
+  bssl::der::Parser parser;
+  if (!outer_parser.ReadSequence(&parser) || outer_parser.HasMore()) {
+    return std::nullopt;
+  }
+
+  std::optional<bssl::der::Input> notice_ref_value;
+  if (!parser.ReadOptionalTag(CBS_ASN1_SEQUENCE, &notice_ref_value)) {
+    return std::nullopt;
+  }
+
+  X509CertificateModel::UserNotice notice;
+  if (notice_ref_value) {
+    bssl::der::Parser notice_ref_parser(*notice_ref_value);
+    CBS_ASN1_TAG organization_tag;
+    bssl::der::Input organization_value;
+    if (!notice_ref_parser.ReadTagAndValue(&organization_tag,
+                                           &organization_value)) {
+      return std::nullopt;
+    }
+    std::optional<std::string> organization =
+        ProcessUserNoticeDisplayText(organization_tag, organization_value);
+    if (!organization) {
+      return std::nullopt;
+    }
+    notice.organization = *std::move(organization);
+
+    bssl::der::Parser notice_numbers_parser;
+    if (!notice_ref_parser.ReadSequence(&notice_numbers_parser)) {
+      return std::nullopt;
+    }
+    while (notice_numbers_parser.HasMore()) {
+      bssl::der::Input notice_number;
+      if (!notice_numbers_parser.ReadTag(CBS_ASN1_INTEGER, &notice_number)) {
+        return std::nullopt;
+      }
+      uint64_t number;
+      if (bssl::der::ParseUint64(notice_number, &number)) {
+        notice.notice_numbers.push_back(base::NumberToString(number));
+      } else {
+        // The integer does not fit in a uint64, so surface it as hex.
+        notice.notice_numbers.push_back(ProcessRawBytes(notice_number));
+      }
+    }
+  }
+
+  if (parser.HasMore()) {
+    CBS_ASN1_TAG explicit_text_tag;
+    bssl::der::Input explicit_text_value;
+    if (!parser.ReadTagAndValue(&explicit_text_tag, &explicit_text_value)) {
+      return std::nullopt;
+    }
+    std::optional<std::string> explicit_text =
+        ProcessUserNoticeDisplayText(explicit_text_tag, explicit_text_value);
+    if (!explicit_text) {
+      return std::nullopt;
+    }
+    notice.explicit_text = *std::move(explicit_text);
+  }
+
+  if (parser.HasMore()) {
+    return std::nullopt;
+  }
+  return notice;
+}
+
+// Returns false when a known qualifier fails to decode. In that case, its type
+// is preserved in `qualifier`, but its decoded content is left empty.
+bool ProcessPolicyQualifier(const bssl::PolicyQualifierInfo& qualifier_info,
+                            X509CertificateModel::PolicyQualifier* qualifier) {
+  if (qualifier_info.qualifier_oid == bssl::der::Input(bssl::kCpsPointerId)) {
+    qualifier->type = X509CertificateModel::PolicyQualifier::Type::kCpsUri;
+    std::optional<std::string> cps_uri =
+        ProcessIA5String(qualifier_info.qualifier);
+    if (!cps_uri) {
+      return false;
+    }
+    qualifier->cps_uri = *std::move(cps_uri);
+    return true;
+  }
+
+  if (qualifier_info.qualifier_oid == bssl::der::Input(bssl::kUserNoticeId)) {
+    qualifier->type = X509CertificateModel::PolicyQualifier::Type::kUserNotice;
+    std::optional<X509CertificateModel::UserNotice> user_notice =
+        ProcessUserNotice(qualifier_info.qualifier);
+    if (!user_notice) {
+      return false;
+    }
+    qualifier->user_notice = *std::move(user_notice);
+    return true;
+  }
+
+  qualifier->type = X509CertificateModel::PolicyQualifier::Type::kUnknown;
+  qualifier->raw_value = ProcessRawBytes(qualifier_info.qualifier);
+  return true;
+}
+
 }  // namespace
 
 // X509CertificateModel implementation
@@ -329,6 +447,16 @@ X509CertificateModel::X509CertificateModel(X509CertificateModel&& other) =
     default;
 
 X509CertificateModel::~X509CertificateModel() = default;
+
+std::string X509CertificateModel::GetExtensionRawHex(
+    bssl::der::Input oid) const {
+  CHECK(is_valid());
+  const bssl::ParsedExtension* extension = FindExtension(extensions_, oid);
+  if (!extension) {
+    return std::string();
+  }
+  return ProcessRawBytes(extension->value);
+}
 
 std::string X509CertificateModel::HashCertSHA256() const {
   auto hash =
@@ -454,17 +582,17 @@ bool X509CertificateModel::IsKeyUsageCritical() const {
   return IsExtensionCritical(extensions_, bssl::der::Input(bssl::kKeyUsageOid));
 }
 
-std::string X509CertificateModel::GetKeyUsageString() const {
+std::optional<std::string> X509CertificateModel::GetKeyUsageString() const {
   CHECK(is_valid());
   const bssl::ParsedExtension* key_usage_extension =
       FindExtension(extensions_, bssl::der::Input(bssl::kKeyUsageOid));
   if (!key_usage_extension) {
-    return std::string();
+    return std::nullopt;
   }
 
   bssl::der::BitString key_usage;
   if (!bssl::ParseKeyUsage(key_usage_extension->value, &key_usage)) {
-    return std::string();
+    return std::nullopt;
   }
 
   // The string IDs are indexed by the KeyUsage bit position, matching
@@ -500,33 +628,40 @@ std::string X509CertificateModel::GetKeyUsageString() const {
   return base::JoinString(usages, ", ");
 }
 
+std::string X509CertificateModel::GetKeyUsageStringRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(bssl::kKeyUsageOid));
+}
+
 bool X509CertificateModel::IsExtendedKeyUsageCritical() const {
   CHECK(is_valid());
   return IsExtensionCritical(extensions_,
                              bssl::der::Input(bssl::kExtKeyUsageOid));
 }
 
-std::vector<std::string> X509CertificateModel::GetExtendedKeyUsagePurposes()
-    const {
+std::optional<std::vector<std::string>>
+X509CertificateModel::GetExtendedKeyUsagePurposes() const {
   CHECK(is_valid());
-  std::vector<std::string> purposes;
-
   const bssl::ParsedExtension* eku_extension =
       FindExtension(extensions_, bssl::der::Input(bssl::kExtKeyUsageOid));
   if (!eku_extension) {
-    return purposes;
+    return std::nullopt;
   }
 
   std::vector<bssl::der::Input> eku_oids;
   if (!bssl::ParseEKUExtension(eku_extension->value, &eku_oids)) {
-    return purposes;
+    return std::nullopt;
   }
 
+  std::vector<std::string> purposes;
   purposes.reserve(eku_oids.size());
   for (const auto& oid : eku_oids) {
     purposes.push_back(GetOidTextOrOid(oid));
   }
   return purposes;
+}
+
+std::string X509CertificateModel::GetExtendedKeyUsagePurposesRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(bssl::kExtKeyUsageOid));
 }
 
 bool X509CertificateModel::IsBasicConstraintsCritical() const {
@@ -559,20 +694,23 @@ bool X509CertificateModel::IsSubjectKeyIdentifierCritical() const {
                              bssl::der::Input(bssl::kSubjectKeyIdentifierOid));
 }
 
-std::string X509CertificateModel::GetSubjectKeyIdentifier() const {
+std::optional<std::string> X509CertificateModel::GetSubjectKeyIdentifier()
+    const {
   CHECK(is_valid());
   const bssl::ParsedExtension* extension = FindExtension(
       extensions_, bssl::der::Input(bssl::kSubjectKeyIdentifierOid));
   if (!extension) {
-    return std::string();
+    return std::nullopt;
   }
-
   bssl::der::Input subject_key_id;
   if (!bssl::ParseSubjectKeyIdentifier(extension->value, &subject_key_id)) {
-    return std::string();
+    return std::nullopt;
   }
-
   return ProcessRawBytes(subject_key_id);
+}
+
+std::string X509CertificateModel::GetSubjectKeyIdentifierRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(bssl::kSubjectKeyIdentifierOid));
 }
 
 bool X509CertificateModel::IsAuthorityKeyIdentifierCritical() const {
@@ -581,37 +719,50 @@ bool X509CertificateModel::IsAuthorityKeyIdentifierCritical() const {
       extensions_, bssl::der::Input(bssl::kAuthorityKeyIdentifierOid));
 }
 
-std::string X509CertificateModel::GetAuthorityKeyIdentifier() const {
+std::optional<std::string> X509CertificateModel::GetAuthorityKeyIdentifier()
+    const {
   CHECK(is_valid());
   std::optional<bssl::ParsedAuthorityKeyIdentifier> authority_key_id =
       ParseAuthorityKeyIdentifierExtension(extensions_);
-  if (!authority_key_id || !authority_key_id->key_identifier.has_value()) {
+  if (!authority_key_id) {
+    return std::nullopt;
+  }
+  if (!authority_key_id->key_identifier.has_value()) {
     return std::string();
   }
   return ProcessRawBytes(*authority_key_id->key_identifier);
 }
 
-std::vector<X509CertificateModel::GeneralName>
+std::optional<std::vector<X509CertificateModel::GeneralName>>
 X509CertificateModel::GetAuthorityKeyIdentifierIssuer() const {
   CHECK(is_valid());
   std::optional<bssl::ParsedAuthorityKeyIdentifier> authority_key_id =
       ParseAuthorityKeyIdentifierExtension(extensions_);
-  if (!authority_key_id ||
-      !authority_key_id->authority_cert_issuer.has_value()) {
-    return {};
+  if (!authority_key_id) {
+    return std::nullopt;
+  }
+  if (!authority_key_id->authority_cert_issuer.has_value()) {
+    return std::vector<GeneralName>();
   }
   return ProcessGeneralNamesValue(*authority_key_id->authority_cert_issuer);
 }
 
-std::string X509CertificateModel::GetAuthorityKeyIdentifierSerial() const {
+std::optional<std::string>
+X509CertificateModel::GetAuthorityKeyIdentifierSerial() const {
   CHECK(is_valid());
   std::optional<bssl::ParsedAuthorityKeyIdentifier> authority_key_id =
       ParseAuthorityKeyIdentifierExtension(extensions_);
-  if (!authority_key_id ||
-      !authority_key_id->authority_cert_serial_number.has_value()) {
+  if (!authority_key_id) {
+    return std::nullopt;
+  }
+  if (!authority_key_id->authority_cert_serial_number.has_value()) {
     return std::string();
   }
   return ProcessRawBytes(*authority_key_id->authority_cert_serial_number);
+}
+
+std::string X509CertificateModel::GetAuthorityKeyIdentifierRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(bssl::kAuthorityKeyIdentifierOid));
 }
 
 bool X509CertificateModel::IsAuthorityInformationAccessCritical() const {
@@ -620,39 +771,49 @@ bool X509CertificateModel::IsAuthorityInformationAccessCritical() const {
                              bssl::der::Input(bssl::kAuthorityInfoAccessOid));
 }
 
-std::vector<X509CertificateModel::AccessDescription>
+std::optional<std::vector<X509CertificateModel::AccessDescription>>
 X509CertificateModel::GetAuthorityInformationAccess() const {
   CHECK(is_valid());
   const bssl::ParsedExtension* extension = FindExtension(
       extensions_, bssl::der::Input(bssl::kAuthorityInfoAccessOid));
   if (!extension) {
-    return {};
+    return std::nullopt;
   }
   std::vector<bssl::AuthorityInfoAccessDescription> access_descriptions;
   if (!bssl::ParseAuthorityInfoAccess(extension->value, &access_descriptions)) {
-    return {};
+    return std::nullopt;
   }
 
   std::vector<AccessDescription> result;
+  result.reserve(access_descriptions.size());
   for (const bssl::AuthorityInfoAccessDescription& desc : access_descriptions) {
+    AccessDescription access = {GetOidTextOrOid(desc.access_method_oid),
+                                std::nullopt};
     bssl::GeneralNames names;
     bssl::CertErrors errors;
-    if (!bssl::ParseGeneralName(desc.access_location,
-                                bssl::GeneralNames::IP_ADDRESS_ONLY, &names,
-                                &errors)) {
-      continue;
+    if (bssl::ParseGeneralName(desc.access_location,
+                               bssl::GeneralNames::IP_ADDRESS_ONLY, &names,
+                               &errors)) {
+      // accessLocation is a single GeneralName. ToGeneralNameList() is the
+      // shared converter that returns a vector, but one parsed GeneralName
+      // yields exactly one element, so front() is that element.
+      std::vector<GeneralName> location = ToGeneralNameList(names);
+      if (!location.empty()) {
+        access.location = std::move(location.front());
+      }
     }
-    std::vector<GeneralName> location = ToGeneralNameList(names);
-    if (location.empty()) {
-      continue;
+    // A single accessLocation that fails to decode keeps the method and
+    // surfaces the raw bytes, rather than dropping the whole description.
+    if (!access.location) {
+      access.raw_location = ProcessRawBytes(desc.access_location);
     }
-    // accessLocation is a single GeneralName. ToGeneralNameList() is the shared
-    // converter that returns a vector, but one parsed GeneralName yields
-    // exactly one element, so front() is that element.
-    result.push_back(
-        {GetOidTextOrOid(desc.access_method_oid), std::move(location.front())});
+    result.push_back(std::move(access));
   }
   return result;
+}
+
+std::string X509CertificateModel::GetAuthorityInformationAccessRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(bssl::kAuthorityInfoAccessOid));
 }
 
 bool X509CertificateModel::IsSubjectAlternativeNameCritical() const {
@@ -661,13 +822,15 @@ bool X509CertificateModel::IsSubjectAlternativeNameCritical() const {
                              bssl::der::Input(bssl::kSubjectAltNameOid));
 }
 
-std::vector<X509CertificateModel::GeneralName>
+std::optional<std::vector<X509CertificateModel::GeneralName>>
 X509CertificateModel::GetSubjectAlternativeNames() const {
   CHECK(is_valid());
   // The base class already parsed the SubjectAltName extension into
-  // `subject_alt_names_` (null if the extension is absent).
+  // `subject_alt_names_`. It is null only when the extension is absent: a
+  // SubjectAltName that fails to decode makes the whole certificate invalid, so
+  // is_valid() would be false and this getter would not be reached.
   if (!subject_alt_names_) {
-    return {};
+    return std::nullopt;
   }
   return ToGeneralNameList(*subject_alt_names_);
 }
@@ -677,17 +840,21 @@ bool X509CertificateModel::IsIssuerAlternativeNameCritical() const {
   return IsExtensionCritical(extensions_, bssl::der::Input(kIssuerAltNameOid));
 }
 
-std::vector<X509CertificateModel::GeneralName>
+std::optional<std::vector<X509CertificateModel::GeneralName>>
 X509CertificateModel::GetIssuerAlternativeNames() const {
   CHECK(is_valid());
   const bssl::ParsedExtension* extension =
       FindExtension(extensions_, bssl::der::Input(kIssuerAltNameOid));
   if (!extension) {
-    return {};
+    return std::nullopt;
   }
   // Unlike SubjectAltName, the base class does not cache IssuerAltName, so
   // parse the extension's GeneralNames value here.
   return ProcessGeneralNamesTlv(extension->value);
+}
+
+std::string X509CertificateModel::GetIssuerAlternativeNamesRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(kIssuerAltNameOid));
 }
 
 bool X509CertificateModel::IsCRLDistributionPointsCritical() const {
@@ -696,18 +863,18 @@ bool X509CertificateModel::IsCRLDistributionPointsCritical() const {
                              bssl::der::Input(bssl::kCrlDistributionPointsOid));
 }
 
-std::vector<X509CertificateModel::GeneralName>
+std::optional<std::vector<X509CertificateModel::GeneralName>>
 X509CertificateModel::GetCRLDistributionPointsFullNames() const {
   CHECK(is_valid());
   const bssl::ParsedExtension* extension = FindExtension(
       extensions_, bssl::der::Input(bssl::kCrlDistributionPointsOid));
   if (!extension) {
-    return {};
+    return std::nullopt;
   }
   std::vector<bssl::ParsedDistributionPoint> distribution_points;
   if (!bssl::ParseCrlDistributionPoints(extension->value,
                                         &distribution_points)) {
-    return {};
+    return std::nullopt;
   }
   // Only the distributionPoint fullName is surfaced. The relativeName,
   // reasons, and cRLIssuer fields are skipped.
@@ -717,6 +884,56 @@ X509CertificateModel::GetCRLDistributionPointsFullNames() const {
       auto names = ToGeneralNameList(*dp.distribution_point_fullname);
       result.insert(result.end(), std::make_move_iterator(names.begin()),
                     std::make_move_iterator(names.end()));
+    }
+  }
+  return result;
+}
+
+std::string X509CertificateModel::GetCRLDistributionPointsFullNamesRaw() const {
+  return GetExtensionRawHex(bssl::der::Input(bssl::kCrlDistributionPointsOid));
+}
+
+bool X509CertificateModel::IsCertificatePoliciesCritical() const {
+  CHECK(is_valid());
+  return IsExtensionCritical(extensions_,
+                             bssl::der::Input(bssl::kCertificatePoliciesOid));
+}
+
+X509CertificateModel::CertificatePoliciesResult
+X509CertificateModel::GetCertificatePolicies() const {
+  CHECK(is_valid());
+  CertificatePoliciesResult result;
+  const bssl::ParsedExtension* extension = FindExtension(
+      extensions_, bssl::der::Input(bssl::kCertificatePoliciesOid));
+  if (!extension) {
+    return result;
+  }
+  result.raw_der = ProcessRawBytes(extension->value);
+  std::vector<bssl::PolicyInformation> policies;
+  bssl::CertErrors unused_errors;
+  if (!bssl::ParseCertificatePoliciesExtension(extension->value, &policies,
+                                               &unused_errors)) {
+    result.has_error = true;
+    return result;
+  }
+  for (const bssl::PolicyInformation& policy_info : policies) {
+    CertificatePolicy policy;
+    policy.policy_oid = GetOidTextOrOid(policy_info.policy_oid);
+    // Keep a known qualifier that fails to decode, then stop decoding.
+    for (const bssl::PolicyQualifierInfo& qualifier_info :
+         policy_info.policy_qualifiers) {
+      PolicyQualifier qualifier;
+      const bool qualifier_decoded =
+          ProcessPolicyQualifier(qualifier_info, &qualifier);
+      policy.qualifiers.push_back(std::move(qualifier));
+      if (!qualifier_decoded) {
+        result.has_error = true;
+        break;
+      }
+    }
+    result.policies.push_back(std::move(policy));
+    if (result.has_error) {
+      break;
     }
   }
   return result;

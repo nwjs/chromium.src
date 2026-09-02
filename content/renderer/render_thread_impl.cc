@@ -115,7 +115,6 @@
 #include "gpu/ipc/client/command_buffer_proxy_impl.h"
 #include "gpu/ipc/client/gpu_channel_host.h"
 #include "ipc/ipc_channel.h"
-#include "ipc/ipc_channel_factory.h"
 #include "media/base/decoder_factory.h"
 #include "media/base/media.h"
 #include "media/base/media_switches.h"
@@ -704,7 +703,7 @@ bool RenderThreadImpl::ShouldBeDestroyed() {
   return false;
 }
 
-IPC::SyncChannel* RenderThreadImpl::GetChannel() {
+IPC::ChannelProxy* RenderThreadImpl::GetChannel() {
   return channel();
 }
 

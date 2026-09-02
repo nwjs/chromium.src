@@ -5,21 +5,29 @@
 #ifndef COMPONENTS_ENTERPRISE_NET_CORE_ENTERPRISE_PROXY_SERVICE_H_
 #define COMPONENTS_ENTERPRISE_NET_CORE_ENTERPRISE_PROXY_SERVICE_H_
 
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
+#include "base/scoped_multi_source_observation.h"
+#include "base/scoped_observation.h"
 #include "base/values.h"
+#include "components/enterprise/net/core/enterprise_network_auth_service.h"
+#include "components/enterprise/net/core/proxy_provisioning_domain_manager.h"
 #include "components/enterprise/net/core/types.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "net/base/auth.h"
+#include "net/base/network_change_notifier.h"
+#include "net/http/http_response_headers.h"
+#include "url/gurl.h"
 
 class PrefService;
 
@@ -27,28 +35,31 @@ namespace network {
 class SharedURLLoaderFactory;
 }  // namespace network
 
-namespace signin {
-class IdentityManager;
-}  // namespace signin
-
 namespace enterprise {
 class ProfileIdService;
 }  // namespace enterprise
 
 namespace enterprise_net {
 
-// Service responsible for managing the Provisioning Domain (PvD) JSON
-// configurations from the corresponding well-known endpoints, defined in the
-// "ProxyProvisioningDomains" policy.
-class EnterpriseProxyService : public KeyedService {
+// State-machine service responsible for managing multiple
+// ProxyProvisioningDomainManager, each of which maintain up-to-date proxy
+// configurations fetched from their configured Provisioning Domain (PvD).
+class EnterpriseProxyService
+    : public KeyedService,
+      public ProxyProvisioningDomainManager::Observer,
+      public net::NetworkChangeNotifier::NetworkChangeObserver,
+      public EnterpriseNetworkAuthService::Observer {
  public:
   class Observer : public base::CheckedObserver {
    public:
-    // Called when the active PvD configurations change, or when background
-    // fetching starts.
-    virtual void OnProvisioningDomainConfigsChanged(
-        const std::vector<ProvisioningDomainProxyConfig>& configs,
-        bool fetch_in_progress) = 0;
+    // Called when dynamic proxy route status changes (e.g. refresh starts or
+    // completes, or dynamic routing rules update).
+    virtual void OnDynamicProxyConfigsStatusChanged() = 0;
+
+    // Called during Shutdown(), used by non-keyed service classes (e.g.
+    // PrefProxyConfigTrackerImpl) to maintain lifetime and reset their
+    // ScopedObservation before the service is destroyed.
+    virtual void OnEnterpriseProxyServiceDestroyed() {}
   };
 
   using GetURLLoaderFactoryCallback =
@@ -56,7 +67,7 @@ class EnterpriseProxyService : public KeyedService {
 
   EnterpriseProxyService(
       PrefService* pref_service,
-      signin::IdentityManager* identity_manager,
+      EnterpriseNetworkAuthService* auth_service,
       GetURLLoaderFactoryCallback url_loader_factory_callback,
       enterprise::ProfileIdService* profile_id_service = nullptr);
 
@@ -65,62 +76,143 @@ class EnterpriseProxyService : public KeyedService {
 
   ~EnterpriseProxyService() override;
 
-  void AddObserver(Observer* observer);
-  void RemoveObserver(Observer* observer);
+  virtual void AddObserver(Observer* observer);
+  virtual void RemoveObserver(Observer* observer);
 
   // Returns the list of current PvD configs with their states.
   std::vector<ProvisioningDomainProxyConfig> GetProvisioningDomainConfigs()
       const;
 
-  // Returns true if there is at least one background fetch currently running.
-  bool IsFetchInProgress() const;
+  // Returns true if there is at least one background refresh currently running.
+  bool IsRefreshInProgress() const;
 
- private:
-  class ProvisioningDomainFetcher;
+  // Looks up the first matching `ProxyEndpoint` across all active Provisioning
+  // Domain configs for a given `destination_url` and `proxy_chain`.
+  // Returns std::nullopt if no matching endpoint is found.
+  std::optional<ProvisioningDomainProxyConfig::ProxyEndpoint>
+  FindMatchingProxyEndpoint(const GURL& destination_url,
+                            const net::ProxyChain& proxy_chain) const;
 
-  struct ProxyProvisioningDomain {
-    ProxyProvisioningDomain();
-    ProxyProvisioningDomain(ProxyProvisioningDomain&&) noexcept;
-    ProxyProvisioningDomain& operator=(ProxyProvisioningDomain&&) noexcept;
-    ~ProxyProvisioningDomain();
+  // Returns the `net::ProxyConfig::DynamicRoutingConfig` concatenated
+  // from all valid active Provisioning Domain configs, with ordering strictly
+  // preserved and all browser-side PvD metadata removed.
+  virtual net::ProxyConfig::DynamicRoutingConfig GetDynamicRoutingConfig()
+      const;
 
-    ProvisioningDomainConfig policy;
-    std::unique_ptr<ProvisioningDomainFetcher> fetcher;
+ protected:
+  // Protected constructor for test doubles (e.g. MockEnterpriseProxyService).
+  EnterpriseProxyService();
 
-    ProvisioningDomainProxyConfig fetched_config;
+ public:
+  // LINT.IfChange(ProxyAuthChallengeResult)
+  enum class ProxyAuthChallengeResult {
+    // No applicable rule for the destination URL & proxy pair
+    kNotApplicable = 0,
+    // The response contains a disguised error from the proxy
+    kDisguisedError,
+    // A matching rule explicitly specifies no auth or non-bearer auth
+    kNoCredentialsNeeded,
+    // Token fetch succeeded and credentials have been returned
+    kCredentialFetchSuccess,
+    // Token fetch failed
+    kCredentialFetchFailure,
+    kMaxValue = kCredentialFetchFailure,
   };
+  // LINT.ThenChange(//tools/metrics/histograms/enums.xml:EnterpriseProxyAuthChallengeResult)
 
+  // Evaluates a 407 Proxy Authentication challenge against managed dynamic
+  // routes and initiates credential fetching if applicable.
+  // Note that in-flight auth requests will not adjust for any config changes
+  // that occurred after endpoint-matching is finished.
+  void HandleProxyAuthChallenge(
+      const net::AuthChallengeInfo& auth_info,
+      const GURL& destination_url,
+      const scoped_refptr<net::HttpResponseHeaders>& response_headers,
+      base::OnceCallback<void(ProxyAuthChallengeResult,
+                              const std::optional<net::AuthCredentials>&)>
+          callback);
+
+  // KeyedService:
   void Shutdown() override;
 
+  // ProxyProvisioningDomainManager::Observer:
+  void OnProvisioningDomainStateChanged(
+      ProxyProvisioningDomainManager* domain_manager) override;
+
+  // net::NetworkChangeNotifier::NetworkChangeObserver:
+  void OnNetworkChanged(
+      net::NetworkChangeNotifier::ConnectionType type) override;
+
+  // EnterpriseNetworkAuthService::Observer:
+  void OnAccountStateChanged() override;
+
+  // Forces a new fetch for all managed Provisioning Domains.
+  void ForceRefreshAllConfigs();
+
+  // Returns a dictionary containing detailed debugging information for all
+  // managed Provisioning Domains and active fetch states.
+  base::DictValue GetDebugInfo() const;
+
+ private:
+  friend class EnterpriseProxyServiceTest;
+
   void OnPolicyPrefChanged();
-  void OnFetchComplete(
-      ProvisioningDomainFetcher* fetcher,
-      std::optional<ProvisioningDomainProxyConfig> parsed_config);
 
-  // Updates the cached configurations in preferences and notifies observers of
-  // any changes.
-  void NotifyAndUpdateCachedConfigs();
+  // Recreates the managed `ProxyProvisioningDomainManager` instances from the
+  // "ProxyProvisioningDomains" policy list. Clears all current managers and
+  // creates new ones for each policy entry.
+  // TODO(crbug.com/526587734): Incorporate preference caching to restore cached
+  // Provisioning Domain configs on startup and preserve/move cached configs for
+  // existing domain managers across policy updates (even if their index
+  // changes).
+  void RecreateProvisioningDomainManagers(
+      const base::ListValue& policy_domains);
 
-  // Rebuilds the in-memory storage to make sure it's accurate and reuse caches.
-  void RebuildProvisioningDomains(const base::ListValue& policy_domains);
+  // Represents an in-flight OAuth token fetch for a proxy authentication
+  // challenge, grouping callbacks for duplicate requests to the same proxy.
+  struct PendingAuthRequest;
 
-  raw_ptr<PrefService> pref_service_;
-  raw_ptr<signin::IdentityManager> identity_manager_;
+  // Resolves variable placeholders (e.g. `${profile_id}`, `${accept_language}`)
+  // in the proxy endpoint extra headers and formats them as URL-escaped query
+  // parameters to be used as the Basic Auth username.
+  std::string BuildBasicAuthUsername(
+      const std::vector<ProxyExtraHeader>& proxy_headers) const;
+
+  void OnProxyAuthTokenFetched(PendingAuthRequest* request,
+                               AccessTokenResult token_result);
+
+  const raw_ptr<PrefService> pref_service_;
+  const raw_ptr<EnterpriseNetworkAuthService> auth_service_;
+
+  // Callback used to obtain a SharedURLLoaderFactory lazily when creating
+  // ProvisioningDomainManagers. A callback is used instead of a static
+  // SharedURLLoaderFactory pointer because Profile StoragePartition
+  // initialization may not be ready at KeyedService creation time.
   GetURLLoaderFactoryCallback url_loader_factory_callback_;
-  raw_ptr<enterprise::ProfileIdService> profile_id_service_;
+
+  const raw_ptr<enterprise::ProfileIdService> profile_id_service_;
 
   PrefChangeRegistrar pref_change_registrar_;
   base::ObserverList<Observer> observers_;
 
-  // In-memory list of provisioning domains matching the policy.
-  std::vector<ProxyProvisioningDomain> provisioning_domains_;
+  // In-memory list of provisioning domain state machines matching policy.
+  std::vector<std::unique_ptr<ProxyProvisioningDomainManager>>
+      provisioning_domain_managers_;
 
-  // TODO(crbug.com/507060663): We should have an in-memory copy of the routing
-  // rules with network-defined C++ type as well.
-  // This prevents us from excessive parsing/type casting for values that are
-  // not updated.
+  // Automatically manages observation of domain manager instances.
+  base::ScopedMultiSourceObservation<ProxyProvisioningDomainManager,
+                                     ProxyProvisioningDomainManager::Observer>
+      provisioning_domain_observations_{this};
 
-  int in_progress_fetches_ = 0;
+  base::ScopedObservation<EnterpriseNetworkAuthService,
+                          EnterpriseNetworkAuthService::Observer>
+      auth_service_observation_{this};
+
+  // Set of managers currently executing a background fetch.
+  base::flat_set<raw_ptr<ProxyProvisioningDomainManager>> refreshing_managers_;
+
+  // List of pending proxy auth requests.
+  std::vector<std::unique_ptr<PendingAuthRequest>> pending_auth_requests_;
 
   base::WeakPtrFactory<EnterpriseProxyService> weak_ptr_factory_{this};
 };

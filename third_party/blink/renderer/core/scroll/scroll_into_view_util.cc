@@ -276,7 +276,8 @@ ALWAYS_INLINE void AdjustRectAndParamsForParentFrame(
         *next_box->View());
 
     absolute_rect_to_scroll = current_box.View()->LocalToAncestorRect(
-        absolute_rect_to_scroll, next_box->View(), kTraverseDocumentBoundaries);
+        absolute_rect_to_scroll, next_box->View(),
+        {MapCoordinatesMode::kTraverseDocumentBoundaries});
   }
 }
 
@@ -592,9 +593,8 @@ bool ScrollRectToVisible(const LayoutObject& layout_object,
   params->is_for_scroll_sequence |=
       params->type == mojom::blink::ScrollType::kProgrammatic;
 
-  PhysicalBoxStrut scroll_margin =
-      layout_object.Style() ? layout_object.StyleRef().ScrollMarginStrut()
-                            : PhysicalBoxStrut();
+  const PhysicalBoxStrut scroll_margin =
+      layout_object.StyleRef().ScrollMarginStrut();
   BubblingScrollResult result = PerformBubblingScrollIntoViewWithResult(
       *enclosing_box, absolute_rect_to_scroll, params, scroll_margin, container,
       from_remote_frame, include_self, resolver);
@@ -658,11 +658,11 @@ void ConvertParamsToParentFrame(mojom::blink::ScrollIntoViewParamsPtr& params,
 
   PhysicalRect editable_bounds_in_dest = src_frame.LocalToAncestorRect(
       PhysicalRect::EnclosingRect(editable_bounds_in_src), &dest_frame,
-      kTraverseDocumentBoundaries);
+      {MapCoordinatesMode::kTraverseDocumentBoundaries});
 
   PhysicalRect caret_rect_in_dest = src_frame.LocalToAncestorRect(
       PhysicalRect::EnclosingRect(caret_rect_in_src), &dest_frame,
-      kTraverseDocumentBoundaries);
+      {MapCoordinatesMode::kTraverseDocumentBoundaries});
 
   params->for_focused_editable->relative_location = gfx::Vector2dF(
       editable_bounds_in_dest.offset - caret_rect_in_dest.offset);

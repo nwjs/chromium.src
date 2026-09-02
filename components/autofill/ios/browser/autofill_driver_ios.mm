@@ -256,21 +256,18 @@ base::flat_set<FieldGlobalId> AutofillDriverIOS::ApplyFormAction(
     const FillId& fill_id,
     bool supports_refill,
     const url::Origin& triggered_origin,
-    const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map,
-    const Section& section_for_clear_form_on_ios) {
+    const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map) {
   switch (action_type) {
     case mojom::FormActionType::kUndo:
     case mojom::FormActionType::kFill: {
-      auto callback = [&section_for_clear_form_on_ios](
-                          AutofillDriver& driver,
-                          mojom::FormActionType action_type,
-                          mojom::ActionPersistence action_persistence,
-                          const std::vector<FormFieldData::FillData>& fields,
-                          const FillId& fill_id, bool supports_refill) {
+      auto callback = [](AutofillDriver& driver,
+                         mojom::FormActionType action_type,
+                         mojom::ActionPersistence action_persistence,
+                         const std::vector<FormFieldData::FillData>& fields,
+                         const FillId& fill_id, bool supports_refill) {
         web::WebFrame* frame = cast(&driver)->web_frame();
         if (frame) {
           [cast(&driver)->bridge_ fillData:fields
-                                   section:section_for_clear_form_on_ios
                                    inFrame:frame
                             withActionType:action_type];
         }
@@ -309,6 +306,7 @@ void AutofillDriverIOS::ApplyFieldAction(
         [cast(&driver)->bridge_
             fillSpecificFormField:field
                         withValue:value
+                       actionType:action_type
                           inFrame:cast(&driver)->web_frame()];
         break;
       }
@@ -459,6 +457,10 @@ void AutofillDriverIOS::FetchFormsFilteredByName(
 
 void AutofillDriverIOS::TriggerFormExtractionInAllFrames(
     base::OnceCallback<void(bool)> form_extraction_finished_callback) {
+  NOTIMPLEMENTED();
+}
+
+void AutofillDriverIOS::ClearFormCacheInAllFrames() {
   NOTIMPLEMENTED();
 }
 
@@ -897,11 +899,17 @@ void AutofillDriverIOS::RecordTriggeredFormExtractionMetrics() {
       form_extraction_trigger_count_);
 }
 
-void AutofillDriverIOS::SendEmailVerificationToken(
+void AutofillDriverIOS::GetNonceForEmailVerification(
     FieldGlobalId email_field_id,
-    const std::string& email,
-    FieldGlobalId token_field_id,
-    const std::string& presentation_token) {
+    base::OnceCallback<void(const std::optional<std::string>&)> callback) {
+  // TODO(crbug.com/380367784): Implement email verification on iOS.
+  NOTIMPLEMENTED();
+  std::move(callback).Run(std::nullopt);
+}
+
+void AutofillDriverIOS::SendEmailVerificationToken(FieldGlobalId email_field_id,
+                                                   const std::string& email,
+                                                   const std::string& token) {
   // TODO(crbug.com/380367784): Implement email verification on iOS.
   NOTIMPLEMENTED();
 }

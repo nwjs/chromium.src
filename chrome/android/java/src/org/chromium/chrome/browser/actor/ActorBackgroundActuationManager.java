@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.actor;
 
 import android.util.DisplayMetrics;
+import android.view.View;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
@@ -12,11 +13,14 @@ import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
+import org.chromium.chrome.browser.compositor.CompositorViewHolderSupplier;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
 import org.chromium.chrome.browser.tab.TabLaunchType;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
@@ -24,69 +28,16 @@ import org.chromium.url.GURL;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Orchestrates background actuation of agent tasks by provisioning offscreen tabs and windows. */
+/**
+ * Orchestrates background actuation of agent tasks by provisioning offscreen tabs and windows.
+ * Created before a FGS is started and destroyed when the FGS is destroyed.
+ */
 @NullMarked
 public class ActorBackgroundActuationManager {
     private static final String TAG = "ActorBackgroundMgr";
 
     /** Constant representing an invalid task ID. */
     public static final int INVALID_TASK_ID = -1;
-
-    /**
-     * Represents a background session (either provisioned or transitioned). It owns the offscreen
-     * {@link Tab} and manages its lifecycle.
-     */
-    public static class BackgroundSession {
-        private final Tab mTab;
-        private final int mTaskId;
-        private final @Nullable String mGlicTriggerMessageId;
-
-        /**
-         * Constructor for a transitioned session (Scenario 1).
-         *
-         * @param tab The tab being transitioned.
-         * @param taskId The ID of the task associated with the tab.
-         */
-        public BackgroundSession(Tab tab, int taskId) {
-            mTab = tab;
-            mTaskId = taskId;
-            mGlicTriggerMessageId = null;
-        }
-
-        /**
-         * Constructor for a provisioned session (Scenario 2).
-         *
-         * @param tab The newly provisioned tab.
-         * @param glicTriggerMessageId The ID of the triggering message.
-         */
-        public BackgroundSession(Tab tab, String glicTriggerMessageId) {
-            mTab = tab;
-            mTaskId = INVALID_TASK_ID;
-            mGlicTriggerMessageId = glicTriggerMessageId;
-        }
-
-        /** Returns the offscreen tab owned by this session. */
-        public Tab getTab() {
-            return mTab;
-        }
-
-        /** Returns the task ID associated with this session, or {@link #INVALID_TASK_ID}. */
-        public int getTaskId() {
-            return mTaskId;
-        }
-
-        /** Returns the triggering message ID associated with this session, or null. */
-        public @Nullable String getGlicTriggerMessageId() {
-            return mGlicTriggerMessageId;
-        }
-
-        void destroy() {
-            OffscreenRenderingManager.getInstance().stopOffscreenRendering(mTab);
-            if (!mTab.isDestroyed()) {
-                mTab.destroy();
-            }
-        }
-    }
 
     // List of active background sessions.
     private final List<BackgroundSession> mBackgroundSessions = new ArrayList<>();
@@ -142,12 +93,49 @@ public class ActorBackgroundActuationManager {
     }
 
     /**
-     * Transitions active actor tasks from foreground to background.
+     * Provisions an offscreen tab on demand for the specified task ID.
      *
-     * @param sessions List of sessions to be moved offscreen.
+     * @param profile The profile to use.
+     * @param taskId The task ID for which to provision the background tab.
+     * @param callback Callback invoked with the prepared tab, or null if setup failed.
      */
-    public void transitionToBackground(List<BackgroundSession> sessions) {
-        // TODO: Implement this.
+    public void provisionBackgroundTabForTask(
+            Profile profile, int taskId, Callback<@Nullable Tab> callback) {
+        ThreadUtils.assertOnUiThread();
+        Tab tab = createOffscreenTab(profile);
+
+        loadBlankThenCallback(
+                tab,
+                (preparedTab) -> {
+                    if (preparedTab == null) {
+                        OffscreenRenderingManager.getInstance().stopOffscreenRendering(tab);
+                        tab.destroy();
+                        callback.onResult(null);
+                        return;
+                    }
+                    BackgroundSession session =
+                            BackgroundSession.getSessionForTask(mBackgroundSessions, taskId);
+                    if (session == null) {
+                        session = new BackgroundSession(preparedTab, taskId);
+                        mBackgroundSessions.add(session);
+                    } else {
+                        session.addTab(preparedTab);
+                    }
+                    callback.onResult(preparedTab);
+                });
+    }
+
+    /**
+     * Transitions active tasks from foreground activity to background rendering.
+     *
+     * @param selector The TabModelSelector of the stopping activity.
+     */
+    public void transitionActiveTasksToBackground(TabModelSelector selector) {
+        ThreadUtils.assertOnUiThread();
+        int windowId = TabWindowManagerSingleton.getInstance().getWindowIdForSelector(selector);
+        mBackgroundSessions.addAll(
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        selector, windowId, this::startOffscreenRendering));
     }
 
     /**
@@ -160,7 +148,10 @@ public class ActorBackgroundActuationManager {
         BackgroundSession session = findSessionByMessageId(glicTriggerMessageId);
         if (session != null) {
             mBackgroundSessions.remove(session);
-            session.destroy();
+            Tab lastActiveTab = session.getLastActiveTab();
+            if (lastActiveTab != null) {
+                OffscreenRenderingManager.getInstance().stopOffscreenRendering(lastActiveTab);
+            }
         }
     }
 
@@ -171,7 +162,10 @@ public class ActorBackgroundActuationManager {
         List<BackgroundSession> sessions = new ArrayList<>(mBackgroundSessions);
         mBackgroundSessions.clear();
         for (BackgroundSession session : sessions) {
-            session.destroy();
+            Tab lastActiveTab = session.getLastActiveTab();
+            if (lastActiveTab != null) {
+                OffscreenRenderingManager.getInstance().stopOffscreenRendering(lastActiveTab);
+            }
         }
     }
 
@@ -184,32 +178,54 @@ public class ActorBackgroundActuationManager {
         return null;
     }
 
-    private void setupBackgroundTab(
-            Profile profile, String glicTriggerMessageId, Callback<@Nullable Tab> callback) {
-        ThreadUtils.assertOnUiThread();
-        Log.d(TAG, "Provisioning offscreen tab for message: %s", glicTriggerMessageId);
+    private Tab createOffscreenTab(Profile profile) {
         WindowAndroid window = OffscreenRenderingManager.getInstance().getOffscreenWindow();
-
         Tab tab =
                 TabBuilder.createLiveTab(profile, true)
                         .setWindow(window)
                         .setLaunchType(TabLaunchType.FROM_CHROME_UI)
                         .setDelegateFactory(new ActorTabDelegateFactory())
                         .build();
-
-        DisplayMetrics displayMetrics =
-                ContextUtils.getApplicationContext().getResources().getDisplayMetrics();
-        int width = displayMetrics.widthPixels;
-        int height = displayMetrics.heightPixels;
-
-        Log.d(TAG, "Starting offscreen rendering (%dx%d).", width, height);
-        OffscreenRenderingManager.getInstance().startOffscreenRendering(tab, width, height);
-
-        loadBlankThenCallback(tab, glicTriggerMessageId, callback);
+        startOffscreenRendering(tab);
+        return tab;
     }
 
-    private void loadBlankThenCallback(
-            Tab tab, String glicTriggerMessageId, Callback<@Nullable Tab> callback) {
+    private void startOffscreenRendering(Tab tab) {
+        View compositorView =
+                CompositorViewHolderSupplier.getValueOrNullFrom(tab.getWindowAndroid());
+
+        int width;
+        int height;
+        if (compositorView != null
+                && compositorView.getWidth() > 0
+                && compositorView.getHeight() > 0) {
+            width = compositorView.getWidth();
+            height = compositorView.getHeight();
+        } else {
+            // Fallback to display metrics might behave incorrectly for floating window or
+            // split screen mode, but is sufficient for this use case.
+            DisplayMetrics displayMetrics =
+                    ContextUtils.getApplicationContext().getResources().getDisplayMetrics();
+            width = displayMetrics.widthPixels;
+            height = displayMetrics.heightPixels;
+        }
+
+        OffscreenRenderingManager.getInstance().startOffscreenRendering(tab, width, height);
+    }
+
+    private void setupBackgroundTab(
+            Profile profile, String glicTriggerMessageId, Callback<@Nullable Tab> callback) {
+        ThreadUtils.assertOnUiThread();
+        Log.d(TAG, "Provisioning offscreen tab for message: %s", glicTriggerMessageId);
+        Tab tab = createOffscreenTab(profile);
+
+        BackgroundSession session = new BackgroundSession(tab, glicTriggerMessageId);
+        mBackgroundSessions.add(session);
+
+        loadBlankThenCallback(tab, callback);
+    }
+
+    private void loadBlankThenCallback(Tab tab, Callback<@Nullable Tab> callback) {
         ThreadUtils.assertOnUiThread();
         EmptyTabObserver observer =
                 new EmptyTabObserver() {
@@ -227,11 +243,7 @@ public class ActorBackgroundActuationManager {
 
                     @Override
                     public void onPageLoadFailed(Tab tab, int errorCode) {
-                        Log.d(
-                                TAG,
-                                "Actor: Offscreen page load failed for message: %s, error: %d",
-                                glicTriggerMessageId,
-                                errorCode);
+                        Log.d(TAG, "Actor: Offscreen page load failed, error: %d", errorCode);
                         if (!mInitialLoadFinished) {
                             mInitialLoadFinished = true;
                             callback.onResult(null);
@@ -241,10 +253,7 @@ public class ActorBackgroundActuationManager {
 
                     @Override
                     public void onCrash(Tab tab) {
-                        Log.d(
-                                TAG,
-                                "Actor: Offscreen tab crashed for message: %s",
-                                glicTriggerMessageId);
+                        Log.d(TAG, "Actor: Offscreen tab crashed");
                         if (!mInitialLoadFinished) {
                             mInitialLoadFinished = true;
                             callback.onResult(null);
@@ -254,14 +263,14 @@ public class ActorBackgroundActuationManager {
 
                     @Override
                     public void onDestroyed(Tab tab) {
+                        if (!mInitialLoadFinished) {
+                            mInitialLoadFinished = true;
+                            callback.onResult(null);
+                        }
                         tab.removeObserver(this);
                     }
                 };
         tab.addObserver(observer);
-
-        BackgroundSession session = new BackgroundSession(tab, glicTriggerMessageId);
-        mBackgroundSessions.add(session);
-
         tab.loadUrl(new LoadUrlParams("about:blank"));
     }
 

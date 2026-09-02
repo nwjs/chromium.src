@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {CancelActionsResult, ClientCapabilities, ExperimentalTriggeringUpdateType, FileUploadPolicyState, FormFactor, HostCapability, PanelStateKind, SbThreatType, ScreenshotEncryptionScheme, ScrollToErrorReason, SkillSource, WebClientMode} from '/glic/glic_api/glic_api.js';
-import type {AdditionalContext, CounterAbuseVerdict, ExperimentalTriggeringUpdate, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, ScrollToError, TabData, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
+import {CancelActionsResult, ClientCapabilities, ExperimentalTriggeringUpdateType, FileUploadPolicyState, FormFactor, HostCapability, InvocationSource, PanelStateKind, Platform, SbThreatType, ScreenshotEncryptionScheme, ScrollToErrorReason, SkillSource, SkillsWebClientEvent, WebClientMode} from '/glic/glic_api/glic_api.js';
+import type {AdditionalContext, CounterAbuseVerdict, ExperimentalTriggeringUpdate, FocusedTabData, GetPinCandidatesOptions, GlicBrowserHost, GlicWebClient, InvokeOptions, Observable, Observable2, OpenPanelInfo, PageMetadata, PanelOpeningData, PanelState, ScrollToError, TabData, UserConfirmationDialogRequest, UserProfileInfo, ZeroStateSuggestionsV2} from '/glic/glic_api/glic_api.js';
 import {Subject} from '/glic/observable.js';
 
-import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
-
+import {ApiTestError, ApiTestFixtureBase, assertDefined, assertEquals, assertFalse, assertNotEquals, assertRejects, assertTrue, assertUndefined, checkDefined, mapObservable, observeSequence, runUntil, sleep, testMain, waitFor, WebClient} from './browser_test_base.js';
+import type {SequencedSubscriber} from './browser_test_base.js';
 
 class ApiTests extends ApiTestFixtureBase {
   override async setUpTest() {
@@ -15,6 +15,845 @@ class ApiTests extends ApiTestFixtureBase {
   }
 
   async testDoNothing() {}
+
+  async testDefaultInvocationSource() {
+    const panelOpenData =
+        checkDefined(this.client.panelOpenData.getCurrentValue());
+    assertEquals(
+        panelOpenData.invocationSource, InvocationSource.TOP_CHROME_BUTTON);
+  }
+
+  async testIsBrowserOpen() {
+    assertDefined(this.host.isBrowserOpen);
+    const isBrowserOpen = observeSequence(this.host.isBrowserOpen());
+    assertTrue(await isBrowserOpen.next());
+    // Close the browser.
+    await this.advanceToNextStep();
+    assertTrue(!await isBrowserOpen.next());
+  }
+
+  async testNavigateToDifferentClientPage() {
+    // This test function is run twice.
+    const runCount: number = this.testParams;
+
+    const url = new URL(window.location.href);
+    // First time:
+    if (runCount === 0) {
+      url.searchParams.set('foobar', '1');
+      (async () => {
+        await sleep(100);
+        location.href = url.toString();
+      })();
+      return;
+    }
+
+    // Second time:
+    assertEquals(runCount, 1);
+    assertEquals(url.searchParams.get('foobar'), '1');
+  }
+
+  async testGetModelQualityClientIdFeatureDisabled() {
+    assertDefined(this.host.getHostCapabilities);
+    const capabilities: Set<HostCapability> =
+        await this.host.getHostCapabilities();
+    assertFalse(capabilities.has(HostCapability.GET_MODEL_QUALITY_CLIENT_ID));
+
+    assertUndefined(this.host.getModelQualityClientId);
+  }
+
+  async testGetFocusedTabStateV2BrowserClosed() {
+    assertDefined(this.host.getFocusedTabStateV2);
+    const sequence =
+        observeSequence<FocusedTabData>(this.host.getFocusedTabStateV2());
+    // Ignore the initial focus.
+    await sequence.next();
+    await this.advanceToNextStep();
+    const focus = await sequence.next();
+    assertFalse(!!focus.hasFocus);
+    assertDefined(focus.hasNoFocus);
+  }
+
+  // Helper function to pin the active tab. Asserts the tab is pinned, and
+  // returns the tab ID.
+  async pinActiveTab(): Promise<string> {
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinTabs);
+    const tabId = this.getActiveTabId();
+    await this.host.pinTabs([tabId]);
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor(
+        (tabs) => tabs.some(t => t.tabId === tabId));
+    return tabId;
+  }
+
+  // Asserts that there is an active tab, and returns its tab ID.
+  getActiveTabId(): string {
+    const focus =
+        checkDefined(this.host.getFocusedTabStateV2?.().getCurrentValue());
+    return checkDefined(
+        focus.hasFocus?.tabData.tabId ??
+        focus.hasNoFocus?.tabFocusCandidateData?.tabId);
+  }
+
+  getFocusedTabId(): string {
+    assertDefined(this.host.getFocusedTabStateV2);
+    const focus = this.host.getFocusedTabStateV2().getCurrentValue();
+    return checkDefined(focus?.hasFocus?.tabData.tabId);
+  }
+
+  observeActiveTab(): SequencedSubscriber<TabData|undefined> {
+    return observeSequence(
+        mapObservable(this.host.getFocusedTabStateV2!(), (focus) => {
+          return focus?.hasFocus?.tabData ??
+              focus?.hasNoFocus?.tabFocusCandidateData;
+        }));
+  }
+
+  async testPinTabs() {
+    // Pin the focused tab and verify it's sent.
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinTabs);
+    await this.pinActiveTab();
+
+    // Unpin and verify the pinned tab list is updated.
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    const tabId = checkDefined((await pinnedTabsUpdates.next())[0]?.tabId);
+    assertTrue(await this.host.unpinTabs([tabId]));
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 0);
+  }
+
+  async testPinTabsFailsWhenDoesNotExist() {
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinTabs);
+
+    const tabId = this.getFocusedTabId();
+    const nonExistTabId = 'not-exist';
+    // Pinning a non existing tab id should fail.
+    assertFalse(await this.host.pinTabs([tabId, nonExistTabId]));
+
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor(
+        (tabs) => tabs.length === 1 && tabs.some(t => t.tabId === tabId));
+
+    // Un-pinning a non existing tab id should fail.
+    assertFalse(await this.host.unpinTabs([tabId, nonExistTabId]));
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 0);
+  }
+
+  async testPinTabsStatePersistWhenClientRestarts() {
+    const isFirstRun: boolean = (this.testParams as any).isFirstRun;
+
+    if (isFirstRun) {
+      assertDefined(this.host.pinTabs);
+      assertDefined(this.host.getPinnedTabs);
+
+      const tabId = (this.testParams as any).tabId;
+
+      assertTrue(await this.host.pinTabs([tabId]));
+      const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+      await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+    } else {
+      assertEquals(this.host.getPinnedTabs?.().getCurrentValue()?.length, 2);
+    }
+  }
+
+  async testPinTabsStatePersistWhenClosePanelAndReopen() {
+    assertDefined(this.host.closePanel);
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+
+    const tabId = (this.testParams as any).tabId;
+
+    assertTrue(await this.host.pinTabs([tabId]));
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+
+    await this.host.closePanel();
+
+    // Open glic window again.
+    await this.advanceToNextStep();
+
+    assertEquals(this.host.getPinnedTabs().getCurrentValue()?.length, 2);
+  }
+
+  async testUnpinTabsFailsWhenNotPinned() {
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinTabs);
+
+    const tabId = this.testParams.tabId;
+
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+
+    // Unpin tabId.
+    assertTrue(await this.host.unpinTabs([tabId]));
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
+
+    // Unpinning a tab that is not pinned should fail.
+    assertFalse(await this.host.unpinTabs([tabId]));
+  }
+
+  async testUnpinAllTabs() {
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinAllTabs);
+
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+
+    // Unpin all tabs.
+    this.host.unpinAllTabs();
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 0);
+  }
+
+  async testPinTabsHaveNoEffectOnFocusedTab() {
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.unpinAllTabs);
+
+    const tabId1 = (this.testParams as any).tabId1;
+    const tabId2 = (this.testParams as any).tabId2;
+
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.getFocusedTabStateV2);
+    assertDefined(this.host.setTabContextPermissionState);
+
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs!());
+    // Initially, only the active tab (tabId2) is auto-pinned.
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
+
+    // Focused tab should be tabId2, which is active and pinned.
+    const focusedTabUpdates =
+        observeSequence(this.host.getFocusedTabStateV2!());
+    await focusedTabUpdates.waitFor(
+        (focus) => focus?.hasFocus?.tabData.tabId === tabId2);
+
+    await this.host.setTabContextPermissionState(true);
+
+    // Pin first tab (tabId1) which is in the background.
+    assertTrue(await this.host.pinTabs([tabId1]));
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+
+    // Focused tab should still be tabId2.
+    assertEquals(
+        this.host.getFocusedTabStateV2!
+        ().getCurrentValue()
+            ?.hasFocus?.tabData.tabId,
+        tabId2);
+
+    // Unpin all.
+    await this.host.unpinAllTabs();
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 0);
+  }
+
+  async testUnpinTabsThatNavigateInBackground() {
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.closePanel);
+
+    const tabId = (this.testParams as any).tabId;
+    // Pin first_tab (background tab).
+    assertTrue(await this.host.pinTabs([tabId]));
+
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs!());
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+
+    // Wait for the background tab to navigate. It should stay pinned.
+    await this.advanceToNextStep();
+
+    assertEquals(this.host.getPinnedTabs!().getCurrentValue()?.length, 2);
+
+    // Close the panel.
+    await this.host.closePanel();
+
+    // The background tab will navigate again. It should be unpinned.
+    await this.advanceToNextStep();
+
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
+  }
+
+  async testGetContextFromTabIgnorePermissionWhenPinned() {
+    assertDefined(this.host.getContextFromTab);
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinTabs);
+
+    // Fail getContextFromTab due to no tab context permission not granted.
+    await this.host.setTabContextPermissionState(false);
+    const tabId: string = this.getFocusedTabId();
+    await this.host.unpinTabs([tabId]);  // Unpin required for multi-instance.
+    await assertRejects(this.host.getContextFromTab(tabId, {}), {
+      withErrorMessage: 'tabContext failed: permission denied:' +
+          ' context permission not enabled',
+    });
+
+    // Pinning the tab should allow ignoring the tab context permission.
+    await this.host.pinTabs([tabId]);
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor(
+        (tabs) => tabs.length === 1 && tabs.some((t) => t.tabId === tabId));
+
+    const result = await this.host.getContextFromTab(tabId, {});
+    assertDefined(result);
+    assertEquals(result.tabData.tabId, tabId);
+  }
+
+  async testGetContextFromTabFailDifferentlyBasedOnPermission() {
+    assertDefined(this.host.getContextFromTab);
+
+    const tabId: string = this.testParams.tabId;
+    // Make sure tabId is not the focused tab.
+    assertNotEquals(tabId, this.getFocusedTabId());
+
+    await this.host.setTabContextPermissionState(false);
+    await assertRejects(this.host.getContextFromTab(tabId, {}), {
+      withErrorMessage: 'tabContext failed: permission denied:' +
+          ' context permission not enabled',
+    });
+
+    await this.host.setTabContextPermissionState(true);
+    await assertRejects(this.host.getContextFromTab(tabId, {}), {
+      withErrorMessage: 'tabContext failed: permission denied',
+    });
+  }
+
+  async testGetContextFromTabFailsIfNotPinned() {
+    assertDefined(this.host.getContextFromTab);
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.unpinTabs);
+    assertDefined(this.host.getPinnedTabs);
+
+    const tabId: string = this.testParams.tabId;
+    // Make sure tabId is not the focused tab.
+    assertNotEquals(tabId, this.getFocusedTabId());
+
+    // Initially, only the active tab is auto-pinned.
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
+
+    await this.host.pinTabs([tabId]);
+    await pinnedTabsUpdates.waitFor(
+        (tabs) => tabs.length === 2 && tabs.some((t) => t.tabId === tabId));
+
+    const result = await this.host.getContextFromTab(tabId, {});
+    assertDefined(result);
+    assertEquals(result.tabData.tabId, tabId);
+
+    await this.host.unpinTabs([tabId]);
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
+    await assertRejects(this.host.getContextFromTab(tabId, {}), {
+      withErrorMessage: 'tabContext failed: permission denied:' +
+          ' context permission not enabled',
+    });
+  }
+
+  async testGetContextFromTabFailsIfDoesNotExist() {
+    assertDefined(this.host.onModeChange);
+    assertDefined(this.host.getContextFromTab);
+
+    this.host.onModeChange(WebClientMode.TEXT);
+
+    await assertRejects(
+        this.host.getContextFromTab('not-exist', {}),
+        {withErrorMessage: 'tabContext failed: tab not found'},
+    );
+  }
+
+  async testIsOnboardingCompleted() {
+    assertDefined(this.host.isOnboardingCompleted);
+    const completedSequence =
+        observeSequence<boolean>(this.host.isOnboardingCompleted());
+    assertFalse(await completedSequence.next());
+
+    // Mark onboarding as completed.
+    await this.advanceToNextStep();
+
+    assertTrue(await completedSequence.next());
+  }
+
+  async testSetOnboardingCompleted() {
+    assertDefined(this.host.setOnboardingCompleted);
+
+    // Check that onboarding is not completed yet.
+    await this.advanceToNextStep();
+
+    // Call mojo to set onboarding completed.
+    await this.host.setOnboardingCompleted();
+
+    // Check that onboarding is completed.
+    await this.advanceToNextStep();
+  }
+
+  async testOpenOsMediaPermissionSettings() {
+    assertDefined(this.host.openOsPermissionSettingsMenu);
+    this.host.openOsPermissionSettingsMenu('media');
+  }
+
+  async testOpenOsGeoPermissionSettings() {
+    assertDefined(this.host.openOsPermissionSettingsMenu);
+    this.host.openOsPermissionSettingsMenu('geolocation');
+  }
+
+  async testGetOsMicrophonePermissionStatusAllowed() {
+    assertDefined(this.host.getOsMicrophonePermissionStatus);
+    assertTrue(await this.host.getOsMicrophonePermissionStatus());
+  }
+
+  async testGetOsMicrophonePermissionStatusNotAllowed() {
+    assertDefined(this.host.getOsMicrophonePermissionStatus);
+    assertFalse(await this.host.getOsMicrophonePermissionStatus());
+  }
+
+  async testGetOsHotkeyState() {
+    assertDefined(this.host.getOsHotkeyState);
+    const osHotkeyState = observeSequence(this.host.getOsHotkeyState());
+    let hotkeyState = await osHotkeyState.next();
+    assertEquals(this.testParams.expectedHotkey, hotkeyState.hotkey);
+    await this.advanceToNextStep();
+    hotkeyState = await osHotkeyState.next();
+    assertEquals(this.testParams.expectedHotkey, hotkeyState.hotkey);
+    await this.advanceToNextStep();
+    hotkeyState = await osHotkeyState.next();
+    assertEquals(this.testParams.expectedHotkey, hotkeyState.hotkey);
+  }
+
+  async testGetFocusedTabStateV2WithNavigation() {
+    assertDefined(this.host.getFocusedTabStateV2);
+    const sequence =
+        observeSequence<FocusedTabData>(this.host.getFocusedTabStateV2());
+    const focus: FocusedTabData = await sequence.next();
+    assertDefined(focus.hasFocus);
+    assertEquals(
+        new URL(focus.hasFocus.tabData.url).pathname, '/test_data/page.html',
+        `url=${focus.hasFocus.tabData.url}`);
+    assertFalse(!!focus.hasNoFocus);
+
+    // After a second navigation occurs.
+    await this.advanceToNextStep();
+    const focus2: FocusedTabData = await sequence.next();
+    assertDefined(focus2.hasFocus);
+    assertEquals(
+        new URL(focus2.hasFocus.tabData.url).pathname, '/test_data/page2.html',
+        `url=${focus2.hasFocus.tabData.url}`);
+
+    await this.advanceToNextStep();
+    let focus3: FocusedTabData = await sequence.next();
+
+    // After a navigation occurs in a new tab, there could first exist a
+    // transitory states where the focus is not yet available, is empty, or
+    // still previous page.
+    while (focus3.hasNoFocus ||
+           (!!focus3.hasFocus &&
+            (focus3.hasFocus.tabData.url === '' ||
+             focus3.hasFocus.tabData.url.endsWith('page2.html')))) {
+      focus3 = await sequence.next();
+    }
+
+    // Final state, after the tab is fully loaded.
+    assertDefined(focus3.hasFocus);
+    assertEquals(
+        new URL(focus3.hasFocus.tabData.url).pathname,
+        '/glic/browser_tests/test.html', `url=${focus3.hasFocus.tabData.url}`);
+    assertFalse(!!focus3.hasNoFocus);
+  }
+
+  async testGetFocusedTabStateV2WithNavigationWhenInactive() {
+    assertDefined(this.host.getFocusedTabStateV2);
+    const sequence =
+        observeSequence<FocusedTabData>(this.host.getFocusedTabStateV2());
+    const focus: FocusedTabData = await sequence.next();
+    assertDefined(focus.hasFocus);
+    assertEquals(
+        new URL(focus.hasFocus.tabData.url).pathname, '/test_data/page.html',
+        `url=${focus.hasFocus.tabData.url}`);
+    assertFalse(!!focus.hasNoFocus);
+
+    // After Glic is closed, navigation occurs.
+    await this.advanceToNextStep();
+
+    // The client should receive the updated state even while closed (since it's
+    // kept alive).
+    const focus2: FocusedTabData = await sequence.next();
+    assertDefined(focus2.hasFocus);
+    assertEquals(
+        new URL(focus2.hasFocus.tabData.url).pathname, '/test_data/page2.html',
+        `url=${focus2.hasFocus.tabData.url}`);
+
+    // Reopen the panel.
+    await this.advanceToNextStep();
+  }
+
+  async testSingleFocusedTabUpdatesOnTabEvents() {
+    assertDefined(this.host.getFocusedTabStateV2);
+    const sequence =
+        observeSequence<FocusedTabData>(this.host.getFocusedTabStateV2());
+
+    // #1: Initial state has the first tab open.
+    {
+      const focus: FocusedTabData = await sequence.next();
+      assertDefined(focus.hasFocus);
+      assertEquals(
+          new URL(focus.hasFocus.tabData.url).pathname, '/test_data/page.html',
+          `url=${focus.hasFocus.tabData.url}`);
+      assertFalse(!!focus.hasNoFocus);
+      assertTrue(sequence.isEmpty());
+    }
+
+    // #2: After navigation in the first tab.
+    {
+      await this.advanceToNextStep();
+      const focus: FocusedTabData = await sequence.next();
+      assertDefined(focus.hasFocus);
+      assertEquals(
+          new URL(focus.hasFocus.tabData.url).pathname, '/test_data/page2.html',
+          `url=${focus.hasFocus.tabData.url}`);
+      assertFalse(!!focus.hasNoFocus);
+      assertTrue(sequence.isEmpty());
+    }
+
+    // #3: After a second tab is created and focused.
+    {
+      await this.advanceToNextStep();
+      // Tab creation and activation triggers transient deactivation and load
+      // states (sending hasNoFocus) before the tab is pinned and fully loaded.
+      const focus = await sequence.waitFor(
+          f => !!f.hasFocus && f.hasFocus.tabData.url.endsWith('page.html'));
+      assertDefined(focus.hasFocus);
+      assertEquals(
+          new URL(focus.hasFocus.tabData.url).pathname, '/test_data/page.html',
+          `url=${focus.hasFocus.tabData.url}`);
+      assertFalse(!!focus.hasNoFocus);
+      assertTrue(sequence.isEmpty());
+    }
+  }
+
+  async testGetZoomLevel() {
+    assertDefined(this.host.getZoomLevel);
+    const zoomLevelSequence = observeSequence(this.host.getZoomLevel());
+    const initialZoom = await zoomLevelSequence.next();
+    // Verify that the initial zoom is around 1.0.
+    assertTrue(
+        initialZoom > 0.8 && initialZoom < 1.2,
+        `Initial zoom is unexpected: ${initialZoom}`);
+
+    await this.advanceToNextStep();
+
+    const newZoom = await zoomLevelSequence.next();
+    // Verify that zoom increased.
+    assertTrue(
+        newZoom > initialZoom,
+        `Zoom did not increase: initial=${initialZoom}, new=${newZoom}`);
+    // Verify that the zoom change is reasonable (e.g. around 10% change, but
+    // can be smaller due to display scaling).
+    const diff = newZoom - initialZoom;
+    assertTrue(
+        diff > 0.005 && diff < 0.3, `Zoom change is unexpected: diff=${diff}`);
+  }
+
+  async testPinTabsFailsWhenIncognitoWindow() {
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+
+    assertFalse(await this.host.pinTabs([this.testParams.incognitoTabId]));
+
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    // The active tab is auto-pinned (length = 1), but the incognito tab cannot
+    // be pinned.
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 1);
+  }
+
+  async testUnpinTabsWhileClosing() {
+    assertDefined(this.host.closePanel);
+    const tabId = await this.pinActiveTab();
+    const {promise, resolve} = Promise.withResolvers<boolean>();
+    this.client.onNotifyPanelWasClosed = () => {
+      this.host.unpinTabs!([tabId]).then(resolve);
+    };
+    await this.host.closePanel();
+    assertTrue(await promise);
+  }
+
+  async testPinTabsWithTwoTabs() {
+    // Pin the focused tab and verify it's sent.
+    assertDefined(this.host.pinTabs);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.unpinTabs);
+    assertDefined(this.host.getFocusedTabStateV2);
+
+    const tabId = await this.pinActiveTab();
+
+    // Focus the next tab.
+    await this.advanceToNextStep();
+
+    // Wait for active tab to change and pin the focused tab.
+    await this.observeActiveTab().waitFor((f) => f?.tabId !== tabId);
+    const tabId2 = await this.pinActiveTab();
+
+    // Wait until we see two pinned tabs.
+    const pinnedTabsUpdates = observeSequence(this.host.getPinnedTabs());
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 2);
+
+    assertTrue(await this.host.unpinTabs([tabId, tabId2]));
+    await pinnedTabsUpdates.waitFor((tabs) => tabs.length === 0);
+
+    // Detach / Close the tab.
+    await this.advanceToNextStep();
+  }
+
+  async testGetTabByIdWithDiscard() {
+    assertDefined(this.host.getTabById);
+
+    // Observe a valid tab id.
+    const tabId = this.testParams as string;
+    const obs = this.host.getTabById(tabId);
+    assertUndefined(obs.getCurrentValue());
+    const sequence = observeSequence(obs);
+    const tabData = await sequence.next();
+    assertEquals(tabId, tabData.tabId);
+    assertTrue(
+        tabData.url.endsWith('test.html'), `unexpected url: ${tabData.url}`);
+
+    // Discard the tab in C++.
+    await this.advanceToNextStep();
+
+    // Navigate the new discarded tab in C++.
+    await sequence.waitFor(tabData => tabData.url.endsWith('test.html?q=hi'));
+
+    // Close the tab in C++.
+    await this.advanceToNextStep();
+    await sequence.waitForComplete();
+
+    // A new subscription should complete without receiving anything.
+    const newSeq = observeSequence(this.host.getTabById(tabId));
+    await newSeq.waitForComplete();
+    assertTrue(newSeq.isEmpty());
+  }
+
+  async testGetTabById() {
+    assertDefined(this.host.getTabById);
+
+    // Observe an invalid tab id.
+    {
+      const seq = observeSequence(this.host.getTabById('notA_TabId'));
+      await seq.completed;
+      assertTrue(seq.isEmpty());
+    }
+
+    // Observe a valid tab id that is not found.
+    {
+      const seq = observeSequence(this.host.getTabById('31415926'));
+      await seq.completed;
+      assertTrue(seq.isEmpty());
+    }
+
+    // Observe a valid tab id.
+    {
+      const tabId = this.testParams as string;
+      const obs = this.host.getTabById(tabId);
+      assertUndefined(obs.getCurrentValue());
+      const sequence = observeSequence(obs);
+      const tabData = await sequence.next();
+      assertEquals(tabId, tabData.tabId);
+      assertTrue(
+          tabData.url.endsWith('test.html'), `unexpected url: ${tabData.url}`);
+
+      // Navigate the tab in C++.
+      await this.advanceToNextStep();
+      await sequence.waitFor(tabData => tabData.url.endsWith('test.html?q=hi'));
+
+      // Close the tab in C++.
+      await this.advanceToNextStep();
+      await sequence.waitForComplete();
+
+      // A new subscription should complete without receiving anything.
+      const newSeq = observeSequence(this.host.getTabById(tabId));
+      await newSeq.waitForComplete();
+      assertTrue(newSeq.isEmpty());
+    }
+  }
+
+  async testGetUserProfileInfo() {
+    assertDefined(this.host.getUserProfileInfo);
+    assertDefined(this.host.getPlatform);
+    const profileInfo: UserProfileInfo = await this.host.getUserProfileInfo();
+    const platform = await this.host.getPlatform();
+
+    assertEquals('Glic Testing', profileInfo.displayName);
+    assertEquals('glic-test@example.com', profileInfo.email);
+
+    assertEquals('Glic', profileInfo.givenName);
+    assertEquals(false, profileInfo.isManaged!);
+    if (platform !== Platform.CHROME_OS) {
+      assertTrue((profileInfo.localProfileName?.length ?? 0) > 0);
+      // Can be 'Your Chrome' or 'Your Chromium'.
+      assertEquals('Your C', profileInfo.localProfileName?.substring(0, 6));
+    }
+  }
+
+  async testRequestHeader() {
+    const rpcUrls: string[] = this.testParams.rpcUrls;
+    await Promise.all(rpcUrls.map(url => fetch(url)));
+  }
+
+  async testDialogResponseCallOrder() {
+    assertDefined(this.host.uninterruptActorTask);
+    assertDefined(this.host.createTask);
+    assertDefined(this.host.interruptActorTask);
+    assertDefined(this.host.selectUserConfirmationDialogRequestHandler);
+
+    // Create a task and subscribe to user confirmation dialog requests.
+    const task_id = await this.host.createTask();
+    const dialogRequestPromise =
+        new Promise<UserConfirmationDialogRequest>((resolve) => {
+          assertDefined(this.host.selectUserConfirmationDialogRequestHandler);
+          this.host.selectUserConfirmationDialogRequestHandler!
+              ().subscribe((request: UserConfirmationDialogRequest) => {
+                resolve(request);
+              });
+        });
+
+    // Wait for the C++ side to request a dialog.
+    await this.advanceToNextStep();
+    const request: UserConfirmationDialogRequest = await dialogRequestPromise;
+
+    // Respond to the dialog request and then uninterrupt the actor task. The
+    // C++ side will check that the dialog response and uninterrupt happen in
+    // the called order.
+    assertDefined(request);
+    request.onDialogClosed({response: {permissionGranted: false}});
+
+    // TODO(b/477060111): This test fails without this. Because onDialogClosed
+    // resolves a promise, it doesn't actually postMessage the response until a
+    // yield to the event loop. It should probably return a promise which can be
+    // awaited. This await yields allowing the queued task that does the
+    // postMessage to schedule so that the response message is sent before
+    // uninterruptActorTask.
+    await new Promise((resolve) => void setTimeout(resolve, 0));
+
+    this.host.uninterruptActorTask(task_id);
+  }
+
+  async testPopupOpens() {
+    const link = document.createElement('a');
+    link.setAttribute('href', 'https://www.chromium.org');
+
+    // Attach a click listener to force opening as a popup with specific
+    // dimensions. Including features like width/height forces a new window
+    // instead of a tab.
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.open(
+          link.getAttribute('href')!, 'popup_window',
+          'width=500,height=500,scrollbars=yes,resizable=yes');
+    });
+
+    document.body.appendChild(link);
+    link.click();
+  }
+
+  async testOpenGlicSettingsPage() {
+    assertDefined(this.host.openGlicSettingsPage);
+    this.host.openGlicSettingsPage();
+  }
+
+  async testOpenPasswordManagerSettingsPage() {
+    assertDefined(this.host.openPasswordManagerSettingsPage);
+    this.host.openPasswordManagerSettingsPage();
+  }
+
+  async testSwitchConversationToOldConversationInPlace() {
+    assertDefined(this.host.switchConversation);
+    await this.host.switchConversation(
+        {conversationId: 'A', conversationTitle: 'Title A'});
+  }
+
+  async testSwitchConversationToNewConversationInPlace() {
+    assertDefined(this.host.switchConversation);
+    await this.host.switchConversation();
+  }
+
+  async testClosedCaptioning() {
+    assertDefined(this.host.getClosedCaptioningSetting);
+    assertDefined(this.host.setClosedCaptioningSetting);
+    const closedCaptioningState =
+        observeSequence(this.host.getClosedCaptioningSetting());
+    assertFalse(await closedCaptioningState.next());
+    await this.host.setClosedCaptioningSetting(true);
+    assertTrue(await closedCaptioningState.next());
+  }
+
+  async testRefreshSignInCookies() {
+    assertDefined(this.host.refreshSignInCookies);
+    await this.host.refreshSignInCookies();
+  }
+
+  async testSignInPauseState() {
+    assertDefined(this.host.getUserProfileInfo);
+    assertDefined(this.host.getPlatform);
+    const profileInfo = await this.host.getUserProfileInfo();
+    assertEquals('Glic Testing', profileInfo.displayName);
+  }
+
+  async testSwitchConversationToOldConversationNewInstance() {
+    assertDefined(this.host.switchConversation);
+    await this.host.switchConversation(
+        {conversationId: 'initial_id', conversationTitle: 'Initial Title'});
+    await this.advanceToNextStep();
+    await this.host.switchConversation(
+        {conversationId: 'A', conversationTitle: 'Title A'});
+  }
+
+  async testSwitchConversationToNewConversationNewInstance() {
+    assertDefined(this.host.switchConversation);
+    await this.host.switchConversation(
+        {conversationId: 'initial_id', conversationTitle: 'Initial Title'});
+    await this.advanceToNextStep();
+    await this.host.switchConversation();
+  }
+
+  async testCanAttachPanelToFallbackEmbedder() {
+    assertDefined(this.host.getFocusedTabStateV2);
+    assertDefined(this.host.getPinnedTabs);
+    assertDefined(this.host.getPanelState);
+    assertDefined(this.host.detachPanel);
+    assertDefined(this.host.canAttachPanel);
+    const link = document.createElement('a');
+    link.setAttribute('href', 'https://www.chromium.org');
+    link.setAttribute('target', '_blank');
+    document.body.appendChild(link);
+    link.click();
+    // The opened tab should be pinned.
+    await observeSequence(this.host.getPinnedTabs())
+        .waitFor(tabs => tabs.length === 2);
+
+    // Detach panel
+    this.host.detachPanel!();
+
+    // Verify state.
+    await observeSequence(this.host.getPanelState!())
+        .waitFor(
+            state =>
+                state !== undefined && state.kind === PanelStateKind.DETACHED);
+
+    // The user will close the tab in C++.
+    await this.advanceToNextStep();
+
+    // The panel should still be detached.
+    const panelStateAfterClose = this.host.getPanelState!().getCurrentValue();
+    assertDefined(panelStateAfterClose);
+    assertEquals(panelStateAfterClose.kind, PanelStateKind.DETACHED);
+
+    // Verify it is possible to attach
+    await observeSequence(this.host.canAttachPanel!()).waitForValue(true);
+  }
+
+  async testUnresponsive() {
+    // Don't respond to responsiveness checks.
+    this.client.checkResponsive = () => {
+      return new Promise<void>(() => {});
+    };
+  }
 
   async testGetFileUploadAllowedCapability() {
     assertTrue(!!this.host.getFileUploadAllowedCapability);
@@ -555,6 +1394,25 @@ class ApiTests extends ApiTestFixtureBase {
         CancelActionsResult.TASK_NOT_FOUND);
   }
 
+  async testRegisterConversationWithEmptyId() {
+    assertDefined(this.host.registerConversation);
+    // Register an initial conversation with a valid ID.
+    await this.host.registerConversation(
+        {conversationId: '', conversationTitle: 'Empty Conversation'});
+  }
+
+  async testCallingApiWhileHiddenRecordsMetrics() {
+    assertDefined(this.host.createTab);
+    await this.advanceToNextStep();
+    await observeSequence(this.host.panelActive())
+        .waitFor(isActive => !isActive);
+    try {
+      await this.host.createTab(
+          'https://www.google.com', {openInBackground: false});
+    } catch {
+    }
+  }
+
   async testNotifyActOnWebCapabilityChanged() {
     assertDefined(this.host.getActOnWebCapability);
     const actOnWebCapabilitySequence =
@@ -664,6 +1522,27 @@ class ApiTests extends ApiTestFixtureBase {
     assertDefined(suggestions);
     assertEquals(3, suggestions.suggestions.length);
     assertEquals(false, suggestions.isPending);
+  }
+
+  async testGetZeroStateSuggestionsUnsubscribeAndResubscribe() {
+    assertDefined(this.host.getZeroStateSuggestions);
+    const sequence1 = observeSequence<ZeroStateSuggestionsV2>(
+        this.host.getZeroStateSuggestions());
+    const suggestions1 = await sequence1.next();
+    assertDefined(suggestions1);
+    assertEquals(3, suggestions1.suggestions.length);
+
+    // Unsubscribe.
+    sequence1.unsubscribe();
+
+    // Re-subscribing should work and fetch suggestions without hitting a closed
+    // pipe.
+    const sequence2 = observeSequence<ZeroStateSuggestionsV2>(
+        this.host.getZeroStateSuggestions());
+    const suggestions2 = await sequence2.next();
+    assertDefined(suggestions2);
+    assertEquals(3, suggestions2.suggestions.length);
+    assertEquals(false, suggestions2.isPending);
   }
 
   async testGetZeroStateSuggestionsMultipleNavigations() {
@@ -1213,6 +2092,139 @@ class ApiTests extends ApiTestFixtureBase {
           state => state.kind === PanelStateKind.DETACHED);
     }
   }
+
+  async testActuationOnWebSetting() {
+    assertDefined(this.host.getActuationOnWebSetting);
+    assertDefined(this.host.setActuationOnWebSetting);
+    const actuationOnWebState =
+        observeSequence(this.host.getActuationOnWebSetting());
+    assertFalse(await actuationOnWebState.next());
+    await this.host.setActuationOnWebSetting(true);
+    assertTrue(await actuationOnWebState.next());
+  }
+
+  async testSetContextAccessIndicator() {
+    assertDefined(this.host.setContextAccessIndicator);
+    await this.host.setContextAccessIndicator(true);
+  }
+
+  async testSetAudioDucking() {
+    assertDefined(this.host.setAudioDucking);
+    await this.host.setAudioDucking(true);
+  }
+
+  async testGeminiEnterpriseSettings() {
+    assertDefined(this.host.getGeminiEnterpriseSettings);
+    const settingsObservable = this.host.getGeminiEnterpriseSettings();
+
+    const settings = settingsObservable.getCurrentValue();
+    assertDefined(settings);
+    assertEquals(settings.projectId, 'switch-project');
+    assertEquals(settings.appId, 'switch-engine');
+    assertEquals(settings.location, 'switch-location');
+  }
+
+  async testGeminiEnterpriseSettingsDisabled() {
+    assertDefined(this.host.getGeminiEnterpriseSettings);
+    const settingsObservable = this.host.getGeminiEnterpriseSettings();
+    const settings = settingsObservable.getCurrentValue();
+    assertUndefined(settings);
+  }
+
+  async testGeminiEnterpriseSettingsPolicy() {
+    assertDefined(this.host.getGeminiEnterpriseSettings);
+    const settingsObservable = this.host.getGeminiEnterpriseSettings();
+    const settings = settingsObservable.getCurrentValue();
+    assertDefined(settings);
+    assertEquals(settings.projectId, 'policy-project');
+    assertEquals(settings.appId, 'policy-engine');
+    assertEquals(settings.location, 'policy-location');
+  }
+
+  async testGeminiEnterpriseSettingsPolicyUnset() {
+    assertDefined(this.host.getGeminiEnterpriseSettings);
+    const settingsObservable = this.host.getGeminiEnterpriseSettings();
+    const settings = settingsObservable.getCurrentValue();
+    assertUndefined(settings);
+  }
+
+  async testGetDisplayMedia() {
+    async function waitForFirstFrame(track: MediaStreamVideoTrack):
+        Promise<boolean> {
+      const processor = new MediaStreamTrackProcessor({track});
+      const reader = processor.readable.getReader();
+
+      try {
+        const result = await reader.read();
+        if (result.done) {
+          throw new ApiTestError('Track ended before a frame could be read.');
+        }
+        const frame = result.value;  // This is a VideoFrame
+        frame.close();
+        return true;
+      } finally {
+        reader.releaseLock();
+      }
+    }
+
+    // The client should be able to use getDisplayMedia() to capture the glic
+    // window.
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: false,
+      preferCurrentTab: true,
+    } as any);
+    const videoTracks = stream.getVideoTracks();
+    assertTrue(videoTracks.length > 0);
+    const track = videoTracks[0] as MediaStreamVideoTrack;
+    assertDefined(track);
+    assertTrue(await waitForFirstFrame(track));
+  }
+
+  async testJournal() {
+    assertDefined(this.host.getJournalHost);
+    const journalHost = this.host.getJournalHost();
+    assertDefined(journalHost);
+    journalHost.start(64 * 1024 * 1024, true);
+    let snapshot = await journalHost.snapshot(false);
+    let lastJournalSize = snapshot.data.byteLength;
+    assertTrue(lastJournalSize > 0);
+    journalHost.instantEvent(23, 'instant_event', 'some_details');
+    snapshot = await journalHost.snapshot(false);
+    assertTrue(snapshot.data.byteLength > lastJournalSize);
+    lastJournalSize = snapshot.data.byteLength;
+    journalHost.clear();
+    snapshot = await journalHost.snapshot(false);
+    assertTrue(snapshot.data.byteLength < lastJournalSize);
+    lastJournalSize = snapshot.data.byteLength;
+    journalHost.beginAsyncEvent(10, 23, 'async_event', 'some_details');
+    journalHost.endAsyncEvent(10, 'some_details_end');
+    snapshot = await journalHost.snapshot(false);
+    assertTrue(snapshot.data.byteLength > lastJournalSize);
+    lastJournalSize = snapshot.data.byteLength;
+    journalHost.stop();
+  }
+
+  async testStopMicrophone() {
+    const stopMicrophonePromise = Promise.withResolvers<void>();
+    this.client.onStopMicrophone = () => {
+      stopMicrophonePromise.resolve();
+    };
+
+    await this.advanceToNextStep();
+    await waitFor(stopMicrophonePromise.promise);
+  }
+
+  async testSetSyntheticExperimentState() {
+    assertDefined(this.host.setSyntheticExperimentState);
+    this.host.setSyntheticExperimentState('TestTrial', 'Enabled');
+  }
+
+  async testSetSyntheticExperimentStateMultiProfile() {
+    assertDefined(this.host.setSyntheticExperimentState);
+    this.host.setSyntheticExperimentState('TestTrial', 'Group1');
+    this.host.setSyntheticExperimentState('TestTrial', 'Group2');
+  }
 }
 
 class FaviconTest extends ApiTests {
@@ -1428,14 +2440,16 @@ class FaviconOmittedTest extends FaviconTest {
 
 class InvokeClient extends WebClient {
   calls: string[] = [];
+  lastInvokeOptions: InvokeOptions|null = null;
   override async notifyPanelWillOpen(
       panelOpeningData: PanelOpeningData&PanelState): Promise<OpenPanelInfo> {
     this.calls.push('notifyPanelWillOpen');
     return super.notifyPanelWillOpen!(panelOpeningData);
   }
 
-  override async invoke(_options: InvokeOptions): Promise<void> {
+  override async invoke(options: InvokeOptions): Promise<void> {
     this.calls.push('invoke');
+    this.lastInvokeOptions = options;
   }
 }
 
@@ -1444,13 +2458,28 @@ class InvokeTest extends ApiTests {
     return new InvokeClient();
   }
 
+  getInvokeClient(): InvokeClient {
+    return this.client as InvokeClient;
+  }
+
   async testInvokeWaitsForNotifyPanelWillOpen() {
-    const client: InvokeClient = this.client as InvokeClient;
+    const client = this.getInvokeClient();
     await runUntil(() => {
       return client.calls.length === 2;
     });
 
     assertEquals('notifyPanelWillOpen,invoke', client.calls.join(','));
+  }
+
+  async testInvoke() {
+    const client = this.getInvokeClient();
+    await runUntil(() => {
+      return client.lastInvokeOptions !== null;
+    });
+    assertDefined(client.lastInvokeOptions);
+    assertEquals(
+        client.lastInvokeOptions!.invocationSource,
+        InvocationSource.TOP_CHROME_BUTTON);
   }
 }
 
@@ -1630,13 +2659,16 @@ class ApiTestFailsToInitialize extends ApiTestFixtureBase {
 
 class SkillsApiTests extends ApiTests {
   async testGetSkillSuccess() {
-    assertDefined(this.host.getSkillPreviews);
-    assertDefined(this.host.getSkill);
-    const skillPreviewsSequence = observeSequence(this.host.getSkillPreviews());
+    assertDefined(this.host.skills);
+    const skillsApi = await observeSequence(this.host.skills()).next();
+    assertDefined(skillsApi);
+    assertDefined(skillsApi.getSkillPreviews);
+    assertDefined(skillsApi.getSkill);
+    const skillPreviewsSequence = observeSequence(skillsApi.getSkillPreviews());
     const skills = await skillPreviewsSequence.waitFor(s => s.length === 2);
     const targetSkill = skills.find(s => s.name === 'test_skill_1');
     assertDefined(targetSkill);
-    const actualSkill = await this.host.getSkill(targetSkill.id);
+    const actualSkill = await skillsApi.getSkill(targetSkill.id);
     assertDefined(actualSkill);
     assertEquals(actualSkill.preview.id, targetSkill.id);
     assertEquals(actualSkill.preview.name, 'test_skill_1');
@@ -1653,38 +2685,39 @@ class SkillsApiTests extends ApiTests {
     const skill1 = skills.find(s => s.name === 'test_skill_1');
     assertDefined(skill1);
     assertEquals('test_icon_1', skill1.icon);
+    assertTrue(skill1.creationTime instanceof Date);
     const actualSkill1 = await this.host.getSkill(skill1.id);
     assertDefined(actualSkill1);
     assertEquals(actualSkill1.sourceSkillId, 'source_id_1');
+    assertEquals(
+        actualSkill1.preview.creationTime?.getTime(),
+        skill1.creationTime.getTime());
     const skill2 = skills.find(s => s.name === 'test_skill_2');
     assertDefined(skill2);
     assertEquals('test_icon_2', skill2.icon);
+    assertTrue(skill2.creationTime instanceof Date);
     const actualSkill2 = await this.host.getSkill(skill2.id);
     assertDefined(actualSkill2);
     assertEquals(actualSkill2.sourceSkillId, 'source_id_2');
+    assertEquals(
+        actualSkill2.preview.creationTime?.getTime(),
+        skill2.creationTime.getTime());
   }
 
-  async testShowManageSkillsUi() {
-    assertDefined(this.host.showManageSkillsUi);
-    this.host.showManageSkillsUi();
-  }
+  async testGetSkillDisabled() {
+    // Check that skills are disabled via the new API
+    assertDefined(this.host.skills);
+    assertUndefined(await observeSequence(this.host.skills()).next());
 
-  async testShowBrowseSkillsUi() {
-    assertDefined(this.host.showBrowseSkillsUi);
-    this.host.showBrowseSkillsUi();
-  }
-
-
-  async testDisplaySkillInDialogSuccess() {
-    assertDefined(this.host.createSkill);
-    const request = {
-      id: 'id',
-      name: 'name',
-      icon: 'icon',
-      prompt: 'prompt',
-      source: SkillSource.FIRST_PARTY,
-    };
-    this.host.createSkill(request);
+    // API should be gone when disabled.
+    assertUndefined(this.host.getSkill);
+    assertUndefined(this.host.createSkill);
+    assertUndefined(this.host.updateSkill);
+    assertUndefined(this.host.showManageSkillsUi);
+    assertUndefined(this.host.showBrowseSkillsUi);
+    assertUndefined(this.host.recordSkillsWebClientEvent);
+    assertUndefined(this.host.getSkillPreviews);
+    assertUndefined(this.host.getSkillToInvoke);
   }
 
   async testSendingContextualSkillsToGlic() {
@@ -1754,6 +2787,169 @@ class SkillsApiTests extends ApiTests {
     const skillPreviewsSequence = observeSequence(this.host.getSkillPreviews());
     const skills = await skillPreviewsSequence.next();
     assertEquals(0, skills.length);
+  }
+}
+
+// TODO(b/546606964): enable these tests on android.
+class SkillsDesktopOnlyApiTests extends SkillsApiTests {
+  async testSkillsEnabledToggledAtRuntime() {
+    assertDefined(this.host.skills);
+    const skillsSequence = observeSequence(this.host.skills());
+    // 1. Initially disabled.
+    assertUndefined(await skillsSequence.next());
+
+    // 2. Enable skills pref at runtime.
+    await this.advanceToNextStep();
+    const enabledSkills = await skillsSequence.next();
+    assertDefined(enabledSkills);
+
+    // 3. Disable skills pref at runtime.
+    await this.advanceToNextStep();
+    assertUndefined(await skillsSequence.next());
+  }
+
+  async testContextualSkillsRetainedWhenStartingPrefDisabled() {
+    assertDefined(this.host.skills);
+    const skillsSequence = observeSequence(this.host.skills());
+    // Initially disabled.
+    assertUndefined(await skillsSequence.next());
+
+    // Step 1: Enable skills pref at runtime and verify cached contextual skills
+    // are received.
+    await this.advanceToNextStep();
+    const enabledSkills = await skillsSequence.next();
+    assertDefined(enabledSkills);
+    assertDefined(enabledSkills.getSkillPreviews);
+
+    const previewsSeq = observeSequence(enabledSkills.getSkillPreviews());
+    const previews = await previewsSeq.waitFor(s => s.length === 1);
+    assertEquals('contextual_skill_id_1', previews[0]?.id);
+    assertEquals('contextual_skill_1', previews[0]?.name);
+  }
+
+  async testSkillsEnabledState() {
+    assertDefined(this.host.skills);
+    const skillsSequence = observeSequence(this.host.skills());
+    const skills = await skillsSequence.next();
+    assertDefined(skills);
+
+    // Call when enabled
+    assertDefined(skills.getSkill);
+    await assertRejects(skills.getSkill('non-existent-id'));
+
+    // Get a valid skill ID from getSkillPreviews.
+    assertDefined(skills.getSkillPreviews);
+    const skillPreviewsSequence = observeSequence(skills.getSkillPreviews());
+    const skillPreviews =
+        await skillPreviewsSequence.waitFor(s => s.length === 1);
+    const skillId = skillPreviews[0]!.id;
+
+    // Verify that both the new API and deprecated API succeed when skills are
+    // enabled.
+    assertDefined(skills.recordSkillsWebClientEvent);
+    skills.recordSkillsWebClientEvent(SkillsWebClientEvent.OPENED_MENU);
+
+    assertDefined(skills.getSkill);
+    const skillFromNewApi = await skills.getSkill(skillId);
+    assertDefined(skillFromNewApi);
+    assertEquals('source_id_1', skillFromNewApi.sourceSkillId);
+
+    assertDefined(this.host.getSkill);
+    const skillFromDeprecatedApi = await this.host.getSkill(skillId);
+    assertDefined(skillFromDeprecatedApi);
+    assertEquals('source_id_1', skillFromDeprecatedApi.sourceSkillId);
+    assertDefined(this.host.getSkillToInvoke);
+
+    await this.advanceToNextStep();
+    assertUndefined(await skillsSequence.next());
+
+    // When skills are disabled, API methods that return a Promise should reject
+    // with an error, both when calling via a saved reference to
+    // GlicBrowserSkills (new API)...
+    assertDefined(skills.recordSkillsWebClientEvent);
+    skills.recordSkillsWebClientEvent(SkillsWebClientEvent.OPENED_MENU);
+    assertDefined(skills.getSkill);
+    await assertRejects(skills.getSkill(skillId));
+    assertDefined(skills.createSkill);
+    await assertRejects(skills.createSkill({prompt: 'test'}));
+    assertDefined(skills.updateSkill);
+    await assertRejects(skills.updateSkill({id: skillId}));
+
+    // ...and when calling via GlicBrowserHost (deprecated API).
+    assertDefined(this.host.recordSkillsWebClientEvent);
+    this.host.recordSkillsWebClientEvent(SkillsWebClientEvent.OPENED_MENU);
+    assertDefined(this.host.getSkill);
+    await assertRejects(this.host.getSkill!(skillId));
+    assertDefined(this.host.createSkill);
+    await assertRejects(this.host.createSkill!({prompt: 'test'}));
+    assertDefined(this.host.updateSkill);
+    await assertRejects(this.host.updateSkill!({id: skillId}));
+
+    // Synchronous void functions that couldn't throw an error previously must
+    // fail silently without throwing an error, both on GlicBrowserSkills (new
+    // API) and on GlicBrowserHost (deprecated API).
+    assertDefined(skills.showManageSkillsUi);
+    skills.showManageSkillsUi!();
+    assertDefined(skills.showBrowseSkillsUi);
+    skills.showBrowseSkillsUi!();
+    assertDefined(this.host.showManageSkillsUi);
+    this.host.showManageSkillsUi!();
+    assertDefined(this.host.showBrowseSkillsUi);
+    this.host.showBrowseSkillsUi!();
+
+    // Advance to next step (re-enable skills) and verify skills observable
+    // emits a new instance.
+    await this.advanceToNextStep();
+    const reenabledSkills = await skillsSequence.next();
+    assertDefined(reenabledSkills);
+    assertDefined(reenabledSkills.getSkill);
+    const reenabledSkill = await reenabledSkills.getSkill(skillId);
+    assertDefined(reenabledSkill);
+    assertEquals('source_id_1', reenabledSkill.sourceSkillId);
+  }
+
+  async testCreateSkillAndDisable() {
+    assertDefined(this.host.skills);
+    const skillsSequence = observeSequence(this.host.skills());
+    const skills = await skillsSequence.next();
+    assertDefined(skills);
+    assertDefined(skills.createSkill);
+
+    const request = {
+      id: 'id',
+      name: 'name',
+      icon: 'icon',
+      prompt: 'prompt',
+      source: SkillSource.FIRST_PARTY,
+    };
+    await skills.createSkill(request);
+
+    // Advance to step 2 where C++ disables skills and closes the dialog.
+    await this.advanceToNextStep();
+    assertUndefined(await skillsSequence.next());
+    await assertRejects(skills.createSkill(request));
+  }
+
+  async testShowManageSkillsUi() {
+    assertDefined(this.host.showManageSkillsUi);
+    this.host.showManageSkillsUi();
+  }
+
+  async testShowBrowseSkillsUi() {
+    assertDefined(this.host.showBrowseSkillsUi);
+    this.host.showBrowseSkillsUi();
+  }
+
+  async testDisplaySkillInDialogSuccess() {
+    assertDefined(this.host.createSkill);
+    const request = {
+      id: 'id',
+      name: 'name',
+      icon: 'icon',
+      prompt: 'prompt',
+      source: SkillSource.FIRST_PARTY,
+    };
+    this.host.createSkill(request);
   }
 
   async testShowManageSkillsUiNoWindow() {
@@ -1877,6 +3073,31 @@ class ScreenshotTests extends ApiTestFixtureBase {
   }
 }
 
+class WebClientThatOpensOnce extends WebClient {
+  notifyPanelWillOpenCallCount = 0;
+  override async notifyPanelWillOpen(panelOpeningData: PanelOpeningData):
+      Promise<OpenPanelInfo> {
+    this.notifyPanelWillOpenCallCount += 1;
+    return super.notifyPanelWillOpen(panelOpeningData);
+  }
+}
+
+class NotifyPanelWillOpenTest extends ApiTestFixtureBase {
+  override createWebClient(): WebClient {
+    return new WebClientThatOpensOnce();
+  }
+
+  async testNotifyPanelWillOpenIsCalledOnce() {
+    const client = this.client as WebClientThatOpensOnce;
+    await runUntil(() => client.notifyPanelWillOpenCallCount > 0);
+    assertEquals(client.notifyPanelWillOpenCallCount, 1);
+    client.notifyPanelWillOpenCallCount = 0;
+    await this.advanceToNextStep();
+    await runUntil(() => client.notifyPanelWillOpenCallCount > 0);
+    assertEquals(client.notifyPanelWillOpenCallCount, 1);
+  }
+}
+
 const TEST_FIXTURES: Array<typeof ApiTestFixtureBase> = [
   ApiTests,
   AdditionalContextQueuedTest,
@@ -1886,11 +3107,13 @@ const TEST_FIXTURES: Array<typeof ApiTestFixtureBase> = [
   ApiTestFailsToInitialize,
   TriggeringUpdatesTest,
   ScreenshotTests,
+  NotifyPanelWillOpenTest,
+  SkillsApiTests,
 ];
 
-
+// TODO(b/546606964): enable these tests on android.
 if (!navigator.userAgent.includes('Android')) {
-  TEST_FIXTURES.push(SkillsApiTests, InitiallyNotResizableTest);
+  TEST_FIXTURES.push(SkillsDesktopOnlyApiTests, InitiallyNotResizableTest);
 }
 
 testMain(TEST_FIXTURES);

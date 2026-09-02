@@ -523,6 +523,33 @@ TEST_F(MappableSharedImageVideoFramePoolTest, CreateOneHardwareNV12Frame) {
   EXPECT_TRUE(frame->metadata().read_lock_fences_enabled);
 }
 
+TEST_F(MappableSharedImageVideoFramePoolTest, YV12Frame) {
+  gpu::SharedImageCapabilities caps;
+  caps.supports_scanout_shared_images = true;
+  sii_->SetCapabilities(caps);
+
+  scoped_refptr<VideoFrame> software_frame = CreateTestYUVVideoFrame(10);
+  scoped_refptr<VideoFrame> frame;
+  mock_gpu_factories_->SetVideoFrameOutputFormat(
+      media::GpuVideoAcceleratorFactories::OutputFormat::YV12);
+  mappable_shared_image_pool_->MaybeCreateHardwareFrame(
+      software_frame, base::BindOnce(MaybeCreateHardwareFrameCallback, &frame));
+
+  RunUntilIdle();
+
+  EXPECT_NE(software_frame.get(), frame.get());
+  EXPECT_EQ(PIXEL_FORMAT_YV12, frame->format());
+  EXPECT_TRUE(frame->HasSharedImage());
+#if BUILDFLAG(IS_WIN)
+  // Windows Direct Composition path only supports NV12 overlays.
+  EXPECT_FALSE(
+      frame->shared_image()->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT));
+#else
+  EXPECT_TRUE(
+      frame->shared_image()->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT));
+#endif
+}
+
 TEST_F(MappableSharedImageVideoFramePoolTest,
        CreateOneHardwareNV12FrameWithOddSize) {
   scoped_refptr<VideoFrame> software_frame =

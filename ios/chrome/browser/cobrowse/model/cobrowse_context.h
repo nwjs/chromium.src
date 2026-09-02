@@ -16,10 +16,6 @@ class GURL;
 // The triggering URL.
 @property(nonatomic, assign, readonly) const GURL& url;
 
-// The unique server-side identifier for this specific conversation turn.
-// Corresponds to the "mstk" query parameter.
-@property(nonatomic, copy, readonly) NSString* conversationTurnID;
-
 // The search query text.
 // Corresponds to the "q" query parameter.
 @property(nonatomic, copy, readonly) NSString* searchQuery;
@@ -30,6 +26,9 @@ class GURL;
 
 // The items attached from the composebox.
 @property(nonatomic, copy) NSArray<ComposeboxInputItem*>* attachedItems;
+
+// Whether the context contains server session tokens (mstk, mtid, or cinpts).
+@property(nonatomic, assign, readonly) BOOL hasServerSessionTokens;
 
 // Returns a default context with the base search URL, used mainly for debugging
 // purposes.

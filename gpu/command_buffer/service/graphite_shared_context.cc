@@ -282,6 +282,12 @@ GraphiteSharedContext::makePrecompileContext() {
   return graphite_context_->makePrecompileContext();
 }
 
+void GraphiteSharedContext::set_simulated_insert_status(
+    skgpu::graphite::InsertStatus status) {
+  AutoLock auto_lock(this);
+  simulated_insert_status_ = status;
+}
+
 bool GraphiteSharedContext::insertRecording(
     const skgpu::graphite::InsertRecordingInfo& info) {
   AutoLock auto_lock(this);
@@ -313,10 +319,15 @@ bool GraphiteSharedContext::InsertRecordingImpl(
   // graphite::Context.
   std::optional<skgpu::graphite::InsertRecordingInfo> info_copy;
   if (info.fFinishedProc && task_runner) {
-    info_copy = info;
+    info_copy = *info_ptr;
     std::tie(info_copy->fFinishedProc, info_copy->fFinishedContext) =
         CreateFinishedProcThreadSafe(info.fFinishedProc, info.fFinishedContext,
                                      std::move(task_runner));
+    info_ptr = &info_copy.value();
+  }
+  if (simulated_insert_status_ != skgpu::graphite::InsertStatus::kSuccess) {
+    info_copy = *info_ptr;
+    info_copy->fSimulatedStatus = simulated_insert_status_;
     info_ptr = &info_copy.value();
   }
 
@@ -389,6 +400,13 @@ bool GraphiteSharedContext::SubmitImpl(
       IsThreadSafe() && base::SingleThreadTaskRunner::HasCurrentDefault()
           ? base::SingleThreadTaskRunner::GetCurrentDefault()
           : nullptr;
+  bool success = false;
+
+  const bool shoud_record_metric = base::ShouldRecordSubsampledMetric(0.01);
+  base::TimeTicks start_time;
+  if (shoud_record_metric) {
+    start_time = base::TimeTicks::Now();
+  }
 
   // Ensure fFinishedProc is called on the original thread if there is only one
   // graphite::Context.
@@ -399,10 +417,18 @@ bool GraphiteSharedContext::SubmitImpl(
         CreateFinishedProcThreadSafe(submit_info.fFinishedProc,
                                      submit_info.fFinishedContext,
                                      std::move(task_runner));
-    return graphite_context_->submit(wrapped_submit_info);
+    success = graphite_context_->submit(wrapped_submit_info);
+  } else {
+    success = graphite_context_->submit(submit_info);
   }
 
-  return graphite_context_->submit(submit_info);
+  if (shoud_record_metric) {
+    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+        "GPU.Graphite.SubmitDurationUs", base::TimeTicks::Now() - start_time,
+        base::Microseconds(1), base::Seconds(1), 50);
+  }
+
+  return success;
 }
 
 void GraphiteSharedContext::submitAndFlushBackend(

@@ -4,6 +4,7 @@
 
 #include "media/video/video_encode_accelerator_adapter.h"
 
+#include <algorithm>
 #include <limits>
 #include <vector>
 
@@ -26,6 +27,7 @@
 #include "media/base/media_log.h"
 #include "media/base/media_switches.h"
 #include "media/base/svc_scalability_mode.h"
+#include "media/base/video_codecs.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_util.h"
 #if BUILDFLAG(USE_PROPRIETARY_CODECS)
@@ -157,26 +159,41 @@ VideoEncodeAccelerator::Config SetUpVeaConfig(
   return config;
 }
 
-gfx::ColorSpace GetDestinationColorSpace(
-    VideoPixelFormat src_format,
-    const gfx::ColorSpace& src_color_space) {
-  bool is_src_rgb =
-      src_format == PIXEL_FORMAT_XBGR || src_format == PIXEL_FORMAT_XRGB ||
-      src_format == PIXEL_FORMAT_ABGR || src_format == PIXEL_FORMAT_ARGB;
-  // TODO(b/425634684): Update all callsites of ConvertAndScale so that the
-  // VideoFrame::set_color_space is performed by callers and not set inside.
-  if (is_src_rgb) {
-    // For RGB frames, ConvertAndScale uses BT.601 as that is used for libyuv's
-    // RGB to YUV conversion.
-    return gfx::ColorSpace::CreateREC601();
+VideoPixelFormat InputPixelFormat(VideoCodecProfile profile,
+                                  const VideoEncoder::Options& opts,
+                                  VideoPixelFormat default_format) {
+  if (profile == HEVCPROFILE_MAIN10) {
+    return PIXEL_FORMAT_P010LE;
   }
-  // For YUV frames, ConvertAndScale uses `src_frame` color space so use that
-  // directly. Check for `src_color_space` validity and use default BT.709 if
-  // it is invalid.
-  if (!src_color_space.IsValid()) {
-    return gfx::ColorSpace::CreateREC709();
+  // AV1 profile 0 covers both 8 and 10 bit, so the requested bit depth is what
+  // decides the input format, and the input format is in turn what tells the
+  // platform encoder which bit depth to code at. AV1 profile 1 is excluded: its
+  // 4:4:4 input format is 8 bit AYUV.
+  if (profile == AV1PROFILE_PROFILE_MAIN && opts.bit_depth.value_or(8) == 10) {
+    return PIXEL_FORMAT_P010LE;
   }
-  return src_color_space;
+  return default_format;
+}
+
+bool IsAcceptedWithoutConversion(VideoPixelFormat input_format,
+                                 VideoPixelFormat frame_format) {
+  return frame_format == input_format || (input_format == PIXEL_FORMAT_NV12 &&
+                                          frame_format == PIXEL_FORMAT_I420);
+}
+
+bool CanPassthroughGpuFrameFormat(
+    VideoPixelFormat input_format,
+    VideoPixelFormat frame_format,
+    const std::vector<VideoPixelFormat>& gpu_supported_formats) {
+  const VideoPixelFormat passthrough_format =
+      input_format == PIXEL_FORMAT_P010LE ? PIXEL_FORMAT_P010LE
+                                          : PIXEL_FORMAT_NV12;
+  const bool matches_input_format = frame_format == input_format;
+  const bool matches_passthrough_format = frame_format == passthrough_format;
+  const bool is_gpu_supported_format =
+      std::ranges::contains(gpu_supported_formats, frame_format);
+  return matches_input_format || matches_passthrough_format ||
+         is_gpu_supported_format;
 }
 
 }  // namespace
@@ -187,8 +204,11 @@ class VideoEncodeAcceleratorAdapter::MappableSharedImageVideoFramePool
   REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE();
 
   MappableSharedImageVideoFramePool(GpuVideoAcceleratorFactories* gpu_factories,
-                                    const gfx::Size& coded_size)
-      : gpu_factories_(gpu_factories), coded_size_(coded_size) {}
+                                    const gfx::Size& coded_size,
+                                    viz::SharedImageFormat si_format)
+      : gpu_factories_(gpu_factories),
+        coded_size_(coded_size),
+        si_format_(si_format) {}
   MappableSharedImageVideoFramePool(const MappableSharedImageVideoFramePool&) =
       delete;
   MappableSharedImageVideoFramePool& operator=(
@@ -200,9 +220,15 @@ class VideoEncodeAcceleratorAdapter::MappableSharedImageVideoFramePool
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     DCHECK(gfx::Rect(coded_size_).Contains(gfx::Rect(visible_size)));
 
-    const auto si_format = viz::MultiPlaneFormat::kNV12;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     const auto buffer_usage =
         gfx::BufferUsage::VEA_READ_CAMERA_AND_CPU_READ_WRITE;
+#else
+    // ConvertAndScale staging. VEA_READ_CAMERA_AND_CPU_READ_WRITE is only
+    // creatable via Ozone/GBM. On Apple/Win/Android both native and shm
+    // reject it; use GPU_READ_CPU_READ_WRITE.
+    const auto buffer_usage = gfx::BufferUsage::GPU_READ_CPU_READ_WRITE;
+#endif
 
     // Setting some default usage in order to get a mappable shared image.
     const auto si_usage = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY |
@@ -227,7 +253,7 @@ class VideoEncodeAcceleratorAdapter::MappableSharedImageVideoFramePool
       }
 
       auto shared_image = sii->CreateSharedImage(
-          {si_format, coded_size_, color_space,
+          {si_format_, coded_size_, color_space,
            gpu::SharedImageUsageSet(si_usage), "VideoEncodeAcceleratorAdapter"},
           gpu::kNullSurfaceHandle, buffer_usage);
       if (!shared_image) {
@@ -270,6 +296,7 @@ class VideoEncodeAcceleratorAdapter::MappableSharedImageVideoFramePool
 
   const raw_ptr<GpuVideoAcceleratorFactories> gpu_factories_;
   const gfx::Size coded_size_;
+  const viz::SharedImageFormat si_format_;
 
   // Available mappable shared images.
   std::vector<scoped_refptr<gpu::ClientSharedImage>> available_shared_images_;
@@ -484,6 +511,19 @@ void VideoEncodeAcceleratorAdapter::InitializeOnAcceleratorThread(
   profile_ = profile;
   supported_rc_modes_ = supported_rc_modes;
   gpu_supported_pixel_formats_ = std::move(gpu_supported_pixel_formats);
+  if (gpu_supported_pixel_formats_.empty()) {
+    gpu_supported_pixel_formats_.push_back(kDefaultPixelFormat);
+  }
+  input_pixel_format_ =
+      InputPixelFormat(profile_, options, kDefaultPixelFormat);
+  if (!std::ranges::contains(gpu_supported_pixel_formats_,
+                             input_pixel_format_)) {
+    std::move(done_cb).Run(
+        EncoderStatus(EncoderStatus::Codes::kEncoderUnsupportedConfig,
+                      "Unsupported input pixel format for this profile.")
+            .WithData("format", input_pixel_format_));
+    return;
+  }
   options_ = options;
   info_cb_ = std::move(info_cb);
   output_cb_ = std::move(output_cb);
@@ -496,7 +536,8 @@ void VideoEncodeAcceleratorAdapter::InitializeOnAcceleratorThread(
   }
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC) && \
     BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-  if (profile_ == HEVCPROFILE_MAIN && !options_.hevc.produce_annexb) {
+  if (VideoCodecProfileToVideoCodec(profile_) == VideoCodec::kHEVC &&
+      !options_.hevc.produce_annexb) {
     h265_converter_ = std::make_unique<H265AnnexBToHevcBitstreamConverter>(
         /*add_parameter_sets_in_bitstream=*/false);
   }
@@ -517,7 +558,7 @@ void VideoEncodeAcceleratorAdapter::InitializeOnAcceleratorThread(
 #endif
 
   auto vea_config =
-      SetUpVeaConfig(profile_, options_, kDefaultPixelFormat, storage_type,
+      SetUpVeaConfig(profile_, options_, input_pixel_format_, storage_type,
                      supported_rc_modes_, required_encoder_type_);
 
   if (auto status =
@@ -692,7 +733,7 @@ void VideoEncodeAcceleratorAdapter::ChangeOptionsOnAcceleratorThread(
   }
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC) && \
     BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-  if (profile_ == HEVCPROFILE_MAIN) {
+  if (VideoCodecProfileToVideoCodec(profile_) == VideoCodec::kHEVC) {
     if (options.hevc.produce_annexb) {
       h265_converter_.reset();
     } else if (!h265_converter_) {
@@ -1053,8 +1094,8 @@ T VideoEncodeAcceleratorAdapter::WrapCallback(T cb) {
 }
 
 // Copy a frame into a shared mem buffer and resize it as the same time. Input
-// frames can I420, NV12, or RGB.
-// They'll be converted to kDefaultPixelFormat if needed.
+// frames can I420, NV12, P010, or RGB.
+// They'll be converted to `input_pixel_format_` if needed.
 EncoderStatus::Or<scoped_refptr<VideoFrame>>
 VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
     scoped_refptr<VideoFrame> src_frame) {
@@ -1068,8 +1109,7 @@ VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
   // It is because VEAAdapter recycles the SharedMemoryRegion, but
   // mojo_video_frame_traits doesn't.
   if (src_frame->storage_type() == VideoFrame::STORAGE_SHMEM &&
-      (src_frame->format() == kDefaultPixelFormat ||
-       src_frame->format() == PIXEL_FORMAT_I420) &&
+      IsAcceptedWithoutConversion(input_pixel_format_, src_frame->format()) &&
       src_frame->visible_rect() == dest_visible_rect &&
       src_frame->coded_size() == dest_coded_size) {
     // Nothing to do here, the input frame is already what we need.
@@ -1078,7 +1118,7 @@ VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
 
   if (!input_pool_) {
     const size_t input_buffer_size =
-        VideoFrame::AllocationSize(kDefaultPixelFormat, dest_coded_size);
+        VideoFrame::AllocationSize(input_pixel_format_, dest_coded_size);
     input_pool_ = base::MakeRefCounted<ReadOnlyRegionPool>(input_buffer_size);
   }
 
@@ -1092,7 +1132,7 @@ VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
                               ? ConvertToMemoryMappedFrame(src_frame)
                               : src_frame;
   auto shared_frame = VideoFrame::WrapExternalData(
-      kDefaultPixelFormat, dest_coded_size, dest_visible_rect,
+      input_pixel_format_, dest_coded_size, dest_visible_rect,
       dest_visible_rect.size(), *mapping, src_frame->timestamp());
 
   if (!shared_frame || !mapped_src_frame)
@@ -1104,6 +1144,7 @@ VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
     return status;
   }
 
+  shared_frame->set_hdr_metadata(src_frame->hdr_metadata());
   shared_frame->BackWithSharedMemory(handle->region());
   shared_frame->AddDestructionObserver(
       base::DoNothingWithBoundArgs(std::move(handle)));
@@ -1111,7 +1152,8 @@ VideoEncodeAcceleratorAdapter::PrepareCpuFrame(
 }
 
 // Copy a frame into a GPU buffer and resize it as the same time. Input frames
-// can I420, NV12, or RGB -- they'll be converted to NV12 if needed.
+// can I420, NV12, P010, or RGB -- they'll be converted to
+// `input_pixel_format_` if needed.
 EncoderStatus::Or<scoped_refptr<VideoFrame>>
 VideoEncodeAcceleratorAdapter::PrepareGpuFrame(
     scoped_refptr<VideoFrame> src_frame) {
@@ -1121,12 +1163,10 @@ VideoEncodeAcceleratorAdapter::PrepareGpuFrame(
 
   const auto dest_coded_size = input_coded_size_;
   const auto dest_visible_rect = gfx::Rect(options_.frame_size);
-  bool is_gpu_supported_format =
-      std::ranges::find(gpu_supported_pixel_formats_, src_frame->format()) !=
-      gpu_supported_pixel_formats_.end();
 
   if ((src_frame->HasMappableSharedImage() || src_frame->HasSharedImage()) &&
-      (src_frame->format() == PIXEL_FORMAT_NV12 || is_gpu_supported_format) &&
+      CanPassthroughGpuFrameFormat(input_pixel_format_, src_frame->format(),
+                                   gpu_supported_pixel_formats_) &&
       (gpu_resize_supported_ || src_frame->coded_size() == dest_coded_size)) {
     // Nothing to do here, the input frame is already what we need
     return src_frame;
@@ -1134,11 +1174,20 @@ VideoEncodeAcceleratorAdapter::PrepareGpuFrame(
 
   if (!gmb_frame_pool_) {
     gmb_frame_pool_ = base::MakeRefCounted<MappableSharedImageVideoFramePool>(
-        gpu_factories_, dest_coded_size);
+        gpu_factories_, dest_coded_size,
+        input_pixel_format_ == PIXEL_FORMAT_P010LE
+            ? viz::MultiPlaneFormat::kP010
+            : viz::MultiPlaneFormat::kNV12);
   }
 
-  gfx::ColorSpace color_space =
-      GetDestinationColorSpace(src_frame->format(), src_frame->ColorSpace());
+  auto color_space = VideoFrameConverter::GetDestinationColorSpace(*src_frame);
+  if (!color_space.IsValid()) {
+    // For YUV frames, ConvertAndScale() uses the `src_frame` color space. If
+    // the color space is invalid, assume BT.709.
+    DCHECK(!IsRGB(src_frame->format()));
+    color_space = gfx::ColorSpace::CreateREC709();
+  }
+
   auto gpu_frame = gmb_frame_pool_->MaybeCreateVideoFrame(
       dest_visible_rect.size(), color_space);
   if (!gpu_frame)
@@ -1150,14 +1199,15 @@ VideoEncodeAcceleratorAdapter::PrepareGpuFrame(
   // ConvertAndScale. It uses a default ColorSpace if the `src_frame`
   // ColorSpace is Invalid.
   gpu_frame->set_color_space(color_space);
+  gpu_frame->set_hdr_metadata(src_frame->hdr_metadata());
 
   // Don't be scared. ConvertToMemoryMappedFrame() doesn't copy pixel data
   // it just maps GPU buffer owned by |gpu_frame| and presents it as mapped
   // view in CPU memory. It allows us to use ConvertAndScale() without
   // having to tinker with libyuv and GpuMemoryBuffer memory views.
   // |mapped_gpu_frame| doesn't own anything, but unmaps the buffer when freed.
-  // This is true because |gpu_frame| is created with
-  // |VEA_READ_CAMERA_AND_CPU_READ_WRITE| usage flag.
+  // This is true because |gpu_frame| is created with a CPU-writable
+  // BufferUsage (see MappableSharedImageVideoFramePool).
   auto mapped_gpu_frame = ConvertToMemoryMappedFrame(gpu_frame);
   auto mapped_src_frame = src_frame->HasMappableSharedImage()
                               ? ConvertToMemoryMappedFrame(src_frame)

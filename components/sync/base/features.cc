@@ -33,6 +33,8 @@ BASE_FEATURE(kSyncLoyaltyCardMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncNotebook, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kSyncJourney, base::FEATURE_DISABLED_BY_DEFAULT);
+
 #if !BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kUnoPhase2FollowUp,
 #if BUILDFLAG(IS_ANDROID)
@@ -93,7 +95,15 @@ bool IsReplaceSyncPromosWithSignInPromosEnabled() {
 }
 
 // Like DECLARE_SYNC_AUTOFILL_AI_FEATURE but for the definition.
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#if BUILDFLAG(IS_ANDROID)
+#define DEFINE_SYNC_AUTOFILL_AI_FEATURE(feature_name)                         \
+  BASE_FEATURE_WITH_COUNTRY_RESTRICTIONS(                                     \
+      feature_name, base::FEATURE_DISABLED_FOR_COUNTRIES, "ao", "at", "au",   \
+      "be", "bg", "br", "ca", "ch", "cy", "cz", "de", "dk", "dz", "ee", "es", \
+      "fi", "fr", "gb", "gr", "hr", "hu", "id", "ie", "in", "is", "it", "jp", \
+      "kr", "li", "lt", "lu", "lv", "md", "mk", "ml", "mt", "nl", "no", "om", \
+      "pl", "pt", "ro", "se", "si", "sk", "th")
+#elif BUILDFLAG(IS_IOS)
 #define DEFINE_SYNC_AUTOFILL_AI_FEATURE(feature_name) \
   BASE_FEATURE_WITH_COUNTRY_RESTRICTIONS(             \
       feature_name, base::FEATURE_ENABLED_FOR_COUNTRIES, "us")
@@ -187,10 +197,9 @@ BASE_FEATURE_PARAM(int,
                    "SyncRecordDeviceStatisticsMetricsPeriodDays",
                    1);
 
-BASE_FEATURE(kSyncDeviceInfoUseWallClockTimer,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kSyncValidateAccessToken, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncUsePropagatedAccessToken, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncInvalidationsBypassScheduler,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -212,6 +221,10 @@ BASE_FEATURE(kSyncFixWebSigninSessionDurationForShortLivedSessions,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncSimplifyDeviceNaming, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSyncDisambiguateDeviceNamesWithChannel,
+             "SyncDisambiguateDeviceNamesWithChannel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSyncUseServerDeterminedDeviceName,
              base::FEATURE_DISABLED_BY_DEFAULT);

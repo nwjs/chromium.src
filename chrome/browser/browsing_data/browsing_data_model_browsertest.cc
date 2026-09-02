@@ -27,7 +27,7 @@
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
@@ -385,7 +385,6 @@ class BrowsingDataModelBrowserTest
         {features::kPrivacySandboxAdsAPIsOverride, {}},
         {features::kIsolatedWebApps, {}},
         {features::kIsolatedWebAppDevMode, {}},
-        {network::features::kSharedStorageAPI, {}},
         {blink::features::kFencedFrames, {}},
         {network::features::kBrowsingTopics, {}},
         {net::features::kThirdPartyStoragePartitioning, {}},
@@ -431,8 +430,6 @@ class BrowsingDataModelBrowserTest
   }
 
   void SetUpOnMainThread() override {
-    PrivacySandboxSettingsFactory::GetForProfile(browser()->GetProfile())
-        ->SetAllPrivacySandboxAllowedForTesting();
     // Mark all Privacy Sandbox APIs as attested since the test cases are
     // testing behaviors not related to attestations.
     privacy_sandbox::PrivacySandboxAttestations::GetInstance()

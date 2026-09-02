@@ -11,12 +11,14 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/actions/chrome_action_properties.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "content/public/test/browser_test.h"
@@ -30,14 +32,16 @@ DEFINE_UI_CLASS_PROPERTY_KEY(int, kTestPropertyKey, -1)
 class CommandActionUpdaterBrowserTest : public InProcessBrowserTest {
  public:
   CommandActionUpdaterBrowserTest() {
-    feature_list_.InitAndEnableFeature(features::kUseActionsForBrowserCommands);
+    feature_list_.InitWithFeatures(
+        {features::kUseActionsForBrowserCommands, tabs::kVerticalTabs}, {});
   }
 
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
 
     // Find the existing kActionBack action.
-    actions::ActionItem* root = browser()->GetActions()->root_action_item();
+    actions::ActionItem* root =
+        BrowserActions::From(browser())->root_action_item();
     ASSERT_TRUE(root);
     action_item_ = actions::ActionManager::Get().FindAction(kActionBack, root);
     ASSERT_TRUE(action_item_);
@@ -77,16 +81,19 @@ class CommandActionUpdaterBrowserTest : public InProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
                        CommandEnablementSyncsToAction) {
   // Force enable it to start with known state.
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
   EXPECT_TRUE(action_item_->GetEnabled());
 
   // Disable command.
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, false);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, false);
   // Action should be disabled.
   EXPECT_FALSE(action_item_->GetEnabled());
 
   // Enable command.
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
   // Action should be enabled.
   EXPECT_TRUE(action_item_->GetEnabled());
 }
@@ -96,10 +103,12 @@ IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
   EXPECT_FALSE(action_invoked_);
 
   // Force enable it.
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
 
   // Execute command.
-  EXPECT_TRUE(browser()->command_controller()->ExecuteCommand(IDC_BACK));
+  EXPECT_TRUE(chrome::BrowserCommandController::From(browser())->ExecuteCommand(
+      IDC_BACK));
 
   // Action should be invoked.
   EXPECT_TRUE(action_invoked_);
@@ -109,7 +118,8 @@ IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
                        ExecuteCommandWithContextPassesContextToAction) {
   EXPECT_FALSE(action_invoked_);
 
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
 
   auto context = actions::ActionInvocationContext::Builder()
                      .SetProperty(kTestPropertyKey, 42)
@@ -125,7 +135,8 @@ IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
                        ExecuteCommandWithDispositionAndContextPassesContext) {
   EXPECT_FALSE(action_invoked_);
 
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
 
   auto context = actions::ActionInvocationContext::Builder()
                      .SetProperty(kTestPropertyKey, 99)
@@ -142,7 +153,8 @@ IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
                        ExecuteActionPreservesSidePanelOpenTrigger) {
   EXPECT_FALSE(action_invoked_);
 
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
 
   auto context =
       actions::ActionInvocationContext::Builder()
@@ -162,10 +174,136 @@ IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
                        ExecuteCommandDoesNotInjectDefaultSidePanelTrigger) {
   EXPECT_FALSE(action_invoked_);
 
-  browser()->command_controller()->UpdateCommandEnabled(IDC_BACK, true);
-  EXPECT_TRUE(browser()->command_controller()->ExecuteCommand(IDC_BACK));
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
+  EXPECT_TRUE(chrome::BrowserCommandController::From(browser())->ExecuteCommand(
+      IDC_BACK));
   EXPECT_TRUE(action_invoked_);
   EXPECT_EQ(static_cast<SidePanelOpenTrigger>(
                 last_context_.GetProperty(kSidePanelOpenTriggerKey)),
             SidePanelOpenTrigger::kUnknown);
+}
+
+IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
+                       ExecuteCommandPreservesInvocationSourceContext) {
+  EXPECT_FALSE(action_invoked_);
+
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_BACK, true);
+  actions::ActionInvocationContext context =
+      actions::ActionInvocationContext::Builder()
+          .SetProperty(chrome::kActionInvocationSourceKey,
+                       chrome::ActionInvocationSource::kKeyboardShortcut)
+          .Build();
+  EXPECT_TRUE(chrome::ExecuteCommandWithContext(browser(), IDC_BACK,
+                                                std::move(context)));
+  EXPECT_TRUE(action_invoked_);
+  EXPECT_EQ(last_context_.GetProperty(chrome::kActionInvocationSourceKey),
+            chrome::ActionInvocationSource::kKeyboardShortcut);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    CommandActionUpdaterBrowserTest,
+    ExecuteToggleVerticalTabsCollapsePreservesKeyboardShortcutSource) {
+  actions::ActionItem* root =
+      BrowserActions::From(browser())->root_action_item();
+  ASSERT_TRUE(root);
+  actions::ActionItem* toggle_action = actions::ActionManager::Get().FindAction(
+      kActionToggleCollapseVertical, root);
+  ASSERT_TRUE(toggle_action);
+
+  actions::ActionInvocationContext last_context;
+  bool toggle_invoked = false;
+  toggle_action->SetInvokeActionCallback(base::BindRepeating(
+      [](bool* invoked, actions::ActionInvocationContext* ctx,
+         actions::ActionItem* action,
+         actions::ActionInvocationContext context) {
+        *invoked = true;
+        *ctx = std::move(context);
+      },
+      &toggle_invoked, &last_context));
+
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_TOGGLE_VERTICAL_TABS_COLLAPSE, true);
+
+  // When executed via shortcut (passing kKeyboardShortcut in context):
+  actions::ActionInvocationContext shortcut_context =
+      actions::ActionInvocationContext::Builder()
+          .SetProperty(chrome::kActionInvocationSourceKey,
+                       chrome::ActionInvocationSource::kKeyboardShortcut)
+          .Build();
+  EXPECT_TRUE(chrome::ExecuteCommandWithContext(
+      browser(), IDC_TOGGLE_VERTICAL_TABS_COLLAPSE,
+      std::move(shortcut_context)));
+  EXPECT_TRUE(toggle_invoked);
+  EXPECT_EQ(last_context.GetProperty(chrome::kActionInvocationSourceKey),
+            chrome::ActionInvocationSource::kKeyboardShortcut);
+
+  // When executed without shortcut context (e.g., from a menu click):
+  toggle_invoked = false;
+  last_context = actions::ActionInvocationContext();
+  EXPECT_TRUE(chrome::BrowserCommandController::From(browser())->ExecuteCommand(
+      IDC_TOGGLE_VERTICAL_TABS_COLLAPSE));
+  EXPECT_TRUE(toggle_invoked);
+  EXPECT_EQ(last_context.GetProperty(chrome::kActionInvocationSourceKey),
+            chrome::ActionInvocationSource::kUnknown);
+
+  toggle_action->SetInvokeActionCallback(
+      actions::ActionItem::InvokeActionCallback());
+}
+
+// Verifies that actions can be retrieved using the scope / root item correctly.
+// This prevents regressions against a bug where two same-named actions defined
+// in different namespaces would collide.
+IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
+                       ClipboardCommandsMapToActionsNamespace) {
+  actions::ActionItem* root =
+      BrowserActions::From(browser())->root_action_item();
+  ASSERT_TRUE(root);
+
+  actions::ActionItem* cut_action =
+      actions::ActionManager::Get().FindAction(actions::kActionCut, root);
+  ASSERT_TRUE(cut_action);
+
+  actions::ActionItem* copy_action =
+      actions::ActionManager::Get().FindAction(actions::kActionCopy, root);
+  ASSERT_TRUE(copy_action);
+
+  actions::ActionItem* paste_action =
+      actions::ActionManager::Get().FindAction(actions::kActionPaste, root);
+  ASSERT_TRUE(paste_action);
+
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_CUT, true);
+  EXPECT_TRUE(cut_action->GetEnabled());
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_CUT, false);
+  EXPECT_FALSE(cut_action->GetEnabled());
+
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_COPY, true);
+  EXPECT_TRUE(copy_action->GetEnabled());
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_COPY, false);
+  EXPECT_FALSE(copy_action->GetEnabled());
+
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_PASTE, true);
+  EXPECT_TRUE(paste_action->GetEnabled());
+  chrome::BrowserCommandController::From(browser())->UpdateCommandEnabled(
+      IDC_PASTE, false);
+  EXPECT_FALSE(paste_action->GetEnabled());
+}
+
+// Verifies that the download action is registered on all platforms,
+// specifically ChromeOS where it performs a different behavior.
+IN_PROC_BROWSER_TEST_F(CommandActionUpdaterBrowserTest,
+                       ShowDownloadsActionIsRegisteredAndEnabled) {
+  actions::ActionItem* root =
+      BrowserActions::From(browser())->root_action_item();
+  ASSERT_TRUE(root);
+  actions::ActionItem* downloads_action =
+      actions::ActionManager::Get().FindAction(kActionShowDownloads, root);
+  ASSERT_TRUE(downloads_action);
+  EXPECT_TRUE(downloads_action->GetEnabled());
 }

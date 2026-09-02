@@ -12,6 +12,9 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/time/time.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/drive_suggestion.mojom.h"
 #include "chrome/browser/new_tab_page/modules/file_suggestion/microsoft_files.mojom.h"
@@ -21,18 +24,11 @@
 #include "chrome/browser/new_tab_page/modules/v2/calendar/outlook_calendar.mojom.h"
 #include "chrome/browser/new_tab_page/modules/v2/most_relevant_tab_resumption/most_relevant_tab_resumption.mojom.h"
 #include "chrome/browser/new_tab_page/modules/v2/tab_groups/tab_groups.mojom.h"
-#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
-#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_handler.h"
-#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
-#include "ui/webui/resources/js/browser_command/browser_command.mojom.h"
-#if !defined(OFFICIAL_BUILD)
-#include "chrome/browser/ui/webui/new_tab_page/foo/foo.mojom.h"  // nogncheck crbug.com/40147906
-#endif
-#include "base/memory/weak_ptr.h"
-#include "base/scoped_observation.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_observer.h"
 #include "chrome/browser/ui/webui/customize_buttons/customize_buttons.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips.mojom.h"
+#include "chrome/browser/ui/webui/new_tab_page/action_chips/action_chips_handler.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
@@ -51,13 +47,19 @@
 #include "ui/native_theme/native_theme_observer.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
+#include "ui/webui/resources/cr_components/help_bubble/help_bubble.mojom.h"
 #include "ui/webui/resources/cr_components/most_visited/most_visited.mojom.h"
+#include "ui/webui/resources/js/browser_command/browser_command.mojom.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo.mojom.h"  // nogncheck
 #include "chrome/browser/ui/webui/new_tab_page/ntp_promo/ntp_promo_handler.h"  // nogncheck
 #include "components/user_education/common/ntp_promo/ntp_promo_controller.h"
 #include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
+#endif
+
+#if !defined(OFFICIAL_BUILD)
+#include "chrome/browser/ui/webui/new_tab_page/foo/foo.mojom.h"  // nogncheck crbug.com/40147906
 #endif
 
 namespace base {
@@ -91,6 +93,7 @@ class MicrosoftAuthPageHandler;
 class MicrosoftFilesPageHandler;
 class MostRelevantTabResumptionPageHandler;
 class MostVisitedHandler;
+class MostVisitedPrefObserver;
 class NewTabPageHandler;
 class NtpCustomBackgroundService;
 class PrefRegistrySimple;
@@ -241,7 +244,7 @@ class NewTabPageUI
       mojo::PendingRemote<new_tab_page::mojom::MicrosoftAuthUntrustedDocument>
           child_page);
 
-  static base::RefCountedMemory* GetFaviconResourceBytes(
+  static scoped_refptr<base::RefCountedMemory> GetFaviconResourceBytes(
       ui::ResourceScaleFactor scale_factor);
 
   // Lazily creates and returns a reference to the owned contextual search
@@ -316,22 +319,8 @@ class NewTabPageUI
       content::NavigationHandle* navigation_handle) override;
   void OnColorProviderChanged() override;
 
-  bool IsShortcutsVisible() const;
-
-  // Updates the NTP tile types based on current preferences.
-  void UpdateMostVisitedTileTypes();
-  // Callback for when the value of the prefs for determining the type of NTP
-  // tiles to show changes.
-  void OnTileTypesChanged();
-  // Callback for when the value of the pref for showing the NTP tiles changes.
-  void OnTilesVisibilityPrefChanged();
-  // Called when the enterprise shortcuts policy may have changed.
-  void OnEnterpriseShortcutsPolicyChanged();
   // Called when the NTP (re)loads. Sets mutable load time data.
   void OnLoad();
-
-  // Called to maybe enable enterprise shortcuts visibility by default.
-  void MaybeEnableEnterpriseShortcutsVisibility();
 
   // Based on the current profile and NTP promo controller, determine which
   // type of NTP promos can be shown, if any.
@@ -351,6 +340,7 @@ class NewTabPageUI
   mojo::Receiver<customize_buttons::mojom::CustomizeButtonsHandlerFactory>
       customize_buttons_factory_receiver_;
   std::unique_ptr<MostVisitedHandler> most_visited_page_handler_;
+  std::unique_ptr<MostVisitedPrefObserver> most_visited_pref_observer_;
   mojo::Receiver<most_visited::mojom::MostVisitedPageHandlerFactory>
       most_visited_page_factory_receiver_;
   mojo::Receiver<composebox::mojom::PageHandlerFactory>
@@ -408,7 +398,6 @@ class NewTabPageUI
   std::unique_ptr<MicrosoftFilesPageHandler> microsoft_files_handler_;
   std::unique_ptr<OutlookCalendarPageHandler> outlook_calendar_handler_;
   std::unique_ptr<TabGroupsPageHandler> tab_groups_handler_;
-  PrefChangeRegistrar pref_change_registrar_;
 
   base::WeakPtrFactory<NewTabPageUI> weak_ptr_factory_{this};
 

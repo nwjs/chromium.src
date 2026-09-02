@@ -409,7 +409,8 @@ TEST(PasswordManagerUtil, FindBestMatchesInProfileAndAccountStores) {
   // Add the same credentials in account and profile stores.
   StoredCredential account_form1(password_manager::CloneStoredCredential(form));
   account_form1.username_value = kUsername1;
-  account_form1.password_value = kPassword1;
+  account_form1.password_value =
+      password_manager::PasswordString(std::u16string(kPassword1));
   account_form1.in_store = PasswordForm::Store::kAccountStore;
 
   StoredCredential profile_form1(
@@ -420,12 +421,14 @@ TEST(PasswordManagerUtil, FindBestMatchesInProfileAndAccountStores) {
   // with different passwords.
   StoredCredential account_form2(password_manager::CloneStoredCredential(form));
   account_form2.username_value = kUsername2;
-  account_form2.password_value = kPassword1;
+  account_form2.password_value =
+      password_manager::PasswordString(std::u16string(kPassword1));
   account_form2.in_store = PasswordForm::Store::kAccountStore;
 
   StoredCredential profile_form2(
       password_manager::CloneStoredCredential(account_form2));
-  profile_form2.password_value = kPassword2;
+  profile_form2.password_value =
+      password_manager::PasswordString(std::u16string(kPassword2));
   profile_form2.in_store = PasswordForm::Store::kProfileStore;
 
   PasswordForm expected_account_form1 =
@@ -596,15 +599,15 @@ TEST(PasswordManagerUtil, GetMatchForUpdating_EmptyUsernamePickFirst) {
   StoredCredential stored1 =
       password_manager::FromPasswordForm(GetTestCredential());
   stored1.username_value = u"Adam";
-  stored1.password_value = u"Adam_password";
+  stored1.password_value = password_manager::PasswordString(u"Adam_password");
   StoredCredential stored2 =
       password_manager::FromPasswordForm(GetTestCredential());
   stored2.username_value = u"Ben";
-  stored2.password_value = u"Ben_password";
+  stored2.password_value = password_manager::PasswordString(u"Ben_password");
   StoredCredential stored3 =
       password_manager::FromPasswordForm(GetTestCredential());
   stored3.username_value = u"Cindy";
-  stored3.password_value = u"Cindy_password";
+  stored3.password_value = password_manager::PasswordString(u"Cindy_password");
 
   PasswordForm parsed = GetTestCredential();
   parsed.username_value.clear();
@@ -622,21 +625,21 @@ TEST(PasswordManagerUtil,
   StoredCredential stored1 =
       password_manager::FromPasswordForm(GetTestCredential());
   stored1.username_value = u"MyUsername";
-  stored1.password_value = u"MyPassword2";
+  stored1.password_value = password_manager::PasswordString(u"MyPassword2");
   stored1.date_last_used = kYesterday;
   stored1.match_type = PasswordForm::MatchType::kExact;
 
   StoredCredential stored2 =
       password_manager::FromPasswordForm(GetTestCredential());
   stored2.username_value = u"";
-  stored2.password_value = u"MyPassword1";
+  stored2.password_value = password_manager::PasswordString(u"MyPassword1");
   stored2.date_last_used = kYesterday;
   stored2.match_type = PasswordForm::MatchType::kExact;
 
   StoredCredential stored3 =
       password_manager::FromPasswordForm(GetTestCredential());
   stored3.username_value = u"OtherUsername";
-  stored3.password_value = u"MyPassword2";
+  stored3.password_value = password_manager::PasswordString(u"MyPassword2");
   stored3.date_last_used = kNow;
   stored3.match_type = PasswordForm::MatchType::kExact;
 
@@ -662,7 +665,7 @@ TEST(PasswordManagerUtil,
   StoredCredential stored =
       password_manager::FromPasswordForm(GetTestCredential());
   stored.username_value = u"Adam";
-  stored.password_value = u"Adam_password";
+  stored.password_value = password_manager::PasswordString(u"Adam_password");
 
   PasswordForm parsed = GetTestCredential();
   parsed.username_value.clear();
@@ -1011,6 +1014,18 @@ TEST_F(PasswordManagerUtilTrustedVaultErrorTest,
       .WillOnce(Return(ActionableError::kSignInNeeded));
   EXPECT_FALSE(IsSavingBlockedByTrustedVaultError(&mock_client_, nullptr));
 }
+
+TEST_F(PasswordManagerUtilTrustedVaultErrorTest,
+       IsSavingBlockedByTrustedVaultErrorForLocalPasswordUpdate) {
+  password_manager::MockPasswordFormManagerForUI form_manager;
+  EXPECT_CALL(form_manager, IsPasswordUpdate()).WillOnce(Return(true));
+  EXPECT_CALL(form_manager,
+              IsUpdateAffectingPasswordsStoredInTheGoogleAccount())
+      .WillOnce(Return(false));
+
+  EXPECT_FALSE(
+      IsSavingBlockedByTrustedVaultError(&mock_client_, &form_manager));
+}
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_IOS)
@@ -1031,19 +1046,30 @@ TEST_F(PasswordManagerUtilRecoverableErrorTest,
 
   EXPECT_CALL(*account_store, GetError)
       .WillOnce(Return(ActionableError::kTrustedVaultKeyNeeded));
-  EXPECT_TRUE(IsSavingBlockedByRecoverableError(&mock_client_));
+  EXPECT_TRUE(IsSavingBlockedByRecoverableError(&mock_client_, nullptr));
 
   EXPECT_CALL(*account_store, GetError)
       .WillOnce(Return(ActionableError::kSignInNeeded));
-  EXPECT_TRUE(IsSavingBlockedByRecoverableError(&mock_client_));
+  EXPECT_TRUE(IsSavingBlockedByRecoverableError(&mock_client_, nullptr));
 
   EXPECT_CALL(*account_store, GetError)
       .WillOnce(Return(ActionableError::kNeedsPassphrase));
-  EXPECT_TRUE(IsSavingBlockedByRecoverableError(&mock_client_));
+  EXPECT_TRUE(IsSavingBlockedByRecoverableError(&mock_client_, nullptr));
 
   EXPECT_CALL(*account_store, GetError)
       .WillOnce(Return(ActionableError::kKeychainError));
-  EXPECT_FALSE(IsSavingBlockedByRecoverableError(&mock_client_));
+  EXPECT_FALSE(IsSavingBlockedByRecoverableError(&mock_client_, nullptr));
+}
+
+TEST_F(PasswordManagerUtilRecoverableErrorTest,
+       IsSavingBlockedByRecoverableErrorForLocalPasswordUpdate) {
+  password_manager::MockPasswordFormManagerForUI form_manager;
+  EXPECT_CALL(form_manager, IsPasswordUpdate()).WillOnce(Return(true));
+  EXPECT_CALL(form_manager,
+              IsUpdateAffectingPasswordsStoredInTheGoogleAccount())
+      .WillOnce(Return(false));
+
+  EXPECT_FALSE(IsSavingBlockedByRecoverableError(&mock_client_, &form_manager));
 }
 #endif  // BUILDFLAG(IS_IOS)
 

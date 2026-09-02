@@ -11,6 +11,7 @@
       <if expr="not is_android">
         <!-- Incognito and Guest mode, new tab page WebUI. -->
         <structure name="IDR_INCOGNITO_TAB_HTML" file="resources\new_tab_page_incognito_guest\incognito_tab.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_ISOLATED_TAB_HTML" file="resources\new_tab_page_incognito_guest\isolated_tab.html" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_INCOGNITO_TAB_THEME_CSS" file="resources\new_tab_page_incognito_guest\incognito_tab_theme.css" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_GUEST_TAB_HTML" file="resources\new_tab_page_incognito_guest\guest_tab.html" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_NEW_TAB_4_THEME_CSS" file="resources\new_tab_page_incognito_guest\new_tab_theme.css" flattenhtml="true" type="chrome_html" />
@@ -48,6 +49,8 @@
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_CARD_LOCAL_LOTTIE" file="resources/autofill/autofill_save_card_local.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_CARD_TO_WALLET_LOTTIE" file="resources/autofill/autofill_save_card_to_wallet.json" compress="brotli"/>
         <structure type="lottie" name="IDR_AUTOFILL_SAVE_SECURITY_CODE_LOTTIE" file="resources/autofill/autofill_save_security_code.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_AUTOFILL_TURN_ON_PAYMENTS_AUTOFILL_CONVENIENTLY_LOTTIE" file="resources/autofill/autofill_turn_on_payments_autofill_conveniently.json" compress="brotli"/>
+        <structure type="lottie" name="IDR_AUTOFILL_WALLET_REMINDER_NOTICE_LOTTIE" file="resources/autofill/autofill_wallet_reminder_notice.json" compress="brotli"/>
 
         <!-- Shopping resources -->
         <structure type="lottie" name="IDR_SHOPPING_DISCOUNTS_AVAILABLE_LOTTIE" file="resources/shopping/discounts_available.json" compress="brotli"/>

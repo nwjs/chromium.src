@@ -16,8 +16,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/ai_mode_button_service_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/contextual_search/searchbox_context_data.h"
@@ -33,6 +31,7 @@
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/location_bar/selected_keyword_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_handler.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_omnibox_client.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
@@ -75,8 +74,10 @@
 #include "third_party/metrics_proto/omnibox_focus_type.pb.h"
 #include "third_party/omnibox_proto/types.pb.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/webui/resource_path.h"
 #include "ui/base/window_open_disposition_utils.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 
@@ -205,18 +206,46 @@ void WebuiOmniboxHandler::ActivateKeyword(
   }
 }
 
+void WebuiOmniboxHandler::QueryAutocomplete(
+    int32_t query_id,
+    const std::u16string& input,
+    bool prevent_inline_autocomplete,
+    uint32_t cursor_position,
+    omnibox::SuggestInventory suggest_inventory,
+    bool is_on_focus,
+    const std::string& keyword,
+    searchbox::mojom::InputMethod input_method) {
+  SearchboxHandler::QueryAutocomplete(
+      query_id, input, prevent_inline_autocomplete, cursor_position,
+      suggest_inventory, is_on_focus, keyword, input_method);
+
+  if (auto* view = edit_model()->view()) {
+    view->SetWindowTextAndCaretPos(input, cursor_position,
+                                   /*update_popup=*/false,
+                                   /*notify_text_changed=*/false);
+  }
+}
+
 void WebuiOmniboxHandler::OpenLensSearch() {
   edit_model()->OpenLensSearch();
 }
 
-void WebuiOmniboxHandler::AddTabContext(int32_t tab_id,
-                                        bool delay_upload,
-                                        AddTabContextCallback callback) {
+void WebuiOmniboxHandler::AddTabContext(
+    int32_t tab_id,
+    bool delay_upload,
+    searchbox::mojom::TabAttachmentSource source,
+    AddTabContextCallback callback) {
+  if (!contextual_search::ContextualSearchService::IsContextSharingEnabled(
+          profile_->GetPrefs())) {
+    std::move(callback).Run(base::unexpected(
+        contextual_search::ContextUploadErrorType::kBrowserProcessingError));
+    return;
+  }
   auto* browser_window_interface =
       webui::GetBrowserWindowInterface(web_contents_.get());
   const tabs::TabHandle handle = tabs::TabHandle(tab_id);
   tabs::TabInterface* const tab = handle.Get();
-  if (!tab) {
+  if (!tab || tab->GetProfile() != profile_) {
     std::move(callback).Run(base::unexpected(
         contextual_search::ContextUploadErrorType::kBrowserProcessingError));
     return;
@@ -238,6 +267,7 @@ void WebuiOmniboxHandler::AddTabContext(int32_t tab_id,
   tab_attachment->tab_id = tab_id;
   tab_attachment->title = base::UTF16ToUTF8(TabUIHelper::From(tab)->GetTitle());
   tab_attachment->url = tab->GetContents()->GetLastCommittedURL();
+  tab_attachment->source = source;
   context->file_infos.push_back(
       searchbox::mojom::SearchContextAttachment::NewTabAttachment(
           std::move(tab_attachment)));
@@ -295,6 +325,10 @@ void WebuiOmniboxHandler::StepSelection(
 void WebuiOmniboxHandler::OpenCurrentSelection(
     WindowOpenDisposition disposition) {
   page_->OpenCurrentSelection(disposition);
+}
+
+void WebuiOmniboxHandler::ResetPopupToInitialState() {
+  page_->ResetPopupToInitialState();
 }
 
 void WebuiOmniboxHandler::SetAimButtonVisible(bool visible) {
@@ -366,7 +400,7 @@ WebuiOmniboxHandler::CreateAutocompleteMatch(
 
     // Populate `keyword_model`.
     if (has_keyword) {
-      auto keyword_model = searchbox::mojom::KeywordModel::New();
+      auto keyword_model = searchbox::mojom::MatchKeywordModel::New();
       keyword_model->type = keyword_type;
       keyword_model->keyword = base::UTF16ToUTF8(keyword);
       keyword_model->placeholder = base::UTF16ToUTF8(keyword_placeholder);
@@ -380,6 +414,15 @@ WebuiOmniboxHandler::CreateAutocompleteMatch(
   }
 
   return mojom_match;
+}
+
+bool WebuiOmniboxHandler::ShouldShowFirstContextualDescription() const {
+  return omnibox::kAskGShowFirstDescription.Get() &&
+         autocomplete_controller() &&
+         autocomplete_controller()
+             ->GetSuggestionGroupHeaderText(
+                 omnibox::GroupId::GROUP_CONTEXTUAL_SEARCH)
+             .empty();
 }
 
 void WebuiOmniboxHandler::OnFocusChanged(bool focused) {
@@ -551,7 +594,10 @@ void WebuiOmniboxHandler::OnAiModeButtonConfigChanged(
     return;
   }
   GURL compose_icon(
-      "chrome://resources/cr_components/searchbox/icons/search_spark.svg");
+      features::IsWebUIRoundedIconsEnabled()
+          ? "chrome://resources/cr_components/searchbox/icons/search_spark.svg"
+          : "chrome://resources/cr_components/searchbox/icons/"
+            "search_spark_old.svg");
   std::string favicon_url(config->favicon_url);
   if (config->id != SearchEngineType::SEARCH_ENGINE_GOOGLE &&
       !favicon_url.empty()) {

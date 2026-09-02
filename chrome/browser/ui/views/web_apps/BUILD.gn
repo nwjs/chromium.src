@@ -6,6 +6,48 @@ import("//build/config/ui.gni")
 
 assert(toolkit_views)
 
+source_set("progress_delay") {
+  public = [ "progress_delay.h" ]
+  sources = [ "progress_delay.cc" ]
+  public_deps = [ "//base" ]
+  deps = [ "//content/public/common" ]
+}
+
+source_set("web_app_blocked_migration_infobar_delegate") {
+  public = [ "web_app_blocked_migration_infobar_delegate.h" ]
+  sources = [ "web_app_blocked_migration_infobar_delegate.cc" ]
+  public_deps = [
+    "//base",
+    "//components/infobars/core",
+    "//url",
+  ]
+  deps = [
+    "//chrome/app:generated_resources",
+    "//chrome/browser/infobars",
+    "//components/infobars/content",
+    "//components/strings:components_strings",
+    "//components/vector_icons",
+    "//content/public/browser",
+    "//ui/base",
+  ]
+}
+
+source_set("web_app_update_identity_view") {
+  public = [ "web_app_update_identity_view.h" ]
+  sources = [ "web_app_update_identity_view.cc" ]
+  public_deps = [
+    "//chrome/browser/web_applications",
+    "//ui/base",
+    "//ui/views",
+  ]
+  deps = [
+    ":web_apps",
+    "//base",
+    "//chrome/browser/ui/views:layout_provider",
+    "//ui/gfx",
+  ]
+}
+
 source_set("web_apps") {
   public = [ "web_app_views_utils.h" ]
   sources = [ "web_app_views_utils.cc" ]
@@ -19,6 +61,30 @@ source_set("web_apps") {
     "//ui/views",
     "//url",
   ]
+
+  if (is_win || is_mac || is_linux) {
+    public += [
+      "deprecated_apps_dialog_view.h",
+      "force_installed_deprecated_apps_dialog_view.h",
+      "force_installed_preinstalled_deprecated_app_dialog_view.h",
+    ]
+    sources += [
+      "deprecated_apps_dialog_view.cc",
+      "force_installed_deprecated_apps_dialog_view.cc",
+      "force_installed_preinstalled_deprecated_app_dialog_view.cc",
+    ]
+    deps += [
+      "//chrome/browser/extensions",
+      "//chrome/common",
+      "//components/constrained_window",
+      "//components/vector_icons",
+      "//components/web_modal",
+      "//components/webapps/common",
+      "//content/public/browser",
+      "//extensions/browser",
+      "//extensions/common",
+    ]
+  }
 }
 
 source_set("browser_tests") {
@@ -34,6 +100,9 @@ source_set("browser_tests") {
     "web_app_update_review_dialog_browsertest.cc",
   ]
   deps = [
+    ":progress_delay",
+    ":web_app_blocked_migration_infobar_delegate",
+    ":web_app_update_identity_view",
     "//base",
     "//chrome/browser/picture_in_picture",
     "//chrome/browser/picture_in_picture:test_support_ui",
@@ -42,6 +111,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui:view_ids",
     "//chrome/browser/ui/views/infobars",
+    "//chrome/browser/ui/views/web_apps/sub_apps",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/ui/web_applications:launch_utils",
     "//chrome/browser/web_applications:web_applications_test_support",
@@ -52,5 +122,84 @@ source_set("browser_tests") {
     "//testing/gtest",
     "//ui/events:test_support",
     "//ui/views:test_support",
+  ]
+}
+
+source_set("launch_dialogs") {
+  public = [
+    "file_handler_launch_dialog_view.h",
+    "launch_app_user_choice_dialog_view.h",
+    "protocol_handler_launch_dialog_view.h",
+  ]
+
+  sources = [
+    "file_handler_launch_dialog_view.cc",
+    "launch_app_user_choice_dialog_view.cc",
+    "protocol_handler_launch_dialog_view.cc",
+  ]
+
+  public_deps = [
+    "//chrome/browser/ui/dialogs:browser_dialogs",
+    "//chrome/browser/ui/web_applications",
+    "//chrome/browser/web_applications",
+    "//components/webapps/common",
+    "//ui/views",
+  ]
+
+  deps = [
+    ":web_apps",
+    "//base",
+    "//chrome/app:generated_resources",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/custom_handlers",
+    "//components/vector_icons",
+    "//ui/base",
+    "//ui/gfx",
+    "//url",
+  ]
+}
+
+if (is_chromeos) {
+  source_set("protocol_handler_picker_dialog") {
+    public = [ "protocol_handler_picker_dialog.h" ]
+    sources = [ "protocol_handler_picker_dialog.cc" ]
+    public_deps = [
+      "//base",
+      "//content/public/browser",
+      "//ui/base",
+      "//ui/base/metadata",
+      "//ui/views",
+      "//url",
+    ]
+    deps = [
+      "//chrome/app:generated_resources",
+      "//chrome/browser/ui/views:layout_provider",
+      "//components/strings:components_strings",
+      "//components/vector_icons",
+      "//ui/chromeos/styles:cros_tokens_color_mappings",
+      "//ui/gfx",
+      "//ui/strings:ui_strings",
+    ]
+  }
+}
+
+source_set("web_app_icon_name_and_origin_view") {
+  public = [ "web_app_icon_name_and_origin_view.h" ]
+  sources = [ "web_app_icon_name_and_origin_view.cc" ]
+  public_deps = [
+    "//base",
+    "//ui/base/metadata",
+    "//ui/views",
+    "//url",
+  ]
+  deps = [
+    ":web_apps",
+    "//chrome/browser/ui/views:layout_provider",
+    "//chrome/browser/ui/web_applications",
+    "//chrome/browser/web_applications",
+    "//third_party/abseil-cpp:absl",
+    "//ui/base",
+    "//ui/gfx",
   ]
 }

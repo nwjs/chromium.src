@@ -61,9 +61,12 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
+import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils.BookmarkBarSettingChangeOrigin;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -71,6 +74,7 @@ import org.chromium.chrome.test.OverrideContextWrapperTestRule;
 import org.chromium.chrome.test.transit.AutoResetCtaTransitTestRule;
 import org.chromium.chrome.test.transit.ChromeTransitTestRules;
 import org.chromium.chrome.test.util.BookmarkTestUtil;
+import org.chromium.components.bookmarks.BookmarkBarVisibilityState;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.content_public.browser.test.util.TouchCommon;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -132,7 +136,7 @@ public class BookmarkBarTest {
     @MediumTest
     public void testOnAllBookmarksButtonClick() {
         onViewDisplayed(bookmarkBarItemWithText("All bookmarks")).perform(click());
-        onViewDisplayed(bookmarkManagerToolbarWithText("Bookmarks"));
+        onViewDisplayed(withClassName(endsWith("BookmarkToolbar")));
     }
 
     @Test
@@ -162,6 +166,50 @@ public class BookmarkBarTest {
         BookmarkBarUtils.setActivityStateBookmarkBarCompatibleForTesting(false);
         ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
         waitForBookmarkBarVisibility(/* visible= */ false);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_NTP)
+    public void testOnBookmarkBarToggledViaKeyboard_TriState() {
+        final var activity = mCtaTestRule.getActivity();
+        final var evt =
+                new KeyEvent(
+                        /* downTime= */ SystemClock.uptimeMillis(),
+                        /* eventTime= */ SystemClock.uptimeMillis(),
+                        KeyEvent.ACTION_DOWN,
+                        KeyEvent.KEYCODE_B,
+                        /* repeat= */ 0,
+                        KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON);
+
+        // Case 1: Initial state ALWAYS_HIDE -> toggles to ALWAYS_SHOW.
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        BookmarkBarUtils.setBookmarkBarVisibilityState(
+                                activity.getProfileProviderSupplier().get().getOriginalProfile(),
+                                BookmarkBarVisibilityState.ALWAYS_HIDE,
+                                BookmarkBarSettingChangeOrigin.APPEARANCE_SETTINGS));
+        waitForBookmarkBarVisibility(/* visible= */ false);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
+        waitForBookmarkBarVisibility(/* visible= */ true);
+
+        // Case 2: Toggle when ALWAYS_SHOW -> toggles to ALWAYS_HIDE.
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
+        waitForBookmarkBarVisibility(/* visible= */ false);
+
+        // Case 3: Initial state ONLY_SHOW_ON_NTP (on blank page, not NTP) -> toggles to
+        // ALWAYS_SHOW.
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        BookmarkBarUtils.setBookmarkBarVisibilityState(
+                                activity.getProfileProviderSupplier().get().getOriginalProfile(),
+                                BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP,
+                                BookmarkBarSettingChangeOrigin.APPEARANCE_SETTINGS));
+        waitForBookmarkBarVisibility(/* visible= */ false);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> activity.onKeyDown(evt.getKeyCode(), evt));
+        waitForBookmarkBarVisibility(/* visible= */ true);
     }
 
     @Test
@@ -280,6 +328,7 @@ public class BookmarkBarTest {
 
     @Test
     @MediumTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testOnBookmarkItemLongClick() throws ExecutionException {
         final String title = "Google";
         final GURL url = getTestServerUrl("/chrome/test/data/android/google.html");
@@ -294,6 +343,7 @@ public class BookmarkBarTest {
 
     @Test
     @MediumTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testOnBookmarkBarEmptySpaceLongClick() {
         onViewWaiting(withId(R.id.bookmark_bar)).perform(longClick());
 
@@ -304,6 +354,7 @@ public class BookmarkBarTest {
 
     @Test
     @MediumTest
+    @EnableFeatures(ChromeFeatureList.BOOKMARKS_BAR_CONTEXT_MENU)
     public void testOnBookmarkBarItemsContainerEmptySpaceLongClick() throws ExecutionException {
         // Add a single bookmark so the items container has a non-zero height.
         final String title = "Test Bookmark";
@@ -446,8 +497,17 @@ public class BookmarkBarTest {
     private void setBookmarkBarSetting(boolean enabled) {
         final var activity = mCtaTestRule.getActivity();
         final var profile = activity.getProfileProviderSupplier().get().getOriginalProfile();
-        BookmarkBarUtils.setUserPrefsShowBookmarksBar(
-                profile, enabled, /* fromKeyboardShortcut= */ false);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.BOOKMARKS_BAR_NTP)) {
+            BookmarkBarUtils.setBookmarkBarVisibilityState(
+                    profile,
+                    enabled
+                            ? BookmarkBarVisibilityState.ALWAYS_SHOW
+                            : BookmarkBarVisibilityState.ALWAYS_HIDE,
+                    BookmarkBarSettingChangeOrigin.APPEARANCE_SETTINGS);
+        } else {
+            BookmarkBarUtils.setUserPrefsShowBookmarksBar(
+                    profile, enabled, /* fromKeyboardShortcut= */ false);
+        }
     }
 
     private void waitForBookmarkBarVisibility(boolean visible) {

@@ -29,6 +29,7 @@
 #import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/idle/idle_timeout_policy_handler.h"
 #import "components/enterprise/isolated_mode/prefs.h"
+#import "components/enterprise/net/core/prefs.h"
 #import "components/enterprise/watermarking/watermark_style_policy_handler.h"
 #import "components/history/core/common/pref_names.h"
 #import "components/lens/lens_overlay_permission_utils.h"
@@ -161,6 +162,9 @@ constexpr auto kSimplePolicyMap = std::to_array<PolicyToPreferenceMapEntry>({
     base::Value::Type::INTEGER},
   { policy::key::kAutofillPredictionSettings,
     optimization_guide::prefs::kAutofillPredictionImprovementsEnterprisePolicyAllowed,
+    base::Value::Type::INTEGER },
+  { policy::key::kFindAndFillWithGeminiSettings,
+    optimization_guide::prefs::kFindAndFillWithGeminiSettings,
     base::Value::Type::INTEGER },
   { policy::key::kDownloadRestrictions,
     policy::policy_prefs::kDownloadRestrictions,
@@ -310,6 +314,9 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
       policy::key::kAutofillPredictionSettings,
       optimization_guide::prefs::
           kAutofillPredictionImprovementsEnterprisePolicyAllowed);
+  gen_ai_default_policies.emplace_back(
+      policy::key::kFindAndFillWithGeminiSettings,
+      optimization_guide::prefs::kFindAndFillWithGeminiSettings);
   handlers->AddHandler(
       std::make_unique<policy::GenAiDefaultSettingsPolicyHandler>(
           std::move(gen_ai_default_policies)));
@@ -382,6 +389,12 @@ std::unique_ptr<policy::ConfigurationPolicyHandlerList> BuildPolicyHandlerList(
           policy::key::kOnSecurityEventEnterpriseConnector,
           enterprise_connectors::kOnSecurityEventPref,
           enterprise_connectors::kOnSecurityEventScopePref, chrome_schema));
+
+  handlers->AddHandler(
+      std::make_unique<
+          enterprise_connectors::EnterpriseConnectorsPolicyHandler>(
+          policy::key::kProxyProvisioningDomains,
+          enterprise_net::kProxyProvisioningDomains, chrome_schema));
 
   handlers->AddHandler(std::make_unique<policy::DataRegionPolicyHandler>(
       policy::key::kChromeDataRegionSetting, prefs::kChromeDataRegionSetting));

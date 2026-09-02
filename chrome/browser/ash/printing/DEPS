@@ -9,7 +9,6 @@ include_rules = [
   "+chrome/app/vector_icons",
   "+chrome/browser/apps/app_service",
   "+chrome/browser/ash/login/users",
-  "+chrome/browser/ash/plugin_vm",
   "+chrome/browser/ash/policy/core",
   "+chrome/browser/ash/profiles",
   "+chrome/browser/ash/scanning",
@@ -29,7 +28,6 @@ include_rules = [
   "+chrome/browser/ui/ash/system_web_apps",
   "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/chrome_web_modal_dialog_manager_delegate.h",
-  "+chrome/browser/ui/webui/ash/print_preview_cros",
   "+chrome/common/chrome_features.h",
   "+chrome/grit",
 ]
@@ -40,6 +38,9 @@ specific_include_rules = {
     "+chrome/browser/global_features.h",
     "+chrome/browser/web_applications/test",
     "+chrome/test/base",
+  ],
+  "cups_printers_manager_factory\\.cc": [
+    "+chrome/browser/global_features.h",
   ],
   "(server_printers_fetcher|server_printers_provider_unittest)\\.cc": [
     # IPP protocol; it is needed for communication with print servers.

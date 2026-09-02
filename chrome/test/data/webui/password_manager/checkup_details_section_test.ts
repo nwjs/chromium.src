@@ -934,15 +934,38 @@ suite('CheckupDetailsSectionTest', function() {
     await passwordManager.whenCalled('getInsecureCredentials');
     await flushTasks();
 
-    // Verify it is connected.
-    assertTrue(section['listenerId_'] !== null);
+    const listItem = section.shadowRoot!.querySelector('checkup-list-item');
+    assertTrue(!!listItem);
+
+    // Verify initial state.
+    assertEquals(
+        PasswordAutomaticChangeState.kInactive, listItem.passwordChangeState);
+
+    // Fire state update while connected.
+    passwordManager.callbackRouterRemote.onPasswordAutomaticChangeStateUpdated(
+        credential.id, PasswordAutomaticChangeState.kChangingPassword);
+    await passwordManager.callbackRouterRemote.$.flushForTesting();
+    await flushTasks();
+
+    assertEquals(
+        PasswordAutomaticChangeState.kChangingPassword,
+        listItem.passwordChangeState);
 
     // Remove section from DOM (disconnectedCallback is called).
     section.remove();
     await flushTasks();
 
-    // Verify listener ID is cleared.
-    assertEquals(null, section['listenerId_']);
+    // Fire state update while disconnected.
+    passwordManager.callbackRouterRemote.onPasswordAutomaticChangeStateUpdated(
+        credential.id,
+        PasswordAutomaticChangeState.kPasswordChangedSuccessfully);
+    await passwordManager.callbackRouterRemote.$.flushForTesting();
+    await flushTasks();
+
+    // Verify state was not updated because listener was removed.
+    assertEquals(
+        PasswordAutomaticChangeState.kChangingPassword,
+        listItem.passwordChangeState);
   });
 
   [CheckupSubpage.COMPROMISED, CheckupSubpage.REUSED, CheckupSubpage.WEAK]
@@ -1000,7 +1023,9 @@ suite('CheckupDetailsSectionTest', function() {
 
                 // Click cancel.
                 cancelButton.click();
-                await passwordManager.whenCalled('stopPasswordChange');
+                const id =
+                    await passwordManager.whenCalled('stopPasswordChange');
+                assertEquals(insecureCredential.id, id);
                 listItem.passwordChangeState =
                     PasswordAutomaticChangeState.kInactive;
                 await flushTasks();

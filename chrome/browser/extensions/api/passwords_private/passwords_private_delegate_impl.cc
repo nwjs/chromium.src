@@ -53,12 +53,13 @@
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
+#include "components/password_manager/core/browser/password_store/password_form_converters.h"
+#include "components/password_manager/core/browser/password_store/password_store_util.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/browser/sharing/password_sender_service.h"
 #include "components/password_manager/core/browser/sharing/recipients_fetcher_impl.h"
 #include "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #include "components/password_manager/core/browser/ui/credential_utils.h"
-#include "components/password_manager/core/browser/ui/passwords_provider.h"
 #include "components/password_manager/core/browser/ui/saved_passwords_presenter.h"
 #include "components/password_manager/core/common/password_manager_constants.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -336,9 +337,9 @@ PasswordsPrivateDelegateImpl::PasswordsPrivateDelegateImpl(
                                  account_password_store,
                                  passkey_model),
       password_import_controller_(std::make_unique<PasswordImportController>(
-          &saved_passwords_presenter_)),
+          saved_passwords_presenter_)),
       password_export_controller_(std::make_unique<PasswordExportController>(
-          &saved_passwords_presenter_,
+          saved_passwords_presenter_,
           base::BindRepeating(
               &PasswordsPrivateDelegateImpl::OnPasswordsExportProgress,
               base::Unretained(this)))),
@@ -740,7 +741,8 @@ void PasswordsPrivateDelegateImpl::SharePassword(
   }
 
   std::vector<password_manager::PasswordForm> corresponding_credentials =
-      saved_passwords_presenter_.GetCorrespondingPasswordForms(*entry);
+      password_manager::ToPasswordForms(
+          saved_passwords_presenter_.GetCorrespondingStoredCredentials(*entry));
   if (corresponding_credentials.empty()) {
     return;
   }
@@ -830,22 +832,6 @@ bool PasswordsPrivateDelegateImpl::IsAccountStorageActive() {
   return password_manager::features_util::IsAccountStorageActive(sync_service_);
 }
 
-void PasswordsPrivateDelegateImpl::SetAccountStorageEnabled(bool enabled) {
-  // TODO(crbug.com/470332074): Verify whether this should check for "enabled"
-  // instead of "active".
-  if (enabled ==
-      password_manager::features_util::IsAccountStorageActive(sync_service_)) {
-    return;
-  }
-  sync_service_->GetUserSettings()->SetSelectedType(
-      syncer::UserSelectableType::kPasswords, enabled);
-}
-
-bool PasswordsPrivateDelegateImpl::ShouldShowAccountStorageSettingToggle() {
-  return password_manager::features_util::ShouldShowAccountStorageSettingToggle(
-      sync_service_);
-}
-
 std::vector<api::passwords_private::PasswordUiEntry>
 PasswordsPrivateDelegateImpl::GetInsecureCredentials() {
   return password_check_delegate_.GetInsecureCredentials();
@@ -914,8 +900,7 @@ void PasswordsPrivateDelegateImpl::ShowAddShortcutDialog(
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
   DCHECK(browser);
   web_app::CreateWebAppFromCurrentWebContents(
-      browser->GetBrowserForMigrationOnly(),
-      web_app::WebAppInstallFlow::kInstallSite);
+      browser, web_app::WebAppInstallFlow::kInstallSite);
   base::UmaHistogramEnumeration(
       "PasswordManager.ShortcutMetric",
       password_manager::metrics_util::PasswordManagerShortcutMetric::
@@ -966,18 +951,8 @@ bool PasswordsPrivateDelegateImpl::IsConnectedToCloudAuthenticator() {
 
 password_manager::ActionableError
 PasswordsPrivateDelegateImpl::GetActionableError() {
-  // Only propagate profile errors if there aren't any account store errors.
-  password_manager::ActionableError error =
-      password_manager::ActionableError::kNoError;
-  if (account_password_store_) {
-    error = account_password_store_->GetError();
-  }
-  if (error == password_manager::ActionableError::kNoError &&
-      profile_password_store_) {
-    error = profile_password_store_->GetError();
-  }
-
-  return error;
+  return password_manager::GetActionableErrorFromPasswordStores(
+      account_password_store_.get(), profile_password_store_.get());
 }
 
 void PasswordsPrivateDelegateImpl::DeleteAllPasswordManagerData(
@@ -1241,8 +1216,6 @@ void PasswordsPrivateDelegateImpl::OnStateChanged(
     syncer::SyncService* sync_service) {
   if (event_router_) {
     event_router_->OnAccountStorageActiveStateChanged(IsAccountStorageActive());
-    event_router_->OnShouldShowAccountStorageSettingToggleChanged(
-        ShouldShowAccountStorageSettingToggle());
   }
 }
 

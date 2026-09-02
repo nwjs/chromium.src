@@ -330,7 +330,7 @@ class BaseAutofillAiTest : public testing::Test {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   test::AutofillUnitTestEnvironment autofill_test_env_;
-  base::test::SingleThreadTaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_;
   NiceMock<MockAutofillAiPersonalContextAccessManager> pcontext_manager_;
   NiceMock<MockAutofillClient> autofill_client_;
   std::unique_ptr<AutofillAiManager> manager_;
@@ -1154,8 +1154,10 @@ TEST_F(AutofillAiMqlsMetricsTest, KeyMetrics_OptOut) {
 // emitted, but UMA Key metrics are.
 TEST_F(AutofillAiMqlsMetricsTest,
        KeyMetrics_OptOut_AutofillAiAvailableByDefault) {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   base::test::ScopedFeatureList feature_list{
       features::kAutofillAiAvailableByDefault};
+#endif
   SetAutofillAiOptInStatus(autofill_client(), AutofillAiOptInStatus::kOptedOut);
 
   std::unique_ptr<FormStructure> form = CreatePassportForm();

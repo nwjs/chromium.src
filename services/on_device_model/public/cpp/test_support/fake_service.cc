@@ -339,6 +339,9 @@ void FakeOnDeviceSession::GenerateImpl(
   if (settings_->model_execute_result.empty()) {
     for (const auto& context : context_) {
       std::string text = CtxToString(*context, params_->capabilities);
+      if (text.empty()) {
+        continue;
+      }
       output_token_count += text.size();
       auto chunk = mojom::ResponseChunk::New();
       chunk->text = text;
@@ -369,12 +372,13 @@ void FakeOnDeviceSession::GenerateImpl(
     remote->OnToolCalls(std::move(tool_calls));
   }
 
-  if (options->max_output_tokens &&
-      output_token_count > options->max_output_tokens) {
-    output_token_count = options->max_output_tokens;
-  }
   auto summary = mojom::ResponseSummary::New();
-  summary->output_token_count = output_token_count;
+  constexpr int kEosTokenCount = 1;
+  summary->output_token_count = output_token_count + kEosTokenCount;
+  if (options->max_output_tokens &&
+      summary->output_token_count > options->max_output_tokens) {
+    summary->output_token_count = options->max_output_tokens;
+  }
   remote->OnComplete(std::move(summary));
 }
 

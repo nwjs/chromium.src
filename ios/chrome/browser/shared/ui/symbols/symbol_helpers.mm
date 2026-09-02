@@ -13,6 +13,9 @@
 
 namespace {
 
+// The size of the what's new icon image.
+const CGFloat kIconImageWhatsNewSize = 16;
+
 constexpr CGFloat kCloseSymbolSize = 22;
 constexpr CGFloat kDoneSymbolSize = 22;
 
@@ -67,40 +70,6 @@ UIImage* DefaultDoneButtonForToolbar() {
   return SymbolWithConfiguration(SymbolCheckmark, configuration);
 }
 
-UIImage* DefaultSymbolWithConfiguration(NSString* symbol_name,
-                                        UIImageConfiguration* configuration) {
-  return SymbolWithConfiguration({symbol_name, SymbolType::kSystem},
-                                 configuration);
-}
-
-UIImage* CustomSymbolWithConfiguration(NSString* symbol_name,
-                                       UIImageConfiguration* configuration) {
-  return SymbolWithConfiguration({symbol_name, SymbolType::kCustom},
-                                 configuration);
-}
-
-UIImage* DefaultSymbolWithPointSize(NSString* symbol_name, CGFloat point_size) {
-  return DefaultSymbolWithConfiguration(
-      symbol_name, DefaultSymbolConfigurationWithPointSize(point_size));
-}
-
-UIImage* CustomSymbolWithPointSize(NSString* symbol_name, CGFloat point_size) {
-  return CustomSymbolWithConfiguration(
-      symbol_name, DefaultSymbolConfigurationWithPointSize(point_size));
-}
-
-UIImage* DefaultSymbolTemplateWithPointSize(NSString* symbol_name,
-                                            CGFloat point_size) {
-  return [DefaultSymbolWithPointSize(symbol_name, point_size)
-      imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-}
-
-UIImage* CustomSymbolTemplateWithPointSize(NSString* symbol_name,
-                                           CGFloat point_size) {
-  return [CustomSymbolWithPointSize(symbol_name, point_size)
-      imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
-}
-
 UIImage* MakeSymbolMonochrome(UIImage* symbol) {
   return [symbol
       imageByApplyingSymbolConfiguration:
@@ -119,28 +88,12 @@ UIImage* SymbolWithPalette(UIImage* symbol, NSArray<UIColor*>* colors) {
           [UIImageSymbolConfiguration configurationWithPaletteColors:colors]];
 }
 
-UIImage* DefaultSettingsRootSymbol(NSString* symbol_name) {
-  return DefaultSymbolWithPointSize(symbol_name,
-                                    kSettingsRootSymbolImagePointSize);
-}
-
-UIImage* CustomSettingsRootSymbol(NSString* symbol_name) {
-  return CustomSymbolWithPointSize(symbol_name,
-                                   kSettingsRootSymbolImagePointSize);
-}
-
-UIImage* CustomSettingsRootMulticolorSymbol(NSString* symbol_name) {
-  return MakeSymbolMulticolor(CustomSymbolWithPointSize(
-      symbol_name, kSettingsRootSymbolImagePointSize));
-}
-
-UIImage* DefaultAccessorySymbolConfigurationWithRegularWeight(
-    NSString* symbol_name) {
-  return DefaultSymbolWithConfiguration(
-      symbol_name, [UIImageSymbolConfiguration
-                       configurationWithPointSize:kSymbolAccessoryPointSize
-                                           weight:UIImageSymbolWeightRegular
-                                            scale:UIImageSymbolScaleMedium]);
+UIImage* DefaultAccessorySymbolConfigurationWithRegularWeight(Symbol symbol) {
+  return SymbolWithConfiguration(
+      symbol, [UIImageSymbolConfiguration
+                  configurationWithPointSize:kSymbolAccessoryPointSize
+                                      weight:UIImageSymbolWeightRegular
+                                       scale:UIImageSymbolScaleMedium]);
 }
 
 UIImage* SymbolWithConfiguration(Symbol symbol,
@@ -164,6 +117,18 @@ UIImage* SettingsRootSymbol(Symbol symbol) {
 
 UIImage* SettingsRootMulticolorSymbol(Symbol symbol) {
   return MakeSymbolMulticolor(SettingsRootSymbol(symbol));
+}
+
+UIImage* WhatsNewSymbolHelper(NSString* symbol_name,
+                              bool is_system,
+                              bool is_multicolor) {
+  UIImage* symbol = SymbolWithConfiguration(
+      {symbol_name, is_system ? SymbolType::kSystem : SymbolType::kCustom},
+      DefaultSymbolConfigurationWithPointSize(kIconImageWhatsNewSize));
+  if (!is_system && is_multicolor) {
+    return MakeSymbolMulticolor(symbol);
+  }
+  return [symbol imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
 }
 
 }  // extern "C"

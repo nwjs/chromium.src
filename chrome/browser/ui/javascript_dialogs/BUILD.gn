@@ -51,7 +51,10 @@ source_set("impl") {
     ]
   } else {
     sources += [ "javascript_tab_modal_dialog_manager_delegate_desktop.cc" ]
-    deps += [ "//chrome/browser/ui/tabs:tab_strip" ]
+    deps += [
+      "//chrome/browser/ui:tab_modal_confirm_dialog",
+      "//chrome/browser/ui/tabs:tab_strip",
+    ]
   }
 
   public_deps = [ "//chrome/browser:browser_public_dependencies" ]
@@ -82,6 +85,7 @@ if (!is_android) {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/tabs:tab_enums",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/tabs/tab",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
       "//components/embedder_support",

@@ -10,6 +10,7 @@
 #include "base/uuid.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
@@ -116,7 +117,8 @@ ThrottleCheckResult ContextualTasksNavigationThrottle::ProcessNavigation() {
 
   content::SiteInstance* site = navigation_handle()->GetSourceSiteInstance();
   bool is_same_site_or_from_ui =
-      site && site->IsSameSiteWithURL(navigation_handle()->GetURL());
+      !navigation_handle()->IsRendererInitiated() ||
+      (site && site->IsSameSiteWithURL(navigation_handle()->GetURL()));
 
   const net::HttpRequestHeaders& headers =
       navigation_handle()->GetRequestHeaders();

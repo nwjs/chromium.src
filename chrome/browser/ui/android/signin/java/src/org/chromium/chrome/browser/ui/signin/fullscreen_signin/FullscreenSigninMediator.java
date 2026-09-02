@@ -18,18 +18,17 @@ import androidx.annotation.IntDef;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.DeviceInfo;
-import org.chromium.base.FeatureList;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
+import org.chromium.chrome.browser.signin.services.AccountPreviewDataService;
 import org.chromium.chrome.browser.signin.services.BadgeConfig;
 import org.chromium.chrome.browser.signin.services.DisplayableProfileData;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
@@ -113,6 +112,11 @@ public class FullscreenSigninMediator
     private final ModalDialogManager mModalDialogManager;
     private final AccountManagerFacade mAccountManagerFacade;
     private @MonotonicNonNull SigninManager mSigninManager;
+
+    // TODO(crbug.com/532967032): Remove annotation once implementation is complete.
+    @SuppressWarnings("UnusedVariable")
+    private @Nullable AccountPreviewDataService mAccountPreviewDataService;
+
     private @MonotonicNonNull ForcedSigninStatusProvider mForcedSigninStatusProvider;
     private final Delegate mDelegate;
     private final PrivacyPreferencesManager mPrivacyPreferencesManager;
@@ -304,6 +308,8 @@ public class FullscreenSigninMediator
         Log.i(TAG, "#onInitialLoadCompleted() hasPolicies:" + hasPolicies);
         Profile profile = assumeNonNull(mDelegate.getProfileSupplier().get()).getOriginalProfile();
         mSigninManager = assertNonNull(IdentityServicesProvider.get().getSigninManager(profile));
+        mAccountPreviewDataService =
+                IdentityServicesProvider.get().getAccountPreviewDataService(profile);
         mForcedSigninStatusProvider = ForcedSigninStatusProvider.getForProfile(profile);
         initializeProfileDataCache(profile);
 
@@ -348,6 +354,7 @@ public class FullscreenSigninMediator
         // Directly start the flow to add a selected account if it is specified in the config for
         // signin and does not already exist on the device.
         maybeStartAddingSelectedAccount();
+        mDelegate.onInitialLoadCompleted();
     }
 
     private void initializeProfileDataCache(Profile profile) {
@@ -568,13 +575,7 @@ public class FullscreenSigninMediator
 
         if (mSelectedAccount != null) {
             mModel.set(FullscreenSigninProperties.SHOW_SIGNIN_PROGRESS_SPINNER_WITH_TEXT, true);
-            if (FeatureList.isNativeInitialized()
-                    && ChromeFeatureList.isEnabled(ChromeFeatureList.XPLAT_SYNCED_SETUP)) {
-                startSignInAnimation(signinTimestampsLogger);
-            } else {
-                // Proceed to the next step without waiting for animation.
-                finishSignIn(signinTimestampsLogger);
-            }
+            startSignInAnimation(signinTimestampsLogger);
         }
     }
 
@@ -948,7 +949,11 @@ public class FullscreenSigninMediator
         if (!isMetricsReportingDisabled) {
             footerString += " " + mContext.getString(R.string.signin_fre_footer_metrics_reporting);
             final ChromeClickableSpan clickableUMADialogSpan =
-                    new ChromeClickableSpan(mContext, view -> openUmaDialog());
+                    new ChromeClickableSpan(
+                            mContext,
+                            view -> openUmaDialog(),
+                            mContext.getString(
+                                    R.string.signin_fre_footer_metrics_reporting_settings));
             spans.add(
                     new SpanApplier.SpanInfo("<UMA_LINK>", "</UMA_LINK>", clickableUMADialogSpan));
         }

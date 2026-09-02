@@ -395,6 +395,7 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // crbug.com/545268511
     public void testHistoryOptInDoNotCarryOverFromOneUserToAnother() {
         mSyncTestRule.getSigninTestRule().addAccountThenSignin(TestAccounts.ACCOUNT1);
 
@@ -442,7 +443,7 @@ public class ManageSyncSettingsTest {
     @Test
     @LargeTest
     @Feature({"Sync"})
-    @DisableIf.Device(DeviceFormFactor.DESKTOP) // crbug.com/529758544
+    @DisabledTest(message = "crbug.com/544726018")
     public void testRemoveAccountFromDeviceShouldClearSyncPrefs() {
         SigninTestRule signinTestRule = mSyncTestRule.getSigninTestRule();
         signinTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
@@ -567,7 +568,6 @@ public class ManageSyncSettingsTest {
     @Test
     @SmallTest
     @Feature({"Sync"})
-    @DisabledTest(message = "https://crbug.com/40754932")
     public void testPassphraseCreation() {
         mSyncTestRule.setUpAccountAndSignInForTesting();
         final ManageSyncSettings fragment = startManageSyncPreferences();

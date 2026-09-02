@@ -10,6 +10,7 @@
 :host {
   --border-radius: calc(var(--location-bar-height)/2);
   --location-bar-background: var(--color-location-bar-background);
+  --omnibox-start-padding: 0px;
   align-self: center;
   align-items: center;
   background-color: var(--location-bar-background);
@@ -27,7 +28,8 @@
    * anyway. We may need to compensate in chip positioning (or change the
    * approach once they exist
    */
-  padding-inline: var(--border-radius);
+  padding-inline-start: var(--border-radius);
+  padding-inline-end: var(--location-bar-trailing-decoration-edge-padding);
   transition-property: background-color;
   transition-duration: 200ms;
   transition-timing-function: linear;
@@ -36,6 +38,12 @@
 
   /* TODO(crbug.com/474060468): Hardcoded width needs fixing */
   width: 400px;
+}
+
+/* If all controls are WebUI, the location bar (and all other buttons) are
+ * sized/hidden by a script, rather than by relying on flex layout logic. */
+:host-context([webui-toolbar-fully-enabled]) {
+  flex: none;
 }
 
 :host(:hover:not([chip-hovered])) {
@@ -82,23 +90,23 @@
   transition-property: none;
 }
 
-:host(#location-bar:not(.popup-open)):has(> readonly-omnibox:focus-within) {
+:host(#location-bar:not(.no-focus-ring)):has(> readonly-omnibox:focus-within) {
   box-shadow: inset 0 0 0 2px var(--cr-focus-outline-color);
 }
 
 @media (forced-colors: active) {
-  :host(#location-bar:not(.popup-open)):has(> readonly-omnibox:focus-within) {
+  :host(#location-bar:not(.no-focus-ring)):has(
+      > readonly-omnibox:focus-within) {
     outline: var(--cr-focus-outline-hcm);
   }
 }
 
 permission-dashboard {
   flex-shrink: 0;
-  /* TODO(qingxinwu): 5px and 8px match 'icon_left' and 'text_left'
-   * in LocationBarView::Layout(). Move these to layout_constants.cc and expose
-   * them via CSS variables */
-  margin-inline-end: 8px;
+  /* Mirrors identically to 'icon_left' (5) and 'text_left' (8) mathematically
+   * processed from internal LocationBarView::Layout(). */
   margin-inline-start: calc(5px - var(--border-radius));
+  margin-inline-end: 8px;
 }
 
 permission-dashboard:not([visible]) {
@@ -106,17 +114,35 @@ permission-dashboard:not([visible]) {
 }
 
 location-icon {
-  flex-shrink: 0;
+  flex-shrink: 1;
   margin: 4px;
-  margin-inline-start: calc(4px - var(--border-radius));
+  margin-inline-start: calc(5px - var(--border-radius));
+  margin-inline-end: 8px;
+  max-width: 50%; /* See kLeadingDecorationMaxFraction */
 }
 
-/* Margins expand out to line up with the popup if it's open */
+/* We expand out spacing between icon and text to line things up with the
+   popup. This is mostly done by the omnibox, since it wants to accept clicks
+   from that area, but for location icon we need to undo some of the
+   compensation that does. */
+:host(.popup-open) {
+  --omnibox-start-padding: calc(14px - var(--touch-mode)*10px);
+}
+
 :host(.popup-open) location-icon {
   margin-inline-start: calc(12px - var(--border-radius));
-  margin-inline-end: calc(14px - var(--touch-mode)*10px);
+  margin-inline-end: var(--omnibox-start-padding);
 }
 
 selected-keyword {
   flex-shrink: 1;
+  max-width: 50%; /* See kLeadingDecorationMaxFraction */
+}
+
+content-settings-icons {
+  /* Matches kContentSettingIntraItemPadding in LocationBarView.
+   * Because native trailing decorations are evaluated as a flat array, the gap
+   * between the right-most Content Setting icon and the adjacent Page Actions
+   * container is naturally treated by C++ as an intra-item gap. */
+  margin-inline-end: 8px;
 }

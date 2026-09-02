@@ -13,17 +13,17 @@ import static org.chromium.android_webview.test.OnlyRunIn.ProcessMode.SINGLE_PRO
 
 import android.annotation.SuppressLint;
 import android.content.ComponentCallbacks2;
-import android.content.Context;
+import android.content.MutableContextWrapper;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Pair;
-import android.view.ContextThemeWrapper;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -55,14 +55,17 @@ import org.chromium.android_webview.AwRenderProcess;
 import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.AwViewAndroidDelegate;
 import org.chromium.android_webview.renderer_priority.RendererPriority;
+import org.chromium.android_webview.test.AwActivityTestRule.TestDependencyFactory;
 import org.chromium.android_webview.test.TestAwContentsClient.OnDownloadStartHelper;
 import org.chromium.android_webview.test.util.CommonResources;
 import org.chromium.android_webview.test.util.GraphicsTestUtils;
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.FakeTimeTestRule;
 import org.chromium.base.Log;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TimeUtils;
+
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -70,6 +73,7 @@ import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.base.test.util.MaxAndroidSdkLevel;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.content_public.browser.test.util.RenderProcessHostUtils;
 import org.chromium.content_public.browser.test.util.TouchCommon;
@@ -153,30 +157,42 @@ public class AwContentsTest extends AwParameterizedTest {
     @Feature({"AndroidWebView"})
     public void testUpdateContextAndAdopt() throws Throwable {
         mActivityTestRule.startBrowserProcess();
-        AwTestContainerView awTestContainerView =
-                mActivityTestRule.createAwTestContainerViewOnMainSync(mContentsClient);
-        AwContents awContents = awTestContainerView.getAwContents();
+        MutableContextWrapper oldContext =
+                new MutableContextWrapper(mActivityTestRule.getActivity());
+        AwTestContainerView testContainer =
+                mActivityTestRule.createAwTestContainerViewOnMainSync(
+                        mContentsClient,
+                        false,
+                        new TestDependencyFactory() {
+                            @Override
+                            public AwTestContainerView createAwTestContainerView(
+                                    AwTestRunnerActivity activity, boolean allowHw) {
+                                return new AwTestContainerView(oldContext, allowHw);
+                            }
+                        });
+        AwContents awContents = testContainer.getAwContents();
 
         mActivityTestRule.loadDataSync(
                 awContents,
                 mContentsClient.getOnPageFinishedHelper(),
-                CommonResources.ABOUT_HTML,
+                "<html><body><div style='font-size: 50pt;'>Select me</div></body></html>",
                 "text/html",
                 false);
 
+        TouchCommon.longPressView(testContainer);
+
+        AwTestContainerView newContainer = mActivityTestRule.reparentAwContents(testContainer);
+        oldContext.setBaseContext(null);
+
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    ViewGroup parent = (ViewGroup) awTestContainerView.getParent();
-                    parent.removeView(awTestContainerView);
-                    Context newContext =
-                            new ContextThemeWrapper(
-                                    mActivityTestRule.getActivity(), android.R.style.Theme_Holo);
-                    AwTestContainerView newContainerView =
-                            new AwTestContainerView(newContext, true);
-                    newContainerView.initialize(awContents);
-                    awContents.adopt(
-                            newContainerView, newContainerView.getInternalAccessDelegate());
+                    newContainer.measure(
+                            View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY));
+                    newContainer.layout(0, 0, 500, 500);
                 });
+
+        TouchCommon.longPressView(newContainer);
 
         mActivityTestRule.loadDataSync(
                 awContents,
@@ -184,6 +200,43 @@ public class AwContentsTest extends AwParameterizedTest {
                 "<html><body>Hello</body></html>",
                 "text/html",
                 false);
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"AndroidWebView"})
+    @MaxAndroidSdkLevel(Build.VERSION_CODES.R)
+    public void testAdoptRegistersWindowInsetsListener() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        AwTestContainerView testContainer =
+                mActivityTestRule.createAwTestContainerViewOnMainSync(mContentsClient);
+        AwContents awContents = testContainer.getAwContents();
+
+        class SpyingContainerView extends AwTestContainerView {
+            View.OnApplyWindowInsetsListener mInsetsListener;
+
+            SpyingContainerView() {
+                super(mActivityTestRule.getActivity(), false);
+            }
+
+            @Override
+            public void setOnApplyWindowInsetsListener(View.OnApplyWindowInsetsListener listener) {
+                super.setOnApplyWindowInsetsListener(listener);
+                mInsetsListener = listener;
+            }
+        }
+        SpyingContainerView newContainer = new SpyingContainerView();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    ((ViewGroup) testContainer.getParent()).removeView(testContainer);
+                    awContents.adopt(newContainer, newContainer.getInternalAccessDelegate());
+                });
+
+        Assert.assertNotNull(
+                "AwContents.adopt() must register an OnApplyWindowInsetsListener on the new"
+                    + " container.",
+                newContainer.mInsetsListener);
     }
 
     @Test
@@ -1436,16 +1489,26 @@ public class AwContentsTest extends AwParameterizedTest {
         }
     }
 
-    // This test verifies that Private Network Access' secure context
-    // restriction (feature flag BlockInsecurePrivateNetworkRequests) does not
-    // apply to Webview: insecure private network requests are allowed.
+    // This test verifies that Local Network Access' secure context restriction does not apply to
+    // Webview: insecure local network requests are allowed.
     //
     // This is a regression test for crbug.com/1255675.
     @Test
     @Feature({"AndroidWebView"})
     @CommandLineFlags.Add(ContentSwitches.HOST_RESOLVER_RULES + "=MAP * 127.0.0.1")
     @SmallTest
-    public void testInsecurePrivateNetworkAccess() throws Throwable {
+    public void testInsecureLocalNetworkAccess() throws Throwable {
+        EmbeddedTestServer testServer1 =
+                EmbeddedTestServer.createAndStartServer(
+                        InstrumentationRegistry.getInstrumentation().getContext());
+        // Extract the port assigned to the first server and override its IP address space to
+        // 'public'
+        int server1Port = Uri.parse(testServer1.getURL("/")).getPort();
+        CommandLine.getInstance()
+                .appendSwitchWithValue(
+                        "ip-address-space-overrides",
+                        String.format("127.0.0.1:%d=public", server1Port));
+
         mActivityTestRule.startBrowserProcess();
         final AwTestContainerView testContainer =
                 mActivityTestRule.createAwTestContainerViewOnMainSync(mContentsClient);
@@ -1471,41 +1534,48 @@ public class AwContentsTest extends AwParameterizedTest {
         AwActivityTestRule.addJavascriptInterfaceOnUiThread(
                 awContents, injectedObject, "injectedObject");
 
-        EmbeddedTestServer testServer =
-                EmbeddedTestServer.createAndStartServer(
-                        InstrumentationRegistry.getInstrumentation().getContext());
+        TestWebServer testServer2 = TestWebServer.start();
+        try {
+            // Need to avoid http://localhost, which is considered secure, so we use
+            // http://foo.test, which resolves to 127.0.0.1 thanks to the host resolver rules
+            // command-line flag.
+            //
+            // The resulting document is a non-secure context in the public IP address space due to
+            // command-line overrides. If the secure context restriction were applied, it would not
+            // be allowed to fetch subresources from localhost.
+            String url = testServer1.getURLWithHostName("foo.test", "/defaultresponse");
 
-        // Need to avoid http://localhost, which is considered secure, so we
-        // use http://foo.test, which resolves to 127.0.0.1 thanks to the
-        // host resolver rules command-line flag.
-        //
-        // The resulting document is a non-secure context in the public IP
-        // address space. If the secure context restriction were applied, it
-        // would not be allowed to fetch subresources from localhost.
-        String url =
-                testServer.getURLWithHostName(
-                        "foo.test", "/set-header?Content-Security-Policy: treat-as-public-address");
+            mActivityTestRule.loadUrlSync(
+                    awContents, mContentsClient.getOnPageFinishedHelper(), url);
 
-        mActivityTestRule.loadUrlSync(awContents, mContentsClient.getOnPageFinishedHelper(), url);
+            // Fetch a subresource from the second server, whose IP address/port combination is not
+            // overridden on the command line and thus belongs to the loopback IP address space.
+            // This should succeed.
+            List<Pair<String, String>> headers = new ArrayList<Pair<String, String>>();
+            headers.add(Pair.create("Access-Control-Allow-Origin", "*"));
+            String fetchUrl = testServer2.setResponse("/cors-ok.txt", "OK", headers);
 
-        // Fetch a subresource from the same server, whose IP address is still
-        // 127.0.0.1, thus belonging to the local IP address space.
-        // This should succeed.
-        mActivityTestRule.executeJavaScriptAndWaitForResult(
-                awContents,
-                mContentsClient,
-                """
-                fetch("/defaultresponse")
-                  .then(() => {
-                    injectedObject.success();
-                  })
-                  .catch((err) => {
-                    console.log(err);
-                    injectedObject.error();
-                  })
-                """);
+            mActivityTestRule.executeJavaScriptAndWaitForResult(
+                    awContents,
+                    mContentsClient,
+                    String.format(
+                            """
+                            fetch('%s')
+                              .then(() => {
+                                injectedObject.success();
+                              })
+                              .catch((err) => {
+                                console.log(err);
+                                injectedObject.error();
+                              })
+                            """,
+                            fetchUrl));
 
-        Assert.assertTrue(AwActivityTestRule.waitForFuture(fetchResultFuture));
+            Assert.assertTrue(AwActivityTestRule.waitForFuture(fetchResultFuture));
+        } finally {
+            testServer1.stopAndDestroyServer();
+            testServer2.shutdown();
+        }
     }
 
     private static final String HELLO_WORLD_URL = "/android_webview/test/data/hello_world.html";
@@ -1968,5 +2038,103 @@ public class AwContentsTest extends AwParameterizedTest {
         CriteriaHelper.pollUiThread(
                 () -> viewAndroidDelegate.getViewportInsetBottom() == oldInset.get() - scrollAmount,
                 "Insets never updated after scroll");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView"})
+    public void testAdoptUpdatesSystemFontScale() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        TestAwContentsClient client = new TestAwContentsClient();
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.getActivity().getResources().getConfiguration().fontScale =
+                            2.0f;
+                });
+
+        AwTestContainerView oldView =
+                mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.getActivity().getResources().getConfiguration().fontScale =
+                            1.0f;
+                });
+
+        AwTestContainerView newView = mActivityTestRule.reparentAwContents(oldView);
+
+        // Then check that if this was explicitly set we leave it alone.
+        Assert.assertEquals(100, newView.getAwContents().getSettings().getTextZoom());
+        newView.getAwContents().getSettings().setTextZoom(150);
+
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule.getActivity().getResources().getConfiguration().fontScale =
+                            1.5f;
+                });
+
+        AwTestContainerView newerView = mActivityTestRule.reparentAwContents(newView);
+
+        Assert.assertEquals(150, newerView.getAwContents().getSettings().getTextZoom());
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView"})
+    public void testReparentAwContentsOverScrollGlow() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        TestAwContentsClient client = new TestAwContentsClient();
+        AwTestContainerView oldView =
+                mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
+
+        int oldColor = ThreadUtils.runOnUiThreadBlocking(
+                () -> oldView.getAwContents().getEdgeEffectColor());
+
+        AwTestContainerView newView =
+                mActivityTestRule.reparentAwContents(oldView, android.R.style.Theme_Black);
+
+        int newColor = ThreadUtils.runOnUiThreadBlocking(
+                () -> newView.getAwContents().getEdgeEffectColor());
+
+        Assert.assertNotEquals(oldColor, newColor);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView"})
+    public void testReparentAwContentsViewAndroidDelegate() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        TestAwContentsClient client = new TestAwContentsClient();
+        AwTestContainerView oldView =
+                mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            oldView.getAwContents().getViewAndroidDelegateForTesting().acquireView();
+        });
+
+        AwTestContainerView newView =
+                mActivityTestRule.reparentAwContents(oldView, android.R.style.Theme_Black);
+
+        Assert.assertNotNull(newView);
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"AndroidWebView"})
+    public void testReparentAwContentsZoomControls() throws Throwable {
+        mActivityTestRule.startBrowserProcess();
+        TestAwContentsClient client = new TestAwContentsClient();
+        AwTestContainerView oldView =
+                mActivityTestRule.createAwTestContainerViewOnMainSync(client, false);
+
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            oldView.getAwContents().getZoomControlsForTest().invokeZoomPicker();
+        });
+
+        AwTestContainerView newView =
+                mActivityTestRule.reparentAwContents(oldView, android.R.style.Theme_Black);
+
+        Assert.assertNotNull(newView);
     }
 }

@@ -30,6 +30,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/i18n/legacy_language_tag_helpers.h"
 #include "base/json/json_writer.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
@@ -472,7 +473,8 @@ class DeviceLocalAccountTest : public DevicePolicyCrosBrowserTest,
     DevicePolicyCrosBrowserTest::SetUpOnMainThread();
 
     initial_locale_ = g_browser_process->GetApplicationLocale();
-    initial_language_ = l10n_util::GetLanguage(initial_locale_);
+    initial_language_ =
+        base::i18n::GetLanguageSubtagUsingLanguageTag(initial_locale_);
 
     ash::LoginOrLockScreenVisibleWaiter().Wait();
 
@@ -748,7 +750,7 @@ class DeviceLocalAccountTest : public DevicePolicyCrosBrowserTest,
     WaitForSessionStart();
 
     EXPECT_EQ(locales[0], g_browser_process->GetApplicationLocale());
-    EXPECT_EQ(l10n_util::GetLanguage(locales[0]),
+    EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(locales[0]),
               icu::Locale::getDefault().getLanguage());
     VerifyKeyboardLayoutMatchesLocale();
   }
@@ -1035,9 +1037,8 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, StartSession) {
       SessionStartupPref::kPrefValueURLs);
   em::StringListPolicyProto* startup_urls_proto =
       device_local_account_policy_.payload().mutable_restoreonstartupurls();
-  for (size_t i = 0; i < std::size(kStartupURLs); ++i) {
-    startup_urls_proto->mutable_value()->add_entries(
-        UNSAFE_TODO(kStartupURLs[i]));
+  for (const char* url : kStartupURLs) {
+    startup_urls_proto->mutable_value()->add_entries(url);
   }
   UploadAndInstallDeviceLocalAccountPolicy();
   AddPublicSessionToDevicePolicy(kAccountId1);
@@ -1718,7 +1719,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, NoRecommendedLocaleSwitch) {
 
   // Verify that the locale and keyboard layout have been applied.
   EXPECT_EQ(kPublicSessionLocale, g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kPublicSessionLocale),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(kPublicSessionLocale),
             icu::Locale::getDefault().getLanguage());
   EXPECT_EQ(public_session_input_method_id_,
             ash::input_method::InputMethodManager::Get()
@@ -1807,7 +1808,8 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, OneRecommendedLocale) {
   // layout applicable to the locale was chosen.
   EXPECT_EQ(kSingleRecommendedLocale[0],
             g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kSingleRecommendedLocale[0]),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(
+                kSingleRecommendedLocale[0]),
             icu::Locale::getDefault().getLanguage());
   VerifyKeyboardLayoutMatchesLocale();
 }
@@ -1837,8 +1839,8 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, MultipleRecommendedLocales) {
   // Verify that the recommended locales do not appear again in the remainder of
   // the list.
   std::set<std::string> recommended_locales;
-  for (size_t i = 0; i < std::size(kRecommendedLocales1); ++i) {
-    recommended_locales.insert(UNSAFE_TODO(kRecommendedLocales1[i]));
+  for (const char* locale : kRecommendedLocales1) {
+    recommended_locales.insert(locale);
   }
   for (size_t i = std::size(kRecommendedLocales1); i < locales.size(); ++i) {
     const std::string& locale = locales[i].language_code;
@@ -1930,7 +1932,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, MultipleRecommendedLocales) {
 
   // Verify that the locale and keyboard layout have been applied.
   EXPECT_EQ(kPublicSessionLocale, g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kPublicSessionLocale),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(kPublicSessionLocale),
             icu::Locale::getDefault().getLanguage());
   EXPECT_EQ(public_session_input_method_id_,
             ash::input_method::InputMethodManager::Get()
@@ -1958,7 +1960,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, InvalidRecommendedLocale) {
   // Verify that since the recommended locale was invalid, the locale has not
   // changed and the first keyboard layout applicable to the locale was chosen.
   EXPECT_EQ(initial_locale_, g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(initial_locale_),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(initial_locale_),
             icu::Locale::getDefault().getLanguage());
   VerifyKeyboardLayoutMatchesLocale();
 }
@@ -2018,8 +2020,9 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest,
   // Verify that the first recommended locale has been applied and the first
   // keyboard layout applicable to the locale was chosen.
   EXPECT_EQ(kRecommendedLocales1[0], g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kRecommendedLocales1[0]),
-            icu::Locale::getDefault().getLanguage());
+  EXPECT_EQ(
+      base::i18n::GetLanguageSubtagUsingLanguageTag(kRecommendedLocales1[0]),
+      icu::Locale::getDefault().getLanguage());
   VerifyKeyboardLayoutMatchesLocale();
 }
 
@@ -2068,7 +2071,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest,
 
   // Verify that the locale and keyboard layout have been applied.
   EXPECT_EQ(kPublicSessionLocale, g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kPublicSessionLocale),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(kPublicSessionLocale),
             icu::Locale::getDefault().getLanguage());
   EXPECT_EQ(public_session_input_method_id_,
             ash::input_method::InputMethodManager::Get()
@@ -2088,7 +2091,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest,
 
   // Verify that the locale and keyboard layout are still in force.
   EXPECT_EQ(kPublicSessionLocale, g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kPublicSessionLocale),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(kPublicSessionLocale),
             icu::Locale::getDefault().getLanguage());
   EXPECT_EQ(public_session_input_method_id_,
             ash::input_method::InputMethodManager::Get()
@@ -2115,7 +2118,7 @@ IN_PROC_BROWSER_TEST_F(DeviceLocalAccountTest, PublicSessionWithLocaleSwitch) {
 
   // Verify that the locale.
   EXPECT_EQ(kPublicSessionLocale, g_browser_process->GetApplicationLocale());
-  EXPECT_EQ(l10n_util::GetLanguage(kPublicSessionLocale),
+  EXPECT_EQ(base::i18n::GetLanguageSubtagUsingLanguageTag(kPublicSessionLocale),
             icu::Locale::getDefault().getLanguage());
 }
 

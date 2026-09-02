@@ -11,6 +11,7 @@
 #import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
 #import "ios/chrome/browser/location_bar/ui_bundled/location_bar_constants.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -28,7 +29,6 @@
 #import "ios/components/ui_util/dynamic_type_util.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
-#import "ui/gfx/ios/uikit_util.h"
 
 namespace {
 
@@ -93,6 +93,7 @@ const CGFloat kNewBadgeOffsetFromButtonCenter = 14.0;
 // The height of the Fakebox.
 const CGFloat kFakeboxHeight = 64;
 const CGFloat kFakeboxHeightNonDynamic = 45;
+const CGFloat kFakeboxHeightUICleanup = 72;
 
 // The height of the Fakebox when it is pinned to the top.
 const CGFloat kPinnedFakeboxHeight = 48;
@@ -164,6 +165,39 @@ namespace content_suggestions {
 const CGFloat kHintTextScale = 0.15;
 const CGFloat kReturnToRecentTabSectionBottomMargin = 25;
 
+// Tight Padding Arm.
+const CGFloat kLogoTopPaddingTight = 24.0;
+const CGFloat kLogoToFakeboxPaddingTight = 32.0;
+const CGFloat kDoodleTopPaddingTight = 16.0;
+const CGFloat kDoodleToFakeboxPaddingTight = 16.0;
+const CGFloat kQuickActionsTopPaddingTight = 12.0;
+const CGFloat kMostVisitedTopPaddingTight = 32.0;
+
+// Medium Padding Arm.
+const CGFloat kLogoTopPaddingMedium = 36.0;
+const CGFloat kLogoToFakeboxPaddingMedium = 36.0;
+const CGFloat kDoodleTopPaddingMedium = 24.0;
+const CGFloat kDoodleToFakeboxPaddingMedium = 24.0;
+const CGFloat kQuickActionsTopPaddingMedium = 12.0;
+const CGFloat kMostVisitedTopPaddingMedium = 36.0;
+
+// Preferred Padding Arm.
+const CGFloat kLogoTopPaddingPreferred = 48.0;
+const CGFloat kLogoToFakeboxPaddingPreferred = 36.0;
+const CGFloat kDoodleTopPaddingPreferred = 36.0;
+const CGFloat kDoodleToFakeboxPaddingPreferred = 24.0;
+const CGFloat kQuickActionsTopPaddingPreferred = 12.0;
+const CGFloat kMostVisitedTopPaddingPreferred = 36.0;
+
+// Control Padding.
+const CGFloat kQuickActionsTopPaddingControl = 8.0;
+const CGFloat kMostVisitedTopPaddingControl = 20.0;
+const CGFloat kReducedModuleSpacingControl = 14.0;
+
+// Shared spacing constants.
+const CGFloat kReducedModuleSpacing = 12.0;
+const CGFloat kReducedModuleSpacingRegularXRegular = 14.0;
+
 CGFloat DoodleHeight(SearchEngineLogoState logo_state,
                      UITraitCollection* trait_collection) {
   // For users with non-Google default search engine, there is no doodle.
@@ -204,14 +238,14 @@ CGFloat DoodleTopMargin(SearchEngineLogoState logo_state,
   }
   CGFloat top_margin =
       top_inset +
-      AlignValueToPixel(kDoodleScaledTopMarginOther *
-                        ui_util::SystemSuggestedFontSizeMultiplier());
+      AlignValueToLowerPixel(kDoodleScaledTopMarginOther *
+                             ui_util::SystemSuggestedFontSizeMultiplier());
   top_margin += kDoodleTopMarginOther;
   return top_margin;
 }
 
 CGFloat HeaderSeparatorHeight() {
-  return ui::AlignValueToUpperPixel(kToolbarSeparatorHeight);
+  return AlignValueToUpperPixel(kToolbarSeparatorHeight);
 }
 
 CGFloat SearchFieldTopMargin(SearchEngineLogoState logo_state) {
@@ -231,6 +265,11 @@ CGFloat SearchFieldWidth(CGFloat width, UITraitCollection* trait_collection) {
     return kSearchFieldLarge;
   }
 
+  if (IsNewTabPageUICleanupEnabled()) {
+    return std::clamp(width - (2 * kNewTabPageHorizontalMargin),
+                      kSearchFieldSmallMin, kSearchFieldLarge);
+  }
+
   if (IsAimEnabledInNtp() && !IsCompactHeight(trait_collection)) {
     return std::clamp(width - kMIASearchFieldMinMargin * 2,
                       kSearchFieldSmallMin, kSearchFieldLarge);
@@ -242,11 +281,17 @@ CGFloat SearchFieldWidth(CGFloat width, UITraitCollection* trait_collection) {
 }
 
 CGFloat FakeOmniboxHeight() {
+  if (IsNewTabPageUICleanupEnabled()) {
+    CGFloat multiplier = ui_util::SystemSuggestedFontSizeMultiplier();
+    return AlignValueToLowerPixel(
+        (kFakeboxHeightUICleanup - kFakeboxHeightNonDynamic) * multiplier +
+        kFakeboxHeightNonDynamic);
+  }
   if (IsAimEnabledInNtp()) {
     CGFloat multiplier = ui_util::SystemSuggestedFontSizeMultiplier();
-    return AlignValueToPixel((kFakeboxHeight - kFakeboxHeightNonDynamic) *
-                                 multiplier +
-                             kFakeboxHeightNonDynamic);
+    return AlignValueToLowerPixel((kFakeboxHeight - kFakeboxHeightNonDynamic) *
+                                      multiplier +
+                                  kFakeboxHeightNonDynamic);
   }
   return ToolbarExpandedHeight(
       [UIApplication sharedApplication].preferredContentSizeCategory);
@@ -255,7 +300,7 @@ CGFloat FakeOmniboxHeight() {
 CGFloat PinnedFakeOmniboxHeight() {
   if (IsAimEnabledInNtp()) {
     CGFloat multiplier = ui_util::SystemSuggestedFontSizeMultiplier();
-    return AlignValueToPixel(
+    return AlignValueToLowerPixel(
         (kPinnedFakeboxHeight - kPinnedFakeboxHeightNonDynamic) * multiplier +
         kPinnedFakeboxHeightNonDynamic);
   }
@@ -273,9 +318,9 @@ CGFloat FakeToolbarHeight() {
 
 CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
                             UITraitCollection* trait_collection) {
-  CGFloat header_height = DoodleTopMargin(logo_state, trait_collection) +
+  CGFloat header_height = LogoTopPadding(logo_state, trait_collection) +
                           DoodleHeight(logo_state, trait_collection) +
-                          SearchFieldTopMargin(logo_state) +
+                          LogoToFakeboxPadding(logo_state) +
                           FakeOmniboxHeight() +
                           ntp_header::kScrolledToTopOmniboxBottomMargin +
                           ceil(HeaderSeparatorHeight());
@@ -285,7 +330,7 @@ CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
   if (logo_state == SearchEngineLogoState::kNone) {
     // Returns sufficient vertical space for the Identity Disc to be
     // displayed.
-    return ntp_home::kIdentityAvatarDimension +
+    return ntp_home::kIdentityAvatarDiameter +
            2 * (ntp_home::kHeaderIconMargin + ntp_home::kIdentityAvatarPadding);
   }
 
@@ -301,6 +346,107 @@ CGFloat HeaderBottomPadding(UITraitCollection* trait_collection) {
   return IsSplitToolbarMode(trait_collection)
              ? 0
              : kNTPShrunkLogoSearchFieldBottomPadding;
+}
+
+CGFloat LogoTopPadding(SearchEngineLogoState logo_state,
+                       UITraitCollection* trait_collection) {
+  if (IsRegularXRegularSizeClass(trait_collection)) {
+    return kDoodleTopMarginRegularXRegular;
+  }
+  if (logo_state == SearchEngineLogoState::kDoodle) {
+    switch (GetNewTabPageUICleanupVariation()) {
+      case NTPUICleanupVariation::kTightPadding:
+        return FakeToolbarHeight() + kDoodleTopPaddingTight;
+      case NTPUICleanupVariation::kMediumPadding:
+        return FakeToolbarHeight() + kDoodleTopPaddingMedium;
+      case NTPUICleanupVariation::kPreferredPadding:
+        return FakeToolbarHeight() + kDoodleTopPaddingPreferred;
+      case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+      case NTPUICleanupVariation::kDisabled:
+        return DoodleTopMargin(logo_state, trait_collection);
+    }
+  }
+  switch (GetNewTabPageUICleanupVariation()) {
+    case NTPUICleanupVariation::kTightPadding:
+      return FakeToolbarHeight() + kLogoTopPaddingTight;
+    case NTPUICleanupVariation::kMediumPadding:
+      return FakeToolbarHeight() + kLogoTopPaddingMedium;
+    case NTPUICleanupVariation::kPreferredPadding:
+      return FakeToolbarHeight() + kLogoTopPaddingPreferred;
+    case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+    case NTPUICleanupVariation::kDisabled:
+      return DoodleTopMargin(logo_state, trait_collection);
+  }
+}
+
+CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state) {
+  if (logo_state == SearchEngineLogoState::kDoodle) {
+    switch (GetNewTabPageUICleanupVariation()) {
+      case NTPUICleanupVariation::kTightPadding:
+        return kDoodleToFakeboxPaddingTight;
+      case NTPUICleanupVariation::kMediumPadding:
+        return kDoodleToFakeboxPaddingMedium;
+      case NTPUICleanupVariation::kPreferredPadding:
+        return kDoodleToFakeboxPaddingPreferred;
+      case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+      case NTPUICleanupVariation::kDisabled:
+        return SearchFieldTopMargin(logo_state);
+    }
+  }
+  switch (GetNewTabPageUICleanupVariation()) {
+    case NTPUICleanupVariation::kTightPadding:
+      return kLogoToFakeboxPaddingTight;
+    case NTPUICleanupVariation::kMediumPadding:
+      return kLogoToFakeboxPaddingMedium;
+    case NTPUICleanupVariation::kPreferredPadding:
+      return kLogoToFakeboxPaddingPreferred;
+    case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+    case NTPUICleanupVariation::kDisabled:
+      return SearchFieldTopMargin(logo_state);
+  }
+}
+
+CGFloat QuickActionsTopPadding() {
+  switch (GetNewTabPageUICleanupVariation()) {
+    case NTPUICleanupVariation::kTightPadding:
+      return kQuickActionsTopPaddingTight;
+    case NTPUICleanupVariation::kMediumPadding:
+      return kQuickActionsTopPaddingMedium;
+    case NTPUICleanupVariation::kPreferredPadding:
+      return kQuickActionsTopPaddingPreferred;
+    case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+    case NTPUICleanupVariation::kDisabled:
+      return kQuickActionsTopPaddingControl;
+  }
+}
+
+CGFloat MostVisitedTopPadding() {
+  switch (GetNewTabPageUICleanupVariation()) {
+    case NTPUICleanupVariation::kTightPadding:
+      return kMostVisitedTopPaddingTight;
+    case NTPUICleanupVariation::kMediumPadding:
+      return kMostVisitedTopPaddingMedium;
+    case NTPUICleanupVariation::kPreferredPadding:
+      return kMostVisitedTopPaddingPreferred;
+    case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+    case NTPUICleanupVariation::kDisabled:
+      return kMostVisitedTopPaddingControl;
+  }
+}
+
+CGFloat ReducedModuleSpacing(UITraitCollection* trait_collection) {
+  if (IsRegularXRegularSizeClass(trait_collection)) {
+    return kReducedModuleSpacingRegularXRegular;
+  }
+  switch (GetNewTabPageUICleanupVariation()) {
+    case NTPUICleanupVariation::kTightPadding:
+    case NTPUICleanupVariation::kMediumPadding:
+    case NTPUICleanupVariation::kPreferredPadding:
+      return kReducedModuleSpacing;
+    case NTPUICleanupVariation::kFakeboxBackgroundAndShadow:
+    case NTPUICleanupVariation::kDisabled:
+      return kReducedModuleSpacingControl;
+  }
 }
 
 void ConfigureSearchHintLabel(UILabel* search_hint_label,
@@ -413,6 +559,9 @@ UIView* NearestAncestor(UIView* view, Class of_class) {
 }
 
 UIColor* SearchHintLabelColor() {
+  if (IsNewTabPageUICleanupEnabled()) {
+    return [UIColor colorNamed:kTextTertiaryColor];
+  }
   return [UIColor colorNamed:kGrey800Color];
 }
 

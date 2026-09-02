@@ -39,11 +39,21 @@ BrowserAccessibilityCocoa* BrowserAccessibilityMac::GetNativeWrapper() const {
 }
 
 void BrowserAccessibilityMac::OnDataChanged() {
+  const bool had_native_wrapper = GetNativeWrapper() != nil;
   BrowserAccessibility::OnDataChanged();
+  if (had_native_wrapper && GetNativeWrapper() &&
+      !features::IsMacAccessibilityOptimizeChildrenChangedEnabled()) {
+    [GetNativeWrapper() childrenChanged];
+  }
+}
+
+void BrowserAccessibilityMac::UpdatePlatformNode() {
+  if (!ShouldHavePlatformNode()) {
+    platform_node_.reset();
+    return;
+  }
   if (!GetNativeWrapper()) {
     CreatePlatformNodes();
-  } else if (!features::IsMacAccessibilityOptimizeChildrenChangedEnabled()) {
-    [GetNativeWrapper() childrenChanged];
   }
 }
 
@@ -165,7 +175,8 @@ BrowserAccessibility* BrowserAccessibilityMac::PlatformGetLastChild() const {
 BrowserAccessibility* BrowserAccessibilityMac::PlatformGetNextSibling() const {
   BrowserAccessibility* parent = PlatformGetParent();
   if (parent) {
-    size_t next_child_index = node()->GetUnignoredIndexInParent() + 1;
+    size_t next_child_index =
+        node()->GetUnignoredIndexInParentCrossingTreeBoundary() + 1;
     if (next_child_index >= parent->InternalChildCount() &&
         next_child_index < parent->PlatformChildCount()) {
       // Get the extra_mac_node.
@@ -181,7 +192,8 @@ BrowserAccessibility* BrowserAccessibilityMac::PlatformGetPreviousSibling()
     const {
   BrowserAccessibility* parent = PlatformGetParent();
   if (parent) {
-    size_t child_index = node()->GetUnignoredIndexInParent();
+    size_t child_index =
+        node()->GetUnignoredIndexInParentCrossingTreeBoundary();
     if (child_index > parent->InternalChildCount() &&
         child_index <= parent->PlatformChildCount()) {
       // Get the extra_mac_node.

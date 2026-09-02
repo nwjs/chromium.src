@@ -66,13 +66,13 @@ using ::testing::UnorderedElementsAre;
 
 Matcher<Suggestion> EqualsSuggestionFields(const std::u16string& main_text,
                                            const std::u16string& minor_text,
-                                           bool has_deactivated_style) {
+                                           bool is_selectable) {
   return AllOf(
       Field(&Suggestion::main_text,
             Suggestion::Text(main_text, Suggestion::Text::IsPrimary(false))),
       Field(&Suggestion::minor_texts,
             std::vector<Suggestion::Text>{Suggestion::Text(minor_text)}),
-      Property(&Suggestion::HasDeactivatedStyle, has_deactivated_style));
+      Property(&Suggestion::IsSelectable, is_selectable));
 }
 
 class MockPaymentsAutofillClient : public payments::TestPaymentsAutofillClient {
@@ -443,6 +443,14 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplUnitTest,
   EXPECT_CALL(autofill_manager(), FillOrPreviewForm).Times(0);
 
   std::move(captured_callback).Run(test_card);
+}
+
+TEST_F(TouchToFillPaymentMethodDelegateAndroidImplUnitTest,
+       OnUserDecisionToUseSavedCards_CallsBnplManager) {
+  EXPECT_CALL(*autofill_manager().GetPaymentsBnplManager(),
+              OnUserDecisionToUseSavedCards);
+
+  touch_to_fill_delegate_->OnUserDecisionToUseSavedCards();
 }
 
 // Params of TouchToFillPaymentMethodDelegateAndroidImplPaymentMethodUnitTest:
@@ -998,12 +1006,12 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplCreditCardUnitTest,
                   credit_cards[0]->CardNameForAutofillDisplay(
                       credit_cards[0]->nickname()),
                   credit_cards[0]->ObfuscatedNumberWithVisibleLastFourDigits(),
-                  /*has_deactivated_style=*/false),
+                  /*is_selectable=*/true),
               EqualsSuggestionFields(
                   credit_cards[1]->CardNameForAutofillDisplay(
                       credit_cards[1]->nickname()),
                   credit_cards[1]->ObfuscatedNumberWithVisibleLastFourDigits(),
-                  /*has_deactivated_style=*/false))));
+                  /*is_selectable=*/true))));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 }
@@ -1036,7 +1044,7 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplCreditCardUnitTest,
           _, ElementsAre(EqualsSuggestionFields(
                  credit_card.CardNameForAutofillDisplay(credit_card.nickname()),
                  credit_card.ObfuscatedNumberWithVisibleLastFourDigits(),
-                 /*has_deactivated_style=*/false))));
+                 /*is_selectable=*/true))));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 }
@@ -1070,12 +1078,12 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplCreditCardUnitTest,
                      virtual_card.CardNameForAutofillDisplay(
                          virtual_card.nickname()),
                      virtual_card.ObfuscatedNumberWithVisibleLastFourDigits(),
-                     /*has_deactivated_style=*/false),
+                     /*is_selectable=*/true),
                  EqualsSuggestionFields(
                      credit_card.CardNameForAutofillDisplay(
                          credit_card.nickname()),
                      credit_card.ObfuscatedNumberWithVisibleLastFourDigits(),
-                     /*has_deactivated_style=*/false))));
+                     /*is_selectable=*/true))));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 }
@@ -1125,12 +1133,12 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplCreditCardUnitTest,
                   credit_cards[0]->CardNameForAutofillDisplay(
                       credit_cards[0]->nickname()),
                   credit_cards[0]->ObfuscatedNumberWithVisibleLastFourDigits(),
-                  /*has_deactivated_style=*/false),
+                  /*is_selectable=*/true),
               EqualsSuggestionFields(
                   credit_cards[1]->CardNameForAutofillDisplay(
                       credit_cards[1]->nickname()),
                   credit_cards[1]->ObfuscatedNumberWithVisibleLastFourDigits(),
-                  /*has_deactivated_style=*/false))));
+                  /*is_selectable=*/true))));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 
@@ -1608,9 +1616,9 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplVcnGrayOutForMerchantOptOutUni
 
   ASSERT_FALSE(touch_to_fill_delegate_->IsShowingTouchToFill());
 
-  // Since VCN gray-out feature is active, the `HasDeactivatedStyle()`
-  // should return true for the virtual card suggestion. However,
-  // `HasDeactivatedStyle()` should return false for the associated real credit
+  // Since VCN gray-out feature is active, the `IsSelectable()`
+  // should return false for the virtual card suggestion. However,
+  // `IsSelectable()` should return true for the associated real credit
   // card suggestion.
   EXPECT_CALL(
       payments_autofill_client(),
@@ -1620,12 +1628,12 @@ TEST_F(TouchToFillPaymentMethodDelegateAndroidImplVcnGrayOutForMerchantOptOutUni
                      virtual_card.CardNameForAutofillDisplay(
                          virtual_card.nickname()),
                      virtual_card.ObfuscatedNumberWithVisibleLastFourDigits(),
-                     /*has_deactivated_style=*/true),
+                     /*is_selectable=*/false),
                  EqualsSuggestionFields(
                      credit_card.CardNameForAutofillDisplay(
                          credit_card.nickname()),
                      credit_card.ObfuscatedNumberWithVisibleLastFourDigits(),
-                     /*has_deactivated_style=*/false))));
+                     /*is_selectable=*/true))));
 
   TryToShowTouchToFill(/*expected_success=*/true);
 }

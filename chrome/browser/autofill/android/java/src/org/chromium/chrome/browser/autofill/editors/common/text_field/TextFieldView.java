@@ -25,8 +25,6 @@ import android.widget.AutoCompleteTextView;
 import android.widget.FrameLayout;
 import android.widget.TextView.OnEditorActionListener;
 
-import androidx.core.view.ViewCompat;
-
 import com.google.android.material.textfield.TextInputLayout;
 
 import org.chromium.base.ResettersForTesting;
@@ -71,7 +69,6 @@ public class TextFieldView extends FrameLayout implements FieldView {
     private final PropertyModel mEditorFieldModel;
     private final TextInputLayout mInputLayout;
     private final AutoCompleteTextView mInput;
-    private final View mIconsLayer;
     private @Nullable EditorFieldValidator mValidator;
     private @Nullable TextWatcher mTextFormatter;
     private boolean mInFocusChange;
@@ -103,43 +100,17 @@ public class TextFieldView extends FrameLayout implements FieldView {
                     return true;
                 });
 
-        mIconsLayer = findViewById(R.id.icons_layer);
-        mIconsLayer.addOnLayoutChangeListener(
-                new View.OnLayoutChangeListener() {
-                    @Override
-                    public void onLayoutChange(
-                            View v,
-                            int left,
-                            int top,
-                            int right,
-                            int bottom,
-                            int oldLeft,
-                            int oldTop,
-                            int oldRight,
-                            int oldBottom) {
-                        // Padding at the end of mInput to preserve space for mIconsLayer.
-                        mInput.setPaddingRelative(
-                                ViewCompat.getPaddingStart(mInput),
-                                mInput.getPaddingTop(),
-                                mIconsLayer.getWidth(),
-                                mInput.getPaddingBottom());
-                    }
-                });
-
         mInput.setOnFocusChangeListener(
-                new OnFocusChangeListener() {
-                    @Override
-                    public void onFocusChange(View v, boolean hasFocus) {
-                        mInFocusChange = true;
-                        mEditorFieldModel.set(FOCUSED, hasFocus);
-                        mInFocusChange = false;
+                (View _, boolean hasFocus) -> {
+                    mInFocusChange = true;
+                    mEditorFieldModel.set(FOCUSED, hasFocus);
+                    mInFocusChange = false;
 
-                        if (!hasFocus && mValidator != null) {
-                            // Validate the field when the user de-focuses it.
-                            // We do not validate the form initially when all of the fields are
-                            // empty to avoid showing error messages in all of the fields.
-                            mValidator.validate(mEditorFieldModel);
-                        }
+                    if (!hasFocus && mValidator != null) {
+                        // Validate the field when the user de-focuses it.
+                        // We do not validate the form initially when all of the fields are
+                        // empty to avoid showing error messages in all of the fields.
+                        mValidator.validate(mEditorFieldModel);
                     }
                 });
 
@@ -240,29 +211,6 @@ public class TextFieldView extends FrameLayout implements FieldView {
 
     public void setDoneRunnable(@Nullable Runnable doneRunnable) {
         mDoneRunnable = doneRunnable;
-    }
-
-    @Override
-    public void onLayout(boolean changed, int left, int top, int right, int bottom) {
-        super.onLayout(changed, left, top, right, bottom);
-
-        if (changed) {
-            // Align the bottom of mIconsLayer to the bottom of mInput (mIconsLayer overlaps
-            // mInput).
-            // Note one:   mIconsLayer can not be put inside mInputLayout to display on top of
-            // mInput since mInputLayout is LinearLayout in essential.
-            // Note two:   mIconsLayer and mInput can not be put in ViewGroup to display over each
-            // other inside mInputLayout since mInputLayout must contain an instance of EditText
-            // child view.
-            // Note three: mInputLayout's bottom changes when displaying error.
-            float offset =
-                    mInputLayout.getY()
-                            + mInput.getY()
-                            + (float) mInput.getHeight()
-                            - (float) mIconsLayer.getHeight()
-                            - mIconsLayer.getTop();
-            mIconsLayer.setTranslationY(offset);
-        }
     }
 
     /**

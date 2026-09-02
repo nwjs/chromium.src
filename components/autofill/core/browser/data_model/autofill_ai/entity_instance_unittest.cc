@@ -20,6 +20,7 @@
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/personal_context/proto/features/at_memory.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -559,6 +560,47 @@ TEST_F(AutofillEntityInstanceTest, SetMetadata) {
   EXPECT_EQ(entity.metadata(), new_metadata);
 }
 
+// Tests that GetTypedValue() returns the country code for a country attribute.
+TEST_F(AutofillEntityInstanceTest, GetTypedValue_Country) {
+  AttributeType type(kPassportCountry);
+  AttributeInstance attribute(type);
+  attribute.SetInfo(PASSPORT_ISSUING_COUNTRY, u"United States",
+                    /*app_locale=*/"en_US",
+                    /*format_string=*/std::nullopt,
+                    VerificationStatus::kObserved);
+  personal_context::proto::TypedValue val = attribute.GetTypedValue();
+  EXPECT_TRUE(val.has_country_code());
+  EXPECT_EQ(val.country_code(), "US");
+}
+
+// Tests that GetTypedValue() returns the date proto for a date attribute.
+TEST_F(AutofillEntityInstanceTest, GetTypedValue_Date) {
+  AttributeType type(kFlightReservationDepartureDate);
+  AttributeInstance attribute(type);
+  attribute.SetInfo(FLIGHT_RESERVATION_DEPARTURE_DATE, u"2025-01-01",
+                    /*app_locale=*/"en_US",
+                    AutofillFormatString(u"YYYY-MM-DD", FormatString_Type_DATE),
+                    VerificationStatus::kObserved);
+  personal_context::proto::TypedValue val = attribute.GetTypedValue();
+  EXPECT_TRUE(val.has_date());
+  EXPECT_EQ(val.date().year(), 2025);
+  EXPECT_EQ(val.date().month(), 1);
+  EXPECT_EQ(val.date().day(), 1);
+}
+
+// Tests that GetTypedValue() returns an unset TypedValue for a string
+// attribute.
+TEST_F(AutofillEntityInstanceTest, GetTypedValue_Unset) {
+  AttributeType type(kPassportNumber);
+  AttributeInstance attribute(type);
+  attribute.SetInfo(PASSPORT_NUMBER, u"12345", /*app_locale=*/"en_US",
+                    /*format_string=*/std::nullopt,
+                    VerificationStatus::kObserved);
+  personal_context::proto::TypedValue val = attribute.GetTypedValue();
+  EXPECT_EQ(val.value_case(),
+            personal_context::proto::TypedValue::VALUE_NOT_SET);
+}
+
 // Tests that calling `set_metadata` with a different GUID causes a CHECK
 // failure.
 TEST_F(AutofillEntityInstanceTest, SetMetadata_DifferentGuid_CheckFails) {
@@ -685,13 +727,12 @@ TEST_F(AutofillEntityInstanceTest, GetWalletPassTypeExpectedTypes) {
   EXPECT_EQ(GetWalletPassType(EntityType(kVehicle),
                               EntityInstance::RecordType::kServerWallet),
             EntityInstance::WalletPassType::kPublic);
-
   EXPECT_EQ(GetWalletPassType(EntityType(kOrder),
                               EntityInstance::RecordType::kServerWallet),
-            EntityInstance::WalletPassType::kUnsupported);
+            EntityInstance::WalletPassType::kPublic);
   EXPECT_EQ(GetWalletPassType(EntityType(kShipment),
                               EntityInstance::RecordType::kServerWallet),
-            EntityInstance::WalletPassType::kUnsupported);
+            EntityInstance::WalletPassType::kPublic);
 }
 
 // Tests that personal context SPII types have at least one obfuscated
@@ -836,6 +877,11 @@ TEST_F(AutofillEntityInstanceTest, MatchesMergeConstraintsOf) {
 // not.
 TEST_P(AutofillEntityInstanceAmbientAutofillTest,
        MatchesMergeConstraintsOf_MixedMasking) {
+  // This test is run with AmbientAutofill enabled and disabled. Comparing
+  // suffixes for masked attributes is also controlled by the Wallet feature.
+  // Disable it to avoid it interfering with the expectations.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kAutofillAiWalletPrivatePasses);
   EntityInstance passport_masked =
       test::MaskEntityInstance(test::GetPassportEntityInstanceWithRandomGuid(
           {.number = u"1234567890",

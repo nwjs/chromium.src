@@ -39,7 +39,7 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/chrome_webauthn_credentials_delegate.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
+#include "chrome/browser/ssl/chrome_security_state_util.h"
 #include "chrome/browser/ui/passwords/ui_utils.h"
 #include "chrome/browser/webauthn/android/webauthn_request_delegate_android.h"
 #include "chrome/grit/generated_resources.h"
@@ -172,6 +172,7 @@ ShouldShowAction ShouldShowCredManReentryAction(
     case FocusedFieldType::kFillableNonSearchField:
     case FocusedFieldType::kFillableSearchField:
     case FocusedFieldType::kFillableTextArea:
+    case FocusedFieldType::kContenteditableField:
     case FocusedFieldType::kUnfillableElement:
     case FocusedFieldType::kUnknown:
       return ShouldShowAction(false);
@@ -881,11 +882,8 @@ bool PasswordAccessoryControllerImpl::IsSecureSite() const {
     return security_level_for_testing_ == security_state::SECURE;
   }
 
-  ChromeSecurityStateTabHelper::CreateForWebContents(&GetWebContents());
-  SecurityStateTabHelper* helper =
-      SecurityStateTabHelper::FromWebContents(&GetWebContents());
-
-  return helper && helper->GetSecurityLevel() == security_state::SECURE;
+  return chrome_security_state::GetSecurityLevel(&GetWebContents()) ==
+         security_state::SECURE;
 }
 
 content::WebContents& PasswordAccessoryControllerImpl::GetWebContents() const {

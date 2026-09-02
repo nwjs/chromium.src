@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/autofill/autofill_ai/autofill_ai_import_data_controller.h"
 #include "chrome/browser/ui/autofill/autofill_bubble_base.h"
+#include "chrome/browser/ui/autofill/payments/payments_churned_users_bubble_controller.h"
 #include "chrome/browser/ui/autofill/payments/save_card_ui.h"
 #include "chrome/browser/ui/autofill/payments/save_iban_ui.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -31,6 +32,7 @@
 #include "chrome/browser/ui/views/autofill/payments/save_iban_bubble_view.h"
 #include "chrome/browser/ui/views/autofill/payments/save_payment_method_and_virtual_card_enroll_confirmation_bubble_views.h"
 #include "chrome/browser/ui/views/autofill/payments/virtual_card_enroll_bubble_views.h"
+#include "chrome/browser/ui/views/autofill/payments/wallet_reminder_notice_bubble_view.h"
 #include "chrome/browser/ui/views/autofill/save_address_profile_view.h"
 #include "chrome/browser/ui/views/autofill/update_address_profile_view.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
@@ -350,6 +352,30 @@ AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowPaymentsChurnedUsersBubble(
   return ShowBubble<PaymentsChurnedUsersBubbleView>(
       toolbar_button_provider_, kActionShowPaymentsChurnedUsersBubble,
       kPaymentsChurnedUsersBubbleId, is_user_gesture, web_contents, controller);
+}
+
+AutofillBubbleBase*
+AutofillBubbleHandlerImpl::ShowPaymentsChurnedUsersConfirmationBubble(
+    content::WebContents* web_contents,
+    PaymentsChurnedUsersBubbleController* controller) {
+  views::BubbleAnchor anchor = toolbar_button_provider_->GetBubbleAnchor(
+      kActionShowPaymentsChurnedUsersBubble);
+  base::OnceCallback<void(PaymentsUiClosedReason)> callback =
+      controller->GetConfirmationBubbleClosedCallback();
+
+  return ShowSaveCardAndVirtualCardEnrollConfirmationBubble(
+      anchor, web_contents, std::move(callback), kPaymentsChurnedUsersBubbleId,
+      controller->GetConfirmationUiParams());
+}
+
+AutofillBubbleBase* AutofillBubbleHandlerImpl::ShowWalletReminderNoticeBubble(
+    content::WebContents* web_contents,
+    WalletReminderNoticeBubbleController* controller,
+    bool is_user_gesture) {
+  return ShowBubble<WalletReminderNoticeBubbleView>(
+      toolbar_button_provider_, kActionWalletReminderNotice,
+      kPageActionWalletReminderNoticeElementId, is_user_gesture, web_contents,
+      controller);
 }
 
 AutofillBubbleBase*

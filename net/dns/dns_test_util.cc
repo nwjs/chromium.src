@@ -108,7 +108,6 @@ DnsConfig CreateValidDnsConfig() {
   config.doh_config =
       *DnsOverHttpsConfig::FromString("https://dns.example.com/");
   config.secure_dns_mode = SecureDnsMode::kOff;
-  EXPECT_TRUE(config.IsValid());
   return config;
 }
 
@@ -509,15 +508,12 @@ class MockDnsTransactionFactory::MockTransaction final : public DnsTransaction {
     bool secure = false;
     switch (attempt_mode) {
       case AttemptMode::kClassic:
+      case AttemptMode::kPlatform:
         secure = false;
         break;
       case AttemptMode::kHttp:
         secure = true;
         break;
-      case AttemptMode::kPlatform:
-        // Currently we do not expect AttemptMode::kPlatform to be used in
-        // tests that mock DnsTransaction.
-        NOTREACHED();
     }
     // Do not allow matching any rules if transaction is secure and no DoH
     // servers are available.
@@ -800,15 +796,21 @@ MockDnsClient::MockDnsClient(DnsConfig config, MockDnsClientRuleList rules)
 MockDnsClient::~MockDnsClient() = default;
 
 bool MockDnsClient::CanUseSecureDnsTransactions() const {
-  const DnsConfig* config = GetEffectiveConfig();
-  return config && config->IsValid() && !config->doh_config.servers().empty();
+  return !GetEffectiveConfig().doh_config.servers().empty();
 }
 
 bool MockDnsClient::CanUseInsecureDnsTransactions() const {
-  const DnsConfig* config = GetEffectiveConfig();
-  return config && config->IsValid() &&
-         insecure_dns_mode_ != InsecureDnsMode::kDisabled &&
-         !config->dns_over_tls_active;
+  switch (insecure_dns_mode_) {
+    case InsecureDnsMode::kDisabled:
+      return false;
+    case InsecureDnsMode::kEnabledPlatform:
+    case InsecureDnsMode::kEnabledPlatformNoSystem:
+      return true;
+    case InsecureDnsMode::kEnabledBuiltIn: {
+      const DnsConfig& config = GetEffectiveConfig();
+      return !config.nameservers.empty() && !config.dns_over_tls_active;
+    }
+  }
 }
 
 bool MockDnsClient::CanQueryAdditionalTypesViaInsecureDns() const {
@@ -843,7 +845,7 @@ bool MockDnsClient::SetSystemConfig(std::optional<DnsConfig> system_config) {
   if (ignore_system_config_changes_)
     return false;
 
-  std::optional<DnsConfig> before = effective_config_;
+  DnsConfig before = effective_config_;
   config_ = std::move(system_config);
   effective_config_ = BuildEffectiveConfig();
   session_ = BuildSession();
@@ -851,7 +853,7 @@ bool MockDnsClient::SetSystemConfig(std::optional<DnsConfig> system_config) {
 }
 
 bool MockDnsClient::SetConfigOverrides(DnsConfigOverrides config_overrides) {
-  std::optional<DnsConfig> before = effective_config_;
+  DnsConfig before = effective_config_;
   overrides_ = std::move(config_overrides);
   effective_config_ = BuildEffectiveConfig();
   session_ = BuildSession();
@@ -859,7 +861,6 @@ bool MockDnsClient::SetConfigOverrides(DnsConfigOverrides config_overrides) {
 }
 
 void MockDnsClient::ReplaceCurrentSession() {
-  // Noop if no current effective config.
   session_ = BuildSession();
 }
 
@@ -867,8 +868,8 @@ DnsSession* MockDnsClient::GetCurrentSession() {
   return session_.get();
 }
 
-const DnsConfig* MockDnsClient::GetEffectiveConfig() const {
-  return effective_config_.has_value() ? &effective_config_.value() : nullptr;
+const DnsConfig& MockDnsClient::GetEffectiveConfig() const {
+  return effective_config_;
 }
 
 base::DictValue MockDnsClient::GetDnsConfigAsValueForNetLog() const {
@@ -877,19 +878,15 @@ base::DictValue MockDnsClient::GetDnsConfigAsValueForNetLog() const {
 }
 
 const DnsHosts* MockDnsClient::GetHosts() const {
-  const DnsConfig* config = GetEffectiveConfig();
-  if (!config)
-    return nullptr;
-
-  return &config->hosts;
+  return &effective_config_.hosts;
 }
 
 DnsTransactionFactory* MockDnsClient::GetTransactionFactory() {
-  return GetEffectiveConfig() ? factory_.get() : nullptr;
+  return factory_.get();
 }
 
 AddressSorter* MockDnsClient::GetAddressSorter() {
-  return GetEffectiveConfig() ? address_sorter_.get() : nullptr;
+  return address_sorter_.get();
 }
 
 void MockDnsClient::IncrementInsecureFallbackFailures() {
@@ -937,26 +934,20 @@ void MockDnsClient::SetForceDohServerAvailable(bool available) {
   factory_->set_force_doh_server_available(available);
 }
 
-std::optional<DnsConfig> MockDnsClient::BuildEffectiveConfig() {
+DnsConfig MockDnsClient::BuildEffectiveConfig() {
   if (overrides_.OverridesEverything())
     return overrides_.ApplyOverrides(DnsConfig());
-  if (!config_ || !config_.value().IsValid())
-    return std::nullopt;
-
-  return overrides_.ApplyOverrides(config_.value());
+  return overrides_.ApplyOverrides(config_.value_or(DnsConfig()));
 }
 
 scoped_refptr<DnsSession> MockDnsClient::BuildSession() {
-  if (!effective_config_)
-    return nullptr;
-
   // Session not expected to be used for anything that will actually require
   // random numbers.
   auto null_random_callback =
       base::BindRepeating([](int, int) -> int { base::ImmediateCrash(); });
 
   return base::MakeRefCounted<DnsSession>(
-      effective_config_.value(), null_random_callback, nullptr /* net_log */);
+      effective_config_, null_random_callback, nullptr /* net_log */);
 }
 
 MockHostResolverProc::MockHostResolverProc()

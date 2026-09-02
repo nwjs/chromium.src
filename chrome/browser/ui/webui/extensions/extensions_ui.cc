@@ -371,6 +371,8 @@ content::WebUIDataSource* CreateAndAddExtensionsSource(Profile* profile,
       {"setShortcutInSystemSettings",
        IDS_EXTENSIONS_SET_SHORTCUT_IN_SYSTEM_SETTINGS},
       {"shortcutNotSet", IDS_SHORTCUT_NOT_SET},
+      {"shortcutInputLabel", IDS_EXTENSIONS_SHORTCUT_INPUT_LABEL},
+      {"shortcutScope", IDS_EXTENSIONS_SHORTCUT_SCOPE},
       {"shortcutClear", IDS_SHORTCUT_CLEAR},
       {"shortcutScopeGlobal", IDS_EXTENSIONS_SHORTCUT_SCOPE_GLOBAL},
       {"shortcutScopeLabel", IDS_EXTENSIONS_SHORTCUT_SCOPE_LABEL},
@@ -585,7 +587,7 @@ ExtensionsUI::ExtensionsUI(content::WebUI* web_ui)
 ExtensionsUI::~ExtensionsUI() = default;
 
 // static
-base::RefCountedMemory* ExtensionsUI::GetFaviconResourceBytes(
+scoped_refptr<base::RefCountedMemory> ExtensionsUI::GetFaviconResourceBytes(
     ui::ResourceScaleFactor scale_factor) {
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.LoadDataResourceBytesForScale(IDR_EXTENSIONS_FAVICON, scale_factor);

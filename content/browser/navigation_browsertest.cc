@@ -9929,6 +9929,77 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
             embedded_test_server()->GetURL("/title1.html?push"));
 }
 
+// Regression test for crbug.com/40580002: When a cross-document navigation is
+// pending on a page with `upgrade-insecure-requests` CSP, the browser-side
+// insecure_request_policy must not be reset by the new document's CSP
+// initialization. Previously, ContentSecurityPolicy::BindToDelegate() for the
+// new document would send EnforceInsecureRequestPolicy(0) during the
+// Commit->DidCommit interval, clobbering the still-live old document's
+// BrowsingContextState (kUpgradeInsecureRequests ->
+// kLeaveInsecureRequestsAlone). A subsequent same-document navigation from the
+// old document then hit a mismatch: the renderer reported policy=1 (from the
+// old document's SecurityContext) while the browser had policy=0.
+//
+// The fix keeps the initial policy IPC off the mid-commit path: the local
+// renderer state is still set at CSP bind time (ApplyInsecureRequestPolicy),
+// but the browser is notified via DidCommitProvisionalLoadParams instead of a
+// separate IPC during commit. Post-commit policy updates (e.g. meta
+// http-equiv) still use NotifyBrowserOfInsecureRequestPolicy as before.
+class SameDocInsecureRequestPolicyTest : public NavigationBrowserTest {
+ public:
+  SameDocInsecureRequestPolicyTest() {
+    feature_list_.InitWithFeatures(
+        {features::kEnforceSameDocumentOriginInvariants}, {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SameDocInsecureRequestPolicyTest,
+                       SameDocNavDuringCrossDocNavWithUpgradeInsecureRequests) {
+  // Navigate to a page with upgrade-insecure-requests CSP header.
+  GURL initial_url = embedded_test_server()->GetURL(
+      "a.com",
+      "/set-header?Content-Security-Policy: upgrade-insecure-requests");
+  ASSERT_TRUE(NavigateToURL(shell(), initial_url));
+
+  // Start a cross-document same-origin navigation but pause it after the
+  // response is received (before DidCommit). Without the fix, the new
+  // document's CSP initialization fires EnforceInsecureRequestPolicy(0) here,
+  // resetting the browser-side BrowsingContextState while the old document is
+  // still live.
+  GURL cross_doc_url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  TestNavigationManager manager(web_contents(), cross_doc_url);
+  shell()->LoadURL(cross_doc_url);
+  ASSERT_TRUE(manager.WaitForResponse());
+
+  // Perform a same-document navigation via pushState on the current page.
+  // Use kNavigationFinished rather than the default kLoadStopped because
+  // the cross-doc navigation is still outstanding, so load-stop will not
+  // fire for the same-doc pushState.
+  TestNavigationObserver same_doc_observer(web_contents());
+  same_doc_observer.set_wait_event(
+      TestNavigationObserver::WaitEvent::kNavigationFinished);
+  ASSERT_TRUE(ExecJs(shell(), "history.pushState({}, '', '?same_doc_nav')"));
+  same_doc_observer.Wait();
+
+  // The same-document navigation must commit at the expected URL.
+  EXPECT_EQ(current_frame_host()->GetLastCommittedURL().query(),
+            "same_doc_nav");
+
+  // The browser-side replicated insecure_request_policy must still reflect
+  // the currently committed document's UIR policy. Without the fix, the
+  // pending cross-doc navigation's CSP bind clobbers this to
+  // kLeaveInsecureRequestsAlone, producing the mismatch this test guards
+  // against.
+  EXPECT_EQ(main_frame()->current_replication_state().insecure_request_policy,
+            blink::mojom::InsecureRequestPolicy::kUpgradeInsecureRequests);
+
+  // Let the cross-document navigation finish.
+  ASSERT_TRUE(manager.WaitForNavigationFinished());
+}
+
 // Test that POST submissions and file grants are not preserved if a history
 // navigation ends up at an error page, per https://crbug.com/531165110.
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
@@ -10267,6 +10338,47 @@ IN_PROC_BROWSER_TEST_F(NavigationBaseBrowserTest,
   // Ensure that the failed navigation did not grant site C's process access to
   // the file that was uploaded to site B.
   EXPECT_FALSE(policy->CanReadFile(process_c, file_path));
+}
+
+// Verify that navigating an about:blank iframe (which sets
+// client_side_redirect_url to about:blank) succeeds.
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
+                       AboutBlankFrameClientSideRedirectUrl) {
+  GURL start_url(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), start_url));
+
+  WebContentsImpl* web_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+  FrameTreeNode* root = web_contents->GetPrimaryFrameTree().root();
+
+  // Create an iframe and navigate it to about:blank so that it is a committed,
+  // non-initial document.
+  EXPECT_TRUE(ExecJs(root->current_frame_host(),
+                     "var frame = document.createElement('iframe'); "
+                     "frame.id = 'child'; "
+                     "document.body.appendChild(frame);"));
+  EXPECT_TRUE(
+      NavigateIframeToURL(web_contents, "child", GURL(url::kAboutBlankURL)));
+
+  // Perform a client-side redirect (replacement navigation) from about:blank.
+  GURL target_url(embedded_test_server()->GetURL("b.com", "/title2.html"));
+  TestNavigationObserver nav_observer(web_contents);
+  EXPECT_TRUE(ExecJs(root->current_frame_host(),
+                     JsReplace("document.getElementById('child').contentWindow."
+                               "location.replace($1);",
+                               target_url)));
+  nav_observer.Wait();
+  EXPECT_TRUE(nav_observer.last_navigation_succeeded());
+
+  // Check that the client side redirect URL (about:blank) is pushed as the
+  // first URL onto the subframe's redirect chain.
+  NavigationEntryImpl* entry =
+      web_contents->GetController().GetLastCommittedEntry();
+  FrameNavigationEntry* frame_entry = entry->GetFrameEntry(root->child_at(0));
+  ASSERT_TRUE(frame_entry);
+  EXPECT_EQ(frame_entry->redirect_chain().size(), 2u);
+  EXPECT_EQ(frame_entry->redirect_chain()[0], GURL(url::kAboutBlankURL));
+  EXPECT_EQ(frame_entry->redirect_chain()[1], target_url);
 }
 
 }  // namespace content

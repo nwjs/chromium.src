@@ -110,6 +110,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kGlicKeepSidepanelOpenOnNewTabsEnabled,
                                 true);
 
+  // Boolean pref for enabling shake trigger.
+  registry->RegisterBooleanPref(prefs::kGlicShakeTriggerEnabled, false);
+
   // Boolean pref that enables or disables experimental triggering.
   registry->RegisterBooleanPref(prefs::kGlicExperimentalTriggeringEnabled,
                                 false);
@@ -134,12 +137,15 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kGlicUserEnabledActuationOnWeb, false);
 
   registry->RegisterBooleanPref(prefs::kGlicPartitionNeedsCookieSync, true);
+  registry->RegisterBooleanPref(prefs::kGlicLocalStorageCopiedToMainPartition,
+                                false);
   registry->RegisterBooleanPref(prefs::kGlicPreviouslyNotAllowed, false);
 
   registry->RegisterDictionaryPref(prefs::kGlicGeminiEnterpriseSettings);
   registry->RegisterIntegerPref(
       prefs::kGlicLastProfileReadyState,
       static_cast<int>(glic::mojom::ProfileReadyState::kReady));
+  registry->RegisterIntegerPref(prefs::kGlicMarketingAutoOpenCount, 0);
 }
 
 void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
@@ -168,6 +174,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
           LocalHotkeyManager::GetDefaultAccelerator(
               LocalHotkeyManager::Command::kFocusToggle)));
   registry->RegisterBooleanPref(prefs::kGlicHotkeyGlobalScopeEnabled, false);
+  registry->RegisterBooleanPref(prefs::kGlicHotkeyGlobalScopeMigrated, false);
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetAutopush, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetStaging, "");
   registry->RegisterStringPref(prefs::kGlicGuestUrlPresetPreprod, "");

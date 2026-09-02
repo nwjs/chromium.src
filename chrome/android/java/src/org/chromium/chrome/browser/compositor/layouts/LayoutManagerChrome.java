@@ -7,13 +7,16 @@ package org.chromium.chrome.browser.compositor.layouts;
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
+import android.app.Activity;
 import android.content.Context;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 
+import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.ContextUtils;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.lifetime.DestroyChecker;
 import org.chromium.base.metrics.RecordUserAction;
@@ -64,7 +67,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
      * A {@link Layout} that should be used when the user is in the tab switcher when the hub flag
      * is enabled.
      */
-    protected @Nullable Layout mHubLayout;
+    protected @Nullable HubLayout mHubLayout;
 
     // Event Filter Handlers
     private final SwipeHandler mToolbarSwipeHandler;
@@ -81,11 +84,14 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
     private final Supplier<TabModelSelector> mTabModelSelectorSupplier;
 
     private final HubLayoutDependencyHolder mHubLayoutDependencyHolder;
-    private final ThumbnailChangeListener mThumbnailChangeListener = (id) -> requestUpdate();
+    private final ThumbnailChangeListener mThumbnailChangeListener = (_) -> requestUpdate();
     private final Callback<TabContentManager> mOnTabContentManager = this::onTabContentManager;
     private final DestroyChecker mDestroyChecker = new DestroyChecker();
 
     protected @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
+
+    /** Offset from the left side of the screen. */
+    private @Px int mContentOffsetX;
 
     /**
      * Creates the {@link LayoutManagerChrome} instance.
@@ -134,6 +140,7 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
                         hubLayoutDependencyHolder,
                         mTabModelSelectorSupplier,
                         mDesktopWindowStateManager);
+        mHubLayout.setContentOffsetX(mContentOffsetX);
         TabContentManager content = mTabContentManagerSupplier.get();
         if (content != null) {
             mHubLayout.setTabContentManager(content);
@@ -305,28 +312,45 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
     }
 
     @Override
+    public void setContentOffsetX(@Px int contentOffsetX) {
+        super.setContentOffsetX(contentOffsetX);
+        mContentOffsetX = contentOffsetX;
+        if (mHubLayout != null) {
+            mHubLayout.setContentOffsetX(contentOffsetX);
+        }
+    }
+
+    public int getContentOffsetXForTesting() {
+        return mContentOffsetX;
+    }
+
+    @Override
     protected void tabClosed(int id, int nextId, boolean incognito, boolean tabRemoved) {
-        boolean showOverview = nextId == Tab.INVALID_TAB_ID;
-        boolean animate = !tabRemoved && animationsEnabled();
-        if (getActiveLayoutType() != LayoutType.HUB
-                && showOverview
-                && getNextLayoutType() != LayoutType.HUB
-                && !DeviceInfo.isXr()) {
-            showLayout(LayoutType.HUB, animate);
-        } else if (getActiveLayoutType() == LayoutType.HUB
-                && assumeNonNull(getActiveLayout()).isStartingToHide()
-                && showOverview
-                && getNextLayoutType() == LayoutType.BROWSING
-                && !DeviceInfo.isXr()) {
-            showLayout(LayoutType.HUB, animate);
+        if (!isActivityFinishingOrDestroyed()) {
+            boolean showOverview = nextId == Tab.INVALID_TAB_ID;
+            boolean animate = !tabRemoved && animationsEnabled();
+            if (getActiveLayoutType() != LayoutType.HUB
+                    && showOverview
+                    && getNextLayoutType() != LayoutType.HUB
+                    && !DeviceInfo.isXr()) {
+                showLayout(LayoutType.HUB, animate);
+            } else if (getActiveLayoutType() == LayoutType.HUB
+                    && assumeNonNull(getActiveLayout()).isStartingToHide()
+                    && showOverview
+                    && getNextLayoutType() == LayoutType.BROWSING
+                    && !DeviceInfo.isXr()) {
+                showLayout(LayoutType.HUB, animate);
+            }
         }
         super.tabClosed(id, nextId, incognito, tabRemoved);
     }
 
     @Override
     public void tabsAllClosing(boolean incognito) {
-        if (getActiveLayout() == mStaticLayout && !incognito && !DeviceInfo.isXr()) {
-            showLayout(LayoutType.HUB, /* animate= */ false);
+        if (!isActivityFinishingOrDestroyed()) {
+            if (getActiveLayout() == mStaticLayout && !incognito && !DeviceInfo.isXr()) {
+                showLayout(LayoutType.HUB, /* animate= */ false);
+            }
         }
         super.tabsAllClosing(incognito);
     }
@@ -530,13 +554,17 @@ public class LayoutManagerChrome extends LayoutManagerImpl implements Accessibil
 
     @Override
     protected void switchToTab(@Nullable Tab tab, int lastTabId) {
-        if (tab == null || lastTabId == Tab.INVALID_TAB_ID) {
-            super.switchToTab(tab, lastTabId);
+        if (tab == null || lastTabId == Tab.INVALID_TAB_ID || tab.getId() == lastTabId) {
             return;
         }
 
         mToolbarSwipeLayout.setSwitchToTab(tab.getId(), lastTabId);
         showLayout(LayoutType.TOOLBAR_SWIPE, false);
+    }
+
+    private boolean isActivityFinishingOrDestroyed() {
+        Activity activity = ContextUtils.activityFromContext(mHost.getContext());
+        return activity != null && (activity.isFinishing() || activity.isDestroyed());
     }
 
     private void onTabContentManager(TabContentManager tabContentManager) {

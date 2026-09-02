@@ -39,6 +39,11 @@ BASE_FEATURE(kDebugTopChromeWebUI, base::FEATURE_DISABLED_BY_DEFAULT);
 // IME sends composition texts.
 BASE_FEATURE(kAndroidCaptureKeyEvents, base::FEATURE_ENABLED_BY_DEFAULT);
 
+#if BUILDFLAG(IS_MAC)
+// Enables Aperitif helper executables.
+BASE_FEATURE(kAperitifHelpers, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
+
 // DevTools frontend for Android.
 BASE_FEATURE(kAndroidDevToolsFrontend, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -173,6 +178,10 @@ BASE_FEATURE(kAudioServiceSandbox,
 // Kill switch for Background Fetch.
 BASE_FEATURE(kBackgroundFetch, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables Local Network Access checks for Background Fetch.
+BASE_FEATURE(kBackgroundFetchLocalNetworkAccess,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable using the BackForwardCache.
 BASE_FEATURE(kBackForwardCache, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -204,17 +213,6 @@ BASE_FEATURE(kBackForwardCacheMemoryControls,
 // Cache-control: no-store header.
 BASE_FEATURE(kBackForwardCacheCCNSIgnoreUnchangedCookies,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_ANDROID)
-// Enables getting screenshots as shared images for back forward transitions
-// in cross-document navigations.
-BASE_FEATURE(kBackForwardTransitionsCrossDocSharedImage,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// Enables getting screenshots as shared images for back forward transitions
-// to native pages.
-BASE_FEATURE(kBackForwardTransitionsNativePageSharedImage,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 // If enabled, skips over ad-related entries that were silently inserted into
 // session history when navigating via back/forward buttons. This extends the
@@ -262,6 +260,11 @@ BASE_FEATURE(kClearCrossSiteCrossBrowsingContextGroupWindowName,
 
 BASE_FEATURE(kCompositeBGColorAnimation, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Defer Session Storage scavenging to avoid LevelDB initialization blocking
+// the critical path of startup.
+BASE_FEATURE(kDeferSessionStorageScavengingOnStartup,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables deferring the creation of the speculative RFH when the navigation
 // starts. The creation of a speculative RFH consumes about 2ms and is blocking
 // the network request. With this feature the creation will be deferred until
@@ -295,10 +298,6 @@ const base::FeatureParam<int> kCreateSpeculativeRFHDelayMs{
 // disabled, no such pages will be in the cache.
 BASE_FEATURE(kDeviceBoundSessionTerminationEvictBackForwardCache,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether DevTools Live Edit (Debugger.setScriptSource usage in CDP) is
-// enabled.
-BASE_FEATURE(kDevToolsLiveEdit, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether the Digital Goods API is enabled.
 // https://github.com/WICG/digital-goods/
@@ -394,7 +393,6 @@ const base::FeatureParam<bool> kUrgentDiscardIgnoreWorkers{
 // When this feature is enabled, partial storage cleanup will be
 // disabled for the GPU disk cache. (Performance improvement)
 BASE_FEATURE(kDisablePartialStorageCleanupForGPUDiskCache,
-             "PerformStorageCleanupForGPUDiskCache",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable drawing under System Bars within DisplayCutout.
@@ -440,10 +438,6 @@ BASE_FEATURE(kEnforceDedicatedWorkerSameOriginCheck,
 // See https://crbug.com/504073872.
 BASE_FEATURE(kEnforceSharedWorkerSameOriginCheck,
              base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables the spec-compliant 'error' attribute in IdentityCredentialError while
-// deprecating the legacy 'code' attribute.
-BASE_FEATURE(kFedCmErrorAttribute, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM IdP Registration API.
 BASE_FEATURE(kFedCmIdPRegistration, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -784,6 +778,13 @@ BASE_FEATURE(kPrefetchOffTheMainThread, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool>
     kPrefetchOffTheMainThreadUpdateMissingHeaderCache{
         &kPrefetchOffTheMainThread, "update_missing_header_cache", true};
+// Consults `ContentBrowserClient::WillCreateURLLoaderFactory()` for
+// PrePrefetch requests. Use `false` for keeping the existing behavior before
+// this param is introduced.
+const base::FeatureParam<bool>
+    kPrefetchOffTheMainThreadCheckWillCreateURLLoaderFactory{
+        &kPrefetchOffTheMainThread, "check_will_create_url_loader_factory",
+        false};
 
 // Use code paths for prefetch/prerender integration.
 // See also `kPrerender2FallbackPrefetchSpecRules`.
@@ -1387,12 +1388,6 @@ BASE_FEATURE(kAccessibilityImeGetFormattedText,
 BASE_FEATURE(kAccessibilityImproveLiveRegionAnnounce,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// When enabled, allows Android to fire WINDOW_CONTENT_CHANGED events for value
-// changes made to ARIA meter controls.
-// TODO(crbug.com/493195387): Remove killswitch after stability period.
-BASE_FEATURE(kAccessibilityMeterEventsOnAndroid,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When this feature is enabled, the accessibility tree will be requested to
 // layout based on the actions that are performed on the renderer side. In
 // particular this will be used to determine whether or not a node is clickable
@@ -1564,9 +1559,6 @@ enum class VideoCaptureServiceConfiguration {
 
 VideoCaptureServiceConfiguration GetVideoCaptureServiceConfiguration() {
 #if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(media::kAndroidZeroCopyVideoCapture)) {
-    return VideoCaptureServiceConfiguration::kEnabledForOutOfProcess;
-  }
   return VideoCaptureServiceConfiguration::kEnabledForBrowserProcess;
 #elif BUILDFLAG(IS_IOS)
   return VideoCaptureServiceConfiguration::kEnabledForBrowserProcess;

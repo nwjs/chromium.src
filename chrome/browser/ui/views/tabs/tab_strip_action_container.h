@@ -23,10 +23,14 @@
 namespace gfx {
 class Insets;
 }
+namespace geic {
+class GeicButton;
+}
 namespace glic {
 class TabStripGlicActorTaskIcon;
 class GlicSplitButtonController;
 }
+class ActorTaskListBubble;
 class BrowserWindowInterface;
 class GlicAndActorButtonsContainer;
 
@@ -102,7 +106,8 @@ class TabStripActionContainer : public views::View,
     return animation_session_.get();
   }
 
-  views::LabelButton* GetGlicButton() { return glic_button_; }
+  views::LabelButton* GetGlicButtonForTesting() { return glic_button_; }
+  geic::GeicButton* GetGeicButtonForTesting() { return geic_button_; }
 
   glic::TabStripGlicActorTaskIcon* glic_actor_task_icon() {
     return glic_actor_task_icon_;
@@ -127,6 +132,8 @@ class TabStripActionContainer : public views::View,
   void TriggerGlicActorNudge(const std::u16string& nudge_text) override;
   void SetGlicActorNudgePressedState(bool pressed) override;
   void ShowActorTaskListBubble() override;
+  void CloseActorTaskListBubble() override;
+  bool IsActorTaskListBubbleShowing() override;
 
   views::FlexLayoutView* glic_actor_button_container();
   void ShowGlicActorNudge(const std::u16string& nudge_text);
@@ -165,6 +172,7 @@ class TabStripActionContainer : public views::View,
   // Update the Glic and GlicActor button borders when showing or hiding the
   // task icon container.
   void UpdateGlicActorButtonContainerBorders();
+  void UpdateGeicButtonBorders();
 
   void OnTabStripNudgeButtonTimeout(TabStripNudgeButton* button);
 
@@ -204,6 +212,7 @@ class TabStripActionContainer : public views::View,
   raw_ptr<views::Separator> separator_ = nullptr;
 
   raw_ptr<GlicAndActorButtonsContainer> glic_actor_button_container_ = nullptr;
+  raw_ptr<geic::GeicButton> geic_button_ = nullptr;
   raw_ptr<glic::TabStripGlicButton> glic_button_ = nullptr;
   raw_ptr<glic::TabStripGlicActorTaskIcon> glic_actor_task_icon_ = nullptr;
 
@@ -223,6 +232,7 @@ class TabStripActionContainer : public views::View,
   std::list<base::CallbackListSubscription> subscriptions_;
 
   std::unique_ptr<TabStripNudgeAnimationSession> animation_session_;
+  std::unique_ptr<ActorTaskListBubble> actor_task_list_bubble_;
 
   // Border insets as passed down from the HorizontalTabStripRegionView, used to
   // update button view borders.

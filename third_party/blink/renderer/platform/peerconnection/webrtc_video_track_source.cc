@@ -15,10 +15,12 @@
 #include "base/trace_event/trace_event.h"
 #include "base/types/optional_util.h"
 #include "media/base/media_switches.h"
+#include "media/base/video_frame_converter.h"
 #include "media/base/video_util.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/renderer/platform/webrtc/convert_to_webrtc_video_frame_buffer.h"
 #include "third_party/blink/renderer/platform/webrtc/webrtc_video_utils.h"
+#include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "third_party/webrtc/rtc_base/ref_counted_object.h"
 #include "third_party/webrtc/rtc_base/time_utils.h"
 
@@ -233,6 +235,14 @@ void WebRtcVideoTrackSource::OnFrameCaptured(
         &PostOrRunOnSequence, base::SequencedTaskRunner::GetCurrentDefault(),
         std::move(result_cb));
 
+    int64_t track_id = current_frame->timestamp().InMicroseconds();
+    TRACE_EVENT_BEGIN(
+        "webrtc", "ConvertToMemoryMappedFrameAsync",
+        perfetto::NamedTrack("ConvertToMemoryMappedFrameAsync", track_id),
+        "format", current_frame->format(), "storage_type",
+        current_frame->storage_type(), "natural_size",
+        current_frame->natural_size().ToString());
+
     media::ConvertToMemoryMappedFrameAsync(current_frame,
                                            std::move(cb_on_correct_thread));
   } else {
@@ -432,6 +442,10 @@ void WebRtcVideoTrackSource::ProcessMappedFrame(
     return;
   }
 
+  TRACE_EVENT_END(
+      "webrtc", perfetto::NamedTrack("ConvertToMemoryMappedFrameAsync",
+                                     it->frame->timestamp().InMicroseconds()));
+
   if (!mapped_frame) {
     LOG(ERROR)
         << "Async mapping of frame failed. Producing black frame instead.";
@@ -503,18 +517,17 @@ void WebRtcVideoTrackSource::DeliverFrame(
 
   if (frame->ColorSpace().IsValid() &&
       base::FeatureList::IsEnabled(media::kWebRTCColorAccuracy)) {
-    if (frame->format() == media::PIXEL_FORMAT_ARGB ||
-        frame->format() == media::PIXEL_FORMAT_ABGR ||
-        frame->format() == media::PIXEL_FORMAT_XRGB ||
-        frame->format() == media::PIXEL_FORMAT_XBGR) {
+    if (media::IsRGB(frame->format())) {
       // RGB frames can't be encoded directly, there will be conversion in the
-      // encoder, which will produce Rec601.
+      // encoder.
+      gfx::ColorSpace cs =
+          media::VideoFrameConverter::GetDestinationColorSpace(*frame);
       if (base::FeatureList::IsEnabled(media::kWebRTCLogColorSpace)) {
-        LOG(ERROR) << "Rewriting color space to Rec601, because the format is "
+        LOG(ERROR) << "Rewriting color space to " << cs.ToString()
+                   << ", because the format is "
                    << media::VideoPixelFormatToString(frame->format());
       }
-      frame_builder.set_color_space(
-          GfxToWebRtcColorSpace(gfx::ColorSpace::CreateREC601()));
+      frame_builder.set_color_space(GfxToWebRtcColorSpace(cs));
     } else {
       frame_builder.set_color_space(GfxToWebRtcColorSpace(frame->ColorSpace()));
     }

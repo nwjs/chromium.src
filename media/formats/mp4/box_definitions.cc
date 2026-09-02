@@ -1753,7 +1753,7 @@ bool AC4SpecificBox::Parse(BoxReader* reader) {
 }
 #endif  // BUILDFLAG(ENABLE_PLATFORM_AC4_AUDIO)
 
-#if BUILDFLAG(ENABLE_IAMF_AUDIO)
+#if BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO) || BUILDFLAG(ENABLE_IAMF_TOOLS)
 enum IamfConfigObuType {
   // The following enum values are mapped to their respective Config OBU
   // values in the IAMF specification.
@@ -1782,11 +1782,7 @@ bool IamfSpecificBox::Parse(BoxReader* reader) {
   uint32_t config_obus_size;
   RCHECK(ReadLeb128Value(reader, &config_obus_size));
 
-  base::span<const uint8_t> buffer =
-      reader->buffer().subspan(reader->pos(), config_obus_size);
-  ia_descriptors.assign(buffer.begin(), buffer.end());
-
-  RCHECK(reader->SkipBytes(config_obus_size));
+  RCHECK(reader->ReadVec(&ia_descriptors, config_obus_size));
 
   BufferReader config_reader(ia_descriptors);
 
@@ -1873,7 +1869,7 @@ bool IamfSpecificBox::ReadLeb128Value(BufferReader* reader,
 
   return !error;
 }
-#endif  // BUILDFLAG(ENABLE_IAMF_AUDIO)
+#endif  // BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO) || ...
 
 AudioSampleEntry::AudioSampleEntry()
     : format(FOURCC_NULL),
@@ -1977,13 +1973,13 @@ bool AudioSampleEntry::Parse(BoxReader* reader) {
   }
 #endif  // BUILDFLAG(ENABLE_PLATFORM_AC4_AUDIO)
 
-#if BUILDFLAG(ENABLE_IAMF_AUDIO)
+#if BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO) || BUILDFLAG(ENABLE_IAMF_TOOLS)
   if (format == FOURCC_IAMF ||
       (format == FOURCC_ENCA && sinf.format.format == FOURCC_IAMF)) {
     RCHECK_MEDIA_LOGGED(reader->ReadChild(&iacb), reader->media_log(),
                         "Failure parsing IamfSpecificBox (iacb)");
   }
-#endif  // BUILDFLAG(ENABLE_IAMF_AUDIO)
+#endif  // BUILDFLAG(ENABLE_PLATFORM_IAMF_AUDIO) || ...
 
   // Read the FLACSpecificBox, even if CENC is signalled.
   if (format == FOURCC_FLAC ||

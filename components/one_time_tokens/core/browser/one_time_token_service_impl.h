@@ -10,6 +10,7 @@
 #include "base/types/expected.h"
 #include "components/one_time_tokens/core/browser/gmail_otp_backend.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
+#include "components/one_time_tokens/core/browser/one_time_token_log_sink.h"
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service.h"
 #include "components/one_time_tokens/core/browser/sms_otp_backend.h"
@@ -41,6 +42,7 @@ class OneTimeTokenServiceImpl : public OneTimeTokenService {
   ~OneTimeTokenServiceImpl() override;
 
   // OneTimeTokenService:
+  OneTimeTokenLogSink* log_sink() override;
   void GetRecentOneTimeTokens(Callback callback) override;
   [[nodiscard]] ExpiringSubscription Subscribe(
       OneTimeTokenSource source,
@@ -51,6 +53,8 @@ class OneTimeTokenServiceImpl : public OneTimeTokenService {
   void RequestOneTimeToken(
       base::TimeDelta timeout,
       base::OnceCallback<void(std::optional<OneTimeToken>)> callback) override;
+  void FetchUserDataProcessingConsent(
+      FetchUserDataProcessingConsentCallback callback) override;
 
  private:
   // Retrieves SMS OTPs from `sms_.backend` if any subscriber is interested.
@@ -58,7 +62,7 @@ class OneTimeTokenServiceImpl : public OneTimeTokenService {
   void RetrieveSmsOtpIfNeeded();
   void OnResponseFromSmsOtpBackend(
       base::expected<OneTimeToken, OneTimeTokenRetrievalError> reply);
-  void RetrieveGmailOtpIfNeeded();
+  void RetrieveGmailOtpIfNeeded(base::Time expiration);
   void OnResponseFromGmailOtpBackend(
       base::expected<OneTimeToken, OneTimeTokenRetrievalError> reply);
 
@@ -81,6 +85,8 @@ class OneTimeTokenServiceImpl : public OneTimeTokenService {
 
   ExpiringCache<OneTimeToken, decltype(&OneTimeToken::on_device_arrival_time)>
       cache_;
+
+  OneTimeTokenLogSink log_sink_;
 
   // Weak pointer factory (must be last member in class).
   base::WeakPtrFactory<OneTimeTokenServiceImpl> weakptr_factory_{this};

@@ -44,6 +44,8 @@ using ObservationType = ProfileTokenQuality::ObservationType;
 
 namespace {
 
+using ProfileMergeResult = AutofillProfile::ProfileMergeResult;
+
 std::u16string GetSuggestionLabel(AutofillProfile* profile) {
   return AutofillProfile::CreateDifferentiatingLabels(
       base::span_from_ref(profile), "en-US")[0];
@@ -145,7 +147,11 @@ TEST_F(AutofillProfileTest, PreviewSummaryString) {
                                        .with_phone("16505678910")
                                        .Build());
   std::u16string summary1a = GetSuggestionLabel(&profile1a);
-  EXPECT_EQ(summary1a, u"123 Zoo St., unit 5");
+  EXPECT_EQ(summary1a,
+            base::FeatureList::IsEnabled(
+                features::kAutofillFixLabelGenerationForStreetAddress)
+                ? u"123 Zoo St., unit 5, Hollywood"
+                : u"123 Zoo St., unit 5");
 
   // Case 2: "<lastname>"
   AutofillProfile profile2(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -213,7 +219,10 @@ TEST_F(AutofillProfileTest, PreviewSummaryString) {
                                       .with_phone("16505678910")
                                       .Build());
   std::u16string summary5 = GetSuggestionLabel(&profile5);
-  EXPECT_EQ(summary5, u"Marion Mitchell, 123 Zoo St.");
+  EXPECT_EQ(summary5, base::FeatureList::IsEnabled(
+                          features::kAutofillFixLabelGenerationForStreetAddress)
+                          ? u"Marion Mitchell, 123 Zoo St., unit 5"
+                          : u"Marion Mitchell, 123 Zoo St.");
 
   // Case 6: "<firstname> <lastname>"
   AutofillProfile profile6(i18n_model_definition::kLegacyHierarchyCountryCode);
@@ -249,7 +258,10 @@ TEST_F(AutofillProfileTest, PreviewSummaryString) {
                                       .with_phone("16505678910")
                                       .Build());
   std::u16string summary7 = GetSuggestionLabel(&profile7);
-  EXPECT_EQ(summary7, u"Marion Mitchell Morrison, 123 Zoo St.");
+  EXPECT_EQ(summary7, base::FeatureList::IsEnabled(
+                          features::kAutofillFixLabelGenerationForStreetAddress)
+                          ? u"Marion Mitchell Morrison, 123 Zoo St., unit 5"
+                          : u"Marion Mitchell Morrison, 123 Zoo St.");
 
   // Case 7a: "<firstname> <lastname>, <address>" - same as #7, except for
   // e-mail.
@@ -276,9 +288,18 @@ TEST_F(AutofillProfileTest, PreviewSummaryString) {
   ASSERT_EQ(profiles.size(), labels.size());
   summary7 = labels[0];
   std::u16string summary7a = labels[1];
-  EXPECT_EQ(summary7,
-            u"Marion Mitchell Morrison, 123 Zoo St., johnwayne@me.xyz");
-  EXPECT_EQ(summary7a, u"Marion Mitchell Morrison, 123 Zoo St., marion@me.xyz");
+  EXPECT_EQ(
+      summary7,
+      base::FeatureList::IsEnabled(
+          features::kAutofillFixLabelGenerationForStreetAddress)
+          ? u"Marion Mitchell Morrison, 123 Zoo St., unit 5, johnwayne@me.xyz"
+          : u"Marion Mitchell Morrison, 123 Zoo St., johnwayne@me.xyz");
+  EXPECT_EQ(
+      summary7a,
+      base::FeatureList::IsEnabled(
+          features::kAutofillFixLabelGenerationForStreetAddress)
+          ? u"Marion Mitchell Morrison, 123 Zoo St., unit 5, marion@me.xyz"
+          : u"Marion Mitchell Morrison, 123 Zoo St., marion@me.xyz");
 }
 
 TEST_F(AutofillProfileTest, AdjustInferredLabels) {
@@ -525,7 +546,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsI18n_KR) {
   profiles.back()->set_language_code("ko_Latn");
   profiles.back()->SetInfo(ADDRESS_HOME_DEPENDENT_LOCALITY, u"Yeoksam-Dong",
                            "en-US");
-  static constexpr auto kExpectedLabels = std::to_array<std::u16string_view>(
+  static constexpr auto kExpectedLabelsOld = std::to_array<std::u16string_view>(
       {u"", u"Park Jae-sang", u"Park Jae-sang, Gangnam Finance Center",
        u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro",
        u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro, Yeoksam-Dong",
@@ -545,14 +566,42 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsI18n_KR) {
        u"Park Jae-sang, Yeleul Inc, Gangnam Finance Center, 152 Teheran-ro, "
        u"Yeoksam-Dong, Gangnam-Gu, Seoul, 135-984, South Korea, "
        u"park@yeleul.com, +82-2-531-9000"});
+  static constexpr auto kExpectedLabelsNew = std::to_array<std::u16string_view>(
+      {u"", u"Park Jae-sang",
+       u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro",
+       u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro, Yeoksam-Dong",
+       u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro, Yeoksam-Dong, "
+       u"Gangnam-Gu",
+       u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro, Yeoksam-Dong, "
+       u"Gangnam-Gu, Seoul",
+       u"Park Jae-sang, Gangnam Finance Center, 152 Teheran-ro, Yeoksam-Dong, "
+       u"Gangnam-Gu, Seoul, 135-984",
+       u"Park Jae-sang, Yeleul Inc, Gangnam Finance Center, 152 Teheran-ro, "
+       u"Yeoksam-Dong, Gangnam-Gu, Seoul, 135-984",
+       u"Park Jae-sang, Yeleul Inc, Gangnam Finance Center, 152 Teheran-ro, "
+       u"Yeoksam-Dong, Gangnam-Gu, Seoul, 135-984, South Korea",
+       u"Park Jae-sang, Yeleul Inc, Gangnam Finance Center, 152 Teheran-ro, "
+       u"Yeoksam-Dong, Gangnam-Gu, Seoul, 135-984, South Korea, "
+       u"park@yeleul.com",
+       u"Park Jae-sang, Yeleul Inc, Gangnam Finance Center, 152 Teheran-ro, "
+       u"Yeoksam-Dong, Gangnam-Gu, Seoul, 135-984, South Korea, "
+       u"park@yeleul.com, +82-2-531-9000",
+       u"Park Jae-sang, Yeleul Inc, Gangnam Finance Center, 152 Teheran-ro, "
+       u"Yeoksam-Dong, Gangnam-Gu, Seoul, 135-984, South Korea, "
+       u"park@yeleul.com, +82-2-531-9000"});
+  base::span<const std::u16string_view> expected_labels =
+      base::FeatureList::IsEnabled(
+          features::kAutofillFixLabelGenerationForStreetAddress)
+          ? kExpectedLabelsNew
+          : kExpectedLabelsOld;
 
-  for (size_t i = 0; i < kExpectedLabels.size(); ++i) {
+  for (size_t i = 0; i < expected_labels.size(); ++i) {
     std::vector<std::u16string> labels = AutofillProfile::CreateInferredLabels(
         ToRawPointerVector(profiles),
         /*suggested_fields=*/std::nullopt, /*excluded_fields=*/{},
         /*minimal_fields_shown=*/i, "en-US");
     ASSERT_FALSE(labels.empty());
-    EXPECT_EQ(kExpectedLabels[i], labels.back());
+    EXPECT_EQ(expected_labels[i], labels.back());
   }
 }
 
@@ -574,7 +623,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsI18n_JP_Latn) {
                            .with_phone("+81-3-6384-9000")
                            .Build());
   profiles.back()->set_language_code("ja_Latn");
-  static constexpr auto kExpectedLabels = std::to_array<std::u16string_view>(
+  static constexpr auto kExpectedLabelsOld = std::to_array<std::u16string_view>(
       {u"", u"Miku Hatsune", u"Miku Hatsune, Roppongi Hills Mori Tower",
        u"Miku Hatsune, Roppongi Hills Mori Tower, 6-10-1 Roppongi, Minato-ku",
        u"Miku Hatsune, Roppongi Hills Mori Tower, 6-10-1 Roppongi, Minato-ku, "
@@ -589,14 +638,36 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsI18n_JP_Latn) {
        u"Minato-ku, Tokyo, 106-6126, Japan, miku@rei.com",
        u"Miku Hatsune, Rei Inc, Roppongi Hills Mori Tower, 6-10-1 Roppongi, "
        u"Minato-ku, Tokyo, 106-6126, Japan, miku@rei.com, +81-3-6384-9000"});
+  static constexpr auto kExpectedLabelsNew = std::to_array<std::u16string_view>(
+      {u"", u"Miku Hatsune",
+       u"Miku Hatsune, Roppongi Hills Mori Tower, 6-10-1 Roppongi, Minato-ku",
+       u"Miku Hatsune, Roppongi Hills Mori Tower, 6-10-1 Roppongi, Minato-ku, "
+       u"Tokyo",
+       u"Miku Hatsune, Roppongi Hills Mori Tower, 6-10-1 Roppongi, Minato-ku, "
+       u"Tokyo, 106-6126",
+       u"Miku Hatsune, Rei Inc, Roppongi Hills Mori Tower, 6-10-1 Roppongi, "
+       u"Minato-ku, Tokyo, 106-6126",
+       u"Miku Hatsune, Rei Inc, Roppongi Hills Mori Tower, 6-10-1 Roppongi, "
+       u"Minato-ku, Tokyo, 106-6126, Japan",
+       u"Miku Hatsune, Rei Inc, Roppongi Hills Mori Tower, 6-10-1 Roppongi, "
+       u"Minato-ku, Tokyo, 106-6126, Japan, miku@rei.com",
+       u"Miku Hatsune, Rei Inc, Roppongi Hills Mori Tower, 6-10-1 Roppongi, "
+       u"Minato-ku, Tokyo, 106-6126, Japan, miku@rei.com, +81-3-6384-9000",
+       u"Miku Hatsune, Rei Inc, Roppongi Hills Mori Tower, 6-10-1 Roppongi, "
+       u"Minato-ku, Tokyo, 106-6126, Japan, miku@rei.com, +81-3-6384-9000"});
+  base::span<const std::u16string_view> expected_labels =
+      base::FeatureList::IsEnabled(
+          features::kAutofillFixLabelGenerationForStreetAddress)
+          ? kExpectedLabelsNew
+          : kExpectedLabelsOld;
 
-  for (size_t i = 0; i < kExpectedLabels.size(); ++i) {
+  for (size_t i = 0; i < expected_labels.size(); ++i) {
     std::vector<std::u16string> labels = AutofillProfile::CreateInferredLabels(
         ToRawPointerVector(profiles),
         /*suggested_fields=*/std::nullopt, /*excluded_fields=*/{},
         /*minimal_fields_shown=*/i, "en-US");
     ASSERT_FALSE(labels.empty());
-    EXPECT_EQ(kExpectedLabels[i], labels.back());
+    EXPECT_EQ(expected_labels[i], labels.back());
   }
 }
 
@@ -618,7 +689,7 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsI18n_JP_ja) {
                            .with_phone("03-6384-9000")
                            .Build());
   profiles.back()->set_language_code("ja_JP");
-  static constexpr auto kExpectedLabels = std::to_array<std::u16string_view>(
+  static constexpr auto kExpectedLabelsOld = std::to_array<std::u16string_view>(
       {u"", u"初音ミク", u"港区六本木ヒルズ森タワー初音ミク",
        u"港区六本木ヒルズ森タワー六本木 6-10-1初音ミク",
        u"東京都港区六本木ヒルズ森タワー六本木 6-10-1初音ミク",
@@ -632,14 +703,35 @@ TEST_F(AutofillProfileTest, CreateInferredLabelsI18n_JP_ja) {
        u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1例初音ミク, "
        u"Japan, "
        u"miku@rei.com, 03-6384-9000"});
+  static constexpr auto kExpectedLabelsNew = std::to_array<std::u16string_view>(
+      {u"", u"初音ミク", u"港区六本木ヒルズ森タワー六本木 6-10-1初音ミク",
+       u"東京都港区六本木ヒルズ森タワー六本木 6-10-1初音ミク",
+       u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1初音ミク",
+       u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1例初音ミク",
+       u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1例初音ミク, "
+       u"Japan",
+       u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1例初音ミク, "
+       u"Japan, "
+       u"miku@rei.com",
+       u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1例初音ミク, "
+       u"Japan, "
+       u"miku@rei.com, 03-6384-9000",
+       u"〒106-6126東京都港区六本木ヒルズ森タワー六本木 6-10-1例初音ミク, "
+       u"Japan, "
+       u"miku@rei.com, 03-6384-9000"});
+  base::span<const std::u16string_view> expected_labels =
+      base::FeatureList::IsEnabled(
+          features::kAutofillFixLabelGenerationForStreetAddress)
+          ? kExpectedLabelsNew
+          : kExpectedLabelsOld;
 
-  for (size_t i = 0; i < kExpectedLabels.size(); ++i) {
+  for (size_t i = 0; i < expected_labels.size(); ++i) {
     std::vector<std::u16string> labels = AutofillProfile::CreateInferredLabels(
         ToRawPointerVector(profiles),
         /*suggested_fields=*/std::nullopt, /*excluded_fields=*/{},
         /*minimal_fields_shown=*/i, "en-US");
     ASSERT_FALSE(labels.empty());
-    EXPECT_EQ(kExpectedLabels[i], labels.back());
+    EXPECT_EQ(expected_labels[i], labels.back());
   }
 }
 
@@ -759,6 +851,71 @@ TEST_F(AutofillProfileTest, CreateInferredLabels) {
       /*minimal_fields_shown=*/1, "en-US");
   EXPECT_EQ(labels[0], std::u16string(u"666 Erebus St."));
   EXPECT_EQ(labels[1], std::u16string(u"123 Letha Shore."));
+}
+
+// Test that forms containing ADDRESS_HOME_STREET_ADDRESS or ADDRESS_HOME_LINE1
+// prioritize showing the street address over the postal code in inferred
+// labels.
+TEST_F(AutofillProfileTest, CreateInferredLabels_StreetAddress) {
+  std::vector<std::unique_ptr<AutofillProfile>> profiles;
+  profiles.push_back(std::make_unique<AutofillProfile>(
+      i18n_model_definition::kLegacyHierarchyCountryCode));
+  test::SetProfileInfo(profiles[0].get(), test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("John")
+                                              .with_last_name("Doe")
+                                              .with_address1("666 Erebus St.")
+                                              .with_address2("ACME Corp.")
+                                              .with_city("Elysium")
+                                              .with_zipcode("91111")
+                                              .Build());
+  profiles.push_back(std::make_unique<AutofillProfile>(
+      i18n_model_definition::kLegacyHierarchyCountryCode));
+  test::SetProfileInfo(profiles[1].get(), test::SetProfileInfoOptionsBuilder()
+                                              .with_first_name("Jane")
+                                              .with_last_name("Doe")
+                                              .with_address1("123 Letha Shore.")
+                                              .with_city("Dis")
+                                              .with_zipcode("91222")
+                                              .Build());
+
+  FieldTypeSet suggested_fields = {NAME_FIRST, NAME_LAST,
+                                   ADDRESS_HOME_STREET_ADDRESS,
+                                   ADDRESS_HOME_CITY, ADDRESS_HOME_ZIP};
+
+  // When kAutofillFixLabelGenerationForStreetAddress is disabled, a form with
+  // street address generates postal code as the inferred label.
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(
+        features::kAutofillFixLabelGenerationForStreetAddress);
+    std::vector<std::u16string> labels = AutofillProfile::CreateInferredLabels(
+        ToRawPointerVector(profiles), suggested_fields, {NAME_FIRST},
+        /*minimal_fields_shown=*/1, "en-US");
+    EXPECT_THAT(labels, testing::ElementsAre(u"91111", u"91222"));
+  }
+
+  // When kAutofillFixLabelGenerationForStreetAddress is enabled, a form with
+  // street address generates street address as the inferred label.
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(
+        features::kAutofillFixLabelGenerationForStreetAddress);
+    std::vector<std::u16string> labels = AutofillProfile::CreateInferredLabels(
+        ToRawPointerVector(profiles), suggested_fields, {NAME_FIRST},
+        /*minimal_fields_shown=*/1, "en-US");
+    EXPECT_THAT(labels, testing::ElementsAre(u"666 Erebus St., ACME Corp.",
+                                             u"123 Letha Shore."));
+
+    // A form with ADDRESS_HOME_LINE1 also generates street address line 1
+    // as the inferred label.
+    suggested_fields = {NAME_FIRST, NAME_LAST, ADDRESS_HOME_LINE1,
+                        ADDRESS_HOME_CITY, ADDRESS_HOME_ZIP};
+    labels = AutofillProfile::CreateInferredLabels(
+        ToRawPointerVector(profiles), suggested_fields, {NAME_FIRST},
+        /*minimal_fields_shown=*/1, "en-US");
+    EXPECT_THAT(labels,
+                testing::ElementsAre(u"666 Erebus St.", u"123 Letha Shore."));
+  }
 }
 
 // Test that we fall back to using the full name if there are no other
@@ -1516,7 +1673,8 @@ TEST_F(AutofillProfileTest, MergeDataFrom_DifferentProfile) {
   b.FinalizeAfterImport();
   a.FinalizeAfterImport();
 
-  EXPECT_TRUE(a.MergeDataFrom(b, "en-US"));
+  EXPECT_EQ(a.MergeDataFrom(b, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithModification);
   // Merge has modified profile a, the validation is not updated.
   EXPECT_EQ(base::UTF16ToUTF8(a.GetRawInfo(ADDRESS_HOME_LINE2)),
             "Unit 5, area 51");
@@ -1538,7 +1696,8 @@ TEST_F(AutofillProfileTest, MergeDataFrom_SameProfile) {
   b.SetRawInfoWithVerificationStatus(NAME_FULL, b.GetRawInfo(NAME_FULL),
                                      VerificationStatus::kUserVerified);
   b.set_guid(base::Uuid::GenerateRandomV4().AsLowercaseString());
-  EXPECT_TRUE(a.MergeDataFrom(b, "en-US"));
+  EXPECT_EQ(a.MergeDataFrom(b, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithModification);
   // Merge has modified profile a, the validation is not updated.
   EXPECT_EQ(1u, a.usage_history().use_count());
 
@@ -1547,9 +1706,25 @@ TEST_F(AutofillProfileTest, MergeDataFrom_SameProfile) {
   AutofillProfile c = a;
   c.set_guid(base::Uuid::GenerateRandomV4().AsLowercaseString());
   c.usage_history().set_use_count(3);
-  EXPECT_FALSE(a.MergeDataFrom(c, "en-US"));
+  EXPECT_EQ(a.MergeDataFrom(c, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithoutModification);
   // Merge has not modified anything.
   EXPECT_EQ(3u, a.usage_history().use_count());
+}
+
+// Tests that merging two non-mergeable profiles fails and leaves the target
+// profile unchanged.
+TEST_F(AutofillProfileTest, MergeDataFrom_NotMergeable) {
+  AutofillProfile a = test::GetFullProfile();
+
+  AutofillProfile b = a;
+  b.SetRawInfo(EMAIL_ADDRESS, u"different@example.com");
+  a.FinalizeAfterImport();
+  b.FinalizeAfterImport();
+
+  const AutofillProfile expected_a = a;
+  EXPECT_EQ(a.MergeDataFrom(b, "en-US"), ProfileMergeResult::kMergeFailed);
+  EXPECT_EQ(a, expected_a);
 }
 
 // Tests that when merging two profiles, the token quality is merged.
@@ -1572,7 +1747,8 @@ TEST_F(AutofillProfileTest, MergeDataFrom_TokenQuality) {
   // Finalize, merge and verify expectations.
   a.FinalizeAfterImport();
   b.FinalizeAfterImport();
-  ASSERT_TRUE(a.MergeDataFrom(b, "en-US"));
+  ASSERT_EQ(a.MergeDataFrom(b, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithModification);
   EXPECT_THAT(
       a.token_quality().GetObservationTypesForFieldType(ADDRESS_HOME_STATE),
       testing::UnorderedElementsAre(ObservationType::kAccepted));
@@ -1595,7 +1771,8 @@ TEST_F(AutofillProfileTest, OverwriteName_AddNameFull) {
                                      VerificationStatus::kUserVerified);
   b.FinalizeAfterImport();
 
-  EXPECT_TRUE(a.MergeDataFrom(b, "en-US"));
+  EXPECT_EQ(a.MergeDataFrom(b, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithModification);
   EXPECT_EQ(a.GetRawInfo(NAME_FIRST), u"Marion");
   EXPECT_EQ(a.GetRawInfo(NAME_MIDDLE), u"Mitchell");
   EXPECT_EQ(a.GetRawInfo(NAME_LAST), u"Morrison");
@@ -1625,7 +1802,8 @@ TEST_F(AutofillProfileTest, OverwriteName_DifferentCase) {
   a.FinalizeAfterImport();
   b.FinalizeAfterImport();
 
-  EXPECT_TRUE(a.MergeDataFrom(b, "en-US"));
+  EXPECT_EQ(a.MergeDataFrom(b, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithModification);
   EXPECT_EQ(a.GetRawInfo(NAME_FIRST), u"Marion");
   EXPECT_EQ(a.GetRawInfo(NAME_MIDDLE), u"Mitchell");
   EXPECT_EQ(a.GetRawInfo(NAME_LAST), u"Morrison");
@@ -2100,7 +2278,8 @@ TEST_F(AutofillProfileTest, ProfilesMerge_InvalidCountryCode) {
 
   // This will call `MergeDataFrom(incoming, "en-US")` region hint will be "US"
   // (from app_locale).
-  ASSERT_TRUE(existing.MergeDataFrom(incoming, "en-US"));
+  ASSERT_EQ(existing.MergeDataFrom(incoming, "en-US"),
+            ProfileMergeResult::kMergeSucceededWithModification);
 }
 
 }  // namespace

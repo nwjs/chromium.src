@@ -33,7 +33,6 @@
 #include "chrome/browser/page_content_annotations/page_content_extraction_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -140,8 +139,7 @@ class HangingPdfListener : public pdf::mojom::PdfListener {
 
   void SetCaretPosition(const gfx::PointF& position) override {}
   void MoveRangeSelectionExtent(const gfx::PointF& extent) override {}
-  void SetSelectionBounds(const gfx::PointF& base,
-                          const gfx::PointF& extent) override {}
+  void SetSelectionBase(const gfx::PointF& base) override {}
   void GetMostVisiblePageIndex(
       GetMostVisiblePageIndexCallback callback) override {
     std::move(callback).Run(std::nullopt);
@@ -219,45 +217,14 @@ class GetContentAnnotationsTask : public history::HistoryDBTask {
   std::optional<history::VisitContentAnnotations> stored_content_annotations_;
 };
 
-class PageContentAnnotationsServiceDisabledBrowserTest
-    : public InProcessBrowserTest {
- public:
-  PageContentAnnotationsServiceDisabledBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{},
-        // TODO(crbug.com/452061489): Fix tests that fail when the WebUI Omnibox
-        // is enabled and then remove the two omnibox features below.
-        /*disabled_features=*/
-        {optimization_guide::features::kOptimizationHints,
-         features::kPageContentAnnotations,
-         omnibox::internal::kWebUIOmniboxPopup,
-         omnibox::internal::kWebUIOmniboxAimPopup});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceDisabledBrowserTest,
-                       KeyedServiceEnabledButFeaturesDisabled) {
-  EXPECT_EQ(nullptr, PageContentAnnotationsServiceFactory::GetForProfile(
-                         browser()->GetProfile()));
-}
-
 class PageContentAnnotationsServiceKioskModeBrowserTest
     : public InProcessBrowserTest {
  public:
-  PageContentAnnotationsServiceKioskModeBrowserTest() {
-    scoped_feature_list_.InitWithFeatures({features::kPageContentAnnotations},
-                                          /*disabled_features=*/{});
-  }
+  PageContentAnnotationsServiceKioskModeBrowserTest() = default;
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitch(::switches::kKioskMode);
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceKioskModeBrowserTest,
@@ -270,10 +237,7 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceKioskModeBrowserTest,
 class PageContentAnnotationsServiceEphemeralProfileBrowserTest
     : public MixinBasedInProcessBrowserTest {
  public:
-  PageContentAnnotationsServiceEphemeralProfileBrowserTest() {
-    scoped_feature_list_.InitWithFeatures({features::kPageContentAnnotations},
-                                          /*disabled_features=*/{});
-  }
+  PageContentAnnotationsServiceEphemeralProfileBrowserTest() = default;
 
   ~PageContentAnnotationsServiceEphemeralProfileBrowserTest() override =
       default;
@@ -285,8 +249,6 @@ class PageContentAnnotationsServiceEphemeralProfileBrowserTest
 
  private:
   ash::GuestSessionMixin guest_session_{&mixin_host_};
-
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceEphemeralProfileBrowserTest,
@@ -296,34 +258,11 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceEphemeralProfileBrowserTest,
 }
 #endif
 
-class PageContentAnnotationsServiceValidationBrowserTest
-    : public InProcessBrowserTest {
- public:
-  PageContentAnnotationsServiceValidationBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {features::kPageContentAnnotationsValidation},
-        {features::kPageContentAnnotations});
-  }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceValidationBrowserTest,
-                       ValidationEnablesService) {
-  EXPECT_NE(nullptr, PageContentAnnotationsServiceFactory::GetForProfile(
-                         browser()->GetProfile()));
-}
-
 class PageContentAnnotationsServiceBrowserTest : public InProcessBrowserTest {
  public:
   PageContentAnnotationsServiceBrowserTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kPageContentAnnotations,
-          {
-              {"write_to_history_service", "true"},
-          }},
-         {history::kVisitedLinksOn404, {}}},
+        {{history::kVisitedLinksOn404, {}}},
         /*disabled_features=*/{
             optimization_guide::features::kPreventLongRunningPredictionModels});
   }
@@ -723,20 +662,9 @@ class PageContentAnnotationsServiceRemoteMetadataBrowserTest
     : public PageContentAnnotationsServiceBrowserTest {
  public:
   PageContentAnnotationsServiceRemoteMetadataBrowserTest() {
-    // Make sure remote page metadata works without page content annotations
-    // enabled.
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{page_content_annotations::features::kRemotePageMetadata,
-          {{"min_page_category_score", "80"},
-           {"supported_countries", "*"},
-           {"supported_locales", "*"}}}},
-        /*disabled_features=*/{{features::kPageContentAnnotations}});
     set_load_model_on_startup(false);
   }
   ~PageContentAnnotationsServiceRemoteMetadataBrowserTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceRemoteMetadataBrowserTest,
@@ -876,16 +804,10 @@ class PageContentAnnotationsServiceSalientImageMetadataBrowserTest
     : public PageContentAnnotationsServiceBrowserTest {
  public:
   PageContentAnnotationsServiceSalientImageMetadataBrowserTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kPageContentAnnotations, {}}},
-        /*disabled_features=*/{});
     set_load_model_on_startup(false);
   }
   ~PageContentAnnotationsServiceSalientImageMetadataBrowserTest() override =
       default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(
@@ -965,55 +887,6 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(got_content_annotations->has_url_keyed_image);
 }
 
-class PageContentAnnotationsServiceNoHistoryTest
-    : public PageContentAnnotationsServiceBrowserTest {
- public:
-  PageContentAnnotationsServiceNoHistoryTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kPageContentAnnotations,
-          {
-              {"write_to_history_service", "false"},
-          }}},
-        /*disabled_features=*/{});
-  }
-  ~PageContentAnnotationsServiceNoHistoryTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceNoHistoryTest,
-                       ModelExecutesButDoesntWriteToHistory) {
-  TestPageContentAnnotator test_annotator;
-  test_annotator.UseVisibilityScores(std::nullopt, {{"Test Page", 0.5}});
-  service()->OverridePageContentAnnotatorForTesting(&test_annotator);
-
-  base::HistogramTester histogram_tester;
-
-  GURL url(embedded_test_server()->GetURL("a.test", "/hello.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-
-  optimization_guide::RetryForHistogramUntilCountReached(
-      &histogram_tester,
-      "OptimizationGuide.PageContentAnnotationsService.ContentAnnotated", 1);
-
-  histogram_tester.ExpectUniqueSample(
-      "OptimizationGuide.PageContentAnnotationsService.ContentAnnotated", true,
-      1);
-
-  base::RunLoop().RunUntilIdle();
-
-  histogram_tester.ExpectTotalCount(
-      "OptimizationGuide.PageContentAnnotationsService."
-      "ContentAnnotationsStorageStatus",
-      0);
-
-  // The ContentAnnotations should either not exist at all, or if they do
-  // (because some other code added some annotations), the model-related fields
-  // should be empty/unset.
-  EXPECT_FALSE(ModelAnnotationsFieldsAreSetForURL(url));
-}
-
 // TODO(crbug.com/451682393): Disabled on Linux dbg due to flakiness.
 #if BUILDFLAG(IS_LINUX) && !defined(NDEBUG)
 #define MAYBE_ModelExecutesAndUsesCachedResult \
@@ -1021,7 +894,7 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceNoHistoryTest,
 #else
 #define MAYBE_ModelExecutesAndUsesCachedResult ModelExecutesAndUsesCachedResult
 #endif
-IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceNoHistoryTest,
+IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceBrowserTest,
                        MAYBE_ModelExecutesAndUsesCachedResult) {
   TestPageContentAnnotator test_annotator;
   test_annotator.UseVisibilityScores(std::nullopt, {{"Test Page", 0.5}});
@@ -1063,19 +936,13 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceNoHistoryTest,
 }
 
 class PageContentAnnotationsServiceBatchVisitTest
-    : public PageContentAnnotationsServiceNoHistoryTest {
+    : public PageContentAnnotationsServiceBrowserTest {
  public:
-  PageContentAnnotationsServiceBatchVisitTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kPageContentAnnotations,
-          {{"write_to_history_service", "false"},
-           {"annotate_visit_batch_size", "2"}}}},
-        /*disabled_features=*/{});
-  }
+  PageContentAnnotationsServiceBatchVisitTest() = default;
   ~PageContentAnnotationsServiceBatchVisitTest() override = default;
 
   void SetUpOnMainThread() override {
-    PageContentAnnotationsServiceNoHistoryTest::SetUpOnMainThread();
+    PageContentAnnotationsServiceBrowserTest::SetUpOnMainThread();
 
     PageContentAnnotationsService* service =
         PageContentAnnotationsServiceFactory::GetForProfile(
@@ -1096,7 +963,6 @@ class PageContentAnnotationsServiceBatchVisitTest
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   TestPageContentAnnotator annotator_;
 };
 
@@ -1147,17 +1013,8 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceBatchVisitTest,
 class PageContentAnnotationsServiceBatchVisitNoAnnotateTest
     : public PageContentAnnotationsServiceBatchVisitTest {
  public:
-  PageContentAnnotationsServiceBatchVisitNoAnnotateTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        {{features::kPageContentAnnotations,
-          {{"write_to_history_service", "false"},
-           {"annotate_visit_batch_size", "1"}}}},
-        /*disabled_features=*/{});
-  }
+  PageContentAnnotationsServiceBatchVisitNoAnnotateTest() = default;
   ~PageContentAnnotationsServiceBatchVisitNoAnnotateTest() override = default;
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceBatchVisitNoAnnotateTest,
@@ -1167,19 +1024,15 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceBatchVisitNoAnnotateTest,
   service()->OverridePageContentAnnotatorForTesting(&test_annotator);
 
   base::HistogramTester histogram_tester;
-  HistoryVisit history_visit1(base::Time::Now(),
-                              GURL("https://probablynotarealurl1.com/"));
-  HistoryVisit history_visit2(base::Time::Now(),
-                              GURL("https://probablynotarealurl2.com/"));
-  HistoryVisit history_visit3(base::Time::Now(),
-                              GURL("https://probablynotarealurl3.com/"));
-  history_visit1.text_to_annotate = "sometext1";
-  history_visit2.text_to_annotate = "sometext2";
-  history_visit3.text_to_annotate = "sometext3";
-
-  Annotate(history_visit1);
-  Annotate(history_visit2);
-  Annotate(history_visit3);
+  for (int i = 1; i <= 11; ++i) {
+    HistoryVisit history_visit(
+        base::Time::Now(),
+        GURL(base::StrCat({"https://probablynotarealurl",
+                           base::NumberToString(i), ".com/"})));
+    history_visit.text_to_annotate =
+        base::StrCat({"sometext", base::NumberToString(i)});
+    Annotate(history_visit);
+  }
 
   optimization_guide::RetryForHistogramUntilCountReached(
       &histogram_tester,
@@ -1192,7 +1045,7 @@ IN_PROC_BROWSER_TEST_F(PageContentAnnotationsServiceBatchVisitNoAnnotateTest,
 
   histogram_tester.ExpectUniqueSample(
       "OptimizationGuide.PageContentAnnotations.AnnotateVisitResultCached",
-      false, 3);
+      false, 11);
 
   histogram_tester.ExpectTotalCount(
       "OptimizationGuide.PageContentAnnotationsService."
@@ -1287,8 +1140,7 @@ class PageContentAnnotationsServiceOnDeviceCategoryClassifierTest
  public:
   void SetUp() override {
     scoped_feature_list_.InitWithFeatures(
-        {features::kPageContentAnnotations,
-         features::kOnDeviceCategoryClassifier},
+        {features::kOnDeviceCategoryClassifier},
         /*disabled_features=*/{});
     InProcessBrowserTest::SetUp();
   }
@@ -2921,7 +2773,7 @@ IN_PROC_BROWSER_TEST_P(
   // Wait for PDFDocumentHelper creation.
   pdf::PDFDocumentHelper* pdf_helper;
   ASSERT_TRUE(base::test::RunUntil([&pdf_helper, &web_contents]() {
-    pdf_helper = pdf::PDFDocumentHelper::MaybeGetForWebContents(web_contents);
+    pdf_helper = pdf::PDFDocumentHelper::MaybeGetForWebContents(*web_contents);
     return pdf_helper != nullptr;
   }));
 

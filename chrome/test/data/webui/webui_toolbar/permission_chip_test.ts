@@ -40,6 +40,7 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
   }
 
   onPageInitialized() {}
+  onContentSettingImagePointerDown() {}
   showContentSettingsBubble() {
     return new Promise<never>(() => {});
   }
@@ -72,6 +73,9 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
   onAppMenuFocusChanged(_focused: boolean) {}
   executeExtensionAction(_extensionId: string) {}
   showExtensionContextMenu(_extensionId: string, _source: MenuSourceType) {}
+  onPerformanceInterventionButtonClicked(_isMouseInteraction: boolean) {}
+
+  onPerformanceInterventionButtonMousePressed() {}
 
   onLocationBarFocusWithinChanged(_focusInside: boolean) {}
 

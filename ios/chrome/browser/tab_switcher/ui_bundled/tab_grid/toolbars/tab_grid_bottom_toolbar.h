@@ -10,7 +10,7 @@
 #import "ios/chrome/browser/keyboard/ui_bundled/key_command_actions.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_paging.h"
 
-@class LayoutState;
+@class SceneLayoutState;
 @class TabGridNewTabButton;
 @protocol TabGridToolbarsGridDelegate;
 
@@ -50,7 +50,7 @@
 // Whether the the scrolled to edge background should be hidden.
 @property(nonatomic, assign) BOOL hideScrolledToEdgeBackground;
 // The layout state.
-@property(nonatomic, weak) LayoutState* layoutState;
+@property(nonatomic, weak) SceneLayoutState* layoutState;
 
 // Sets `enabled` on the new tab button.
 - (void)setNewTabButtonEnabled:(BOOL)enabled;
@@ -70,8 +70,6 @@
 // Updates the appearance of the this toolbar, based on whether the content
 // below it is `scrolledToEdge` or not.
 - (void)setScrollViewScrolledToEdge:(BOOL)scrolledToEdge;
-// Adds the receiver in the chain before the original next responder.
-- (void)respondBeforeResponder:(UIResponder*)nextResponder;
 // Sets the toolbar background offset to match the content scroll view offset.
 - (void)setBackgroundContentOffset:(CGPoint)backgroundContentOffset
                           animated:(BOOL)animated;

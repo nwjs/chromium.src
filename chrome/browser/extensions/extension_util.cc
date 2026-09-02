@@ -10,6 +10,8 @@
 #include "base/check_is_test.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
+#include "base/notreached.h"
+#include "base/strings/strcat.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/extensions/sync/extension_sync_service.h"
@@ -20,11 +22,14 @@
 #include "chrome/common/extensions/sync_helper.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
+#include "components/crx_file/id_util.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/site_instance.h"
 #include "extensions/browser/disable_reason.h"
+#include "extensions/browser/extension_mojo_binder_registry.h"
+#include "extensions/browser/extension_mojo_binder_registry_factory.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
@@ -38,11 +43,13 @@
 #include "extensions/browser/user_script_manager.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_urls.h"
 #include "extensions/common/features/feature_developer_mode_only.h"
 #include "extensions/common/icons/extension_icon_set.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/switches.h"
+#include "net/base/url_util.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -102,12 +109,7 @@ bool IsForceInstalledExtension(const ExtensionId& extension_id,
       pref->GetType() != base::Value::Type::DICT) {
     return false;
   }
-  for (const auto item : pref->GetValue()->GetDict()) {
-    if (extension_id == item.first) {
-      return true;
-    }
-  }
-  return false;
+  return pref->GetValue()->GetDict().Find(extension_id) != nullptr;
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -354,6 +356,7 @@ void SetDeveloperModeForProfile(Profile* profile, bool in_developer_mode) {
 void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(prefs::kShouldGarbageCollectStoragePartitions,
                                 false);
+  registry->RegisterBooleanPref(prefs::kExtensionReviewPromptsAllowed, true);
 }
 
 bool AreExtensionsDisabled(const base::CommandLine& command_line,
@@ -375,15 +378,23 @@ GURL GetExtensionsPageUrl(const ExtensionId& extension_id) {
   return url;
 }
 
-bool IsMojoJsEnabledForExtension(const ExtensionId& extension_id,
+bool IsMojoJsEnabledForExtension(const Extension* extension,
                                  content::BrowserContext* context) {
-  if (extension_id != extension_misc::kAimEligibilityExtensionId) {
-    return false;
-  }
-  const Extension* extension =
-      ExtensionRegistry::Get(context)->enabled_extensions().GetByID(
-          extension_id);
-  return extension && Manifest::IsComponentLocation(extension->location());
+  return ExtensionMojoBinderRegistryFactory::GetForBrowserContext(context)
+      ->IsMojoJsEnabled(extension);
+}
+
+bool IsJsErrorReportingEnabledForExtension(const Extension* extension,
+                                           content::BrowserContext* context) {
+  return ExtensionMojoBinderRegistryFactory::GetForBrowserContext(context)
+      ->IsJsErrorReportingEnabled(extension);
+}
+
+bool ShouldCrashOnExtensionJsErrorInDevelopmentBuild(
+    const Extension* extension,
+    content::BrowserContext* context) {
+  return ExtensionMojoBinderRegistryFactory::GetForBrowserContext(context)
+      ->ShouldCrashOnJsErrorInDevelopmentBuild(extension);
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -421,5 +432,28 @@ DseNtpOverrideType GetDseNtpOverrideType(const Extension& extension) {
   }
 }
 #endif
+
+GURL GetCWSWritingReviewUrl(const ExtensionId& extension_id,
+                            CWSReviewSource source) {
+  CHECK(crx_file::id_util::IdIsValid(extension_id));
+
+  const char* source_str = nullptr;
+  switch (source) {
+    case CWSReviewSource::kExtensionsMenu:
+      source_str = "extensions_menu";
+      break;
+    case CWSReviewSource::kExtensionsPage:
+      source_str = "extensions_page";
+      break;
+    case CWSReviewSource::kContextMenu:
+      source_str = "context_menu";
+      break;
+  }
+
+  GURL review_url = extension_urls::GetNewWebstoreLaunchURL().Resolve(
+      base::StrCat({"detail/", extension_id, "/reviews"}));
+  review_url = net::AppendQueryParameter(review_url, "action", "write");
+  return net::AppendQueryParameter(review_url, "source", source_str);
+}
 
 } // namespace extensions::util

@@ -8,9 +8,11 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
+import android.content.pm.ActivityInfo;
 import android.view.View;
 
 import androidx.test.filters.MediumTest;
@@ -20,6 +22,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -35,10 +38,12 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.components.signin.identitymanager.IdentityManager;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.components.sync_device_info.FormFactor;
+import org.chromium.components.sync_device_info.OsType;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.test.util.BlankUiTestActivity;
@@ -46,6 +51,7 @@ import org.chromium.ui.test.util.NightModeTestUtils;
 import org.chromium.ui.test.util.RenderTestRule;
 import org.chromium.url.JUnitTestGURLs;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -93,6 +99,53 @@ public class SendTabToSelfBottomSheetRenderTest {
         NightModeTestUtils.tearDownNightModeForBlankUiTestActivity();
     }
 
+    private View createAndShowEnhancedDevicePickerView(
+            List<TargetDeviceInfo> devices, @BottomSheetController.SheetState int sheetState) {
+        Activity activity = mActivityTestRule.getActivity();
+        return ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    EnhancedTargetDevicePickerView viewContent =
+                            new EnhancedTargetDevicePickerView(activity, mBottomSheetController);
+                    PropertyModel model = EnhancedTargetDevicePickerProperties.createDefaultModel();
+                    model.set(EnhancedTargetDevicePickerProperties.DISMISS_CALLBACK, reason -> {});
+                    new EnhancedTargetDevicePickerMediator(
+                            JUnitTestGURLs.HTTP_URL.getSpec(),
+                            "Title",
+                            devices,
+                            mProfile,
+                            () -> null,
+                            model,
+                            ShareEntryPoint.SHARE_SHEET);
+                    PropertyModelChangeProcessor.create(
+                            model, viewContent, EnhancedTargetDevicePickerViewBinder::bind);
+                    model.set(EnhancedTargetDevicePickerProperties.VISIBLE, true);
+                    when(mBottomSheetController.getCurrentSheetContent()).thenReturn(viewContent);
+                    when(mBottomSheetController.getSheetState()).thenReturn(sheetState);
+                    when(mBottomSheetController.getContainerHeight())
+                            .thenReturn(activity.getResources().getDisplayMetrics().heightPixels);
+                    // Capture and trigger observer to simulate sheet state transition.
+                    ArgumentCaptor<BottomSheetObserver> observerCaptor =
+                            ArgumentCaptor.forClass(BottomSheetObserver.class);
+                    verify(mBottomSheetController).addObserver(observerCaptor.capture());
+                    observerCaptor
+                            .getValue()
+                            .onSheetStateChanged(
+                                    sheetState, BottomSheetController.StateChangeReason.NONE);
+                    activity.setContentView(viewContent.getContentView());
+                    return viewContent.getContentView();
+                });
+    }
+
+    /** Set up account data to be shown by the UI. */
+    private void setUpAccountData(AccountInfo account) {
+        // Set up account data to be shown by the UI.
+        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(account);
+        when(mIdentityManager.findExtendedAccountInfoByAccountId(account.getId()))
+                .thenReturn(account);
+        when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
+        IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
+    }
+
     @Test
     @MediumTest
     @Feature("RenderTest")
@@ -100,11 +153,24 @@ public class SendTabToSelfBottomSheetRenderTest {
         setUpAccountData(TestAccounts.ACCOUNT1);
         List<TargetDeviceInfo> devices =
                 Arrays.asList(
-                        new TargetDeviceInfo("My Phone", "guid1", FormFactor.PHONE, "Active today"),
                         new TargetDeviceInfo(
-                                "My Computer", "guid2", FormFactor.DESKTOP, "Active 1 day ago"),
+                                "My Phone",
+                                "guid1",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"),
                         new TargetDeviceInfo(
-                                "My Tablet", "guid3", FormFactor.TABLET, "Active 2 days ago"));
+                                "My Computer",
+                                "guid2",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 1 day ago"),
+                        new TargetDeviceInfo(
+                                "My Tablet",
+                                "guid3",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 2 days ago"));
         Activity activity = mActivityTestRule.getActivity();
         View view =
                 ThreadUtils.runOnUiThreadBlocking(
@@ -132,11 +198,24 @@ public class SendTabToSelfBottomSheetRenderTest {
         setUpAccountData(account);
         List<TargetDeviceInfo> devices =
                 Arrays.asList(
-                        new TargetDeviceInfo("My Phone", "guid1", FormFactor.PHONE, "Active today"),
                         new TargetDeviceInfo(
-                                "My Computer", "guid2", FormFactor.DESKTOP, "Active 1 day ago"),
+                                "My Phone",
+                                "guid1",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"),
                         new TargetDeviceInfo(
-                                "My Tablet", "guid3", FormFactor.TABLET, "Active 2 days ago"));
+                                "My Computer",
+                                "guid2",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 1 day ago"),
+                        new TargetDeviceInfo(
+                                "My Tablet",
+                                "guid3",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 2 days ago"));
         Activity activity = mActivityTestRule.getActivity();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -187,6 +266,7 @@ public class SendTabToSelfBottomSheetRenderTest {
         onView(withText(account.getEmail())).check(doesNotExist());
     }
 
+    /** Tests rendering of the enhanced target device picker bottom sheet in default HALF state. */
     @Test
     @MediumTest
     @Feature("RenderTest")
@@ -194,46 +274,197 @@ public class SendTabToSelfBottomSheetRenderTest {
         setUpAccountData(TestAccounts.ACCOUNT1);
         List<TargetDeviceInfo> devices =
                 Arrays.asList(
-                        new TargetDeviceInfo("My Phone", "guid1", FormFactor.PHONE, "Active today"),
                         new TargetDeviceInfo(
-                                "My Computer", "guid2", FormFactor.DESKTOP, "Active 1 day ago"),
+                                "My Phone",
+                                "guid1",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"),
                         new TargetDeviceInfo(
-                                "My Tablet", "guid3", FormFactor.TABLET, "Active 2 days ago"));
-        Activity activity = mActivityTestRule.getActivity();
+                                "My Computer",
+                                "guid2",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 1 day ago"),
+                        new TargetDeviceInfo(
+                                "My Tablet",
+                                "guid3",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 2 days ago"));
         View view =
-                ThreadUtils.runOnUiThreadBlocking(
-                        () -> {
-                            EnhancedTargetDevicePickerView viewContent =
-                                    new EnhancedTargetDevicePickerView(
-                                            activity, mBottomSheetController);
-                            PropertyModel model =
-                                    EnhancedTargetDevicePickerProperties.createDefaultModel();
-                            model.set(
-                                    EnhancedTargetDevicePickerProperties.DISMISS_CALLBACK,
-                                    reason -> {});
-                            new EnhancedTargetDevicePickerMediator(
-                                    JUnitTestGURLs.HTTP_URL.getSpec(),
-                                    "Title",
-                                    devices,
-                                    mProfile,
-                                    () -> null,
-                                    model,
-                                    ShareEntryPoint.SHARE_SHEET);
-                            PropertyModelChangeProcessor.create(
-                                    model, viewContent, EnhancedTargetDevicePickerViewBinder::bind);
-                            activity.setContentView(viewContent.getContentView());
-                            return viewContent.getContentView();
-                        });
+                createAndShowEnhancedDevicePickerView(
+                        devices, BottomSheetController.SheetState.HALF);
         mRenderTestRule.render(view, "enhanced_device_picker");
     }
 
-    /** Set up account data to be shown by the UI. */
-    private void setUpAccountData(AccountInfo account) {
-        // Set up account data to be shown by the UI.
-        when(mIdentityManager.getPrimaryAccountInfo()).thenReturn(account);
-        when(mIdentityManager.findExtendedAccountInfoByAccountId(account.getId()))
-                .thenReturn(account);
-        when(mIdentityServicesProvider.getIdentityManager(mProfile)).thenReturn(mIdentityManager);
-        IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
+    /**
+     * Tests rendering the enhanced target device picker bottom sheet in half state with more than
+     * four devices, verifying the peeking overflow fading edge and pinned Send action button.
+     */
+    @Test
+    @MediumTest
+    @Feature("RenderTest")
+    public void testEnhancedTargetDevicePickerBottomSheet_overflowHalfState() throws Throwable {
+        setUpAccountData(TestAccounts.ACCOUNT1);
+        List<TargetDeviceInfo> devices =
+                Arrays.asList(
+                        new TargetDeviceInfo(
+                                "My Phone",
+                                "guid1",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"),
+                        new TargetDeviceInfo(
+                                "My Computer",
+                                "guid2",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 1 day ago"),
+                        new TargetDeviceInfo(
+                                "My Tablet",
+                                "guid3",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 2 days ago"),
+                        new TargetDeviceInfo(
+                                "My Laptop",
+                                "guid4",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 3 days ago"),
+                        new TargetDeviceInfo(
+                                "My Watch",
+                                "guid5",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active 4 days ago"),
+                        new TargetDeviceInfo(
+                                "My TV",
+                                "guid6",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 5 days ago"));
+        View view =
+                createAndShowEnhancedDevicePickerView(
+                        devices, BottomSheetController.SheetState.HALF);
+        mRenderTestRule.render(view, "enhanced_device_picker_overflow_half");
+    }
+
+    /**
+     * Tests rendering the enhanced target device picker bottom sheet in full state with more than
+     * four devices, verifying the full device list, manage devices link, and pinned Send action
+     * button.
+     */
+    @Test
+    @MediumTest
+    @Feature("RenderTest")
+    public void testEnhancedTargetDevicePickerBottomSheet_overflowFullState() throws Throwable {
+        setUpAccountData(TestAccounts.ACCOUNT1);
+        List<TargetDeviceInfo> devices = new ArrayList<>();
+        for (int i = 1; i <= 15; i++) {
+            devices.add(
+                    new TargetDeviceInfo(
+                            "Device " + i,
+                            "guid" + i,
+                            FormFactor.PHONE,
+                            OsType.ANDROID,
+                            "Active " + i + " days ago"));
+        }
+        View view =
+                createAndShowEnhancedDevicePickerView(
+                        devices, BottomSheetController.SheetState.FULL);
+        mRenderTestRule.render(view, "enhanced_device_picker_overflow_full");
+    }
+
+    /**
+     * Tests rendering the enhanced target device picker bottom sheet in half state with exactly
+     * four devices, verifying the overflow threshold boundary where fading edge enabled and Send
+     * button pinned.
+     */
+    @Test
+    @MediumTest
+    @Feature("RenderTest")
+    public void testEnhancedTargetDevicePickerBottomSheet_exactlyFourDevicesHalfState()
+            throws Throwable {
+        setUpAccountData(TestAccounts.ACCOUNT1);
+        List<TargetDeviceInfo> devices =
+                Arrays.asList(
+                        new TargetDeviceInfo(
+                                "My Phone",
+                                "guid1",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"),
+                        new TargetDeviceInfo(
+                                "My Computer",
+                                "guid2",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 1 day ago"),
+                        new TargetDeviceInfo(
+                                "My Tablet",
+                                "guid3",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 2 days ago"),
+                        new TargetDeviceInfo(
+                                "My Laptop",
+                                "guid4",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 3 days ago"));
+        View view =
+                createAndShowEnhancedDevicePickerView(
+                        devices, BottomSheetController.SheetState.HALF);
+        mRenderTestRule.render(view, "enhanced_device_picker_exactly_four_devices_half");
+    }
+
+    /**
+     * Tests rendering the enhanced target device picker bottom sheet in landscape mode with
+     * multiple target devices, verifying that visual layout is consistent across screen
+     * orientations.
+     */
+    @Test
+    @MediumTest
+    @Feature("RenderTest")
+    public void testEnhancedTargetDevicePickerBottomSheet_landscapeMode() throws Throwable {
+        setUpAccountData(TestAccounts.ACCOUNT1);
+        List<TargetDeviceInfo> devices =
+                Arrays.asList(
+                        new TargetDeviceInfo(
+                                "My Phone",
+                                "guid1",
+                                FormFactor.PHONE,
+                                OsType.ANDROID,
+                                "Active today"),
+                        new TargetDeviceInfo(
+                                "My Computer",
+                                "guid2",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 1 day ago"),
+                        new TargetDeviceInfo(
+                                "My Tablet",
+                                "guid3",
+                                FormFactor.TABLET,
+                                OsType.ANDROID,
+                                "Active 2 days ago"),
+                        new TargetDeviceInfo(
+                                "My Laptop",
+                                "guid4",
+                                FormFactor.DESKTOP,
+                                OsType.WINDOWS,
+                                "Active 3 days ago"));
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mActivityTestRule
+                            .getActivity()
+                            .setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+                });
+        View view =
+                createAndShowEnhancedDevicePickerView(
+                        devices, BottomSheetController.SheetState.HALF);
+        mRenderTestRule.render(view, "enhanced_device_picker_landscape_half");
     }
 }

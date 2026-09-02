@@ -17,20 +17,20 @@ namespace blink {
 
 class Document;
 class Element;
-class Route;
+class URLPattern;
 
-// <route-location>
+// <navigation-location>
 //
-// https://drafts.csswg.org/css-navigation-1/#typedef-route-location
-class RouteLocation : public GarbageCollected<RouteLocation> {
+// https://drafts.csswg.org/css-navigation-1/#typedef-navigation-location
+class NavigationLocation : public GarbageCollected<NavigationLocation> {
  public:
   enum Type {
-    kRouteName,
+    kLocationName,
     kUrlPattern,
     kUrl,
   };
 
-  RouteLocation(Type type, const AtomicString& value)
+  NavigationLocation(Type type, const AtomicString& value)
       : type_(type), value_(value) {}
 
   void Trace(Visitor*) const {}
@@ -38,10 +38,10 @@ class RouteLocation : public GarbageCollected<RouteLocation> {
   Type GetType() const { return type_; }
   const AtomicString& GetValue() const { return value_; }
 
-  // Look for a `Route` entry in the route map. Additionally, if this
-  // <route-location> is a URLPattern, an entry will be inserted if it's
-  // missing.
-  const Route* FindOrCreateRoute(Document&) const;
+  // Look for a URLPattern entry in the route map. Additionally, if this
+  // <navigation-location> is a URLPattern (and not a named location), an entry
+  // will be inserted if it's missing.
+  const URLPattern* FindOrCreateURLPattern(Document&) const;
 
   bool CheckSelectorMatch(
       const Element&,
@@ -73,15 +73,15 @@ class NavigationTestExpression
 // https://drafts.csswg.org/css-navigation-1/#typedef-navigation-location-test
 class NavigationLocationTestExpression : public NavigationTestExpression {
  public:
-  NavigationLocationTestExpression(RouteLocation& location,
+  NavigationLocationTestExpression(NavigationLocation& location,
                                    NavigationPreposition preposition)
-      : route_location_(&location), preposition_(preposition) {}
+      : navigation_location_(&location), preposition_(preposition) {}
 
   void Trace(Visitor* visitor) const override;
 
   bool IsNavigationLocationTestExpression() const override { return true; }
 
-  RouteLocation& GetLocation() const { return *route_location_; }
+  NavigationLocation& GetLocation() const { return *navigation_location_; }
   NavigationPreposition GetPreposition() const { return preposition_; }
 
   bool Matches(Document&) const override;
@@ -90,7 +90,7 @@ class NavigationLocationTestExpression : public NavigationTestExpression {
   static void SerializePrepositionTo(NavigationPreposition, StringBuilder&);
 
  private:
-  Member<RouteLocation> route_location_;
+  Member<NavigationLocation> navigation_location_;
   NavigationPreposition preposition_;
 };
 
@@ -108,9 +108,9 @@ struct DowncastTraits<NavigationLocationTestExpression> {
 class NavigationLocationBetweenTestExpression
     : public NavigationTestExpression {
  public:
-  NavigationLocationBetweenTestExpression(RouteLocation& location1,
-                                          RouteLocation& location2)
-      : route_location1_(&location1), route_location2_(location2) {}
+  NavigationLocationBetweenTestExpression(NavigationLocation& location1,
+                                          NavigationLocation& location2)
+      : navigation_location1_(&location1), navigation_location2_(location2) {}
 
   void Trace(Visitor* visitor) const override;
 
@@ -118,8 +118,8 @@ class NavigationLocationBetweenTestExpression
   void SerializeTo(StringBuilder&) const override;
 
  private:
-  Member<RouteLocation> route_location1_;
-  Member<RouteLocation> route_location2_;
+  Member<NavigationLocation> navigation_location1_;
+  Member<NavigationLocation> navigation_location2_;
 };
 
 // <navigation-phase-test>
@@ -142,8 +142,7 @@ class NavigationPhaseTestExpression : public NavigationTestExpression {
 // https://drafts.csswg.org/css-navigation-1/#typedef-navigation-type-test
 class NavigationTypeTestExpression : public NavigationTestExpression {
  public:
-  // TODO(crbug.com/436805487): Support "reload".
-  enum Type { kTraverse, kBack, kForward };
+  enum Type { kTraverse, kBack, kForward, kReload };
 
   explicit NavigationTypeTestExpression(Type type) : type_(type) {}
 

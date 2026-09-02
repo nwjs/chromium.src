@@ -279,9 +279,6 @@
       <message name="IDS_IOS_CREDENTIAL_EXCHANGE_EXPORTER_DISPLAY_NAME" desc="Display name of Password Manager used in credential export feature. [iOS only]">
         Password Manager
       </message>
-      <message name="IDS_IOS_PASSWORD_SAVED_INFOBAR_MESSAGE" desc="Message displayed on an infobar confirming that the password was saved to the specified account. [iOS only]">
-        To Password Manager for <ph name="EMAIL">$1<ex>johndoe@gmail.com</ex></ph>
-      </message>
       <message name="IDS_IOS_CREDENTIAL_EXCHANGE_IMPORT_DISCLAIMER" desc="The bottom text displayed on Credential Exchange import screen to declare that the data will be saved to the user's password manager. [iOS only]">
         Your data will be saved to Password Manager for <ph name="USER_EMAIL">$1<ex>elisa.g.beckett@gmail.com</ex></ph>
       </message>
@@ -318,6 +315,36 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation.">
         Open Chromium anytime you tap on links in other apps
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP1" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Copy/Paste Friction experiment) [iOS only].">
+        Set Chromium as default to open links in one tap instead of copying them.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP10" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Experience Upgrade experiment) [iOS only].">
+        Make Chromium your default to stop copying links from other apps.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP2" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (One-Tap Open experiment) [iOS only].">
+        Open links directly in Chromium next time without copying URLs first.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP3" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Smooth Transitions experiment) [iOS only].">
+        Make Chromium your default browser to launch links here instantly.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP4" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Time Saving experiment) [iOS only].">
+        Avoid the hassle of copying. Launch links straight into Chromium.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP5" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Direct Loading experiment) [iOS only].">
+        Make Chromium your default and open web content automatically.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP6" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Convenience experiment) [iOS only].">
+        Set Chromium as default to open links instantly from other apps.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP7" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Speed experiment) [iOS only].">
+        Stop copying URLs. Set Chromium as default to load pages directly.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP8" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Seamless Web Flow experiment) [iOS only].">
+        Open links from messages and documents directly in Chromium.
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_DESCRIPTION_EXP9" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Direct Action experiment) [iOS only].">
+        Avoid copying. Set Chromium as your default iOS browser.
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation.">
         Set Chromium as default?
@@ -690,6 +717,9 @@ Things to consider:
       <message name="IDS_IOS_INTENTS_VIEW_CHROME_HISTORY_TITLE" desc="Siri Shortcut for view chromium history title [iOS only]">
         View Your Chromium History
       </message>
+      <message name="IDS_IOS_INTERACTIVE_LENS_OVERLAY_PROMO_SUBTITLE" desc="The subtitle for the interactive lens overlay promo in the First Run Experience.">
+        You can use Google Lens in Chromium to search anything you see
+      </message>
       <message name="IDS_IOS_LENS_PROMO_IPH_TEXT" desc="The text of an iph bubble that points to the Fakebox's Lens icon">
         You can open Lens here.
       </message>
@@ -788,14 +818,8 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_CPE_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable the CPE.">
         Chromium Tip: Get your passwords in any app
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_ALT1_TITLE" desc="Text for the title of a Tips notification that encourages the user to set the app as their default browser">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_ALT_TITLE" desc="Text for the title of a Tips notification that encourages the user to set the app as their default browser">
          Use Chromium by default
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_ALT2_TITLE" desc="Text for the title of a Tips notification that encourages the user to set the app as their default browser">
-         Make Chromium your default browser
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_ALT3_BODY" desc="Text for the body of a Tips notification that encourages the user to set the app as their default browser">
-         Easily use Chromium anytime you tap links in messages or other apps.
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_BODY" desc="Text for the body of a Tips notification that encourages the user to set the app as their default browser">
         Use Chromium anytime you tap links in messages or other apps.
@@ -803,29 +827,14 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_DEFAULT_BROWSER_TITLE" desc="Text for the title of a Tips notification that encourages the user to set the app as their default browser">
         Chromium Tip: use Chromium by default
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT1_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
          Access Chromium faster from your iPad's Home Screen.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT1_BODY_IPHONE" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT_BODY_IPHONE" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
          Access Chromium faster from your iPhone's Home Screen.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT1_TITLE" desc="Text for the title of a Tips notification that encourages the user to put the app into the iOS dock">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT_TITLE" desc="Text for the title of a Tips notification that encourages the user to put the app into the iOS dock">
          Chromium Tip: Move Chromium to your home screen
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT2_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
-         Access Chromium faster from your iPad's Dock.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT2_BODY_IPHONE" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
-         Access Chromium faster from your iPhone's Dock.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT3_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
-         Open Chromium faster when you're ready to browse on your iPad.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT3_BODY_IPHONE" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
-         Open Chromium faster when you're ready to browse on your iPhone.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_ALT3_TITLE" desc="Text for the title of a Tips notification that encourages the user to put the app into the iOS dock">
-        Move Chromium to your dock
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to put the app into the iOS dock">
         Access Chromium faster from your iPad's home screen dock.
@@ -836,16 +845,13 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_DOCKING_TITLE" desc="Text for the title of a Tips notification that encourages the user to put the app into the iOS dock">
         Chromium Tip: Move Chromium to the dock
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_ALT1_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
-         Chromium Tip: Enhanced safe browsing will save your day
-      </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
         Chromium Tip: Get Chromium's strongest security
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_TITLE_FROM_DESKTOP" desc="Text for the title of a Tips notification that encourages the user to enable Enhanced Safe Browsing.">
         Chromium Tip: Enhanced Safe Browsing
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_ALT1_TITLE" desc="Text for the title of a Tips notification that encourages the user to search with Lens">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_ALT_TITLE" desc="Text for the title of a Tips notification that encourages the user to search with Lens">
          Chromium Tip: Search what you see with Google Lens
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_OVERLAY_TITLE" desc="Text for the title of a Tips notification that encourages the user to use the Lens Overlay feature.">
@@ -857,23 +863,17 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_TITLE" desc="Text for the title of a Tips notification that reminds the user to set their preferred omnibox position">
         Chromium Tip: Choose your address bar position
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_ALT1_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to complete the Set Up List">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_ALT_BODY_IPAD" desc="Text for the body of a Tips notification that encourages the user to complete the Set Up List">
          Tap here to get the most out of Chromium on your iPad.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_ALT1_BODY_IPHONE" desc="Text for the body of a Tips notification that encourages the user to complete the Set Up List">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_ALT_BODY_IPHONE" desc="Text for the body of a Tips notification that encourages the user to complete the Set Up List">
          Tap here to get the most out of Chromium on your iPhone.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_ALT2_TITLE" desc="Text for the title of a Tips notification that encourages the user to complete the Set Up List">
-         You're almost finished setting up Chromium!
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_BODY" desc="Text for the body of a Tips notification that encourages the user to complete the Set Up List">
         Get the most out of Chromium by continuing setting up your browser.
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_SETUPLIST_CONTINUATION_TITLE" desc="Text for the title of a Tips notification that encourages the user to complete the Set Up List">
         Finish setting up Chromium
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_ALT3_TITLE" desc="Text for the title of a Tips notification that encourages the user to sign in to their account">
-         Sign in to Chromium to get your stuff
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_BODY" desc="Text for the body of a Tips notification that encourages the user to sign in to their account">
         Sign in with your Google Account to sync your passwords, bookmarks, and more.
@@ -883,9 +883,6 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_TRUSTED_VAULT_KEY_RETRIVAL_TITLE" desc="Text for the title of a Tips notification that starts a re-authentication flow, which will allow users to access their passwords.">
         Chromium Tip: Get your passwords
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_WHATS_NEW_ALT2_TITLE" desc="Text for the title of a Tips notification that takes the user to the Whats New page">
-         Check out what’s new in Chromium
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_WHATS_NEW_BODY" desc="Text for the body of a Tips notification that takes the user to the Whats New page">
         Explore new features that help you get the most out of Chromium.
@@ -951,6 +948,9 @@ Only someone with your passphrase can read your encrypted data. The passphrase i
       </message>
       <message name="IDS_IOS_PASSWORD_MANAGER_SIGN_IN_ERROR_INFOBAR_SUBTITLE" desc="Infobar subtitle for fixing sign-in error before saving a password on the account.">
         Verify it's you to save this password and get Chromium data on all your devices
+      </message>
+      <message name="IDS_IOS_PASSWORD_SAVED_INFOBAR_MESSAGE" desc="Message displayed on an infobar confirming that the password was saved to the specified account. [iOS only]">
+        To Password Manager for <ph name="EMAIL">$1<ex>johndoe@gmail.com</ex></ph>
       </message>
       <message name="IDS_IOS_PASSWORD_SETTINGS_PASSWORDS_IN_OTHER_APPS_DESCRIPTION" desc="Help text explaining the benefits of having Chromium set as a credential provider for other apps. [iOS Only]">
         Sign in quickly to apps and sites by autofilling your passwords &amp; passkeys from Chromium
@@ -1092,6 +1092,18 @@ For more settings that use data to improve your Chromium experience, go to <ph n
       </message>
       <message name="IDS_IOS_SETTINGS_ADD_PASSWORD_FOOTER_BRANDED" desc="Disclaimer telling users what will happen to their passwords">
         Your password will be saved to Password Manager for <ph name="EMAIL">$1<ex>example@gmail.com</ex></ph>.
+      </message>
+      <message name="IDS_IOS_SETTINGS_DEFAULT_BROWSER_PASSIVE_CARD_SUBTITLE" desc="Subtitle of the passive Default Browser card settings row. [iOS only]">
+        You can use Chromium any time you tap links in messages, documents and other apps
+      </message>
+      <message name="IDS_IOS_SETTINGS_DEFAULT_BROWSER_PASSIVE_CARD_TITLE" desc="Title of the passive Default Browser card settings row. [iOS only]">
+        Make Chromium your default browser
+      </message>
+      <message name="IDS_IOS_SETTINGS_DEFAULT_BROWSER_PASSIVE_CELL_SUBTITLE" desc="Subtitle of the passive Default Browser cell settings row. [iOS only]">
+        Open links faster when you set Chromium as default
+      </message>
+      <message name="IDS_IOS_SETTINGS_DEFAULT_BROWSER_PASSIVE_CELL_TITLE" desc="Title of the passive Default Browser cell settings row. [iOS only]">
+        Set Chromium as default
       </message>
       <message name="IDS_IOS_SETTINGS_IN_OVERFLOW_MENU_IPH_TEXT" desc="An in product help message to inform the user that they can find Settings in the overflow menu.">
         You can find Chromium settings and more here

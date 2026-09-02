@@ -379,10 +379,7 @@ NSString* const kContextualPanelEntrypointLabelIdentifier =
 // Sets the proper entrypoint visual features depending on current infobar
 // badges status and whether the Contextual Panel is open.
 - (void)refreshEntrypointVisualElements {
-  BOOL shouldAccountForVisibleInfobarBadges =
-      _infobarBadgesCurrentlyShown && !IsReaderModeAvailable();
-  BOOL shouldShowMutedColors =
-      shouldAccountForVisibleInfobarBadges || _entrypointTapped;
+  BOOL shouldShowMutedColors = _entrypointTapped;
 
   // Entrypoint icon tint color.
   _imageView.tintColor = shouldShowMutedColors
@@ -394,10 +391,7 @@ NSString* const kContextualPanelEntrypointLabelIdentifier =
       shouldShowMutedColors ? 0 : kEntrypointContainerShadowOpacity;
 
   // Entrypoint container background color.
-  UIColor* untappedEntrypointColor =
-      shouldAccountForVisibleInfobarBadges
-          ? nil
-          : [UIColor colorNamed:kBackgroundColor];
+  UIColor* untappedEntrypointColor = [UIColor colorNamed:kBackgroundColor];
 
   UIColor* entrypointContainerBackgroundColor =
       _entrypointTapped ? [UIColor colorNamed:kGrey100Color]
@@ -458,21 +452,8 @@ NSString* const kContextualPanelEntrypointLabelIdentifier =
 
   _label.text = base::SysUTF8ToNSString(config->entrypoint_message);
 
-  UIImage* image;
-  switch (config->image_type) {
-    case ContextualPanelItemConfiguration::EntrypointImageType::SFSymbol:
-      image = DefaultSymbolWithPointSize(
-          base::SysUTF8ToNSString(config->entrypoint_image_name),
-          kEntrypointSymbolPointSize);
-      break;
-    case ContextualPanelItemConfiguration::EntrypointImageType::Image:
-      image = CustomSymbolWithPointSize(
-          base::SysUTF8ToNSString(config->entrypoint_image_name),
-          kEntrypointSymbolPointSize);
-      break;
-  }
-
-  _imageView.image = image;
+  _imageView.image = SymbolWithPointSize(config->entrypoint_symbol,
+                                         kEntrypointSymbolPointSize);
 }
 
 - (void)setInfobarBadgesCurrentlyShown:(BOOL)infobarBadgesCurrentlyShown {

@@ -225,7 +225,6 @@ class ReadAnythingAppController
   float FontSize() const;
   bool LinksEnabled() const;
   bool ImagesEnabled() const;
-  bool ImagesFeatureEnabled() const;
   double SpeechRate() const;
   void OnFontSizeChanged(bool increase);
   void OnFontSizeReset();
@@ -238,6 +237,13 @@ class ReadAnythingAppController
   int HighlightGranularity() const;
   int LastNonDisabledLineFocus() const;
   bool IsLineFocusOn() const;
+  // The following 3 functions are for handling the auto-disappearing logic
+  // for the line focus new badge.
+  // TODO(crbug.com/543113387): Remove these when the WebUI new badge supports
+  // auto-disappearing logic itself.
+  void RequestShouldShowLineFocusNewBadge();
+  void OnShouldShowLineFocusNewBadgeResponse(bool show);
+  void OnLineFocusFeatureUsed();
   bool IsHighlightOn();
   int StandardLineSpacing() const;
   int LooseLineSpacing() const;
@@ -283,7 +289,6 @@ class ReadAnythingAppController
   std::string GetStoredVoice() const;
   std::vector<std::string> GetLanguagesEnabledInPref() const;
   std::vector<ui::AXNodeID> GetChildren(ui::AXNodeID ax_node_id) const;
-  std::string GetDataFontCss(ui::AXNodeID ax_node_id) const;
   std::string GetHtmlTag(ui::AXNodeID ax_node_id) const;
   std::string GetLanguage(ui::AXNodeID ax_node_id) const;
   std::u16string GetTextContent(ui::AXNodeID ax_node_id) const;
@@ -333,12 +338,12 @@ class ReadAnythingAppController
   bool IsImprovedReadAloudEnabled() const;
   bool IsReadAnythingImprovedUiEnabled() const;
   bool IsReadAnythingTranslateEntryPointEnabled() const;
+  bool IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() const;
   bool IsTsTextSegmentationEnabled() const;
   bool IsReadabilityEnabled() const;
   bool IsReadabilitySelectTextEnabled() const;
   bool IsLineFocusEnabled() const;
   bool IsReadabilityWithLinksEnabled() const;
-  bool IsChromeOsAsh() const;
   bool IsPhraseHighlightingEnabled() const;
   void OnLetterSpacingChange(int value);
   void OnLineSpacingChange(int value);

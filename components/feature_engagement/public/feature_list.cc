@@ -158,6 +158,7 @@ const base::Feature* const kAllFeatures[] = {
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
     &kIPHBottomToolbarTipFeature,
+    &kIPHSendTabToSelfOmnibox,
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
@@ -219,6 +220,8 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSPromoPasswordManagerWidgetFeature,
     &kIPHiOSPromoPostRestoreDefaultBrowserFeature,
     &kIPHiOSPromoPostRestoreFeature,
+    &kIPHiOSPromoSettingsCardDefaultBrowserFeature,
+    &kIPHiOSPromoSettingsCellDefaultBrowserFeature,
     &kIPHiOSPromoSigninFullscreenFeature,
     &kIPHiOSPromoStaySafeFeature,
     &kIPHiOSPromoWhatsNewFeature,
@@ -282,7 +285,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHHistorySearchFeature,
     &kIPHLensOverlayFeature,
     &kIPHLensOverlayTranslateButtonFeature,
-    &kIPHLiveCaptionFeature,
     &kIPHMemorySaverModeFeature,
     &kIPHMultistepFilterPromoFeature,
     &kIPHPasswordManagerShortcutFeature,
@@ -296,6 +298,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHPdfInkSignaturesFeature,
     &kIPHPdfSearchifyFeature,
     &kIPHPdfTextAnnotationsFeature,
+    &kIPHPdfTranslateBubbleFeature,
     &kIPHPerformanceInterventionDialogFeature,
     &kIPHPowerBookmarksSidePanelFeature,
     &kIPHPriceInsightsPageActionIconLabelFeature,
@@ -323,6 +326,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHSmartTabSharingDefaultOnFeature,
     &kIPHSmartTabSharingFeature,
     &kIPHSmartTabSharingTryItFeature,
+    &kIPHSplitViewHorizontalIndirectAccessFeature,
     &kIPHTabAudioMutingFeature,
     &kIPHTabGroupsSaveV2CloseGroupFeature,
     &kIPHTabGroupsSaveV2IntroFeature,

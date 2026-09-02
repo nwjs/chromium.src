@@ -14,14 +14,14 @@
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/tabs/organizer/organizer_panel_state_controller.h"
+#include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_controls_view.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view_layout.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "ui/actions/actions.h"
@@ -32,11 +32,16 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/actions/action_view_controller.h"
 #include "ui/views/background.h"
+#include "ui/views/controls/webview/web_contents_set_background_color.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/event_monitor.h"
 #include "ui/views/focus/focus_search.h"
+#include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_shadow.h"
 #include "ui/views/widget/widget.h"
+#include "url/gurl.h"
 
 namespace {
 
@@ -77,11 +82,26 @@ OrganizerPanelView::OrganizerPanelView(
 
   SetIsElevated(true);
 
+  content_container_->SetLayoutManager(std::make_unique<views::FlexLayout>())
+      ->SetOrientation(views::LayoutOrientation::kVertical)
+      .SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
+
   controls_view_ = content_container_->AddChildView(
       std::make_unique<OrganizerPanelControlsView>(root_action_item_.get()));
+  controls_view_->SetProperty(views::kMarginsKey,
+                              organizer_panel::kOrganizerPanelControlsMargins);
 
-  content_container_->SetLayoutManager(
-      std::make_unique<OrganizerPanelViewLayout>(controls_view_));
+  if (browser_ && browser_->GetProfile()) {
+    auto web_view = std::make_unique<views::WebView>(browser_->GetProfile());
+    views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
+        web_view->GetWebContents(), SK_ColorTRANSPARENT);
+    web_view->LoadInitialURL(GURL(chrome::kChromeUIOrganizerPanelURL));
+    web_view->SetProperty(
+        views::kFlexBehaviorKey,
+        views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
+                                 views::MaximumFlexSizeRule::kUnbounded));
+    web_view_ = content_container_->AddChildView(std::move(web_view));
+  }
 
   resize_animation_.SetTweenType(gfx::Tween::Type::EASE_IN_OUT_EMPHASIZED);
 
@@ -184,6 +204,28 @@ void OrganizerPanelView::SetTargetWidth(int target_width) {
   target_width_ = target_width;
 
   InvalidateLayout();
+}
+
+void OrganizerPanelView::AddedToWidget() {
+  gfx::RoundedCornersF window_corners;
+  if (auto* non_client_view = GetWidget()->non_client_view()) {
+    if (auto* frame_view = views::AsViewClass<BrowserFrameView>(
+            non_client_view->frame_view())) {
+      window_corners = frame_view->GetWindowRoundedCorners();
+    }
+  }
+
+  // Apply the window corners to the layer. This ensures the browser window has
+  // a consistent corner radius as the panel slides in.
+  gfx::RoundedCornersF panel_layer_corners;
+  if (base::i18n::IsRTL()) {
+    panel_layer_corners = gfx::RoundedCornersF(0, window_corners.upper_right(),
+                                               window_corners.lower_right(), 0);
+  } else {
+    panel_layer_corners = gfx::RoundedCornersF(window_corners.upper_left(), 0,
+                                               0, window_corners.lower_left());
+  }
+  layer()->SetRoundedCornerRadius(panel_layer_corners);
 }
 
 void OrganizerPanelView::SetIsElevated(bool elevated) {
@@ -290,6 +332,10 @@ void OrganizerPanelView::AnimationCanceled(const gfx::Animation* animation) {
 }
 
 // static
+views::View* OrganizerPanelView::web_view_for_testing() {
+  return web_view_;
+}
+
 void OrganizerPanelView::disable_animations_for_testing() {
   disable_animations_for_testing_ = true;
 }

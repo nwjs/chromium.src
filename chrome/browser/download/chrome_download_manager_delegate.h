@@ -40,7 +40,7 @@
 #include "chrome/browser/download/android/download_message_bridge.h"  // nogncheck crbug.com/40147906
 #endif
 
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 #include "base/types/expected.h"
 #endif
 
@@ -62,7 +62,7 @@ class CrxInstallError;
 }
 #endif
 
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 namespace enterprise_obfuscation {
 enum class Error;
 }
@@ -328,7 +328,7 @@ class ChromeDownloadManagerDelegate
   void ShouldCompleteDownloadInternal(uint32_t download_id,
                                       base::OnceClosure user_complete_callback);
 
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
+#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
   // Called when obfuscated download files are deobfuscated.
   void OnDeobfuscationComplete(
       uint32_t download_id,
@@ -401,6 +401,15 @@ class ChromeDownloadManagerDelegate
       const base::FilePath& suggested_path,
       content::SavePackagePathPickedCallback callback,
       bool accept);
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Called after attempting to obtain a temporary directory for deobfuscating
+  // virtual files.
+  void OnCreateDeobfuscationTempFile(uint32_t download_id,
+                                     const base::FilePath& virtual_path,
+                                     download::LocalPathCallback callback,
+                                     base::FilePath temp_file_path);
 #endif
 
   raw_ptr<Profile, DanglingUntriaged> profile_;

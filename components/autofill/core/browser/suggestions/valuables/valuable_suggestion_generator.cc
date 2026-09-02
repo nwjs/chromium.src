@@ -64,28 +64,6 @@ Suggestion::LetterMonochromeIcon CreateFallbackSuggestionIcon(
       base::UTF8ToUTF16(merchant_name.substr(0, 1)));
 }
 
-Suggestion CreateUndoOrClearFormSuggestion() {
-#if BUILDFLAG(IS_IOS)
-  // TODO(crbug.com/40266549): iOS still uses Clear Form logic, replace with
-  // Undo.
-  Suggestion suggestion(
-      l10n_util::GetStringUTF16(IDS_AUTOFILL_CLEAR_FORM_MENU_ITEM),
-      SuggestionType::kUndoOrClear);
-  suggestion.icon = Suggestion::Icon::kClear;
-#else
-  std::u16string value = l10n_util::GetStringUTF16(IDS_AUTOFILL_UNDO_MENU_ITEM);
-  if constexpr (BUILDFLAG(IS_ANDROID)) {
-    value = base::i18n::ToUpper(value);
-  }
-  Suggestion suggestion(value, SuggestionType::kUndoOrClear);
-  suggestion.icon = Suggestion::Icon::kUndo;
-#endif
-  // TODO(crbug.com/40266549): update "Clear Form" a11y announcement to "Undo"
-  suggestion.acceptance_a11y_announcement =
-      l10n_util::GetStringUTF16(IDS_AUTOFILL_A11Y_ANNOUNCE_CLEARED_FORM);
-  return suggestion;
-}
-
 // Set the URL for the loyalty card icon image or fallback icon to be shown in
 // the `suggestion`.
 void SetLoyaltyCardIconURL(Suggestion& suggestion,
@@ -161,7 +139,7 @@ std::vector<Suggestion> GetLoyaltyCardsFooterSuggestions(
   std::vector<Suggestion> footer_suggestions;
   footer_suggestions.emplace_back(SuggestionType::kSeparator);
   if (trigger_field_is_autofilled) {
-    footer_suggestions.push_back(CreateUndoOrClearFormSuggestion());
+    footer_suggestions.push_back(CreateUndoSuggestion());
   }
   footer_suggestions.push_back(CreateManageLoyaltyCardsSuggestion());
   return footer_suggestions;
@@ -227,7 +205,8 @@ std::vector<Suggestion> CreateLoyaltyCardSuggestionsForMerge(
   Suggestion submenu_suggestion = Suggestion(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_LOYALTY_CARDS_SUBMENU_TITLE),
       SuggestionType::kAllLoyaltyCardsEntry);
-  submenu_suggestion.acceptability = Suggestion::Acceptability::kUnacceptable;
+  submenu_suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   submenu_suggestion.icon = Suggestion::Icon::kGoogleWalletMonochrome;
 #endif
@@ -322,6 +301,11 @@ void LoyaltyCardSuggestionGenerator::GenerateSuggestions(
   std::vector<LoyaltyCard> all_loyalty_cards =
       client.GetValuablesDataManager()->GetLoyaltyCardsToSuggest();
 
+  if (all_loyalty_cards.empty()) {
+    callback({SuggestionDataSource::kLoyaltyCard, {}});
+    return;
+  }
+
   auto non_affiliated_cards = std::ranges::stable_partition(
       all_loyalty_cards, [&](const LoyaltyCard& card) {
         return card.GetAffiliationCategory(
@@ -398,7 +382,8 @@ void LoyaltyCardSuggestionGenerator::GenerateSuggestions(
       l10n_util::GetStringUTF16(
           IDS_AUTOFILL_LOYALTY_CARDS_ALL_YOUR_CARDS_SUBMENU_TITLE),
       SuggestionType::kAllLoyaltyCardsEntry);
-  submenu_suggestion.acceptability = Suggestion::Acceptability::kUnacceptable;
+  submenu_suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   submenu_suggestion.icon = Suggestion::Icon::kGoogleWalletMonochrome;
 #endif

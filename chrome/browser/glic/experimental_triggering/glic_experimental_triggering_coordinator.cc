@@ -20,6 +20,8 @@
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
+#include "chrome/browser/glic/experimental_triggering/actor_log.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_converters.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_manager.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_metrics.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
@@ -33,11 +35,6 @@
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"           // nogncheck
-#include "chrome/browser/ui/browser_commands.h"  // nogncheck
-#include "chrome/browser/ui/browser_window.h"    // nogncheck
-#endif
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -45,9 +42,33 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/browser_commands.h"  // nogncheck
+#include "chrome/browser/ui/browser_window.h"    // nogncheck
+#endif
+
 namespace glic {
 
 namespace {
+
+std::optional<TaskMetadata> ExtractRequestTaskMetadata(
+    const components_sharing_message::GlicExperimentalTriggering& proto) {
+  if (!proto.has_task_metadata()) {
+    return std::nullopt;
+  }
+  const auto& proto_meta = proto.task_metadata();
+  TaskMetadata meta;
+  if (proto_meta.has_conversation_id()) {
+    meta.conversation_id = proto_meta.conversation_id();
+  }
+  if (proto_meta.has_task_id()) {
+    meta.task_id = proto_meta.task_id();
+  }
+  if (proto_meta.has_sender_sequence_number()) {
+    meta.sender_sequence_number = proto_meta.sender_sequence_number();
+  }
+  return meta;
+}
 
 GlicInvokeOptions CreateInvokeOptions(
     const ExperimentalTriggeringRequest& request,
@@ -826,7 +847,9 @@ GlicExperimentalTriggeringCoordinator::GetBrowserWindow() const {
   BrowserWindowInterface* browser = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&browser, this](BrowserWindowInterface* b) {
-        if (b->GetProfile() == profile_) {
+        if (b->GetProfile() == profile_ &&
+            b->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
+            !b->IsDeleteScheduled()) {
           browser = b;
           return false;  // Stop iteration
         }
@@ -842,11 +865,63 @@ tabs::TabInterface* GlicExperimentalTriggeringCoordinator::GetActiveTab()
 }
 
 std::optional<ExperimentalTriggeringResponse>
+GlicExperimentalTriggeringCoordinator::OnProtoMessage(
+    const std::string& context_id,
+    const components_sharing_message::GlicExperimentalTriggering& proto,
+    ScopedIncomingMessageResultLogger result_logger,
+    GlicExperimentalTriggeringUpdateCallback update_callback,
+    tabs::TabInterface* prepared_tab) {
+  actor::ActorKeyedService* actor_service =
+      actor::ActorKeyedService::Get(profile_);
+  LogGlicExperimentalTriggeringProto(
+      actor_service, "GlicExperimentalTriggering", context_id, proto);
+
+  auto request_metadata = ExtractRequestTaskMetadata(proto);
+  const TaskMetadata* request_metadata_ptr =
+      request_metadata.has_value() ? &*request_metadata : nullptr;
+
+  GlicKeyedService* glic_service =
+      GlicKeyedServiceFactory::GetGlicKeyedService(profile_, /*create=*/false);
+  auto local_version =
+      glic_service ? glic_service->enabling().GetExperimentalTriggeringVersion()
+                   : std::nullopt;
+  if (proto.has_glic_experimental_triggering_version() &&
+      (!local_version.has_value() ||
+       proto.glic_experimental_triggering_version() > *local_version)) {
+    result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                 kVersionMismatchOrUnavailable);
+    return CreateResponseMessage(context_id, TaskUpdate::State::kFailed,
+                                 TaskUpdate::DataType::kErrorMessage,
+                                 "Rejected: version mismatch or unavailable.",
+                                 request_metadata_ptr,
+                                 /*sender_sequence_number=*/0);
+  }
+
+  if (!proto.has_request() && !proto.has_task_metadata_updated()) {
+    result_logger.set_result(
+        GlicExperimentalTriggeringIncomingMessageResult::kMissingPayload);
+    return CreateResponseMessage(
+        context_id, TaskUpdate::State::kFailed,
+        TaskUpdate::DataType::kErrorMessage,
+        "Received GlicExperimentalTriggering message with no request payload.",
+        request_metadata_ptr,
+        /*sender_sequence_number=*/0);
+  }
+
+  ExperimentalTriggeringRequest domain_request = ProtoToRequest(proto);
+  domain_request.context_id = context_id;
+
+  return OnRequest(context_id, domain_request, std::move(result_logger),
+                   std::move(update_callback), prepared_tab);
+}
+
+std::optional<ExperimentalTriggeringResponse>
 GlicExperimentalTriggeringCoordinator::OnRequest(
     const std::string& context_id,
     const ExperimentalTriggeringRequest& request,
     ScopedIncomingMessageResultLogger result_logger,
-    GlicExperimentalTriggeringUpdateCallback update_callback) {
+    GlicExperimentalTriggeringUpdateCallback update_callback,
+    tabs::TabInterface* prepared_tab) {
   auto it = context_id_to_updates_handler_map_.find(context_id);
   ExperimentalTriggeringUpdatesHandler* handler = nullptr;
   if (it != context_id_to_updates_handler_map_.end()) {
@@ -865,7 +940,7 @@ GlicExperimentalTriggeringCoordinator::OnRequest(
   CHECK(handler);
 
   return handler->OnRequest(request, std::move(result_logger),
-                            std::move(update_callback), nullptr);
+                            std::move(update_callback), prepared_tab);
 }
 
 void GlicExperimentalTriggeringCoordinator::OnUpdatesHandlerCleanup(

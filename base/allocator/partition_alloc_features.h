@@ -175,6 +175,19 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUseDenserDistribution);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocMemoryReclaimer);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(TimeDelta,
                                        kPartitionAllocMemoryReclaimerInterval);
+BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocAdaptiveMemoryReclaimInterval);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    TimeDelta,
+    kPartitionAllocAdaptiveMemoryReclaimMinInterval);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    TimeDelta,
+    kPartitionAllocAdaptiveMemoryReclaimMaxInterval);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    TimeDelta,
+    kPartitionAllocAdaptiveMemoryReclaimDefaultInterval);
+BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    int,
+    kPartitionAllocAdaptiveMemoryReclaimMinDecommittableBytes);
 BASE_EXPORT BASE_DECLARE_FEATURE(
     kPartitionAllocStraightenLargerSlotSpanFreeLists);
 BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(
@@ -213,9 +226,6 @@ BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUseSmallSingleSlotSpans);
 BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocUsePriorityInheritanceLocks);
 #endif  // PA_BUILDFLAG(ENABLE_PARTITION_LOCK_PRIORITY_INHERITANCE)
 
-BASE_EXPORT BASE_DECLARE_FEATURE(kPartitionAllocFreeWithSize);
-BASE_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
-                                       kPartitionAllocStrictFreeSizeCheck);
 
 }  // namespace base::features
 

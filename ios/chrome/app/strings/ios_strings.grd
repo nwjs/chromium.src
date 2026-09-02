@@ -194,6 +194,9 @@
       <message name="IDS_AUTOFILL_SCAN_SAVE_AND_FILL_BOTTOM_SHEET_TITLE" desc="Title for the `Scan, Save and Fill` suggestion shown in the Autofill bottom sheet for users who don't have any cards saved in Autofill. When the suggestion is clicked, users are offered to scan, save and fill a credit card with a single click.">
         Check out faster with autofill across your devices
       </message>
+      <message name="IDS_AUTOFILL_SETTINGS_GOOGLE_WALLET_LEGAL_NOTICE" desc="Footer text in Payment Methods settings page informing users where to manage Google Wallet data and privacy preferences. [iOS only]">
+        Visit Google Wallet to manage <ph name="BEGIN_LINK">BEGIN_LINK</ph>data and privacy preferences<ph name="END_LINK">END_LINK</ph>.
+      </message>
       <message name="IDS_IOS_ACCNAME_CLEAR_TEXT" desc="The accessibility label for the clear text button in the location bar [Length: unlimited].">
         Clear text
       </message>
@@ -300,7 +303,7 @@
        <ph name="EMAIL">$1<ex>jessica@gmail.com</ex></ph>. <ph name="MANAGED_STATUS">$2<ex>Your account is managed</ex></ph>. <ph name="AI_TIER">$3<ex>Google AI Foo membership</ex></ph>.
       </message>
       <message name="IDS_IOS_ACCOUNT_VIEW_ACCESSIBILITY_LABEL_MEMBERSHIPS_AI_TIER" desc="Part of the accessibility label letting the user know which membership tier they have. Used in strings such as IDS_IOS_ACCOUNT_VIEW_ACCESSIBILITY_LABEL_MANAGED_STATUS_AI_TIER. [iOS only]">
-        <ph name="AI_TIER_NAME">$1<ex>Tier name</ex> membership</ph>
+        <ph name="AI_TIER_NAME">$1<ex>Tier name</ex></ph> membership
       </message>
       <message name="IDS_IOS_ACCOUNT_VIEW_ACCESSIBILITY_LABEL_NAME" desc="The accessibility label for the cell containing user’s name and email. [iOS only]">
         <ph name="USER_NAME">$1<ex>Jessica</ex></ph>, <ph name="EMAIL">$2<ex>jessica@gmail.com</ex></ph>.
@@ -622,6 +625,9 @@
       </message>
       <message name="IDS_IOS_ASSISTANT_SHEET_GRABBER_ACCESSIBILITY_LABEL" desc="Accessibility label for the bottom sheet grabber in Assistant. Read by Text To Speech [iOS only]." meaning="Voice Over will read this to the user followed by 'Button' when the grabber is focused.">
         Sheet grabber
+      </message>
+      <message name="IDS_IOS_AT_MEMORY_AI_DISCLOSURE" desc="The text shown at the bottom of the @memory bottom sheet to set user expectations regarding potential incorrect suggestions. [iOS only]">
+        Gemini is AI and can make mistakes. <ph name="BEGIN_LINK">BEGIN_LINK</ph>More about relevant data sent to Google<ph name="END_LINK">END_LINK</ph>
       </message>
       <message name="IDS_IOS_AUTH_REASON" desc="A description that appears when the user needs to authenticate to use a suggestion.">
       Chrome keeps your sensitive data secure with Face ID
@@ -1492,6 +1498,15 @@
       <message name="IDS_IOS_BWG_IPH_TEXT" desc="Text for the BWG In-Product Help bubble.">
           You can open Gemini here
       </message>
+      <message name="IDS_IOS_BWG_LIGHTWEIGHT_PROMO_CONVENIENCE_TITLE" desc="Convenience variant main title text for the Lightweight Gemini First Run Experience.">
+          Ask anything, right where you are, with Gemini in Chrome
+      </message>
+      <message name="IDS_IOS_BWG_LIGHTWEIGHT_PROMO_DIVERSE_TITLE" desc="Diverse variant main title text for the Lightweight Gemini First Run Experience.">
+          Shop, plan and do more with Gemini in Chrome
+      </message>
+      <message name="IDS_IOS_BWG_LIGHTWEIGHT_PROMO_PAGE_SHARING_TITLE" desc="Page sharing variant main title text for the Lightweight Gemini First Run Experience.">
+          Ask about anything on your page with Gemini in Chrome
+      </message>
       <message name="IDS_IOS_BWG_LOCATION_BACK_BUTTON_TITLE" desc="The back button text of BWG location settings page.">
         Gemini
       </message>
@@ -1515,6 +1530,27 @@
       </message>
       <message name="IDS_IOS_BWG_PAGE_CONTENT_SHARING_ALERT_TITLE" desc="The title of the alert asking a user to turn on Page Content sharing.">
           Turn on tab sharing
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_GEMINI_IN_CHROME" desc="Product branding suffix text for the Gemini Promo carousel slide titles.">
+          Gemini in Chrome
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_PLANNING_ANIMATION_ACCESSIBILITY_LABEL" desc="Accessibility label for the third Gemini Promo carousel slide animation.">
+          Prompt: Add this to my calendar, 3 of 3
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_PLANNING_TITLE" desc="Planning slide title text prefix for the Gemini Promo carousel.">
+          Plan your weekend with
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_SHOPPING_ANIMATION_ACCESSIBILITY_LABEL" desc="Accessibility label for the second Gemini Promo carousel slide animation.">
+          Prompt: Which should I buy? 2 of 3
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_SHOPPING_TITLE" desc="Shopping slide title text prefix for the Gemini Promo carousel.">
+          Shop confidently with
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_SUMMARIZE_ANIMATION_ACCESSIBILITY_LABEL" desc="Accessibility label for the first Gemini Promo carousel slide animation.">
+          Prompt: Summarize this article, 1 of 3
+      </message>
+      <message name="IDS_IOS_BWG_PROMO_CAROUSEL_SUMMARIZE_TITLE" desc="Summarize slide title text prefix for the Gemini Promo carousel.">
+          Sum it up with
       </message>
       <message name="IDS_IOS_BWG_PROMO_FIRST_BOX_BODY" desc="First box body text for the Gemini Promo page.">
           Get relevant answers based on the content of the page you're on
@@ -1557,6 +1593,9 @@
       </message>
       <message name="IDS_IOS_BWG_SETTINGS_PAGE_CONTENT_SHARING_TITLE" desc="The title text of page content sharing row in BWG settings page.">
         Share current tab
+      </message>
+      <message name="IDS_IOS_BWG_VISUAL_RICH_PRIMARY_BUTTON" desc="Primary button text for the Gemini first run experience.">
+          Start using Gemini
       </message>
       <message name="IDS_IOS_CALL_OMNIBOX_ACTION" desc="Call suggestion action button [iOS only]">
         Call
@@ -1791,6 +1830,9 @@
       </message>
       <message name="IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_AUTO" desc="Title for the contextual menu option where the system automatically selects the optimal model per query. [iOS only].">
         Auto
+      </message>
+      <message name="IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_FLASH" desc="Title for the contextual menu option for the flash reasoning model. [iOS only].">
+        Flash
       </message>
       <message name="IDS_IOS_COMPOSEBOX_MODEL_SELECTOR_OPTION_THINKING" desc="Title for the contextual menu option for the advanced thinking reasoning model. [iOS only].">
         Thinking
@@ -2382,6 +2424,36 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_1P_APP_TITLE" desc="Title for the non-modal default browser promotion banner when Chrome is opened from a first-party app.">
         Better browsing by default
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP1" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Copy/Paste Friction experiment) [iOS only].">
+        Skip the Copy &amp; Paste
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP10" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Experience Upgrade experiment) [iOS only].">
+        Better link opening
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP2" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (One-Tap Open experiment) [iOS only].">
+        One-Tap Open
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP3" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Smooth Transitions experiment) [iOS only].">
+        Tired of copying links?
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP4" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Time Saving experiment) [iOS only].">
+        Save time on every link
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP5" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Direct Loading experiment) [iOS only].">
+        Launch links directly here
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP6" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Convenience experiment) [iOS only].">
+        Paste less, browse more
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP7" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Speed experiment) [iOS only].">
+        Get here in one tap
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP8" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Seamless Web Flow experiment) [iOS only].">
+        Fluid cross-app browsing
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE_EXP9" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation (Direct Action experiment) [iOS only].">
+        Open links here next time
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_PROMO_PRIMARY_BUTTON_TEXT" desc="Text of button that will take users to iOS settings, where they can change the default browser. Used in the default browser promos [iOS only]">
         Go to Settings…
@@ -3347,14 +3419,26 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_GEMINI_CONSENT_FOOTNOTE_TEXT_SOUTH_KOREA" desc="Format string for the Gemini consent footnote for accounts in South Korea.">
           Our <ph name="BEGIN_LINK">BEGIN_LINK</ph>Terms<ph name="END_LINK">END_LINK</ph>, <ph name="BEGIN_LINK">BEGIN_LINK</ph>Korean Location Terms<ph name="END_LINK">END_LINK</ph>, and <ph name="BEGIN_LINK">BEGIN_LINK</ph>Privacy Notice<ph name="END_LINK">END_LINK</ph> apply. Gemini is AI and can make mistakes, including about people.
       </message>
+      <message name="IDS_IOS_GEMINI_CONSENT_FOOTNOTE_TEXT_SOUTH_KOREA_STRICT" desc="Format string for the Gemini consent footnote for accounts in South Korea for strict mode.">
+        Our <ph name="BEGIN_LINK">BEGIN_LINK</ph>Terms<ph name="END_LINK">END_LINK</ph>, <ph name="BEGIN_LINK">BEGIN_LINK</ph>Korean Location Terms<ph name="END_LINK">END_LINK</ph>, and <ph name="BEGIN_LINK">BEGIN_LINK</ph>Privacy Notice<ph name="END_LINK">END_LINK</ph> apply. Chats are reviewed and used to improve Google AI. Gemini is AI and can make mistakes, including about people. Some content may not be suitable for everyone. You can <ph name="BEGIN_LINK">BEGIN_LINK</ph>manage your activity<ph name="END_LINK">END_LINK</ph>, including info about your location. <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn more about your choices<ph name="END_LINK">END_LINK</ph>
+      </message>
+      <message name="IDS_IOS_GEMINI_CONSENT_FOOTNOTE_TEXT_STRICT" desc="Format string for the Gemini consent footnote for strict mode.">
+        Gemini is AI and can make mistakes, including about people. Some content may not be suitable for everyone. Chats are reviewed and used to improve Google AI. <ph name="BEGIN_LINK">BEGIN_LINK</ph>Learn about your choices<ph name="END_LINK">END_LINK</ph>. Our <ph name="BEGIN_LINK">BEGIN_LINK</ph>Terms<ph name="END_LINK">END_LINK</ph> and <ph name="BEGIN_LINK">BEGIN_LINK</ph>Privacy Notice<ph name="END_LINK">END_LINK</ph> apply.
+      </message>
       <message name="IDS_IOS_GEMINI_CONSENT_FOOTNOTE_US_ONLY_ADDITION" desc="US-only footer addition message.">
           Some content may not be suitable for everyone.
       </message>
       <message name="IDS_IOS_GEMINI_CONSENT_FOOTNOTE_WATCH_LABEL" desc="Footer label for watch video.">
           Watch: <ph name="BEGIN_LINK">BEGIN_LINK</ph>5 must-knows for generative AI<ph name="END_LINK">END_LINK</ph>
       </message>
+      <message name="IDS_IOS_GEMINI_CONSENT_PRIMARY_BUTTON_STRICT" desc="Primary button text for the Gemini Consent page for strict mode.">
+          Use Gemini
+      </message>
       <message name="IDS_IOS_GEMINI_CONSENT_SHARE_TAB_BODY" desc="Share tab body text for the Gemini Consent page.">
         Google uses the content and URL of shared tabs. Your current tab is shared in new chats. You can change this setting anytime.
+      </message>
+      <message name="IDS_IOS_GEMINI_CONSENT_SHARE_TAB_BODY_STRICT" desc="Share tab body text for the Gemini Consent page for strict mode.">
+        By default, your current tab is shared when you start a new chat. When tabs are shared, their contents and URLs are sent to Google. You can change this setting anytime.
       </message>
       <message name="IDS_IOS_GEMINI_CONSENT_SHARE_TAB_TITLE" desc="Share tab title text for the Gemini Consent page.">
           Tabs are shared for more relevant answers
@@ -3368,11 +3452,17 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_GEMINI_CONSENT_STRICT_DATA_GOVERNANCE_BODY_2" desc="Body of part 2 for the strict data governance row.">
         Your <ph name="BEGIN_LINK">BEGIN_LINK</ph>Keep Activity<ph name="END_LINK">END_LINK</ph> setting is off by default. When it’s off, Google saves your chats for 3 days. It uses them to make Gemini Apps work correctly, help keep them safe, and use your feedback to fix problems. You can turn on Keep Activity to help improve Google AI for everyone.
       </message>
+      <message name="IDS_IOS_GEMINI_CONSENT_STRICT_DATA_GOVERNANCE_BODY_3" desc="Body of part 3 for the strict data governance row.">
+        When it’s on, your activity is saved in Gemini Apps Activity for 18 months, which you can change to 3 or 36 months. Google uses your activity to develop and improve its services (including Gemini models) as well as to protect Google, its users, and the public with the help of human reviewers. Data reviewed by service providers is disconnected from your account and saved for 3 years.
+      </message>
       <message name="IDS_IOS_GEMINI_CONSENT_STRICT_DATA_GOVERNANCE_SUBTITLE_1" desc="Title of part 1 for the strict data governance row.">
         What activity is collected
       </message>
       <message name="IDS_IOS_GEMINI_CONSENT_STRICT_DATA_GOVERNANCE_SUBTITLE_2" desc="Title of part 2 for the strict data governance row.">
         If you’re under 18
+      </message>
+      <message name="IDS_IOS_GEMINI_CONSENT_STRICT_DATA_GOVERNANCE_TITLE" desc="Title text for the strict data governance row.">
+        Your data improves Google AI
       </message>
       <message name="IDS_IOS_GEMINI_IMAGE_CONTEXT_MENU_ENTRY_POINT" desc="The entry point for Gemini when the user long-presses an image. Invites the user to create an image using Gemini in Chrome.">
         Edit Image with Gemini
@@ -3505,6 +3595,17 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       </message>
       <message name="IDS_IOS_GEMINI_SUMMARIZE_PAGE_PROMPT" desc="The prepopulated prompt text when initiating Gemini summarization from the App Switcher.">
         Give me a short summary of this page
+      </message>
+      <message name="IDS_IOS_GEMINI_TAB_PICKER_CANNOT_RELOAD_TAB_ERROR" desc="Message displayed in a snackbar when reloading a tab fails. [iOS only].">
+        Can’t reload tabs
+      </message>
+      <message name="IDS_IOS_GEMINI_TAB_PICKER_CANT_BE_SHARED" desc="Message displayed in a snackbar when the user selects an ineligible tab to share. [iOS only].">
+        This tab can't be shared
+      </message>
+      <message name="IDS_IOS_GEMINI_TAB_PICKER_MAXIMUM_TABS_REACHED" desc="Message displayed in a snackbar when the user tries to attach more than the maximum allowed number of tabs. [iOS only].">
+        {COUNT, plural,
+        =1 {Only 1 tab can be shared.}
+        other {Only {COUNT} tabs can be shared.}}
       </message>
       <message name="IDS_IOS_GENERIC_PASSKIT_ERROR" desc="Generic error message on failure reading a PassKit object. [Length: 60em] [iOS only]">
         Sorry, your Pass cannot be installed to Passbook at this time.
@@ -3795,22 +3896,26 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_IDENTITY_DISC_WITH_EMAIL" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button navigates to 'Sync and Google services' page in settings [iOS only].">
         Signed in as <ph name="USER_EMAIL">$1<ex>peter.parker@gmail.com</ex></ph>. Opens settings.
       </message>
+      <message name="IDS_IOS_IDENTITY_DISC_WITH_EMAIL_GOOGLE_MEMBERSHIP_OPEN_ACCOUNT_MENU" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button opens the account menu [iOS only].">
+          Signed in as <ph name="USER_EMAIL">$1<ex>peter.parker@gmail.com</ex></ph>, Google membership. Open account menu.
+      </message>
       <message name="IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button opens the account menu [iOS only].">
           Signed in as <ph name="USER_EMAIL">$1<ex>peter.parker@gmail.com</ex></ph>. Open account menu.
       </message>
       <message name="IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button opens the account menu [iOS only].">
           Signed in as <ph name="USER_EMAIL">$1<ex>peter.parker@gmail.com</ex></ph>. Google Account error. Open account menu.
-      </message>
-      <message name="IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button navigates to 'Sync and Google services' page in settings [iOS only].">
+      </message>      <message name="IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button navigates to 'Sync and Google services' page in settings [iOS only].">
         Signed in as <ph name="USER_NAME">$1<ex>Peter Parker</ex></ph>. <ph name="USER_EMAIL">$2<ex>peter.parker@gmail.com</ex></ph>. Opens settings.
+      </message>
+      <message name="IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_GOOGLE_MEMBERSHIP_OPEN_ACCOUNT_MENU" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button opens the account menu [iOS only].">
+          Signed in as <ph name="USER_NAME">$1<ex>Peter Parker</ex></ph>. <ph name="USER_EMAIL">$2<ex>peter.parker@gmail.com</ex></ph>, Google membership. Open account menu.
       </message>
       <message name="IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button opens the account menu [iOS only].">
           Signed in as <ph name="USER_NAME">$1<ex>Peter Parker</ex></ph>. <ph name="USER_EMAIL">$2<ex>peter.parker@gmail.com</ex></ph>. Open account menu.
       </message>
       <message name="IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR" desc="The content description for a toolbar button displaying user profile picture. Tapping on this button opens the account menu [iOS only].">
           Signed in as <ph name="USER_NAME">$1<ex>Peter Parker</ex></ph>. <ph name="USER_EMAIL">$2<ex>peter.parker@gmail.com</ex></ph>. Google Account error. Open account menu.
-      </message>
-      <message name="IDS_IOS_IDENTITY_ERROR_INFOBAR_DEVICE_MANAGEMENT_REQUIRED_FIX_NOW_BUTTON" desc="Button label on an infobar prompting the user to take action to fix an account issue. [iOS only]">
+      </message>      <message name="IDS_IOS_IDENTITY_ERROR_INFOBAR_DEVICE_MANAGEMENT_REQUIRED_FIX_NOW_BUTTON" desc="Button label on an infobar prompting the user to take action to fix an account issue. [iOS only]">
         Fix now
       </message>
       <message name="IDS_IOS_IDENTITY_ERROR_INFOBAR_DEVICE_MANAGEMENT_REQUIRED_LEARN_MORE_BUTTON" desc="Button label on an infobar allowing the user to get more information about an issue. [iOS only]">
@@ -4162,9 +4267,6 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_INTERACTIVE_LENS_OVERLAY_PROMO_START_BROWSING_BUTTON" desc="The text for the button that allows users to start browsing after the interactive lens overlay promo in the First Run Experience.">
         Start browsing
       </message>
-      <message name="IDS_IOS_INTERACTIVE_LENS_OVERLAY_PROMO_SUBTITLE" desc="The subtitle for the interactive lens overlay promo in the First Run Experience.">
-        You can now open Google Lens from your address bar and search anything you see
-      </message>
       <message name="IDS_IOS_INTERACTIVE_LENS_OVERLAY_PROMO_TITLE" desc="The title for the interactive lens overlay promo in the First Run Experience.">
         Search anything on your screen
       </message>
@@ -4490,16 +4592,16 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
           =1 {1 password instantly verified}
           other {# passwords instantly verified}}
       </message>
-      <message name="IDS_IOS_LEVEL_UP_STAT_SEARCHES_SKIPPED" desc="Title for the manual searches skipped statistic card. [iOS only]">
+      <message name="IDS_IOS_LEVEL_UP_STAT_PHOTO_SEARCHES_PERFORMED" desc="Title for the manual searches skipped statistic card. [iOS only]">
         {count, plural,
-          =1 {1 manual search skipped}
-          other {# manual searches skipped}}
+          =1 {You used 1 photo to search}
+          other {You used # photos to search}}
       </message>
       <message name="IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PASSWORDS_VERIFIED" desc="Statistic card subtitle displaying the source task for passwords verified. [iOS only]">
         since using Password checkup
       </message>
-      <message name="IDS_IOS_LEVEL_UP_STAT_SUBTITLE_SEARCHES_SKIPPED" desc="Statistic card subtitle displaying the source task for manual searches skipped. [iOS only]">
-        since using Google Lens
+      <message name="IDS_IOS_LEVEL_UP_STAT_SUBTITLE_PHOTO_SEARCHES_PERFORMED" desc="Statistic card subtitle displaying the source task for manual searches skipped. [iOS only]">
+        since completing "Use a photo to search with Google Lens"
       </message>
       <message name="IDS_IOS_LEVEL_UP_STAT_SUBTITLE_TABS_DECLUTTERED" desc="Statistic card subtitle displaying the source task for tabs decluttered. [iOS only]">
         since learning about Tab Groups
@@ -4567,11 +4669,20 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_DELETE_BROWSING_DATA" desc="Text of the bubble for the Level Up walkthrough prompting the user to select Delete Browsing Data. [iOS only]">
         Select Delete Browsing Data
       </message>
+      <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_OPEN_AUTOFILL_AND_PASSWORDS" desc="Text of the bubble for the Level Up walkthrough prompting the user to open Autofill and passwords. [iOS only]">
+        Open Autofill and passwords
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_OPEN_CHROME_MENU" desc="Text of the bubble for the Level Up walkthrough prompting the user to open the Chrome menu. [iOS only]">
+        Open the Chrome menu
+      </message>
       <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_OPEN_PASSWORD_CHECKUP" desc="Text of the bubble for the Level Up walkthrough prompting the user to open Password Checkup. [iOS only]">
         Open Password Checkup
       </message>
       <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_OPEN_PASSWORD_MANAGER" desc="Text of the bubble for the Level Up walkthrough prompting the user to open Password Manager. [iOS only]">
         Open Password Manager
+      </message>
+      <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_OPEN_PAYMENT_METHODS" desc="Text of the bubble for the Level Up walkthrough prompting the user to open Payment Methods. [iOS only]">
+        Open Payments
       </message>
       <message name="IDS_IOS_LEVEL_UP_WALKTHROUGH_OPEN_SETTINGS" desc="Text of the bubble for the Level Up walkthrough prompting the user to open Settings. [iOS only]">
         Open Settings
@@ -4704,6 +4815,12 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       </message>
       <message name="IDS_IOS_MANAGE_STORAGE_ALERT_TITLE" desc="Title of an alert presented when the user tries to select a destination for an upload, without sufficient storage space in the destination. [iOS only]">
         Your storage is full
+      </message>
+      <message name="IDS_IOS_MANAGE_SYNC_CONNECTED_APPS_DESCRIPTION" desc="Subtitle for the cell to open the connected apps web page where the user can manage connected Google apps.">
+        Manage the connection between Search services and Google Workspace apps, like Google Drive
+      </message>
+      <message name="IDS_IOS_MANAGE_SYNC_CONNECTED_APPS_TITLE" desc="Title for the cell to open the connected apps web page where the user can manage connected Google apps.">
+        Google Search AI mode and connected apps
       </message>
       <message name="IDS_IOS_MANAGE_SYNC_DATA_FROM_CHROME_SYNC_DESCRIPTION" desc="Subtitle for the cell to open 'Data from Chromium sync' web page where the user can control all their data data from sync.">
         Review your synced data
@@ -4999,26 +5116,15 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_NOTIFICATIONS_OPT_IN_TITLE" desc="The title of the screen that prompts to select which notifications to opt-in to.">
         Choose the notifications you want to receive
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_ALT1_BODY" desc="Text for the body of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
-        Add this extra layer of protection against online threats.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_ALT2_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
+
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_ALT_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
          Turn On Enhanced Safe Browsing
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_ALT3_TITLE" desc="Text for the title of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
-         Get real-time protection with Enhanced safe browsing
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_ENHANCED_SAFE_BROWSING_BODY" desc="Text for the body of a Tips notification that encourages the user to enable Enhanced Safe Browsing">
         Add an extra layer of protection against online threats.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_ALT1_BODY" desc="Text for the body of a Tips notification that encourages the user to search with Lens">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_ALT_BODY" desc="Text for the body of a Tips notification that encourages the user to search with Lens">
          Now you can shop and translate with your camera. Tap to try it out.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_ALT2_TITLE" desc="Text for the title of a Tips notification that encourages the user to search with Lens">
-         Search with Google Lens
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_ALT3_TITLE" desc="Text for the title of a Tips notification that encourages the user to search with Lens">
-         Search what you see with Google Lens
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_BODY" desc="Text for the body of a Tips notification that encourages the user to search with Lens">
         Shop, translate, and identify what you see with your camera.
@@ -5026,28 +5132,19 @@ To continue from your computer, switch to <ph name="OTHER_EMAIL">$2<ex>john.doe@
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_LENS_OVERLAY_BODY" desc="Text for the body of a Tips notification that encourages the user to use the Lens Overlay feature.">
         Learn more as you browse and search what you see on any page to explore products, places and text.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_ALT1_BODY" desc="Text for the body of a Tips notification that reminds the user to set their preferred omnibox position">
-         Switch the position of your address bar to the top or bottom.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_ALT2_TITLE" desc="Text for the title of a Tips notification that reminds the user to set their preferred omnibox position">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_ALT_TITLE" desc="Text for the title of a Tips notification that reminds the user to set their preferred omnibox position">
          Choose your address bar position
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_OMNIBOX_POSITION_BODY" desc="Text for the body of a Tips notification that reminds the user to set their preferred omnibox position">
         Switch the position of your address bar for a customized experience.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_ALT1_BODY" desc="Text for the body of a Tips notification that encourages the user to sign in to their account">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_ALT_BODY" desc="Text for the body of a Tips notification that encourages the user to sign in to their account">
          Sign in to get all your stuff like passwords, bookmarks, and more.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_ALT2_BODY" desc="Text for the body of a Tips notification that encourages the user to sign in to their account">
-         Sign in to get your passwords, tabs, bookmarks, and more.
-      </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_SIGNIN_ALT3_BODY" desc="Text for the body of a Tips notification that encourages the user to sign in to their account">
-         Get your saved passwords, tabs, bookmarks, and more.
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TIPS_TRUSTED_VAULT_KEY_RETRIVAL_BODY" desc="TODO">
         Verify it's you to access all your passwords on this device.
       </message>
-      <message name="IDS_IOS_NOTIFICATIONS_TIPS_WHATS_NEW_ALT1_BODY" desc="Text for the body of a Tips notification that takes the user to the Whats New page">
+      <message name="IDS_IOS_NOTIFICATIONS_TIPS_WHATS_NEW_ALT_BODY" desc="Text for the body of a Tips notification that takes the user to the Whats New page">
          Family passwords, new customizations and more. Tap to learn more.
       </message>
       <message name="IDS_IOS_NOTIFICATIONS_TITLE" desc="Title for Notifications settings menu.">
@@ -5952,6 +6049,36 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_PERSONALIZE_GOOGLE_SERVICES_WAA_TITLE" desc="This string is found on a link in Chrome’s Advanced Sync settings. When the user taps it, the link takes the user to “Web &amp; App Activity” in the Google Account’s Activity Controls. The link is on a subpage from Chrome’s Advanced Sync settings. This text should match the branded term “Web &amp; App Activity” in Glossary Manager: https://localization.google.com/glossary/termset?gid=27517723&amp;tsid=77d3b75.">
         Web &amp; App activity
       </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_HELPING_IMPROVE_NOTICE_TITLE" desc="Title of the subpage explaining how users can help improve enhanced autofill settings. [iOS only]">
+        Help improve enhanced autofill
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_HELPING_IMPROVE_TITLE" desc="Title of the section in the subpage explaining how users can help improve enhanced autofill settings. [iOS only]">
+        You're helping improve enhanced autofill
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_MANAGE_CONNECTED_APPS_SUMMARY" desc="Subtext or description beneath the 'Manage Connected Apps' entry point, explaining its purpose. 'Gemini' is a proper product name and must remain unlocalized. [iOS only]">
+        Choose which apps Gemini connects to
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_MANAGE_CONNECTED_APPS_TITLE" desc="Button label or link text in Chrome settings. It navigates the user to a Gemini page where they can manage which third-party or Google ecosystem applications are linked to the enhanced autofill feature. [iOS only]">
+        Manage Connected Apps
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SUBPAGE_SUMMARY" desc="Navigational text or description appearing under the 'Enhanced autofill' section in settings. It directs users to manage how the underlying AI model retrieves and fills data. 'Gemini' is a proper Google product name and must remain unlocalized. [iOS only]">
+        Manage finding and filling info with Gemini
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SWITCH_SUMMARY" desc="Description text under the 'Find and fill with Gemini' setting explaining the functionality and data sources. 'Gmail', 'Photos', and 'Personal Intelligence' are proper Google product and feature names that must adhere to standard branding guidelines.">
+        Autofill info from apps such as Gmail and Photos. Powered by Personal Intelligence.
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SWITCH_TITLE" desc="Section header or toggle label in Chrome settings for enabling AI-driven autofill suggestions. 'Gemini' is a proper Google product name and must remain unlocalized.">
+        Find and fill with Gemini
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_THINGS_TO_CONSIDER_TITLE" desc="Subheading in the settings page describing the data logging behavior when the enhanced autofill feature is triggered by the user. [iOS only]">
+        Things to consider
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_TITLE" desc="Page title in Chrome settings for the advanced, AI-powered form-filling features. 'Autofill' refers to the browser's ability to automatically populate form fields. [iOS only]">
+        Enhanced autofill
+      </message>
+      <message name="IDS_IOS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_WHEN_USED_TITLE" desc="Subheading in the settings page describing the data logging behavior when the enhanced autofill feature is triggered by the user. [iOS only]">
+        When used
+      </message>
       <message name="IDS_IOS_PHONE_CALL_BUTTON" desc="Text in the confirmation dialog button that will initiate a phone call for the presented number. [Length: 10em] [iOS only]">
         Call
       </message>
@@ -6280,7 +6407,7 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_READER_MODE_CHIP_ACCESSIBILITY_LABEL" desc="Accessibility label for a button which opens the Reading mode options view.">
         Open Reading mode options
       </message>
-      <message name="IDS_IOS_READER_MODE_CONTENT_SETTINGS_TITLE" translateable="false" desc="Title of the Reading Mode Content Settings options.">
+      <message name="IDS_IOS_READER_MODE_CONTENT_SETTINGS_TITLE" desc="Title of the Reading Mode Content Settings options.">
         Reading mode
       </message>
       <message name="IDS_IOS_READER_MODE_OPTIONS_COLOR_THEME_BUTTON_ACCESSIBILITY_LABEL_DARK" desc="Label of a Reading mode options button which changes the Reading mode dark color scheme.">
@@ -6442,13 +6569,13 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_READING_MODE_SETTING_TITLE" desc="Title of the setting to enable the 'Reading mode available' message [iOS only]" meaning="Title of the setting to enable the 'Reading mode available' message [iOS only]">
         Show Reading Mode
       </message>
-      <message name="IDS_IOS_READING_MODE_SHOW_HYPERLINKS_DESCRIPTION" translateable="false" desc="Description of the setting to enable hyperlinks in Reader Mode [iOS only]">
+      <message name="IDS_IOS_READING_MODE_SHOW_HYPERLINKS_DESCRIPTION" desc="Description of the setting to enable hyperlinks in Reader Mode [iOS only]">
         Show links when reading mode is on
       </message>
-      <message name="IDS_IOS_READING_MODE_SHOW_HYPERLINKS_TITLE" translateable="false" desc="Title of the setting to enable hyperlinks in Reading Mode [iOS only]">
+      <message name="IDS_IOS_READING_MODE_SHOW_HYPERLINKS_TITLE" desc="Title of the setting to enable hyperlinks in Reading Mode [iOS only]">
         Show hyperlinks
       </message>
-      <message name="IDS_IOS_READING_MODE_SHOW_SUGGESTION_TITLE" translateable="false" desc="Title of the setting to enable the 'Reading mode available' message [iOS only]">
+      <message name="IDS_IOS_READING_MODE_SHOW_SUGGESTION_TITLE" desc="Title of the setting to enable the 'Reading mode available' message [iOS only]">
         Show suggestion
       </message>
       <message name="IDS_IOS_RECENT_TABS_DISABLED_BY_ORGANIZATION" desc="This message is shown in the Other Devices section of the Recent Tabs view if browser sign-in is disabled via policy by the device's administrator / organization.">
@@ -7172,6 +7299,9 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_SEND_TAB_TO_SELF_NO_TARGET_DEVICE_LABEL_WITH_EMAIL" desc="Label shown when a user with no available target devices attempts to use send-tab-to-self, displaying the email they should sign in with. [iOS only]">
         To send this link, sign in to your other device using <ph name="USER_EMAIL">$1<ex>user@email.com</ex></ph>
       </message>
+      <message name="IDS_IOS_SEND_TAB_TO_SELF_SHARE_SHEET_DEVICE_NAME_WITH_OWNER" desc="Title for dynamic target device in iOS share sheet, displaying the user's name and device name. [iOS only]">
+        <ph name="OWNER_NAME">$1<ex>John</ex></ph> • <ph name="DEVICE_NAME">$2<ex>Pixel 7 Pro</ex></ph>
+      </message>
       <message name="IDS_IOS_SEND_TAB_TO_SELF_SNACKBAR_MESSAGE" desc="Message briefly displayed at the bottom of the screen to the user to inform that the tab is being sent to the target device. [Length: 35em]" meaning="The is being sent to the target device. [Length: 35em]">
         Sending to <ph name="DEVICE_NAME">$1<ex>IPhone</ex></ph>…
       </message>
@@ -7259,8 +7389,14 @@ Handoff must also be enabled in the General section of Settings, and your device
       <message name="IDS_IOS_SETTINGS_AUTOMATICALLY_OPEN_SYNCED_TAB_GROUPS_TITLE" desc="Title for the setting to automatically open tab groups from other devices. [iOS only]">
           Automatically open tab groups from other devices
       </message>
+      <message name="IDS_IOS_SETTINGS_CLOSE_DEFAULT_BROWSER_PROMO_ACCESSIBILITY_LABEL" desc="Close button accessibility label for the Default Browser promo in settings. [iOS only]" is_accessibility_with_no_ui="true">
+        Close default browser promo
+      </message>
       <message name="IDS_IOS_SETTINGS_DATE_PICKER_CLEAR" desc="Button title to clear the selected date in a date picker. [iOS only]">
         Clear
+      </message>
+      <message name="IDS_IOS_SETTINGS_DEFAULT_BROWSER_PASSIVE_CARD_BUTTON_TITLE" desc="Title of the passive Default Browser card primary button in settings. [iOS only]">
+        Set as default
       </message>
       <message name="IDS_IOS_SETTINGS_DELETE_ALL_CREDENTIALS" desc="Title for the authentication page when the user tries to delete all saved credentials. [iOS only]">
           To delete all passwords manager data
@@ -9179,7 +9315,9 @@ Handoff must also be enabled in the General section of Settings, and your device
         From <ph name="DEVICE_NAME">$1<ex>My iPhone</ex></ph>
       </message>
       <message name="IDS_SEND_TAB_TO_SELF_INFOBAR_AUTO_OPEN_TITLE" desc="The title text for the infobar when a user receives shared links from another device that open automatically.">
-        Links received
+        {count, plural,
+        =1 {Link received}
+        other {{count} links received}}
       </message>
       <message name="IDS_SEND_TAB_TO_SELF_INFOBAR_MESSAGE" desc="The message text for the infobar when a user receives a shared tab from another device.">
         Tab received.

@@ -21,7 +21,6 @@ the following Mojo files:
 
 For up-to-date usage examples, please refer to the browser tests located in
 `chrome/browser/ui/tabs/tab_strip_api/tab_strip_service_impl_browsertest.cc`.
-TODO(crbug.com/409086859): add link to demo.
 
 ## How to Use the API
 1. Instantiate the service
@@ -36,7 +35,7 @@ instance from the BrowserWindowFeatures and bind a remote to it.
 // ...
 mojo::Remote<tabs_api::mojom::TabStripService> remote;
 auto* tab_strip_service =
-        browser_->browser_window_features()->tab_strip_service();
+        browser_->GetFeatures().tab_strip_service();
 
 if (tab_strip_service) {
   tab_strip_service->Accept(remote.BindNewPipeAndPassReceiver());

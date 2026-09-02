@@ -202,7 +202,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2StrokeInputDeviceType"
-    enum="PDFInk2StrokeInputDeviceType" expires_after="2026-08-09">
+    enum="PDFInk2StrokeInputDeviceType" expires_after="2026-12-16">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -228,7 +228,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.Ink2Stroke{Brush}Size" enum="PDFInk2StrokeBrushSize"
-    expires_after="2026-10-11">
+    expires_after="2027-02-07">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -318,6 +318,24 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="PDF.Ink2TextAnnotation{Action}CountOnSave"
+    units="text annotations" expires_after="2026-12-16">
+  <owner>thestig@chromium.org</owner>
+  <owner>andyphan@chromium.org</owner>
+  <summary>
+    Tracks the number of text annotations {Action} in a PDF document during a
+    PDF viewer session. This is recorded every time the user saves the PDF with
+    changes. On the initial save, it records the delta from the number of text
+    annotations the PDF started with. On subsequent saves, it records the delta
+    since the last save. Nothing is recorded if the number of text annotations
+    did not change.
+  </summary>
+  <token key="Action">
+    <variant name="Added" summary="added"/>
+    <variant name="Removed" summary="removed"/>
+  </token>
+</histogram>
+
 <histogram name="PDF.Ink2TextHighlighterColor"
     enum="PDFInk2StrokeHighlighterColor" expires_after="2026-12-16">
   <owner>andyphan@chromium.org</owner>
@@ -358,7 +376,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.LoadedWithV2InkAnnotations2"
-    enum="PDFLoadedWithV2InkAnnotations" expires_after="2026-08-09">
+    enum="PDFLoadedWithV2InkAnnotations" expires_after="2026-12-16">
   <owner>andyphan@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>
@@ -405,7 +423,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.RenderAndPaintTime" units="ms" expires_after="2026-11-29">
+<histogram name="PDF.RenderAndPaintTime" units="ms" expires_after="2027-01-31">
   <owner>thestig@chromium.org</owner>
   <owner>ask@chromium.org</owner>
   <summary>
@@ -416,7 +434,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.RenderAndPaintVisiblePagesTime" units="ms"
-    expires_after="2026-11-29">
+    expires_after="2027-01-31">
   <owner>thestig@chromium.org</owner>
   <owner>ask@chromium.org</owner>
   <summary>
@@ -426,7 +444,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.RenderPaintAndFlushTime" units="ms"
-    expires_after="2026-11-29">
+    expires_after="2027-01-31">
   <owner>thestig@chromium.org</owner>
   <owner>ask@chromium.org</owner>
   <summary>
@@ -437,7 +455,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SaveToDrive.BubbleAction"
-    enum="PDFSaveToDriveBubbleAction" expires_after="2026-11-29">
+    enum="PDFSaveToDriveBubbleAction" expires_after="2027-02-07">
   <owner>faizur@google.com</owner>
   <owner>clarkbrian@chromium.org</owner>
   <summary>
@@ -456,7 +474,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SaveToDrive.FileSize" units="KB"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>faizur@google.com</owner>
   <owner>clarkbrian@chromium.org</owner>
   <summary>
@@ -498,7 +516,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SaveToDrive.UploadError" enum="PdfSaveToDriveErrorType"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>faizur@google.com</owner>
   <owner>clarkbrian@chromium.org</owner>
   <summary>
@@ -518,7 +536,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SaveToDrive.UploadStatus" enum="PdfSaveToDriveStatus"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>faizur@google.com</owner>
   <owner>clarkbrian@chromium.org</owner>
   <summary>
@@ -560,7 +578,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="PDF.SkiaFontMapperWindows.EnumFontsTime" units="ms"
-    expires_after="2026-11-20">
+    expires_after="2027-01-24">
   <owner>anthonyvd@chromium.org</owner>
   <owner>ajgo@chromium.org</owner>
   <summary>
@@ -571,7 +589,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="PDF.Version" enum="PDFVersion" expires_after="2026-11-29">
+<histogram name="PDF.Version" enum="PDFVersion" expires_after="2027-02-07">
   <owner>dhoss@chromium.org</owner>
   <owner>thestig@chromium.org</owner>
   <summary>Tracks versions of documents opened in the PDF viewer.</summary>

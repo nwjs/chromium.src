@@ -33,25 +33,6 @@ component("features") {
   public_deps = [ "//base" ]
 }
 
-source_set("tracking_protection_settings") {
-  sources = [
-    "tracking_protection_settings.cc",
-    "tracking_protection_settings.h",
-  ]
-
-  deps = [
-    ":features",
-    ":privacy_sandbox_prefs",
-    "//components/content_settings/core/browser",
-    "//components/content_settings/core/browser:cookie_settings",
-    "//components/content_settings/core/common",
-    "//components/pref_registry",
-    "//components/prefs",
-  ]
-
-  public_deps = [ "//base" ]
-}
-
 # These sources depend on targets from "//content/browser", which means they can
 # only be loaded on Blink builds.
 # NOTE: If/when targets used on iOS are refactored into a separate BUILD file,
@@ -64,7 +45,6 @@ if (use_blink) {
     ]
 
     deps = [
-      "//components/browsing_topics/common",
       "//components/keyed_service/core",
       "//components/pref_registry",
       "//components/prefs",
@@ -77,15 +57,10 @@ if (use_blink) {
   }
 
   source_set("privacy_sandbox") {
-    sources = [
-      "canonical_topic.cc",
-      "canonical_topic.h",
-      "privacy_sandbox_settings_impl.cc",
-    ]
+    sources = [ "privacy_sandbox_settings_impl.cc" ]
 
     deps = [
       ":privacy_sandbox_prefs",
-      "//components/browsing_topics/common",
       "//components/content_settings/core/browser",
       "//components/content_settings/core/browser:cookie_settings",
       "//components/content_settings/core/common",
@@ -121,7 +96,6 @@ if (use_blink) {
       ":privacy_sandbox",
       ":privacy_sandbox_prefs",
       "//base/test:test_support",
-      "//components/browsing_topics:test_support",
       "//components/content_settings/core/browser",
       "//components/content_settings/core/common",
       "//components/content_settings/core/test:test_support",
@@ -143,14 +117,13 @@ if (use_blink) {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "tracking_protection_settings_unittest.cc" ]
+  sources = []
 
   data = [ "//tools/metrics/histograms/metadata/privacy/histograms.xml" ]
 
   deps = [
     ":features",
     ":privacy_sandbox_prefs",
-    ":tracking_protection_settings",
     "//base/test:test_support",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/browser:cookie_settings",
@@ -162,7 +135,6 @@ source_set("unit_tests") {
 
   if (use_blink) {
     sources += [
-      "canonical_topic_unittest.cc",
       "privacy_sandbox_settings_impl_unittest.cc",
       "privacy_sandbox_test_util_unittest.cc",
     ]
@@ -170,7 +142,6 @@ source_set("unit_tests") {
     deps += [
       ":privacy_sandbox",
       ":test_support",
-      "//components/browsing_topics:test_support",
       "//components/content_settings/core/test:test_support",
       "//components/privacy_sandbox/privacy_sandbox_attestations",
       "//components/privacy_sandbox/privacy_sandbox_attestations:test_support",

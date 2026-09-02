@@ -17,6 +17,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/tabs/tab_data.h"
@@ -88,7 +89,7 @@ base::TimeDelta GetShowDelay(BrowserWindowInterface* browser,
   // Delay is calculated as a logarithmic scale and bounded by a minimum width
   // based on the width of a pinned tab and a maximum of the standard width.
   // Once we reach standard width for the tab, we add an additional
-  // |max_width_additional_delay| delay to the computed delay value since the
+  // `max_width_additional_delay` delay to the computed delay value since the
   // standard width should provide enough information of the tab reducing the
   // overall value provided by the hovercard.
   //
@@ -124,8 +125,14 @@ base::TimeDelta GetShowDelay(BrowserWindowInterface* browser,
     // the delay is consistent for all tabs within the tab strip.
     tab_width = anchor_target->GetView()->width();
     for (int i = 0; i < browser->GetTabStripModel()->count(); i++) {
-      tab_width =
-          std::max(tab_width, tab_strip->GetTabAnchorViewAt(i)->width());
+      tabs::TabInterface* tab = browser->GetTabStripModel()->GetTabAtIndex(i);
+      if (!tab) {
+        continue;
+      }
+      views::View* tab_anchor = tab_strip->GetTabAnchorView(tab->GetHandle());
+      if (tab_anchor) {
+        tab_width = std::max(tab_width, tab_anchor->width());
+      }
     }
 
     const TabStyle* tab_style = TabStyle::Get();

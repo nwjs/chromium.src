@@ -27,6 +27,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/gmock_move_support.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread.h"
@@ -1315,6 +1316,53 @@ TEST_F(DownloadItemTest, CallbackAfterRename) {
   mock_delegate()->VerifyAndClearExpectations();
 }
 
+TEST_F(DownloadItemTest, RenameToDifferentTargetPath) {
+  DownloadItemImpl* item = CreateDownloadItem();
+  download::DownloadTargetCallback callback;
+  MockDownloadFile* download_file = CallDownloadItemStart(item, &callback);
+  base::FilePath final_path(
+      base::FilePath(kDummyTargetPath).AppendASCII("foo.bar"));
+  base::FilePath intermediate_path(final_path.InsertBeforeExtensionASCII("x"));
+  base::FilePath new_intermediate_path(
+      final_path.InsertBeforeExtensionASCII("y"));
+  auto task_runner = base::SingleThreadTaskRunner::GetCurrentDefault();
+  SetRenameExpectation(download_file, task_runner, new_intermediate_path,
+                       DOWNLOAD_INTERRUPT_REASON_NONE);
+
+  download::DownloadTargetInfo target_info;
+  target_info.target_path = final_path;
+  target_info.intermediate_path = intermediate_path;
+  std::move(callback).Run(std::move(target_info));
+  task_environment_.RunUntilIdle();
+  ::testing::Mock::VerifyAndClearExpectations(download_file);
+  mock_delegate()->VerifyAndClearExpectations();
+
+  EXPECT_CALL(*mock_delegate(), ShouldCompleteDownload_(item, _))
+      .WillOnce(Return(true));
+  base::FilePath moved_final_path(
+      base::FilePath(kDummyTargetPath).AppendASCII("moved_foo.bar"));
+  EXPECT_CALL(*download_file, RenameAndAnnotate(final_path, _, _, _, _, _, _))
+      .WillOnce(WithArg<6>([&task_runner, &moved_final_path](
+                               DownloadFile::RenameCompletionCallback cb) {
+        task_runner->PostTask(
+            FROM_HERE,
+            base::BindOnce(std::move(cb), DOWNLOAD_INTERRUPT_REASON_NONE,
+                           moved_final_path));
+      }));
+
+  EXPECT_CALL(*download_file, FullPath())
+      .WillOnce(ReturnRefOfCopy(base::FilePath()));
+  EXPECT_CALL(*download_file, Detach());
+  item->DestinationObserverAsWeakPtr()->DestinationCompleted(
+      0, std::unique_ptr<crypto::SecureHash>());
+  task_environment_.RunUntilIdle();
+  ::testing::Mock::VerifyAndClearExpectations(download_file);
+  mock_delegate()->VerifyAndClearExpectations();
+
+  EXPECT_EQ(moved_final_path, item->GetTargetFilePath());
+  EXPECT_EQ(moved_final_path, item->GetFullPath());
+}
+
 // Test that the delegate is invoked after the download file is renamed and the
 // download item is in an interrupted state.
 TEST_F(DownloadItemTest, CallbackAfterInterruptedRename) {
@@ -2015,6 +2063,37 @@ TEST_F(DownloadItemTest, CompleteDelegate_BlockTwice) {
   EXPECT_EQ(DownloadItem::COMPLETE, item->GetState());
 }
 
+// The default DownloadItemImplDelegate (used when no embedder-level delegate
+// is attached, e.g. by InProgressDownloadManager) must defer completion of a
+// download whose content check is still pending so the file is not renamed to
+// its final path before the check resolves.
+TEST_F(DownloadItemTest,
+       DefaultDelegateDefersCompletionForPendingContentCheck) {
+  DownloadItemImpl* item = CreateDownloadItem();
+  MockDownloadFile* download_file =
+      DoIntermediateRename(item, DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT);
+  EXPECT_FALSE(item->IsDangerous());
+  EXPECT_EQ(DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+            item->GetDangerType());
+
+  EXPECT_CALL(*mock_delegate(), ShouldCompleteDownload_(item, _))
+      .WillRepeatedly([&](DownloadItemImpl* download, base::OnceClosure& cb) {
+        return mock_delegate()
+            ->DownloadItemImplDelegate::ShouldCompleteDownload(download,
+                                                               std::move(cb));
+      });
+  EXPECT_CALL(*download_file, RenameAndAnnotate(_, _, _, _, _, _, _)).Times(0);
+  item->DestinationObserverAsWeakPtr()->DestinationCompleted(
+      0, std::unique_ptr<crypto::SecureHash>());
+  ASSERT_TRUE(base::test::RunUntil([&]() { return item->AllDataSaved(); }));
+
+  EXPECT_TRUE(item->AllDataSaved());
+  EXPECT_EQ(DownloadItem::IN_PROGRESS, item->GetState());
+  EXPECT_EQ(DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT,
+            item->GetDangerType());
+  CleanupItem(item, download_file, DownloadItem::IN_PROGRESS);
+}
+
 TEST_F(DownloadItemTest, CopyDownload) {
   DownloadItemImpl* item = CreateDownloadItem();
   MockDownloadFile* download_file =
@@ -2579,7 +2658,7 @@ TEST_F(DownloadItemTest, DataUrlNotTruncatedWhileInProgress) {
 
 TEST_F(DownloadItemTest, TruncateDataUrlAfterComplete) {
   std::string large_data_url = "data:text/plain,";
-  large_data_url.append(2000, 'a');
+  large_data_url.append(70000, 'a');
   create_info()->url_chain.clear();
   create_info()->url_chain.emplace_back(large_data_url);
 
@@ -2589,17 +2668,19 @@ TEST_F(DownloadItemTest, TruncateDataUrlAfterComplete) {
 
   ASSERT_EQ(DownloadItem::IN_PROGRESS, item->GetState());
   EXPECT_EQ(large_data_url, item->GetURL().spec());
+  EXPECT_FALSE(item->IsUrlTruncated());
 
   DoDestinationComplete(item, download_file);
 
   EXPECT_EQ(DownloadItem::COMPLETE, item->GetState());
-  EXPECT_EQ(1024u, item->GetURL().spec().length());
-  EXPECT_EQ(large_data_url.substr(0, 1024), item->GetURL().spec());
+  EXPECT_EQ(8192u, item->GetURL().spec().length());
+  EXPECT_EQ(large_data_url.substr(0, 8192), item->GetURL().spec());
+  EXPECT_TRUE(item->IsUrlTruncated());
 }
 
 TEST_F(DownloadItemTest, TruncateDataUrlAfterCancel) {
   std::string large_data_url = "data:text/plain,";
-  large_data_url.append(2000, 'a');
+  large_data_url.append(70000, 'a');
   create_info()->url_chain.clear();
   create_info()->url_chain.emplace_back(large_data_url);
 
@@ -2609,17 +2690,19 @@ TEST_F(DownloadItemTest, TruncateDataUrlAfterCancel) {
       CallDownloadItemStart(item, &target_callback);
 
   EXPECT_CALL(*download_file, Cancel());
+  EXPECT_FALSE(item->IsUrlTruncated());
 
   item->Cancel(true);
 
   EXPECT_EQ(DownloadItem::CANCELLED, item->GetState());
-  EXPECT_EQ(1024u, item->GetURL().spec().length());
-  EXPECT_EQ(large_data_url.substr(0, 1024), item->GetURL().spec());
+  EXPECT_EQ(8192u, item->GetURL().spec().length());
+  EXPECT_EQ(large_data_url.substr(0, 8192), item->GetURL().spec());
+  EXPECT_TRUE(item->IsUrlTruncated());
 }
 
 TEST_F(DownloadItemTest, TruncateBase64DataUrlToValidUrl) {
   std::string large_data_url = "data:text/plain;base64,";
-  large_data_url.append(2000, 'a');
+  large_data_url.append(70000, 'a');
   create_info()->url_chain.clear();
   create_info()->url_chain.emplace_back(large_data_url);
 
@@ -2633,9 +2716,9 @@ TEST_F(DownloadItemTest, TruncateBase64DataUrlToValidUrl) {
   DoDestinationComplete(item, download_file);
 
   std::string valid_base64_truncated_url = "data:text/plain;base64,";
-  // The base64 string can be at most 1001(1024-23) characters, but needs to be
+  // The base64 string can be at most 8169(8192-23) characters, but needs to be
   // a multiple of 4.
-  valid_base64_truncated_url.append(1000, 'a');
+  valid_base64_truncated_url.append(8168, 'a');
   EXPECT_EQ(DownloadItem::COMPLETE, item->GetState());
   EXPECT_EQ(valid_base64_truncated_url.length(), item->GetURL().spec().length());
   EXPECT_EQ(valid_base64_truncated_url, item->GetURL().spec());
@@ -2655,6 +2738,7 @@ TEST_F(DownloadItemTest, SmallDataUrlNotTruncatedAfterComplete) {
 
   EXPECT_EQ(DownloadItem::COMPLETE, item->GetState());
   EXPECT_EQ(small_data_url, item->GetURL().spec());
+  EXPECT_FALSE(item->IsUrlTruncated());
 }
 
 TEST_F(DownloadItemTest, LargeHttpUrlNotTruncatedAfterComplete) {
@@ -2671,6 +2755,7 @@ TEST_F(DownloadItemTest, LargeHttpUrlNotTruncatedAfterComplete) {
 
   EXPECT_EQ(DownloadItem::COMPLETE, item->GetState());
   EXPECT_EQ(large_http_url, item->GetURL().spec());
+  EXPECT_FALSE(item->IsUrlTruncated());
 }
 
 // On resume of a network-fetched download, the params handed to the delegate

@@ -15,9 +15,9 @@
 #include "ui/base/base_window.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #endif
+
 #if BUILDFLAG(IS_ANDROID)
 #include "ui/android/accelerator_manager_android.h"
 #include "ui/android/view_android.h"

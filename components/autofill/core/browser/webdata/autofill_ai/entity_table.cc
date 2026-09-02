@@ -686,9 +686,21 @@ std::optional<EntityInstance> EntityTable::ValidateInstance(
     return std::nullopt;
   }
 
+  auto record_type_data = [&] -> EntityInstance::RecordTypeData {
+    switch (*record_type) {
+      case EntityInstance::RecordType::kLocal:
+        return EntityInstance::LocalRecordTypePayload{};
+      case EntityInstance::RecordType::kServerWallet:
+        return EntityInstance::WalletRecordTypePayload{};
+      case EntityInstance::RecordType::kPersonalContext:
+        // pContext entities are not stored in `EntityTable`.
+        NOTREACHED();
+    }
+    NOTREACHED();
+  }();
   return EntityInstance(*entity_type, std::move(attributes), std::move(guid),
                         std::move(nickname), date_modified, use_count, use_date,
-                        *record_type, are_attributes_read_only,
+                        std::move(record_type_data), are_attributes_read_only,
                         frecency_override);
 }
 

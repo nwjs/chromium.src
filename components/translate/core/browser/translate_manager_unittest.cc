@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/i18n/language_tag.h"
 #include "base/json/json_reader.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/metrics_hashes.h"
@@ -361,7 +362,8 @@ TEST_F(TranslateManagerTest, GetTargetLanguageFromModel) {
 
   // Try with no supported languages and unsupported app locale, but accept
   // languages.
-  translate_prefs_.AddToLanguageList("de", /*force_blocked=*/false);
+  translate_prefs_.AddToLanguageList(base::i18n::GetKnownLanguageTag("de"),
+                                     /*force_blocked=*/false);
   // Should default to accept language.
   EXPECT_EQ("de", TranslateManager::GetTargetLanguage(&translate_prefs_,
                                                       &mock_language_model_));
@@ -617,9 +619,9 @@ TEST_F(TranslateManagerTest, LanguageAddedToAcceptLanguagesAfterTranslation) {
       .Times(1);
 
   // Accept languages shouldn't contain "hi" before translating to that language
-  std::vector<std::string> languages;
-  mock_translate_client_.GetTranslatePrefs()->GetLanguageList(&languages);
-  EXPECT_FALSE(std::ranges::contains(languages, "hi"));
+  EXPECT_FALSE(std::ranges::contains(
+      mock_translate_client_.GetTranslatePrefs()->GetLanguageList(),
+      base::i18n::GetKnownLanguageTag("hi")));
 
   prefs_.SetBoolean(prefs::kOfferTranslateEnabled, true);
   translate_manager_->GetLanguageState()->LanguageDetermined("zu", true);
@@ -630,8 +632,9 @@ TEST_F(TranslateManagerTest, LanguageAddedToAcceptLanguagesAfterTranslation) {
 
   // Accept languages should now contain "hi" because the user chose to
   // translate to it once.
-  mock_translate_client_.GetTranslatePrefs()->GetLanguageList(&languages);
-  EXPECT_TRUE(std::ranges::contains(languages, "hi"));
+  EXPECT_TRUE(std::ranges::contains(
+      mock_translate_client_.GetTranslatePrefs()->GetLanguageList(),
+      base::i18n::GetKnownLanguageTag("hi")));
 }
 
 TEST_F(TranslateManagerTest,
@@ -659,26 +662,29 @@ TEST_F(TranslateManagerTest,
       .Times(1);
 
   // Add a regional variant locale to the list of accepted languages.
-  mock_translate_client_.GetTranslatePrefs()->AddToLanguageList("en-US", false);
+  mock_translate_client_.GetTranslatePrefs()->AddToLanguageList(
+      base::i18n::GetKnownLanguageTag("en-US"), false);
 
   // Accept languages shouldn't contain "en" before translating to that language
-  std::vector<std::string> languages;
-  mock_translate_client_.GetTranslatePrefs()->GetLanguageList(&languages);
-  EXPECT_FALSE(std::ranges::contains(languages, "en"));
+  EXPECT_FALSE(std::ranges::contains(
+      mock_translate_client_.GetTranslatePrefs()->GetLanguageList(),
+      base::i18n::GetKnownLanguageTag("en")));
 
   prefs_.SetBoolean(prefs::kOfferTranslateEnabled, true);
   translate_manager_->GetLanguageState()->LanguageDetermined("en", true);
   network_notifier_.SimulateOnline();
   translate_manager_->InitiateTranslation("fr");
 
-  EXPECT_FALSE(std::ranges::contains(languages, "en"));
+  EXPECT_FALSE(std::ranges::contains(
+      mock_translate_client_.GetTranslatePrefs()->GetLanguageList(),
+      base::i18n::GetKnownLanguageTag("en")));
   translate_manager_->TranslatePage("fr", "en", false);
 
   // Accept languages should not contain "en" because it is redundant
   // with "en-US" already being present.
-  languages.clear();
-  mock_translate_client_.GetTranslatePrefs()->GetLanguageList(&languages);
-  EXPECT_FALSE(std::ranges::contains(languages, "en"));
+  EXPECT_FALSE(std::ranges::contains(
+      mock_translate_client_.GetTranslatePrefs()->GetLanguageList(),
+      base::i18n::GetKnownLanguageTag("en")));
 }
 
 TEST_F(TranslateManagerTest, DontTranslateOffline) {
@@ -1021,7 +1027,8 @@ TEST_F(TranslateManagerTest, PredefinedTargetLanguage) {
 
   network_notifier_.SimulateOnline();
 
-  translate_manager_->SetPredefinedTargetLanguage("ru");
+  translate_manager_->SetPredefinedTargetLanguage(
+      base::i18n::GetKnownLanguageTag("ru"));
   EXPECT_EQ(
       "ru",
       translate_manager_->GetLanguageState()->GetPredefinedTargetLanguage());
@@ -1070,7 +1077,8 @@ TEST_F(TranslateManagerTest,
   translate_prefs_.AddLanguagePairToAlwaysTranslateList("fr", "de");
   network_notifier_.SimulateOnline();
 
-  translate_manager_->SetPredefinedTargetLanguage("ru", true);
+  translate_manager_->SetPredefinedTargetLanguage(
+      base::i18n::GetKnownLanguageTag("ru"), true);
   EXPECT_EQ(
       "ru",
       translate_manager_->GetLanguageState()->GetPredefinedTargetLanguage());
@@ -1103,7 +1111,8 @@ TEST_F(TranslateManagerTest, PredefinedTargetLanguage_BlockedLanguage) {
   ASSERT_FALSE(translate_prefs_.CanTranslateLanguage("de"));
   network_notifier_.SimulateOnline();
 
-  translate_manager_->SetPredefinedTargetLanguage("ru");
+  translate_manager_->SetPredefinedTargetLanguage(
+      base::i18n::GetKnownLanguageTag("ru"));
   EXPECT_EQ(
       "ru",
       translate_manager_->GetLanguageState()->GetPredefinedTargetLanguage());
@@ -1130,12 +1139,13 @@ TEST_F(TranslateManagerTest, PredefinedTargetLanguage_OverrideBlockedLanguage) {
   network_notifier_.SimulateOnline();
 
   translate_manager_->SetPredefinedTargetLanguage(
-      "ru", /*should_auto_translate=*/true);
+      base::i18n::GetKnownLanguageTag("ru"), /*should_auto_translate=*/true);
   EXPECT_EQ(
       "ru",
       translate_manager_->GetLanguageState()->GetPredefinedTargetLanguage());
   EXPECT_TRUE(translate_manager_->GetLanguageState()
-                  ->should_auto_translate_to_predefined_target_language());
+                  ->should_auto_translate_to_predefined_target_language()
+                  .has_value());
 
   translate_manager_->GetLanguageState()->LanguageDetermined("de", true);
 
@@ -1179,7 +1189,8 @@ TEST_F(TranslateManagerTest, PredefinedTargetLanguage_BlockedSite) {
 
   network_notifier_.SimulateOnline();
 
-  translate_manager_->SetPredefinedTargetLanguage("ru");
+  translate_manager_->SetPredefinedTargetLanguage(
+      base::i18n::GetKnownLanguageTag("ru"));
   EXPECT_EQ(
       "ru",
       translate_manager_->GetLanguageState()->GetPredefinedTargetLanguage());
@@ -1205,12 +1216,13 @@ TEST_F(TranslateManagerTest, PredefinedTargetLanguage_AutoTranslate) {
   network_notifier_.SimulateOnline();
 
   translate_manager_->SetPredefinedTargetLanguage(
-      "ru", /*should_auto_translate=*/true);
+      base::i18n::GetKnownLanguageTag("ru"), /*should_auto_translate=*/true);
   EXPECT_EQ(
       "ru",
       translate_manager_->GetLanguageState()->GetPredefinedTargetLanguage());
   EXPECT_TRUE(translate_manager_->GetLanguageState()
-                  ->should_auto_translate_to_predefined_target_language());
+                  ->should_auto_translate_to_predefined_target_language()
+                  .has_value());
 
   translate_manager_->GetLanguageState()->LanguageDetermined("en", true);
 

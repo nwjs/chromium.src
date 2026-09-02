@@ -21,7 +21,8 @@
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_ui_updater.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/browser_layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -123,7 +124,9 @@ enum class TransitionState {
     _containerViewController.detents = _detents;
   }
 
-  _containerViewController.layoutState = self.sceneState.layoutState;
+  _containerViewController.browserLayoutState =
+      self.browser->GetBrowserLayoutState();
+  _containerViewController.sceneLayoutState = self.sceneState.layoutState;
 
   // Resolve initial layout guide name.
   LayoutGuideCenter* center = LayoutGuideCenterForBrowser(self.browser);
@@ -146,18 +149,12 @@ enum class TransitionState {
                willAppearAnimated:YES];
   }
 
-  // Set up fullscreen observation.
-  if (IsFullscreenRefactoringEnabled()) {
-    FullscreenBrowserAgent* agent =
-        FullscreenBrowserAgent::FromBrowser(self.browser);
-    _fullscreenBrowserAgentObserverBridge =
-        std::make_unique<FullscreenBrowserAgentObserverBridge>(self, agent);
-  } else {
-    FullscreenController* fullscreenController =
-        FullscreenController::FromBrowser(self.browser);
-    _fullscreenUIUpdater =
-        std::make_unique<FullscreenUIUpdater>(fullscreenController, self);
-  }
+  [self.baseViewController
+      registerForTraitChanges:
+          @[ UITraitHorizontalSizeClass.class, UITraitVerticalSizeClass.class ]
+                   withTarget:self
+                       action:@selector(sizeClassDidChange)];
+  [self sizeClassDidChange];
 
   __weak __typeof(self) weakSelf = self;
   void (^animations)(void) = ^{
@@ -232,6 +229,10 @@ enum class TransitionState {
     (std::vector<AssistantContainerDetent>)detents {
   _detents = detents;
   [_containerViewController setDetents:detents];
+}
+
+- (void)animateAssistantContainerToDetent:(AssistantContainerDetent)detent {
+  [_containerViewController animateToDetent:detent];
 }
 
 - (void)animateAssistantContainerToDetent:(AssistantContainerDetent)detent
@@ -348,8 +349,7 @@ enum class TransitionState {
   _transitionState = TransitionState::kIdle;
 
   // Cleanup view controller and state.
-  _fullscreenUIUpdater = nullptr;
-  _fullscreenBrowserAgentObserverBridge = nullptr;
+  [self stopFullscreenObservation];
   [_tabGridState removeObserver:self];
   _tabGridState = nil;
 
@@ -377,6 +377,42 @@ enum class TransitionState {
   }
 }
 
+// Sets up the fullscreen observation.
+- (void)setupFullscreenObservation {
+  if (_fullscreenBrowserAgentObserverBridge || _fullscreenUIUpdater) {
+    return;
+  }
+
+  // Set up fullscreen observation.
+  if (IsFullscreenRefactoringEnabled()) {
+    FullscreenBrowserAgent* agent =
+        FullscreenBrowserAgent::FromBrowser(self.browser);
+    _fullscreenBrowserAgentObserverBridge =
+        std::make_unique<FullscreenBrowserAgentObserverBridge>(self, agent);
+  } else {
+    FullscreenController* fullscreenController =
+        FullscreenController::FromBrowser(self.browser);
+    _fullscreenUIUpdater =
+        std::make_unique<FullscreenUIUpdater>(fullscreenController, self);
+  }
+}
+
+// Stops the fullscreen observation.
+- (void)stopFullscreenObservation {
+  _fullscreenUIUpdater = nullptr;
+  _fullscreenBrowserAgentObserverBridge = nullptr;
+}
+
+// Called when the view's trait collection changes.
+- (void)sizeClassDidChange {
+  if (IsSidePanelLayout(self.baseViewController.traitCollection)) {
+    [self stopFullscreenObservation];
+    [self updateForFullscreenProgress:1];
+  } else {
+    [self setupFullscreenObservation];
+  }
+}
+
 #pragma mark - Accessors
 
 // Returns the presenter by casting the base view controller.
@@ -401,6 +437,12 @@ enum class TransitionState {
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   [_animator animateFullscreenWithProgress:progress
                                 animatable:_containerViewController];
+
+  if (progress == 0) {
+    [self animateAssistantContainerToDetent:AssistantContainerDetent::kMinimized
+                                   duration:0
+                                      curve:UIViewAnimationCurveEaseInOut];
+  }
 }
 
 - (void)animateFullscreenWithAnimator:(FullscreenAnimator*)animator {

@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_PERMISSIONS_PERMISSION_UMA_UTIL_H_
 #define COMPONENTS_PERMISSIONS_PERMISSION_UMA_UTIL_H_
 
+#include <memory>
 #include <optional>
 #include <set>
 #include <string>
@@ -12,7 +13,6 @@
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
-#include "base/memory/safe_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/version.h"
@@ -76,8 +76,7 @@ class PermissionUmaUtil {
                                       bool clicked);
 
   static void RecordDismissalType(
-      const std::vector<base::SafeRef<permissions::PermissionRequest>>&
-          requests,
+      const std::vector<std::unique_ptr<PermissionRequest>>& requests,
       PermissionPromptDisposition ui_disposition,
       DismissalType dismissalType);
 
@@ -301,9 +300,9 @@ class PermissionUmaUtil {
   // Permission Element. The passed in `permission` must be such that
   // PermissionUtil::IsPermission(permission) returns true.
   static void RecordElementAnchoredPermissionPromptAction(
-      const std::vector<std::unique_ptr<PermissionRequest>>& requests,
-      const std::vector<base::SafeRef<permissions::PermissionRequest>>&
-          screen_requests,
+      const PermissionRequest& first_request,
+      RequestTypeForUma permission,
+      RequestTypeForUma screen_permission,
       ElementAnchoredBubbleAction action,
       ElementAnchoredBubbleVariant variant,
       int screen_counter,

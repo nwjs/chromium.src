@@ -10,7 +10,6 @@
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/passwords/manage_passwords_page_action_controller.h"
 #include "chrome/browser/ui/views/passwords/password_bubble_view_base.h"
@@ -26,9 +25,7 @@
 
 class ManagePasswordsControllerTest : public ManagePasswordsTest {
  public:
-  ManagePasswordsControllerTest() {
-    scoped_feature_list_.InitAndEnableFeature(features::kPageActionsMigration);
-  }
+  ManagePasswordsControllerTest() = default;
 
   ~ManagePasswordsControllerTest() override = default;
 

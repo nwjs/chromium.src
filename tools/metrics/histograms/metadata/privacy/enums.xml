@@ -26,12 +26,6 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
-<enum name="AggregationServiceObserverReportStatus">
-  <int value="0" label="Sent"/>
-  <int value="1" label="Failed to assemble"/>
-  <int value="2" label="Failed to send"/>
-</enum>
-
 <enum name="AntiFingerprintingBlockListResult">
   <summary>
     The possible results from checking a network resource URL against the
@@ -80,6 +74,8 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Eligible: Forced via kForceEligibleForTesting"/>
 </enum>
 
+<!-- LINT.IfChange(DeleteBrowsingDataAction) -->
+
 <enum name="DeleteBrowsingDataAction">
   <int value="0" label="CBD dialog"/>
   <int value="1" label="Clear on exit"/>
@@ -91,6 +87,11 @@ chromium-metrics-reviews@google.com.
   <int value="7" label="Page info permission reset"/>
   <int value="8" label="RWS delete all data"/>
 </enum>
+
+<!-- LINT.ThenChange(
+  //chrome/browser/resources/settings/metrics_browser_proxy.ts:DeleteBrowsingDataAction,
+  //components/browsing_data/core/browsing_data_utils.h:DeleteBrowsingDataAction
+) -->
 
 <!--LINT.IfChange(DeleteBrowsingDataDialogAction) -->
 
@@ -180,35 +181,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Server redirect"/>
 </enum>
 
-<enum name="PrivacySandboxAggregationServiceKeyFetcherStatus">
-  <int value="0" label="Success"/>
-  <int value="1" label="Download error"/>
-  <int value="2" label="Json parse error"/>
-  <int value="3" label="Invalid key error"/>
-  <int value="4" label="Expired key error"/>
-</enum>
-
-<enum name="PrivacySandboxAggregationServiceReportAssemblerStatus">
-  <int value="0" label="Ok"/>
-  <int value="1" label="Public key fetch error"/>
-  <int value="2" label="Assembly error"/>
-  <int value="3" label="Too many requests error"/>
-</enum>
-
-<enum name="PrivacySandboxAggregationServiceReportSenderStatus">
-  <int value="0" label="Ok"/>
-  <int value="1" label="Network error"/>
-  <int value="2" label="Server error"/>
-</enum>
-
-<enum name="PrivacySandboxAggregationServiceStorageSqlInitStatus">
-  <int value="0" label="Success"/>
-  <int value="1" label="Failed to open DB in memory"/>
-  <int value="2" label="Failed to open DB file"/>
-  <int value="3" label="Failed to create directory"/>
-  <int value="4" label="Failed to initialize schema"/>
-</enum>
-
 <enum name="PrivacySandboxApiAllowed">
   <int value="0" label="Allowed"/>
   <int value="1" label="Restricted"/>
@@ -254,46 +226,6 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Downloaded"/>
 </enum>
 
-<!-- LINT.IfChange(PrivacySandboxNoticeAction) -->
-
-<enum name="PrivacySandboxNoticeAction">
-  <int value="0" label="NotSet"/>
-  <int value="1" label="Ack"/>
-  <int value="2" label="Closed"/>
-  <int value="3" label="LearnMore"/>
-  <int value="4" label="OptIn"/>
-  <int value="5" label="OptOut"/>
-  <int value="6" label="Other"/>
-  <int value="7" label="Settings"/>
-  <int value="8" label="UnknownActionPreMigration"/>
-  <int value="9" label="TimedOut"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/privacy_sandbox/notice/notice_storage.h:NoticeActionTaken) -->
-
-<!-- LINT.IfChange(PrivacySandboxNoticeActionBehavior) -->
-
-<enum name="PrivacySandboxNoticeActionBehavior">
-  <int value="0" label="Success"/>
-  <int value="1" label="ActionBeforeShown"/>
-  <int value="2" label="DuplicateActionTaken"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/privacy_sandbox/notice/notice_storage.h:NoticeActionBehavior) -->
-
-<!-- LINT.IfChange(PrivacySandboxNoticeEvent) -->
-
-<enum name="PrivacySandboxNoticeEvent">
-  <int value="0" label="Ack"/>
-  <int value="1" label="Closed"/>
-  <int value="2" label="OptIn"/>
-  <int value="3" label="OptOut"/>
-  <int value="4" label="Settings"/>
-  <int value="5" label="Shown"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/privacy_sandbox/notice/notice.mojom:PrivacySandboxNoticeEvent) -->
-
 <enum name="QuickDeleteAction">
   <int value="0" label="Entry from menu item clicked"/>
   <int value="1" label="Delete button on dialog clicked"/>
@@ -312,21 +244,31 @@ chromium-metrics-reviews@google.com.
   <int value="13" label="All time deletion time range selected"/>
 </enum>
 
-<!-- LINT.IfChange(RollBack3pcdNoticeAction) -->
-
-<enum name="RollBack3pcdNoticeAction">
-  <int value="0" label="kGotIt"/>
-  <int value="1" label="kSettings"/>
-  <int value="2" label="kClosed"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/privacy_sandbox/roll_back_3pcd_notice_action.h:RollBack3pcdNoticeAction) -->
-
 <enum name="ThirdPartySiteDataAccessType">
   <int value="0" label="Any blocked third-party site data accesses"/>
   <int value="1" label="Any allowed third-party site data accesses"/>
   <int value="2" label="No third-party site data accesses"/>
 </enum>
+
+<!-- LINT.IfChange(UniversalOptOutEligibilitySystem) -->
+
+<enum name="UniversalOptOutEligibilitySystem">
+  <int value="0" label="Eligible via Account capabilities"/>
+  <int value="1" label="Ineligible via Account capabilities"/>
+  <int value="2" label="Eligible via Finch"/>
+  <int value="3" label="Ineligible via Finch"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/universal_optout/universal_optout_service.h:UniversalOptOutEligibilitySystem) -->
+
+<!-- LINT.IfChange(UniversalOptOutEligibilityTransition) -->
+
+<enum name="UniversalOptOutEligibilityTransition">
+  <int value="0" label="Ineligible to Eligible"/>
+  <int value="1" label="Eligible to Ineligible"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/universal_optout/universal_optout_service.h:UniversalOptOutEligibilityTransition) -->
 
 </enums>
 

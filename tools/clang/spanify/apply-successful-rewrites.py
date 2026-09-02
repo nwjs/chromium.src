@@ -25,7 +25,7 @@
 #       "checkout_google_internal": True,
 #     },
 #  },
-#]
+# ]
 # ```
 # You'll also need to run some scripts like:
 # ```
@@ -46,14 +46,16 @@
 # 3. run this script to apply patches and figure out the set that compile on
 #    all relevant platforms.
 # 4. upload the patch and fix any tests or things this script missed.
-import os
-import sys
-import subprocess
+import argparse
 import getpass
+import os
+import subprocess
+import sys
 
 # common gn args for spanify project scripts.
 from spanify_utils import scratch_dir
 from gnconfigs import GnConfigs, GenerateGnTarget
+from project import PROJECTS
 from enum import Enum
 
 BRANCHES = []
@@ -73,7 +75,6 @@ class CacheResult(Enum):
 # bottlenecks in terms of script performance), the rest of the script will play
 # out exactly as if there was no restart.
 class MemoizeCache:
-
     def __init__(self, cache_file):
         self.cache_file = cache_file
         self.patches_already_done = dict()
@@ -85,7 +86,7 @@ class MemoizeCache:
     def LoadCacheFromFile(self):
         if self.cache_file is None or not os.path.exists(self.cache_file):
             return
-        print(f'loading cache from {sys.argv[1]}', flush=True)
+        print(f'loading cache from {self.cache_file}', flush=True)
         with open(self.cache_file, 'r') as f:
             for line in f:
                 split = line.split(':::')
@@ -100,8 +101,9 @@ class MemoizeCache:
                 # If we had some patches fill the array with the rest.
                 if split[2].strip() != "None":
                     for i in range(2, len(split)):
-                        assert split[i].strip().isdigit(
-                        ), f'"{split[i]}" is not a digit in {line}'
+                        assert split[i].strip().isdigit(), (
+                            f'"{split[i]}" is not a digit in {line}'
+                        )
                         patches.append(int(split[i].strip()))
                 key = (target, tuple(patches))
                 print(f'loading {key} as {result}')
@@ -156,18 +158,22 @@ class MemoizeCache:
 CACHE = MemoizeCache(None)
 
 
-def run(command, error_message=None, exit_on_error=True):
+def run(command, error_message=None, exit_on_error=True, cwd=None):
     """
     Helper function to run a shell command.
     """
     try:
-        output = subprocess.run(command, shell=True, check=True, text=True)
+        output = subprocess.run(
+            command, shell=True, check=True, text=True, cwd=cwd
+        )
 
     except subprocess.CalledProcessError as e:
-
-        print(error_message if error_message else "Failed to run command: `" +
-              command + "`",
-              file=sys.stderr)
+        print(
+            error_message
+            if error_message
+            else "Failed to run command: `" + command + "`",
+            file=sys.stderr,
+        )
         if exit_on_error:
             raise e
         return False
@@ -175,28 +181,75 @@ def run(command, error_message=None, exit_on_error=True):
     return True
 
 
-def FindSuccessfulPatchNumbers() -> tuple:
+def FilterStdArrayPatches(patches: list) -> list:
     result = []
+    for index in patches:
+        diff_file = scratch_dir() / f"patch_{index}.diff"
+        if diff_file.exists():
+            has_std_array = False
+            with diff_file.open('r', encoding='utf-8', errors='ignore') as fd:
+                for line in fd:
+                    if line.startswith('+') and (
+                        'std::array' in line or 'std::to_array' in line
+                    ):
+                        has_std_array = True
+                        break
+            if has_std_array:
+                result.append(index)
+    return result
+
+
+def FilterPatches(patches: list, filter_type: str) -> list:
+    if filter_type == 'std-array':
+        return FilterStdArrayPatches(patches)
+    return patches
+
+
+def FindSuccessfulPatchNumbers(filter_type='all') -> tuple:
+    total_patches = []
     for p in scratch_dir().glob("patch_*.pass"):
-        result.append(int(p.name.removeprefix("patch_").removesuffix(".pass")))
-    return tuple(sorted(result))
+        total_patches.append(
+            int(p.name.removeprefix("patch_").removesuffix(".pass"))
+        )
+    total_patches = sorted(total_patches)
+
+    result = FilterPatches(total_patches, filter_type)
+
+    print(
+        f'Found {len(total_patches)} total .pass patches, '
+        + f'{len(result)} passed filter "{filter_type}".',
+        flush=True,
+    )
+    return tuple(result)
 
 
-def CreateNewBranch(branch_name: str) -> ():
+def GetCWD(project: str) -> str:
+    submodule = PROJECTS[project].get('submodule', '.')
+    return submodule if submodule != '.' else None
+
+
+def CreateNewBranch(branch_name: str, project: str) -> ():
     global BRANCHES
     print(f'switching to {branch_name}')
-    run(f'git branch -D {branch_name} 1>/dev/null 2>/dev/null',
-        exit_on_error=False)
-    run(f'git new-branch --upstream {BRANCHES[-1]} {branch_name} 2>&1')
+    cwd = GetCWD(project)
+    run(
+        f'git branch -D {branch_name} 1>/dev/null 2>/dev/null',
+        exit_on_error=False,
+        cwd=cwd,
+    )
+    run(f'git new-branch --upstream {BRANCHES[-1]} {branch_name} 2>&1', cwd=cwd)
     BRANCHES.append(branch_name)
 
 
-def PopBranch() -> ():
+def PopBranch(project: str) -> ():
     global BRANCHES
     assert len(BRANCHES) > 0, 'tried to pop past historical'
     old_branch = BRANCHES.pop()
     print(f'poping out of {old_branch}')
-    run(f'git checkout {BRANCHES[-1]} 1>/dev/null 2>/dev/null')
+    run(
+        f'git checkout {BRANCHES[-1]} 1>/dev/null 2>/dev/null',
+        cwd=GetCWD(project),
+    )
 
 
 def CollectEditsInFile(patches: tuple, label: str) -> str:
@@ -211,20 +264,24 @@ def CollectEditsInFile(patches: tuple, label: str) -> str:
                 splits = line.split(':::')
                 assert len(splits) >= 4, f'Not enough splits: {len(splits)}'
                 assert splits[0] in [
-                    'r', 'include-system-header', 'include-user-header'
+                    'r',
+                    'include-system-header',
+                    'include-user-header',
                 ], f'Incorrect: {line}'
                 if splits[0] == 'r':
-                    assert splits[2].isdigit(
-                    ), f'not a digit {splits[2]} and {line}'
+                    assert splits[2].isdigit(), (
+                        f'not a digit {splits[2]} and {line}'
+                    )
                     file_offset_and_replacement.append((int(splits[2]), line))
                 else:
                     # Headers are at -1 but isdigit() doesn't work on '-1'
-                    assert splits[
-                        2] == '-1', f'not a digit {splits[2]} and {line}'
+                    assert splits[2] == '-1', (
+                        f'not a digit {splits[2]} and {line}'
+                    )
                     file_offset_and_replacement.append((-1, line))
-    file_offset_and_replacement = sorted(file_offset_and_replacement,
-                                         key=lambda x: x[0],
-                                         reverse=True)
+    file_offset_and_replacement = sorted(
+        file_offset_and_replacement, key=lambda x: x[0], reverse=True
+    )
     output = scratch_dir() / f"combined_edits_{label}.txt"
     with output.open('w') as out:
         for offset, replacement in file_offset_and_replacement:
@@ -232,44 +289,68 @@ def CollectEditsInFile(patches: tuple, label: str) -> str:
     return output
 
 
-def ApplyEdits(patches: tuple, label) -> bool:
+def ApplyEdits(patches: tuple, label, project: str) -> bool:
     if len(patches) == 0:
         return True
     assert all(isinstance(p, int) for p in patches)
 
     edits = CollectEditsInFile(patches, label)
     print(f'applying {patches} in {label} in {edits}', flush=True)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    apply_edits_path = os.path.abspath(
+        os.path.join(script_dir, '..', '..', 'scripts', 'apply_edits.py')
+    )
+    out_dir = (
+        'out/linux'
+        if hasattr(GnConfigs(False), f'{project}_configs')
+        else 'out/linux-rel'
+    )
+    cmd = [sys.executable, apply_edits_path, '-p', f'./{out_dir}/']
     try:
-        result = subprocess.run(f'cat "{edits}"' +
-                                " | tools/clang/scripts/apply_edits.py" +
-                                " -p ./out/linux/",
-                                shell=True,
-                                check=True,
-                                capture_output=True,
-                                text=True)
+        with open(edits, 'rb') as f:
+            result = subprocess.run(
+                cmd,
+                stdin=f,
+                check=True,
+                capture_output=True,
+                text=True,
+                cwd=GetCWD(project),
+            )
     except subprocess.CalledProcessError as e:
-        error_msg = ("\"" + str(e) + " !!! exception(stderr): " +
-                     str(e.stderr) + "\"")
+        error_msg = (
+            "\"" + str(e) + " !!! exception(stderr): " + str(e.stderr) + "\""
+        )
         print(f'applying {label} failed because {error_msg}', flush=True)
-        run(f'git diff  > "{(scratch_dir() / f"patch_{label}.diff")}"')
-        run("git restore .", "Failed to restore after failed patch.")
+        cwd = GetCWD(project)
+        run(f'git diff  > "{(scratch_dir() / f"patch_{label}.diff")}"', cwd=cwd)
+        run("git restore .", "Failed to restore after failed patch.", cwd=cwd)
         return False
-    run("git cl format")
+    cwd = GetCWD(project)
+    run("git cl format", cwd=cwd)
 
     # Commit changes
-    run("git add -u", "Failed to add changes.")
+    run("git add -u", "Failed to add changes.", cwd=cwd)
 
-    with open("commit_message.txt", "w+") as f:
+    commit_msg_path = os.path.abspath(
+        scratch_dir() / f"commit_message_{label}.txt"
+    )
+    with open(commit_msg_path, "w+") as f:
         f.write(
-            f"""spanification patches {label} applied.\n\nPatches: {label}""")
+            f"""spanification patches {label} applied.\n\nPatches: {label}"""
+        )
     # Sometimes we generate patches that apply_edits will skip (for example
     # third_party) thus don't treat failure to commit as an error.
-    if not run("git commit -F commit_message.txt", exit_on_error=False):
+    if not run(
+        f'git commit -F "{commit_msg_path}"', exit_on_error=False, cwd=cwd
+    ):
         # We fail when there is no diff get the replacements instead.
         diff = (scratch_dir() / f"combined_edits_{label}.txt").read_text()
         print('had empty diff: ' + diff)
     # Serialize changes
-    run(f'git diff HEAD~...HEAD > "{(scratch_dir() / f"patch_{label}.diff")}"')
+    run(
+        f'git diff HEAD~...HEAD > "{(scratch_dir() / f"patch_{label}.diff")}"',
+        cwd=cwd,
+    )
     diff = (scratch_dir() / f"patch_{label}.diff").read_text()
     print('applied diff')
     return True
@@ -277,8 +358,9 @@ def ApplyEdits(patches: tuple, label) -> bool:
 
 def TriggerGCert():
     glogin_args = [
-        '/usr/bin/gcert', '-glogin_connect_timeout=60s',
-        '-glogin_request_timeout=60s'
+        '/usr/bin/gcert',
+        '-glogin_connect_timeout=60s',
+        '-glogin_request_timeout=60s',
     ]
     try:
         password = bytes(
@@ -295,22 +377,31 @@ def TriggerGCert():
         sys.exit(1)
 
 
-def CompileCurrentBranch(out_dir):
-    result = subprocess.run(f'time autoninja -C {out_dir}',
-                            shell=True,
-                            capture_output=True,
-                            text=True)
+def CompileCurrentBranch(out_dir, project: str):
+    run_gn_check = PROJECTS[project].get('run_gn_check', True)
+
+    result = subprocess.run(
+        f'time autoninja -C {out_dir}',
+        shell=True,
+        capture_output=True,
+        text=True,
+        cwd=GetCWD(project),
+    )
     print(result.stdout)
     print(result.stderr)
     if "build failed" in result.stdout.lower():
         return False
     if 'need to run `siso login`' in result.stderr.lower():
-        print("gcert has expired prompting user to gcert",
-              flush=True,
-              file=sys.stderr)
+        print(
+            "gcert has expired prompting user to gcert",
+            flush=True,
+            file=sys.stderr,
+        )
         TriggerGCert()
-        return CompileCurrentBranch(out_dir)
-    elif not run(f'gn check {out_dir}', exit_on_error=False):
+        return CompileCurrentBranch(out_dir, project)
+    elif run_gn_check and not run(
+        f'gn check {out_dir}', exit_on_error=False, cwd=GetCWD(project)
+    ):
         return False
     return True
 
@@ -319,7 +410,7 @@ def CompileCurrentBranch(out_dir):
 # then generates a GN directory using `target` and `args`. It also uses the
 # global `patches_already_done` in memory cache to avoid redoing this work if
 # the result is already know.
-def CheckPatchesForTarget(target, args, patches, label) -> bool:
+def CheckPatchesForTarget(target, args, patches, label, project: str) -> bool:
     global CACHE
     working = lambda x: x == CacheResult.COMPILED
     # If we've already compiled this set of patches for this target we can skip
@@ -328,86 +419,102 @@ def CheckPatchesForTarget(target, args, patches, label) -> bool:
     if result != CacheResult.NOT_CACHED:
         print('returning cached result: ' + str(result))
         return working(result)
-    CreateNewBranch(f'spanification_apply_patches_{label}')
-    applied = ApplyEdits(patches, label)
+    CreateNewBranch(f'spanification_apply_patches_{label}', project)
+    applied = ApplyEdits(patches, label, project)
     compiled = False
     if applied:
-        compiled = CompileCurrentBranch(f'out/{target}')
-    PopBranch()
+        compiled = CompileCurrentBranch(f'out/{target}', project)
+    PopBranch(project)
     # Cache the result.
     CACHE.WriteResultToCache(target, patches, applied, compiled)
     return working(CACHE.Result(target, patches))
 
 
-def HandleLen2BaseCase(target, args, base, to_try, label) -> tuple:
+def HandleLen2BaseCase(
+    target, args, base, to_try, label, project: str
+) -> tuple:
     assert len(to_try) == 2, "Invalid length passed"
     err_msg = "base has to be a tuple of all ints."
     assert isinstance(base, tuple), err_msg
     assert all(isinstance(b, int) for b in base), err_msg
 
     left_patch = to_try[0]
-    left_patches = base + (left_patch, )
-    left = CheckPatchesForTarget(target, args, left_patches, f'{label}_left')
+    left_patches = base + (left_patch,)
+    left = CheckPatchesForTarget(
+        target, args, left_patches, f'{label}_left', project
+    )
 
     right_patch = to_try[1]
-    right_patches = base + (right_patch, )
-    right = CheckPatchesForTarget(target, args, right_patches,
-                                  f'{label}_right')
+    right_patches = base + (right_patch,)
+    right = CheckPatchesForTarget(
+        target, args, right_patches, f'{label}_right', project
+    )
 
     if left and right:
         # Both compile but not when included together.
-        print(f'Patch {left_patch} and patch {right_patch}' +
-              f'do not work together on {target}, droping {right_patch}')
+        print(
+            f'Patch {left_patch} and patch {right_patch}'
+            + f'do not work together on {target}, droping {right_patch}'
+        )
         return left_patches
     elif left:
-        print(
-            f'Patch {right_patch} was dropped, it does not merge on {target}')
+        print(f'Patch {right_patch} was dropped, it does not merge on {target}')
         return left_patches
     elif right:
         print(f'Patch {left_patch} was dropped, it does not merge on {target}')
         return right_patches
     else:
         # Both doesn't compile/apply when added to `base` drop both.
-        print(f'Patch {left_patch} and patch {right_patch}' +
-              f'do not work together on {target} while merging. droping both')
+        print(
+            f'Patch {left_patch} and patch {right_patch}'
+            + f'do not work together on {target} while merging. droping both'
+        )
         return base
 
 
-def FindCompatiblePatchesByMerging(base, to_try, target, args, label) -> tuple:
-    if CheckPatchesForTarget(target, args, base + to_try,
-                             f'{label}_initial_check'):
+def FindCompatiblePatchesByMerging(
+    base, to_try, target, args, label, project: str
+) -> tuple:
+    if CheckPatchesForTarget(
+        target, args, base + to_try, f'{label}_initial_check', project
+    ):
         return base + to_try
     # We failed to compile and there is only 1.
     if len(to_try) == 1:
         print(f'Patch {to_try[0]} failed when added for {label}, on {target}')
         return base
     if len(to_try) == 2:
-        return HandleLen2BaseCase(target, args, base, to_try, label)
+        return HandleLen2BaseCase(target, args, base, to_try, label, project)
     midpoint = len(to_try) // 2
-    left = FindCompatiblePatchesByMerging(base, to_try[:midpoint], target,
-                                          args, f'{label}_left')
-    return FindCompatiblePatchesByMerging(left, to_try[midpoint:], target,
-                                          args, f'{label}_right')
+    left = FindCompatiblePatchesByMerging(
+        base, to_try[:midpoint], target, args, f'{label}_left', project
+    )
+    return FindCompatiblePatchesByMerging(
+        left, to_try[midpoint:], target, args, f'{label}_right', project
+    )
 
 
-def FindCompilingAndCompatiblePatchesImpl(target, args, patches,
-                                          label) -> tuple:
+def FindCompilingAndCompatiblePatchesImpl(
+    target, args, patches, label, project: str
+) -> tuple:
     assert len(patches) > 0, 'No patches provided'
     # optimistically try them all
-    if CheckPatchesForTarget(target, args, patches, f'{label}'):
+    if CheckPatchesForTarget(target, args, patches, f'{label}', project):
         return patches
     if len(patches) == 1:
         return tuple()
     elif len(patches) == 2:
-        return HandleLen2BaseCase(target, args, tuple(), patches, label)
+        return HandleLen2BaseCase(
+            target, args, tuple(), patches, label, project
+        )
     # Recursive call
     midpoint = len(patches) // 2
-    left = FindCompilingAndCompatiblePatchesImpl(target, args,
-                                                 patches[:midpoint],
-                                                 f'{label}_left')
-    right = FindCompilingAndCompatiblePatchesImpl(target, args,
-                                                  patches[midpoint:],
-                                                  f'{label}_right')
+    left = FindCompilingAndCompatiblePatchesImpl(
+        target, args, patches[:midpoint], f'{label}_left', project
+    )
+    right = FindCompilingAndCompatiblePatchesImpl(
+        target, args, patches[midpoint:], f'{label}_right', project
+    )
 
     # Some early out opportunities to reduce headspace. If we compile on only
     # one side (or neither side) then we can just early out (assuming the
@@ -421,8 +528,9 @@ def FindCompilingAndCompatiblePatchesImpl(target, args, patches,
         return left
 
     # Optimistically try them both together.
-    if CheckPatchesForTarget(target, args, left + right,
-                             f'{label}_left_with_right'):
+    if CheckPatchesForTarget(
+        target, args, left + right, f'{label}_left_with_right', project
+    ):
         # After removing non-compiling/non-compatible patches this combination
         # works.
         return left + right
@@ -433,84 +541,152 @@ def FindCompilingAndCompatiblePatchesImpl(target, args, patches,
     # exact 2 patches that doesn't work together when applied at the same time.
     larger = left if len(left) >= len(right) else right
     smaller = left if len(left) < len(right) else right
-    result = FindCompatiblePatchesByMerging(larger, smaller, target, args,
-                                            f'{label}_merging')
+    result = FindCompatiblePatchesByMerging(
+        larger, smaller, target, args, f'{label}_merging', project
+    )
     return result
 
 
-def FindCompilingAndCompatiblePatches(target, args, patches) -> tuple:
+def FindCompilingAndCompatiblePatches(
+    target, args, patches, project: str
+) -> tuple:
     assert len(patches) > 0, 'No patches provided'
     assert all(isinstance(p, int) for p in patches)
     # optimistically try them all
-    if CheckPatchesForTarget(target, args, patches, f'all_{target}_patches'):
+    if CheckPatchesForTarget(
+        target, args, patches, f'all_{target}_patches', project
+    ):
         return patches
-    return FindCompilingAndCompatiblePatchesImpl(target, args, patches,
-                                                 f'{target}_patches_start')
+    return FindCompilingAndCompatiblePatchesImpl(
+        target, args, patches, f'{target}_patches_start', project
+    )
+
+
+def DefineAndGetArgs():
+    parser = argparse.ArgumentParser(
+        description="Apply successful spanification rewrites and test across GN configs."
+    )
+    parser.add_argument(
+        'cache_file',
+        nargs='?',
+        default=None,
+        type=str,
+        help='Path to cache file for memoizing build results.',
+    )
+    parser.add_argument(
+        '--project',
+        choices=list(PROJECTS.keys()),
+        default='chrome',
+        help='Target project (default: chrome).',
+    )
+    parser.add_argument(
+        '--filter',
+        choices=['all', 'std-array'],
+        default='all',
+        help='Filter patches (default: all).',
+    )
+    return parser.parse_args()
 
 
 def main():
+    args = DefineAndGetArgs()
+
+    filter_type = args.filter
+    cache_file = (
+        os.path.expanduser(args.cache_file) if args.cache_file else None
+    )
+
     # Cache variables.
     global CACHE
     global BRANCHES
+    project = args.project
+
+    if cache_file:
+        CACHE = MemoizeCache(cache_file)
+
     # This will serve ensure we can run this script consistently by going to
     # main, and then creating a base branch. Creates a new branch that tracks
     # whatever the current state is, all future branches will be based on it.
     assert len(BRANCHES) == 0
     BRANCHES.append("spanification-base-for-rewrite")
-    run(f'git checkout {BRANCHES[0]} 1>/dev/null 2>/dev/null')
+    run(
+        f'git checkout {BRANCHES[0]} 1>/dev/null 2>/dev/null',
+        cwd=GetCWD(project),
+    )
 
-    CreateNewBranch(f'spanification_apply_patches_base')
+    CreateNewBranch(f'spanification_apply_patches_base', project)
 
     # Look in the scratch directory and find all our patches.
-    patches = FindSuccessfulPatchNumbers()
+    patches = FindSuccessfulPatchNumbers(filter_type)
 
-    if len(sys.argv) > 1:
-        CACHE = MemoizeCache(os.path.expanduser(sys.argv[1]))
+    gn_configs = GnConfigs(
+        False if PROJECTS[project].get('submodule') else True
+    )
+    project_configs_key = f'{project}_configs'
+    if hasattr(gn_configs, project_configs_key):
+        configs = getattr(gn_configs, project_configs_key).items()
+    else:
+        configs = gn_configs.all_platforms_and_configs.items()
 
     curr_result = patches
-    for target, args in GnConfigs(True).all_platforms_and_configs.items():
-        assert GenerateGnTarget(target, args), "Failed to configure target"
+    for target, args_gn in configs:
+        assert GenerateGnTarget(target, args_gn, cwd=GetCWD(project)), (
+            "Failed to configure target"
+        )
         # If a clean no patches build fails something is incorrect with the gn
         # args or the build setup. Thus if this returns false we skip the target
         # to avoid spending time spinning to determine all patches are not
         # compiling.
         cache_result = CACHE.Result(target, NO_PATCHES)
         if cache_result == CacheResult.NOT_CACHED:
-            if not CompileCurrentBranch(f'out/{target}'):
+            if not CompileCurrentBranch(f'out/{target}', project):
                 # Sometimes (often with chromeos or windows) if a sync hasn't
                 # recently been run after having trying to compile a platform it
                 # will fail. And just syncing fixes it.
-                run('gclient sync -fD')
+                run('gclient sync -fD', cwd=GetCWD(project))
             # If we compiled successfully above this should quickly finish and
             # cache that result, and if it didn't we'll give it a chance after
             # a gclient sync to succeed.
             CheckPatchesForTarget(
-                target, args, NO_PATCHES,
-                f'spanification_clean_compile_check_{target}')
+                target,
+                args_gn,
+                NO_PATCHES,
+                f'spanification_clean_compile_check_{target}',
+                project,
+            )
         # This was either already in the map or was updated above.
         if CACHE.Result(target, NO_PATCHES) != CacheResult.COMPILED:
-            print(f'Failed to compile cleanly {target}... skipping {target}',
-                  flush=True)
+            print(
+                f'Failed to compile cleanly {target}... skipping {target}',
+                flush=True,
+            )
             continue
         curr_result = FindCompilingAndCompatiblePatches(
-            target, args, curr_result)
-        assert CheckPatchesForTarget(target, args, curr_result,
-                                     f'{target}_final_patch')
+            target, args_gn, curr_result, project
+        )
+        assert CheckPatchesForTarget(
+            target, args_gn, curr_result, f'{target}_final_patch', project
+        )
         print(f'working patches for {target}:', flush=True)
         print(curr_result, flush=True)
         print('finished', flush=True)
-        run(f'gn clean out/{target}')
+        run(f'gn clean out/{target}', cwd=GetCWD(project))
 
     print(f'working patches for all targets:', flush=True)
     print(curr_result, flush=True)
     # Now we create the final branch to store the applied edits.
     branch_name = f'spanification_apply_all_targets_final_patches'
-    CreateNewBranch(branch_name)
-    applied = ApplyEdits(curr_result, branch_name)
-    assert applied, "reached end up couldn't apply edits"
-    compiled = CompileCurrentBranch(f'out/linux-rel')
-    assert compiled, "reached end but couldn't compile linux-rel"
-    print('finished, final working patch in "{branch_name}"', flush=True)
+    CreateNewBranch(branch_name, project)
+    applied = ApplyEdits(curr_result, branch_name, project)
+    assert applied, "reached end but couldn't apply edits"
+    compile_target = (
+        'linux'
+        if hasattr(GnConfigs(False), project_configs_key)
+        else 'linux-rel'
+    )
+    compiled = CompileCurrentBranch(f'out/{compile_target}', project)
+    assert compiled, f"reached end but couldn't compile {compile_target}"
+    print(f'finished, final working patch in "{branch_name}"', flush=True)
     return 0
 
 

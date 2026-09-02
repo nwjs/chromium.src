@@ -668,6 +668,13 @@ class GlicEnablingProfileReadyStateTestBase
       return;
     }
 
+    // Override platform management to NONE so tests pass consistently on
+    // managed developer machines.
+    scoped_platform_management_override_ =
+        std::make_unique<policy::ScopedManagementServiceOverrideForTesting>(
+            policy::ManagementServiceFactory::GetInstance()->GetForPlatform(),
+            policy::EnterpriseManagementAuthority::NONE);
+
     // Make sure we have a primary account so we don't fail the "capable" check.
     auto* identity_test_env = identity_test_env_adaptor_->identity_test_env();
     AccountInfo account_info = identity_test_env->MakePrimaryAccountAvailable(
@@ -679,6 +686,8 @@ class GlicEnablingProfileReadyStateTestBase
   }
 
  private:
+  std::unique_ptr<policy::ScopedManagementServiceOverrideForTesting>
+      scoped_platform_management_override_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -1699,6 +1708,10 @@ glic::mojom::GeminiEnterpriseSettings GetCmdSettings() {
                                                kCmdLocation);
 }
 
+glic::mojom::GeminiEnterpriseSettings GetEmptySettings() {
+  return glic::mojom::GeminiEnterpriseSettings("", kPrefAppId, kPrefLocation);
+}
+
 std::string ToJsonString(
     const glic::mojom::GeminiEnterpriseSettings& settings) {
   return base::StringPrintf(
@@ -1842,6 +1855,12 @@ INSTANTIATE_TEST_SUITE_P(
         GeminiEnterpriseSettingsParams{.feature_enabled = true,
                                        .is_enterprise = false,
                                        .pref_settings = GetPrefSettings(),
+                                       .expected_settings = std::nullopt},
+        GeminiEnterpriseSettingsParams{.feature_enabled = true,
+                                       .pref_settings = GetEmptySettings(),
+                                       .expected_settings = std::nullopt},
+        GeminiEnterpriseSettingsParams{.feature_enabled = true,
+                                       .cmd_settings = GetEmptySettings(),
                                        .expected_settings = std::nullopt}));
 
 class GlicEnablingGeminiEnterpriseSettingsErrorTest
@@ -1885,7 +1904,26 @@ TEST_F(GlicEnablingGeminiEnterpriseSettingsErrorTest, MissingFieldsLogsError) {
       mock_log,
       Log(logging::LOGGING_ERROR, testing::_, testing::_, testing::_,
           testing::HasSubstr("Gemini Enterprise settings override is missing "
-                             "required fields.")))
+                             "required fields or contains empty values.")))
+      .Times(1);
+  mock_log.StartCapturingLogs();
+
+  EXPECT_EQ(GlicEnabling::GetGeminiEnterpriseSettings(profile()), std::nullopt);
+
+  mock_log.StopCapturingLogs();
+}
+
+TEST_F(GlicEnablingGeminiEnterpriseSettingsErrorTest, EmptyFieldsLogsError) {
+  scoped_command_line_.GetProcessCommandLine()->AppendSwitchASCII(
+      switches::kGlicGeminiEnterpriseSettingsOverride,
+      "{\"project_id\": \"\", \"app_id\": \"a\", \"location\": \"l\"}");
+
+  base::test::MockLog mock_log;
+  EXPECT_CALL(
+      mock_log,
+      Log(logging::LOGGING_ERROR, testing::_, testing::_, testing::_,
+          testing::HasSubstr("Gemini Enterprise settings override is missing "
+                             "required fields or contains empty values.")))
       .Times(1);
   mock_log.StartCapturingLogs();
 

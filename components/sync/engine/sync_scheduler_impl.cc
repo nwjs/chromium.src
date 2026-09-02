@@ -12,6 +12,7 @@
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/observer_list.h"
 #include "base/rand_util.h"
 #include "base/task/sequenced_task_runner.h"
@@ -19,6 +20,7 @@
 #include "components/sync/base/data_type.h"
 #include "components/sync/base/features.h"
 #include "components/sync/engine/backoff_delay_provider.h"
+#include "components/sync/engine/sync_access_token_fetcher.h"
 #include "components/sync/engine/sync_protocol_error.h"
 #include "components/sync/protocol/sync_enums.pb.h"
 
@@ -193,7 +195,8 @@ void SyncSchedulerImpl::SendInitialSnapshot() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   SyncCycleEvent event(SyncCycleEvent::STATUS_CHANGED);
-  event.snapshot = SyncCycle(cycle_context_, this).TakeSnapshot();
+  event.snapshot =
+      SyncCycle(cycle_context_, this, signin::AccessTokenInfo()).TakeSnapshot();
   for (SyncEngineEventListener& observer : *cycle_context_->listeners()) {
     observer.OnSyncCycleEvent(event);
   }
@@ -240,7 +243,8 @@ bool SyncSchedulerImpl::CanRunJobNow(RespectGlobalBackoff respect_backoff) {
   }
 
   if (!ignore_auth_credentials_ &&
-      !cycle_context_->connection_manager()->HasAccessToken()) {
+      !base::FeatureList::IsEnabled(kSyncUsePropagatedAccessToken) &&
+      !cycle_context_->connection_manager()->HasCachedAccessToken()) {
     SDVLOG(1) << "Unable to run a job because we have no access token.";
     return false;
   }
@@ -381,13 +385,14 @@ SyncSchedulerImpl::ConfigurationParams::ConfigurationParams(
 
 SyncSchedulerImpl::ConfigurationParams::~ConfigurationParams() = default;
 
-void SyncSchedulerImpl::DoNudgeSyncCycleJob() {
+void SyncSchedulerImpl::DoNudgeSyncCycleJob(
+    signin::AccessTokenInfo access_token_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   DataTypeSet types = GetEnabledAndUnblockedTypes();
   DVLOG(2) << "Will run normal mode sync cycle with types "
            << DataTypeSetToDebugString(types);
-  SyncCycle cycle(cycle_context_, this);
+  SyncCycle cycle(cycle_context_, this, std::move(access_token_info));
   bool success = syncer_->NormalSyncShare(types, &nudge_tracker_, &cycle);
 
   if (success) {
@@ -411,7 +416,8 @@ void SyncSchedulerImpl::DoNudgeSyncCycleJob() {
 }
 
 void SyncSchedulerImpl::DoConfigurationSyncCycleJob(
-    RespectGlobalBackoff respect_backoff) {
+    RespectGlobalBackoff respect_backoff,
+    signin::AccessTokenInfo access_token_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK_EQ(mode_, CONFIGURATION_MODE);
   DCHECK(pending_configure_params_ != nullptr);
@@ -424,7 +430,7 @@ void SyncSchedulerImpl::DoConfigurationSyncCycleJob(
   SDVLOG(2) << "Will run configure SyncShare with types "
             << DataTypeSetToDebugString(
                    pending_configure_params_->types_to_download);
-  SyncCycle cycle(cycle_context_, this);
+  SyncCycle cycle(cycle_context_, this, std::move(access_token_info));
   bool success =
       syncer_->ConfigureSyncShare(pending_configure_params_->types_to_download,
                                   pending_configure_params_->origin, &cycle);
@@ -472,10 +478,11 @@ void SyncSchedulerImpl::HandleFailure(
   }
 }
 
-void SyncSchedulerImpl::DoPollSyncCycleJob() {
+void SyncSchedulerImpl::DoPollSyncCycleJob(
+    signin::AccessTokenInfo access_token_info) {
   SDVLOG(2) << "Polling with types "
             << DataTypeSetToDebugString(GetEnabledAndUnblockedTypes());
-  SyncCycle cycle(cycle_context_, this);
+  SyncCycle cycle(cycle_context_, this, std::move(access_token_info));
   bool success = syncer_->PollSyncShare(GetEnabledAndUnblockedTypes(), &cycle);
 
   // Only restart the timer if the poll succeeded. Otherwise rely on normal
@@ -582,31 +589,69 @@ void SyncSchedulerImpl::Stop() {
   poll_timer_.Stop();
   pending_wakeup_timer_.Stop();
   pending_configure_params_.reset();
+  pending_access_token_request_backoff_.reset();
   if (started_) {
     started_ = false;
   }
 }
 
 void SyncSchedulerImpl::TrySyncCycleJob(RespectGlobalBackoff respect_backoff) {
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&SyncSchedulerImpl::TrySyncCycleJobImpl,
-                     weak_ptr_factory_.GetWeakPtr(), respect_backoff));
+  // If the token fetcher is not available (e.g., when
+  // kSyncUsePropagatedAccessToken is disabled or in unit tests that do not
+  // supply a fetcher), proceed immediately with TrySyncCycleJobImpl using an
+  // empty token. Otherwise, request an access token asynchronously on the UI
+  // thread before running the sync cycle.
+  if (!cycle_context_->sync_access_token_fetcher()) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&SyncSchedulerImpl::TrySyncCycleJobImpl,
+                                  weak_ptr_factory_.GetWeakPtr(),
+                                  respect_backoff, signin::AccessTokenInfo()));
+    return;
+  }
+
+  if (pending_access_token_request_backoff_.has_value()) {
+    // An access token request is already in flight. Coalesce this request.
+    // If any request does not respect backoff, the coalesced job shouldn't
+    // either.
+    if (!respect_backoff) {
+      pending_access_token_request_backoff_ = RespectGlobalBackoff(false);
+    }
+    return;
+  }
+
+  pending_access_token_request_backoff_ = respect_backoff;
+  cycle_context_->sync_access_token_fetcher()->FetchAccessToken(
+      base::BindOnce(&SyncSchedulerImpl::OnAccessTokenFetched,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void SyncSchedulerImpl::OnAccessTokenFetched(
+    signin::AccessTokenInfo access_token_info) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  // Note that `access_token_info` can be empty in case of local sync enabled.
+  CHECK(pending_access_token_request_backoff_.has_value());
+  RespectGlobalBackoff respect_backoff = *pending_access_token_request_backoff_;
+  pending_access_token_request_backoff_.reset();
+  TrySyncCycleJobImpl(respect_backoff, std::move(access_token_info));
 }
 
 void SyncSchedulerImpl::TrySyncCycleJobImpl(
-    RespectGlobalBackoff respect_backoff) {
+    RespectGlobalBackoff respect_backoff,
+    signin::AccessTokenInfo access_token_info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(!pending_access_token_request_backoff_.has_value());
 
   if (mode_ == CONFIGURATION_MODE) {
     if (pending_configure_params_) {
       SDVLOG(2) << "Found pending configure job";
-      DoConfigurationSyncCycleJob(respect_backoff);
+      DoConfigurationSyncCycleJob(respect_backoff,
+                                  std::move(access_token_info));
     }
   } else if (CanRunNudgeJobNow(respect_backoff)) {
     if (nudge_tracker_.IsSyncRequired(GetEnabledAndUnblockedTypes())) {
       SDVLOG(2) << "Found pending nudge job";
-      DoNudgeSyncCycleJob();
+      DoNudgeSyncCycleJob(std::move(access_token_info));
     } else {
       // If the poll timer isn't running, that means a poll is pending.
       // Most likely this was called from PollTimerCallback(), but it's also
@@ -614,14 +659,18 @@ void SyncSchedulerImpl::TrySyncCycleJobImpl(
       // in an error state, and now it has exited the error state.
       if (!poll_timer_.IsRunning()) {
         SDVLOG(2) << "Found pending poll";
-        DoPollSyncCycleJob();
+        DoPollSyncCycleJob(std::move(access_token_info));
       }
     }
   } else {
     // We must be in an error state. Transitioning out of each of these
     // error states should trigger a sync cycle job.
-    DCHECK(IsGlobalThrottle() || IsGlobalBackoff() ||
-           !cycle_context_->connection_manager()->HasAccessToken());
+    if (!base::FeatureList::IsEnabled(kSyncUsePropagatedAccessToken)) {
+      DCHECK(IsGlobalThrottle() || IsGlobalBackoff() ||
+             !cycle_context_->connection_manager()->HasCachedAccessToken());
+    } else {
+      CHECK(IsGlobalThrottle() || IsGlobalBackoff(), base::NotFatalUntil::M155);
+    }
   }
 
   RestartWaiting();

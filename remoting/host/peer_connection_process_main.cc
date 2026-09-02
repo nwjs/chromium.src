@@ -20,9 +20,18 @@
 #include "remoting/host/base/host_exit_codes.h"
 #include "remoting/host/base/switches.h"
 #include "remoting/host/peer_connection_process.h"
+#include "remoting/host/security_key/security_key_auth_handler.h"
 
 #if BUILDFLAG(IS_POSIX)
 #include "base/files/file_descriptor_watcher_posix.h"
+#endif
+
+#if BUILDFLAG(IS_LINUX)
+#include <memory>
+
+#include "base/logging.h"
+#include "remoting/host/linux/peer_connection_bpf_policy_linux.h"
+#include "sandbox/linux/seccomp-bpf/sandbox_bpf.h"
 #endif
 
 namespace remoting {
@@ -31,24 +40,23 @@ int PeerConnectionProcessMain() {
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
 
+  SecurityKeyAuthHandler::set_use_mojo_handler(true);
+
   base::ThreadPoolInstance::CreateAndStartWithDefaultParams("PeerConnection");
 
-  base::SingleThreadTaskExecutor main_task_executor(base::MessagePumpType::UI);
+  base::SingleThreadTaskExecutor main_task_executor(base::MessagePumpType::IO);
   base::RunLoop run_loop;
-  scoped_refptr<AutoThreadTaskRunner> ui_task_runner =
+  scoped_refptr<AutoThreadTaskRunner> task_runner =
       base::MakeRefCounted<AutoThreadTaskRunner>(
           main_task_executor.task_runner(), run_loop.QuitClosure());
 
-  // Launch the I/O thread.
+  // Launch the IPC I/O thread.
   scoped_refptr<AutoThreadTaskRunner> io_task_runner =
-      AutoThread::CreateWithType("I/O thread", ui_task_runner,
+      AutoThread::CreateWithType("I/O thread", task_runner,
                                  base::MessagePumpType::IO);
 
 #if BUILDFLAG(IS_POSIX)
-  // Allow the main thread (which is not an I/O thread) to use
-  // FileDescriptorWatcher. The constructor of FileDescriptorWatcher registers
-  // itself in a thread local storage.
-  base::FileDescriptorWatcher fd_watcher(io_task_runner->task_runner());
+  base::FileDescriptorWatcher fd_watcher(main_task_executor.task_runner());
 #endif
 
   mojo::core::ScopedIPCSupport ipc_support(
@@ -69,14 +77,39 @@ int PeerConnectionProcessMain() {
   mojo::ScopedMessagePipeHandle message_pipe = invitation.ExtractMessagePipe(
       command_line->GetSwitchValueASCII(kMojoPipeToken));
 
-  PeerConnectionProcess peer_connection_process(ui_task_runner, io_task_runner);
+  PeerConnectionProcess peer_connection_process(task_runner, io_task_runner);
 
   if (!peer_connection_process.Start(std::move(message_pipe))) {
     return kInitializationFailed;
   }
 
+#if BUILDFLAG(IS_LINUX)
+  // Engage the multi-threaded Seccomp-BPF sandbox after establishing the
+  // initial Mojo IPC connection with the parent process, but before starting
+  // the main RunLoop to process untrusted WebRTC peer traffic and remote
+  // inputs.
+  //
+  // Note: Future threads created on the fly (e.g. by ThreadPool or WebRTC)
+  // are explicitly allowed by the policy and automatically inherit the filter
+  // via SECCOMP_FILTER_FLAG_TSYNC.
+  if (sandbox::SandboxBPF::SupportsSeccompSandbox(
+          sandbox::SandboxBPF::SeccompLevel::MULTI_THREADED)) {
+    sandbox::SandboxBPF sandbox(
+        std::make_unique<PeerConnectionBpfPolicyLinux>());
+    if (!sandbox.StartSandbox(
+            sandbox::SandboxBPF::SeccompLevel::MULTI_THREADED)) {
+      LOG(ERROR) << "Failed to engage Seccomp-BPF sandbox in the peer "
+                 << "connection process.";
+      return kInitializationFailed;
+    }
+  } else {
+    LOG(WARNING)
+        << "Seccomp-BPF multi-threaded sandbox not supported on this kernel.";
+  }
+#endif
+
   // Run the loop.
-  ui_task_runner = nullptr;
+  task_runner = nullptr;
   run_loop.Run();
 
   return kSuccessExitCode;

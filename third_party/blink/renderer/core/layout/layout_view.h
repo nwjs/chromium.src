@@ -150,7 +150,8 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
 
   void QuadsInAncestorInternal(Vector<gfx::QuadF>&,
                                const LayoutBoxModelObject* ancestor,
-                               MapCoordinatesFlags) const override;
+                               MapCoordinatesFlags,
+                               BoxQuadType) const override;
 
   PhysicalRect ViewRect() const override;
   using LayoutBlockFlow::OverflowClipRect;
@@ -245,6 +246,17 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
   // This should be called when the style of any LayoutObject changes to have
   // ruby annotations or text-emphasis marks.
   void SetContainsAnnotations();
+
+  // Called when the style of an SVG LayoutObject has
+  // 'vector-effect: non-scaling-stroke'.
+  void SetContainsNonScalingStroke() {
+    NOT_DESTROYED();
+    contains_non_scaling_stroke_ = true;
+  }
+  bool ContainsNonScalingStroke() {
+    NOT_DESTROYED();
+    return contains_non_scaling_stroke_;
+  }
 
   // Return true if re-laying out the specified node (as a cached layout result)
   // with a new initial containing block size. Subsequent calls for the same
@@ -351,6 +363,7 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
  private:
   void StyleDidChange(StyleDifference,
                       const ComputedStyle* old_style,
+                      const ComputedStyle& new_style,
                       const StyleChangeContext&) override;
 
   // Set if laying out with a new initial containing block size, and populated
@@ -435,6 +448,10 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
   //   annotations.
   // * The flag should be moved to flow-roots for better scoping.
   bool contains_annotations_ = false;
+
+  // True if the document contains any (SVG) 'vector-effect:
+  // non-scaling-stroke' elements. Used to optimize invalidation for SVGImage.
+  bool contains_non_scaling_stroke_ = false;
 };
 
 template <>

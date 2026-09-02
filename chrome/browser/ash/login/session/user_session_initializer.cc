@@ -9,7 +9,6 @@
 #include "ash/constants/chrome_pref_names.h"
 #include "ash/system/media/media_notification_provider.h"
 #include "base/check_deref.h"
-#include "base/debug/crash_logging.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/system/sys_info.h"
@@ -32,8 +31,6 @@
 #include "chrome/browser/ash/guest_os/guest_os_session_tracker_factory.h"
 #include "chrome/browser/ash/login/startup_utils.h"
 #include "chrome/browser/ash/phonehub/phone_hub_manager_factory.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_manager.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_manager_factory.h"
 #include "chrome/browser/ash/policy/reporting/app_install_event_log_manager_wrapper.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
@@ -154,33 +151,8 @@ UserSessionInitializer* UserSessionInitializer::Get() {
 }
 
 void UserSessionInitializer::OnUserProfileLoaded(const AccountId& account_id) {
-  // TODO(b/371636008): Remove after fixing the crash.
-  using user_manager::UserManager;
-  SCOPED_CRASH_KEY_NUMBER("UserSessionInitializer", "LoggedInUsers",
-                          UserManager::Get()->GetLoggedInUsers().size());
-  SCOPED_CRASH_KEY_NUMBER(
-      "UserSessionInitializer", "LoadedProfiles",
-      g_browser_process->profile_manager()->GetLoadedProfiles().size());
-  SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "FindUser",
-                        UserManager::Get()->FindUser(account_id) != nullptr);
-  if (auto* found_user = UserManager::Get()->FindUser(account_id);
-      found_user != nullptr) {
-    SCOPED_CRASH_KEY_NUMBER("UserSessionInitializer", "UserType",
-                            static_cast<int>(found_user->GetType()));
-    SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "ProfileCreated",
-                          found_user->is_profile_created());
-    SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "IsPrimary",
-                          UserManager::Get()->GetPrimaryUser() == found_user);
-    SCOPED_CRASH_KEY_BOOL("UserSessionInitializer", "IsActive",
-                          UserManager::Get()->GetActiveUser() == found_user);
-    SCOPED_CRASH_KEY_NUMBER("UserSessionInitializer", "NameHashSize",
-                            found_user->username_hash().size());
-  }
-
   Profile* profile = ProfileHelper::Get()->GetProfileByAccountId(account_id);
-  CHECK(profile);
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
-  CHECK(user);
 
   if (user_manager::UserManager::Get()->GetPrimaryUser() == user) {
     // TODO(https://crbug.com/1208416): Investigate why OnUserProfileLoaded
@@ -338,11 +310,6 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
     // primary profile.
     phonehub::PhoneHubManagerFactory::GetForProfile(profile);
     eche_app::EcheAppManagerFactory::GetForProfile(profile);
-
-    plugin_vm::PluginVmManager* plugin_vm_manager =
-        plugin_vm::PluginVmManagerFactory::GetForProfile(primary_profile_);
-    if (plugin_vm_manager)
-      plugin_vm_manager->OnPrimaryUserSessionStarted();
 
     VmCameraMicManager::Get()->OnPrimaryUserSessionStarted(primary_profile_);
 

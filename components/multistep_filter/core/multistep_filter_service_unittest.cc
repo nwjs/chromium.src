@@ -13,6 +13,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
+#include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
@@ -24,6 +25,10 @@
 #include "components/multistep_filter/core/features.h"
 #include "components/multistep_filter/core/prefs/multistep_filter_retention_prefs.h"
 #include "components/multistep_filter/core/storage/filter_store.h"
+#include "components/multistep_filter/core/switches.h"
+#include "components/optimization_guide/core/feature_registry/feature_registration.h"
+#include "components/optimization_guide/core/model_execution/model_execution_prefs.h"
+#include "components/optimization_guide/core/optimization_guide_prefs.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
@@ -37,9 +42,19 @@
 
 namespace multistep_filter {
 
+class MockFilterStore : public FilterStore {
+ public:
+  MockFilterStore() = default;
+  ~MockFilterStore() override = default;
 
-
-
+  MOCK_METHOD(void,
+              DeleteAnnotationsForHosts,
+              (std::vector<std::string> hosts,
+               base::Time delete_begin,
+               base::Time delete_end,
+               base::OnceCallback<void(std::optional<int64_t>)> callback),
+              (override));
+};
 
 class MultistepFilterServiceTest : public testing::Test {
  public:
@@ -48,22 +63,25 @@ class MultistepFilterServiceTest : public testing::Test {
     pref_service_.registry()->RegisterBooleanPref(
         unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
     RegisterRetentionProfilePrefs(pref_service_.registry());
+    optimization_guide::model_execution::prefs::RegisterProfilePrefs(
+        pref_service_.registry());
+    optimization_guide::prefs::RegisterProfilePrefs(pref_service_.registry());
     sync_service_.GetUserSettings()->SetSelectedType(
         syncer::UserSelectableType::kHistory, true);
   }
 
-  void CreateService(signin::IdentityManager* identity_manager) {
+  void CreateService(std::unique_ptr<FilterStore> filter_store =
+                         std::make_unique<FilterStore>()) {
     auto annotation_index_client =
         std::make_unique<MockAnnotationIndexClient>();
     mock_client_ = annotation_index_client.get();
-    auto filter_store = std::make_unique<FilterStore>();
     auto consent_helper = unified_consent::UrlKeyedDataCollectionConsentHelper::
         NewAnonymizedDataCollectionConsentHelper(&pref_service_);
 
     MultistepFilterService::Params params;
     params.annotation_index_client = std::move(annotation_index_client);
     params.filter_store = std::move(filter_store);
-    params.identity_manager = identity_manager;
+    params.identity_manager = identity_test_env_.identity_manager();
     params.consent_helper = std::move(consent_helper);
     params.log_router = nullptr;
     params.pref_service = &pref_service_;
@@ -71,8 +89,6 @@ class MultistepFilterServiceTest : public testing::Test {
 
     service_ = std::make_unique<MultistepFilterService>(std::move(params));
   }
-
-  void CreateService() { CreateService(identity_test_env_.identity_manager()); }
 
   base::test::ScopedFeatureList scoped_feature_list_;
   base::test::TaskEnvironment task_environment_;
@@ -86,13 +102,14 @@ class MultistepFilterServiceTest : public testing::Test {
   raw_ptr<MockAnnotationIndexClient> mock_client_ = nullptr;
 };
 
+// Tests that the service can be created and destroyed without crashing.
 TEST_F(MultistepFilterServiceTest, CreateAndDestroy) {
   // Verifies the service can be created and destroyed without crashing.
   CreateService();
 }
 
-
-
+// Tests that the service can be destroyed without crashing when the history
+// service is null.
 TEST_F(MultistepFilterServiceTest,
        OnHistoryDeletions_InvalidTimeRangeDoesNotCrash) {
   CreateService();
@@ -105,6 +122,8 @@ TEST_F(MultistepFilterServiceTest,
   service_->OnHistoryDeletions(/*history_service=*/nullptr, deletion_info);
 }
 
+// Tests that the service correctly records suggestion outcomes in the
+// preferences.
 TEST_F(MultistepFilterServiceTest, RecordSuggestionOutcomesUpdatesPrefs) {
   CreateService();
   RetentionStateSnapshot initial_state = GetRetentionState(&pref_service_);
@@ -126,6 +145,7 @@ TEST_F(MultistepFilterServiceTest, RecordSuggestionOutcomesUpdatesPrefs) {
   EXPECT_TRUE(acceptance_state.is_last_suggestion_accepted);
 }
 
+// Tests that the service correctly returns the current retention state.
 TEST_F(MultistepFilterServiceTest, GetRetentionStateReturnsCorrectSnapshot) {
   CreateService();
 
@@ -147,105 +167,227 @@ TEST_F(MultistepFilterServiceTest, GetRetentionStateReturnsCorrectSnapshot) {
   EXPECT_TRUE(updated_state.is_last_suggestion_accepted);
 }
 
-// Tests that when URL-keyed anonymized data collection (MSBB) is explicitly
-// disabled in preferences, consent evaluates to false.
-TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_MsbbDisabled) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-  sync_service_.GetUserSettings()->SetSelectedTypes(
-      /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
-  pref_service_.SetBoolean(
-      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, false);
-
+// Tests that the service correctly returns the account state when the user is
+// not signed in.
+TEST_F(MultistepFilterServiceTest, GetAccountState_NotSignedIn) {
+  // 1. Default state (Not signed in)
   CreateService();
-  EXPECT_FALSE(service_->HasUserProvidedConsent(1, "example.com"));
+  {
+    AccountState account = service_->GetAccountState();
+    EXPECT_FALSE(account.is_signed_in);
+    EXPECT_FALSE(account.can_use_model_execution_features);
+    EXPECT_FALSE(account.IsEligible());
+  }
+
+  // 2. Not signed in, bypass switch enabled
+  {
+    base::test::ScopedCommandLine scoped_command_line;
+    scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+        switches::kMultistepFilterBypassCapabilityCheck);
+    CreateService();
+    AccountState account = service_->GetAccountState();
+    EXPECT_FALSE(account.is_signed_in);
+    EXPECT_TRUE(account.can_use_model_execution_features);
+    EXPECT_FALSE(account.IsEligible());
+  }
 }
 
-// Tests that when Chrome History Sync is explicitly disabled by the user,
-// consent evaluates to false.
-TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_HistorySyncDisabled) {
+// Tests that the service correctly returns the account state when the user is
+// signed in.
+TEST_F(MultistepFilterServiceTest, GetAccountState_SignedIn) {
+  // 1. Signed in, capabilities not set
   identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
                                                  signin::ConsentLevel::kSignin);
+  CreateService();
+  {
+    AccountState account = service_->GetAccountState();
+    EXPECT_TRUE(account.is_signed_in);
+    EXPECT_FALSE(account.can_use_model_execution_features);
+    EXPECT_FALSE(account.IsEligible());
+  }
+
+  // 2. Signed in, capabilities explicitly false
+  AccountInfo account_info =
+      identity_test_env_.identity_manager()
+          ->FindExtendedAccountInfoByEmailAddress("test@gmail.com");
+  {
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    mutator.set_can_use_model_execution_features(false);
+    signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
+                                        account_info);
+  }
+  CreateService();
+  {
+    AccountState account = service_->GetAccountState();
+    EXPECT_TRUE(account.is_signed_in);
+    EXPECT_FALSE(account.can_use_model_execution_features);
+    EXPECT_FALSE(account.IsEligible());
+  }
+
+  // 3. Signed in, capabilities enabled
+  {
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    mutator.set_can_use_model_execution_features(true);
+    signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
+                                        account_info);
+  }
+  CreateService();
+  {
+    AccountState account = service_->GetAccountState();
+    EXPECT_TRUE(account.is_signed_in);
+    EXPECT_TRUE(account.can_use_model_execution_features);
+    EXPECT_TRUE(account.IsEligible());
+  }
+
+  // 4. Signed in, capabilities disabled, bypass switch enabled
+  {
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    mutator.set_can_use_model_execution_features(false);
+    signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
+                                        account_info);
+
+    base::test::ScopedCommandLine scoped_command_line;
+    scoped_command_line.GetProcessCommandLine()->AppendSwitch(
+        switches::kMultistepFilterBypassCapabilityCheck);
+    CreateService();
+    AccountState account = service_->GetAccountState();
+    EXPECT_TRUE(account.is_signed_in);
+    EXPECT_TRUE(account.can_use_model_execution_features);
+    EXPECT_TRUE(account.IsEligible());
+  }
+}
+
+// Tests that the service correctly returns the consent state in different
+// scenarios.
+TEST_F(MultistepFilterServiceTest, GetConsentState) {
+  // 1. MSBB disabled, sync disabled
+  pref_service_.SetBoolean(
+      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, false);
+  sync_service_.GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {});
+  CreateService();
+  {
+    ConsentState consent = service_->GetConsentState();
+    EXPECT_FALSE(consent.is_msbb_enabled);
+    EXPECT_FALSE(consent.is_history_sync_enabled);
+    EXPECT_FALSE(consent.IsFullyConsented());
+  }
+
+  // 2. MSBB disabled, sync enabled
+  sync_service_.GetUserSettings()->SetSelectedTypes(
+      /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
+  CreateService();
+  {
+    ConsentState consent = service_->GetConsentState();
+    EXPECT_FALSE(consent.is_msbb_enabled);
+    EXPECT_TRUE(consent.is_history_sync_enabled);
+    EXPECT_FALSE(consent.IsFullyConsented());
+  }
+
+  // 3. MSBB enabled, sync disabled
   pref_service_.SetBoolean(
       unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
   sync_service_.GetUserSettings()->SetSelectedTypes(
       /*sync_everything=*/false, {});
-
   CreateService();
-  EXPECT_FALSE(service_->HasUserProvidedConsent(2, "example.com"));
-}
+  {
+    ConsentState consent = service_->GetConsentState();
+    EXPECT_TRUE(consent.is_msbb_enabled);
+    EXPECT_FALSE(consent.is_history_sync_enabled);
+    EXPECT_FALSE(consent.IsFullyConsented());
+  }
 
-// Tests that when the user is not signed in to a Chrome account, consent
-// evaluates to false.
-TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_NotSignedIn) {
-  pref_service_.SetBoolean(
-      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
+  // 4. MSBB enabled, sync enabled
   sync_service_.GetUserSettings()->SetSelectedTypes(
       /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
-
   CreateService();
-  EXPECT_FALSE(service_->HasUserProvidedConsent(3, "example.com"));
+  {
+    ConsentState consent = service_->GetConsentState();
+    EXPECT_TRUE(consent.is_msbb_enabled);
+    EXPECT_TRUE(consent.is_history_sync_enabled);
+    EXPECT_TRUE(consent.IsFullyConsented());
+  }
 }
 
-// Tests that when the user is signed in, has MSBB enabled, and has History Sync
-// enabled, consent evaluates to true.
-TEST_F(MultistepFilterServiceTest, HasUserProvidedConsent_FullyConsented) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-  pref_service_.SetBoolean(
-      unified_consent::prefs::kUrlKeyedAnonymizedDataCollectionEnabled, true);
-  sync_service_.GetUserSettings()->SetSelectedTypes(
-      /*sync_everything=*/false, {syncer::UserSelectableType::kHistory});
-
-  CreateService();
-  EXPECT_TRUE(service_->HasUserProvidedConsent(4, "example.com"));
+// Tests that OnHistoryDeletions does not call DeleteAnnotationsForHosts when
+// there are no deletions.
+TEST_F(MultistepFilterServiceTest, OnHistoryDeletions_NoOpDeletionsIgnored) {
+  auto mock_store = std::make_unique<testing::NiceMock<MockFilterStore>>();
+  EXPECT_CALL(*mock_store, DeleteAnnotationsForHosts).Times(0);
+  CreateService(std::move(mock_store));
+  history::DeletionInfo deletion_info =
+      history::DeletionInfo::ForUrls(/*deleted_rows=*/{},
+                                     /*favicon_urls=*/{});
+  service_->OnHistoryDeletions(/*history_service=*/nullptr, deletion_info);
 }
 
-// Tests that CanUseModelExecutionFeatures returns false when not signed in.
-TEST_F(MultistepFilterServiceTest, CanUseModelExecutionFeatures_NotSignedIn) {
+// Tests that the service correctly returns the settings state in different
+// scenarios.
+TEST_F(MultistepFilterServiceTest, GetSettingsState) {
+  using optimization_guide::prefs::FeatureOptInState;
+
+  // 1. Default state (Prefs not explicitly modified)
   CreateService();
-  EXPECT_FALSE(service_->CanUseModelExecutionFeatures());
-}
+  {
+    SettingsState settings = service_->GetSettingsState();
+    EXPECT_EQ(settings.opt_in_state, FeatureOptInState::kNotInitialized);
+    EXPECT_EQ(settings.policy_state, SuggestionsPolicyState::kEnabled);
+    EXPECT_TRUE(settings.IsSmartSuggestionsEnabled());
+  }
 
-// Tests that CanUseModelExecutionFeatures returns false when signed in but the
-// capability is false.
-TEST_F(MultistepFilterServiceTest,
-       CanUseModelExecutionFeatures_CapabilityFalse) {
-  AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
-      "test@gmail.com", signin::ConsentLevel::kSignin);
-  AccountCapabilitiesTestMutator mutator(&account_info);
-  mutator.set_can_use_model_execution_features(false);
-  signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
-                                      account_info);
-
+  // 2. User opt-in enabled, policy enabled
+  pref_service_.SetInteger(
+      optimization_guide::prefs::GetSettingEnabledPrefName(
+          optimization_guide::UserVisibleFeatureKey::kContextualCueing),
+      static_cast<int>(FeatureOptInState::kEnabled));
   CreateService();
-  EXPECT_FALSE(service_->CanUseModelExecutionFeatures());
-}
+  {
+    SettingsState settings = service_->GetSettingsState();
+    EXPECT_EQ(settings.opt_in_state, FeatureOptInState::kEnabled);
+    EXPECT_EQ(settings.policy_state, SuggestionsPolicyState::kEnabled);
+    EXPECT_TRUE(settings.IsSmartSuggestionsEnabled());
+  }
 
-// Tests that CanUseModelExecutionFeatures returns true when signed in and the
-// capability is true.
-TEST_F(MultistepFilterServiceTest,
-       CanUseModelExecutionFeatures_CapabilityTrue) {
-  AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
-      "test@gmail.com", signin::ConsentLevel::kSignin);
-  AccountCapabilitiesTestMutator mutator(&account_info);
-  mutator.set_can_use_model_execution_features(true);
-  signin::UpdateAccountInfoForAccount(identity_test_env_.identity_manager(),
-                                      account_info);
-
+  // 3. User opt-in disabled, policy enabled
+  pref_service_.SetInteger(
+      optimization_guide::prefs::GetSettingEnabledPrefName(
+          optimization_guide::UserVisibleFeatureKey::kContextualCueing),
+      static_cast<int>(FeatureOptInState::kDisabled));
   CreateService();
-  EXPECT_TRUE(service_->CanUseModelExecutionFeatures());
-}
+  {
+    SettingsState settings = service_->GetSettingsState();
+    EXPECT_EQ(settings.opt_in_state, FeatureOptInState::kDisabled);
+    EXPECT_EQ(settings.policy_state, SuggestionsPolicyState::kEnabled);
+    EXPECT_FALSE(settings.IsSmartSuggestionsEnabled());
+  }
 
-// Tests that CanUseModelExecutionFeatures returns false when signed in and the
-// capability is not explicitly set (defaults to kUnknown).
-TEST_F(MultistepFilterServiceTest,
-       CanUseModelExecutionFeatures_CapabilityNotSet) {
-  identity_test_env_.MakePrimaryAccountAvailable("test@gmail.com",
-                                                 signin::ConsentLevel::kSignin);
-
+  // 4. User opt-in enabled, policy disabled
+  pref_service_.SetInteger(
+      optimization_guide::prefs::GetSettingEnabledPrefName(
+          optimization_guide::UserVisibleFeatureKey::kContextualCueing),
+      static_cast<int>(FeatureOptInState::kEnabled));
+  pref_service_.SetInteger(
+      optimization_guide::prefs::kChromeSuggestionsSettings,
+      std::to_underlying(SuggestionsPolicyState::kDisabled));
   CreateService();
-  EXPECT_FALSE(service_->CanUseModelExecutionFeatures());
+  {
+    SettingsState settings = service_->GetSettingsState();
+    EXPECT_EQ(settings.opt_in_state, FeatureOptInState::kEnabled);
+    EXPECT_EQ(settings.policy_state, SuggestionsPolicyState::kDisabled);
+    EXPECT_FALSE(settings.IsSmartSuggestionsEnabled());
+  }
+
+  // 5. User opt-in enabled, policy unknown (falls back to enabled)
+  pref_service_.SetInteger(
+      optimization_guide::prefs::kChromeSuggestionsSettings,
+      /*unknown value=*/99);
+  CreateService();
+  {
+    SettingsState settings = service_->GetSettingsState();
+    EXPECT_EQ(settings.opt_in_state, FeatureOptInState::kEnabled);
+    EXPECT_EQ(settings.policy_state, SuggestionsPolicyState::kEnabled);
+    EXPECT_TRUE(settings.IsSmartSuggestionsEnabled());
+  }
 }
 
 }  // namespace multistep_filter

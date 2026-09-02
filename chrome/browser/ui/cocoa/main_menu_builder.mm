@@ -4,6 +4,8 @@
 
 #import "chrome/browser/ui/cocoa/main_menu_builder.h"
 
+#include <AvailabilityVersions.h>
+
 #include "base/feature_list.h"
 #include "base/i18n/rtl.h"
 #include "base/mac/mac_util.h"
@@ -29,17 +31,22 @@
 
 #pragma clang diagnostic ignored "-Wunused-function"
 
-@interface NSImage (SPI)
+#if !defined(__MAC_27_0)
 
-// Creates a system symbol image from SF Symbols with the specified name and
-// value. Differs from +imageWithSystemSymbolName:accessibilityDescription: in
-// that it allows instantiation of private symbols, those intended for
-// Apple-only usage (see the SFSymbols.framework's bundles CoreGlyphs vs
-// CoreGlyphsPrivate).
-+ (instancetype)imageWithPrivateSystemSymbolName:(NSString*)name
-                        accessibilityDescription:(NSString*)description;
+@interface NSMenuItem (macOS27SDK)
+
+typedef NS_ENUM(NSInteger, NSMenuItemImageVisibility) {
+  NSMenuItemImageVisibilityAutomatic = 0,
+  NSMenuItemImageVisibilityVisible = 1,
+  NSMenuItemImageVisibilityHidden = 2
+} API_AVAILABLE(macos(27.0));
+
+@property NSMenuItemImageVisibility preferredImageVisibility API_AVAILABLE(
+    macos(27.0));
 
 @end
+
+#endif
 
 namespace chrome {
 namespace {
@@ -131,6 +138,9 @@ NSMenuItem* BuildFileMenu(NSApplication* nsapp,
                   .command_id(IDC_NEW_WINDOW),
               Item(IDS_NEW_INCOGNITO_WINDOW_MAC)
                   .command_id(IDC_NEW_INCOGNITO_WINDOW)
+                  .remove_if(is_pwa),
+              Item(IDS_NEW_ISOLATED_WINDOW_MAC)
+                  .command_id(IDC_NEW_ISOLATED_WINDOW)
                   .remove_if(is_pwa),
               Item(IDS_REOPEN_CLOSED_TABS_MAC)
                   .command_id(IDC_RESTORE_TAB)
@@ -568,6 +578,8 @@ NSMenuItem* BuildTabMenu(NSApplication* nsapp,
                   .set_hidden(true),
               Item(IDS_MOVE_TAB_TO_NEW_WINDOW)
                   .command_id(IDC_MOVE_TAB_TO_NEW_WINDOW),
+              Item(IDS_TAB_CXMENU_ADD_TAB_TO_NEW_SPLIT)
+                  .command_id(IDC_NEW_SPLIT_TAB),
               Item(IDS_SEARCH_TABS)
                   .command_id(IDC_TAB_SEARCH),
               Item().is_separator(),
@@ -721,12 +733,12 @@ NSMenuItem* MenuItemBuilder::Build() const {
   item.keyEquivalentModifierMask = key_equivalent_flags;
   item.alternate = is_alternate_;
   item.hidden = is_hidden_;
-  if (@available(macOS 26, *)) {
-    if (sf_symbol_name_) {
-      // Some action images that macOS uses by default are private and aren't
-      // accessible via normal lookup, so use SPI.
-      item.image = [NSImage imageWithPrivateSystemSymbolName:sf_symbol_name_
-                                    accessibilityDescription:nil];
+  if (sf_symbol_name_) {
+    item.image = [NSImage imageWithSystemSymbolName:sf_symbol_name_
+                           accessibilityDescription:nil];
+    if (@available(macOS 27, *)) {
+      // No, really, please actually show the set image.
+      item.preferredImageVisibility = NSMenuItemImageVisibilityVisible;
     }
   }
 

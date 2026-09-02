@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,8 +24,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.LayerDrawable;
@@ -63,6 +67,7 @@ import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
+import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -147,6 +152,7 @@ public class ToolbarControlContainerTest {
     @Mock private ViewTreeObserver mViewTreeObserver;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private DesktopWindowStateManager mDesktopWindowStateManager;
+    @Mock private TopControlsStacker mTopControlsStacker;
     @Mock private Callback<Integer> mRightMarginCallback;
     @Captor private ArgumentCaptor<CoordinatorLayout.LayoutParams> mToolbarLayoutParamsCaptor;
     @Captor private ArgumentCaptor<CoordinatorLayout.LayoutParams> mHairlineLayoutParamsCaptor;
@@ -203,7 +209,8 @@ public class ToolbarControlContainerTest {
                 mLayoutStateProviderSupplier,
                 mFullscreenManager,
                 mToolbarDataProvider,
-                mBrowserControlsStateProvider);
+                mBrowserControlsStateProvider,
+                mTopControlsStacker);
         // The adapter may observe some of these already, which will post events.
         RobolectricUtil.runAllBackgroundAndUi();
         // The initial addObserver triggers an event that we don't care about. Reset counts.
@@ -234,7 +241,8 @@ public class ToolbarControlContainerTest {
                 mFullscreenManager,
                 mToolbarDataProvider,
                 mBrowserControlsStateProvider,
-                mDesktopWindowStateManager);
+                mDesktopWindowStateManager,
+                mTopControlsStacker);
         ToolbarControlContainer.ToolbarViewResourceCoordinatorLayout toolbarContainer =
                 mControlContainer.findViewById(R.id.toolbar_container);
         toolbarContainer.setVisibility(View.GONE);
@@ -936,6 +944,51 @@ public class ToolbarControlContainerTest {
     }
 
     @Test
+    public void testTopLeftCornerOverlay_OnTabOrModelChanged() {
+        initControlContainer(R.layout.toolbar_tablet);
+
+        var appHeaderState =
+                new AppHeaderState(new Rect(0, 0, 100, 100), new Rect(10, 0, 80, 100), true);
+        when(mDesktopWindowStateManager.getAppHeaderState()).thenReturn(appHeaderState);
+        mControlContainer.onAppHeaderStateChanged(appHeaderState);
+
+        SettableNonNullObservableSupplier<Boolean> isVerticalTabsActiveSupplier =
+                ObservableSuppliers.createNonNull(true);
+        mControlContainer.setIsVerticalTabsActiveSupplier(isVerticalTabsActiveSupplier);
+
+        View overlayView = mControlContainer.getTopLeftCornerOverlayViewForTesting();
+        assertNotNull(overlayView);
+        assertEquals(View.VISIBLE, overlayView.getVisibility());
+
+        // Ensure background is null to verify onTabOrModelChanged updates state even when
+        // background is null.
+        mControlContainer.setBackground(null);
+
+        Context context = mControlContainer.getContext();
+        Canvas canvas = mock(Canvas.class);
+        ArgumentCaptor<Paint> paintCaptor = ArgumentCaptor.forClass(Paint.class);
+
+        // Switch to incognito model.
+        mControlContainer.onTabOrModelChanged(/* incognito= */ true);
+        overlayView.draw(canvas);
+        verify(canvas, atLeastOnce()).drawPath(any(), paintCaptor.capture());
+        assertEquals(
+                "Corner overlay should draw with incognito tab strip background color",
+                TabUiThemeUtil.getTabStripBackgroundColor(context, true),
+                paintCaptor.getValue().getColor());
+
+        // Switch back to regular model.
+        clearInvocations(canvas);
+        mControlContainer.onTabOrModelChanged(/* incognito= */ false);
+        overlayView.draw(canvas);
+        verify(canvas, atLeastOnce()).drawPath(any(), paintCaptor.capture());
+        assertEquals(
+                "Corner overlay should draw with regular tab strip background color",
+                TabUiThemeUtil.getTabStripBackgroundColor(context, false),
+                paintCaptor.getValue().getColor());
+    }
+
+    @Test
     public void testShowLocationBarOnly() {
         doReturn(mLocationBarView).when(mToolbar).removeLocationBarView();
         doReturn(Color.RED).when(mToolbarDataProvider).getPrimaryColor();
@@ -955,7 +1008,8 @@ public class ToolbarControlContainerTest {
                 mFullscreenManager,
                 mToolbarDataProvider,
                 mBrowserControlsStateProvider,
-                null);
+                null,
+                mTopControlsStacker);
 
         ToolbarPhone toolbarPhone = controlContainer.findViewById(R.id.toolbar);
         doReturn(mLocationBarCoordinatorPhone).when(mLocationBarCoordinator).getPhoneCoordinator();
@@ -1026,7 +1080,8 @@ public class ToolbarControlContainerTest {
                 mFullscreenManager,
                 mToolbarDataProvider,
                 mBrowserControlsStateProvider,
-                null);
+                null,
+                mTopControlsStacker);
         ToolbarControlContainer.ToolbarViewResourceCoordinatorLayout toolbarContainer =
                 controlContainer.findViewById(R.id.toolbar_container);
         toolbarContainer.setVisibility(View.GONE);

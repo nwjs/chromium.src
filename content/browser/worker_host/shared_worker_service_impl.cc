@@ -11,6 +11,7 @@
 #include <string>
 
 #include "base/check_op.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -20,6 +21,7 @@
 #include "base/timer/elapsed_timer.h"
 #include "content/browser/devtools/shared_worker_devtools_agent_host.h"
 #include "content/browser/loader/file_url_loader_factory.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_main_resource_handle.h"
 #include "content/browser/storage_partition_impl.h"
@@ -48,6 +50,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/messaging/message_port_channel.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom.h"
 #include "third_party/blink/public/mojom/script/script_type.mojom.h"
 #include "third_party/blink/public/mojom/worker/shared_worker_client.mojom.h"
@@ -137,6 +140,20 @@ void SharedWorkerServiceImpl::ConnectToWorker(
     // worker (i.e., nested worker).
     ScriptLoadFailed(std::move(client), /*error_message=*/"");
     return;
+  }
+
+  // A WebContents created with PrivilegedParams may forbid shared workers.
+  // Shared worker matching ignores SiteInstance, so a shared instance would
+  // bridge the privileged/ordinary process boundary; disallow it when the
+  // requesting frame's WebContents opts out.
+  if (WebContentsImpl* web_contents =
+          WebContentsImpl::FromRenderFrameHostImpl(render_frame_host)) {
+    const std::optional<WebContents::PrivilegedParams>& privileged_params =
+        web_contents->privileged_params();
+    if (privileged_params && privileged_params->disallow_shared_workers) {
+      ScriptLoadFailed(std::move(client), /*error_message=*/"");
+      return;
+    }
   }
 
   // We always use the render_frame_host storage key here as it doesn't matter
@@ -508,6 +525,12 @@ SharedWorkerHost* SharedWorkerServiceImpl::CreateWorker(
       << host->instance().creator_storage_key().origin()
       << " should be the same.";
 
+  const blink::web_pref::WebPreferences& prefs =
+      creator.GetOrCreateWebPreferences();
+  bool file_url_support = DoesCreatorAllowFileUrlSupport(
+      host->instance().creator_storage_key().origin(), &prefs,
+      /*creator_worker_has_file_url_support=*/false);
+
   WorkerScriptFetcher::CreateAndStart(
       worker_process_host->GetDeprecatedID(), host->token(),
       host->instance().url(), creator, &creator, /*creator_worker=*/nullptr,
@@ -519,7 +542,7 @@ SharedWorkerHost* SharedWorkerServiceImpl::CreateWorker(
       host->instance().worker_storage_key().ToPartialNetIsolationInfo(),
       creator.BuildClientSecurityStateForWorkers(), credentials_mode,
       std::move(outside_fetch_client_settings_object),
-      network::mojom::RequestDestination::kSharedWorker,
+      network::mojom::RequestDestination::kSharedWorker, file_url_support,
       service_worker_context_, service_worker_handle_raw,
       std::move(blob_url_loader_factory), url_loader_factory_override_,
       storage_partition_, storage_domain,
@@ -570,8 +593,24 @@ void SharedWorkerServiceImpl::StartWorker(
     return;
   }
 
-  // TODO(crbug.com/41471904): Check if the main script's final response
-  // URL is committable.
+  // The final response URL is derived from data that may have been supplied by
+  // a renderer (e.g., via the URL list of a service worker provided response),
+  // so make sure the worker process is allowed to commit it before adopting it
+  // as this worker's URL.
+  //
+  // Only grant commit permissions if the URL is same-origin with the worker's
+  // expected origin (e.g. for Isolated Web Apps or extensions).
+  if (url::Origin::Create(result->final_response_url)
+          .IsSameOriginWith(host->instance().worker_storage_key().origin())) {
+    ChildProcessSecurityPolicyImpl::GetInstance()->GrantCommitURL(
+        host->GetProcessHost()->GetDeprecatedID(), result->final_response_url);
+  }
+  if (!ChildProcessSecurityPolicyImpl::GetInstance()->CanCommitURL(
+          host->GetProcessHost()->GetDeprecatedID(),
+          result->final_response_url)) {
+    DestroyHost(host.get());
+    return;
+  }
 
   // Get the factory used to instantiate the new shared worker instance in
   // the target process.

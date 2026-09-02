@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//components/signin/features.gni")
 import("//ui/webui/webui_features.gni")
 
 assert(!is_ios || enable_webui_ntp)
@@ -24,7 +25,6 @@ source_set("searchbox") {
     "//chrome/browser/autocomplete",
     "//chrome/browser/tab_list",
     "//chrome/browser/ui/omnibox",
-    "//chrome/browser/ui/views/permissions",
     "//chrome/browser/ui/views/permissions:permission_prompt_observer",
     "//components/contextual_search:prefs",
     "//components/contextual_search:public",
@@ -68,8 +68,8 @@ source_set("searchbox_impl") {
     "//chrome/browser/contextual_tasks",
     "//chrome/browser/contextual_tasks:ui",
     "//chrome/browser/contextual_tasks:user_data",
-    "//chrome/browser/favicon",
     "//chrome/browser/feature_engagement",
+    "//chrome/browser/media/webrtc",
     "//chrome/browser/omnibox",
     "//chrome/browser/predictors",
     "//chrome/browser/preloading",
@@ -82,6 +82,7 @@ source_set("searchbox_impl") {
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/contextual_search",
+    "//chrome/browser/ui/lens:backend_logic_public",
     "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/views/permissions:permission_prompt_observer",
     "//chrome/browser/ui/webui",
@@ -105,6 +106,7 @@ source_set("searchbox_impl") {
       "//chrome/browser/new_tab_page",
       "//chrome/browser/ui/bookmarks",
       "//chrome/browser/ui/lens",
+      "//chrome/browser/ui/omnibox/omnibox_everywhere",
       "//chrome/browser/ui/tabs",
       "//chrome/browser/ui/views/drive_picker_host",
       "//chrome/browser/ui/views/location_bar",
@@ -113,5 +115,8 @@ source_set("searchbox_impl") {
       "//chrome/browser/ui/webui/omnibox_popup",
       "//components/contextual_search/footprints/internal",
     ]
+  }
+  if (enable_dice_support) {
+    deps += [ "//chrome/browser/ui/views/search_ai_mode" ]
   }
 }

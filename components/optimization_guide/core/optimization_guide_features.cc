@@ -26,7 +26,6 @@
 #include "components/optimization_guide/core/model_execution/feature_keys.h"
 #include "components/optimization_guide/core/model_execution/on_device_features.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/proto/common_types.pb.h"
 #include "components/variations/hashing.h"
 #include "google_apis/gaia/gaia_constants.h"
@@ -41,6 +40,11 @@
 namespace optimization_guide::features {
 
 namespace {
+
+// Overrides the Optimization Guide Service API Key for remote requests to be
+// made.
+constexpr char kOptimizationGuideServiceAPIKeySwitch[] =
+    "optimization-guide-service-api-key";
 
 constexpr auto enabled_by_default_mobile_only =
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -106,9 +110,6 @@ BASE_FEATURE(kOptimizationGuideOnDeviceModel,
 // Whether the on device service is launched after a delay on startup to log
 // metrics.
 BASE_FEATURE(kLogOnDeviceMetricsOnStartup, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Whether to download the text safety classifier model.
-BASE_FEATURE(kTextSafetyClassifier, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Whether to scan the full text when running the language detection in the text
 // safety classifier.
@@ -225,9 +226,9 @@ size_t MaxResultsForSRPFetch() {
 std::string GetOptimizationGuideServiceAPIKey() {
   // Command line override takes priority.
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kOptimizationGuideServiceAPIKey)) {
+  if (command_line->HasSwitch(kOptimizationGuideServiceAPIKeySwitch)) {
     return command_line->GetSwitchValueASCII(
-        switches::kOptimizationGuideServiceAPIKey);
+        kOptimizationGuideServiceAPIKeySwitch);
   }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -240,11 +241,10 @@ std::string GetOptimizationGuideServiceAPIKey() {
 GURL GetOptimizationGuideServiceGetModelsURL() {
   // Command line override takes priority.
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(
-          switches::kOptimizationGuideServiceGetModelsURL)) {
+  if (command_line->HasSwitch(kOptimizationGuideServiceGetModelsURLSwitch)) {
     // Assume the command line switch is correct and return it.
     return GURL(command_line->GetSwitchValueASCII(
-        switches::kOptimizationGuideServiceGetModelsURL));
+        kOptimizationGuideServiceGetModelsURLSwitch));
   }
 
   static const char kOptimizationGuideServiceGetModelsDefaultURL[] =
@@ -531,13 +531,17 @@ bool IsFreeDiskSpaceSufficientForOnDeviceModelInstall(
   return GetDiskSpaceRequiredForOnDeviceModelInstall() <= free_disk_space_bytes;
 }
 
+base::ByteSize GetDiskSpaceRequiredForOnDeviceModelRetain() {
+  return base::MiBU(
+      base::saturated_cast<uint64_t>(base::GetFieldTrialParamByFeatureAsInt(
+          kOptimizationGuideOnDeviceModel,
+          "on_device_model_free_space_mb_required_to_retain",
+          base::GiBU(5).InMiB())));
+}
+
 bool IsFreeDiskSpaceTooLowForOnDeviceModelInstall(
     base::ByteSize free_disk_space_bytes) {
-  return base::MiBU(base::saturated_cast<uint64_t>(
-             base::GetFieldTrialParamByFeatureAsInt(
-                 kOptimizationGuideOnDeviceModel,
-                 "on_device_model_free_space_mb_required_to_retain",
-                 base::GiBU(5).InMiB()))) >= free_disk_space_bytes;
+  return GetDiskSpaceRequiredForOnDeviceModelRetain() >= free_disk_space_bytes;
 }
 
 BASE_FEATURE(kOnDeviceModelCachesDiskSpaceCheck,
@@ -568,25 +572,6 @@ bool IsFreeDiskSpaceSufficientForBackgroundOnDeviceModelInstall(
     base::ByteSize free_disk_space_bytes) {
   return GetDiskSpaceRequiredForBackgroundOnDeviceModelInstall() <=
          free_disk_space_bytes;
-}
-
-bool GetOnDeviceModelRetractUnsafeContent() {
-  static const base::FeatureParam<bool>
-      kOnDeviceModelShouldRetractUnsafeContent{
-          &kTextSafetyClassifier, "on_device_retract_unsafe_content", true};
-  return kOnDeviceModelShouldRetractUnsafeContent.Get();
-}
-
-bool ShouldUseTextSafetyClassifierModel() {
-  return base::FeatureList::IsEnabled(kTextSafetyClassifier);
-}
-
-double GetOnDeviceModelLanguageDetectionMinimumReliability() {
-  static const base::FeatureParam<double>
-      kOnDeviceModelLanguageDetectionMinimumReliability{
-          &kTextSafetyClassifier,
-          "on_device_language_detection_minimum_reliability", 0.8};
-  return kOnDeviceModelLanguageDetectionMinimumReliability.Get();
 }
 
 int GetOnDeviceModelNumRepeats() {

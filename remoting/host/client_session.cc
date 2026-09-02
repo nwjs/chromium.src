@@ -66,7 +66,7 @@ void ClientSession::DisconnectSession(ErrorCode error,
     peer_session_->DisconnectSession(error, error_details, error_location);
     return;
   }
-  OnSessionClosed(error, error_details, error_location);
+  OnSessionClosed(error, std::string(error_details), error_location);
 }
 
 void ClientSession::OnSessionStateChange(protocol::Session::State state) {
@@ -140,8 +140,8 @@ void ClientSession::OnConnectionAuthenticated(
 
   is_authenticated_ = true;
 
-  const SessionOptions session_options(
-      host_experiment_session_plugin_.configuration());
+  const SessionOptions session_options =
+      SessionOptions::Parse(host_experiment_session_plugin_.configuration());
   DesktopEnvironmentOptions desktop_environment_options =
       desktop_environment_options_;
   desktop_environment_options.ApplySessionOptions(session_options);
@@ -181,7 +181,7 @@ void ClientSession::OnSessionChannelsConnected() {
 }
 
 void ClientSession::OnSessionClosed(protocol::ErrorCode error,
-                                    std::string_view error_details,
+                                    const std::string& error_details,
                                     const SourceLocation& error_location) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (is_closing_) {

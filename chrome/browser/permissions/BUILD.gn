@@ -187,10 +187,6 @@ source_set("permissions") {
       "//chromeos/ash/components/browser_context_helper",
       "//chromeos/components/kiosk",
     ]
-    allow_circular_includes_from += [
-      "//chrome/browser/ash/app_mode/web_app",
-      "//chrome/browser/ash/shimless_rma",
-    ]
     if (use_cups) {
       deps += [ "//chrome/browser/printing" ]
     }
@@ -363,6 +359,7 @@ if (!is_android) {
       "//chrome/browser/permissions/system",
       "//chrome/browser/ui:browser_element_identifiers",
       "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/views/permissions",
       "//chrome/test:test_support",
       "//components/back_forward_cache",
       "//components/contextual_tasks/public",

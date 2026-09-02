@@ -61,7 +61,9 @@ source_set("impl") {
       "//chrome/browser/ui/actions:actions_headers",
       "//chrome/browser/ui/page_action",
       "//chrome/browser/ui/page_action:icon_type",
+      "//chrome/browser/ui/views:bubble_anchor_util_views",
       "//chrome/browser/ui/views:layout_provider",
+      "//chrome/browser/ui/views:title_origin_label",
       "//chrome/browser/ui/views/frame:toolbar_button_provider",
       "//chrome/browser/ui/views/page_action",
     ]
@@ -83,6 +85,7 @@ if (!is_android) {
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/tabs",
+      "//chrome/browser/ui/views/frame:contents_container_outline",
       "//chrome/test:test_support_ui",
       "//content/test:test_support",
       "//net:test_support",

@@ -8,6 +8,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/notreached.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/page_action/page_action_properties_provider.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -18,7 +19,6 @@
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop_view_controller.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
 #include "chrome/browser/ui/views/toolbar/app_menu_control.h"
@@ -286,10 +286,6 @@ views::BubbleAnchor WebAppFrameToolbarView::GetDefaultExtensionDialogAnchor() {
   auto* control = GetAppMenuControl();
   return control ? control->GetAnchor() : views::BubbleAnchor();
 }
-PageActionIconView* WebAppFrameToolbarView::GetPageActionIconView(
-    PageActionIconType type) {
-  return right_container_->page_action_icon_controller()->GetIconView(type);
-}
 
 page_actions::PageActionViewInterface*
 WebAppFrameToolbarView::GetPageActionViewInterface(
@@ -298,12 +294,8 @@ WebAppFrameToolbarView::GetPageActionViewInterface(
   if (!provider.Contains(action_id)) {
     return nullptr;
   }
-  const auto& properties = provider.GetProperties(action_id);
-  if (IsPageActionMigrated(properties.type)) {
-    return right_container_->page_action_container()->GetPageActionView(
-        action_id);
-  }
-  return GetPageActionIconView(properties.type);
+  return right_container_->page_action_container()->GetPageActionView(
+      action_id);
 }
 
 AppMenuControl* WebAppFrameToolbarView::GetAppMenuControl() {
@@ -440,10 +432,6 @@ void WebAppFrameToolbarView::SetWindowControlsOverlayToggleVisible(
   }
 }
 
-PageActionIconController*
-WebAppFrameToolbarView::GetPageActionIconControllerForTesting() {
-  return right_container_->page_action_icon_controller();
-}
 views::View* WebAppFrameToolbarView::GetDefaultFocusableChild() {
   // If the app is in minimal-ui mode and navigation buttons (like back/reload)
   // are visible, we want focus to start on the leftmost navigation control.

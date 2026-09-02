@@ -106,6 +106,7 @@
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
+#include "components/password_manager/core/browser/password_store/password_store_util.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
@@ -653,7 +654,7 @@ void ChromePasswordManagerClient::ContinueShowKeyboardReplacingSurface(
   // without being called.
   auto split_delay_callback =
       base::SplitOnceCallback(std::move(delay_callback));
-  if (!weak_driver) {
+  if (!weak_driver || !weak_driver->CanShowAutofillUi()) {
     return;
   }
   password_manager::ContentPasswordManagerDriver* driver =
@@ -1036,6 +1037,12 @@ const syncer::SyncService* ChromePasswordManagerClient::GetSyncService() const {
     return SyncServiceFactory::GetForProfile(GetProfile());
   }
   return nullptr;
+}
+
+password_manager::ActionableError
+ChromePasswordManagerClient::GetActionableError() const {
+  return password_manager::GetActionableErrorFromPasswordStores(
+      GetAccountPasswordStore(), GetProfilePasswordStore());
 }
 
 affiliations::AffiliationService*
@@ -1995,7 +2002,7 @@ void ChromePasswordManagerClient::WebContentsDestroyed() {
   content_credential_manager_.DisconnectBinding();
 
 #if BUILDFLAG(IS_ANDROID)
-  save_update_password_message_delegate_.DismissSaveUpdatePasswordPrompt();
+  save_update_password_message_delegate_.DismissAllActiveUI();
   if (password_manager_error_message_delegate_) {
     password_manager_error_message_delegate_
         ->DismissPasswordManagerErrorMessage(

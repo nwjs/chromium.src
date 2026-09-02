@@ -20,12 +20,10 @@ include_rules = [
   "+chrome/browser/ash/dbus",
   "+chrome/browser/ash/exo",
   "+chrome/browser/ash/guest_os",
-  "+chrome/browser/ash/plugin_vm",
   "+chrome/browser/ash/policy/core",
   "+chrome/browser/ash/profiles",
   "+chrome/browser/chromeos/policy/dlp",
   "+chrome/browser/profiles",
-  "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/select_file_policy/chrome_select_file_policy.h",
 ]
 

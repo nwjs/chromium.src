@@ -78,12 +78,14 @@ class MockActorTask : public ActorTask {
                 bool allow_incognito_web_states,
                 AggregatedJournal* journal,
                 ActorToolFactory* tool_factory,
+                BrowserList* browser_list,
                 bool* stop_called)
       : ActorTask(task_id,
                   title,
                   allow_incognito_web_states,
                   journal,
-                  tool_factory),
+                  tool_factory,
+                  browser_list),
         stop_called_(stop_called) {}
 
   void Stop(ActorTaskStoppedReason stop_reason) override {
@@ -450,6 +452,22 @@ TEST_F(ActorServiceTest, GetWebStateForID_TaskNotFound) {
   EXPECT_EQ(nullptr, resolved_web_state);
 }
 
+// Tests that GetActiveTaskState returns the state of the active task, or
+// nullopt if there are no active tasks.
+TEST_F(ActorServiceTest, GetActiveTaskState) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kActorTools);
+
+  ActorService* service = ActorServiceFactory::GetForProfile(profile_.get());
+  ASSERT_NE(nullptr, service);
+
+  // No active tasks returns nullopt.
+  EXPECT_EQ(std::nullopt, service->GetActiveTaskState());
+
+  service->CreateTask("Test Task", /*allow_incognito_web_states=*/false);
+  EXPECT_EQ(ActorTaskState::kInit, service->GetActiveTaskState());
+}
+
 // Tests that PerformActions completes immediately when the WebState is not
 // loading.
 TEST_F(ActorServiceTest, PerformActions_NoLoading_InstantCompletion) {
@@ -675,11 +693,13 @@ TEST_F(ActorServiceTest, StopTask) {
 
   // Swap the task with our MockActorTask.
   bool stop_called = false;
-  SwapTask(service, task_id,
-           std::make_unique<MockActorTask>(
-               task_id, "Test Task",
-               /*allow_incognito_web_states=*/false, GetJournal(service),
-               GetToolFactory(service), &stop_called));
+  SwapTask(
+      service, task_id,
+      std::make_unique<MockActorTask>(
+          task_id, "Test Task",
+          /*allow_incognito_web_states=*/false, GetJournal(service),
+          GetToolFactory(service),
+          BrowserListFactory::GetForProfile(profile_.get()), &stop_called));
 
   // Stop the task.
   service->StopTask(task_id, ActorTaskStoppedReason::kStoppedByUser);

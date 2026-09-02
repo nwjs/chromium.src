@@ -9,6 +9,7 @@
 #include "media/renderers/paint_canvas_video_renderer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/frame/frame_ad_evidence.h"
 #include "third_party/blink/public/platform/web_fullscreen_video_status.h"
 #include "third_party/blink/public/platform/web_media_player.h"
 #include "third_party/blink/renderer/bindings/core/v8/idl_types.h"
@@ -31,6 +32,7 @@
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/blob/testing/fake_blob_url_store.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/loader/fetch/ad_tagging_utils.h"
 #include "third_party/blink/renderer/platform/testing/empty_web_media_player.h"
 #include "third_party/blink/renderer/platform/testing/paint_test_configurations.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
@@ -98,6 +100,7 @@ class HTMLVideoElementMockMediaPlayer : public EmptyWebMediaPlayer {
   MOCK_METHOD1(OnDisplayTypeChanged, void(WebMediaPlayer::DisplayType));
   MOCK_CONST_METHOD0(HasAvailableVideoFrame, bool());
   MOCK_CONST_METHOD0(HasReadableVideoFrame, bool());
+  MOCK_CONST_METHOD0(IsHDR, bool());
   MOCK_METHOD(void,
               RecordVideoOcclusionState,
               (std::string_view occlusion_state));
@@ -707,7 +710,7 @@ TEST_P(HTMLVideoElementTest, RequestSaveVideoFrame) {
   ASSERT_TRUE(FrameHost()->download_url_called());
   const auto& params = FrameHost()->download_params();
   ASSERT_TRUE(params);
-  EXPECT_TRUE(params->is_context_menu_save);
+  EXPECT_TRUE(params->should_prompt_for_save_location);
   EXPECT_TRUE(params->suggested_name.starts_with("videoframe_"));
   EXPECT_TRUE(params->url.ProtocolIs("blob"));
   EXPECT_TRUE(params->blob_url_token.is_valid());
@@ -737,6 +740,36 @@ TEST_P(HTMLVideoElementTest, CreateStaticBitmapImage_Rotated) {
 
   ASSERT_TRUE(image);
   EXPECT_EQ(image->Size(), gfx::Size(720, 1280));
+}
+
+TEST_P(HTMLVideoElementTest, CreateStaticBitmapImage_Rotated_SoftFlip) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+
+  gfx::Size coded_size(1280, 720);
+  gfx::Rect visible_rect(coded_size);
+  gfx::Size natural_size = coded_size;
+
+  auto frame = media::VideoFrame::CreateZeroInitializedFrame(
+      media::PIXEL_FORMAT_I420, coded_size, visible_rect, natural_size,
+      base::TimeDelta());
+
+  frame->metadata().transformation =
+      media::VideoTransformation(media::VIDEO_ROTATION_90);
+
+  MockMediaPlayer()->SetCurrentFrame(frame);
+
+  auto image = video()->CreateStaticBitmapImage(std::nullopt, false,
+                                                kRespectImageOrientation);
+
+  ASSERT_TRUE(image);
+  EXPECT_EQ(image->Size(kRespectImageOrientation), gfx::Size(720, 1280));
+  EXPECT_EQ(image->PreferredDisplaySize(), gfx::Size(720, 1280));
+  EXPECT_EQ(image->SizeAsFloat(kRespectImageOrientation),
+            gfx::SizeF(720, 1280));
+  EXPECT_EQ(image->SizeAsFloat(kDoNotRespectImageOrientation),
+            gfx::SizeF(1280, 720));
+  EXPECT_EQ(image->Orientation(), ImageOrientationEnum::kOriginRightTop);
 }
 
 TEST_P(HTMLVideoElementTest, CreateStaticBitmapImage_Rotated_WYSIWYG) {
@@ -834,6 +867,36 @@ TEST_P(HTMLVideoElementTest,
   video()->SetIsEffectivelyFullscreen(
       WebFullscreenVideoStatus::kFullscreenAndPictureInPictureEnabled);
   EXPECT_TRUE(pip_controller->enter_immersive_called());
+}
+
+TEST_P(HTMLVideoElementTest, AdVideoHDRUseCounter) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+
+  EXPECT_CALL(*MockMediaPlayer(), IsHDR()).WillRepeatedly(Return(true));
+
+  video()->SetIsAdRelated(NoProvenance{});
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kAdVideoHDR));
+
+  video()->OnFirstFrame(base::TimeTicks::Now(), 0);
+
+  EXPECT_TRUE(GetDocument().IsUseCounted(WebFeature::kAdVideoHDR));
+}
+
+TEST_P(HTMLVideoElementTest, AdVideoHDRUseCounter_NonHDR) {
+  video()->SetSrc(AtomicString("http://example.com/foo.mp4"));
+  test::RunPendingTasks();
+
+  EXPECT_CALL(*MockMediaPlayer(), IsHDR()).WillRepeatedly(Return(false));
+
+  video()->SetIsAdRelated(NoProvenance{});
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kAdVideoHDR));
+
+  video()->OnFirstFrame(base::TimeTicks::Now(), 0);
+
+  EXPECT_FALSE(GetDocument().IsUseCounted(WebFeature::kAdVideoHDR));
 }
 
 }  // namespace blink

@@ -10,6 +10,7 @@
 #include <array>
 #include <limits>
 #include <memory>
+#include <ranges>
 
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
@@ -18,7 +19,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/time/time.h"
-#include "base/types/zip.h"
 #include "build/build_config.h"
 #include "media/base/audio_parameters.h"
 #include "media/base/audio_sample_types.h"
@@ -318,12 +318,12 @@ TEST_F(AudioBusTest, CopyTo) {
                          kSampleRate, kFrameCount);
   std::unique_ptr<AudioBus> bus1 =
       AudioBus::Create(kDefaultChannels, kFrameCount);
-  std::unique_ptr<AudioBus> bus2 = AudioBus::Create(params);
 
   const size_t memory_size = AudioBus::CalculateMemorySize(params);
 
   {
     SCOPED_TRACE("Created");
+    std::unique_ptr<AudioBus> bus2 = AudioBus::Create(params);
     CopyTest(bus1.get(), bus2.get());
   }
   {
@@ -332,7 +332,8 @@ TEST_F(AudioBusTest, CopyTo) {
     auto data =
         base::AlignedUninit<uint8_t>(memory_size, AudioBus::kChannelAlignment);
 
-    bus2 = AudioBus::WrapMemory(params, data.as_span());
+    std::unique_ptr<AudioBus> bus2 =
+        AudioBus::WrapMemory(params, data.as_span());
     CopyTest(bus1.get(), bus2.get());
   }
   {
@@ -341,7 +342,8 @@ TEST_F(AudioBusTest, CopyTo) {
     auto data = base::AlignedUninit<float>(memory_size / sizeof(float),
                                            AudioBus::kChannelAlignment);
 
-    bus2 = AudioBus::WrapMemory(params, data.as_span());
+    std::unique_ptr<AudioBus> bus2 =
+        AudioBus::WrapMemory(params, data.as_span());
     CopyTest(bus1.get(), bus2.get());
   }
 }
@@ -479,7 +481,8 @@ class TypedAudioBusTest : public testing::Test {
   std::unique_ptr<AudioBus> GetPlanarDataBus() {
     auto bus = AudioBus::Create(kChannels, kFrames);
     auto channels = bus->AllChannels();
-    for (auto [channel, expected] : base::zip(channels, kExpectedPlanarData)) {
+    for (auto [channel, expected] :
+         std::views::zip(channels, kExpectedPlanarData)) {
       channel.copy_from_nonoverlapping(expected);
     }
     return bus;

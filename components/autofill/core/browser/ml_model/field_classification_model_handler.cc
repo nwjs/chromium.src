@@ -10,6 +10,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -33,7 +34,6 @@
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
-#include "base/types/zip.h"
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
@@ -164,15 +164,12 @@ void FieldClassificationModelHandler::ApplySmallFormRules(
     bool ignore_small_forms) const {
   FieldCandidatesMap field_candidates_map;
   for (size_t i = 0; i < predicted_types.size(); ++i) {
-    FieldCandidates candidates;
-    candidates.AddFieldCandidate(
-        predicted_types[i],
+    field_candidates_map.try_emplace(
+        form.fields()[i].global_id(), predicted_types[i],
         // Arbitrary value to satisfy the API - not used.
         MatchInfo{.matched_attribute = MatchInfo::MatchAttribute::kName},
-        {/*is_name_or_high_quality_label_match=*/true,
-         /*parser_type=*/HeuristicParser::kName});
-    field_candidates_map.try_emplace(form.fields()[i].global_id(),
-                                     std::move(candidates));
+        FieldCandidatePriority{/*is_name_or_high_quality_label_match=*/true,
+                               /*parser_type=*/HeuristicParser::kName});
   }
 
   FormFieldParser::ClearCandidatesIfHeuristicsDidNotFindEnoughFields(
@@ -286,8 +283,8 @@ void FieldClassificationModelHandler::GetModelPredictionsForForm(
       state_->encoder.EncodeForm(form);
 
   if (prediction_log) {
-    for (auto [encoded_field, field_prediction] :
-         base::zip(encoded_input, prediction_log.value()->field_predictions)) {
+    for (auto [encoded_field, field_prediction] : std::views::zip(
+             encoded_input, prediction_log.value()->field_predictions)) {
       field_prediction->tokenized_field_representation = base::ToVector(
           encoded_field,
           [this](FieldClassificationModelEncoder::TokenId token_id) {
@@ -504,7 +501,7 @@ ModelPredictions FieldClassificationModelHandler::BuildModelPredictions(
     base::span<const FieldType> predicted_types) const {
   std::vector<std::pair<FieldGlobalId, FieldType>> field_predictions;
   field_predictions.reserve(predicted_types.size());
-  for (auto [field, type] : base::zip(form.fields(), predicted_types)) {
+  for (auto [field, type] : std::views::zip(form.fields(), predicted_types)) {
     field_predictions.emplace_back(field.global_id(), type);
   }
   return ModelPredictions(GetHeuristicSource(optimization_target_),

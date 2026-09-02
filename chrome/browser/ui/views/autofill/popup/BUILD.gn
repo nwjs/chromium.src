@@ -1,0 +1,120 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+
+assert(toolkit_views)
+
+source_set("popup") {
+  public = [
+    "custom_cursor_suppressor.h",
+    "popup_base_view.h",
+    "popup_interactive_row_view.h",
+    "popup_row_view.h",
+    "popup_view_utils.h",
+  ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/autofill",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/autofill/core/browser",
+    "//components/autofill/core/common",
+    "//components/input",
+    "//content/public/browser",
+    "//extensions/browser",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/base/metadata",
+    "//ui/color",
+    "//ui/events",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_separator_view") {
+  public = [ "popup_separator_view.h" ]
+  sources = [ "popup_separator_view.cc" ]
+  public_deps = [
+    "//ui/accessibility:ax_base",
+    "//ui/views",
+  ]
+  deps = [
+    "//ui/accessibility:ax_enums_mojo",
+    "//ui/base/metadata",
+    "//ui/color",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_centered_text_view") {
+  public = [ "popup_centered_text_view.h" ]
+  sources = [ "popup_centered_text_view.cc" ]
+  public_deps = [ "//ui/views" ]
+  deps = [
+    ":popup",
+    "//base",
+    "//ui/base/metadata",
+    "//ui/color",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_title_view") {
+  public = [ "popup_title_view.h" ]
+  sources = [ "popup_title_view.cc" ]
+  public_deps = [
+    "//ui/accessibility:ax_base",
+    "//ui/accessibility:ax_enums_mojo",
+    "//ui/views",
+  ]
+  deps = [
+    ":popup",
+    "//base",
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/autofill/core/browser",
+    "//ui/base/metadata",
+    "//ui/color",
+    "//ui/views",
+  ]
+}
+
+source_set("popup_warning_view") {
+  public = [ "popup_warning_view.h" ]
+  sources = [ "popup_warning_view.cc" ]
+  public_deps = [
+    "//components/autofill/core/browser",
+    "//ui/accessibility:ax_base",
+    "//ui/views",
+  ]
+  deps = [
+    ":popup",
+    "//base",
+    "//chrome/browser/ui/views:layout_provider",
+    "//ui/accessibility:ax_enums_mojo",
+    "//ui/base/metadata",
+    "//ui/color",
+    "//ui/views",
+  ]
+}
+
+source_set("lazy_loading_image_view") {
+  public = [ "lazy_loading_image_view.h" ]
+  sources = [ "lazy_loading_image_view.cc" ]
+  public_deps = [
+    "//base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/views",
+  ]
+  deps = [
+    "//base",
+    "//ui/base",
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+}

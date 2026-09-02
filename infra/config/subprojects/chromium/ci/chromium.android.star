@@ -1205,7 +1205,6 @@ ci.builder(
             "minimal_symbols",
             "official_optimize",
             "stable_channel",
-            "v8_release_branch",
             # Allows the bot to measure low-end arm32 and high-end arm64 using
             # a single build.
             "android_low_end_secondary_toolchain",
@@ -3182,6 +3181,11 @@ ci.builder(
             "panther_on_14",
         ],
         per_test_modifications = {
+            "android_webview_unittests": targets.mixin(
+                # TODO(crbug.com/546581718): Re-enable on CQ once the high
+                # pending time is gone.
+                ci_only = True,
+            ),
             "android_browsertests": targets.mixin(
                 # TODO Re-enable on CQ once the high
                 # pending time is gone
@@ -3189,6 +3193,11 @@ ci.builder(
                 swarming = targets.swarming(
                     shards = 7,
                 ),
+            ),
+            "blink_platform_unittests": targets.mixin(
+                # TODO(crbug.com/546581718): Re-enable on CQ once the high
+                # pending time is gone.
+                ci_only = True,
             ),
             "cc_unittests": targets.mixin(
                 args = [
@@ -3199,6 +3208,21 @@ ci.builder(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/android.device_14.chrome_public_test_apk.filter",
                 ],
+                ci_only = True,
+            ),
+            "chrome_public_unit_test_apk": targets.mixin(
+                # TODO(crbug.com/546581718): Re-enable on CQ once the high
+                # pending time is gone.
+                ci_only = True,
+            ),
+            "chrome_public_smoke_test": targets.mixin(
+                # TODO(crbug.com/546581718): Re-enable on CQ once the high
+                # pending time is gone.
+                ci_only = True,
+            ),
+            "chrome_public_bundle_smoke_test": targets.mixin(
+                # TODO(crbug.com/546581718): Re-enable on CQ once the high
+                # pending time is gone.
                 ci_only = True,
             ),
             "content_browsertests": targets.mixin(
@@ -3514,7 +3538,9 @@ ci.builder(
             "android_browsertests": targets.mixin(
                 args = [
                     # https://crbug.com/375086487
-                    "--gtest_filter=-InstallableManagerBrowserTest.CheckManifestWithIconThatIsTooSmall",
+                    ("--gtest_filter=-InstallableManagerBrowserTest.CheckManifestWithIconThatIsTooSmall:" +
+                     # https://crbug.com/542940281
+                     "PrerenderBrowserTest.HTTPFormActivation"),
                 ],
                 swarming = targets.swarming(
                     shards = 2,
@@ -4135,6 +4161,7 @@ ci.builder(
             "chrome_public_test_apk": targets.mixin(
                 args = [
                     "--emulator-debug-tags=all",
+                    "--enable-leak-checks",
                 ],
                 swarming = targets.swarming(
                     shards = 47,

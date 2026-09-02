@@ -25,7 +25,7 @@ public class AtMemoryBottomSheetCoordinator {
 
     public static final int ITEM_TYPE_SUGGESTION = 1;
     public static final int ITEM_TYPE_SEARCH_TILE = 2;
-    public static final int ITEM_TYPE_ZERO_STATE = 3;
+    public static final int ITEM_TYPE_ILLUSTRATION_CARD = 3;
 
     private final BottomSheetObserver mBottomSheetObserver =
             new EmptyBottomSheetObserver() {
@@ -69,7 +69,7 @@ public class AtMemoryBottomSheetCoordinator {
 
         AtMemoryBottomSheetView view = new AtMemoryBottomSheetView(context);
 
-        mMediator = new AtMemoryBottomSheetMediator(context, delegate, view);
+        mMediator = new AtMemoryBottomSheetMediator(context, delegate, view, profile);
 
         mContent = new AtMemoryBottomSheetContent(view, mBottomSheetController);
 
@@ -78,8 +78,8 @@ public class AtMemoryBottomSheetCoordinator {
 
     public void show(List<AutofillSuggestion> suggestions) {
         mBottomSheetController.addObserver(mBottomSheetObserver);
+        mMediator.show(suggestions);
         if (mBottomSheetController.requestShowContent(mContent, /* animate= */ true)) {
-            mMediator.show(suggestions);
             expand(/* expandInFullHeight= */ true);
         } else {
             onDismissed();

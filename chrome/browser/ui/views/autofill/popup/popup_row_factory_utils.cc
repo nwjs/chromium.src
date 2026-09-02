@@ -88,8 +88,9 @@ constexpr auto kPopupItemTypesUsingLeadingIcons = DenseSet<SuggestionType>(
      SuggestionType::kManageAutofillAiShopping,
      SuggestionType::kManageAutofillAiTravel, SuggestionType::kManageIban,
      SuggestionType::kManageLoyaltyCard,
-     SuggestionType::kManageEnhancedAutofill, SuggestionType::kUndoOrClear,
-     SuggestionType::kViewPasswordDetails, SuggestionType::kPendingStateSignin,
+     SuggestionType::kManageEnhancedAutofill, SuggestionType::kRemoveAutofillAi,
+     SuggestionType::kUndo, SuggestionType::kViewPasswordDetails,
+     SuggestionType::kPendingStateSignin,
      SuggestionType::kWebauthnSignInWithAnotherDevice});
 
 // Max width for the username and masked password.
@@ -125,7 +126,7 @@ bool IsDeactivatedPasswordOrPasskey(const Suggestion& suggestion) {
   switch (GetFillingProductFromSuggestionType(suggestion.type)) {
     case FillingProduct::kPassword:
     case FillingProduct::kPasskey:
-      return suggestion.HasDeactivatedStyle();
+      return !suggestion.IsSelectable();
     case FillingProduct::kAddress:
     case FillingProduct::kCreditCard:
     case FillingProduct::kIban:
@@ -149,7 +150,7 @@ bool IsDeactivatedPasswordOrPasskey(const Suggestion& suggestion) {
 // pending alignment from UX.
 bool IsDeactivatedBnplSuggestion(const Suggestion& suggestion) {
   return suggestion.type == SuggestionType::kBnplEntry &&
-         suggestion.HasDeactivatedStyle();
+         !suggestion.IsSelectable();
 }
 
 std::unique_ptr<views::BoxLayoutView> GetAlternativePaymentMethodBadge(
@@ -208,7 +209,7 @@ std::unique_ptr<views::Label> CreateMainTextLabel(
     std::optional<user_education::DisplayNewBadge> show_new_badge,
     views::style::TextStyle primary_text_style = kMainTextStyle) {
   views::style::TextStyle main_text_label_style;
-  if (suggestion.HasDeactivatedStyle()) {
+  if (ShouldApplyDeactivatedStyle(suggestion)) {
     main_text_label_style = kDisabledTextStyle;
   } else {
     main_text_label_style = suggestion.main_text.is_primary
@@ -243,8 +244,8 @@ std::vector<std::unique_ptr<views::View>> CreateMinorTextLabels(
     }
     auto label = std::make_unique<views::Label>(
         text.value, views::style::CONTEXT_DIALOG_BODY_TEXT,
-        suggestion.HasDeactivatedStyle() ? kDisabledTextStyle
-                                         : kMinorTextStyle);
+        ShouldApplyDeactivatedStyle(suggestion) ? kDisabledTextStyle
+                                                : kMinorTextStyle);
     label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
     minor_text_labels.push_back(std::move(label));
   }
@@ -330,7 +331,7 @@ std::unique_ptr<PopupRowContentView> CreateFooterPopupRowContentView(
       suggestion, /*show_new_badge=*/std::nullopt, kMainTextStyleLight);
   // TODO(crbug.com/345709988): Move this to CreateMainTextLabel. See
   // https://crrev.com/c/5605735/comment/970405c2_cbb55e85
-  if (!suggestion.HasDeactivatedStyle()) {
+  if (suggestion.IsSelectable()) {
     main_text_label->SetEnabledColor(ui::kColorLabelForegroundSecondary);
   }
   main_text_label->SetEnabled(!suggestion.is_loading);
@@ -344,6 +345,8 @@ std::unique_ptr<PopupRowContentView> CreateFooterPopupRowContentView(
             .set_top_bottom(
                 kAutofillMultilineSuggestionAdditionalVerticalMargin,
                 kAutofillMultilineSuggestionAdditionalVerticalMargin));
+  } else if (suggestion.type == SuggestionType::kRemoveAutofillAi) {
+    main_text_label->SetHorizontalAlignment(gfx::ALIGN_TO_HEAD);
   }
 
   view->AddChildView(std::move(main_text_label));
@@ -552,7 +555,7 @@ std::unique_ptr<PopupRowContentView> CreateBnplPopupRowContentView(
     minor_texts.push_back(std::move(spacer));
 
     auto linked_pill = std::make_unique<payments::BnplLinkedIssuerPill>();
-    linked_pill->SetEnabled(!suggestion.HasDeactivatedStyle());
+    linked_pill->SetEnabled(suggestion.IsSelectable());
     minor_texts.push_back(std::move(linked_pill));
   }
 
@@ -563,7 +566,7 @@ std::unique_ptr<PopupRowContentView> CreateBnplPopupRowContentView(
 
   std::unique_ptr<views::ImageView> icon =
       popup_cell_utils::GetIconImageView(suggestion);
-  if (suggestion.HasDeactivatedStyle()) {
+  if (!suggestion.IsSelectable()) {
     if (icon) {
       icon->SetPaintToLayer();
       icon->layer()->SetFillsBoundsOpaquely(false);
@@ -752,7 +755,6 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
   switch (type) {
     // These `type` should never be displayed in a `PopupRowView`.
     case SuggestionType::kAtMemoryAiDisclosure:
-    case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kInsecureContextPaymentDisabledMessage:
     case SuggestionType::kMixedFormMessage:
     case SuggestionType::kSeparator:
@@ -808,10 +810,12 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     }
     // AtMemory suggestions do not apply filter match bolding to the main text.
     case SuggestionType::kAtMemoryGenericError:
+    case SuggestionType::kAtMemoryFetching:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
     case SuggestionType::kAtMemorySearchAffordance:
-    case SuggestionType::kAtMemorySearchResult: {
+    case SuggestionType::kAtMemorySearchResult:
+    case SuggestionType::kAtMemorySourceAttribution: {
       return std::make_unique<PopupRowView>(
           a11y_selection_delegate, selection_delegate, controller, line_number,
           CreatePopupRowContentView(suggestion, show_new_badge,
@@ -862,10 +866,11 @@ std::unique_ptr<PopupRowView> CreatePopupRowView(
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kPersonalContextNotice:
+    case SuggestionType::kRemoveAutofillAi:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kTitle:
-    case SuggestionType::kUndoOrClear:
+    case SuggestionType::kUndo:
     case SuggestionType::kViewPasswordDetails:
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnSignInWithAnotherDevice:

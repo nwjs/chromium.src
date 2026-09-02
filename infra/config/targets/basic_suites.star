@@ -988,6 +988,7 @@ targets.legacy_basic_suite(
     name = "gpu_skia_renderer_vulkan_passthrough_telemetry_tests",
     tests = {
         "vulkan_pixel_skia_gold_test": targets.legacy_test_config(
+            ci_only = True,
             mixins = [
                 "gpu_integration_test_common_args",
             ],
@@ -1082,8 +1083,14 @@ targets.legacy_basic_suite(
     tests = {
         "webgl2_conformance_gles_passthrough_tests": targets.legacy_test_config(
             swarming = targets.swarming(
+                shards = 5,
+            ),
+            android_swarming = targets.swarming(
                 # These tests currently take about an hour and fifteen minutes
                 # to run. Split them into roughly 5-minute shards.
+                shards = 20,
+            ),
+            chromeos_swarming = targets.swarming(
                 shards = 20,
             ),
             skylab = targets.skylab(
@@ -1131,6 +1138,12 @@ targets.legacy_basic_suite(
     tests = {
         "webgl_conformance_gles_passthrough_tests": targets.legacy_test_config(
             swarming = targets.swarming(
+                shards = 2,
+            ),
+            android_swarming = targets.swarming(
+                shards = 6,
+            ),
+            chromeos_swarming = targets.swarming(
                 shards = 6,
             ),
             skylab = targets.skylab(
@@ -1216,6 +1229,8 @@ targets.legacy_basic_suite(
         "exo_unittests": targets.legacy_test_config(),
         "gl_unittests_ozone": targets.legacy_test_config(),
         "keyboard_unittests": targets.legacy_test_config(),
+        "mojo_legacy_unittests": targets.legacy_test_config(),
+        "mojo_proxy_unittests": targets.legacy_test_config(),
         "ozone_gl_unittests": targets.legacy_test_config(
             args = [
                 "--ozone-platform=headless",
@@ -1449,20 +1464,6 @@ targets.legacy_basic_suite(
 #     },
 # )
 
-targets.legacy_basic_suite(
-    name = "opt_target_coverage_test_suite",
-    tests = {
-        "opt_target_coverage_test": targets.legacy_test_config(
-            mixins = [
-                "has_native_resultdb_integration",
-            ],
-            linux_args = [
-                "--no-xvfb",
-            ],
-        ),
-    },
-)
-
 _CHROME_AI_WPT_TEST_CONFIG = targets.legacy_test_config(
     mixins = [
         "has_native_resultdb_integration",
@@ -1525,12 +1526,29 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
+    name = "chrome_ai_wpt_tests_manifest_cpu_suite",
+    tests = {
+        "chrome_ai_wpt_tests_manifest_cpu": _CHROME_AI_WPT_TEST_CONFIG,
+    },
+)
+
+targets.legacy_basic_suite(
+    name = "chrome_ai_wpt_tests_manifest_gpu_high_tier_suite",
+    tests = {
+        "chrome_ai_wpt_tests_manifest_gpu_high_tier": _CHROME_AI_WPT_GPU_HIGH_TIER_TEST_CONFIG,
+    },
+)
+
+targets.legacy_basic_suite(
+    name = "chrome_ai_wpt_tests_manifest_gpu_low_tier_suite",
+    tests = {
+        "chrome_ai_wpt_tests_manifest_gpu_low_tier": _CHROME_AI_WPT_TEST_CONFIG,
+    },
+)
+
+targets.legacy_basic_suite(
     name = "chrome_ai_wpt_tests_suite",
     tests = {
-        "chrome_ai_wpt_tests_gpu": _CHROME_AI_WPT_TEST_CONFIG,
-        "chrome_ai_wpt_tests_cpu": _CHROME_AI_WPT_TEST_CONFIG,
-        "chrome_ai_wpt_tests_litert_cpu": _CHROME_AI_WPT_TEST_CONFIG,
-        "chrome_ai_wpt_tests_litert_gpu": _CHROME_AI_WPT_TEST_CONFIG,
         "chrome_ai_wpt_tests_manifest_gpu_high_tier": _CHROME_AI_WPT_GPU_HIGH_TIER_TEST_CONFIG,
         "chrome_ai_wpt_tests_manifest_gpu_low_tier": _CHROME_AI_WPT_TEST_CONFIG,
         "chrome_ai_wpt_tests_manifest_cpu": _CHROME_AI_WPT_TEST_CONFIG,

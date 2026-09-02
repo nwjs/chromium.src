@@ -41,13 +41,12 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/data_sharing/public/features.h"
 #include "components/omnibox/browser/vector_icons.h"
-#include "components/plus_addresses/core/browser/grit/plus_addresses_strings.h"
-#include "components/plus_addresses/core/common/features.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/strings/grit/components_strings.h"
@@ -58,10 +57,6 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/strings/grit/ui_strings.h"
-
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-#include "components/plus_addresses/core/browser/resources/vector_icons.h"
-#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/copy_warning_delegate_tracker.h"
@@ -154,22 +149,6 @@ void ToastService::RegisterToasts(
                                   IDS_NON_MILESTONE_UPDATE_TOAST_BODY)
           .AddGlobalScoped()
           .Build());
-
-  if (base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled)) {
-    toast_registry_->RegisterToast(
-        ToastId::kPlusAddressOverride,
-        ToastSpecification::Builder(
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-            plus_addresses::kPlusAddressLogoSmallIcon,
-#else
-            features::IsRoundedIconsEnabled() ? vector_icons::kMailFilledIcon
-                                              : vector_icons::kEmailOldIcon,
-#endif
-            IDS_PLUS_ADDRESS_FULL_FORM_FILL_TOAST_MESSAGE)
-            .AddMenu()
-            .Build());
-  }
 
   // ESB as a synced setting.
   if (base::FeatureList::IsEnabled(safe_browsing::kEsbAsASyncedSetting)) {
@@ -451,6 +430,17 @@ void ToastService::RegisterToasts(
             .AddGlobalScoped()
             .Build());
   }
+  if (autofill::IsAtMemoryFeatureEnabled(/*google_groups_manager=*/nullptr)) {
+    toast_registry_->RegisterToast(
+        ToastId::kAtMemorySpiiFetchErrorMessage,
+        ToastSpecification::Builder(
+            features::IsRoundedIconsEnabled()
+                ? vector_icons::kInfoIcon
+                : vector_icons::kInfoRefreshOldIcon,
+            IDS_AUTOFILL_AT_MEMORY_FETCH_ERROR_NOTIFICATION)
+            .AddGlobalScoped()
+            .Build());
+  }
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillAiWalletPrivatePasses)) {
     toast_registry_->RegisterToast(
@@ -550,11 +540,15 @@ void ToastService::RegisterToasts(
           .Build());
 
 #if !BUILDFLAG(IS_CHROMEOS)
+  // Global-scoped: on the visual guide path this is triggered as the guide tab
+  // navigates to the New Tab Page, and a tab-scoped toast would be dismissed
+  // by that navigation before the user could see it.
   toast_registry_->RegisterToast(
       ToastId::kDefaultBrowserUpdateSuccess,
       ToastSpecification::Builder(
           features::IsRoundedIconsEnabled() ? kCheckSmallIcon : kCheckOldIcon,
           IDS_DEFAULT_BROWSER_SUCCESS_TOAST_BODY)
+          .AddGlobalScoped()
           .Build());
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -713,9 +707,8 @@ void ToastService::RegisterToasts(
   }
   toast_registry_->RegisterToast(
       ToastId::kGlicSelectionHiddenForSite,
-      ToastSpecification::Builder(
-          vector_icons::kVisibilityOffIcon,
-          IDS_GLIC_SELECTION_HIDDEN_TOAST_BODY)
+      ToastSpecification::Builder(vector_icons::kTextSelectEndIcon,
+                                  IDS_GLIC_SELECTION_HIDDEN_TOAST_BODY)
           .AddActionButton(IDS_MANAGE,
                            base::BindRepeating(
                                [](BrowserWindowInterface* window) {

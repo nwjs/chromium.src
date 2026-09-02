@@ -5,15 +5,15 @@
 #ifndef COMPONENTS_ENTERPRISE_CONNECTORS_CORE_COMMON_H_
 #define COMPONENTS_ENTERPRISE_CONNECTORS_CORE_COMMON_H_
 
-#include <map>
 #include <optional>
-#include <set>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
 #include "base/containers/fixed_flat_map.h"
+#include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback.h"
 #include "base/supports_user_data.h"
@@ -90,7 +90,6 @@ inline constexpr char kMalwareTag[] = "malware";
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused. Keep this enum in sync with
 // EnterpriseReportingEventType in enums.xml.
-// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.enterprise.connectors
 enum class EnterpriseReportingEventType {
   kUnknownEvent = 0,
   kPasswordReuseEvent = 1,
@@ -161,8 +160,8 @@ struct ReportingSettings {
   ReportingSettings& operator=(ReportingSettings&&);
   ~ReportingSettings();
 
-  std::set<std::string> enabled_event_names;
-  std::map<std::string, std::vector<std::string>> enabled_opt_in_events;
+  base::flat_set<std::string> enabled_event_names;
+  base::flat_map<std::string, std::vector<std::string>> enabled_opt_in_events;
   std::string dm_token;
 
   // Indicates if the report should be made for the profile, or the browser if

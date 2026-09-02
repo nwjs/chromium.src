@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Experimental Example of Tabs with Action Buttons</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/tabs-actions.css" rel="stylesheet">
+    <script src="js/tabs-actions.js"></script>
+    <script src="../../menu-button/examples/js/menu-button-actions.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <div class="tabs">
+            <h3 id="tablist-1">Interesting Sharks</h3>
+            <div role="tablist" aria-labelledby="tablist-1" class="manual">
+              <div class="tab-wrapper">
+                <button id="tab-1" type="button" role="tab" aria-selected="true" aria-controls="tabpanel-1" aria-actions="tab-1-action">
+                  <span class="focus">Nurse shark</span>
+                </button>
+                <div class="menu-button-actions">
+                  <button type="button" id="tab-1-action" tabindex="-1" aria-label="Actions for Nurse shark tab" aria-haspopup="true" aria-expanded="false" aria-controls="menu1">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="8" cy="13" r="2" fill="black"/>
+                      <circle cx="8" cy="3" r="2" fill="black"/>
+                      <circle cx="8" cy="8" r="2" fill="black"/>
+                    </svg>
+                  </button>
+                  <ul id="menu1" role="menu" aria-labelledby="tab-1-action">
+                    <li role="menuitem" data-action="tab-1-action" data-operation="move-forward">Move tab forward</li>
+                    <li role="menuitem" data-action="tab-1-action" data-operation="move-backward">Move tab backward</li>
+                    <li role="menuitem" data-action="tab-1-action" data-operation="clipboard-copy">Copy tab contents to clipboard</li>
+                    <li role="menuitem" data-action="tab-1-action" data-operation="close">Close tab</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="tab-wrapper">
+                <button id="tab-2" type="button" role="tab" aria-selected="false" aria-controls="tabpanel-2" tabindex="-1" aria-actions="tab-2-action">
+                  <span class="focus">Basking shark</span>
+                </button>
+                <div class="menu-button-actions">
+                  <button type="button" id="tab-2-action" tabindex="-1" aria-label="Actions for Basking shark tab" aria-haspopup="true" aria-expanded="false" aria-controls="menu2">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="8" cy="13" r="2" fill="black"/>
+                      <circle cx="8" cy="3" r="2" fill="black"/>
+                      <circle cx="8" cy="8" r="2" fill="black"/>
+                    </svg>
+                  </button>
+                  <ul id="menu2" role="menu" aria-labelledby="tab-2-action">
+                    <li role="menuitem" data-action="tab-2-action" data-operation="move-forward">Move tab forward</li>
+                    <li role="menuitem" data-action="tab-2-action" data-operation="move-backward">Move tab backward</li>
+                    <li role="menuitem" data-action="tab-2-action" data-operation="clipboard-copy">Copy tab contents to clipboard</li>
+                    <li role="menuitem" data-action="tab-2-action" data-operation="close">Close tab</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="tab-wrapper">
+                <button id="tab-3" type="button" role="tab" aria-selected="false" aria-controls="tabpanel-3" tabindex="-1" aria-actions="tab-3-action">
+                  <span class="focus">Whale shark</span>
+                </button>
+                <div class="menu-button-actions">
+                  <button type="button" id="tab-3-action" tabindex="-1" aria-label="Actions for Whale shark tab" aria-haspopup="true" aria-expanded="false" aria-controls="menu3">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="8" cy="13" r="2" fill="black"/>
+                      <circle cx="8" cy="3" r="2" fill="black"/>
+                      <circle cx="8" cy="8" r="2" fill="black"/>
+                    </svg>
+                  </button>
+                  <ul id="menu3" role="menu" aria-labelledby="tab-3-action">
+                    <li role="menuitem" data-action="tab-3-action" data-operation="move-forward">Move tab forward</li>
+                    <li role="menuitem" data-action="tab-3-action" data-operation="move-backward">Move tab backward</li>
+                    <li role="menuitem" data-action="tab-3-action" data-operation="clipboard-copy">Copy tab contents to clipboard</li>
+                    <li role="menuitem" data-action="tab-3-action" data-operation="close">Close tab</li>
+                  </ul>
+                </div>
+              </div>
+              <div class="tab-wrapper">
+                <button id="tab-4" type="button" role="tab" aria-selected="false" aria-controls="tabpanel-4" tabindex="-1" aria-actions="tab-4-action">
+                  <span class="focus">Goblin shark</span>
+                </button>
+                <div class="menu-button-actions">
+                  <button type="button" id="tab-4-action" tabindex="-1" aria-label="Actions for Goblin shark tab" aria-haspopup="true" aria-expanded="false" aria-controls="menu4">
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="8" cy="13" r="2" fill="black"/>
+                      <circle cx="8" cy="3" r="2" fill="black"/>
+                      <circle cx="8" cy="8" r="2" fill="black"/>
+                    </svg>
+                  </button>
+                  <ul id="menu4" role="menu" aria-labelledby="tab-4-action">
+                    <li role="menuitem" data-action="tab-4-action" data-operation="move-forward">Move tab forward</li>
+                    <li role="menuitem" data-action="tab-4-action" data-operation="move-backward">Move tab backward</li>
+                    <li role="menuitem" data-action="tab-4-action" data-operation="clipboard-copy">Copy tab contents to clipboard</li>
+                    <li role="menuitem" data-action="tab-4-action" data-operation="close">Close tab</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <div id="tabpanel-1" role="tabpanel" aria-labelledby="tab-1">
+              <p>
+                The <a href="https://en.wikipedia.org/wiki/Nurse_shark">nurse
+                shark</a> (<span lang="la">Ginglymostoma cirratum</span>) is an
+                elasmobranch fish in the family <span
+                lang="la">Ginglymostomatidae</span>. The conservation status of
+                the nurse shark is globally assessed as Vulnerable in the IUCN
+                List of Threatened Species. They are considered to be a species
+                of least concern in the United States and in The Bahamas, but
+                considered to be near threatened in the western Atlantic Ocean
+                because of their vulnerable status in South America and reported
+                threats throughout many areas of Central America and the
+                Caribbean. They are directly targeted in some fisheries and
+                considered by-catch in others.
+              </p>
+            </div>
+            <div id="tabpanel-2" role="tabpanel" aria-labelledby="tab-2" class="is-hidden">
+              <p>
+                The <a
+                href="https://en.wikipedia.org/wiki/Basking_shark">basking
+                shark</a> (<span lang="la">Cetorhinus maximus</span>) is the
+                second-largest living shark and fish, after the whale shark. It
+                is one of three plankton-eating shark species, along with the
+                whale shark and megamouth shark. Typically, basking sharks reach
+                7.9 m (26 ft) in length. It is usually greyish-brown, with
+                mottled skin, with the inside of the mouth being white in
+                colour. The caudal fin has a strong lateral keel and a crescent
+                shape. Other common names include bone shark, elephant shark,
+                sailfish, and sunfish. In Orkney, it is called hoe-mother
+                (contracted homer), meaning "the mother of the picked dogfish".
+              </p>
+            </div>
+            <div id="tabpanel-3" role="tabpanel" aria-labelledby="tab-3" class="is-hidden">
+              <p>
+                The <a href="https://en.wikipedia.org/wiki/Whale_shark">whale
+                shark</a> (<span lang="la">Rhincodon typus</span>) is a
+                slow-moving, filter-feeding carpet shark and the largest known
+                extant fish species. The largest confirmed individual had a
+                length of 18.8 m (61.7 ft). The whale shark holds many records
+                for size in the animal kingdom, most notably being by far the
+                most massive living non-cetacean animal. It is the sole member
+                of the genus <span lang="la">Rhincodon</span> and the only
+                extant member of the family
+                <span lang="la">Rhincodontidae</span>, which belongs to the
+                subclass <span lang="la">Elasmobranchii</span> in the class
+                <span lang="la">Chondrichthyes</span>. Before 1984 it was
+                classified as <span lang="la">Rhiniodon</span> into <span
+                lang="la">Rhinodontidae</span>.
+              </p>
+            </div>
+            <div id="tabpanel-4" role="tabpanel" aria-labelledby="tab-4" class="is-hidden">
+              <p>
+                The <a href="https://en.wikipedia.org/wiki/Goblin_shark">goblin
+                shark</a> (<span lang="la">Mitsukurina owstoni</span>) is a rare
+                species of deep-sea shark. Sometimes called a "living fossil",
+                it is the only extant representative of the family
+                <span lang="la">Mitsukurinidae</span>, a lineage some 125
+                million years old. This pink-skinned animal has a distinctive
+                profile with an elongated, flat snout, and highly protrusible
+                jaws containing prominent nail-like teeth. It is usually between
+                3 and 4 m (10 and 13 ft) long when mature, though it can grow
+                considerably larger such as one captured in 2000 that is thought
+                to have measured 6 m (20 ft). Goblin sharks are benthopelagic
+                creatures that inhabit upper continental slopes, submarine
+                canyons, and seamounts throughout the world at depths greater
+                than 100 m (330 ft), with adults found deeper than juveniles.
+                Some researchers believe that these sharks could also dive to
+                depths of up to 1,300 m (4,270 ft), for short periods of time.
+              </p>
+            </div>
+            <output for="tablist-1" class="action"></output>
+          </div>
+        </div>
+  </body>
+</html>

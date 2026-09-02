@@ -9,8 +9,10 @@
 #include <string>
 #include <utility>
 
+#include "base/base64.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
+#include "base/logging.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -33,6 +35,7 @@
 #include "components/optimization_guide/core/filters/optimization_filter.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
 #include "components/optimization_guide/core/hints/hint_cache.h"
+#include "components/optimization_guide/core/hints/hints_fetcher.h"
 #include "components/optimization_guide/core/hints/hints_fetcher_factory.h"
 #include "components/optimization_guide/core/hints/hints_processing_util.h"
 #include "components/optimization_guide/core/hints/insertion_ordered_set.h"
@@ -47,7 +50,6 @@
 #include "components/optimization_guide/core/optimization_guide_logger.h"
 #include "components/optimization_guide/core/optimization_guide_permissions_util.h"
 #include "components/optimization_guide/core/optimization_guide_prefs.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/prefs/pref_service.h"
@@ -60,6 +62,29 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 namespace optimization_guide {
+
+std::unique_ptr<proto::Configuration>
+ParseComponentConfigFromCommandLine() {
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  if (!cmd_line->HasSwitch(kHintsProtoOverrideSwitch))
+    return nullptr;
+
+  std::string b64_pb = cmd_line->GetSwitchValueASCII(kHintsProtoOverrideSwitch);
+
+  std::string binary_pb;
+  if (!base::Base64Decode(b64_pb, &binary_pb)) {
+    LOG(ERROR) << "Invalid base64 encoding of the Hints Proto Override";
+    return nullptr;
+  }
+
+  auto proto_configuration = std::make_unique<proto::Configuration>();
+  if (!proto_configuration->ParseFromString(binary_pb)) {
+    LOG(ERROR) << "Invalid proto provided to the Hints Proto Override";
+    return nullptr;
+  }
+
+  return proto_configuration;
+}
 
 const char kOptimizationGuideServiceGetHintsDefaultURL[] =
     "https://optimizationguide-pa.googleapis.com/v1:GetHints";
@@ -86,6 +111,28 @@ BASE_FEATURE_PARAM(size_t,
                    20);
 
 namespace {
+
+bool IsHintComponentProcessingDisabled() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kHintsProtoOverrideSwitch);
+}
+
+bool ShouldPurgeOptimizationGuideStoreOnStartup() {
+  base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+  return cmd_line->HasSwitch(kHintsProtoOverrideSwitch) ||
+         cmd_line->HasSwitch(kPurgeHintsStoreSwitch);
+}
+
+bool ShouldOverrideFetchHintsTimer() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kFetchHintsOverrideTimerSwitch);
+}
+
+bool DisableFetchingHintsAtNavigationStartForTesting() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  return command_line->HasSwitch(
+      kDisableFetchingHintsAtNavigationStartForTestingSwitch);
+}
 
 // The duration of the time window between fetches for hints for the
 // URLs opened in active tabs.
@@ -374,10 +421,10 @@ void RecordOptimizationFilterStatus(proto::OptimizationType optimization_type,
 GURL GetHintsURL() {
   // Command line override takes priority.
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kOptimizationGuideServiceGetHintsURL)) {
+  if (command_line->HasSwitch(kOptimizationGuideServiceGetHintsURLSwitch)) {
     // Assume the command line switch is correct and return it.
     return GURL(command_line->GetSwitchValueASCII(
-        switches::kOptimizationGuideServiceGetHintsURL));
+        kOptimizationGuideServiceGetHintsURLSwitch));
   }
   return GURL(kOptimizationGuideServiceGetHintsDefaultURL);
 }
@@ -431,7 +478,7 @@ HintsManager::HintsManager(
   OptimizationHintsComponentUpdateListener::GetInstance()->AddObserver(this);
 
   hint_cache_->Initialize(
-      switches::ShouldPurgeOptimizationGuideStoreOnStartup(),
+      ShouldPurgeOptimizationGuideStoreOnStartup(),
       base::BindOnce(&HintsManager::OnHintCacheInitialized,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -501,7 +548,7 @@ void HintsManager::OnHintsComponentAvailable(const HintsComponentInfo& info) {
   // Check for if hint component is disabled. This check is needed because the
   // optimization guide still registers with the service as an observer for
   // components as a signal during testing.
-  if (switches::IsHintComponentProcessingDisabled()) {
+  if (IsHintComponentProcessingDisabled()) {
     MaybeRunUpdateClosure(std::move(next_update_closure_));
     return;
   }
@@ -639,7 +686,7 @@ void HintsManager::OnHintCacheInitialized() {
   // don't normally expect one, but if one is provided then use that and do not
   // register as an observer as the opt_guide service.
   std::unique_ptr<proto::Configuration> manual_config =
-      switches::ParseComponentConfigFromCommandLine();
+      ParseComponentConfigFromCommandLine();
   if (manual_config) {
     std::unique_ptr<StoreUpdateData> update_data =
         is_off_the_record_
@@ -733,7 +780,7 @@ void HintsManager::InitiateHintsFetchScheduling() {
   if (base::FeatureList::IsEnabled(kHintsBatchUpdateForActiveTabsAndTopHosts)) {
     SetLastHintsFetchAttemptTime(clock_->Now());
 
-    if (switches::ShouldOverrideFetchHintsTimer() ||
+    if (ShouldOverrideFetchHintsTimer() ||
         features::ShouldDeferStartupActiveTabsHintsFetch()) {
       FetchHintsForActiveTabs();
     } else if (!active_tabs_hints_fetch_timer_.IsRunning()) {
@@ -1142,7 +1189,7 @@ void HintsManager::RegisterOptimizationTypes(
       if (!is_off_the_record_ &&
           !ShouldIgnoreNewlyRegisteredOptimizationType(optimization_type) &&
           !base::CommandLine::ForCurrentProcess()->HasSwitch(
-              switches::kHintsProtoOverride)) {
+              kHintsProtoOverrideSwitch)) {
         should_clear_hints_for_new_type_ = true;
       }
       previously_registered_opt_types->Set(
@@ -1165,9 +1212,9 @@ void HintsManager::RegisterOptimizationTypes(
   }
 
   if (should_load_new_optimization_filter) {
-    if (switches::IsHintComponentProcessingDisabled()) {
+    if (IsHintComponentProcessingDisabled()) {
       std::unique_ptr<proto::Configuration> manual_config =
-          switches::ParseComponentConfigFromCommandLine();
+          ParseComponentConfigFromCommandLine();
       if (manual_config->optimization_allowlists_size() > 0 ||
           manual_config->optimization_blocklists_size() > 0) {
         ProcessOptimizationFilters(manual_config->optimization_allowlists(),
@@ -1778,7 +1825,7 @@ void HintsManager::OnNavigationStartOrRedirect(
 
   LoadHintForURL(navigation_data->navigation_url(), std::move(callback));
 
-  if (switches::DisableFetchingHintsAtNavigationStartForTesting()) {
+  if (DisableFetchingHintsAtNavigationStartForTesting()) {
     return;
   }
 

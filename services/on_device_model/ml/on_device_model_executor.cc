@@ -225,8 +225,8 @@ class Responder final {
       }
 
       task_runner->PostTask(
-          FROM_HERE,
-          base::BindOnce(&Responder::OnOutput, weak_ptr, std::move(text)));
+          FROM_HERE, base::BindOnce(&Responder::OnOutput, weak_ptr,
+                                    std::move(text), output->tokens_decoded));
     };
   }
 
@@ -252,7 +252,7 @@ class Responder final {
     on_tool_calls_emitted_.Run();
   }
 
-  void OnOutput(std::optional<std::string> text) {
+  void OnOutput(std::optional<std::string> text, int tokens_decoded) {
     if (text) {
       num_output_tokens_++;
       output_so_far_ += *text;
@@ -282,20 +282,24 @@ class Responder final {
         session_ = nullptr;
       }
 
+      auto summary = on_device_model::mojom::ResponseSummary::New();
+      summary->output_token_count = num_output_tokens_ + 1;
+      if (tokens_decoded >= 0) {
+        summary->output_token_count = tokens_decoded;
+      }
+
       base::UmaHistogramCounts10000("OnDeviceModel.TokenCount.Output",
-                                    num_output_tokens_);
-      if (num_output_tokens_ > 1) {
+                                    summary->output_token_count);
+      if (summary->output_token_count > 1) {
         // Time starts at the first token to avoid counting input processing
-        // time, so calculate using num_output_tokens_ - 1.
+        // time, so calculate using summary->output_token_count - 1.
         base::UmaHistogramCounts1000(
             "OnDeviceModel.TokensPerSecond.Output",
             CalculateTokensPerSecond(
-                num_output_tokens_ - 1,
+                summary->output_token_count - 1,
                 base::TimeTicks::Now() - first_token_time_));
       }
 
-      auto summary = on_device_model::mojom::ResponseSummary::New();
-      summary->output_token_count = num_output_tokens_;
       responder_->OnComplete(std::move(summary));
       if (!on_complete_.is_null()) {
         std::move(on_complete_).Run();
@@ -342,7 +346,11 @@ class AsrStreamResponder final {
         base::BindOnce(&AsrStreamResponder::Cancel, base::Unretained(this)));
   }
   ~AsrStreamResponder() { Cancel(); }
-  SessionAccessor* session() { return session_.get(); }
+  void AddAudioChunk(odmm::AudioDataPtr data) {
+    if (session_) {
+      session_->AsrAddAudioChunk(std::move(data));
+    }
+  }
   ChromeMLASRStreamOutputFn CreateOutputFn() {
     return [weak_ptr = weak_ptr_factory_.GetWeakPtr(),
             task_runner = base::SequencedTaskRunner::GetCurrentDefault()](
@@ -365,6 +373,7 @@ class AsrStreamResponder final {
 
   void OnCreateDone(std::optional<odmm::AsrError> error) {
     if (error) {
+      Cancel();
       responder_.ResetWithReason(static_cast<uint32_t>(error.value()), "");
     }
   }
@@ -629,7 +638,7 @@ void SessionImpl::AsrStream(
     odmm::AsrStreamOptionsPtr options,
     mojo::PendingRemote<odmm::AsrStreamResponder> responder) {
   TRACE_EVENT("optimization_guide", "SessionImpl::AsrStream");
-  DCHECK_EQ(asr_responder_, nullptr);
+  asr_responder_.reset();
   auto cloned = session_->Clone();
   auto cloned_raw = cloned.get();  // For CreateAsrStream after std::move
   asr_responder_ = std::make_unique<AsrStreamResponder>(std::move(responder),
@@ -645,7 +654,7 @@ void SessionImpl::AsrAddAudioChunk(odmm::AudioDataPtr data) {
   if (!asr_responder_) {
     return;
   }
-  asr_responder_->session()->AsrAddAudioChunk(std::move(data));
+  asr_responder_->AddAudioChunk(std::move(data));
 }
 
 void SessionImpl::Hint(on_device_model::mojom::HintOptionsPtr options) {

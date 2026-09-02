@@ -86,3 +86,67 @@ struct MouseCursor {
   array<uint8> image_data;
   DesktopVector hotspot;
 };
+
+// Strongly-typed representation of webrtc::SocketAddress.
+// Maps to C++ type: `::webrtc::SocketAddress`
+// (defined in third_party/webrtc/rtc_base/socket_address.h).
+struct WebrtcSocketAddress {
+  // Holds either an IP address (IPv4/IPv6) or a hostname.
+  string hostname;
+  uint16 port;
+};
+
+// Maps to C++ enum: `::webrtc::IceCandidateType`
+// (defined in third_party/webrtc/api/candidate.h).
+enum WebrtcIceCandidateType {
+  kHost,
+  kSrflx,
+  kPrflx,
+  kRelay,
+};
+
+// Strongly-typed representation of webrtc::Candidate.
+// Maps to C++ type: `::webrtc::Candidate`
+// (defined in third_party/webrtc/api/candidate.h).
+struct WebrtcCandidate {
+  string foundation;
+  int32 component;
+  string protocol;
+  uint32 priority;
+  WebrtcSocketAddress address;
+  WebrtcIceCandidateType type;
+  string tcptype;
+  WebrtcSocketAddress related_address;
+  string username;
+  string password;
+  uint32 generation;
+  uint16 network_id;
+  uint16 network_cost;
+};
+
+// Maps to C++ enum: `::webrtc::ProtocolType`
+// (defined in third_party/webrtc/rtc_base/net_helper.h).
+enum WebrtcProtocolType {
+  kUdp,
+  kDtls,
+  kTcp,
+  kSslTcp,
+  kTls,
+};
+
+// Strongly-typed representation of webrtc::ProtocolAddress.
+// Maps to C++ type: `::webrtc::ProtocolAddress`
+// (defined in third_party/webrtc/p2p/base/port.h).
+struct WebrtcProtocolAddress {
+  WebrtcSocketAddress address;
+  WebrtcProtocolType protocol;
+};
+
+// Strongly-typed representation of webrtc::RelayServerConfig.
+// Maps to C++ type: `::webrtc::RelayServerConfig`
+// (defined in third_party/webrtc/p2p/base/port_allocator.h).
+struct WebrtcRelayServerConfig {
+  string username;
+  string password;
+  array<WebrtcProtocolAddress> ports;
+};

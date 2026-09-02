@@ -79,7 +79,7 @@ KURL MathMLAnchorElement::Url() const {
   return url;
 }
 
-void MathMLAnchorElement::SetURL(const KURL& url) {
+void MathMLAnchorElement::SetUrl(const KURL& url) {
   setAttribute(html_names::kHrefAttr, AtomicString(url.GetString()));
 }
 
@@ -132,7 +132,6 @@ void MathMLAnchorElement::HandleClick(MouseEvent& event) {
       request, FastGetAttribute(html_names::kReferrerpolicyAttr),
       link_relations_, GetDocument());
 
-  request.SetHasUserGesture(LocalFrame::HasTransientUserActivation(frame));
   NavigationPolicy navigation_policy = NavigationPolicyFromEvent(&event);
 
   if (FastHasAttribute(html_names::kDownloadAttr) &&

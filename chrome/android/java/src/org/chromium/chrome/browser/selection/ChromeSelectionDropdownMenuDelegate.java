@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.selection;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
@@ -25,7 +26,6 @@ import org.chromium.ui.listmenu.BasicListMenu;
 import org.chromium.ui.listmenu.ListItemType;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.listmenu.ListMenuUtils;
-import org.chromium.ui.listmenu.ListSectionDividerProperties;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -71,6 +71,10 @@ public class ChromeSelectionDropdownMenuDelegate
                 BrowserUiListMenuUtils.getBasicListMenu(
                         context, items, (model, view) -> clickListener.onItemClick(model));
 
+        final View contentView = menu.getContentView();
+        int maxWidthPx = calculateMaxWidthPx(rootView);
+        int desiredContentWidth = calculateDesiredContentWidth(contentView, menu, maxWidthPx);
+
         AnchoredPopupWindow popupWindow =
                 new AnchoredPopupWindow(
                         context,
@@ -87,8 +91,8 @@ public class ChromeSelectionDropdownMenuDelegate
         popupWindow.setLayoutObserver(layoutObserver);
         popupWindow.setVerticalOverlapAnchor(true);
         popupWindow.setHorizontalOverlapAnchor(true);
-        popupWindow.setMaxWidth(
-                context.getResources().getDimensionPixelSize(R.dimen.home_button_list_menu_width));
+        popupWindow.setMaxWidth(maxWidthPx);
+        popupWindow.setDesiredContentWidth(desiredContentWidth);
         popupWindow.setFocusable(true);
         popupWindow.setOutsideTouchable(true);
         popupWindow.addOnDismissListener(
@@ -200,15 +204,8 @@ public class ChromeSelectionDropdownMenuDelegate
 
     @Override
     public ListItem getDivider() {
-        PropertyModel.Builder builder =
-                new PropertyModel.Builder(ListSectionDividerProperties.ALL_KEYS)
-                        .with(
-                                ListSectionDividerProperties.LEFT_PADDING_DIMEN_ID,
-                                R.dimen.list_menu_item_horizontal_padding)
-                        .with(
-                                ListSectionDividerProperties.RIGHT_PADDING_DIMEN_ID,
-                                R.dimen.list_menu_item_horizontal_padding);
-        return new ListItem(ListItemType.DIVIDER, builder.build());
+        // TODO(crbug.com/416222384): Update context menus to use incognito theming.
+        return BasicListMenu.buildMenuDivider(/* isIncognito= */ false);
     }
 
     @Override
@@ -229,15 +226,14 @@ public class ChromeSelectionDropdownMenuDelegate
                         .with(ListMenuItemProperties.CONTENT_DESCRIPTION, contentDescription)
                         .with(ListMenuItemProperties.GROUP_ID, groupId)
                         .with(ListMenuItemProperties.MENU_ITEM_ID, id)
-                        .with(ListMenuItemProperties.START_ICON_DRAWABLE, startIcon)
+                        .with(ListMenuItemProperties.START_ICON_DRAWABLE, null)
                         .with(ListMenuItemProperties.ENABLED, enabled)
                         .with(ListMenuItemProperties.INTENT, intent)
-                        .with(
-                                ListMenuItemProperties.KEEP_START_ICON_SPACING_WHEN_HIDDEN,
-                                groupContainsIcon)
+                        .with(ListMenuItemProperties.KEEP_START_ICON_SPACING_WHEN_HIDDEN, false)
                         .with(
                                 ListMenuItemProperties.TEXT_APPEARANCE_ID,
                                 BrowserUiListMenuUtils.getDefaultTextAppearanceStyle())
+                        .with(ListMenuItemProperties.IS_TEXT_ELLIPSIZED_AT_END, true)
                         .with(ListMenuItemProperties.ORDER, order);
         if (isIconTintable) {
             modelBuilder.with(
@@ -245,5 +241,21 @@ public class ChromeSelectionDropdownMenuDelegate
                     BrowserUiListMenuUtils.getDefaultIconTintColorStateListId());
         }
         return new ListItem(ListItemType.MENU_ITEM, modelBuilder.build());
+    }
+
+    private static int calculateMaxWidthPx(View rootView) {
+        Resources res = rootView.getContext().getResources();
+        int viewportWidthPx = rootView.getWidth();
+        int maxWidthPx = res.getDimensionPixelSize(R.dimen.text_selection_context_menu_max_width);
+        int gutterPx =
+                res.getDimensionPixelSize(R.dimen.text_selection_context_menu_viewport_gutter);
+        return Math.min(viewportWidthPx - 2 * gutterPx, maxWidthPx);
+    }
+
+    private static int calculateDesiredContentWidth(
+            View contentView, BasicListMenu menu, int maxWidthPx) {
+        int lateralPadding = contentView.getPaddingLeft() + contentView.getPaddingRight();
+        int desiredContentWidth = menu.getMaxItemWidth() + lateralPadding;
+        return Math.min(desiredContentWidth, maxWidthPx);
     }
 }

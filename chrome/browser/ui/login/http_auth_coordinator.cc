@@ -5,9 +5,13 @@
 #include "chrome/browser/ui/login/http_auth_coordinator.h"
 
 #include "base/task/sequenced_task_runner.h"
+#include "chrome/browser/enterprise/net/enterprise_proxy_error_service_factory.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/chrome_no_state_prefetch_contents_delegate.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/login/login_handler.h"
 #include "chrome/browser/ui/login/login_tab_helper.h"
+#include "components/enterprise/net/content/enterprise_proxy_navigation_error_data.h"
+#include "components/enterprise/net/core/enterprise_proxy_error_service.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_contents.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/common/content_features.h"
@@ -44,6 +48,10 @@ HttpAuthCoordinator::CreateLoginDelegate(
       url, response_headers, std::move(auth_required_callback));
   Flow* flow = flow_owned.get();
   flows_[flow] = std::move(flow_owned);
+
+  if (flow->ForwardToEnterpriseProxy(browser_context)) {
+    return std::make_unique<LoginDelegateWrapper>(flow);
+  }
 
   if (!flow->ForwardToExtension(guest, browser_context)) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -104,6 +112,29 @@ void HttpAuthCoordinator::Flow::WrapperDestroyed() {
 
   // For now, we tie the lifetime of Flow to that of the wrapper.
   coordinator_->FlowFinished(this);
+}
+
+bool HttpAuthCoordinator::Flow::ForwardToEnterpriseProxy(
+    content::BrowserContext* browser_context) {
+  if (!auth_info_.is_proxy || !browser_context) {
+    return false;
+  }
+
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  auto* error_service =
+      EnterpriseProxyErrorServiceFactory::GetForProfile(profile);
+  if (!error_service) {
+    return false;
+  }
+
+  auto callback = base::BindOnce(&Flow::OnCredentials, GetWeakPtr());
+  // TODO(crbug.com/543015664): Pass the actual navigation handle instead of
+  // nullptr here.
+  return error_service->InterceptProxyAuthChallenge(
+      auth_info_, url_, response_headers_,
+      std::make_unique<enterprise_net::EnterpriseProxyErrorDataDelegate>(
+          /*navigation_handle=*/nullptr),
+      std::move(callback));
 }
 
 bool HttpAuthCoordinator::Flow::ForwardToExtension(
@@ -222,7 +253,15 @@ void HttpAuthCoordinator::Flow::OnExtensionResponse(
 
 void HttpAuthCoordinator::Flow::OnCredentials(
     const std::optional<net::AuthCredentials>& credentials) {
-  std::move(callback_).Run(credentials);
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<Flow> flow,
+                        const std::optional<net::AuthCredentials>& creds) {
+                       if (flow && flow->callback_) {
+                         std::move(flow->callback_).Run(creds);
+                       }
+                     },
+                     GetWeakPtr(), credentials));
 }
 
 HttpAuthCoordinator::LoginDelegateWrapper::LoginDelegateWrapper(Flow* flow)

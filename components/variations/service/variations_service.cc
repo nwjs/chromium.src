@@ -16,6 +16,7 @@
 
 #include "base/base64.h"
 #include "base/command_line.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/containers/flat_set.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
@@ -30,6 +31,7 @@
 #include "base/metrics/runtime_field_trial_overrides.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
+#include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
 #include "base/types/pass_key.h"
 #include "base/values.h"
@@ -52,7 +54,8 @@
 #include "components/variations/seed_response.h"
 #include "components/variations/sticky_activation_manager.h"
 #include "components/variations/study_filtering.h"
-#include "components/variations/variations_safe_seed_store_local_state.h"
+#include "components/variations/variations_associated_data.h"
+#include "components/variations/variations_safe_seed_store.h"
 #include "components/variations/variations_seed_processor.h"
 #include "components/variations/variations_seed_simulator.h"
 #include "components/variations/variations_switches.h"
@@ -72,6 +75,21 @@
 
 namespace variations {
 namespace {
+
+// Returns true if the trial specified by `trial_name` has any Google web
+// experiment IDs.
+// Note: This iterates through all values of `IDCollectionKey`, which includes
+// `GOOGLE_APP`. Although `GOOGLE_APP` is not technically a Google web ID, for
+// simplicity, trials specifying `GOOGLE_APP` variation IDs are also excluded
+// from runtime mutability.
+bool TrialHasGoogleWebExperimentId(std::string_view trial_name) {
+  for (int i = 0; i < ID_COLLECTION_COUNT; ++i) {
+    if (HasGoogleVariationID(static_cast<IDCollectionKey>(i), trial_name)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Constants used for encrypting the if-none-match header if we are retrieving a
 // seed over http.
@@ -99,6 +117,20 @@ bool g_should_fetch_for_testing = false;
 // Returns a string that will be used for the value of the 'osname' URL param
 // to the variations server.
 std::string GetPlatformString() {
+  const std::string forced_platform =
+      base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kFakeVariationsPlatform);
+  if (!forced_platform.empty()) {
+    static constexpr auto kPlatforms = base::MakeFixedFlatSet<std::string_view>(
+        {"android", "android_webview", "chromeos", "fuchsia", "ios", "linux",
+         "mac", "win"});
+    if (kPlatforms.contains(forced_platform)) {
+      return forced_platform;
+    } else {
+      DVLOG(1) << "Invalid platform provided: " << forced_platform;
+    }
+  }
+
 #if BUILDFLAG(IS_WIN)
   return "win";
 #elif BUILDFLAG(IS_IOS)
@@ -292,6 +324,21 @@ bool RuntimeMutableExperimentAlreadyApplied(
        !runtime_field_trial_overrides->IsFieldTrialOverridden(*existing_trial));
 }
 
+// Encrypts the serial number and encodes it in base64. Returns std::nullopt
+// on failure.
+std::optional<std::string> EncryptAndEncodeSerialNumber(
+    const std::string& serial_number) {
+  std::string encrypted;
+  encrypted_messages::EncryptedMessage encrypted_message;
+  if (!encrypted_messages::EncryptSerializedMessage(
+          kServerPublicKey, kServerPublicKeyVersion, kEncryptedMessageLabel,
+          serial_number, &encrypted_message) ||
+      !encrypted_message.SerializeToString(&encrypted)) {
+    return std::nullopt;
+  }
+  return base::Base64Encode(encrypted);
+}
+
 }  // namespace
 
 BASE_FEATURE(kVariationsRuntimeMutability, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -397,7 +444,7 @@ VariationsService::VariationsService(
               local_state,
               MaybeImportFirstRunSeed(client_.get(), local_state),
               /*signature_verification_enabled=*/true,
-              std::make_unique<VariationsSafeSeedStoreLocalState>(
+              std::make_unique<VariationsSafeSeedStore>(
                   local_state,
                   client_.get()->GetVariationsSeedFileDir(),
                   client_.get()->GetChannelForVariations(),
@@ -415,7 +462,11 @@ VariationsService::VariationsService(
 #endif
 }
 
-VariationsService::~VariationsService() = default;
+VariationsService::~VariationsService() {
+  for (auto& observer : observer_list_) {
+    observer.OnVariationsServiceDestroyed();
+  }
+}
 
 void VariationsService::PerformPreMainMessageLoopStartup() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -433,18 +484,6 @@ void VariationsService::PerformPreMainMessageLoopStartup() {
 
   StartRepeatedVariationsSeedFetch();
 #endif  // !BUILDFLAG(IS_ANDROID)
-}
-
-bool VariationsService::EncryptString(const std::string& plaintext,
-                                      std::string* encrypted) {
-  encrypted_messages::EncryptedMessage encrypted_message;
-  if (!encrypted_messages::EncryptSerializedMessage(
-          kServerPublicKey, kServerPublicKeyVersion, kEncryptedMessageLabel,
-          plaintext, &encrypted_message) ||
-      !encrypted_message.SerializeToString(encrypted)) {
-    return false;
-  }
-  return true;
 }
 
 void VariationsService::AddObserver(Observer* observer) {
@@ -655,30 +694,54 @@ void VariationsService::EnableFetchForTesting() {
 }
 
 void VariationsService::DoActualFetch() {
-  DoFetchFromURL(variations_server_url_, false);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Normally, there shouldn't be a fetch in progress when this fires.
+  // However it's not impossible - for example if Chrome was paused (e.g. in a
+  // debugger or if the machine was suspended) and the previous request hasn't
+  // completed yet. In this case, don't start a new request and just let the
+  // previous one finish.
+  if (is_fetching_seed_) {
+    return;
+  }
+  is_fetching_seed_ = true;
+  last_request_was_http_retry_ = false;
+  FetchSeedOverHTTPS();
+}
+
+void VariationsService::FetchSeedOverHTTPS() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  DoFetchFromURL(variations_server_url_, GetLatestSerialNumber());
+}
+
+void VariationsService::FetchSeedOverHTTP() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  std::string serial_number = GetLatestSerialNumber();
+  if (!serial_number.empty()) {
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::TaskPriority::USER_VISIBLE},
+        base::BindOnce(&EncryptAndEncodeSerialNumber, std::move(serial_number)),
+        base::BindOnce(&VariationsService::ContinueRetryOverHTTP,
+                       weak_ptr_factory_.GetWeakPtr(),
+                       insecure_variations_server_url_));
+    return;
+  }
+  // If no serial number, just fetch without header.
+  DoFetchFromURL(insecure_variations_server_url_, std::string());
 }
 
 const std::string& VariationsService::GetLatestSerialNumber() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return field_trial_creator_.seed_store()->GetLatestSerialNumber();
 }
 
-bool VariationsService::DoFetchFromURL(const GURL& url, bool is_http_retry) {
+void VariationsService::DoFetchFromURL(const GURL& url,
+                                       std::string header_serial_number) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(IsFetchingEnabled());
+  DCHECK(!pending_seed_request_);
 
   CHECK(state_manager_);
   safe_seed_manager_.RecordFetchStarted(state_manager_->startup_visibility());
-
-  // Normally, there shouldn't be a |pending_seed_request_| when this fires.
-  // However it's not impossible - for example if Chrome was paused (e.g. in a
-  // debugger or if the machine was suspended) and OnURLFetchComplete() hasn't
-  // had a chance to run yet from the previous request. In this case, don't
-  // start a new request and just let the previous one finish.
-  if (pending_seed_request_) {
-    return false;
-  }
-
-  last_request_was_http_retry_ = is_http_retry;
 
   net::NetworkTrafficAnnotationTag traffic_annotation =
       net::DefineNetworkTrafficAnnotation("chrome_variations_service", R"(
@@ -704,20 +767,14 @@ bool VariationsService::DoFetchFromURL(const GURL& url, bool is_http_retry) {
   auto resource_request = std::make_unique<network::ResourceRequest>();
   resource_request->url = url;
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
-  std::string serial_number = GetLatestSerialNumber();
-  if (!serial_number.empty()) {
-    // Get the seed only if its serial number doesn't match what we have.
-    // If the fetch is an HTTP retry, encrypt the If-None-Match header.
-    if (is_http_retry) {
-      if (!EncryptString(serial_number, &serial_number)) {
-        return false;
-      }
-      serial_number = base::Base64Encode(serial_number);
-    }
-    resource_request->headers.SetHeader("If-None-Match", serial_number);
-  }
+
   const bool enable_deltas =
-      !serial_number.empty() && !delta_error_since_last_success_;
+      !header_serial_number.empty() && !delta_error_since_last_success_;
+
+  if (!header_serial_number.empty()) {
+    resource_request->headers.SetHeader("If-None-Match",
+                                        std::move(header_serial_number));
+  }
   // Tell the server that delta-compressed and gzipped seeds are supported.
   const char* supported_im = enable_deltas ? "x-bm,gzip" : "gzip";
   resource_request->headers.SetHeader("A-IM", supported_im);
@@ -744,7 +801,21 @@ bool VariationsService::DoFetchFromURL(const GURL& url, bool is_http_retry) {
   ++request_count_;
   last_request_started_time_ = now;
   delta_error_since_last_success_ = false;
-  return true;
+}
+
+void VariationsService::ContinueRetryOverHTTP(
+    const GURL& url,
+    std::optional<std::string> encrypted_serial_number) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!encrypted_serial_number.has_value()) {
+    // Encryption failed. Abort retry.
+    DVLOG(1) << "Failed to encrypt serial number for HTTP retry.";
+    is_fetching_seed_ = false;
+    return;
+  }
+
+  DoFetchFromURL(url, std::move(encrypted_serial_number).value());
 }
 
 void VariationsService::StoreSeed(std::string seed_data,
@@ -796,6 +867,8 @@ void VariationsService::OnSeedStoreResult(bool is_delta_compressed,
     if (base::FeatureList::IsEnabled(kVariationsRuntimeMutability)) {
       SimulateAndApplyRuntimeMutableChanges(seed);
     }
+
+    NotifySeedFetched();
   }
 }
 
@@ -887,7 +960,8 @@ void VariationsService::FetchVariationsSeed() {
   DoActualFetch();
 }
 
-void VariationsService::NotifyObservers(const SeedSimulationResult& result) {
+void VariationsService::NotifyExperimentChangesDetected(
+    const SeedSimulationResult& result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (result.kill_critical_group_change_count > 0) {
@@ -898,6 +972,14 @@ void VariationsService::NotifyObservers(const SeedSimulationResult& result) {
     for (auto& observer : observer_list_) {
       observer.OnExperimentChangesDetected(Observer::BEST_EFFORT);
     }
+  }
+}
+
+void VariationsService::NotifySeedFetched() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  for (auto& observer : observer_list_) {
+    observer.OnSeedFetched();
   }
 }
 
@@ -940,6 +1022,7 @@ void VariationsService::OnSimpleLoaderComplete(
     // waiting the full time interval.
     // |request_scheduler_| will be null during unit tests.
     if (is_first_request && request_scheduler_) {
+      is_fetching_seed_ = false;
       request_scheduler_->ScheduleFetchShortly();
       return;
     }
@@ -951,6 +1034,9 @@ void VariationsService::OnSimpleLoaderComplete(
       return;
     }
   }
+
+  // We are sure we won't retry. Mark to false right here.
+  is_fetching_seed_ = false;
 
   // Return if there was a failure. Note that we check both |is_success| which
   // is set above and the response code. There could be a case where there's a
@@ -1024,7 +1110,9 @@ bool VariationsService::MaybeRetryOverHTTP() {
   if (!last_request_was_http_retry_ &&
       !insecure_variations_server_url_.is_empty() &&
       insecure_variations_server_url_.SchemeIs(url::kHttpScheme)) {
-    return DoFetchFromURL(insecure_variations_server_url_, true);
+    last_request_was_http_retry_ = true;
+    FetchSeedOverHTTP();
+    return true;
   }
   return false;
 }
@@ -1061,7 +1149,7 @@ void VariationsService::PerformSimulationWithVersion(
       field_trial_creator_.GetClientFilterableStateForVersion(version);
   auto result = SimulateSeedStudies(seed, *client_state, *entropy_providers_);
 
-  NotifyObservers(result);
+  NotifyExperimentChangesDetected(result);
 }
 
 ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
@@ -1089,9 +1177,9 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   const Study& study = *processed_study.study();
   const Study::Experiment& experiment = study.experiment(experiment_index);
 
-  // For now, only allow killswitches.
-  if (experiment.feature_association().enable_feature_size() > 0 ||
-      experiment.feature_association().disable_feature_size() == 0) {
+  // For now, only allow killswitches (disabling features) or groups specifying
+  // no features.
+  if (experiment.feature_association().enable_feature_size() > 0) {
     return kNotStrictKillswitch;
   }
 
@@ -1104,6 +1192,19 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   // bounced between different groups every time a new seed is fetched.
   if (study.consistency() != Study::PERMANENT) {
     return kNotPermanentConsistency;
+  }
+
+  // TODO(crbug.com/482450020): Support runtime mutability for Google web
+  // studies. For now, disallow applying a runtime experiment if it has a
+  // Google web experiment ID.
+  if (VariationsSeedProcessor::HasGoogleWebExperimentId(experiment)) {
+    return kRuntimeExperimentHasGoogleWebId;
+  }
+
+  // TODO(crbug.com/482450632): Support params for runtime mutable experiments.
+  // For now, disallow applying a runtime experiment if it has params.
+  if (experiment.param_size() > 0) {
+    return kRuntimeExperimentHasParams;
   }
 
   // If the runtime mutable experiment has already been applied, don't need to
@@ -1138,14 +1239,37 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   // TODO(crbug.com/482450632): Technically the outlined scenario is safe and
   // could be supported as it results in a valid state that is fully contained
   // in the killswitch seed. But for now, prevent these cases for simplicity.
-  base::flat_set<base::FeatureList::ControllingTrialInfo>
-      controlling_trial_infos;
-  for (const std::string& feature_name : feature_names) {
-    controlling_trial_infos.insert(
-        feature_list->GetControllingTrialInfoByFeatureName(feature_name));
-  }
-  if (controlling_trial_infos.size() != 1) {
-    return kFeaturesNotControlledBySameTrial;
+  auto* runtime_field_trial_overrides =
+      base::RuntimeFieldTrialOverrides::GetInstance();
+  base::FeatureList::ControllingTrialInfo controlling_trial_info;
+  if (!feature_names.empty()) {
+    base::flat_set<base::FeatureList::ControllingTrialInfo>
+        controlling_trial_infos;
+    for (const std::string& feature_name : feature_names) {
+      controlling_trial_infos.insert(
+          feature_list->GetControllingTrialInfoByFeatureName(feature_name));
+    }
+    if (controlling_trial_infos.size() != 1) {
+      return kFeaturesNotControlledBySameTrial;
+    }
+    controlling_trial_info = *controlling_trial_infos.begin();
+  } else {
+    // For runtime experiments that do not specify any feature, we consider the
+    // "controlling trial" (the trial that this experiment will ultimately be
+    // overriding) to be the trial with the same name. It's possible there are
+    // no such trial (i.e. this won't be overriding any trial) -- this is
+    // handled later on below.
+    if (runtime_field_trial_overrides->GetRuntimeOverride(study.name())) {
+      controlling_trial_info = {
+          .trial_name = study.name(),
+          .is_runtime_override = true,
+      };
+    } else if (base::FieldTrialList::Find(study.name())) {
+      controlling_trial_info = {
+          .trial_name = study.name(),
+          .is_runtime_override = false,
+      };
+    }
   }
 
   // Third, the trial that controls the features (if any) does not specify any
@@ -1153,8 +1277,6 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   // but the new runtime mutable experiment only killswitches FeatureA, this
   // would create an invalid state that does not exist in any individual seed
   // (FeatureA disabled, FeatureB enabled).
-  const base::FeatureList::ControllingTrialInfo& controlling_trial_info =
-      *controlling_trial_infos.begin();
   const std::string& controlling_trial_name = controlling_trial_info.trial_name;
   bool controlling_trial_is_runtime_override =
       controlling_trial_info.is_runtime_override;
@@ -1172,6 +1294,13 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
 
     if (feature_names != associated_features) {
       return kControllingTrialHasOtherFeatures;
+    }
+
+    // TODO(crbug.com/482450020): Support runtime mutability for Google web
+    // studies. For now, disallow overriding a trial that has Google web
+    // experiment IDs.
+    if (TrialHasGoogleWebExperimentId(controlling_trial_name)) {
+      return kOverriddenTrialHasGoogleWebId;
     }
   }
 
@@ -1195,8 +1324,6 @@ ApplyRuntimeMutableChangesResult VariationsService::ApplyRuntimeMutableChanges(
   //
   // First step is to find the trial that this will be overriding (if any), and
   // any previous overrides that this is replacing (if any).
-  auto* runtime_field_trial_overrides =
-      base::RuntimeFieldTrialOverrides::GetInstance();
   const base::FieldTrial* trial_to_override;
   std::string previous_override_to_replace;
   if (controlling_trial_is_runtime_override) {
@@ -1343,6 +1470,10 @@ std::string VariationsService::GetLatestCountry() const {
   return field_trial_creator_.GetLatestCountry();
 }
 
+std::string VariationsService::GetLatestGeoLevel1() const {
+  return field_trial_creator_.GetLatestGeoLevel1();
+}
+
 bool VariationsService::SetUpFieldTrials(
     const std::vector<std::string>& variation_ids,
     const std::vector<base::FeatureList::FeatureOverrideInfo>& extra_overrides,
@@ -1353,7 +1484,7 @@ bool VariationsService::SetUpFieldTrials(
   return field_trial_creator_.SetUpFieldTrials(
       variation_ids, extra_overrides, std::move(feature_list), state_manager_,
       platform_field_trials, &safe_seed_manager_,
-      /*add_entropy_source_to_variations_ids=*/true, *entropy_providers_);
+      /*add_entropy_source_to_variations_ids=*/false, *entropy_providers_);
 }
 
 void VariationsService::GetStudiesAvailableToForce(
@@ -1393,6 +1524,9 @@ VariationsSource VariationsService::GetVariationsSource() const {
 
 void VariationsService::CancelCurrentRequestForTesting() {
   pending_seed_request_.reset();
+  is_fetching_seed_ = false;
+  // Cancel any pending replies (like ContinueRetryOverHTTP) or callbacks.
+  weak_ptr_factory_.InvalidateWeakPtrs();
 }
 
 void VariationsService::StartRepeatedVariationsSeedFetchForTesting() {

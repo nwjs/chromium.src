@@ -93,7 +93,6 @@ static_library("file_manager") {
     "//chrome/browser/ash/fusebox",
     "//chrome/browser/ash/guest_os",
     "//chrome/browser/ash/guest_os/public",
-    "//chrome/browser/ash/plugin_vm",
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/ash/policy/dlp/dialogs",
     "//chrome/browser/ash/policy/skyvault",
@@ -120,8 +119,6 @@ static_library("file_manager") {
     "//chrome/browser/ui/ash/multi_user",
     "//chrome/browser/ui/webui/ash/manage_mirrorsync",
     "//chrome/common",
-    "//chrome/services/media_gallery_util/public/cpp",
-    "//chrome/services/media_gallery_util/public/mojom",
     "//chrome/services/pdf/public/mojom",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus/cros_disks",
@@ -144,6 +141,8 @@ static_library("file_manager") {
     "//components/drive",
     "//components/drive:drive_chromeos",
     "//components/enterprise/data_controls/core/browser",
+    "//components/media_gallery_util",
+    "//components/media_gallery_util/public/mojom",
     "//components/prefs",
     "//components/services/unzip/content",
     "//components/services/unzip/public/cpp",
@@ -171,7 +170,6 @@ static_library("file_manager") {
 
   allow_circular_includes_from = [
     "//chrome/browser/ash/drive",
-    "//chrome/browser/ash/exo",
     "//chrome/browser/ash/policy/dlp",
     "//chrome/browser/ash/system_web_apps/apps",
   ]

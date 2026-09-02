@@ -7,15 +7,16 @@ found in the LICENSE file.
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="@dimen/vertical_tab_item_height"
     android:orientation="horizontal"
-    android:gravity="center_vertical"
+    android:gravity="center"
     android:paddingStart="@dimen/vertical_tab_item_padding_horizontal"
     android:paddingEnd="@dimen/vertical_tab_item_padding_horizontal"
     android:paddingTop="@dimen/vertical_tab_item_padding_vertical"
     android:paddingBottom="@dimen/vertical_tab_item_padding_vertical"
     android:layout_marginBottom="@dimen/vertical_tab_item_margin_bottom"
     android:background="@drawable/vertical_tab_item_background"
+    android:foreground="@drawable/vertical_tab_focus_ring"
     android:clickable="true"
     android:focusable="true">
 
@@ -32,6 +33,18 @@ found in the LICENSE file.
         android:ellipsize="end"
         android:textAppearance="@style/TextAppearance.TextMedium.Primary"
         android:importantForAccessibility="no" />
+
+    <!-- Three-dot menu button -->
+    <ImageView
+        android:id="@+id/menu_button"
+        android:layout_width="@dimen/vertical_tab_item_icon_size"
+        android:layout_height="@dimen/vertical_tab_item_icon_size"
+        android:layout_marginEnd="@dimen/vertical_tab_item_title_margin_end"
+        android:src="@drawable/ic_more_vert_24dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/accessibility_toolbar_btn_menu"
+        android:focusable="true"
+        android:visibility="gone" />
 
     <!-- Expand/Collapse Arrow (Points down naturally by default for Collapsed state) -->
     <ImageView

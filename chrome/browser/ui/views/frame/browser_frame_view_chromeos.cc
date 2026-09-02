@@ -23,7 +23,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/ui/ash/session/session_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -41,6 +40,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chromeos/ash/experiences/system_web_apps/types/system_web_app_delegate.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
@@ -96,15 +96,15 @@ DEFINE_UI_CLASS_PROPERTY_KEY(BrowserFrameViewChromeOS*,
 
 // Returns true if the header should be painted so that it looks the same as
 // the header used for packaged apps.
-bool UsePackagedAppHeaderStyle(const Browser* browser) {
-  if (browser->is_type_normal() ||
-      (browser->is_type_popup() &&
+bool UsePackagedAppHeaderStyle(const BrowserWindowInterface* browser) {
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL ||
+      (browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP &&
        !WindowFeatureController::From(browser)->IsTrustedSource())) {
     return false;
   }
 
-  return !browser->SupportsWindowFeature(
-      Browser::WindowFeature::kFeatureTabStrip);
+  return !WindowFeatureController::From(browser)->SupportsWindowFeature(
+      WindowFeatureController::WindowFeature::kFeatureTabStrip);
 }
 
 // Whether or not the window's title should show the avatar. Practically,
@@ -184,7 +184,7 @@ BrowserFrameViewChromeOS* BrowserFrameViewChromeOS::Get(aura::Window* window) {
 }
 
 void BrowserFrameViewChromeOS::Init() {
-  Browser* browser = GetBrowserView()->browser();
+  BrowserWindowInterface* browser = GetBrowserView()->browser();
 
   auto* const app_controller = web_app::AppBrowserController::From(browser);
   const bool is_close_button_enabled =
@@ -258,8 +258,8 @@ BrowserLayoutParams BrowserFrameViewChromeOS::GetBrowserLayoutParams() const {
                            : caption_bounds.height();
     params.trailing_exclusion.content =
         gfx::SizeF(width() - caption_bounds.x(), height);
+    MaybeAddAppIconToLayoutParams(params);
   }
-  MaybeAddAppIconToLayoutParams(params);
   return params;
 }
 
@@ -296,7 +296,7 @@ int BrowserFrameViewChromeOS::GetTopInset(bool restored) const {
     return 0;
   }
 
-  Browser* browser = GetBrowserView()->browser();
+  BrowserWindowInterface* browser = GetBrowserView()->browser();
 
   int header_height = frame_header_->GetHeaderHeight();
   const gfx::Size toolbar_size =
@@ -772,7 +772,7 @@ void BrowserFrameViewChromeOS::OnImmersiveFullscreenExited() {
 }
 
 void BrowserFrameViewChromeOS::OnAppUpdate(const apps::AppUpdate& update) {
-  Browser* browser = GetBrowserView()->browser();
+  BrowserWindowInterface* browser = GetBrowserView()->browser();
 
   if (!web_app::AppBrowserController::From(browser) ||
       web_app::AppBrowserController::From(browser)->app_id() !=
@@ -945,7 +945,7 @@ void BrowserFrameViewChromeOS::OnAddedToOrRemovedFromOverview() {
 std::unique_ptr<chromeos::FrameHeader>
 BrowserFrameViewChromeOS::CreateFrameHeader() {
   std::unique_ptr<chromeos::FrameHeader> header;
-  Browser* browser = GetBrowserView()->browser();
+  BrowserWindowInterface* browser = GetBrowserView()->browser();
   if (!UsePackagedAppHeaderStyle(browser)) {
     header = std::make_unique<BrowserFrameHeaderChromeOS>(
         browser_widget(), this, this, caption_button_container_);
@@ -978,12 +978,12 @@ bool BrowserFrameViewChromeOS::GetShowProfileIndicatorIcon() const {
   // We only show the profile indicator for the teleported browser windows
   // between multi-user sessions. Note that you can't teleport an incognito
   // window.
-  Browser* browser = GetBrowserView()->browser();
+  BrowserWindowInterface* browser = GetBrowserView()->browser();
   if (browser->GetProfile()->IsIncognitoProfile()) {
     return false;
   }
 
-  if (browser->is_type_popup()) {
+  if (browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP) {
     return false;
   }
 

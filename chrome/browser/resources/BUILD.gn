@@ -10,7 +10,6 @@ import("//components/safe_browsing/buildflags.gni")
 import("//content/browser/devtools/features.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
-import("//third_party/closure_compiler/compile_js.gni")
 import("//tools/grit/grit_rule.gni")
 import("//tools/grit/repack.gni")
 import("//ui/webui/webui_features.gni")
@@ -22,6 +21,7 @@ group("resources") {
   public_deps = [
     "contextual_tasks:resources",
     "glic:resources",
+    "glic/experimental_opt_in:resources",
     "saved_tab_groups_unsupported:resources",
     "segmentation_internals:resources",
     "//components/enterprise/connectors/resources",
@@ -40,6 +40,7 @@ group("resources") {
   if (enable_extensions_core) {
     public_deps += [
       ":component_extension_resources",
+      "contextual_tasks/extension:resources",
       "omnibox/aim_eligibility_extension:resources",
     ]
   }
@@ -56,6 +57,7 @@ group("resources") {
       "bookmarks:resources",
       "certificate_manager:resources",
       "content_annotator_internals:resources",
+      "content_settings:resources",
       "contextual_cueing/internals:resources",
       "data_sharing:resources",
       "downloads:resources",
@@ -63,7 +65,6 @@ group("resources") {
       "drive_picker_host/untrusted:resources",
       "feedback:resources",
       "gaia_auth_host:resources",
-      "glic/experimental_opt_in:resources",
       "glic/selection_overlay:resources",
       "history:resources",
       "indigo:resources",
@@ -75,6 +76,7 @@ group("resources") {
       "new_tab_footer:resources",
       "omnibox_everywhere:resources",
       "omnibox_popup:resources",
+      "organizer_panel:resources",
       "password_manager:resources",
       "profile_internals:resources",
       "search_engine_choice:resources",
@@ -91,7 +93,6 @@ group("resources") {
       "side_panel/shared:resources",
       "side_panel/tabs_from_other_devices:resources",
       "signin:resources",
-      "suggest_internals:resources",
       "support_tool:resources",
       "tab_group_home:resources",
       "tab_search:resources",
@@ -235,18 +236,32 @@ if (enable_webui_generate_code_cache) {
   }
 }
 
-if (is_chromeos && enable_js_type_check) {
-  group("closure_compile") {
-    deps = [
-      "chromeos:closure_compile",
-      "gaia_auth_host:closure_compile",
-    ]
-  }
-}
-
 if (enable_extensions_core) {
   grit("component_extension_resources") {
     source = "component_extension_resources.grd"
+
+    inputs = [
+      "glic/extension/manifest.json",
+      "network_speech_synthesis/mv3/audio.html",
+      "network_speech_synthesis/mv3/audio.js",
+      "network_speech_synthesis/mv3/service_worker.js",
+      "network_speech_synthesis/mv3/tts_extension.js",
+      "network_speech_synthesis/tts_extension.js",
+      "reading_mode_gdocs_helper/content.js",
+      "reading_mode_gdocs_helper/gdocs_script.js",
+      "$root_gen_dir/chrome/browser/resources/glic/extension/tsc/background.js",
+    ]
+
+    if (is_chrome_branded || enable_hangout_services_extension) {
+      inputs += [
+        "hangout_services/background.html",
+        "hangout_services/thunk.js",
+      ]
+    }
+
+    if (is_mac) {
+      inputs += [ "screen_sharing/toggle_animation.json" ]
+    }
 
     defines = chrome_grit_defines
     if (enable_hangout_services_extension) {
@@ -258,12 +273,56 @@ if (enable_extensions_core) {
 
     # Some resources within component_extension_resources.grd are generated at
     # build time so we include them as explicit dependencies here
-    deps = [
-      "//chrome/browser/resources/contextual_tasks/extension:build_ts",
-      "//chrome/browser/resources/glic/extension:build_ts",
-    ]
+    deps = [ "//chrome/browser/resources/glic/extension:build_ts" ]
 
     if (is_chromeos) {
+      inputs += [
+        "chromeos/arc_input_overlay/button_placement_mode_nudge.json",
+        "chromeos/arc_input_overlay/key_edit_nudge.json",
+        "chromeos/arc_input_overlay/onboarding_illustration_dark.json",
+        "chromeos/arc_input_overlay/onboarding_illustration_light.json",
+        "chromeos/arc_support/arc_optin_focus_manager.js",
+        "chromeos/arc_support/background.js",
+        "chromeos/arc_support/bubble.css",
+        "chromeos/arc_support/bubble.js",
+        "chromeos/arc_support/bubble_button.css",
+        "chromeos/arc_support/bubble_button.js",
+        "chromeos/arc_support/controlled_indicator.css",
+        "chromeos/arc_support/controlled_indicator.js",
+        "chromeos/arc_support/cr_overlay.css",
+        "chromeos/arc_support/event_tracker.js",
+        "chromeos/arc_support/focus_manager.js",
+        "chromeos/arc_support/i18n_template_no_process.js",
+        "chromeos/arc_support/icon/192.png",
+        "chromeos/arc_support/icon/32.png",
+        "chromeos/arc_support/icon/playstore.svg",
+        "chromeos/arc_support/images/error_image.png",
+        "chromeos/arc_support/images/header.png",
+        "chromeos/arc_support/layout_style.css",
+        "chromeos/arc_support/main.css",
+        "chromeos/arc_support/main.html",
+        "chromeos/arc_support/main.js",
+        "chromeos/arc_support/overlay.css",
+        "chromeos/arc_support/overlay.js",
+        "chromeos/arc_support/playstore.css",
+        "chromeos/arc_support/playstore.js",
+        "chromeos/arc_support/progressbar.css",
+        "chromeos/arc_support/progressbar.js",
+        "chromeos/arc_support/ui.js",
+        "chromeos/desk_api/templates_icon.png",
+        "$root_gen_dir/chrome/browser/resources/chromeos/desk_api/desk_api_bundle.js",
+        "//ui/resources/default_100_percent/close_2.png",
+        "//ui/resources/default_100_percent/close_2_hover.png",
+        "//ui/resources/default_100_percent/close_2_pressed.png",
+        "//ui/resources/default_200_percent/close_2.png",
+        "//ui/resources/default_200_percent/close_2_hover.png",
+        "//ui/resources/default_200_percent/close_2_pressed.png",
+        "//ui/webui/resources/images/account_child_invert.svg",
+        "//ui/webui/resources/images/account_circle.svg",
+        "//ui/webui/resources/images/business.svg",
+        "//ui/webui/resources/images/extension.svg",
+        "//ui/webui/resources/images/group.svg",
+      ]
       deps += [
         "chromeos/accessibility/braille_ime:build_ts",
         "chromeos/desk_api:generate_desk_api_bundle",
@@ -283,6 +342,14 @@ if (enable_extensions_core) {
 if (!is_android) {
   grit("app_icon_resources") {
     source = "app_icon/app_icon_resources.grd"
+    inputs = [
+      "app_icon/default_100_percent/app_icon_placeholder_cube.png",
+      "app_icon/default_100_percent/mask/mask.png",
+      "app_icon/default_100_percent/web_app_default_icon.png",
+      "app_icon/default_200_percent/app_icon_placeholder_cube.png",
+      "app_icon/default_200_percent/mask/mask.png",
+      "app_icon/default_200_percent/web_app_default_icon.png",
+    ]
     defines = chrome_grit_defines
     outputs = [
       "grit/app_icon_resources.h",
@@ -297,6 +364,7 @@ if (!is_android) {
   if (is_chromeos) {
     grit("office_web_app_resources") {
       source = "office_web_app/resources.grd"
+      inputs = [ "office_web_app/icons/office_192.png" ]
       defines = chrome_grit_defines
       outputs = [
         "grit/office_web_app_resources.h",
@@ -311,6 +379,23 @@ if (!is_android) {
   if (is_chrome_branded) {
     grit("preinstalled_web_apps_resources") {
       source = "preinstalled_web_apps/resources.grd"
+      inputs = [
+        "preinstalled_web_apps/internal/gmail_192.png",
+        "preinstalled_web_apps/internal/google_chat_192.png",
+        "preinstalled_web_apps/internal/google_docs_192.png",
+        "preinstalled_web_apps/internal/google_drive_192.png",
+        "preinstalled_web_apps/internal/google_sheets_192.png",
+        "preinstalled_web_apps/internal/google_slides_192.png",
+        "preinstalled_web_apps/internal/youtube_192.png",
+      ]
+      if (is_chromeos) {
+        inputs += [
+          "preinstalled_web_apps/internal/gemini_192.png",
+          "preinstalled_web_apps/internal/google_calendar_192.png",
+          "preinstalled_web_apps/internal/notebook_lm_512.png",
+          "preinstalled_web_apps/internal/vids_192.png",
+        ]
+      }
       defines = chrome_grit_defines
       outputs = [
         "grit/preinstalled_web_apps_resources.h",
@@ -329,6 +414,7 @@ group("dev_ui_resources") {
     "bluetooth_internals:resources",
     "chrome_finds_internals:resources",
     "components:resources",
+    "content_settings:resources",
     "context_hub:resources",
     "device_log:resources",
     "engagement:resources",
@@ -338,16 +424,21 @@ group("dev_ui_resources") {
     "memory_internals:resources",
     "net_internals:resources",
     "omnibox:resources",
-    "personal_context_internals:resources",
     "predictors:resources",
+    "segmentation_internals:resources",
     "subresource_filter:resources",
+    "suggest_internals:resources",
     "usb_internals:resources",
     "//components/actor/core/internals/resources",
+    "//components/autofill/core/browser/autofill_and_password_manager_internals:resources",
     "//components/commerce/core/internals/resources",
     "//components/data_sharing/data_sharing_internals/resources",
     "//components/download/resources/download_internals:resources",
+    "//components/enterprise/connectors/resources",
+    "//components/gcm_driver/resources",
     "//components/history_clusters/history_clusters_internals/resources",
     "//components/metrics/debug:resources",
+    "//components/net_log/resources",
     "//components/notebooks/internals/webui/resources",
     "//components/ntp_tiles/webui/resources",
     "//components/optimization_guide/optimization_guide_internals/resources",
@@ -356,11 +447,15 @@ group("dev_ui_resources") {
     "//components/resources:dev_ui_components_resources",
     "//components/signin/core/browser/resources",
     "//components/sync/service/resources",
+    "//components/translate/translate_internals:resources",
     "//components/ukm/debug:resources",
+    "//components/webui/regional_capabilities_internals/resources",
     "//content/browser/resources/gpu:resources",
+    "//content/browser/resources/indexed_db:resources",
     "//content/browser/resources/media:resources",
     "//content/browser/resources/net:resources",
     "//content/browser/resources/process:resources",
+    "//content/browser/resources/quota:resources",
     "//content/browser/resources/service_worker:resources",
     "//content/browser/webrtc/resources",
   ]
@@ -383,7 +478,6 @@ group("dev_ui_resources") {
       "media_router/internals:resources",
       "multistep_filter_internals:resources",
       "on_device_internals:resources",
-      "personal_context_notice:resources",
       "user_education_internals:resources",
       "webnn_internals:resources",
       "webui_js_error:resources",
@@ -411,6 +505,7 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/bluetooth_internals_resources.pak",
     "$root_gen_dir/chrome/chrome_finds_internals_resources.pak",
     "$root_gen_dir/chrome/components_resources.pak",
+    "$root_gen_dir/chrome/content_settings_resources.pak",
     "$root_gen_dir/chrome/context_hub_resources.pak",
     "$root_gen_dir/chrome/device_log_resources.pak",
     "$root_gen_dir/chrome/engagement_resources.pak",
@@ -420,30 +515,39 @@ repack("dev_ui_paks") {
     "$root_gen_dir/chrome/memory_internals_resources.pak",
     "$root_gen_dir/chrome/net_internals_resources.pak",
     "$root_gen_dir/chrome/omnibox_resources.pak",
-    "$root_gen_dir/chrome/personal_context_internals_resources.pak",
     "$root_gen_dir/chrome/predictors_resources.pak",
+    "$root_gen_dir/chrome/segmentation_internals_resources.pak",
     "$root_gen_dir/chrome/subresource_filter_internals_resources.pak",
+    "$root_gen_dir/chrome/suggest_internals_resources.pak",
     "$root_gen_dir/chrome/usb_internals_resources.pak",
     "$root_gen_dir/components/actor_internals_resources.pak",
+    "$root_gen_dir/components/autofill_and_password_manager_internals_resources.pak",
     "$root_gen_dir/components/commerce_internals_resources.pak",
+    "$root_gen_dir/components/connectors_internals_resources.pak",
     "$root_gen_dir/components/data_sharing_internals_resources.pak",
     "$root_gen_dir/components/dev_ui_components_resources.pak",
     "$root_gen_dir/components/download_internals_resources.pak",
+    "$root_gen_dir/components/gcm_internals_resources.pak",
     "$root_gen_dir/components/history_clusters_internals_resources.pak",
     "$root_gen_dir/components/metrics_internals_resources.pak",
+    "$root_gen_dir/components/net_export_resources.pak",
     "$root_gen_dir/components/notebooks_internals_resources.pak",
     "$root_gen_dir/components/ntp_tiles_internals_resources.pak",
     "$root_gen_dir/components/optimization_guide_internals_resources.pak",
     "$root_gen_dir/components/policy_resources.pak",
     "$root_gen_dir/components/private_ai_internals_resources.pak",
+    "$root_gen_dir/components/regional_capabilities_internals_resources.pak",
     "$root_gen_dir/components/signin_internals_resources.pak",
     "$root_gen_dir/components/sync_service_sync_internals_resources.pak",
+    "$root_gen_dir/components/translate_internals_resources.pak",
     "$root_gen_dir/components/ukm_resources.pak",
     "$root_gen_dir/content/browser/resources/media/media_internals_resources.pak",
     "$root_gen_dir/content/browser/webrtc/resources/webrtc_internals_resources.pak",
     "$root_gen_dir/content/gpu_resources.pak",
+    "$root_gen_dir/content/indexed_db_resources.pak",
     "$root_gen_dir/content/network_errors_resources.pak",
     "$root_gen_dir/content/process_resources.pak",
+    "$root_gen_dir/content/quota_internals_resources.pak",
     "$root_gen_dir/content/service_worker_resources.pak",
   ]
 
@@ -465,7 +569,6 @@ repack("dev_ui_paks") {
       "$root_gen_dir/chrome/media_router_internals_resources.pak",
       "$root_gen_dir/chrome/multistep_filter_internals_resources.pak",
       "$root_gen_dir/chrome/on_device_internals_resources.pak",
-      "$root_gen_dir/chrome/personal_context_notice_resources.pak",
       "$root_gen_dir/chrome/user_education_internals_resources.pak",
       "$root_gen_dir/chrome/webui_js_error_resources.pak",
     ]

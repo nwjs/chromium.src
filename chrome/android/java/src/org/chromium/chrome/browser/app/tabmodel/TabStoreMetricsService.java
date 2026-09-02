@@ -15,6 +15,7 @@ import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileKeyedMap;
+import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tabmodel.AccumulatingTabCreator.CreateFrozenTabArguments;
 import org.chromium.chrome.browser.tabmodel.AccumulatingTabCreator.CreateNewTabArguments;
 import org.chromium.chrome.browser.tabmodel.RecordingTabCreator.TabCreationData;
@@ -140,6 +141,9 @@ public class TabStoreMetricsService {
 
     /** Tracks metrics for a single window instance. */
     public static class WindowMetricsTracker {
+        /** Sentinel value when count metric preference is not set. */
+        public static final int NO_COUNT_PREF = -1;
+
         private final Profile mProfile;
         private final String mWindowTag;
         private final String mOrchestratorTagSuffix;
@@ -170,10 +174,21 @@ public class TabStoreMetricsService {
          * Helper method to read an integer count metric from SharedPreferences.
          *
          * @param metricName The metric name (e.g. TabCount) to read from the key.
-         * @return The persisted count value, or 0 if not present.
+         * @return The persisted count value, or NO_COUNT_PREF if not present.
          */
         private int getCountPref(String metricName) {
-            return ChromeSharedPreferences.getInstance().readInt(getMetricKey(metricName), 0);
+            return ChromeSharedPreferences.getInstance()
+                    .readInt(getMetricKey(metricName), NO_COUNT_PREF);
+        }
+
+        /**
+         * Checks whether an integer count metric preference exists for this metric name.
+         *
+         * @param metricName The metric name (e.g. TabCount) to check.
+         * @return True if a valid count pref exists, false otherwise.
+         */
+        public boolean hasCountPref(String metricName) {
+            return getCountPref(metricName) != NO_COUNT_PREF;
         }
 
         /**
@@ -273,7 +288,8 @@ public class TabStoreMetricsService {
          * @param shadowFrozenData The list of frozen tabs in the shadow store.
          * @param shadowNewTabData The list of new tabs in the shadow store.
          * @param shadowStoreCaughtUp Whether the shadow store has caught up.
-         * @param fallbackTabCount The number of fallback tabs created during restoration.
+         * @param regularFallbackTabs The map of tab IDs to URLs of regular fallback tabs created
+         *     during restoration for the legacy store.
          */
         public void recordDiffMetrics(
                 List<TabCreationData> authFrozenData,
@@ -281,7 +297,7 @@ public class TabStoreMetricsService {
                 List<CreateFrozenTabArguments> shadowFrozenData,
                 List<CreateNewTabArguments> shadowNewTabData,
                 boolean shadowStoreCaughtUp,
-                int fallbackTabCount) {
+                Map<@TabId Integer, String> regularFallbackTabs) {
             if (!shadowStoreCaughtUp) return;
 
             int authTabCount = authFrozenData.size() + authNewTabData.size();
@@ -289,6 +305,10 @@ public class TabStoreMetricsService {
             int authPinnedCount = countPinnedTabsAndCollectGroupIds(authFrozenData, groupIds);
             authPinnedCount += countPinnedTabsAndCollectGroupIds(authNewTabData, groupIds);
             int authGroupCount = groupIds.size();
+
+            boolean hasTabCount = hasCountPref(TAB_COUNT_KEY_SUFFIX);
+            boolean hasGroupCount = hasCountPref(GROUP_COUNT_KEY_SUFFIX);
+            boolean hasPinnedTabCount = hasCountPref(PINNED_TAB_COUNT_KEY_SUFFIX);
 
             int oldTabCount = getTabCount();
             int oldGroupCount = getGroupCount();
@@ -298,9 +318,15 @@ public class TabStoreMetricsService {
             recordGroupCount(authGroupCount);
             recordPinnedTabCount(authPinnedCount);
 
-            recordCountDelta(HISTOGRAM_TAB_COUNT, oldTabCount, authTabCount);
-            recordCountDelta(HISTOGRAM_GROUP_COUNT, oldGroupCount, authGroupCount);
-            recordCountDelta(HISTOGRAM_PINNED_TAB_COUNT, oldPinnedTabCount, authPinnedCount);
+            if (hasTabCount) {
+                recordCountDelta(HISTOGRAM_TAB_COUNT, oldTabCount, authTabCount);
+            }
+            if (hasGroupCount) {
+                recordCountDelta(HISTOGRAM_GROUP_COUNT, oldGroupCount, authGroupCount);
+            }
+            if (hasPinnedTabCount) {
+                recordCountDelta(HISTOGRAM_PINNED_TAB_COUNT, oldPinnedTabCount, authPinnedCount);
+            }
 
             int tabCountDelta =
                     (authNewTabData.size() + authFrozenData.size())
@@ -321,8 +347,11 @@ public class TabStoreMetricsService {
                         "Tabs.TabStateStore.TabCountDelta.Equal" + mOrchestratorTagSuffix, true);
             }
 
+            int filteredFallbackTabCount =
+                    calculateFilteredFallbackTabCount(
+                            regularFallbackTabs, shadowFrozenData, shadowNewTabData);
             RecordHistogram.recordCount1000Histogram(
-                    "Tabs.TabStateStore.RegularFallbackTabCount", fallbackTabCount);
+                    "Tabs.TabStateStore.RegularFallbackTabCount", filteredFallbackTabCount);
 
             SparseArray<TabCreationData> authoritativeDataMap =
                     new SparseArray<>(authFrozenData.size());
@@ -361,6 +390,50 @@ public class TabStoreMetricsService {
                                 + mOrchestratorTagSuffix,
                         -timeDelta);
             }
+        }
+
+        /**
+         * Calculates the number of fallback tabs from the authoritative store that are not present
+         * in the shadow store.
+         *
+         * @param regularFallbackTabs The map of tab IDs to URLs of regular fallback tabs.
+         * @param shadowFrozenData The frozen tabs restored by the shadow store.
+         * @param shadowNewTabData The new tabs created by the shadow store.
+         * @return The count of fallback tabs not found in the shadow store.
+         */
+        private int calculateFilteredFallbackTabCount(
+                Map<@TabId Integer, String> regularFallbackTabs,
+                List<CreateFrozenTabArguments> shadowFrozenData,
+                List<CreateNewTabArguments> shadowNewTabData) {
+            Set<@TabId Integer> shadowTabIds = new HashSet<>();
+            Set<String> shadowUrls = new HashSet<>();
+            for (CreateFrozenTabArguments arg : shadowFrozenData) {
+                shadowTabIds.add(arg.id);
+                if (arg.state.url != null) {
+                    String spec = arg.state.url.getSpec();
+                    if (spec.isEmpty()) {
+                        spec = arg.state.url.getPossiblyInvalidSpec();
+                    }
+                    if (!spec.isEmpty()) {
+                        shadowUrls.add(spec);
+                    }
+                }
+            }
+            for (CreateNewTabArguments arg : shadowNewTabData) {
+                shadowUrls.add(arg.loadUrlParams.getUrl());
+            }
+
+            int filteredFallbackTabCount = 0;
+            for (Map.Entry<@TabId Integer, String> entry : regularFallbackTabs.entrySet()) {
+                @TabId int tabId = entry.getKey();
+                String url = entry.getValue();
+                boolean presentInNewStore =
+                        shadowTabIds.contains(tabId) || shadowUrls.contains(url);
+                if (!presentInNewStore) {
+                    filteredFallbackTabCount++;
+                }
+            }
+            return filteredFallbackTabCount;
         }
     }
 }

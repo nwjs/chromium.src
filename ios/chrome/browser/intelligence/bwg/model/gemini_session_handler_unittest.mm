@@ -12,6 +12,7 @@
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_view_state_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
@@ -21,6 +22,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -100,6 +102,7 @@ class GeminiSessionHandlerTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   std::unique_ptr<TestProfileIOS> profile_;
   raw_ptr<feature_engagement::test::MockTracker> mock_tracker_;
   std::unique_ptr<Browser> browser_;
@@ -481,6 +484,20 @@ TEST_F(GeminiSessionHandlerTest, TestNewChatButtonResetsFlags) {
   histogram_tester_.ExpectBucketCount(
       kPromptSubmissionMethodHistogram,
       IOSGeminiFirstPromptSubmissionMethod::kText, 2);
+}
+
+// Tests that didTapNewChatButtonWithSessionID calls didTapNewChatButton on
+// geminiViewStateDelegate.
+TEST_F(GeminiSessionHandlerTest, TestNewChatButtonNotifiesViewStateDelegate) {
+  id mock_delegate = OCMProtocolMock(@protocol(GeminiViewStateDelegate));
+  session_handler_.geminiViewStateDelegate = mock_delegate;
+
+  OCMExpect([mock_delegate didTapNewChatButton]);
+
+  [session_handler_ didTapNewChatButtonWithSessionID:@"session_123"
+                                      conversationID:@"conv_123"];
+
+  [mock_delegate verify];
 }
 
 // Tests that didTapFeedbackButton records the correct metrics.

@@ -53,6 +53,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import androidx.annotation.DimenRes;
@@ -116,7 +117,6 @@ import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.LazyConstructionPropertyMcp;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.test.util.ViewUtils;
-import org.chromium.ui.widget.ChromeImageView;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
@@ -295,18 +295,12 @@ public class KeyboardAccessoryViewTest {
         assertNull(mKeyboardAccessoryView.poll());
 
         // After setting the visibility to true, the view should exist and be visible.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.set(VISIBLE, true);
-                });
+        ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
         assertEquals(View.VISIBLE, view.getVisibility());
 
         // After hiding the view, the view should still exist but be invisible.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.set(VISIBLE, false);
-                });
+        ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, false));
         assertNotEquals(view.getVisibility(), View.VISIBLE);
     }
 
@@ -315,10 +309,7 @@ public class KeyboardAccessoryViewTest {
     public void testAccessoryDimensions() throws InterruptedException {
         assertNull(mKeyboardAccessoryView.poll());
         // After setting the visibility to true, the view should exist and be visible.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.set(VISIBLE, true);
-                });
+        ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 
         LinearLayout barContents = view.findViewById(R.id.accessory_bar_contents);
@@ -337,10 +328,7 @@ public class KeyboardAccessoryViewTest {
         assertNull(mKeyboardAccessoryView.poll());
 
         // After setting the visibility to true, the view should exist and be visible.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.set(VISIBLE, true);
-                });
+        ThreadUtils.runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
         assertThat(mKeyboardAccessoryView.take().areClicksAllowedWhenObscured(), is(false));
     }
 
@@ -379,7 +367,7 @@ public class KeyboardAccessoryViewTest {
                                                 "Johnathan", result -> clickRecorded1.set(true)),
                                         createAutofillBarItem(
                                                 "Mark", result -> clickRecorded2.set(true)),
-                                        createSheetOpener()
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
                                     });
                 });
 
@@ -415,7 +403,7 @@ public class KeyboardAccessoryViewTest {
                                                         result -> {},
                                                         result -> clickRecorded.set(true)),
                                                 mMockProfile),
-                                        createSheetOpener()
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
                                     });
                 });
 
@@ -443,7 +431,9 @@ public class KeyboardAccessoryViewTest {
                     mModel.get(BAR_ITEMS)
                             .set(
                                     new BarItem[] {
-                                        generatePasswordItem, credmanItem, createSheetOpener()
+                                        generatePasswordItem,
+                                        credmanItem,
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
                                     });
                 });
 
@@ -473,7 +463,9 @@ public class KeyboardAccessoryViewTest {
                     mModel.get(BAR_ITEMS)
                             .set(
                                     new BarItem[] {
-                                        generatePasswordsItem, credmanItem, createSheetOpener()
+                                        generatePasswordsItem,
+                                        credmanItem,
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
                                     });
                 });
 
@@ -543,7 +535,11 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
 
         onViewWaiting(withText("Card Info Retrieval"));
@@ -585,7 +581,11 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
 
         onViewWaiting(withText("Johnathan"));
@@ -623,7 +623,11 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
 
         onViewWaiting(withText("Johnathan"));
@@ -663,7 +667,11 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
 
         onViewWaiting(withText("Johnathan"));
@@ -701,7 +709,11 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
 
         onViewWaiting(withText("Johnathan"));
@@ -776,7 +788,11 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {itemWithIph, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        itemWithIph, createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
 
         onViewWaiting(withText("Johnathan"));
@@ -804,27 +820,26 @@ public class KeyboardAccessoryViewTest {
         assertThat(obfuscatedChildAt.get(), is(-1));
 
         ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.get(BAR_ITEMS)
-                            .set(
-                                    new BarItem[] {
-                                        createAutofillBarItem(
-                                                "Item 1 - very long text to fill width", null),
-                                        createAutofillBarItem(
-                                                "Item 2 - very long text to fill width", null),
-                                        createAutofillBarItem(
-                                                "Item 3 - very long text to fill width", null),
-                                        createAutofillBarItem(
-                                                "Item 4 - very long text to fill width", null),
-                                        createAutofillBarItem(
-                                                "Item 5 - very long text to fill width", null),
-                                        createAutofillBarItem(
-                                                "Item 6 - very long text to fill width", null),
-                                        createAutofillBarItem(
-                                                "Item 7 - very long text to fill width", null),
-                                        createSheetOpener()
-                                    });
-                });
+                () ->
+                        mModel.get(BAR_ITEMS)
+                                .set(
+                                        new BarItem[] {
+                                            createAutofillBarItem(
+                                                    "Item 1 - very long text to fill width", null),
+                                            createAutofillBarItem(
+                                                    "Item 2 - very long text to fill width", null),
+                                            createAutofillBarItem(
+                                                    "Item 3 - very long text to fill width", null),
+                                            createAutofillBarItem(
+                                                    "Item 4 - very long text to fill width", null),
+                                            createAutofillBarItem(
+                                                    "Item 5 - very long text to fill width", null),
+                                            createAutofillBarItem(
+                                                    "Item 6 - very long text to fill width", null),
+                                            createAutofillBarItem(
+                                                    "Item 7 - very long text to fill width", null),
+                                            createSheetOpener(/* atMemoryEnabled= */ true)
+                                        }));
         onViewWaiting(withText("Item 1 - very long text to fill width"));
         CriteriaHelper.pollUiThread(() -> obfuscatedChildAt.get() > -1);
 
@@ -868,19 +883,19 @@ public class KeyboardAccessoryViewTest {
 
         // As soon as at least one item can't be displayed in full, trigger the swiping callback.
         ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.get(BAR_ITEMS)
-                            .set(
-                                    new BarItem[] {
-                                        createAutofillBarItem("JohnathanSmith", null),
-                                        createAutofillBarItem("TroyMcSpartanGregor", null),
-                                        createAutofillBarItem("SomeOtherRandomLongName", null),
-                                        createAutofillBarItem("ToddTester", null),
-                                        createAutofillBarItem("MayaPark", null),
-                                        createAutofillBarItem("ThisChipIsProbablyHiddenNow", null),
-                                        createSheetOpener()
-                                    });
-                });
+                () ->
+                        mModel.get(BAR_ITEMS)
+                                .set(
+                                        new BarItem[] {
+                                            createAutofillBarItem("JohnathanSmith", null),
+                                            createAutofillBarItem("TroyMcSpartanGregor", null),
+                                            createAutofillBarItem("SomeOtherRandomLongName", null),
+                                            createAutofillBarItem("ToddTester", null),
+                                            createAutofillBarItem("MayaPark", null),
+                                            createAutofillBarItem(
+                                                    "ThisChipIsProbablyHiddenNow", null),
+                                            createSheetOpener(/* atMemoryEnabled= */ true)
+                                        }));
         onViewWaiting(withText("JohnathanSmith"));
         CriteriaHelper.pollUiThread(() -> obfuscatedChildAt.get() > -1);
     }
@@ -907,7 +922,12 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {customIconItem, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        customIconItem,
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 
@@ -915,7 +935,7 @@ public class KeyboardAccessoryViewTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     ChipView chipView = (ChipView) view.mBarItemsView.getChildAt(0);
-                    ChromeImageView iconImageView = (ChromeImageView) chipView.getChildAt(0);
+                    ImageView iconImageView = (ImageView) chipView.getChildAt(0);
                     return ((BitmapDrawable) iconImageView.getDrawable())
                             .getBitmap()
                             .equals(TEST_CARD_ART_IMAGE);
@@ -943,7 +963,12 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {customIconItem, createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(
+                                    new BarItem[] {
+                                        customIconItem,
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 
@@ -951,7 +976,7 @@ public class KeyboardAccessoryViewTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     ChipView chipView = (ChipView) view.mBarItemsView.getChildAt(0);
-                    ChromeImageView iconImageView = (ChromeImageView) chipView.getChildAt(0);
+                    ImageView iconImageView = (ImageView) chipView.getChildAt(0);
                     Drawable expectedIcon =
                             mActivityTestRule.getActivity().getDrawable(R.drawable.visa_card);
                     return getBitmap(expectedIcon).sameAs(getBitmap(iconImageView.getDrawable()));
@@ -972,7 +997,11 @@ public class KeyboardAccessoryViewTest {
                 () -> {
                     mModel.set(VISIBLE, true);
                     mModel.get(BAR_ITEMS)
-                            .set(new BarItem[] {itemWithoutCustomIconUrl, createSheetOpener()});
+                            .set(
+                                    new BarItem[] {
+                                        itemWithoutCustomIconUrl,
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
+                                    });
                 });
         KeyboardAccessoryView view = mKeyboardAccessoryView.take();
 
@@ -980,7 +1009,7 @@ public class KeyboardAccessoryViewTest {
         CriteriaHelper.pollUiThread(
                 () -> {
                     ChipView chipView = (ChipView) view.mBarItemsView.getChildAt(0);
-                    ChromeImageView iconImageView = (ChromeImageView) chipView.getChildAt(0);
+                    ImageView iconImageView = (ImageView) chipView.getChildAt(0);
                     Drawable expectedIcon =
                             mActivityTestRule.getActivity().getDrawable(R.drawable.visa_card);
                     return getBitmap(expectedIcon).sameAs(getBitmap(iconImageView.getDrawable()));
@@ -1012,7 +1041,7 @@ public class KeyboardAccessoryViewTest {
                                                         result -> clickRecorded.set(true),
                                                         result -> clickRecorded.set(true)),
                                                 mMockProfile),
-                                        createSheetOpener()
+                                        createSheetOpener(/* atMemoryEnabled= */ true)
                                     });
                 });
 
@@ -1024,7 +1053,8 @@ public class KeyboardAccessoryViewTest {
     @Test
     @MediumTest
     public void testAccessoryButtonsHaveHoverBackground() throws InterruptedException {
-        KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
+        KeyboardAccessoryButtonGroupView buttonGroupView =
+                setupButtonsAndGetGroup(/* atMemoryEnabled= */ true);
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
         assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
@@ -1044,7 +1074,8 @@ public class KeyboardAccessoryViewTest {
     @Test
     @MediumTest
     public void testAccessoryButtonsHaveCorrectSizes() throws InterruptedException {
-        KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
+        KeyboardAccessoryButtonGroupView buttonGroupView =
+                setupButtonsAndGetGroup(/* atMemoryEnabled= */ true);
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
         assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
@@ -1071,7 +1102,8 @@ public class KeyboardAccessoryViewTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {createSheetOpener()});
+                    mModel.get(BAR_ITEMS)
+                            .set(new BarItem[] {createSheetOpener(/* atMemoryEnabled= */ true)});
                 });
 
         waitForHelpBubble(withText(R.string.iph_keyboard_accessory_at_memory));
@@ -1083,8 +1115,18 @@ public class KeyboardAccessoryViewTest {
 
     @Test
     @MediumTest
+    public void testAtMemoryButtonNotAddedWhenDisabled() throws InterruptedException {
+        KeyboardAccessoryButtonGroupView buttonGroupView =
+                setupButtonsAndGetGroup(/* atMemoryEnabled= */ false);
+        ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
+        assertEquals("Expected two buttons to be present.", 2, buttons.size());
+    }
+
+    @Test
+    @MediumTest
     public void testAlwaysAddsAtMemoryButton() throws InterruptedException {
-        KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
+        KeyboardAccessoryButtonGroupView buttonGroupView =
+                setupButtonsAndGetGroup(/* atMemoryEnabled= */ true);
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
         assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
@@ -1098,7 +1140,8 @@ public class KeyboardAccessoryViewTest {
     @Test
     @MediumTest
     public void testAccessoryButtonsEnabledState() throws InterruptedException {
-        KeyboardAccessoryButtonGroupView buttonGroupView = setupButtonsAndGetGroup();
+        KeyboardAccessoryButtonGroupView buttonGroupView =
+                setupButtonsAndGetGroup(/* atMemoryEnabled= */ true);
         ArrayList<ImageButton> buttons = buttonGroupView.getButtons();
         assertEquals("Expected three buttons to be present.", 3, buttons.size());
 
@@ -1218,11 +1261,8 @@ public class KeyboardAccessoryViewTest {
 
         ThreadUtils.runOnUiThreadBlocking(() -> view.setStyle(style));
 
-        int expectedMargin =
-                view.getResources()
-                        .getDimensionPixelSize(
-                                R.dimen
-                                        .keyboard_accessory_bar_dynamic_positioning_horizontal_margin);
+        int marginRes = R.dimen.keyboard_accessory_bar_dynamic_positioning_horizontal_margin;
+        int expectedMargin = view.getResources().getDimensionPixelSize(marginRes);
 
         CriteriaHelper.pollUiThread(() -> view.getTranslationX() == expectedMargin);
     }
@@ -1232,11 +1272,12 @@ public class KeyboardAccessoryViewTest {
      *
      * @return The {@link KeyboardAccessoryButtonGroupView} containing the buttons.
      */
-    private KeyboardAccessoryButtonGroupView setupButtonsAndGetGroup() throws InterruptedException {
+    private KeyboardAccessoryButtonGroupView setupButtonsAndGetGroup(boolean atMemoryEnabled)
+            throws InterruptedException {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mModel.set(VISIBLE, true);
-                    mModel.get(BAR_ITEMS).set(new BarItem[] {createSheetOpener()});
+                    mModel.get(BAR_ITEMS).set(new BarItem[] {createSheetOpener(atMemoryEnabled)});
                 });
 
         // Wait for the view and find the KeyboardAccessoryButtonGroupView.
@@ -1256,7 +1297,13 @@ public class KeyboardAccessoryViewTest {
         assertNotNull(buttonGroupView);
 
         // Wait for buttons to be added.
-        CriteriaHelper.pollUiThread(() -> buttonGroupView.getButtons().size() == 3);
+        int expectedSize = atMemoryEnabled ? 3 : 2;
+        CriteriaHelper.pollUiThread(
+                () ->
+                        Criteria.checkThat(
+                                "Actual size of buttons",
+                                buttonGroupView.getButtons().size(),
+                                is(expectedSize)));
 
         return buttonGroupView;
     }
@@ -1322,7 +1369,10 @@ public class KeyboardAccessoryViewTest {
     }
 
     private BarItem[] createAutofillChipAndTab(String label, Callback<Action> chipCallback) {
-        return new BarItem[] {createAutofillBarItem(label, chipCallback), createSheetOpener()};
+        return new BarItem[] {
+            createAutofillBarItem(label, chipCallback),
+            createSheetOpener(/* atMemoryEnabled= */ true)
+        };
     }
 
     private AutofillBarItem createAutofillBarItem(String label, Callback<Action> chipCallback) {
@@ -1338,17 +1388,17 @@ public class KeyboardAccessoryViewTest {
                 mMockProfile);
     }
 
-    private SheetOpenerBarItem createSheetOpener() {
+    private SheetOpenerBarItem createSheetOpener(boolean atMemoryEnabled) {
         return new SheetOpenerBarItem(
                 new KeyboardAccessoryButtonGroupCoordinator.SheetOpenerCallbacks() {
                     @Override
                     public void onViewBound(View buttons) {
                         KeyboardAccessoryButtonGroupView group =
                                 (KeyboardAccessoryButtonGroupView) buttons;
-                        if (group.getButtons().size() > 1) {
-                            return;
-                        }
+                        group.getButtons().clear();
+                        group.removeAllViews();
 
+                        group.setAtMemoryEnabled(atMemoryEnabled);
                         group.addAtMemoryButton();
                         group.addButton(R.drawable.ic_password_manager_key, "Key Icon", 0);
 

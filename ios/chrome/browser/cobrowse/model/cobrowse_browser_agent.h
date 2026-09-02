@@ -22,7 +22,7 @@ class CobrowseBrowserAgent : public BrowserUserData<CobrowseBrowserAgent>,
    public:
     virtual ~UIStateProvider() = default;
 
-    virtual bool IsTabGridVisible() = 0;
+    virtual bool IsAssistantHiddenByUIState(web::WebState* web_state) = 0;
   };
 
   ~CobrowseBrowserAgent() override;
@@ -38,8 +38,12 @@ class CobrowseBrowserAgent : public BrowserUserData<CobrowseBrowserAgent>,
   void ConfigureAssistantContextForWebState(web::WebState* web_state) override;
   bool IsSessionActive() override;
   void SetSessionActive(bool active) override;
-  bool IsTabGridVisible() override;
+  bool ShouldHideAssistantForWebState(web::WebState* web_state) override;
   void SetCobrowseContext(CobrowseContext* context) override;
+  bool IsWebStateActive(web::WebState* web_state) override;
+
+  // Terminates the cobrowse session and hides the assistant.
+  void TerminateSession();
 
   // TabsDependencyInstaller:
   void OnWebStateInserted(web::WebState* web_state) override;
@@ -67,6 +71,14 @@ class CobrowseBrowserAgent : public BrowserUserData<CobrowseBrowserAgent>,
 
   // Called when eligibility changes.
   void OnEligibilityChanged();
+
+  // Returns true if the incoming context update should be accepted.
+  // Explicitly rejects contexts originating from an empty query navigation
+  // (e.g. q=&) which occur due to an upstream bug. Only reject if there
+  // are no attached items and no server session tokens, as a user could
+  // legitimately send an empty text query with an attachment or valid session
+  // tokens.
+  bool ShouldAcceptContextUpdate(CobrowseContext* context) const;
 };
 
 #endif  // IOS_CHROME_BROWSER_COBROWSE_MODEL_COBROWSE_BROWSER_AGENT_H_

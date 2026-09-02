@@ -7,6 +7,7 @@
 #include "base/functional/callback.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/context_sharing/tab_bottom_sheet/android/co_browse_views_bridge.h"
+#include "chrome/browser/glic/actor/glic_actor_task_manager.h"
 #include "chrome/browser/glic/browser_ui/glic_toast.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_instance.h"
@@ -27,6 +28,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/tabs/public/tab_interface.h"
 #include "third_party/jni_zero/jni_zero.h"
+#include "ui/base/l10n/l10n_util.h"
 
 // Must come after headers that provide symbols used by @JniType.
 #include "chrome/browser/glic/android/jni_headers/GlicSidePanelComponentProvider_jni.h"
@@ -49,6 +51,9 @@ std::unique_ptr<GlicToast> MaybeShowResizeToast(
   if (auto* instance =
           glic_service->instance_coordinator().GetInstanceForTab(tab)) {
     is_actuating = instance->IsActuating();
+    if (auto* task_manager = instance->GetActorTaskManager()) {
+      task_manager->PauseTask();
+    }
   }
 
   int title_res_id =
@@ -108,6 +113,8 @@ void GlicSidePanelCoordinatorDesktopAndroid::CreateAndRegisterEntry() {
       base::BindRepeating(
           &GlicSidePanelCoordinatorDesktopAndroid::GetPreferredWidth,
           base::Unretained(this)));
+  entry->SetProperty(kSidePanelTitleKey,
+                     l10n_util::GetStringUTF16(IDS_GLIC_WINDOW_TITLE));
   entry->set_should_show_header(false);
   entry->set_should_show_ephemerally_in_toolbar(false);
   entry->AddObserver(this);

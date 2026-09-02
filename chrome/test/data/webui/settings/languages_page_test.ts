@@ -6,18 +6,17 @@
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import type {LanguageHelper, SettingsAddLanguagesDialogElement, SettingsLanguagesPageElement} from 'chrome://settings/lazy_load.js';
+import type {CrCheckboxElement, LanguageHelper, SettingsAddLanguagesDialogElement, SettingsLanguagesPageElement} from 'chrome://settings/lazy_load.js';
 import {LanguagesBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
-import type {SettingsCheckboxListEntryElement, CrActionMenuElement, CrButtonElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, loadTimeData, convertLanguageCodeForTranslate} from 'chrome://settings/settings.js';
-import {assertEquals, assertFalse, assertGE, assertGT, assertLT, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {FakeSettingsPrivate} from 'chrome://webui-test/fake_settings_private.js';
-import {eventToPromise} from 'chrome://webui-test/test_util.js';
+import type {CrActionMenuElement, CrButtonElement} from 'chrome://settings/settings.js';
+import {CrSettingsPrefs, loadTimeData, convertLanguageCodeForTranslate, PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
+import {assertEquals, assertFalse, assertGE, assertGT, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 import {fakeDataBind} from 'chrome://webui-test/polymer_test_util.js';
 
-import type {FakeLanguageSettingsPrivate} from './fake_language_settings_private.js';
 import {getFakeLanguagePrefs} from './fake_language_settings_private.js';
 import {TestLanguagesBrowserProxy} from './test_languages_browser_proxy.js';
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 
 // clang-format on
 
@@ -50,31 +49,20 @@ suite('LanguagesPage', function() {
 
   setup(async function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    const settingsPrefs = document.createElement('settings-prefs');
-    const settingsPrivate = new FakeSettingsPrivate(getFakeLanguagePrefs());
-    settingsPrefs.initialize(settingsPrivate);
-    document.body.appendChild(settingsPrefs);
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getFakeLanguagePrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await PrefService.getInstance().whenInitialized();
 
-    await CrSettingsPrefs.initialized;
     // Set up test browser proxy.
     browserProxy = new TestLanguagesBrowserProxy();
     LanguagesBrowserProxyImpl.setInstance(browserProxy);
 
-    // Set up fake languageSettingsPrivate API.
-    const languageSettingsPrivate = browserProxy.getLanguageSettingsPrivate() as
-        unknown as FakeLanguageSettingsPrivate;
-    languageSettingsPrivate.setSettingsPrefs(settingsPrefs);
-
     const settingsLanguages = document.createElement('settings-languages');
-    settingsLanguages.prefs = settingsPrefs.prefs!;
-    fakeDataBind(settingsPrefs, settingsLanguages, 'prefs');
     document.body.appendChild(settingsLanguages);
     languageHelper = settingsLanguages;
 
     languagesPage = document.createElement('settings-languages-page');
-
-    languagesPage.prefs = settingsPrefs.prefs!;
-    fakeDataBind(settingsPrefs, languagesPage, 'prefs');
 
     languagesPage.languages = settingsLanguages.languages;
     fakeDataBind(settingsLanguages, languagesPage, 'languages');
@@ -88,7 +76,7 @@ suite('LanguagesPage', function() {
 
   suite('AddLanguagesDialog', function() {
     let dialog: SettingsAddLanguagesDialogElement;
-    let dialogItems: NodeListOf<SettingsCheckboxListEntryElement>;
+    let dialogItems: NodeListOf<CrCheckboxElement>;
     let addLanguagesButton: CrButtonElement;
     let cancelButton: CrButtonElement;
     let actionButton: CrButtonElement;
@@ -124,7 +112,7 @@ suite('LanguagesPage', function() {
       addLanguagesButton.click();
 
       // The page stamps the dialog, registers listeners, and populates the
-      // iron-list asynchronously at microtask timing, so wait for a new task.
+      // DOM asynchronously at microtask timing, so wait for a new task.
       await whenDialogOpen;
 
       dialog = languagesPage.shadowRoot!.querySelector(
@@ -140,20 +128,16 @@ suite('LanguagesPage', function() {
           {childList: true});
 
       actionButton =
-          dialog.shadowRoot!.querySelector<CrButtonElement>('.action-button')!;
+          dialog.shadowRoot.querySelector<CrButtonElement>('.action-button')!;
       assertTrue(!!actionButton);
       cancelButton =
-          dialog.shadowRoot!.querySelector<CrButtonElement>('.cancel-button')!;
+          dialog.shadowRoot.querySelector<CrButtonElement>('.cancel-button')!;
       assertTrue(!!cancelButton);
       flush();
 
-      // The fixed-height dialog's iron-list should stamp far fewer than
-      // 50 items.
-      dialogItems =
-          dialog.$.dialog.querySelectorAll<SettingsCheckboxListEntryElement>(
-              'settings-checkbox-list-entry:not([hidden])');
+      dialogItems = dialog.$.dialog.querySelectorAll<CrCheckboxElement>(
+          'cr-checkbox:not([hidden])');
       assertGT(dialogItems.length, 1);
-      assertLT(dialogItems.length, 50);
 
       // No languages have been checked, so the action button is disabled.
       assertTrue(actionButton.disabled);
@@ -182,9 +166,9 @@ suite('LanguagesPage', function() {
     test('add languages and cancel', async function() {
       // Check some languages.
       dialogItems[1]!.click();  // en-CA.
-      await dialogItems[1]!.$.checkbox.updateComplete;
+      await microtasksFinished();
       dialogItems[2]!.click();  // tk.
-      await dialogItems[2]!.$.checkbox.updateComplete;
+      await microtasksFinished();
 
       // Canceling the dialog should close and remove it without enabling
       // the checked languages.
@@ -192,7 +176,7 @@ suite('LanguagesPage', function() {
       await dialogClosedResolver.promise;
       assertEquals(
           initialLanguages,
-          languagesPage.getPref('intl.accept_languages').value);
+          PrefService.getInstance().getPref('intl.accept_languages').value);
     });
 
     test('add languages and confirm', async function() {
@@ -206,17 +190,17 @@ suite('LanguagesPage', function() {
 
       // Check and uncheck one language.
       dialogItems[0]!.click();
-      await dialogItems[0]!.$.checkbox.updateComplete;
+      await microtasksFinished();
       assertFalse(actionButton.disabled);
       dialogItems[0]!.click();
-      await dialogItems[0]!.$.checkbox.updateComplete;
+      await microtasksFinished();
       assertTrue(actionButton.disabled);
 
       // Check multiple languages.
       dialogItems[0]!.click();  // en.
-      await dialogItems[0]!.$.checkbox.updateComplete;
+      await microtasksFinished();
       dialogItems[2]!.click();  // tk.
-      await dialogItems[2]!.$.checkbox.updateComplete;
+      await microtasksFinished();
       assertFalse(actionButton.disabled);
 
       // The action button should close and remove the dialog, enabling the
@@ -225,20 +209,19 @@ suite('LanguagesPage', function() {
 
       assertEquals(
           initialLanguages + ',en,tk',
-          languagesPage.getPref('intl.accept_languages').value);
+          PrefService.getInstance().getPref('intl.accept_languages').value);
 
       return dialogClosedResolver.promise;
     });
 
     // Test that searching languages works whether the displayed or native
     // language name is queried.
-    test('search languages', function() {
-      const searchInput = dialog.shadowRoot!.querySelector('cr-search-field');
+    test('search languages', async function() {
+      const searchInput = dialog.shadowRoot.querySelector('cr-search-field');
       assertTrue(!!searchInput);
 
       const getItems = function() {
-        return dialog.$.dialog.querySelectorAll(
-            'settings-checkbox-list-entry:not([hidden])');
+        return dialog.$.dialog.querySelectorAll('cr-checkbox:not([hidden])');
       };
 
       // Expecting a few languages to be displayed when no query exists.
@@ -246,27 +229,32 @@ suite('LanguagesPage', function() {
 
       // Issue query that matches the |displayedName|.
       searchInput.setValue('greek');
-      flush();
+      await microtasksFinished();
       assertEquals(1, getItems().length);
 
       // Issue query that matches the |nativeDisplayedName|.
       searchInput.setValue('Ελληνικά');
-      flush();
+      await microtasksFinished();
       assertEquals(1, getItems().length);
 
       // Issue query that does not match any language.
       searchInput.setValue('egaugnal');
-      flush();
+      await microtasksFinished();
       assertEquals(0, getItems().length);
 
       // Issue query that should never match any language.
       searchInput.setValue('_arc_ime_language_');
-      flush();
+      await microtasksFinished();
       assertEquals(0, getItems().length);
     });
 
+    test('AddLanguagesDialogFocusgroup', function() {
+      const list = dialog.shadowRoot.querySelector('#list')!;
+      assertEquals('listbox block', list.getAttribute('focusgroup'));
+    });
+
     test('Escape key behavior', function() {
-      const searchInput = dialog.shadowRoot!.querySelector('cr-search-field');
+      const searchInput = dialog.shadowRoot.querySelector('cr-search-field');
       assertTrue(!!searchInput);
       searchInput.setValue('dummyquery');
 
@@ -373,7 +361,7 @@ suite('LanguagesPage', function() {
 
       assertEquals(
           initialLanguages,
-          languagesPage.getPref('intl.accept_languages').value);
+          PrefService.getInstance().getPref('intl.accept_languages').value);
     });
 
     test('remove language when starting with 2 languages', function() {
@@ -399,7 +387,8 @@ suite('LanguagesPage', function() {
       assertFalse(actionMenu.open);
 
       assertEquals(
-          'en-US', languagesPage.getPref('intl.accept_languages').value);
+          'en-US',
+          PrefService.getInstance().getPref('intl.accept_languages').value);
     });
 
     test('move up/down buttons', function() {

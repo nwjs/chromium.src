@@ -132,8 +132,6 @@ class CORE_EXPORT SVGImage final : public Image {
   // in that document.
   void UpdateUseCountersAfterLoad(const Document&) const;
 
-  void MaybeRecordSvgImageProcessingTime(const Document&);
-
   PaintImage PaintImageForCurrentFrame() override;
 
   void SetPreferredColorScheme(
@@ -285,9 +283,6 @@ class CORE_EXPORT SVGImage final : public Image {
   bool has_pending_timeline_rewind_;
   mutable AnimationState animation_state_ = AnimationState::kUnknown;
 
-  int data_change_count_ = 0;
-  base::TimeDelta data_change_elapsed_time_;
-
   bool did_encounter_xsl_ = false;
 
   base::WeakPtrFactory<SVGImage> weak_ptr_factory_{this};
@@ -307,6 +302,9 @@ class CORE_EXPORT SVGImage final : public Image {
   FRIEND_TEST_ALL_PREFIXES(
       SVGImageTest,
       ResetAnimationRestoresPlaybackForFinishedFiniteCssAnimation);
+  FRIEND_TEST_ALL_PREFIXES(SVGImageTest,
+                           ContainerScaleChangeNoLayoutWithoutNSS);
+  FRIEND_TEST_ALL_PREFIXES(SVGImageTest, ContainerScaleChangeLayoutWithNSS);
   FRIEND_TEST_ALL_PREFIXES(SVGImageSimTest,
                            CachedFiniteCssAnimationResetWhileDetached);
 };

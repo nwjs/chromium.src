@@ -6,8 +6,12 @@ package org.chromium.chrome.browser.bookmarks;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.matcher.ViewMatchers.isDescendantOfA;
+import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -51,7 +55,7 @@ import org.chromium.chrome.test.util.MenuUtils;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.browser_ui.widget.RecyclerViewTestUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
-import org.chromium.ui.accessibility.AccessibilityState;
+import org.chromium.ui.accessibility.AccessibilityStateTestHelper;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.url.GURL;
 
@@ -126,7 +130,8 @@ public class BookmarkOpenerTest {
 
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    AccessibilityState.setIsAnyAccessibilityServiceEnabledForTesting(false);
+                    AccessibilityStateTestHelper.setIsAnyAccessibilityServiceEnabledForTesting(
+                            false);
                     mBookmarkOpener = mBookmarkManagerCoordinator.getBookmarkOpenerForTesting();
                 });
     }
@@ -141,14 +146,22 @@ public class BookmarkOpenerTest {
         openRootFolder();
 
         // Mobile bookmarks is merged into all bookmarks when improved bookmark is enabled.
-        onView(withText("Mobile bookmarks")).perform(click());
+        onView(
+                        allOf(
+                                withText(startsWith("Mobile bookmarks")),
+                                isDescendantOfA(withId(R.id.selectable_list_recycler_view))))
+                .perform(click());
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
     void openReadingList() {
         openRootFolder();
 
-        onView(withText("Reading list")).perform(click());
+        onView(
+                        allOf(
+                                withText(startsWith("Reading list")),
+                                isDescendantOfA(withId(R.id.selectable_list_recycler_view))))
+                .perform(click());
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 

@@ -95,6 +95,7 @@ static_library("app_restore") {
     "//chrome/browser/notifications",
     "//chrome/browser/prefs:util",
     "//chrome/browser/profiles:profile_io_data",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui/startup:startup_tab",
@@ -137,7 +138,6 @@ static_library("app_restore") {
   ]
 
   allow_circular_includes_from = [
-    "//chrome/browser/ash/arc/session",
     "//chrome/browser/ash/arc/window_predictor",
     "//chrome/browser/ash/login/session",
     "//chrome/browser/ash/policy/scheduled_task_handler",

@@ -116,6 +116,14 @@ void TabStateStorageServiceAndroid::Save(JNIEnv* env, TabAndroid* tab) {
   tab_state_storage_service_->Save(tab);
 }
 
+void TabStateStorageServiceAndroid::SaveWithMetadata(
+    JNIEnv* env,
+    const std::string& window_tag,
+    bool is_off_the_record,
+    TabAndroid* tab) {
+  tab_state_storage_service_->Save(window_tag, is_off_the_record, tab);
+}
+
 void TabStateStorageServiceAndroid::LoadAllData(
     JNIEnv* env,
     const std::string& window_tag,

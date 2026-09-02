@@ -15,6 +15,7 @@
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/flags/android/chrome_session_state.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
+#include "components/split_tabs/split_tab_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -119,6 +120,8 @@ class TestTabModel : public TabModel {
   gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
   std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) override;
+  std::optional<split_tabs::SplitTabId> CreateSplit(
+      const std::vector<tabs::TabHandle>& tabs) override;
   void SetTabGroupVisualData(
       tab_groups::TabGroupId group_id,
       const tab_groups::TabGroupVisualData& visual_data) override;
@@ -126,6 +129,7 @@ class TestTabModel : public TabModel {
       std::optional<tab_groups::TabGroupId> group_id,
       const std::set<tabs::TabHandle>& tabs) override;
   void Ungroup(const std::set<tabs::TabHandle>& tabs) override;
+  void Unsplit(split_tabs::SplitTabId split_id) override;
   void MoveGroupTo(tab_groups::TabGroupId group_id, int index) override;
   void MoveTabToWindow(tabs::TabHandle tab,
                        SessionID destination_window_id,
@@ -186,6 +190,7 @@ class OwningTestTabModel : public TabModel {
   void SetActiveIndex(int index) override;
   void ForceCloseAllTabs() override;
   void CloseTabAt(int index) override;
+  void CloseTabsAt(const std::vector<int>& indices);
   std::unique_ptr<content::WebContents> DetachWebContents(
       tabs::TabHandle tab) override;
   tabs::TabInterface* CreateTab(
@@ -264,6 +269,8 @@ class OwningTestTabModel : public TabModel {
   gfx::Range GetTabGroupTabIndices(tab_groups::TabGroupId group_id) override;
   std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) override;
+  std::optional<split_tabs::SplitTabId> CreateSplit(
+      const std::vector<tabs::TabHandle>& tabs) override;
   void SetTabGroupVisualData(
       tab_groups::TabGroupId group_id,
       const tab_groups::TabGroupVisualData& visual_data) override;
@@ -271,6 +278,7 @@ class OwningTestTabModel : public TabModel {
       std::optional<tab_groups::TabGroupId> group_id,
       const std::set<tabs::TabHandle>& tabs) override;
   void Ungroup(const std::set<tabs::TabHandle>& tabs) override;
+  void Unsplit(split_tabs::SplitTabId split_id) override;
   void MoveGroupTo(tab_groups::TabGroupId group_id, int index) override;
   void MoveTabToWindow(tabs::TabHandle tab,
                        SessionID destination_window_id,

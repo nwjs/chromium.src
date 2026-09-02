@@ -14,16 +14,13 @@
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
-#include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble.h"
+#include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller_delegate.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager_factory.h"
+#include "chrome/browser/glic/browser_ui/glic_split_button_controller.h"
+#include "chrome/browser/glic/browser_ui/glic_split_button_delegate.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
-#include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
-#include "chrome/browser/ui/views/tabs/tab_strip_action_container.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_glic_actor_task_icon.h"
-#include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/common/chrome_features.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -31,8 +28,10 @@
 DEFINE_USER_DATA(ActorTaskListBubbleController);
 
 ActorTaskListBubbleController::ActorTaskListBubbleController(
-    BrowserWindowInterface* browser_window)
+    BrowserWindowInterface* browser_window,
+    glic::GlicSplitButtonController& split_button_controller)
     : browser_(browser_window),
+      split_button_controller_(split_button_controller),
       scoped_unowned_user_data_(browser_window->GetUnownedUserDataHost(),
                                 *this) {
   CHECK(base::FeatureList::IsEnabled(features::kGlicActor));
@@ -47,10 +46,8 @@ ActorTaskListBubbleController::ActorTaskListBubbleController(
 
 ActorTaskListBubbleController::~ActorTaskListBubbleController() = default;
 
-void ActorTaskListBubbleController::ShowBubble(views::View* anchor_view,
-                                               bool is_start_notification) {
-  const bool is_icon_hidden = anchor_view && !anchor_view->GetVisible();
-  const bool should_delay = is_icon_hidden && is_start_notification &&
+void ActorTaskListBubbleController::ShowBubble(bool is_start_notification) {
+  const bool should_delay = !IsBubbleShowing() && is_start_notification &&
                             base::FeatureList::IsEnabled(
                                 features::kGlicActorUiTaskListBubbleDelayShow);
 
@@ -58,16 +55,30 @@ void ActorTaskListBubbleController::ShowBubble(views::View* anchor_view,
     base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
         FROM_HERE,
         base::BindOnce(&ActorTaskListBubbleController::ShowBubbleImpl,
-                       weak_ptr_factory_.GetWeakPtr(), anchor_view,
-                       is_start_notification),
+                       weak_ptr_factory_.GetWeakPtr(), is_start_notification),
         base::Milliseconds(features::kGlicActorUiTaskListBubbleDelayMs.Get()));
   } else {
-    ShowBubbleImpl(anchor_view, is_start_notification);
+    ShowBubbleImpl(is_start_notification);
   }
 }
 
-void ActorTaskListBubbleController::ShowBubbleImpl(views::View* anchor_view,
-                                                   bool is_start_notification) {
+void ActorTaskListBubbleController::CloseBubble() {
+  if (auto* delegate = split_button_controller_->GetActiveDelegate()) {
+    delegate->CloseActorTaskListBubble();
+  }
+}
+
+bool ActorTaskListBubbleController::IsBubbleShowing() const {
+  auto* delegate = GetActiveDelegate();
+  return delegate && delegate->IsActorTaskListBubbleShowing();
+}
+
+void ActorTaskListBubbleController::ShowBubbleImpl(bool is_start_notification) {
+  auto* delegate = GetActiveDelegate();
+  if (!delegate) {
+    return;
+  }
+
   auto* manager = glic::GlicActorTaskIconManagerFactory::GetForProfile(
       browser_->GetProfile());
   DCHECK(manager);
@@ -91,60 +102,30 @@ void ActorTaskListBubbleController::ShowBubbleImpl(views::View* anchor_view,
     return;
   }
   // Close any existing bubble widget to avoid stacking multiple bubble windows.
-  if (bubble_widget_) {
-    bubble_widget_->Close();
-    bubble_widget_ = nullptr;
-    widget_observation_.Reset();
-  }
-  bubble_widget_ = ActorTaskListBubble::ShowBubble(
-      browser_->GetProfile(), anchor_view, task_id_to_state,
-      base::BindRepeating(&ActorTaskListBubbleController::OnTaskRowClicked,
-                          weak_ptr_factory_.GetWeakPtr()));
+  split_button_controller_->CallOnBoth(
+      base::BindRepeating([](glic::GlicSplitButtonDelegate& delegate) {
+        delegate.CloseActorTaskListBubble();
+      }));
+  delegate->ShowActorTaskListBubble();
 
   // All rows may be skipped, in which case the bubble will not be shown.
-  if (!bubble_widget_) {
-    return;
+  if (delegate->IsActorTaskListBubbleShowing()) {
+    on_bubble_shown_callback_list.Notify();
   }
-
-  if (widget_observation_.IsObserving()) {
-    widget_observation_.Reset();
-  }
-  widget_observation_.Observe(bubble_widget_);
-
-  actor::ui::RecordTaskListBubbleRows(task_id_to_state.size());
-
-  on_bubble_shown_callback_list.Notify();
 }
 
 void ActorTaskListBubbleController::OnStateUpdate(bool is_start_notification) {
-  if (auto* browser_view = BrowserElementsViews::From(browser_)) {
-    auto* vertical_tab_strip_state_controller =
-        tabs::VerticalTabStripStateController::From(browser_);
-    if (vertical_tab_strip_state_controller->ShouldDisplayVerticalTabs()) {
-      ToolbarView* toolbar_view =
-          browser_view->GetViewAs<ToolbarView>(ToolbarView::kToolbarElementId);
-      if (toolbar_view && (toolbar_view->GetIsShowingGlicActorTaskIconNudge() ||
-                           is_start_notification)) {
-        ShowBubble(toolbar_view->glic_actor_task_icon(), is_start_notification);
-      }
-    } else {
-      TabStripActionContainer* tab_strip_action_container =
-          browser_view->GetViewAs<TabStripActionContainer>(
-              kTabStripActionContainerElementId);
-      if (tab_strip_action_container &&
-          (tab_strip_action_container->GetIsShowingGlicActorTaskIconNudge() ||
-           is_start_notification)) {
-        ShowBubble(tab_strip_action_container->glic_actor_task_icon(),
-                   is_start_notification);
-      }
-    }
+  auto* delegate = GetActiveDelegate();
+  if (!delegate) {
+    return;
+  }
+
+  if (delegate->IsActorTaskListBubbleShowing() || is_start_notification) {
+    ShowBubble(is_start_notification);
   }
 }
 
-void ActorTaskListBubbleController::OnWidgetDestroyed(views::Widget* widget) {
-  bubble_widget_ = nullptr;
-  widget_observation_.Reset();
-
+void ActorTaskListBubbleController::OnBubbleDestroyed() {
   on_bubble_destroyed_callback_list.Notify();
 }
 
@@ -167,11 +148,8 @@ void ActorTaskListBubbleController::OnTaskRowClicked(actor::TaskId task_id) {
   if (auto last_tab_opt = manager->GetLastActedOnTab(task_id);
       last_tab_opt && *last_tab_opt) {
     tabs::TabInterface* last_tab = *last_tab_opt;
-    int tab_index = last_tab->GetBrowserWindowInterface()
-                        ->GetTabStripModel()
-                        ->GetIndexOfTab(last_tab);
-    last_tab->GetBrowserWindowInterface()->GetTabStripModel()->ActivateTabAt(
-        tab_index);
+    TabListInterface::From(last_tab->GetBrowserWindowInterface())
+        ->ActivateTab(last_tab->GetHandle());
     // Activate the window that the tab is in as it may not be the current one.
     last_tab->GetBrowserWindowInterface()->GetWindow()->Activate();
     if (auto* glic_service =
@@ -188,10 +166,13 @@ void ActorTaskListBubbleController::OnTaskRowClicked(actor::TaskId task_id) {
   auto* icon_manager =
       glic::GlicActorTaskIconManagerFactory::GetForProfile(profile);
   icon_manager->ProcessRowInTaskListBubble(task_id);
-  if (bubble_widget_) {
-    bubble_widget_->Close();
-  }
+  CloseBubble();
   actor::ui::LogTaskListBubbleRowClicked();
+}
+
+ActorTaskListBubbleControllerDelegate*
+ActorTaskListBubbleController::GetActiveDelegate() const {
+  return split_button_controller_->GetActiveDelegate();
 }
 
 // static

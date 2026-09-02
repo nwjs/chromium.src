@@ -34,6 +34,8 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -42,13 +44,18 @@ import org.robolectric.annotation.Config;
 
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.FakeTimeTestRule;
+import org.chromium.base.FeatureOverrides;
+import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.cc.input.BrowserControlsState;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
+import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.composeplate.ComposeplateCoordinator;
 import org.chromium.chrome.browser.composeplate.ComposeplateUtils;
 import org.chromium.chrome.browser.composeplate.ComposeplateUtilsJni;
@@ -57,8 +64,11 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.logo.LogoCoordinator;
+import org.chromium.chrome.browser.logo.LogoUtils;
 import org.chromium.chrome.browser.magic_stack.ModuleRegistry;
+import org.chromium.chrome.browser.ntp.NewTabPage.NtpScrollListener;
 import org.chromium.chrome.browser.ntp.search.SearchBoxCoordinator;
+import org.chromium.chrome.browser.ntp_customization.NtpCustomizationConfigManager;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinator;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationCoordinatorFactory;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
@@ -67,6 +77,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.segmentation_platform.client_util.HomeModulesRankingHelper;
 import org.chromium.chrome.browser.segmentation_platform.client_util.HomeModulesRankingHelperJni;
+import org.chromium.chrome.browser.signin.services.AccountPreviewDataService;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.SigninManager;
 import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesCoordinator;
@@ -84,7 +95,10 @@ import org.chromium.chrome.test.util.browser.offlinepages.FakeOfflinePageBridge;
 import org.chromium.chrome.test.util.browser.suggestions.SuggestionsDependenciesRule;
 import org.chromium.chrome.test.util.browser.suggestions.mostvisited.FakeMostVisitedSites;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserver;
+import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
+import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.signin.SigninFeatures;
 import org.chromium.components.signin.identitymanager.IdentityManager;
@@ -138,6 +152,7 @@ public class NewTabPageCoordinatorUnitTest {
     @Mock private TemplateUrlService mTemplateUrlService;
     @Mock private IdentityManager mIdentityManager;
     @Mock private SigninManager mSigninManager;
+    @Mock private AccountPreviewDataService mAccountPreviewDataService;
     @Mock private SyncService mSyncService;
     @Mock private BackPressManager mBackPressManager;
     @Mock private SearchBoxCoordinator mMockSearchBox;
@@ -147,10 +162,12 @@ public class NewTabPageCoordinatorUnitTest {
     @Mock private View mMockSearchBoxView;
     @Mock private BrowserControlsVisibilityManager mBrowserControlsVisibilityManager;
     @Mock private RecyclerView mRecyclerView;
+    @Captor private ArgumentCaptor<DisplayStyleObserver> mDisplayStyleObserverCaptor;
 
     private Activity mActivity;
     private NewTabPageLayout mNewTabPageLayout;
     private NewTabPageCoordinator mCoordinator;
+    private BrowserStateBrowserControlsVisibilityDelegate mVisibilityDelegate;
     private final OneshotSupplierImpl<ModuleRegistry> mModuleRegistrySupplier =
             new OneshotSupplierImpl<>();
 
@@ -167,6 +184,7 @@ public class NewTabPageCoordinatorUnitTest {
         SyncServiceFactory.setInstanceForTesting(mSyncService);
         IdentityServicesProvider.setIdentityManagerForTesting(mIdentityManager);
         IdentityServicesProvider.setSigninManagerForTesting(mSigninManager);
+        IdentityServicesProvider.setAccountPreviewDataServiceForTesting(mAccountPreviewDataService);
 
         // Setup for the composeplate buttons.
         ComposeplateUtilsJni.setInstanceForTesting(mMockComposeplateUtilsJni);
@@ -189,6 +207,17 @@ public class NewTabPageCoordinatorUnitTest {
         when(mTab.getProfile()).thenReturn(mProfile);
         when(mProfile.isOffTheRecord()).thenReturn(false);
         TemplateUrlServiceFactory.setInstanceForTesting(mTemplateUrlService);
+        when(mUiConfig.getCurrentDisplayStyle())
+                .thenReturn(
+                        new UiConfig.DisplayStyle(
+                                HorizontalDisplayStyle.REGULAR, VerticalDisplayStyle.REGULAR));
+
+        mVisibilityDelegate =
+                new BrowserStateBrowserControlsVisibilityDelegate(
+                        ObservableSuppliers.alwaysFalse());
+        when(mBrowserControlsVisibilityManager.getBrowserVisibilityDelegate())
+                .thenReturn(mVisibilityDelegate);
+        when(mBrowserControlsVisibilityManager.getBottomControlsHeight()).thenReturn(100);
 
         createCoordinator();
     }
@@ -395,6 +424,10 @@ public class NewTabPageCoordinatorUnitTest {
     }
 
     private void createCoordinator() {
+        createCoordinator(/* isLff= */ false);
+    }
+
+    private void createCoordinator(boolean isLff) {
         mNewTabPageLayout =
                 (NewTabPageLayout)
                         LayoutInflater.from(mActivity)
@@ -414,7 +447,7 @@ public class NewTabPageCoordinatorUnitTest {
                         mBottomSheetController,
                         mModalDialogManager,
                         mSnackbarManager,
-                        /* isLff= */ false,
+                        isLff,
                         mTabStripHeightSupplier,
                         new OneshotSupplierImpl<>(),
                         mHomeSurfaceTracker,
@@ -457,7 +490,21 @@ public class NewTabPageCoordinatorUnitTest {
 
         View composeplateView = layout.findViewById(R.id.composeplate_view);
         assertNotNull(composeplateView);
-        assertEquals(expectedBoundedWidth, composeplateView.getLayoutParams().width);
+        int expectedComposeplateWidth = expectedBoundedWidth;
+        if (NewTabPageUtils.isNtpAuroraButtonColorEnabled()) {
+            int margin =
+                    mActivity
+                            .getResources()
+                            .getDimensionPixelSize(R.dimen.composeplate_view_lateral_margin);
+            expectedComposeplateWidth -= margin * 2;
+        } else if (NewTabPageUtils.isNtpAuroraEnabled()) {
+            int paddingForShadow =
+                    mActivity
+                            .getResources()
+                            .getDimensionPixelSize(R.dimen.search_box_padding_for_shadow_lateral);
+            expectedComposeplateWidth -= paddingForShadow * 2;
+        }
+        assertEquals(expectedComposeplateWidth, composeplateView.getLayoutParams().width);
 
         View logoView = layout.findViewById(R.id.logo_container_view);
         assertNotNull(logoView);
@@ -710,12 +757,10 @@ public class NewTabPageCoordinatorUnitTest {
 
     @Test
     public void testNtpScrollListener_hidesControls_whenNotLoading() {
-        when(mBrowserControlsVisibilityManager.getBottomControlsHeight()).thenReturn(100);
         when(mTab.isLoading()).thenReturn(false);
 
-        NewTabPage.NtpScrollListener listener =
-                new NewTabPage.NtpScrollListener(
-                        mBrowserControlsVisibilityManager, mActivity, mTab);
+        NtpScrollListener listener =
+                new NtpScrollListener(mBrowserControlsVisibilityManager, mActivity, mTab);
 
         // Scroll past the threshold (20dp * 1.0 = 20px). Scroll down by 25px:
         listener.onScrolled(mRecyclerView, 0, 25);
@@ -724,12 +769,10 @@ public class NewTabPageCoordinatorUnitTest {
 
     @Test
     public void testNtpScrollListener_doesNotHideControls_whenLoading() {
-        when(mBrowserControlsVisibilityManager.getBottomControlsHeight()).thenReturn(100);
         when(mTab.isLoading()).thenReturn(true);
 
-        NewTabPage.NtpScrollListener listener =
-                new NewTabPage.NtpScrollListener(
-                        mBrowserControlsVisibilityManager, mActivity, mTab);
+        NtpScrollListener listener =
+                new NtpScrollListener(mBrowserControlsVisibilityManager, mActivity, mTab);
 
         // Scroll past the threshold.
         listener.onScrolled(mRecyclerView, 0, 25);
@@ -738,13 +781,11 @@ public class NewTabPageCoordinatorUnitTest {
 
     @Test
     public void testNtpScrollListener_showsControls_whenNotLoading() {
-        when(mBrowserControlsVisibilityManager.getBottomControlsHeight()).thenReturn(100);
         when(mBrowserControlsVisibilityManager.getBottomControlHiddenRatio()).thenReturn(1.0f);
         when(mTab.isLoading()).thenReturn(false);
 
-        NewTabPage.NtpScrollListener listener =
-                new NewTabPage.NtpScrollListener(
-                        mBrowserControlsVisibilityManager, mActivity, mTab);
+        NtpScrollListener listener =
+                new NtpScrollListener(mBrowserControlsVisibilityManager, mActivity, mTab);
 
         // Scroll up past the threshold.
         listener.onScrolled(mRecyclerView, 0, -25);
@@ -753,16 +794,349 @@ public class NewTabPageCoordinatorUnitTest {
 
     @Test
     public void testNtpScrollListener_doesNotShowControls_whenLoading() {
-        when(mBrowserControlsVisibilityManager.getBottomControlsHeight()).thenReturn(100);
         when(mBrowserControlsVisibilityManager.getBottomControlHiddenRatio()).thenReturn(1.0f);
         when(mTab.isLoading()).thenReturn(true);
 
-        NewTabPage.NtpScrollListener listener =
-                new NewTabPage.NtpScrollListener(
-                        mBrowserControlsVisibilityManager, mActivity, mTab);
+        NtpScrollListener listener =
+                new NtpScrollListener(mBrowserControlsVisibilityManager, mActivity, mTab);
 
         // Scroll up past the threshold.
         listener.onScrolled(mRecyclerView, 0, -25);
         verify(mBrowserControlsVisibilityManager, never()).showAndroidControls(true);
+    }
+
+    @Test
+    public void testNtpScrollListener_doesNotHideControls_whenConstraintsShown() {
+        when(mTab.isLoading()).thenReturn(false);
+        mVisibilityDelegate.showControlsPersistent();
+
+        assertEquals(BrowserControlsState.SHOWN, (int) mVisibilityDelegate.get());
+
+        NtpScrollListener listener =
+                new NtpScrollListener(mBrowserControlsVisibilityManager, mActivity, mTab);
+
+        // Scroll past the threshold.
+        listener.onScrolled(mRecyclerView, 0, 25);
+        verify(mBrowserControlsVisibilityManager, never()).hideAndroidControls(true);
+    }
+
+    @Test
+    @Features.EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2
+    })
+    public void testOnCustomizedBackgroundChanged_composeplateFlagNotInitialized_earlyExit() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(null);
+        setupDiskImageBackground();
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(null);
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(null);
+
+        assertTrue(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        assertTrue(NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate());
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox, never()).applyWhiteBackground(anyBoolean());
+        verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.EnableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2
+    })
+    public void testOnCustomizedBackgroundChanged_searchBoxNotInitialized_earlyExit() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+        mCoordinator.setSearchBoxCoordinatorForTesting(null);
+        setupDiskImageBackground();
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(null);
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(null);
+
+        assertTrue(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        assertTrue(NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate());
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox, never()).applyWhiteBackground(anyBoolean());
+        verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    public void
+            testOnCustomizedBackgroundChanged_composeplateCoordinatorNotInitialized_earlyExit() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+        mCoordinator.setComposeplateCoordinatorForTesting(null);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.DisableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2
+    })
+    public void
+            testOnCustomizedBackgroundChanged_searchBox_uninitializedAndShouldNotApply_doesNotApplyBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+
+        // If shouldn't apply a white background and the background hasn't been updated before, the
+        // background is not applied.
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(null);
+        assertFalse(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox, never()).applyWhiteBackground(anyBoolean());
+
+        // If white background is disabled and the member variable was already set to false, verify
+        // applyWhiteBackground
+        // is not called again on the search box.
+        clearInvocations(mMockSearchBox);
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(false);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void
+            testOnCustomizedBackgroundChanged_searchBox_alreadyAppliedAndShouldApply_doesNotReapplyBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+        setupDiskImageBackground();
+
+        // If white background is enabled and was already set to true,verify applyWhiteBackground is
+        // not called again on the search box.
+        assertTrue(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(true);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.DisableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2
+    })
+    public void
+            testOnCustomizedBackgroundChanged_composeplate_uninitializedAndShouldNotApply_doesNotApplyBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+
+        // If shouldn't apply a white background and the background hasn't been updated before, the
+        // background is not applied.
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(null);
+        assertFalse(NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate());
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+
+        // If white background is disabled and the member variable was already set to false, verify
+        // applyWhiteBackground is not called again on the composeplate.
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(false);
+        assertFalse(NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate());
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void
+            testOnCustomizedBackgroundChanged_composeplate_alreadyAppliedAndShouldApply_doesNotReapplyBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+        setupDiskImageBackground();
+
+        // If the background has been updated to true before and it should remain true,
+        // no additional invocation of applyWhiteBackground on the composeplate.
+        clearInvocations(mMockComposeplate);
+        assertTrue(NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate());
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(true);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void
+            testOnCustomizedBackgroundChanged_searchBox_previouslyFalseAndShouldApply_appliesWhiteBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+        setupDiskImageBackground();
+
+        // Applies the white background if previously null.
+        assertTrue(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(null);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox).applyWhiteBackground(true);
+
+        // Applies the white background if previously false.
+        clearInvocations(mMockSearchBox);
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(false);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox).applyWhiteBackground(true);
+    }
+
+    @Test
+    @Features.EnableFeatures(ChromeFeatureList.NTP_AURORA)
+    public void
+            testOnCustomizedBackgroundChanged_searchBox_auroraEnabled_initialLaunchAppliesBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+
+        // On initial launch with default theme (desiredState = false), currentState is null.
+        assertFalse(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(null);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        // Aurora forces the initial update on launch.
+        verify(mMockSearchBox).applyWhiteBackground(false);
+
+        // If called again with false, it should not re-trigger since currentState is now false.
+        clearInvocations(mMockSearchBox);
+        mCoordinator.onCustomizedBackgroundChanged();
+        verify(mMockSearchBox, never()).applyWhiteBackground(anyBoolean());
+    }
+
+    @Test
+    @Features.EnableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void
+            testOnCustomizedBackgroundChanged_composeplate_previouslyFalseAndShouldApply_appliesWhiteBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+        setupDiskImageBackground();
+
+        // Applies the white background if previously null.
+        assertTrue(NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate());
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(null);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate).applyWhiteBackground(true);
+
+        // Applies the white background if previously false.
+        clearInvocations(mMockComposeplate);
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(false);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate).applyWhiteBackground(true);
+    }
+
+    @Test
+    @Features.DisableFeatures({
+        ChromeFeatureList.NTP_AURORA,
+        ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2
+    })
+    public void
+            testOnCustomizedBackgroundChanged_searchBox_alreadyAppliedAndShouldNotApply_removesWhiteBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+
+        // Removes white background if previously true.
+        assertFalse(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        mCoordinator.setIsWhiteBackgroundOnSearchBoxApplied(true);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockSearchBox).applyWhiteBackground(false);
+    }
+
+    @Test
+    @Features.DisableFeatures(ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2)
+    public void
+            testOnCustomizedBackgroundChanged_composeplate_alreadyAppliedAndShouldNotApply_removesWhiteBackground() {
+        setupMockSubCoordinators();
+        mCoordinator.setIsComposeplateEnabledForTesting(true);
+
+        // Removes white background if previously true.
+        assertFalse(mCoordinator.shouldApplyWhiteBackgroundOnSearchBox());
+        mCoordinator.setIsWhiteBackgroundOnComposeplateApplied(true);
+
+        mCoordinator.onCustomizedBackgroundChanged();
+
+        verify(mMockComposeplate).applyWhiteBackground(false);
+    }
+
+    private void setupDiskImageBackground() {
+        NtpCustomizationConfigManager configManager = new NtpCustomizationConfigManager();
+        NtpCustomizationConfigManager.setInstanceForTesting(configManager);
+        configManager.setBackgroundTypeForTesting(
+                NtpCustomizationUtils.NtpBackgroundType.IMAGE_FROM_DISK);
+    }
+
+    @Test
+    public void testOnDisplayStyleChanged_Phone_NonDefault() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, "padding_style", NewTabPageUtils.PaddingStyle.MEDIUM);
+        createCoordinator(/* isLff= */ false);
+        verify(mUiConfig).addObserver(mDisplayStyleObserverCaptor.capture());
+        setupMockSubCoordinators();
+        verify(mMockLogo, never()).setTopMargin(anyInt());
+
+        mDisplayStyleObserverCaptor.getValue().onDisplayStyleChanged(null);
+
+        Resources resources = mActivity.getResources();
+        int expectedTopMargin = LogoUtils.getTopMarginForLogo(resources);
+        verify(mMockLogo).setTopMargin(eq(expectedTopMargin));
+    }
+
+    @Test
+    public void testOnDisplayStyleChanged_Phone_Default() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA,
+                "padding_style",
+                NewTabPageUtils.PaddingStyle.DEFAULT);
+        createCoordinator(/* isLff= */ false);
+        verify(mUiConfig, never()).addObserver(any());
+    }
+
+    @Test
+    @Config(qualifiers = "land")
+    public void testOnDisplayStyleChanged_Phone_Landscape_NonDefault() {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, "padding_style", NewTabPageUtils.PaddingStyle.LARGE);
+        createCoordinator(/* isLff= */ false);
+        verify(mUiConfig).addObserver(mDisplayStyleObserverCaptor.capture());
+        setupMockSubCoordinators();
+        verify(mMockLogo, never()).setTopMargin(anyInt());
+
+        mDisplayStyleObserverCaptor.getValue().onDisplayStyleChanged(null);
+
+        Resources resources = mActivity.getResources();
+        int expectedTopMargin = LogoUtils.getTopMarginForLogo(resources);
+        verify(mMockLogo).setTopMargin(eq(expectedTopMargin));
+    }
+
+    @Test
+    public void testOnDisplayStyleChanged_Tablet() {
+        createCoordinator(/* isLff= */ true);
+        verify(mUiConfig).addObserver(mDisplayStyleObserverCaptor.capture());
+        setupMockSubCoordinators();
+        verify(mMockLogo, never()).updateDoodleOnTablet(anyBoolean());
+
+        mDisplayStyleObserverCaptor.getValue().onDisplayStyleChanged(null);
+
+        verify(mMockLogo).updateDoodleOnTablet(anyBoolean());
     }
 }

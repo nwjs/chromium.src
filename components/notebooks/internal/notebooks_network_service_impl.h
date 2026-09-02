@@ -22,6 +22,10 @@ namespace signin {
 class IdentityManager;
 }  // namespace signin
 
+namespace net {
+struct NetworkTrafficAnnotationTag;
+}  // namespace net
+
 namespace notebooks {
 
 // Internal implementation of `NotebooksNetworkService`.
@@ -51,7 +55,14 @@ class NotebooksNetworkServiceImpl : public NotebooksNetworkService {
                         const std::string& post_data,
                         const net::NetworkTrafficAnnotationTag& annotation_tag);
 
+  virtual GURL ConstructServiceURL(std::string_view path);
+
  private:
+  void FetchInternal(const GURL& url,
+                     const std::string& post_data,
+                     const net::NetworkTrafficAnnotationTag& annotation_tag,
+                     NetworkLoaderCallback callback);
+
   // Called when response is received
   void OnDownloadComplete(
       NetworkLoaderCallback callback,

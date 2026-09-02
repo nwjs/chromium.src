@@ -29,12 +29,9 @@ import org.chromium.chrome.browser.image_descriptions.ImageDescriptionsSettings;
 import org.chromium.chrome.browser.language.settings.LanguageSettings;
 import org.chromium.chrome.browser.lifetime.ApplicationLifetime;
 import org.chromium.chrome.browser.locale.LocaleManager;
-import org.chromium.chrome.browser.page_info.SiteSettingsHelper;
 import org.chromium.chrome.browser.password_manager.PasswordManagerHelper;
 import org.chromium.chrome.browser.password_manager.PasswordStoreBridge;
 import org.chromium.chrome.browser.privacy_guide.PrivacyGuideFragment;
-import org.chromium.chrome.browser.privacy_sandbox.PrivacySandboxSettingsBaseFragment;
-import org.chromium.chrome.browser.privacy_sandbox.TopicsManageFragment;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.safety_check.SafetyCheckBridge;
 import org.chromium.chrome.browser.safety_check.SafetyCheckCoordinator;
@@ -58,7 +55,6 @@ import org.chromium.components.browser_ui.settings.FragmentSettingsNavigation;
 import org.chromium.components.browser_ui.settings.SearchViewProvider;
 import org.chromium.components.browser_ui.settings.SettingsCustomTabLauncher;
 import org.chromium.components.browser_ui.site_settings.BaseSiteSettingsFragment;
-import org.chromium.components.browser_ui.site_settings.SiteSettingsCategory;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -106,6 +102,11 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
     @Override
     public void onFragmentAttached(
             FragmentManager fragmentManager, Fragment fragment, Context unusedContext) {
+        attachDependencies(fragmentManager, fragment);
+    }
+
+    /** Attaches dependencies to a fragment. */
+    public void attachDependencies(FragmentManager fragmentManager, Fragment fragment) {
         // Common dependencies attachments.
         if (fragment instanceof ProfileDependentSetting) {
             ((ProfileDependentSetting) fragment).setProfile(mProfile);
@@ -121,13 +122,17 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
                     .setCustomTabLauncher(new SettingsCustomTabLauncherImpl());
         }
 
-        if (fragment instanceof SearchViewProvider f) {
-            f.setSearchViewObserver(
-                    (open) -> {
-                        if (mSearchCoordinatorSupplier.get() != null) {
-                            mSearchCoordinatorSupplier.get().showSearchBar(!open);
-                        }
-                    });
+        if (!SettingsInTab.isEnabled()) {
+            // SettingsInTab always keeps the main search bar visible, even when fragments are
+            // searching.
+            if (fragment instanceof SearchViewProvider f) {
+                f.setSearchViewObserver(
+                        (open) -> {
+                            if (mSearchCoordinatorSupplier.get() != null) {
+                                mSearchCoordinatorSupplier.get().showSearchBar(!open);
+                            }
+                        });
+            }
         }
 
         // Settings screen specific attachments.
@@ -178,18 +183,6 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
             }
             imageFragment.setDelegate(ImageDescriptionsController.getInstance().getDelegate());
         }
-        if (fragment instanceof PrivacySandboxSettingsBaseFragment) {
-            PrivacySandboxSettingsBaseFragment sandboxFragment =
-                    (PrivacySandboxSettingsBaseFragment) fragment;
-            sandboxFragment.setSnackbarManagerSupplier(mSnackbarManagerSupplier);
-            sandboxFragment.setCookieSettingsIntentHelper(
-                    (Context context) -> {
-                        SiteSettingsHelper.showCategorySettings(
-                                context,
-                                SiteSettingsCategory.Type.THIRD_PARTY_COOKIES,
-                                /* addToBackStack= */ true);
-                    });
-        }
         if (fragment instanceof LanguageSettings) {
             ((LanguageSettings) fragment)
                     .setRestartAction(
@@ -217,10 +210,6 @@ public class FragmentDependencyProvider extends FragmentManager.FragmentLifecycl
         }
         if (fragment instanceof AutofillCreditCardEditor) {
             ((AutofillCreditCardEditor) fragment)
-                    .setModalDialogManagerSupplier(mModalDialogManagerSupplier);
-        }
-        if (fragment instanceof TopicsManageFragment) {
-            ((TopicsManageFragment) fragment)
                     .setModalDialogManagerSupplier(mModalDialogManagerSupplier);
         }
         if (fragment instanceof AutofillLocalIbanEditor) {

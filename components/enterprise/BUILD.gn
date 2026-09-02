@@ -140,11 +140,11 @@ static_library("enterprise") {
     sources += [
       "browser/controller/chrome_browser_cloud_management_controller.cc",
       "browser/controller/chrome_browser_cloud_management_controller.h",
-      "browser/device_trust/device_trust_key_manager.h",
     ]
 
     deps += [
       "//components/enterprise/browser/groups",
+      "//components/enterprise/device_trust/core",
       "//third_party/abseil-cpp:absl",
     ]
   }
@@ -302,5 +302,8 @@ source_set("unit_tests") {
 
   if (enterprise_proxy) {
     deps += [ "//components/enterprise/net/core:unit_tests" ]
+    if (!is_ios) {
+      deps += [ "//components/enterprise/net/content:unit_tests" ]
+    }
   }
 }

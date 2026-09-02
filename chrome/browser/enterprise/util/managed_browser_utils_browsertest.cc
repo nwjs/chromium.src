@@ -14,6 +14,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/content_settings/core/common/pref_names.h"
@@ -137,9 +139,10 @@ IN_PROC_BROWSER_TEST_P(EnterpriseProfileBadgingTest, CanShowEnterpriseBadging) {
 
 IN_PROC_BROWSER_TEST_P(EnterpriseProfileBadgingTest,
                        CanNotShowEnterpriseBadgingForPrimaryOTRProfile) {
-  Browser* incognito_browser = Browser::Create(Browser::CreateParams(
-      browser()->GetProfile()->GetPrimaryOTRProfile(/*create_if_needed=*/true),
-      true));
+  BrowserWindowInterface* incognito_browser = CreateBrowserWindow(
+      BrowserWindowCreateParams(browser()->GetProfile()->GetPrimaryOTRProfile(
+                                    /*create_if_needed=*/true),
+                                /*from_user_gesture=*/true));
   // Profile badging should always return false in incognito.
   EXPECT_FALSE(
       CanShowEnterpriseBadgingForAvatar(incognito_browser->GetProfile()));

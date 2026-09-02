@@ -29,6 +29,7 @@
 #include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/url_info.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/common/child_process_id.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
@@ -51,6 +52,7 @@ class CodeCacheHostImplTest : public testing::Test,
                               public testing::WithParamInterface<bool> {
  public:
   CodeCacheHostImplTest() {
+    SiteIsolationPolicy::DisableFlagCachingForTesting();
     base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
     if (IsSitePerProcessOrStricter()) {
       command_line->AppendSwitch(switches::kSitePerProcess);
@@ -113,11 +115,11 @@ class CodeCacheHostImplTest : public testing::Test,
   }
 
  protected:
+  base::test::ScopedFeatureList feature_list_;
   BrowserTaskEnvironment task_environment_;
   base::HistogramTester histogram_tester;
   std::vector<ChildProcessId> added_renderers_;
   TestBrowserContext browser_context_;
-  base::test::ScopedFeatureList feature_list_;
   base::ScopedTempDir temp_dir_;
   scoped_refptr<GeneratedCodeCacheContext> generated_code_cache_context_;
 };

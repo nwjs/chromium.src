@@ -140,6 +140,21 @@ std::string GetInvocationSourceString(mojom::InvocationSource source) {
       return "ReshowInactive";
     case mojom::InvocationSource::kTabContextMenu:
       return "TabContextMenu";
+    case mojom::InvocationSource::kWebContinuity:
+      return "WebContinuity";
+  }
+}
+
+std::string_view GetEmbedderTypeString(EmbedderType type) {
+  switch (type) {
+    case EmbedderType::kSidePanel:
+      return "SidePanel";
+    case EmbedderType::kFloaty:
+      return "Floaty";
+    case EmbedderType::kTab:
+      return "Tab";
+    case EmbedderType::kUnknown:
+      return "Unknown";
   }
 }
 }  // namespace glic

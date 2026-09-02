@@ -263,19 +263,12 @@ void AppUninstallDialogView::InitializeView(Profile* profile,
     case apps::AppType::kUnknown:
     case apps::AppType::kRemote:
     case apps::AppType::kExtension:
+    case apps::AppType::kPluginVm:
       NOTREACHED();
     // TODO(crbug.com/376071296): Clean up the switch/case items below.
     case apps::AppType::kArc:
 #if BUILDFLAG(IS_CHROMEOS)
       InitializeViewForArcApp(profile, app_id);
-      break;
-#else
-      NOTREACHED();
-#endif
-    case apps::AppType::kPluginVm:
-#if BUILDFLAG(IS_CHROMEOS)
-      AddSubtitle(
-          l10n_util::GetStringUTF16(IDS_PLUGIN_VM_UNINSTALL_PROMPT_BODY));
       break;
 #else
       NOTREACHED();
@@ -512,13 +505,14 @@ void AppUninstallDialogView::InitializeViewForWebApp(
         version = update.Version();
       });
 
-  // In case of Sub Apps display parent Isolated Web App name.
+  // In case of Sub Apps display a subtitle explaining that uninstalling this
+  // app will not affect the parent app or other installed Sub Apps.
   if (auto parent_app_name = web_app::WebAppProvider::GetForWebApps(profile_)
                                  ->registrar_unsafe()
                                  .GetParentAppShortName(app_id)) {
-    AddSubtitle(
-        l10n_util::GetStringFUTF16(IDS_IWA_SUB_APPS_INSTALLER_PARENT_APP_NAME,
-                                   base::UTF8ToUTF16(*parent_app_name)));
+    AddSubtitle(l10n_util::GetStringFUTF16(IDS_IWA_SUB_APPS_UNINSTALL_INFO,
+                                           base::UTF8ToUTF16(*parent_app_name),
+                                           base::UTF8ToUTF16(app_name)));
     return;
   }
 

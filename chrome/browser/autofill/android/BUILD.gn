@@ -213,6 +213,7 @@ android_resources("java_resources") {
   sources = [
     "java/res/drawable/account_box.xml",
     "java/res/drawable/autofill_editor_notice_background.xml",
+    "java/res/drawable/calendar_month_24dp.xml",
     "java/res/drawable/finance.xml",
     "java/res/drawable/google_24dp.xml",
     "java/res/drawable/insight_spark.xml",
@@ -372,6 +373,7 @@ robolectric_library("junit") {
     "//third_party/junit",
     "//third_party/mockito:mockito_java",
     "//ui/accessibility:ax_base_java",
+    "//ui/accessibility:ui_accessibility_test_support_java",
     "//ui/android:ui_full_java",
     "//ui/android:ui_java_test_support",
   ]

@@ -976,6 +976,11 @@ bool PdfViewWebPlugin::CanCopy() const {
   return engine_->HasPermission(DocumentPermission::kCopy);
 }
 
+std::optional<base::i18n::TextDirection>
+PdfViewWebPlugin::GetFocusedFormTextDirection() const {
+  return engine_->GetFocusedFormTextDirection();
+}
+
 bool PdfViewWebPlugin::ExecuteEditCommand(const blink::WebString& name,
                                           const blink::WebString& value) {
   if (name == "SelectAll") {
@@ -1005,6 +1010,20 @@ bool PdfViewWebPlugin::ExecuteEditCommand(const blink::WebString& name,
 
   if (name == "Redo") {
     return Redo();
+  }
+
+  if (name == "MakeTextWritingDirectionLeftToRight") {
+    return SetFocusedFormTextDirection(base::i18n::LEFT_TO_RIGHT);
+  }
+
+  if (name == "MakeTextWritingDirectionRightToLeft") {
+    return SetFocusedFormTextDirection(base::i18n::RIGHT_TO_LEFT);
+  }
+
+  if (name == "MakeTextWritingDirectionNatural") {
+    // Setting base::i18n::UNKNOWN_DIRECTION falls back to PDFium's
+    // auto-direction logic.
+    return SetFocusedFormTextDirection(base::i18n::UNKNOWN_DIRECTION);
   }
 
   return false;
@@ -1745,10 +1764,8 @@ void PdfViewWebPlugin::MoveRangeSelectionExtent(const gfx::PointF& extent) {
   engine_->MoveRangeSelectionExtent(FrameToPdfCoordinates(extent));
 }
 
-void PdfViewWebPlugin::SetSelectionBounds(const gfx::PointF& base,
-                                          const gfx::PointF& extent) {
-  engine_->SetSelectionBounds(FrameToPdfCoordinates(base),
-                              FrameToPdfCoordinates(extent));
+void PdfViewWebPlugin::SetSelectionBase(const gfx::PointF& base) {
+  engine_->SetSelectionBase(FrameToPdfCoordinates(base));
 }
 
 void PdfViewWebPlugin::GetPdfBytes(uint32_t size_limit,
@@ -1805,6 +1822,12 @@ void PdfViewWebPlugin::GetSaveDataBufferHandlerForDrive(
     buffer_handler = std::make_unique<OriginalDataHandlerForDrive>(this);
   } else {
     buffer_handler = std::make_unique<ModifiedDataBufferHandlerForDrive>(this);
+#if BUILDFLAG(ENABLE_PDF_INK2)
+    if (request_type == pdf::mojom::SaveRequestType::kAnnotation &&
+        ink_module_) {
+      ink_module_->RecordMetricsOnSave();
+    }
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
   }
   const uint32_t file_size = buffer_handler->GetFileSize();
   if (!file_size) {
@@ -2258,6 +2281,12 @@ void PdfViewWebPlugin::SaveToBuffer(pdf::mojom::SaveRequestType request_type,
 
   engine_->KillFormFocus();
 
+#if BUILDFLAG(ENABLE_PDF_INK2)
+  if (request_type == pdf::mojom::SaveRequestType::kAnnotation && ink_module_) {
+    ink_module_->RecordMetricsOnSave();
+  }
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
+
   auto message = base::DictValue()
                      .Set("type", "saveData")
                      .Set("token", token)
@@ -2364,6 +2393,12 @@ PdfViewWebPlugin::SaveDataBlock PdfViewWebPlugin::SaveBlockToBuffer(
 
   if (offset == 0) {
     PopulateBufferWithModifiedFileData(save_data_buffer_);
+#if BUILDFLAG(ENABLE_PDF_INK2)
+    if (request_type == pdf::mojom::SaveRequestType::kAnnotation &&
+        ink_module_) {
+      ink_module_->RecordMetricsOnSave();
+    }
+#endif  // BUILDFLAG(ENABLE_PDF_INK2)
   } else {
     CHECK(save_data_buffer_.size());
   }
@@ -2801,6 +2836,15 @@ bool PdfViewWebPlugin::Redo() {
 
   engine_->Redo();
   return true;
+}
+
+bool PdfViewWebPlugin::SetFocusedFormTextDirection(
+    base::i18n::TextDirection direction) {
+  if (!CanEditText()) {
+    return false;
+  }
+
+  return engine_->SetFocusedFormTextDirection(direction);
 }
 
 bool PdfViewWebPlugin::HandleWebInputEvent(const blink::WebInputEvent& event) {

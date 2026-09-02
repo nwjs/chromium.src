@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/browser_apis/tab_drag/sessions/tab_drag_session_manager.h"
@@ -50,11 +51,13 @@ gfx::Rect TabDragWindowAdapterImpl::GetBoundsInScreen() const {
   return browser_window_->GetWindow()->GetBounds();
 }
 
-bool TabDragWindowAdapterImpl::IsDraggingEntireWindow(
+bool TabDragWindowAdapterImpl::ShouldDragWholeWindow(
     size_t dragged_tab_count) const {
-  return browser_window_ &&
-         dragged_tab_count ==
-             static_cast<size_t>(browser_window_->GetTabStripModel()->count());
+  if (!browser_window_ || browser_window_->GetWindow()->IsFullscreen()) {
+    return false;
+  }
+  return dragged_tab_count ==
+         static_cast<size_t>(browser_window_->GetTabStripModel()->count());
 }
 
 namespace {
@@ -116,6 +119,17 @@ bool TabDragWindowAdapterImpl::HasCapture() const {
   return widget && widget->HasCapture();
 }
 
+void TabDragWindowAdapterImpl::Activate() {
+  if (!browser_window_ || !browser_window_->GetWindow()) {
+    return;
+  }
+  views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
+      browser_window_->GetWindow()->GetNativeWindow());
+  if (widget) {
+    widget->Activate();
+  }
+}
+
 base::expected<tabs_api::TabDragWindowId, mojo_base::mojom::ErrorPtr>
 TabDragWindowAdapterImpl::DetachToNewWindow(
     const std::vector<tabs_api::NodeId>& tab_ids,
@@ -133,13 +147,16 @@ TabDragWindowAdapterImpl::DetachToNewWindow(
         mojo_base::mojom::Code::kFailedPrecondition, "Profile is null"));
   }
 
-  gfx::Rect initial_bounds(screen_point - drag_offset,
-                           browser_window_->GetWindow()->GetBounds().size());
+  gfx::Rect initial_bounds(
+      screen_point - drag_offset,
+      browser_window_->GetWindow()->GetRestoredBounds().size());
 
   BrowserWindowCreateParams params(BrowserWindowInterface::Type::TYPE_NORMAL,
                                    *profile,
                                    /*from_user_gesture=*/true);
   params.initial_bounds = initial_bounds;
+  params.initial_show_state = ui::mojom::WindowShowState::kDefault;
+  params.initial_workspace = std::string();
 
   BrowserWindowInterface* new_window = CreateBrowserWindow(std::move(params));
   if (!new_window) {
@@ -147,6 +164,12 @@ TabDragWindowAdapterImpl::DetachToNewWindow(
         mojo_base::mojom::Error::New(mojo_base::mojom::Code::kInternal,
                                      "Failed to create new browser window"));
   }
+
+  new_window->GetWindow()->SetBounds(initial_bounds);
+
+  views::Widget* new_widget = views::Widget::GetWidgetForNativeWindow(
+      new_window->GetWindow()->GetNativeWindow());
+  new_widget->SetCanAppearInExistingFullscreenSpaces(true);
 
   CHECK(registry_);
   gfx::NativeWindow native_window = new_window->GetWindow()->GetNativeWindow();
@@ -189,15 +212,24 @@ tabs_api::DragMoveLoopResult TabDragWindowAdapterImpl::RunWindowMoveLoop(
 
   move_callback_ = std::move(move_callback);
 
-  base::ScopedObservation<views::Widget, views::WidgetObserver> observation(
-      this);
-  observation.Observe(widget);
+  widget_observation_.Reset();
+  widget_observation_.Observe(widget);
+
+  base::WeakPtr<TabDragWindowAdapterImpl> weak_this =
+      weak_factory_.GetWeakPtr();
 
   views::Widget::MoveLoopResult result =
       widget->RunMoveLoop(drag_offset, views::Widget::MoveLoopSource::kMouse,
                           views::Widget::MoveLoopEscapeBehavior::kHide);
 
+  if (!weak_this) {
+    return tabs_api::DragMoveLoopResult::kCanceled;
+  }
+
+  widget_observation_.Reset();
   move_callback_.Reset();
+
+  widget->SetCanAppearInExistingFullscreenSpaces(false);
 
   return result == views::Widget::MoveLoopResult::kSuccessful
              ? tabs_api::DragMoveLoopResult::kSuccess
@@ -215,7 +247,6 @@ void TabDragWindowAdapterImpl::EndWindowMoveLoop() {
   }
 }
 
-// TODO(crbug.com/501070793) Implement this using the TabStripAPI.
 base::expected<void, mojo_base::mojom::ErrorPtr>
 TabDragWindowAdapterImpl::MigrateTabs(
     tabs_api::TabDragWindowId target_window_id,
@@ -290,9 +321,13 @@ TabDragWindowAdapterImpl::MigrateTabs(
           mojo_base::mojom::Code::kInternal, "Failed to detach tab"));
     }
 
+    int add_types = AddTabTypes::ADD_NONE;
+    if (target_model->empty() || node_id == tab_ids.front()) {
+      add_types |= AddTabTypes::ADD_ACTIVE;
+    }
+
     target_model->InsertDetachedTabAt(target_model->count(),
-                                      std::move(detached_tab),
-                                      /*add_types=*/0);
+                                      std::move(detached_tab), add_types);
   }
 
   return base::ok();
@@ -304,4 +339,8 @@ void TabDragWindowAdapterImpl::OnWidgetBoundsChanged(
   if (move_callback_) {
     move_callback_.Run(display::Screen::Get()->GetCursorScreenPoint());
   }
+}
+
+void TabDragWindowAdapterImpl::OnWidgetDestroyed(views::Widget* widget) {
+  widget_observation_.Reset();
 }

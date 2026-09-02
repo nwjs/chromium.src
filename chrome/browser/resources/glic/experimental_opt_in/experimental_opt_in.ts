@@ -9,7 +9,10 @@ import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 
+// <if expr="not is_android">
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
+// </if>
+
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {getRequiredElement} from '//resources/js/util.js';
 
@@ -155,85 +158,6 @@ export class ExperimentalOptInApp {
       this.errorPanel_.hidden = true;
       this.webview_.classList.add('autosized');
       this.webview_.hidden = false;
-
-      if (loadTimeData.getBoolean('glicOptInDialogLinkA11yFixEnabled')) {
-        // Inject script to add aria-labels to the links for accessibility.
-        const safelyLabel = loadTimeData.getString('safelyLinkLabel');
-        const unexpectedResultsLabel =
-            loadTimeData.getString('unexpectedResultsLinkLabel');
-        const reviewRisksLabel = loadTimeData.getString('reviewRisksLinkLabel');
-
-        const code = `
-          (function() {
-            const safelyLabel = ${JSON.stringify(safelyLabel)};
-            const unexpectedResultsLabel = ${
-            JSON.stringify(unexpectedResultsLabel)};
-            const reviewRisksLabel = ${JSON.stringify(reviewRisksLabel)};
-
-            // We match against default substrings from URL feature parameters defined in
-            // chrome/common/chrome_features.cc (kGlicWebActuationToggleConsiderSafelyURL,
-            // kGlicWebActuationToggleConsiderUnexpectedResultsURL, and
-            // kGlicExperimentalTriggeringSafetyURL). If those URLs are overridden to different
-            // domains, this matching logic will need to be updated.
-            function updateLink(link) {
-              const href = link.getAttribute('href');
-              if (href) {
-                if (href.includes('use-policy')) {
-                  link.setAttribute('aria-label', safelyLabel);
-                } else if (href.includes('unexpected_results')) {
-                  link.setAttribute('aria-label', unexpectedResultsLabel);
-                } else if (href.includes('gemini_spark_safety')) {
-                  link.setAttribute('aria-label', reviewRisksLabel);
-                }
-              }
-            }
-
-            // Update existing links immediately.
-            const links = document.querySelectorAll('a');
-            for (const link of links) {
-              updateLink(link);
-            }
-
-            // Observe future changes for dynamic content.
-            const observer = new MutationObserver((mutations) => {
-              for (const mutation of mutations) {
-                if (mutation.type === 'childList') {
-                  for (const node of mutation.addedNodes) {
-                    if (node.nodeType === Node.ELEMENT_NODE) {
-                      if (node.tagName === 'A') {
-                        updateLink(node);
-                      } else {
-                        const childLinks = node.querySelectorAll('a');
-                        for (const link of childLinks) {
-                          updateLink(link);
-                        }
-                      }
-                    }
-                  }
-                } else if (
-                    mutation.type === 'attributes' &&
-                    mutation.target.tagName === 'A') {
-                  updateLink(mutation.target);
-                }
-              }
-            });
-
-            observer.observe(document.documentElement, {
-              childList: true,
-              subtree: true,
-              attributes: true,
-              attributeFilter: ['href']
-            });
-          })();
-        `;
-        this.webview_.executeScript({code}, () => {
-          if (chrome.runtime.lastError) {
-            console.warn(
-                'Failed to inject accessibility labels: ' +
-                chrome.runtime.lastError.message);
-          }
-        });
-      }
 
       if (this.isInitialLoad_) {
         this.isInitialLoad_ = false;
@@ -535,7 +459,9 @@ export class ExperimentalOptInApp {
 }
 
 function init() {
+  // <if expr="not is_android">
   ColorChangeUpdater.forDocument().start();
+  // </if>
   new ExperimentalOptInApp();
 }
 

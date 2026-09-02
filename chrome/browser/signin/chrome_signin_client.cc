@@ -44,6 +44,7 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/metrics/metrics_service.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/plus_addresses/core/common/features.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/prefs/pref_service.h"
@@ -57,6 +58,7 @@
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_change_event.h"
+#include "components/site_token_provider/features.h"
 #include "components/skills/features.h"
 #include "components/version_info/channel.h"
 #include "content/public/browser/browser_context.h"
@@ -248,6 +250,17 @@ class ChromeOAuthConsumerRegistry : public signin::OAuthConsumerRegistry {
         signin::oauth_consumer_name::kContextualTasksName, std::move(scopes));
   }
 
+  signin::OAuthConsumer GetOAuthConsumerForDrivePickerHost() const override {
+    if (base::FeatureList::IsEnabled(omnibox::kDrivePickerV2Scope)) {
+      return signin::OAuthConsumer(
+          signin::oauth_consumer_name::kDrivePickerHostName,
+          {"https://www.googleapis.com/auth/drive.file"});
+    }
+    return signin::OAuthConsumer(
+        signin::oauth_consumer_name::kDrivePickerHostName,
+        {"https://www.googleapis.com/auth/drive.readonly"});
+  }
+
   signin::OAuthConsumer GetOAuthConsumerForIndigo() const override {
     CHECK(base::FeatureList::IsEnabled(features::kIndigo));
     std::string scopes_str = features::kIndigoScopes.Get();
@@ -264,6 +277,12 @@ class ChromeOAuthConsumerRegistry : public signin::OAuthConsumerRegistry {
     return signin::OAuthConsumer(
         signin::oauth_consumer_name::kBrowserActuatorName,
         {browser_actuator::kBrowserActuatorOAuth2ScopeParam.Get()});
+  }
+
+  signin::OAuthConsumer GetOAuthConsumerForSiteTokenProvider() const override {
+    return signin::OAuthConsumer(
+        signin::oauth_consumer_name::kSiteTokenProviderName,
+        {site_token_provider::features::kSiteTokenOAuth2Scope.Get()});
   }
 };
 

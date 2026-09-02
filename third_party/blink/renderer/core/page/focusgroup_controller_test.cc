@@ -8,18 +8,26 @@
 
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_keyboard_event_init.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/events/keyboard_event.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
+#include "third_party/blink/renderer/core/html_names.h"
 #include "third_party/blink/renderer/core/input/event_handler.h"
+#include "third_party/blink/renderer/core/keywords.h"
+#include "third_party/blink/renderer/core/loader/empty_clients.h"
 #include "third_party/blink/renderer/core/page/focusgroup_controller_utils.h"
 #include "third_party/blink/renderer/core/page/grid_focusgroup_structure_info.h"
 #include "third_party/blink/renderer/core/testing/page_test_base.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/heap/garbage_collected.h"
+#include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "ui/events/keycodes/dom/dom_key.h"
@@ -46,6 +54,16 @@ class FocusgroupControllerTest : public PageTestBase {
     return event;
   }
 
+  KeyboardEvent* UntrustedKeyDownEvent(const String& key, Element* target) {
+    KeyboardEventInit* init = KeyboardEventInit::Create();
+    init->setBubbles(true);
+    init->setKey(key);
+    auto* event =
+        MakeGarbageCollected<KeyboardEvent>(event_type_names::kKeydown, init);
+    event->SetTarget(target);
+    return event;
+  }
+
   void SendEvent(KeyboardEvent* event) {
     if (event->target()) {
       event->target()->DispatchEvent(*event);
@@ -64,12 +82,16 @@ class FocusgroupControllerTest : public PageTestBase {
     SendEvent(KeyDownEvent(ui::DomKey::TAB, target, WebInputEvent::kShiftKey));
   }
 
-  void SendHome(Element* target) {
-    SendEvent(KeyDownEvent(ui::DomKey::HOME, target));
+  KeyboardEvent* SendHome(Element* target) {
+    auto* event = KeyDownEvent(ui::DomKey::HOME, target);
+    SendEvent(event);
+    return event;
   }
 
-  void SendEnd(Element* target) {
-    SendEvent(KeyDownEvent(ui::DomKey::END, target));
+  KeyboardEvent* SendEnd(Element* target) {
+    auto* event = KeyDownEvent(ui::DomKey::END, target);
+    SendEvent(event);
+    return event;
   }
 
   void SendArrowRight(Element* target) {
@@ -288,10 +310,8 @@ void ExpectSegmentDirectionalOrder(
 }  // namespace
 
 TEST_F(FocusgroupControllerTest,
-       GridNavigationDisabledWithoutFocusgroupGridFlag) {
-  // Explicitly disable FocusgroupGrid. Ensure arrow keys don't traverse a
-  // grid when the feature is disabled.
-  ScopedFocusgroupGridForTest grid_enabled{false};
+       GridNavigationDisabledWithoutFocusgroupV2Flag) {
+  ScopedFocusgroupV2ForTest v2_enabled{false};
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
     <table id=table focusgroup=grid>
       <tr>
@@ -583,6 +603,7 @@ TEST_F(FocusgroupControllerTest, WrapsInDirection) {
 }
 
 TEST_F(FocusgroupControllerTest, FindNearestFocusgroupAncestor) {
+  ScopedFocusgroupV2ForTest v2_enabled{true};
   GetDocument().body()->SetHTMLUnsafeWithoutTrustedTypes(R"HTML(
     <div>
       <button id=item1></button>
@@ -980,6 +1001,7 @@ TEST_F(FocusgroupControllerTest, NonFocusableNestedFocusgroupNotAnItem) {
 }
 
 TEST_F(FocusgroupControllerTest, CellAtIndexInRowBehaviorOnNoCellFound) {
+  ScopedFocusgroupV2ForTest v2_enabled{true};
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
     <table id=table focusgroup="grid">
       <tr>
@@ -1108,6 +1130,100 @@ TEST_F(FocusgroupControllerTest, DontMoveFocusWhenItAlreadyMoved) {
   SendEvent(event);
 
   ASSERT_EQ(GetDocument().FocusedElement(), item1);
+}
+
+TEST_F(FocusgroupControllerTest,
+       UntrustedArrowDownDoesNotMoveFocusOrMarkUserGesture) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="menu block">
+      <div id=first tabindex=0>First</div>
+      <div id=spellcheck tabindex=0 contenteditable spellcheck=true>
+        Spellcheck target
+      </div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* first = GetElementById("first");
+  auto* spellcheck = GetElementById("spellcheck");
+  ASSERT_TRUE(first);
+  ASSERT_TRUE(spellcheck);
+
+  first->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), first);
+  ASSERT_FALSE(spellcheck->WasLastFocusFromUserGesture());
+
+  auto* event = UntrustedKeyDownEvent(keywords::kArrowDown, first);
+  ASSERT_FALSE(event->isTrusted());
+  EXPECT_FALSE(FocusgroupController::HandleKeyboardEvent(
+      event, GetDocument().GetFrame()));
+  EXPECT_EQ(GetDocument().FocusedElement(), first);
+  EXPECT_FALSE(spellcheck->WasLastFocusFromUserGesture());
+}
+
+TEST_F(FocusgroupControllerTest,
+       UntrustedArrowUpDoesNotMoveFocusOrMarkUserGesture) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="menu block">
+      <div id=spellcheck tabindex=0 contenteditable spellcheck=true>
+        Spellcheck target
+      </div>
+      <div id=last tabindex=0>Last</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* spellcheck = GetElementById("spellcheck");
+  auto* last = GetElementById("last");
+  ASSERT_TRUE(spellcheck);
+  ASSERT_TRUE(last);
+
+  last->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), last);
+  ASSERT_FALSE(spellcheck->WasLastFocusFromUserGesture());
+
+  auto* event = UntrustedKeyDownEvent(keywords::kArrowUp, last);
+  ASSERT_FALSE(event->isTrusted());
+  EXPECT_FALSE(FocusgroupController::HandleKeyboardEvent(
+      event, GetDocument().GetFrame()));
+  EXPECT_EQ(GetDocument().FocusedElement(), last);
+  EXPECT_FALSE(spellcheck->WasLastFocusFromUserGesture());
+}
+
+TEST_F(FocusgroupControllerTest, TrustedArrowKeysMoveFocusAndMarkUserGesture) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="menu block">
+      <div id=first tabindex=0>First</div>
+      <div id=spellcheck tabindex=0 contenteditable spellcheck=true>
+        Spellcheck target
+      </div>
+      <div id=last tabindex=0>Last</div>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* first = GetElementById("first");
+  auto* spellcheck = GetElementById("spellcheck");
+  auto* last = GetElementById("last");
+  ASSERT_TRUE(first);
+  ASSERT_TRUE(spellcheck);
+  ASSERT_TRUE(last);
+
+  first->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), first);
+  ASSERT_FALSE(spellcheck->WasLastFocusFromUserGesture());
+
+  SendArrowDown(first);
+  EXPECT_EQ(GetDocument().FocusedElement(), spellcheck);
+  EXPECT_TRUE(spellcheck->WasLastFocusFromUserGesture());
+
+  last->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), last);
+  ASSERT_FALSE(spellcheck->WasLastFocusFromUserGesture());
+
+  SendArrowUp(last);
+  EXPECT_EQ(GetDocument().FocusedElement(), spellcheck);
+  EXPECT_TRUE(spellcheck->WasLastFocusFromUserGesture());
 }
 
 TEST_F(FocusgroupControllerTest, NestedFocusgroupsHaveSeparateScopes) {
@@ -3264,8 +3380,6 @@ TEST_F(FocusgroupControllerTest, FocusgroupWithUncheckedRadioTab) {
       << "Tab from unchecked radio should go to next adjacent item";
 }
 
-// --- Home/End key tests ---
-
 // Home moves focus to the first item in a linear focusgroup.
 TEST_F(FocusgroupControllerTest, HomeMovesToFirstItem) {
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
@@ -3326,14 +3440,12 @@ TEST_F(FocusgroupControllerTest, HomeEndNoOpAtBoundary) {
   auto* b = GetElementById("B");
   ASSERT_TRUE(a && b);
 
-  // Home from first item stays on first item.
   a->Focus();
   ASSERT_EQ(GetDocument().FocusedElement(), a);
   SendHome(a);
   EXPECT_EQ(GetDocument().FocusedElement(), a)
       << "Home from first item should be a no-op";
 
-  // End from last item stays on last item.
   b->Focus();
   ASSERT_EQ(GetDocument().FocusedElement(), b);
   SendEnd(b);
@@ -3506,6 +3618,36 @@ TEST_F(FocusgroupControllerTest, HomeEndBlockedInDirectionalKeyHandler) {
       << "End inside text input should not trigger focusgroup navigation";
 }
 
+TEST_F(FocusgroupControllerTest,
+       HomeEndBlockedInCrossAxisDirectionalKeyHandler) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="toolbar inline">
+      <button id=A type="button">A</button>
+      <div id=scroller tabindex="0"
+           style="height: 20px; overflow-x: clip; overflow-y: scroll">
+        <div style="height: 100px"></div>
+      </div>
+      <button id=B type="button">B</button>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* scroller = GetElementById("scroller");
+  ASSERT_TRUE(scroller);
+  ASSERT_EQ(scroller->NativeArrowKeyAxes(), FocusgroupFlags::kBlock);
+
+  scroller->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), scroller);
+
+  SendHome(scroller);
+  EXPECT_EQ(GetDocument().FocusedElement(), scroller)
+      << "Home should not leave a block-axis handler in an inline focusgroup";
+
+  SendEnd(scroller);
+  EXPECT_EQ(GetDocument().FocusedElement(), scroller)
+      << "End should not leave a block-axis handler in an inline focusgroup";
+}
+
 // Home/End in a single-item focusgroup are no-ops (target == focused).
 TEST_F(FocusgroupControllerTest, HomeEndSingleItemNoOp) {
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
@@ -3532,7 +3674,7 @@ TEST_F(FocusgroupControllerTest, HomeEndSingleItemNoOp) {
 
 // Home/End do not trigger in grid focusgroups (only linear).
 TEST_F(FocusgroupControllerTest, HomeEndIgnoredInGridFocusgroup) {
-  ScopedFocusgroupGridForTest grid_enabled{true};
+  ScopedFocusgroupV2ForTest v2_enabled{true};
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
     <table focusgroup="grid">
       <tr>
@@ -3590,6 +3732,226 @@ TEST_F(FocusgroupControllerTest, HomeEndIgnoredWhenFocusAlreadyMoved) {
   SendEnd(a);
   EXPECT_EQ(GetDocument().FocusedElement(), c)
       << "End should not navigate when focus was already moved";
+}
+
+TEST_F(FocusgroupControllerTest, EndInDesignModeDoesNotNavigate) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="toolbar inline">
+      <button id=A type="button">A</button>
+      <button id=B type="button">B</button>
+    </div>
+  )HTML");
+  GetDocument().setDesignMode("on");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* a = GetElementById("A");
+  ASSERT_TRUE(a);
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  SendEnd(a);
+  EXPECT_EQ(GetDocument().FocusedElement(), a)
+      << "End in design mode should not navigate the focusgroup";
+}
+
+TEST_F(FocusgroupControllerTest,
+       EndAfterEditContextAttachedDuringKeydownDoesNotNavigate) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="toolbar inline">
+      <canvas id=A tabindex="0"></canvas>
+      <button id=B type="button">B</button>
+    </div>
+  )HTML");
+  Element* script = GetDocument().CreateRawElement(html_names::kScriptTag);
+  script->SetInnerHTMLWithoutTrustedTypes(R"JS(
+    const target = document.getElementById('A');
+    target.addEventListener('keydown', () => {
+      target.editContext = new EditContext();
+    }, {once: true});
+  )JS");
+  GetDocument().body()->AppendChild(script);
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* a = GetElementById("A");
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(a->editContext());
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  SendEnd(a);
+  EXPECT_TRUE(a->editContext());
+  EXPECT_EQ(GetDocument().FocusedElement(), a)
+      << "End should not navigate after keydown attaches an EditContext";
+}
+
+TEST_F(FocusgroupControllerTest,
+       EndAfterEditableStyleSetDuringKeydownDoesNotNavigate) {
+  GetDocument().GetSettings()->SetScriptEnabled(true);
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="toolbar inline">
+      <div id=A tabindex="0">first</div>
+      <button id=B type="button">B</button>
+    </div>
+  )HTML");
+  Element* script = GetDocument().CreateRawElement(html_names::kScriptTag);
+  script->SetInnerHTMLWithoutTrustedTypes(R"JS(
+    const target = document.getElementById('A');
+    target.addEventListener('keydown', () => {
+      target.style.webkitUserModify = 'read-write';
+    }, {once: true});
+  )JS");
+  GetDocument().body()->AppendChild(script);
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* a = GetElementById("A");
+  ASSERT_TRUE(a);
+  ASSERT_FALSE(a->hasAttribute(html_names::kStyleAttr));
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  SendEnd(a);
+  EXPECT_TRUE(a->hasAttribute(html_names::kStyleAttr));
+  EXPECT_EQ(GetDocument().FocusedElement(), a)
+      << "End should not navigate after keydown makes the item editable";
+}
+
+TEST_F(FocusgroupControllerTest, HomeEndWithCaretBrowsingDoNotNavigate) {
+  GetDocument().GetFrame()->GetSettings()->SetCaretBrowsingEnabled(true);
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <div focusgroup="toolbar">
+      <button id=A>first</button>
+      <button id=B>second</button>
+      <button id=C>third</button>
+    </div>
+  )HTML");
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* a = GetElementById("A");
+  auto* c = GetElementById("C");
+  ASSERT_TRUE(a && c);
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  SendEnd(a);
+  EXPECT_EQ(GetDocument().FocusedElement(), a)
+      << "End with caret browsing should not navigate the focusgroup";
+
+  c->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), c);
+  SendHome(c);
+  EXPECT_EQ(GetDocument().FocusedElement(), c)
+      << "Home with caret browsing should not navigate the focusgroup";
+}
+
+namespace {
+
+class ConsumingKeyboardEventFrameClient : public EmptyLocalFrameClient {
+ public:
+  bool HandleCurrentKeyboardEvent() override {
+    handled_keyboard_event_ = true;
+    return true;
+  }
+
+  bool handled_keyboard_event() const { return handled_keyboard_event_; }
+
+  void ResetHandledKeyboardEvent() { handled_keyboard_event_ = false; }
+
+ private:
+  bool handled_keyboard_event_ = false;
+};
+
+}  // namespace
+
+class FocusgroupControllerEditorPrecedenceTest
+    : public FocusgroupControllerTest {
+ protected:
+  void SetUp() override {
+    frame_client_ = MakeGarbageCollected<ConsumingKeyboardEventFrameClient>();
+    SetupPageWithClients(nullptr, frame_client_, nullptr, gfx::Size());
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+      <div focusgroup="toolbar inline">
+        <button id=A type="button">A</button>
+        <button id=B type="button">B</button>
+        <button id=C type="button">C</button>
+      </div>
+    )HTML");
+    UpdateAllLifecyclePhasesForTest();
+  }
+
+  Persistent<ConsumingKeyboardEventFrameClient> frame_client_;
+};
+
+TEST_F(FocusgroupControllerEditorPrecedenceTest,
+       HomeEndMoveFocusBeforeEmbedderHookConsumesKey) {
+  auto* a = GetElementById("A");
+  auto* c = GetElementById("C");
+  ASSERT_TRUE(a && c);
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  KeyboardEvent* event = SendEnd(a);
+  EXPECT_EQ(GetDocument().FocusedElement(), c)
+      << "End should move focus to the last item before the embedder hook can "
+         "consume the key";
+  EXPECT_TRUE(event->DefaultHandled());
+  EXPECT_FALSE(frame_client_->handled_keyboard_event())
+      << "Focusgroup should handle End before the embedder keyboard-event hook";
+
+  c->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), c);
+
+  event = SendHome(c);
+  EXPECT_EQ(GetDocument().FocusedElement(), a)
+      << "Home should move focus before the embedder hook can consume the key";
+  EXPECT_TRUE(event->DefaultHandled());
+  EXPECT_FALSE(frame_client_->handled_keyboard_event())
+      << "Focusgroup should handle Home before the embedder keyboard-event "
+         "hook";
+}
+
+TEST_F(FocusgroupControllerEditorPrecedenceTest, ArrowRemainsEditorFirst) {
+  auto* a = GetElementById("A");
+  ASSERT_TRUE(a);
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  SendArrowRight(a);
+  EXPECT_EQ(GetDocument().FocusedElement(), a)
+      << "The embedder hook should consume ArrowRight before focusgroup "
+         "navigation";
+  EXPECT_TRUE(frame_client_->handled_keyboard_event())
+      << "ArrowRight should reach the embedder keyboard-event hook first";
+}
+
+TEST_F(FocusgroupControllerEditorPrecedenceTest,
+       HomeEndAtBoundariesFallThroughToEditor) {
+  auto* a = GetElementById("A");
+  auto* c = GetElementById("C");
+  ASSERT_TRUE(a && c);
+
+  a->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), a);
+
+  SendHome(a);
+  EXPECT_EQ(GetDocument().FocusedElement(), a);
+  EXPECT_TRUE(frame_client_->handled_keyboard_event())
+      << "Home at the first item should fall through to the embedder hook";
+
+  frame_client_->ResetHandledKeyboardEvent();
+  c->Focus();
+  ASSERT_EQ(GetDocument().FocusedElement(), c);
+
+  SendEnd(c);
+  EXPECT_EQ(GetDocument().FocusedElement(), c);
+  EXPECT_TRUE(frame_client_->handled_keyboard_event())
+      << "End at the last item should fall through to the embedder hook";
 }
 
 }  // namespace blink

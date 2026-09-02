@@ -81,6 +81,7 @@ import org.chromium.components.ukm.UkmRecorder;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.display.DisplayUtil;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.widget.Toast;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -1623,6 +1624,18 @@ public class MultiWindowUtils implements ActivityStateListener {
     }
 
     /**
+     * Shows a toast notifying the user that the maximum number of windows has been reached.
+     *
+     * @param context The context to show the toast with.
+     */
+    public static void showInstanceCreationLimitToast(Context context) {
+        String text =
+                context.getString(
+                        R.string.multi_instance_creation_limit_message_toast, getMaxInstances());
+        Toast.makeText(context, text, Toast.LENGTH_LONG).show();
+    }
+
+    /**
      * Creates and shows a message to notify a user that a new window cannot be created because
      * {@link MultiWindowUtils#getMaxInstances()} activities already exist.
      *
@@ -1727,6 +1740,24 @@ public class MultiWindowUtils implements ActivityStateListener {
         return null;
     }
 
+    /**
+     * Returns whether the new startup window policy feature is enabled.
+     *
+     * @return {@code true} if the feature is enabled; {@code false} otherwise.
+     */
+    public static boolean isNewStartupWindowPolicyEnabled() {
+        return ChromeFeatureList.sOnStartupWindowPolicy.isEnabled() && DeviceInfo.isDesktop();
+    }
+
+    /**
+     * Returns whether syncing the session restore-on-startup user preference is enabled.
+     *
+     * @return {@code true} if the feature is enabled; {@code false} otherwise.
+     */
+    public static boolean isRestoreOnStartupPrefSyncEnabled() {
+        return ChromeFeatureList.sSyncRestoreOnStartupPref.isEnabled() && DeviceInfo.isDesktop();
+    }
+
     /* package */ static int getRunningTabbedActivityCount() {
         int numActivities = 0;
         List<Activity> activities = ApplicationStatus.getRunningActivities();
@@ -1752,6 +1783,15 @@ public class MultiWindowUtils implements ActivityStateListener {
         return results;
     }
 
+    /* package */ static boolean hasNoNormalTabs(int windowId) {
+        return ChromeMultiInstancePersistentStore.readNormalTabCount(windowId) == 0;
+    }
+
+    /* package */ static boolean isTaskAlive(int windowId, Map<Integer, AppTask> appTasksById) {
+        int taskId = ChromeMultiInstancePersistentStore.readTaskId(windowId);
+        return appTasksById.containsKey(taskId);
+    }
+
     /* package */ static Map<Integer, AppTask> getAppTasksById(Context context) {
         ActivityManager activityManager =
                 (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
@@ -1762,10 +1802,6 @@ public class MultiWindowUtils implements ActivityStateListener {
             if (info != null) results.put(info.taskId, task);
         }
         return results;
-    }
-
-    /* package */ static boolean isNewStartupWindowPolicyEnabled() {
-        return ChromeFeatureList.sOnStartupWindowPolicy.isEnabled() && DeviceInfo.isDesktop();
     }
 
     /* package */ static void setAppTaskIdsForTesting(Set<Integer> appTaskIds) {

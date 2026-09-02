@@ -67,6 +67,7 @@ class OrganizerPanelView : public views::View,
   bool is_elevated() { return elevated_; }
 
   // views::View:
+  void AddedToWidget() override;
   void Layout(PassKey) override;
   void RemovedFromWidget() override;
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;
@@ -92,6 +93,7 @@ class OrganizerPanelView : public views::View,
   OrganizerPanelControlsView* controls_view_for_testing() {
     return controls_view_;
   }
+  views::View* web_view_for_testing();
 
   void set_on_close_animation_ended_callback_for_testing(
       base::OnceClosure on_close_animation_ended_callback) {
@@ -123,6 +125,7 @@ class OrganizerPanelView : public views::View,
 
   raw_ptr<views::View> content_container_ = nullptr;
   raw_ptr<OrganizerPanelControlsView> controls_view_ = nullptr;
+  raw_ptr<views::View> web_view_ = nullptr;
 
   std::unique_ptr<views::ViewShadow> content_shadow_;
 

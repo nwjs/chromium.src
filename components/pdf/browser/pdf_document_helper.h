@@ -50,7 +50,7 @@ class PDFDocumentHelper
   // for `web_contents`. This should only be called if a `PDFDocumentHelper`
   // does not already exist for `web_contents`.
   static base::CallbackListSubscription RegisterForCreate(
-      content::WebContents* web_contents,
+      content::WebContents& web_contents,
       base::OnceClosure callback);
 
   PDFDocumentHelper(const PDFDocumentHelper&) = delete;
@@ -64,7 +64,7 @@ class PDFDocumentHelper
       std::unique_ptr<PDFDocumentHelperClient> client);
 
   static PDFDocumentHelper* MaybeGetForWebContents(
-      content::WebContents* contents);
+      content::WebContents& contents);
 
   // content::RenderWidgetHostObserver:
   void RenderWidgetHostDestroyed(

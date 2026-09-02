@@ -2030,15 +2030,11 @@ bool AXNodeObject::IsDataTable() const {
 
   // Store the background color of the table to check against cell's background
   // colors.
-  const ComputedStyle* table_style = GetLayoutObject()->Style();
-  if (!table_style) {
-    return false;
-  }
-
+  const ComputedStyle& table_style = GetLayoutObject()->StyleRef();
   Color table_bg_color =
-      table_style->VisitedDependentColor(GetCSSPropertyBackgroundColor());
-  bool has_cell_spacing = table_style->HorizontalBorderSpacing() &&
-                          table_style->VerticalBorderSpacing();
+      table_style.VisitedDependentColor(GetCSSPropertyBackgroundColor());
+  bool has_cell_spacing = table_style.HorizontalBorderSpacing() &&
+                          table_style.VerticalBorderSpacing();
 
   // check enough of the cells to find if the table matches our criteria
   // Criteria:
@@ -2093,13 +2089,10 @@ bool AXNodeObject::IsDataTable() const {
 
       valid_cell_count++;
 
-      const ComputedStyle* computed_style = cell_layout_block->Style();
-      if (!computed_style) {
-        continue;
-      }
+      const ComputedStyle& computed_style = cell_layout_block->StyleRef();
 
       // If the empty-cells style is set, we'll call it a data table.
-      if (computed_style->EmptyCells() == EEmptyCells::kHide) {
+      if (computed_style.EmptyCells() == EEmptyCells::kHide) {
         return true;
       }
 
@@ -2130,8 +2123,8 @@ bool AXNodeObject::IsDataTable() const {
       // If the cell has a different color from the table and there is cell
       // spacing, then it is probably a data table cell (spacing and colors take
       // the place of borders).
-      Color cell_color = computed_style->VisitedDependentColor(
-          GetCSSPropertyBackgroundColor());
+      Color cell_color =
+          computed_style.VisitedDependentColor(GetCSSPropertyBackgroundColor());
       if (has_cell_spacing && table_bg_color != cell_color &&
           !cell_color.IsFullyTransparent()) {
         background_difference_cell_count++;
@@ -2150,11 +2143,8 @@ bool AXNodeObject::IsDataTable() const {
             !layout_row->IsTableRow()) {
           continue;
         }
-        const ComputedStyle* row_computed_style = layout_row->Style();
-        if (!row_computed_style) {
-          continue;
-        }
-        Color row_color = row_computed_style->VisitedDependentColor(
+        const ComputedStyle& row_computed_style = layout_row->StyleRef();
+        Color row_color = row_computed_style.VisitedDependentColor(
             GetCSSPropertyBackgroundColor());
         alternating_row_colors[alternating_row_color_count] = row_color;
         alternating_row_color_count++;
@@ -2559,11 +2549,17 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
     NOTREACHED();
   }
 
-  if (IsA<HTMLMenuBarElement>(GetNode())) {
+  if (auto* menu_bar = DynamicTo<HTMLMenuBarElement>(GetNode())) {
+    if (menu_bar->IsInDialogMode()) {
+      return ax::mojom::blink::Role::kDialog;
+    }
     return ax::mojom::blink::Role::kMenuBar;
   }
 
-  if (IsA<HTMLMenuListElement>(GetNode())) {
+  if (auto* menu_list = DynamicTo<HTMLMenuListElement>(GetNode())) {
+    if (menu_list->IsInDialogMode()) {
+      return ax::mojom::blink::Role::kDialog;
+    }
     return ax::mojom::blink::Role::kMenu;
   }
 
@@ -2673,6 +2669,19 @@ ax::mojom::blink::Role AXNodeObject::NativeRoleIgnoringAria() const {
         element->HasTagName(mathml_names::kMstyleTag) ||
         element->HasTagName(mathml_names::kSemanticsTag)) {
       return ax::mojom::blink::Role::kMathMLRow;
+    }
+    // We map the MathML a element to link role under certain conditions.
+    // Otherwise we map it the same as mrow
+    // See the discussion in https://github.com/w3c/mathml-aam/issues/39
+    if (RuntimeEnabledFeatures::MathMLAnchorElementEnabled()) {
+      if (element->HasTagName(mathml_names::kATag)) {
+        if (element->IsLink() || element->HasAnyEventListeners(
+                                     event_util::MouseButtonEventTypes())) {
+          return ax::mojom::blink::Role::kLink;
+        } else {
+          return ax::mojom::blink::Role::kMathMLRow;
+        }
+      }
     }
     if (element->HasTagName(mathml_names::kMprescriptsTag))
       return ax::mojom::blink::Role::kMathMLPrescriptDelimiter;
@@ -3324,12 +3333,8 @@ bool AXNodeObject::IsNotUserSelectable() const {
     return true;
   }
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style) {
-    return false;
-  }
-
-  return (style->UsedUserSelect() == EUserSelect::kNone);
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  return style.UsedUserSelect() == EUserSelect::kNone;
 }
 
 bool AXNodeObject::IsTabItemSelected() const {
@@ -3791,27 +3796,23 @@ ax::mojom::blink::ListStyle AXNodeObject::GetListStyle() const {
     return AXObject::GetListStyle();
   }
 
-  const ComputedStyle* computed_style = layout_object->Style();
-  if (!computed_style) {
-    return AXObject::GetListStyle();
-  }
-
-  const StyleImage* style_image = computed_style->ListStyleImage();
+  const ComputedStyle& computed_style = layout_object->StyleRef();
+  const StyleImage* style_image = computed_style.ListStyleImage();
   if (style_image && !style_image->ErrorOccurred()) {
     return ax::mojom::blink::ListStyle::kImage;
   }
 
   if (RuntimeEnabledFeatures::CSSAtRuleCounterStyleSpeakAsDescriptorEnabled()) {
-    if (!computed_style->ListStyleType()) {
+    if (!computed_style.ListStyleType()) {
       return ax::mojom::blink::ListStyle::kNone;
     }
-    if (computed_style->ListStyleType()->IsString()) {
+    if (computed_style.ListStyleType()->IsString()) {
       return ax::mojom::blink::ListStyle::kOther;
     }
 
-    DCHECK(computed_style->ListStyleType()->IsCounterStyle());
+    DCHECK(computed_style.ListStyleType()->IsCounterStyle());
     const CounterStyle& counter_style =
-        ListMarker::GetCounterStyle(*GetDocument(), *computed_style);
+        ListMarker::GetCounterStyle(*GetDocument(), computed_style);
     switch (counter_style.EffectiveSpeakAs()) {
       case CounterStyleSpeakAs::kBullets: {
         // See |ua_counter_style_map.cc| for predefined symbolic counter styles.
@@ -3837,12 +3838,12 @@ ax::mojom::blink::ListStyle AXNodeObject::GetListStyle() const {
     }
   }
 
-  switch (ListMarker::GetListStyleCategory(*GetDocument(), *computed_style)) {
+  switch (ListMarker::GetListStyleCategory(*GetDocument(), computed_style)) {
     case ListMarker::ListStyleCategory::kNone:
       return ax::mojom::blink::ListStyle::kNone;
     case ListMarker::ListStyleCategory::kSymbol: {
       const AtomicString& counter_style_name =
-          computed_style->ListStyleType()->GetCounterStyleName();
+          computed_style.ListStyleType()->GetCounterStyleName();
       if (counter_style_name == keywords::kDisc) {
         return ax::mojom::blink::ListStyle::kDisc;
       }
@@ -3856,14 +3857,14 @@ ax::mojom::blink::ListStyle AXNodeObject::GetListStyle() const {
     }
     case ListMarker::ListStyleCategory::kLanguage: {
       const AtomicString& counter_style_name =
-          computed_style->ListStyleType()->GetCounterStyleName();
+          computed_style.ListStyleType()->GetCounterStyleName();
       if (counter_style_name == keywords::kDecimal) {
         return ax::mojom::blink::ListStyle::kNumeric;
       }
       if (counter_style_name == "decimal-leading-zero") {
         // 'decimal-leading-zero' may be overridden by custom counter styles. We
         // return kNumeric only when we are using the predefined counter style.
-        if (ListMarker::GetCounterStyle(*GetDocument(), *computed_style)
+        if (ListMarker::GetCounterStyle(*GetDocument(), computed_style)
                 .IsPredefined()) {
           return ax::mojom::blink::ListStyle::kNumeric;
         }
@@ -4071,11 +4072,8 @@ ax::mojom::blink::WritingDirection AXNodeObject::GetTextDirection() const {
   if (!GetLayoutObject())
     return AXObject::GetTextDirection();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::GetTextDirection();
-
-  switch (style->GetWritingDirection().InlineEnd()) {
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  switch (style.GetWritingDirection().InlineEnd()) {
     case PhysicalDirection::kRight:
       return ax::mojom::blink::WritingDirection::kLtr;
     case PhysicalDirection::kLeft:
@@ -4124,11 +4122,8 @@ ax::mojom::blink::TextPosition AXNodeObject::GetTextPosition() const {
   if (!GetLayoutObject())
     return AXObject::GetTextPosition();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::GetTextPosition();
-
-  switch (style->VerticalAlign()) {
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  switch (style.VerticalAlign()) {
     case EVerticalAlign::kBaseline:
     case EVerticalAlign::kMiddle:
     case EVerticalAlign::kTextTop:
@@ -4156,27 +4151,20 @@ void AXNodeObject::GetTextStyleAndTextDecorationStyle(
         text_underline_style);
     return;
   }
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style) {
-    AXObject::GetTextStyleAndTextDecorationStyle(
-        text_style, text_overline_style, text_strikethrough_style,
-        text_underline_style);
-    return;
-  }
-
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
   *text_style = 0;
   *text_overline_style = ax::mojom::blink::TextDecorationStyle::kNone;
   *text_strikethrough_style = ax::mojom::blink::TextDecorationStyle::kNone;
   *text_underline_style = ax::mojom::blink::TextDecorationStyle::kNone;
 
-  if (style->GetFontWeight() == kBoldWeightValue) {
+  if (style.GetFontWeight() == kBoldWeightValue) {
     *text_style |= TextStyleFlag(ax::mojom::blink::TextStyle::kBold);
   }
-  if (style->GetFontDescription().Style() == kItalicSlopeValue) {
+  if (style.GetFontDescription().Style() == kItalicSlopeValue) {
     *text_style |= TextStyleFlag(ax::mojom::blink::TextStyle::kItalic);
   }
 
-  for (const auto& decoration : style->AppliedTextDecorations()) {
+  for (const auto& decoration : style.AppliedTextDecorations()) {
     if (EnumHasFlags(decoration.Lines(), TextDecorationLine::kOverline)) {
       *text_style |= TextStyleFlag(ax::mojom::blink::TextStyle::kOverline);
       *text_overline_style =
@@ -4200,11 +4188,8 @@ ax::mojom::blink::TextAlign AXNodeObject::GetTextAlign() const {
   if (IsTextObject() || !GetLayoutObject())
     return ax::mojom::blink::TextAlign::kNone;
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return ax::mojom::blink::TextAlign::kNone;
-
-  switch (style->GetTextAlign()) {
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  switch (style.GetTextAlign()) {
     case ETextAlign::kLeft:
     case ETextAlign::kWebkitLeft:
     case ETextAlign::kStart:
@@ -4219,7 +4204,7 @@ ax::mojom::blink::TextAlign AXNodeObject::GetTextAlign() const {
     case ETextAlign::kJustify:
       return ax::mojom::blink::TextAlign::kJustify;
     case ETextAlign::kMatchParent:
-      return style->IsLeftToRightDirection()
+      return style.IsLeftToRightDirection()
                  ? ax::mojom::blink::TextAlign::kLeft
                  : ax::mojom::blink::TextAlign::kRight;
   }
@@ -4228,9 +4213,6 @@ ax::mojom::blink::TextAlign AXNodeObject::GetTextAlign() const {
 float AXNodeObject::GetTextIndent() const {
   // Text-indent applies to lines or blocks, but not text.
   if (IsTextObject() || !GetLayoutObject())
-    return 0.0f;
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
     return 0.0f;
 
   const blink::LayoutBlock* layout_block =
@@ -4356,22 +4338,20 @@ RGBA32 AXNodeObject::BackgroundColor() const {
       return Color::kWhite.Rgb();
   }
 
-  const ComputedStyle* style = layout_object->Style();
-  if (!style || !style->HasBackground())
+  const ComputedStyle& style = layout_object->StyleRef();
+  if (!style.HasBackground()) {
     return Color::kTransparent.Rgb();
+  }
 
-  return style->VisitedDependentColor(GetCSSPropertyBackgroundColor()).Rgb();
+  return style.VisitedDependentColor(GetCSSPropertyBackgroundColor()).Rgb();
 }
 
 RGBA32 AXNodeObject::GetColor() const {
   if (!GetLayoutObject() || IsColorWell())
     return AXObject::GetColor();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::GetColor();
-
-  Color color = style->VisitedDependentColor(GetCSSPropertyColor());
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  Color color = style.VisitedDependentColor(GetCSSPropertyColor());
   return color.Rgb();
 }
 
@@ -4379,11 +4359,8 @@ const AtomicString& AXNodeObject::ComputedFontFamily() const {
   if (!GetLayoutObject())
     return AXObject::ComputedFontFamily();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::ComputedFontFamily();
-
-  const FontDescription& font_description = style->GetFontDescription();
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  const FontDescription& font_description = style.GetFontDescription();
   return font_description.Family().FamilyName();
 }
 
@@ -4391,11 +4368,8 @@ String AXNodeObject::FontFamilyForSerialization() const {
   if (!GetLayoutObject())
     return AXObject::FontFamilyForSerialization();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::FontFamilyForSerialization();
-
-  const SimpleFontData* primary_font = style->GetFont()->PrimaryFont();
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  const SimpleFontData* primary_font = style.GetFont()->PrimaryFont();
   if (!primary_font)
     return AXObject::FontFamilyForSerialization();
 
@@ -4410,27 +4384,22 @@ float AXNodeObject::FontSize() const {
   if (!GetLayoutObject())
     return AXObject::FontSize();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::FontSize();
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
 
   // Font size should not be affected by scale transform or page zoom, because
   // users of authoring tools may want to check that their text is formatted
   // with the font size they expected.
   // E.g. use SpecifiedFontSize() instead of ComputedFontSize(), and do not
-  // multiply by style->Scale()->Transform()->Y();
-  return style->SpecifiedFontSize();
+  // multiply by style.Scale()->Transform()->Y();
+  return style.SpecifiedFontSize();
 }
 
 float AXNodeObject::FontWeight() const {
   if (!GetLayoutObject())
     return AXObject::FontWeight();
 
-  const ComputedStyle* style = GetLayoutObject()->Style();
-  if (!style)
-    return AXObject::FontWeight();
-
-  return style->GetFontWeight();
+  const ComputedStyle& style = GetLayoutObject()->StyleRef();
+  return style.GetFontWeight();
 }
 
 ax::mojom::blink::AriaCurrentState AXNodeObject::GetAriaCurrentState() const {
@@ -4863,12 +4832,9 @@ String AXNodeObject::GetValueForControl(AXObjectSet& visited) const {
     if (!GetLayoutObject())
       return inner_text;
 
-    const ComputedStyle* style = GetLayoutObject()->Style();
-    if (!style)
-      return inner_text;
-
+    const ComputedStyle& style = GetLayoutObject()->StyleRef();
     UChar mask_character = 0;
-    switch (style->TextSecurity()) {
+    switch (style.TextSecurity()) {
       case ETextSecurity::kNone:
         break;  // Fall through to the non-password branch.
       case ETextSecurity::kDisc:
@@ -5167,15 +5133,21 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
 
   // Fields inside a datetime control need to merge the field name with
   // the name of the <input> element.
-  if (RoleValue() == ax::mojom::blink::Role::kSpinButton &&
+  if ((RoleValue() == ax::mojom::blink::Role::kSpinButton ||
+       RoleValue() == ax::mojom::blink::Role::kPopUpButton) &&
       DatetimeAncestor()) {
     if (name_objects) {
       name_objects->clear();
     }
-    String input_name =
-        DatetimeAncestor()->GetName(name_from, name_objects, name_sources);
-    if (!input_name.empty())
+    ax::mojom::blink::NameFrom ancestor_name_from;
+    String input_name = DatetimeAncestor()->GetName(ancestor_name_from,
+                                                    name_objects, name_sources);
+    if (!input_name.empty()) {
+      if (name.empty()) {
+        name_from = ancestor_name_from;
+      }
       return StrCat({name, " ", input_name});
+    }
   }
 
   // Handle ::scroll-button(*) pseudo-element names.
@@ -5195,18 +5167,17 @@ String AXNodeObject::GetName(ax::mojom::blink::NameFrom& name_from,
     }
 
     // If the alt text is not available, return a "Scroll [direction]" name,
-    const ComputedStyle* style =
-        GetLayoutObject() ? GetLayoutObject()->Style() : nullptr;
-    if (style) {
+    if (const LayoutObject* layout_object = GetLayoutObject()) {
+      const ComputedStyle& style = layout_object->StyleRef();
       PhysicalDirection physical;
       if (element->IsScrollButtonBlockStartPseudoElement()) {
-        physical = style->GetWritingDirection().BlockStart();
+        physical = style.GetWritingDirection().BlockStart();
       } else if (element->IsScrollButtonBlockEndPseudoElement()) {
-        physical = style->GetWritingDirection().BlockEnd();
+        physical = style.GetWritingDirection().BlockEnd();
       } else if (element->IsScrollButtonInlineStartPseudoElement()) {
-        physical = style->GetWritingDirection().InlineStart();
+        physical = style.GetWritingDirection().InlineStart();
       } else if (element->IsScrollButtonInlineEndPseudoElement()) {
-        physical = style->GetWritingDirection().InlineEnd();
+        physical = style.GetWritingDirection().InlineEnd();
       } else {
         NOTREACHED()
             << "ScrollButtonPseudoElement must be one of known directions";
@@ -7799,7 +7770,8 @@ String AXNodeObject::Description(
 
   result = result.SimplifyWhiteSpace(IsHTMLSpace<UChar>);
 
-  if (RoleValue() == ax::mojom::blink::Role::kSpinButton &&
+  if ((RoleValue() == ax::mojom::blink::Role::kSpinButton ||
+       RoleValue() == ax::mojom::blink::Role::kPopUpButton) &&
       DatetimeAncestor()) {
     // Fields inside a datetime control need to merge the field description
     // with the description of the <input> element.
@@ -7808,12 +7780,18 @@ String AXNodeObject::Description(
     datetime_ancestor->GetName(datetime_ancestor_name_from, nullptr, nullptr);
     if (description_objects)
       description_objects->clear();
+    ax::mojom::blink::DescriptionFrom ancestor_description_from;
     String ancestor_description = DatetimeAncestor()->Description(
-        datetime_ancestor_name_from, description_from, description_objects);
-    if (!result.empty() && !ancestor_description.empty())
+        datetime_ancestor_name_from, ancestor_description_from,
+        description_objects);
+    if (!result.empty() && !ancestor_description.empty()) {
+      description_from = ancestor_description_from;
       return StrCat({result, " ", ancestor_description});
-    if (!ancestor_description.empty())
+    }
+    if (!ancestor_description.empty()) {
+      description_from = ancestor_description_from;
       return ancestor_description;
+    }
   }
 
   return result;

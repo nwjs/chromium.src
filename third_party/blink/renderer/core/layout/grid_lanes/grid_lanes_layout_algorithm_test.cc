@@ -121,6 +121,89 @@ class GridLanesLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
     running_positions.SetAutoPlacementCursorForTesting(cursor);
   }
 
+  template <typename ItemRange>
+  void ExpectItemNodes(const ItemRange& items,
+                       const Vector<const char*>& expected_ids) {
+    wtf_size_t expected_index = 0;
+    for (const auto& item : items) {
+      ASSERT_LT(expected_index, expected_ids.size());
+      EXPECT_EQ(item.node.GetLayoutBox(),
+                GetLayoutBoxByElementId(expected_ids[expected_index++]));
+    }
+    EXPECT_EQ(expected_index, expected_ids.size());
+  }
+
+  template <typename ItemRange>
+  wtf_size_t ItemCount(const ItemRange& items) {
+    wtf_size_t count = 0;
+    for (auto iterator = items.begin(); iterator != items.end(); ++iterator) {
+      ++count;
+    }
+    return count;
+  }
+
+  template <typename ItemRange>
+  void ExpectItemsSubgriddedToParent(const ItemRange& items,
+                                     const Vector<const char*>& expected_ids) {
+    for (const auto& item : items) {
+      EXPECT_TRUE(item.is_subgridded_to_parent_grid);
+    }
+    ExpectItemNodes(items, expected_ids);
+  }
+
+  void SetNestedSubgridTestBody() {
+    SetBodyInnerHTML(R"HTML(
+      <style>
+      #grid-lanes {
+        display: grid-lanes;
+        grid-template-columns: repeat(4, 100px);
+      }
+      .subgrid {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+      }
+      #outer-subgrid {
+        grid-template-rows: repeat(3, 100px);
+      }
+      #middle-subgrid {
+        grid-template-rows: subgrid;
+        grid-row: 1 / -1;
+      }
+      </style>
+      <div id="grid-lanes">
+        <div id="root-item-1"></div>
+        <div id="outer-subgrid" class="subgrid">
+          <div id="outer-item-1"></div>
+          <div id="middle-subgrid" class="subgrid">
+            <div id="middle-item-1"></div>
+            <div id="inner-subgrid" class="subgrid">
+              <div id="inner-item"></div>
+            </div>
+            <div id="middle-item-2"></div>
+          </div>
+          <div id="outer-item-2"></div>
+        </div>
+        <div id="root-item-2"></div>
+      </div>
+    )HTML");
+  }
+
+  GridSizingTree BuildGridLanesSizingTree() {
+    BlockNode node(GetLayoutBoxByElementId("grid-lanes"));
+    const auto space = ConstructBlockLayoutTestConstraintSpace(
+        {WritingMode::kHorizontalTb, TextDirection::kLtr},
+        LogicalSize(LayoutUnit(1000), kIndefiniteSize),
+        /*stretch_inline_size_if_auto=*/true,
+        /*is_new_formatting_context=*/true);
+    const auto fragment_geometry =
+        CalculateInitialFragmentGeometry(space, node, /*break_token=*/nullptr);
+    GridLanesLayoutAlgorithm algorithm({node, fragment_geometry, space});
+    const GridLineResolver line_resolver(node.Style(), /*auto_repetitions=*/0);
+    return BuildGridSizingTree<GridLanesLayoutAlgorithm>(algorithm,
+                                                         line_resolver);
+  }
+
   GridLanesDataVector GetFragmentedGridLanesData() {
     // Run the grid-lanes algorithm directly in a fragmentation context. The
     // fragmentation pass currently only collects initial item offsets into the
@@ -1465,6 +1548,66 @@ TEST_F(GridLanesLayoutAlgorithmTest, GetMaxPositionsForAllTracks) {
                                 LayoutUnit(3.5), LayoutUnit(2.5)}));
 }
 
+TEST_F(GridLanesLayoutAlgorithmTest,
+       IncludeSubgriddedItemsIncludesNestedDescendants) {
+  SetNestedSubgridTestBody();
+  auto sizing_tree = BuildGridLanesSizingTree();
+
+  const GridItems& root_items = sizing_tree.GetGridItems();
+  ExpectItemNodes(root_items, {"root-item-1", "outer-subgrid", "root-item-2"});
+  ExpectItemNodes(
+      root_items.IncludeSubgriddedItems(),
+      {"root-item-1", "outer-subgrid", "root-item-2", "outer-item-1",
+       "middle-subgrid", "outer-item-2", "middle-item-1", "inner-subgrid",
+       "middle-item-2", "inner-item"});
+
+  const BlockNode outer_node(GetLayoutBoxByElementId("outer-subgrid"));
+  const GridItems& outer_items =
+      sizing_tree.GetGridItems(sizing_tree.LookupSubgridIndex(outer_node));
+  ExpectItemNodes(outer_items,
+                  {"outer-item-1", "middle-subgrid", "outer-item-2"});
+  ExpectItemNodes(outer_items.IncludeSubgriddedItems(),
+                  {"outer-item-1", "middle-subgrid", "outer-item-2",
+                   "middle-item-1", "inner-subgrid", "middle-item-2"});
+
+  const BlockNode middle_node(GetLayoutBoxByElementId("middle-subgrid"));
+  const GridItems& middle_items =
+      sizing_tree.GetGridItems(sizing_tree.LookupSubgridIndex(middle_node));
+  ExpectItemNodes(middle_items,
+                  {"middle-item-1", "inner-subgrid", "middle-item-2"});
+  ExpectItemNodes(middle_items.IncludeSubgriddedItems(),
+                  {"middle-item-1", "inner-subgrid", "middle-item-2"});
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       ItemsSubgriddedToParentExcludesDirectItems) {
+  SetNestedSubgridTestBody();
+  auto sizing_tree = BuildGridLanesSizingTree();
+
+  const GridItems& root_items = sizing_tree.GetGridItems();
+  ExpectItemsSubgriddedToParent(
+      root_items.ItemsSubgriddedToParent(),
+      {"outer-item-1", "middle-subgrid", "outer-item-2", "middle-item-1",
+       "inner-subgrid", "middle-item-2", "inner-item"});
+
+  const BlockNode outer_node(GetLayoutBoxByElementId("outer-subgrid"));
+  const GridItems& outer_items =
+      sizing_tree.GetGridItems(sizing_tree.LookupSubgridIndex(outer_node));
+  ExpectItemsSubgriddedToParent(
+      outer_items.ItemsSubgriddedToParent(),
+      {"middle-item-1", "inner-subgrid", "middle-item-2"});
+
+  const BlockNode middle_node(GetLayoutBoxByElementId("middle-subgrid"));
+  const GridItems& middle_items =
+      sizing_tree.GetGridItems(sizing_tree.LookupSubgridIndex(middle_node));
+  ExpectItemsSubgriddedToParent(middle_items.ItemsSubgriddedToParent(), {});
+
+  const BlockNode inner_node(GetLayoutBoxByElementId("inner-subgrid"));
+  const GridItems& inner_items =
+      sizing_tree.GetGridItems(sizing_tree.LookupSubgridIndex(inner_node));
+  ExpectItemsSubgriddedToParent(inner_items.ItemsSubgriddedToParent(), {});
+}
+
 TEST_F(GridLanesLayoutAlgorithmTest, AppendSubgriddedItemsColumns) {
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -1510,16 +1653,9 @@ TEST_F(GridLanesLayoutAlgorithmTest, AppendSubgriddedItemsColumns) {
 
   // After building the sizing tree, we should have 2 original items + 2
   // subgridded items.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 4u);
-  EXPECT_EQ(subgridded_count, 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 4u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            2u);
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest, AppendSubgriddedItemsRows) {
@@ -1568,16 +1704,9 @@ TEST_F(GridLanesLayoutAlgorithmTest, AppendSubgriddedItemsRows) {
 
   // After building the sizing tree, we should have 2 original items + 2
   // subgridded items.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 4u);
-  EXPECT_EQ(subgridded_count, 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 4u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            2u);
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest, SubgridRowsIgnoredInColumnGridLanes) {
@@ -1623,16 +1752,9 @@ TEST_F(GridLanesLayoutAlgorithmTest, SubgridRowsIgnoredInColumnGridLanes) {
 
   // A child that only subgrids rows should not produce subgridded items
   // when the grid-lanes axis is columns.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 2u);
-  EXPECT_EQ(subgridded_count, 0u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            0u);
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest, SubgridColumnsIgnoredInRowGridLanes) {
@@ -1679,16 +1801,9 @@ TEST_F(GridLanesLayoutAlgorithmTest, SubgridColumnsIgnoredInRowGridLanes) {
 
   // A child that only subgrids columns should not produce subgridded items
   // when the grid-lanes axis is rows.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 2u);
-  EXPECT_EQ(subgridded_count, 0u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            0u);
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest, OrthogonalAppendSubgriddedItemsColumns) {
@@ -1738,16 +1853,9 @@ TEST_F(GridLanesLayoutAlgorithmTest, OrthogonalAppendSubgriddedItemsColumns) {
 
   // After building the sizing tree, we should have 2 original items + 2
   // subgridded items.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 4u);
-  EXPECT_EQ(subgridded_count, 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 4u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            2u);
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest, OrthogonalAppendSubgriddedItemsRows) {
@@ -1798,16 +1906,9 @@ TEST_F(GridLanesLayoutAlgorithmTest, OrthogonalAppendSubgriddedItemsRows) {
 
   // After building the sizing tree, we should have 2 original items + 2
   // subgridded items.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 4u);
-  EXPECT_EQ(subgridded_count, 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 4u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            2u);
 }
 
 // Auto-placed subgrid: subgridded items should be marked as auto-placed
@@ -1858,16 +1959,14 @@ TEST_F(GridLanesLayoutAlgorithmTest, AutoPlacedSubgriddedItemsAreAutoPlaced) {
 
   const auto grid_axis_direction = node.Style().GridLanesTrackSizingDirection();
 
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      EXPECT_TRUE(item.is_auto_placed);
-      EXPECT_TRUE(
-          item.resolved_position.Span(grid_axis_direction).IsIndefinite());
-      ++subgridded_count;
-    }
+  const auto subgridded_items =
+      sizing_tree.GetGridItems().ItemsSubgriddedToParent();
+  for (const auto& item : subgridded_items) {
+    EXPECT_TRUE(item.is_auto_placed);
+    EXPECT_TRUE(
+        item.resolved_position.Span(grid_axis_direction).IsIndefinite());
   }
-  EXPECT_EQ(subgridded_count, 2u);
+  EXPECT_EQ(ItemCount(subgridded_items), 2u);
 }
 
 // Definite subgrid with an auto-placed child: the subgrid's placement
@@ -1923,17 +2022,14 @@ TEST_F(GridLanesLayoutAlgorithmTest,
   // Both items end up with definite positions after the subgrid's placement
   // algorithm runs. Item B has grid-column: 1 / 2 (explicitly placed), and
   // item A is resolved by the subgrid's auto-placement.
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (!item.is_subgridded_to_parent_grid) {
-      continue;
-    }
+  const auto subgridded_items =
+      sizing_tree.GetGridItems().ItemsSubgriddedToParent();
+  for (const auto& item : subgridded_items) {
     const auto& span = item.resolved_position.Span(grid_axis_direction);
     EXPECT_TRUE(span.IsTranslatedDefinite());
     EXPECT_FALSE(item.is_auto_placed);
-    ++subgridded_count;
   }
-  EXPECT_EQ(subgridded_count, 2u);
+  EXPECT_EQ(ItemCount(subgridded_items), 2u);
 }
 
 // Subgrid with opposite direction (RTL): the subgridded items' spans should be
@@ -1987,10 +2083,8 @@ TEST_F(GridLanesLayoutAlgorithmTest,
 
   // The child is at subgrid column 1/2 (0-based: 0-1). With opposite direction,
   // this should be reversed within the 3-track subgrid: position becomes 2-3.
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (!item.is_subgridded_to_parent_grid) {
-      continue;
-    }
+  for (const auto& item :
+       sizing_tree.GetGridItems().ItemsSubgriddedToParent()) {
     const auto& span = item.resolved_position.Span(grid_axis_direction);
     EXPECT_TRUE(span.IsTranslatedDefinite());
     EXPECT_EQ(span.StartLine(), 2u);
@@ -2045,16 +2139,9 @@ TEST_F(GridLanesLayoutAlgorithmTest,
   // An orthogonal child with `grid-template-columns: subgrid` maps to the
   // parent's row axis after the writing-mode swap, not columns. Since the
   // grid-lanes axis is columns, no subgridded items should be produced.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 2u);
-  EXPECT_EQ(subgridded_count, 0u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            0u);
 }
 
 TEST_F(GridLanesLayoutAlgorithmTest,
@@ -2105,16 +2192,9 @@ TEST_F(GridLanesLayoutAlgorithmTest,
   // An orthogonal child with `grid-template-rows: subgrid` maps to the
   // parent's column axis after the writing-mode swap, not rows. Since the
   // grid-lanes axis is rows, no subgridded items should be produced.
-  wtf_size_t total_count = 0;
-  wtf_size_t subgridded_count = 0;
-  for (const auto& item : sizing_tree.GetGridItems().IncludeSubgriddedItems()) {
-    if (item.is_subgridded_to_parent_grid) {
-      ++subgridded_count;
-    }
-    ++total_count;
-  }
-  EXPECT_EQ(total_count, 2u);
-  EXPECT_EQ(subgridded_count, 0u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().IncludeSubgriddedItems()), 2u);
+  EXPECT_EQ(ItemCount(sizing_tree.GetGridItems().ItemsSubgriddedToParent()),
+            0u);
 }
 
 // Two definite subgrids at different positions, each with a child that has the
@@ -3087,15 +3167,15 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateGridLanesBreakTokenData) {
   EXPECT_FALSE(grid_lanes[2]);
 
   // Items are stored in placement order within each lane.
-  EXPECT_EQ(grid_lanes[0]->item_data[0]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
             LogicalOffset());
-  EXPECT_EQ(grid_lanes[1]->item_data[0]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
-  EXPECT_EQ(grid_lanes[0]->item_data[1]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
 
   // Grid-lanes leaves relative positioning to the fragment builder.
-  EXPECT_FALSE(grid_lanes[0]->item_data[0]->placement_data.relative_offset);
+  EXPECT_FALSE(grid_lanes[0]->item_data[0]->PlacementData().relative_offset);
 
   // Every entry represents the start of its single-lane item.
   EXPECT_TRUE(grid_lanes[0]->item_data[0]->is_item_start);
@@ -3106,8 +3186,7 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateGridLanesBreakTokenData) {
 TEST_F(GridLanesLayoutAlgorithmTest, PopulateRowGridLanesBreakTokenData) {
   SetBodyInnerHTML(R"HTML(
     <div id="grid-lanes" style="display: grid-lanes; height: 200px;
-        grid-lanes-direction: row; grid-template-rows: repeat(2, 50px);
-        flow-tolerance: 0;">
+        grid-template-rows: repeat(2, 50px); flow-tolerance: 0;">
       <div style="grid-row: 1; width: 20px;"></div>
       <div style="grid-row: 2; width: 30px;"></div>
       <div style="grid-row: 1; width: 20px;"></div>
@@ -3123,11 +3202,11 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateRowGridLanesBreakTokenData) {
 
   // The item in the second row advances in the block axis, while the second
   // item in the first row advances in the inline axis.
-  EXPECT_EQ(grid_lanes[0]->item_data[0]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
             LogicalOffset());
-  EXPECT_EQ(grid_lanes[1]->item_data[0]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(50)}));
-  EXPECT_EQ(grid_lanes[0]->item_data[1]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
             (LogicalOffset{LayoutUnit(20), LayoutUnit()}));
 }
 
@@ -3150,31 +3229,31 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateSpannerBreakTokenData) {
   ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
   ASSERT_EQ(grid_lanes[2]->item_data.size(), 1u);
 
-  EXPECT_EQ(grid_lanes[0]->item_data[0]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
             LogicalOffset());
 
   // Each lane spanned by the two-lane item has a distinct entry that references
-  // the same grid item and placement offset.
+  // the same grid item and shared placement data.
   EXPECT_NE(grid_lanes[0]->item_data[0]->item.Get(),
             grid_lanes[0]->item_data[1]->item.Get());
   EXPECT_EQ(grid_lanes[0]->item_data[1]->item.Get(),
             grid_lanes[1]->item_data[0]->item.Get());
-  EXPECT_EQ(grid_lanes[0]->item_data[1]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
-  EXPECT_EQ(grid_lanes[1]->item_data[0]->placement_data.offset,
-            grid_lanes[0]->item_data[1]->placement_data.offset);
 
   // The three-lane item is likewise shared by all of its lane entries.
   EXPECT_EQ(grid_lanes[0]->item_data[2]->item.Get(),
             grid_lanes[1]->item_data[1]->item.Get());
   EXPECT_EQ(grid_lanes[1]->item_data[1]->item.Get(),
             grid_lanes[2]->item_data[0]->item.Get());
-  EXPECT_EQ(grid_lanes[0]->item_data[2]->placement_data.offset,
+  EXPECT_EQ(grid_lanes[0]->item_data[2]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[1]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[1]->item_data[1]->grid_lanes_placement_data,
+            grid_lanes[2]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[2]->PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(40)}));
-  EXPECT_EQ(grid_lanes[1]->item_data[1]->placement_data.offset,
-            grid_lanes[0]->item_data[2]->placement_data.offset);
-  EXPECT_EQ(grid_lanes[2]->item_data[0]->placement_data.offset,
-            grid_lanes[0]->item_data[2]->placement_data.offset);
 
   // The single-lane item is a start. Only the first lane entry for each spanner
   // is its start.
@@ -3193,7 +3272,7 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateDensePackedBreakTokenData) {
         grid-lanes-pack: dense; flow-tolerance: 0;">
       <div style="grid-column: 2; height: 20px;"></div>
       <div style="grid-column: 1 / span 2; height: 20px;"></div>
-      <div style="grid-column: 1; height: 10px;"></div>
+      <div style="grid-column: 1; height: 10px; align-self: end;"></div>
     </div>
   )HTML");
 
@@ -3208,13 +3287,15 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateDensePackedBreakTokenData) {
 
   // The packed item is stored under the spanner below its selected opening.
   const auto& spanner = *grid_lanes[0]->item_data[0];
-  ASSERT_EQ(spanner.items_packed_above.size(), 1u);
-  const auto& packed_item = *spanner.items_packed_above[0];
+  ASSERT_EQ(spanner.items_densely_packed_above.size(), 1u);
+  const auto& packed_item = *spanner.items_densely_packed_above[0];
 
-  // The packed item fills the opening above the spanner.
-  EXPECT_EQ(spanner.placement_data.offset,
+  // The packed item's shared placement record is found by its collection index
+  // and end-aligned within the opening above the spanner.
+  EXPECT_EQ(spanner.PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
-  EXPECT_EQ(packed_item.placement_data.offset, LogicalOffset());
+  EXPECT_EQ(packed_item.PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(10)}));
   EXPECT_TRUE(packed_item.is_item_start);
 }
 
@@ -3238,19 +3319,19 @@ TEST_F(GridLanesLayoutAlgorithmTest, PopulateDensePackedSpannerBreakTokenData) {
   ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
   ASSERT_EQ(grid_lanes[2]->item_data.size(), 1u);
 
-  // Both entries for the packed spanner reference the same grid item and
-  // placement offset.
+  // Both entries for the packed spanner reference the same grid item and shared
+  // placement data.
   const auto& spanner = *grid_lanes[1]->item_data[0];
-  ASSERT_EQ(spanner.items_packed_above.size(), 1u);
-  const auto& packed_spanner_start = *spanner.items_packed_above[0];
+  ASSERT_EQ(spanner.items_densely_packed_above.size(), 1u);
+  const auto& packed_spanner_start = *spanner.items_densely_packed_above[0];
   const auto& packed_spanner_continuation = *grid_lanes[2]->item_data[0];
 
   EXPECT_EQ(packed_spanner_start.item.Get(),
             packed_spanner_continuation.item.Get());
-  EXPECT_EQ(packed_spanner_start.placement_data.offset,
+  EXPECT_EQ(packed_spanner_start.grid_lanes_placement_data,
+            packed_spanner_continuation.grid_lanes_placement_data);
+  EXPECT_EQ(packed_spanner_start.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
-  EXPECT_EQ(packed_spanner_continuation.placement_data.offset,
-            packed_spanner_start.placement_data.offset);
   EXPECT_TRUE(packed_spanner_start.is_item_start);
   EXPECT_FALSE(packed_spanner_continuation.is_item_start);
 }
@@ -3284,25 +3365,27 @@ TEST_F(GridLanesLayoutAlgorithmTest,
   // lane.
   const auto& first_parent = *grid_lanes[1]->item_data[0];
   const auto& second_parent = *grid_lanes[2]->item_data[0];
-  ASSERT_EQ(first_parent.items_packed_above.size(), 2u);
-  ASSERT_EQ(second_parent.items_packed_above.size(), 2u);
+  ASSERT_EQ(first_parent.items_densely_packed_above.size(), 2u);
+  ASSERT_EQ(second_parent.items_densely_packed_above.size(), 2u);
 
-  const auto& first_packed_spanner_start = *first_parent.items_packed_above[0];
+  const auto& first_packed_spanner_start =
+      *first_parent.items_densely_packed_above[0];
   const auto& first_packed_spanner_continuation =
-      *second_parent.items_packed_above[0];
+      *second_parent.items_densely_packed_above[0];
 
-  const auto& second_packed_spanner_start = *first_parent.items_packed_above[1];
+  const auto& second_packed_spanner_start =
+      *first_parent.items_densely_packed_above[1];
   const auto& second_packed_spanner_continuation =
-      *second_parent.items_packed_above[1];
+      *second_parent.items_densely_packed_above[1];
 
   // The first packed spanner starts at the top of both openings.
   EXPECT_NE(first_parent.item.Get(), second_parent.item.Get());
   EXPECT_EQ(first_packed_spanner_start.item.Get(),
             first_packed_spanner_continuation.item.Get());
-  EXPECT_EQ(first_packed_spanner_start.placement_data.offset,
+  EXPECT_EQ(first_packed_spanner_start.grid_lanes_placement_data,
+            first_packed_spanner_continuation.grid_lanes_placement_data);
+  EXPECT_EQ(first_packed_spanner_start.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
-  EXPECT_EQ(first_packed_spanner_continuation.placement_data.offset,
-            first_packed_spanner_start.placement_data.offset);
   EXPECT_TRUE(first_packed_spanner_start.is_item_start);
   EXPECT_FALSE(first_packed_spanner_continuation.is_item_start);
 
@@ -3310,10 +3393,10 @@ TEST_F(GridLanesLayoutAlgorithmTest,
   // per-lane parents.
   EXPECT_EQ(second_packed_spanner_start.item.Get(),
             second_packed_spanner_continuation.item.Get());
-  EXPECT_EQ(second_packed_spanner_start.placement_data.offset,
+  EXPECT_EQ(second_packed_spanner_start.grid_lanes_placement_data,
+            second_packed_spanner_continuation.grid_lanes_placement_data);
+  EXPECT_EQ(second_packed_spanner_start.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit(10)}));
-  EXPECT_EQ(second_packed_spanner_continuation.placement_data.offset,
-            second_packed_spanner_start.placement_data.offset);
   EXPECT_TRUE(second_packed_spanner_start.is_item_start);
   EXPECT_FALSE(second_packed_spanner_continuation.is_item_start);
 }
@@ -3338,18 +3421,21 @@ TEST_F(GridLanesLayoutAlgorithmTest,
 
   // Lane 2 has one direct root spanner with both packed items nested under it.
   ASSERT_EQ(grid_lanes.size(), 4u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
   ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[3]->item_data.size(), 2u);
   const auto& root_spanner = *grid_lanes[1]->item_data[0];
-  ASSERT_EQ(root_spanner.items_packed_above.size(), 2u);
-  const auto& packed_spanner = *root_spanner.items_packed_above[0];
-  const auto& packed_item = *root_spanner.items_packed_above[1];
+  ASSERT_EQ(root_spanner.items_densely_packed_above.size(), 2u);
+  const auto& packed_spanner = *root_spanner.items_densely_packed_above[0];
+  const auto& packed_item = *root_spanner.items_densely_packed_above[1];
 
   // The single-lane item uses the opening above the packed spanner but remains
   // a sibling under the original root instead of nesting under that spanner.
-  EXPECT_EQ(packed_spanner.placement_data.offset,
+  EXPECT_EQ(packed_spanner.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit(10)}));
-  EXPECT_TRUE(packed_spanner.items_packed_above.empty());
-  EXPECT_EQ(packed_item.placement_data.offset,
+  EXPECT_TRUE(packed_spanner.items_densely_packed_above.empty());
+  EXPECT_EQ(packed_item.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
 }
 
@@ -3378,22 +3464,635 @@ TEST_F(GridLanesLayoutAlgorithmTest,
 
   const auto& first_spanner = *grid_lanes[1]->item_data[0];
   const auto& second_spanner = *grid_lanes[1]->item_data[1];
-  ASSERT_EQ(first_spanner.items_packed_above.size(), 1u);
-  ASSERT_EQ(second_spanner.items_packed_above.size(), 1u);
+  ASSERT_EQ(first_spanner.items_densely_packed_above.size(), 1u);
+  ASSERT_EQ(second_spanner.items_densely_packed_above.size(), 1u);
 
-  const auto& first_packed_item = *first_spanner.items_packed_above[0];
-  const auto& second_packed_item = *second_spanner.items_packed_above[0];
+  const auto& first_packed_item = *first_spanner.items_densely_packed_above[0];
+  const auto& second_packed_item =
+      *second_spanner.items_densely_packed_above[0];
 
   // Each packed item is associated with the spanner below the opening it
   // selected.
-  EXPECT_EQ(first_spanner.placement_data.offset,
+  EXPECT_EQ(first_spanner.PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
-  EXPECT_EQ(first_packed_item.placement_data.offset,
+  EXPECT_EQ(first_packed_item.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
-  EXPECT_EQ(second_spanner.placement_data.offset,
+  EXPECT_EQ(second_spanner.PlacementData().offset,
             (LogicalOffset{LayoutUnit(), LayoutUnit(60)}));
-  EXPECT_EQ(second_packed_item.placement_data.offset,
+  EXPECT_EQ(second_packed_item.PlacementData().offset,
             (LogicalOffset{LayoutUnit(100), LayoutUnit(30)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest, PopulateGridAxisAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(2, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1; width: 50px; height: 20px;
+          justify-self: center;"></div>
+      <div style="grid-column: 2; width: 60px; height: 30px;
+          justify-self: end;"></div>
+      <div style="grid-column: 1 / span 2; width: 100px; height: 20px;
+          justify-self: center;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+
+  // The first item is centered in its 100px column, while the second is end
+  // aligned in the second column.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(25), LayoutUnit()}));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(140), LayoutUnit()}));
+
+  // Both lane entries for the spanner preserve its centered offset within the
+  // full 200px grid area.
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[1]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(50), LayoutUnit(30)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest, PopulateRowGridAxisAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-rows: repeat(2, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1; width: 20px; height: 20px;
+          align-self: center;"></div>
+      <div style="grid-row: 2; width: 30px; height: 30px;
+          align-self: end;"></div>
+      <div style="grid-row: 1 / span 2; width: 20px; height: 40px;
+          align-self: center;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+
+  // Grid-axis alignment changes the block offset for row grid-lanes.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(15)}));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(70)}));
+
+  // Both lane entries for the spanner preserve its centered block offset within
+  // the full 100px grid area.
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[1]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(30), LayoutUnit(30)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateStackingAxisAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(2, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1; height: 20px; align-self: end;"></div>
+      <div style="grid-column: 2; height: 40px;"></div>
+      <div style="grid-column: 1 / span 2; height: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The spanner makes the first lane's opening 20px taller than its first item,
+  // so end alignment adds the full 20px to the item's block offset.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
+
+  // Available alignment space is only stored for auto-sized stretch items.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit());
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowStackingAxisAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-rows: repeat(2, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1; width: 20px; justify-self: end;"></div>
+      <div style="grid-row: 2; width: 40px;"></div>
+      <div style="grid-row: 1 / span 2; width: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // For row grid-lanes the stacking axis is inline, so end alignment adds the
+  // 20px of available space to the item's inline offset.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(20), LayoutUnit()}));
+
+  // Non-stretch items do not persist the available alignment space.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit());
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateExplicitStackingAxisStretchBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(2, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1; height: 20px; align-self: stretch;"></div>
+      <div style="grid-column: 2; height: 40px;"></div>
+      <div style="grid-column: 1 / span 2; height: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // An explicit height prevents stretch from changing the item's size or
+  // offset, even though its lane opening has extra space.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+
+  // Stretch preserves the initial offset and persists the space for the later
+  // fragmented layout.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+
+  // Explicitly sized stretch items do not need alignment space persisted for
+  // later fragmentation layout.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit());
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowExplicitStackingAxisStretchBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; width: 200px; height: 200px;
+        grid-template-rows: repeat(2, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1; width: 20px; justify-self: stretch;"></div>
+      <div style="grid-row: 2; width: 40px;"></div>
+      <div style="grid-row: 1 / span 2; width: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // An explicit width prevents stretch from changing the item's size or offset,
+  // even though its lane opening has extra space.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+
+  // Stretch preserves the initial offset and persists the inline space for the
+  // later fragmented layout.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+
+  // Explicitly sized stretch items do not need alignment space persisted for
+  // later fragmentation layout.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit());
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateStackingAxisStretchSpaceBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(2, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1; align-self: stretch;">
+        <div style="height: 20px;"></div>
+      </div>
+      <div style="grid-column: 2; height: 40px;"></div>
+      <div style="grid-column: 1 / span 2; height: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The spanner creates 20px of space below the auto-sized stretch item.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(20));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowStackingAxisStretchSpaceBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; width: 200px; height: 200px;
+        grid-template-rows: repeat(2, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1; justify-self: stretch;">
+        <div style="width: 20px;"></div>
+      </div>
+      <div style="grid-row: 2; width: 40px;"></div>
+      <div style="grid-row: 1 / span 2; width: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // For row grid-lanes, the spanner creates 20px of inline space below the
+  // auto-sized stretch item.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(20));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateStackingAxisStretchSpannerSpaceBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(3, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1 / span 2; align-self: stretch;">
+        <div style="height: 20px;"></div>
+      </div>
+      <div style="grid-column: 3; height: 40px;"></div>
+      <div style="grid-column: 1 / span 3; height: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The lower three-lane spanner creates 20px of stretch space below both
+  // entries for the auto-sized upper spanner.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+
+  // Both entries share the initial offset and alignment space that will be used
+  // to stretch the spanner during fragmented layout.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(20));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(20));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowStackingAxisStretchSpannerSpaceBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; width: 200px; height: 200px;
+        grid-template-rows: repeat(3, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1 / span 2; justify-self: stretch;">
+        <div style="width: 20px;"></div>
+      </div>
+      <div style="grid-row: 3; width: 40px;"></div>
+      <div style="grid-row: 1 / span 3; width: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The lower three-lane spanner creates 20px of inline stretch space below
+  // both entries for the auto-sized upper spanner.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+
+  // Both entries share the initial offset and alignment space that will be used
+  // to stretch the spanner during fragmented layout.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(20));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(20));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateLastStackingAxisAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(2, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1; height: 20px; align-self: end;"></div>
+      <div style="grid-column: 2; align-self: stretch;">
+        <div style="height: 20px;"></div>
+      </div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // Each item is last in its track, leaving 180px to the container's block end.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 1u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+
+  // End alignment moves the first item to the container's block end.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(180)}));
+
+  // Stretch preserves the same space for relayout instead of changing offset.
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(180));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowLastStackingAxisAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; width: 200px; height: 200px;
+        grid-template-rows: repeat(2, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1; width: 20px; justify-self: end;"></div>
+      <div style="grid-row: 2; justify-self: stretch;">
+        <div style="width: 20px;"></div>
+      </div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // Each item is last in its track, leaving 180px to the container's inline
+  // end.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 1u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+
+  // End alignment moves the first item to the container's inline end.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(180), LayoutUnit()}));
+
+  // Stretch preserves the same space for relayout instead of changing offset.
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(50)}));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->AvailableStackingAxisAlignmentSpace(),
+            LayoutUnit(180));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateStackingAxisAlignedSpannerBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(3, 100px); flow-tolerance: 0;">
+      <div style="grid-column: 1 / span 2; height: 20px;
+          align-self: end;"></div>
+      <div style="grid-column: 3; height: 40px;"></div>
+      <div style="grid-column: 1 / span 3; height: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The lower three-lane spanner creates 20px of alignment space below both
+  // entries for the upper two-lane spanner.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+
+  // Both entries share one placement record, so the spanner receives the 20px
+  // adjustment once and exposes it consistently from either lane.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowStackingAxisAlignedSpannerBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; width: 200px; height: 200px;
+        grid-template-rows: repeat(3, 50px); flow-tolerance: 0;">
+      <div style="grid-row: 1 / span 2; width: 20px;
+          justify-self: end;"></div>
+      <div style="grid-row: 3; width: 40px;"></div>
+      <div style="grid-row: 1 / span 3; width: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The lower three-lane spanner creates 20px of inline alignment space below
+  // both entries for the upper two-lane spanner.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+
+  // Both entries share one placement record, so the spanner receives the 20px
+  // inline adjustment once and exposes it consistently from either lane.
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(20), LayoutUnit()}));
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(20), LayoutUnit()}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest, PopulateContentAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-template-columns: repeat(2, 100px); align-content: center;
+        flow-tolerance: 0;">
+      <div style="grid-column: 1; height: 20px;"></div>
+      <div style="grid-column: 1 / span 2; height: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // Centering 40px of content in the 200px container offsets every item by half
+  // the 160px of free space.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(80)}));
+
+  // The spanner's two lane entries share one placement record, so content
+  // alignment adjusts its offset only once.
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(100)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest, PopulateRowContentAlignedBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; width: 200px; height: 200px;
+        grid-template-rows: repeat(2, 50px); justify-content: center;
+        flow-tolerance: 0;">
+      <div style="grid-row: 1; width: 20px;"></div>
+      <div style="grid-row: 1 / span 2; width: 20px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // Centering 40px of content in the 200px container offsets every item by half
+  // the 160px of free space in the inline stacking axis.
+  ASSERT_EQ(grid_lanes.size(), 2u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 2u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+  EXPECT_EQ(grid_lanes[0]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(80), LayoutUnit()}));
+
+  // The spanner's two lane entries share one placement record, so content
+  // alignment adjusts its inline offset only once.
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->grid_lanes_placement_data,
+            grid_lanes[1]->item_data[0]->grid_lanes_placement_data);
+  EXPECT_EQ(grid_lanes[0]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateColumnFillAndTrackReverseBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-lanes-direction: column fill-reverse track-reverse;
+        grid-template-columns: repeat(3, 100px); grid-auto-flow: dense;
+        grid-lanes-pack: dense; flow-tolerance: 0;">
+      <div style="width: 20px; height: 20px; justify-self: end;"></div>
+      <div style="grid-column: 2 / span 2; height: 20px;"></div>
+      <div style="grid-column: 2; width: 20px; height: 10px;
+          justify-self: end; align-self: end;"></div>
+      <div style="grid-column: 2; height: 5px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // Track reverse auto-places the first item in column 3. The column 2 / 3
+  // spanner is therefore placed below it, leaving an opening in column 2 for
+  // the final two items.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  EXPECT_FALSE(grid_lanes[0]);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+
+  // Column fill-reverse reverses each lane's direct entries. The spanner
+  // continuation precedes the first item, whose inline offset also includes
+  // its end alignment within column 3.
+  EXPECT_EQ(grid_lanes[2]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
+  EXPECT_EQ(grid_lanes[2]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(280), LayoutUnit(180)}));
+
+  // Packed entries are reversed with their containing lane, while retaining
+  // their final inline alignment offsets.
+  const auto& spanner = *grid_lanes[1]->item_data[0];
+  ASSERT_EQ(spanner.items_densely_packed_above.size(), 2u);
+  EXPECT_EQ(spanner.PlacementData().offset,
+            (LogicalOffset{LayoutUnit(100), LayoutUnit()}));
+  EXPECT_EQ(spanner.items_densely_packed_above[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(100), LayoutUnit(180)}));
+  EXPECT_EQ(spanner.items_densely_packed_above[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(180), LayoutUnit(190)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateRowFillAndTrackReverseBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes; height: 200px;
+        grid-lanes-direction: row fill-reverse track-reverse;
+        grid-template-rows: repeat(3, 50px); width: 200px;
+        grid-auto-flow: dense; grid-lanes-pack: dense; flow-tolerance: 0;">
+      <div style="width: 20px; height: 20px; align-self: end;"></div>
+      <div style="grid-row: 2 / span 2; width: 20px;"></div>
+      <div style="grid-row: 2; width: 10px; height: 20px;
+          justify-self: end; align-self: end;"></div>
+      <div style="grid-row: 2; width: 5px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // Track reverse auto-places the first item in row 3. The row 2 / 3 spanner is
+  // placed after it, leaving an opening in row 2 for the final two items.
+  // Track reverse affects placement order, but each lane remains stored at its
+  // track index.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  EXPECT_FALSE(grid_lanes[0]);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 1u);
+  ASSERT_EQ(grid_lanes[2]->item_data.size(), 2u);
+
+  // Row fill-reverse affects the inline axis, so it does not reverse entries
+  // within a lane. Both items retain their final inline and block alignment.
+  EXPECT_EQ(grid_lanes[2]->item_data[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(180), LayoutUnit(130)}));
+  EXPECT_EQ(grid_lanes[2]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(50)}));
+
+  // The packed vector likewise remains in placement order. The first packed
+  // item is aligned to both the inline and block ends of its opening.
+  const auto& spanner = *grid_lanes[1]->item_data[0];
+  ASSERT_EQ(spanner.items_densely_packed_above.size(), 2u);
+  EXPECT_EQ(spanner.PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(50)}));
+  EXPECT_EQ(spanner.items_densely_packed_above[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(190), LayoutUnit(80)}));
+  EXPECT_EQ(spanner.items_densely_packed_above[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(180), LayoutUnit(50)}));
+}
+
+TEST_F(GridLanesLayoutAlgorithmTest,
+       PopulateIndefiniteFillReverseBreakTokenData) {
+  SetBodyInnerHTML(R"HTML(
+    <div id="grid-lanes" style="display: grid-lanes;
+        grid-lanes-direction: column fill-reverse;
+        grid-template-columns: repeat(3, 100px); min-height: 200px;
+        grid-auto-flow: dense; grid-lanes-pack: dense; flow-tolerance: 0;">
+      <div style="grid-column: 2; height: 20px;"></div>
+      <div style="grid-column: 1 / span 2; height: 20px;"></div>
+      <div style="grid-column: 1; height: 10px; align-self: end;"></div>
+      <div style="grid-column: 1; height: 5px;"></div>
+    </div>
+  )HTML");
+
+  const auto grid_lanes = GetFragmentedGridLanesData();
+
+  // The first item advances column 2, so the column 1 / 2 spanner creates an
+  // opening in column 1 for the final two items.
+  ASSERT_EQ(grid_lanes.size(), 3u);
+  ASSERT_EQ(grid_lanes[0]->item_data.size(), 1u);
+  ASSERT_EQ(grid_lanes[1]->item_data.size(), 2u);
+  EXPECT_FALSE(grid_lanes[2]);
+
+  // Once intrinsic sizing resolves the 200px block size, fill-reverse updates
+  // every offset and reverses the two packed entries with their lane.
+  const auto& spanner = *grid_lanes[0]->item_data[0];
+  ASSERT_EQ(spanner.items_densely_packed_above.size(), 2u);
+  EXPECT_EQ(spanner.PlacementData().offset, LogicalOffset());
+  EXPECT_EQ(spanner.items_densely_packed_above[0]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(20)}));
+  EXPECT_EQ(spanner.items_densely_packed_above[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(), LayoutUnit(30)}));
+
+  // The spanner's shared placement record appears first in column 2, followed
+  // by the initial item at its reflected block offset.
+  EXPECT_EQ(grid_lanes[1]->item_data[0]->PlacementData().offset,
+            LogicalOffset());
+  EXPECT_EQ(grid_lanes[1]->item_data[1]->PlacementData().offset,
+            (LogicalOffset{LayoutUnit(100), LayoutUnit(20)}));
 }
 
 }  // namespace blink

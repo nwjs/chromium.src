@@ -23,6 +23,7 @@ try_.defaults.set(
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     experiments = {
         "chromium_tests.resultdb_module": 100,
+        "luci.buildbucket.run_in_turboci": 50,
     },
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -329,4 +330,19 @@ try_.builder(
         },
     },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "linux-chromeos-no-initial-webui-rel",
+    mirrors = [
+        "ci/linux-chromeos-rel",
+        "ci/linux-chromeos-no-initial-webui-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/linux-chromeos-rel",
+            "release_try_builder",
+        ],
+    ),
+    contact_team_email = "chrome-webium-product-eng@google.com",
 )

@@ -23,13 +23,13 @@
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
 #include "chrome/browser/ui/bookmarks/bookmark_stats.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/profiles/profile_view_utils.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
@@ -228,8 +228,7 @@ void ReadingListPageHandler::MarkCurrentTabAsRead() {
     return;
   }
 
-  chrome::MarkCurrentTabAsReadInReadLater(
-      browser->GetBrowserForMigrationOnly());
+  chrome::MarkCurrentTabAsReadInReadLater(browser);
   base::RecordAction(base::UserMetricsAction("DesktopReadingList.MarkAsRead"));
 }
 
@@ -240,7 +239,7 @@ void ReadingListPageHandler::AddCurrentTab() {
     return;
   }
 
-  chrome::MoveCurrentTabToReadLater(browser->GetBrowserForMigrationOnly());
+  chrome::MoveCurrentTabToReadLater(browser);
   reading_list_model_->MarkAllSeen();
 
   base::RecordAction(

@@ -62,6 +62,7 @@ class Rect;
 namespace ui {
 class Accelerator;
 class ColorProvider;
+class ColorProviderSourceObserver;
 class Compositor;
 class GestureRecognizer;
 class InputMethod;
@@ -1489,6 +1490,15 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   ui::ColorProviderKey GetColorProviderKeyForTesting() const;
 
+  // Schedules an asynchronous theme changed update. Multiple calls within the
+  // same task or event loop turn are coalesced into a single ThemeChanged()
+  // run.
+  void ScheduleThemeChanged();
+
+  // Resets the cached ColorProviderKey, ensuring the next call to
+  // ThemeChanged() does not short-circuit.
+  void ResetLastColorProviderKey();
+
   // Causes IsFullscreen() to also check parent state, since this widget is
   // logically part of the same window as the parent.
   void SetCheckParentForFullscreen();
@@ -1856,6 +1866,19 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // True if input protection is enabled for this widget.
   bool input_event_activation_protection_enabled_ = false;
+
+  // The last ColorProviderKey used to update the widget's theme. Used to
+  // short-circuit redundant ThemeChanged() calls.
+  std::optional<ui::ColorProviderKey> last_color_provider_key_;
+
+  // Observes the parent widget's ColorProviderSource to propagate theme
+  // changes.
+  std::unique_ptr<ui::ColorProviderSourceObserver> parent_theme_observer_;
+
+  void ProcessScheduledThemeChanged();
+
+  // True if a ThemeChanged() run has been scheduled and is pending.
+  bool theme_update_scheduled_ = false;
 
   // Indicates whether there is an autosize task in the task queue. Also used to
   // cancel the autosize task in testing.

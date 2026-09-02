@@ -75,16 +75,16 @@ import java.util.function.Supplier;
 public class ClipboardSuggestionProcessorUnitTest {
     private static final GURL TEST_URL = JUnitTestGURLs.EXAMPLE_URL;
 
-    public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private @Mock SuggestionHost mSuggestionHost;
-    private @Mock OmniboxImageSupplier mImageSupplier;
-    private @Mock UrlBarEditingTextStateProvider mTextProvider;
-    private @Mock Supplier<Tab> mTabSupplier;
-    private @Mock Supplier<ShareDelegate> mShareDelegateSupplier;
-    private @Mock BookmarkState mBookmarkState;
-    private @Mock OmniboxActionDelegate mActionDelegate;
-    private @Mock AutocompleteInput mInput;
+    @Mock private SuggestionHost mSuggestionHost;
+    @Mock private OmniboxImageSupplier mImageSupplier;
+    @Mock private UrlBarEditingTextStateProvider mTextProvider;
+    @Mock private Supplier<Tab> mTabSupplier;
+    @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
+    @Mock private BookmarkState mBookmarkState;
+    @Mock private OmniboxActionDelegate mActionDelegate;
+    @Mock private AutocompleteInput mInput;
 
     private Context mContext;
     private ClipboardSuggestionProcessor mProcessor;
@@ -135,7 +135,7 @@ public class ClipboardSuggestionProcessorUnitTest {
         mRootView.addView(mContentTextView);
 
         mResourceProvider = new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
-        mBinder = new SuggestionViewViewBinder(mResourceProvider);
+        mBinder = new SuggestionViewViewBinder();
         mBaseView = new BaseSuggestionView<>(mRootView);
     }
 
@@ -171,6 +171,7 @@ public class ClipboardSuggestionProcessorUnitTest {
                         .build();
         mModel = mProcessor.createModel();
         mProcessor.populateModel(mInput, mSuggestion, mModel, 0);
+        mModel.set(SuggestionCommonProperties.RESOURCE_PROVIDER, mResourceProvider);
         mBinder.bind(mModel, mBaseView, SuggestionViewProperties.TEXT_LINE_1_TEXT);
         mBinder.bind(mModel, mBaseView, SuggestionCommonProperties.COLOR_SCHEME);
         mBinder.bind(mModel, mBaseView, SuggestionViewProperties.IS_SEARCH_SUGGESTION);

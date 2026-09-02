@@ -26,6 +26,7 @@ try_.defaults.set(
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     experiments = {
         "chromium_tests.resultdb_module": 100,
+        "luci.buildbucket.run_in_turboci": 25,
     },
     orchestrator_cores = 2,
     orchestrator_siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -473,7 +474,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
-        "luci.buildbucket.run_in_turboci": 100,
         # crbug.com/40280175
         "chromium_checkout.expand_submodules": 100,
     },
@@ -501,30 +501,25 @@ try_.builder(
     main_list_view = "try",
 )
 
-try_.orchestrator_builder(
+try_.builder(
     name = "linux-full-remote-rel",
-    description_html = "Experimental " + linkify_builder("try", "linux-rel", "chromium") + " builder with more kinds of remote actions. e.g. remote linking",
+    description_html = "Builds with the same configuration as " + linkify_builder("try", "linux-rel", "chromium") + " builder with more kinds of remote actions.",
     mirrors = builder_config.copy_from("linux-rel"),
     builder_config_settings = builder_config.try_settings(
         is_compile_only = True,
     ),
     gn_args = "try/linux-rel",
-    compilator = "linux-full-remote-rel-compilator",
     contact_team_email = "chrome-build-team@google.com",
     cq_settings = try_.cq_settings(
-        experiment_percentage = 10,
-        on_default_cq = True,
+        location_filters = [
+            "build/conifg/siso/.+",
+        ],
     ),
     siso_configs = ["builder", "default-remote"],
     # TODO(crbug.com/529185604): Remove this once the missing input issue is resolved.
     # We need to download all outputs to prevent build failures caused by missing inputs.
     siso_output_local_strategy = "full",
     use_clang_coverage = True,
-)
-
-try_.compilator_builder(
-    name = "linux-full-remote-rel-compilator",
-    contact_team_email = "chrome-build-team@google.com",
 )
 
 try_.builder(
@@ -1123,60 +1118,30 @@ try_.builder(
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
-gpu.try_.optional_tests_builder(
+gpu.try_.linux_optional_builder(
     name = "linux_optional_gpu_tests_rel",
     branch_selector = branches.selector.LINUX_BRANCHES,
     description_html = ("Runs GPU tests on Linux machines with NVIDIA GTX 1660 and Intel UHD 630 GPUs. " +
                         "Only automatically added to CLs that touch GPU-related files."),
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.LINUX,
-        ),
-    ),
+    mirrors = [
+        "ci/GPU FYI Linux Builder",
+        "ci/Linux FYI Release (AMD RX 5500 XT)",
+        "ci/Linux FYI Release (Intel UHD 630)",
+        "ci/Linux FYI Release (NVIDIA)",
+    ],
     builder_config_settings = builder_config.try_settings(
         retry_failed_shards = False,
     ),
-    gn_args = gn_args.config(
-        configs = [
-            "gpu_fyi_tests",
-            "release_builder",
-            "remoteexec",
-            "minimal_symbols",
-            "dcheck_always_on",
-            "linux",
-            "x64",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "linux_optional_gpu_tests_rel_gpu_telemetry_tests",
-        ],
-    ),
+    gn_args = "ci/GPU FYI Linux Builder",
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
         os_type = targets.os_type.LINUX,
     ),
-    pool = "luci.chromium.gpu.try",
-    builderless = True,
-    ssd = None,
-    free_space = None,
     alerts_enabled = False,
     contact_team_email = "chrome-gpu-infra@google.com",
     cq_settings = try_.cq_settings(
         location_filters = gpu.try_.optional_trybot_location_filters.LINUX,
     ),
-    experiments = {
-        "luci.buildbucket.run_in_turboci": 3,
-    },
     main_list_view = "try",
     max_concurrent_builds = 7,
 )
@@ -1284,4 +1249,23 @@ try_.builder(
     ],
     gn_args = "ci/linux-tsgo-rel",
     contact_team_email = "chrome-webui@google.com",
+)
+
+try_.builder(
+    name = "linux-separate-renderer-rel",
+    description_html = "Runs separate renderer tests on Linux, mirroring linux-separate-renderer-fyi-rel.",
+    mirrors = [
+        "ci/linux-separate-renderer-fyi-rel",
+    ],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/linux-separate-renderer-fyi-rel",
+            "release_try_builder",
+            "dcheck_always_on",
+        ],
+    ),
+    contact_team_email = "toyoshim@chromium.org",
+    cq_settings = try_.cq_settings(
+        includable_only = True,
+    ),
 )

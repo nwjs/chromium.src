@@ -55,6 +55,7 @@ bool IsValidOmniboxAutofillSuggestion(SuggestionType type) {
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kAllSavedPasswordsEntry:
     case SuggestionType::kAtMemoryAiDisclosure:
+    case SuggestionType::kAtMemoryFetching:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAtMemoryNoConnection:
@@ -107,13 +108,14 @@ bool IsValidOmniboxAutofillSuggestion(SuggestionType type) {
     case SuggestionType::kPasswordFieldByFieldFilling:
     case SuggestionType::kPendingStateSignin:
     case SuggestionType::kPersonalContextNotice:
+    case SuggestionType::kRemoveAutofillAi:
     case SuggestionType::kSaveAndFillCreditCardEntry:
     case SuggestionType::kScanCreditCard:
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
     case SuggestionType::kTitle:
     case SuggestionType::kTroubleSigningInEntry:
-    case SuggestionType::kUndoOrClear:
+    case SuggestionType::kUndo:
     case SuggestionType::kViewPasswordDetails:
     case SuggestionType::kWebauthnCredential:
     case SuggestionType::kWebauthnPasskeyQrCode:
@@ -197,22 +199,29 @@ void OmniboxAutofillDelegate::OnFieldTypesDetermined(
 
   // Iterate over all AutofillFields in the FormStructure, paying attention to
   // the frame they are in (main vs. iframe) as well as ensuring there's only a
-  // single CREDIT_CARD_NUMBER type.
-  bool found_credit_card_number_field = false;
+  // single visible CREDIT_CARD_NUMBER type.
+  bool found_visible_credit_card_number_field = false;
   std::set<url::Origin> iframe_origins;
   for (const std::unique_ptr<AutofillField>& field : form_structure->fields()) {
-    if (field->Type().GetCreditCardType() == CREDIT_CARD_NUMBER) {
-      if (found_credit_card_number_field) {
+    if (IsVisibleCreditCardNumberField(*field)) {
+      if (found_visible_credit_card_number_field) {
         LogOmniboxAutofillShowChipDecisionPart1(
             OmniboxAutofillShowChipDecisionPart1::
-                kFoundMultipleCreditCardNumberFields);
+                kFoundMultipleVisibleCreditCardNumberFields);
         return;
       }
-      found_credit_card_number_field = true;
+      found_visible_credit_card_number_field = true;
     }
     if (!IsFieldInMainFrame(manager, *field)) {
       iframe_origins.insert(field->origin());
     }
+  }
+
+  // Not a single visible credit card number field was detected.
+  if (!found_visible_credit_card_number_field) {
+    LogOmniboxAutofillShowChipDecisionPart1(
+        OmniboxAutofillShowChipDecisionPart1::kNoVisibleCreditCardNumberFields);
+    return;
   }
 
   // All fields of the form must be either in the main frame or an allowlisted
@@ -240,7 +249,7 @@ void OmniboxAutofillDelegate::OnFieldTypesDetermined(
   trigger_form_global_id_ = form_structure->global_id();
   trigger_field_global_id_ = {};
   for (const std::unique_ptr<AutofillField>& field : form_structure->fields()) {
-    if (field->Type().GetCreditCardType() == CREDIT_CARD_NUMBER) {
+    if (IsVisibleCreditCardNumberField(*field)) {
       trigger_field_global_id_ = field->global_id();
       break;
     }
@@ -426,6 +435,10 @@ void OmniboxAutofillDelegate::OnTabSelected(TabbedPaneTabType tab_type) {
   NOTREACHED();
 }
 
+FieldGlobalId OmniboxAutofillDelegate::GetQueriedFieldId() const {
+  return trigger_field_global_id_;
+}
+
 void OmniboxAutofillDelegate::OnFieldBecameVisible() {
   // Log that the field became visible to the user's viewport.
   LogOmniboxAutofillShowChipDecisionPart2(
@@ -465,12 +478,7 @@ void OmniboxAutofillDelegate::OnFieldBecameVisible() {
 
   // Log the number of credit card suggestions generated, maintaining
   // consistency with standard Autofill suggestion generation logging.
-  autofill_metrics::LogSuggestionsCount(suggestions.size(),
-                                        FillingProduct::kCreditCard);
-
-  // Log security status of the credit card form when suggestions are generated,
-  // similar to standard Autofill suggestions generation.
-  AutofillMetrics::LogIsQueriedCreditCardFormSecure(client_->IsContextSecure());
+  autofill_metrics::LogSuggestionsCount(suggestions);
 
   // Requests to show the "Autofill payment" chip and initializes the bubble.
   client_->GetPaymentsAutofillClient()->ShowExpandedOmniboxAutofillChip(
@@ -514,6 +522,12 @@ bool OmniboxAutofillDelegate::IsOutermostMainFrameActiveAutofillManager(
     AutofillManager& manager) {
   return manager.driver().GetParent() == nullptr &&
          !manager.driver().IsEmbedded() && manager.driver().IsActive();
+}
+
+bool OmniboxAutofillDelegate::IsVisibleCreditCardNumberField(
+    const AutofillField& field) const {
+  return field.Type().GetCreditCardType() == CREDIT_CARD_NUMBER &&
+         field.is_visible();
 }
 
 bool OmniboxAutofillDelegate::IsFieldInMainFrame(

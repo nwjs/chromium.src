@@ -66,8 +66,7 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/actor/actor_keyed_service.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/tabs/public/tab_group.h"
@@ -303,7 +302,7 @@ pdf::PDFDocumentHelper* MaybeGetFullPagePdfHelper(
     return nullptr;
   }
 
-  return pdf::PDFDocumentHelper::MaybeGetForWebContents(contents);
+  return pdf::PDFDocumentHelper::MaybeGetForWebContents(*contents);
 }
 
 void OnRequestPdfBytesForModelPrototyping(

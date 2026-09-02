@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <memory>
+#include <ranges>
 #include <set>
 #include <unordered_map>
 #include <utility>
@@ -17,7 +18,6 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/webui/file_manager/file_manager_ui.h"
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -52,7 +52,6 @@
 #include "chrome/browser/ash/guest_os/public/guest_os_service.h"
 #include "chrome/browser/ash/guest_os/public/guest_os_service_factory.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/ash/policy/dlp/dialogs/files_policy_dialog.h"
 #include "chrome/browser/extensions/api/file_system/chrome_file_system_delegate_ash.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -1186,17 +1185,6 @@ void EventRouter::NotifyDriveConnectionStatusChanged() {
                  fmp::OnDriveConnectionStatusChanged::Create());
 }
 
-void EventRouter::DropFailedPluginVmDirectoryNotShared() {
-  fmp::CrostiniEvent event;
-  event.vm_name = plugin_vm::kPluginVmName;
-  event.event_type =
-      fmp::CrostiniEventType::kDropFailedPluginVmDirectoryNotShared;
-  BroadcastEvent(profile_,
-                 extensions::events::FILE_MANAGER_PRIVATE_ON_CROSTINI_CHANGED,
-                 fmp::OnCrostiniChanged::kEventName,
-                 fmp::OnCrostiniChanged::Create(event));
-}
-
 void EventRouter::OnDriveDialogResult(drivefs::mojom::DialogResult result) {
   drivefs_event_router_->OnDialogResult(result);
 }
@@ -1327,7 +1315,8 @@ void EventRouter::OnIOTaskStatus(const io_task::ProgressStatus& status) {
   event_status.item_count = status.sources.size();
 
   // Get the last error occurrence in the `sources`.
-  for (const io_task::EntryStatus& source : base::Reversed(status.sources)) {
+  for (const io_task::EntryStatus& source :
+       std::views::reverse(status.sources)) {
     if (source.error && source.error.value() != base::File::FILE_OK) {
       event_status.error_name = FileErrorToErrorName(source.error.value());
     }
@@ -1335,7 +1324,8 @@ void EventRouter::OnIOTaskStatus(const io_task::ProgressStatus& status) {
   // If we have no error on 'sources', check if an error came from 'outputs'.
   if (status.state == io_task::State::kError &&
       event_status.error_name.empty()) {
-    for (const io_task::EntryStatus& dest : base::Reversed(status.outputs)) {
+    for (const io_task::EntryStatus& dest :
+         std::views::reverse(status.outputs)) {
       if (dest.error && dest.error.value() != base::File::FILE_OK) {
         event_status.error_name = FileErrorToErrorName(dest.error.value());
       }

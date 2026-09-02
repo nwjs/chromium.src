@@ -20,7 +20,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
@@ -292,6 +292,16 @@ class MenuButtonRowView : public HoverButton {
     views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
     title()->SetEnabledColor(ui::kColorMenuItemForeground);
     title()->SetBackgroundColor(kColorProfileMenuBackground);
+
+    if (secondary_view()) {
+      const gfx::Insets* margin =
+          secondary_view()->GetProperty(views::kMarginsKey);
+      if (margin) {
+        secondary_view()->SetProperty(
+            views::kMarginsKey,
+            gfx::Insets::TLBR(0, margin->left(), 0, margin->right()));
+      }
+    }
   }
   ~MenuButtonRowView() override = default;
 
@@ -347,8 +357,9 @@ class ProfileMenuNewBadge : public views::View {
     // styling.
     label->SetFontList(label->font_list().Derive(-1, gfx::Font::NORMAL,
                                                  gfx::Font::Weight::MEDIUM));
+    label->SetLineHeight(label->font_list().GetHeight());
     label->SetEnabledColor(ui::kColorBadgeForeground);
-    label->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(1, 4)));
+    label->SetBorder(views::CreateEmptyBorder(gfx::Insets::VH(0, 4)));
 
     SetBackground(views::CreateRoundedRectBackground(
         ui::kColorBadgeBackground,
@@ -428,10 +439,10 @@ class ProfileMenuViewBase::AXMenuWidgetObserver : public views::WidgetObserver {
 };
 
 ProfileMenuViewBase::ProfileMenuViewBase(views::BubbleAnchor anchor_element,
-                                         Browser* browser)
+                                         BrowserWindowInterface* browser)
     : BubbleDialogDelegateView(anchor_element, views::BubbleBorder::TOP_RIGHT),
       profile_(raw_ref<Profile>::from_ptr(browser->GetProfile())),
-      close_bubble_helper_(this, browser->tab_strip_model()) {
+      close_bubble_helper_(this, browser->GetTabStripModel()) {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kNone));
   set_margins(gfx::Insets(0));
   DCHECK(!anchor_element.IsNull());
@@ -686,10 +697,17 @@ void ProfileMenuViewBase::AddFeatureButton(const std::u16string& text,
     secondary_view = std::make_unique<ProfileMenuNewBadge>();
   }
 
-  features_container_->AddChildView(CreateMenuRowButton(
+  std::unique_ptr<HoverButton> button = CreateMenuRowButton(
       std::move(action),
       std::make_unique<FeatureButtonIconView>(icon, icon_to_image_ratio), text,
-      /*icon_offset=*/0, std::move(secondary_view)));
+      /*icon_offset=*/0, std::move(secondary_view));
+
+  if (is_new) {
+    button->AddExtraAccessibleText(
+        l10n_util::GetStringUTF16(IDS_NEW_BADGE_SCREEN_READER_MESSAGE));
+  }
+
+  features_container_->AddChildView(std::move(button));
 }
 
 void ProfileMenuViewBase::SetProfileManagementHeading(

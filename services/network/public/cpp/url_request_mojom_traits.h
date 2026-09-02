@@ -263,7 +263,7 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
       const network::ResourceRequest& request) {
     return request.request_initiator;
   }
-  static const std::vector<GURL> navigation_redirect_chain(
+  static const std::vector<GURL>& navigation_redirect_chain(
       const network::ResourceRequest& request) {
     return request.navigation_redirect_chain;
   }
@@ -341,13 +341,6 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   static bool keepalive(const network::ResourceRequest& request) {
     return request.keepalive;
   }
-  static bool browsing_topics(const network::ResourceRequest& request) {
-    return request.browsing_topics;
-  }
-  static bool shared_storage_writable_eligible(
-      const network::ResourceRequest& request) {
-    return request.shared_storage_writable_eligible;
-  }
   static bool has_user_gesture(const network::ResourceRequest& request) {
     return request.has_user_gesture;
   }
@@ -377,6 +370,14 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE)
   }
   static bool is_revalidating(const network::ResourceRequest& request) {
     return request.is_revalidating;
+  }
+  static const std::optional<std::string>& revalidation_etag(
+      const network::ResourceRequest& request) {
+    return request.revalidation_etag;
+  }
+  static const std::optional<std::string>& revalidation_last_modified(
+      const network::ResourceRequest& request) {
+    return request.revalidation_last_modified;
   }
   static const std::optional<base::UnguessableToken>& throttling_profile_id(
       const network::ResourceRequest& request) {

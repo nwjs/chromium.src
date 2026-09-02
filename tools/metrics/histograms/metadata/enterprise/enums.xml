@@ -611,6 +611,7 @@ chromium-metrics-reviews@google.com.
   <int value="35" label="FAILURE_INVALID_ARGUMENT"/>
   <int value="36" label="FAILURE_NETWORK_FAILURE"/>
   <int value="37" label="FAILURE_OPERATION_TIMEOUT"/>
+  <int value="38" label="FAILURE_SOFTWARE_UPGRADED"/>
 </enum>
 
 <!-- LINT.IfChange(EnterpriseDeviceManagementStatus) -->
@@ -2526,6 +2527,10 @@ chromium-metrics-reviews@google.com.
   <int value="1474" label="FindAndFillWithGeminiSettings"/>
   <int value="1475" label="OnNetworkRequestEnterpriseConnector"/>
   <int value="1476" label="EnterprisePublishedSkills"/>
+  <int value="1477" label="OnDataCopiedEnterpriseConnector"/>
+  <int value="1478" label="DeviceLocalNetworkAccessAllowedForUrls"/>
+  <int value="1479" label="DeviceLocalNetworkAccessBlockedForUrls"/>
+  <int value="1480" label="DeviceLocalNetworkAccessIpAddressSpaceOverrides"/>
 </enum>
 
 <enum name="EnterprisePoliciesSources">
@@ -2630,6 +2635,19 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="User and device managed by cloud and unaffiliated"/>
 </enum>
 
+<!-- LINT.IfChange(EnterprisePublishedSkillsError) -->
+
+<enum name="EnterprisePublishedSkillsError">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Exceeds Maximum Limit"/>
+  <int value="2" label="Invalid JSON Type"/>
+  <int value="3" label="Missing URL or Hash"/>
+  <int value="4" label="Invalid or Non-HTTP(S) URL"/>
+  <int value="5" label="Duplicate URL"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/skills/public/skills_metrics.h:EnterprisePublishedSkillsError) -->
+
 <enum name="EnterpriseReportingEventType">
   <int value="0" label="Unknown event"/>
   <int value="1" label="Password reuse event"/>
@@ -2653,6 +2671,41 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Failed (Retry Limit Reached)"/>
   <int value="2" label="Failed (Permanent Error)"/>
 </enum>
+
+<!-- LINT.IfChange(EnterpriseSignalsDisclaimerModalResult) -->
+
+<enum name="EnterpriseSignalsDisclaimerModalResult">
+  <int value="0" label="Accepted"/>
+  <int value="1" label="Declined"/>
+  <int value="2" label="Dismissed by another window"/>
+  <int value="3" label="Dismissed without explicit user action"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/enterprise/signin/signals_disclaimer_metrics.h:EnterpriseSignalsDisclaimerModalResult) -->
+
+<!-- LINT.IfChange(EnterpriseSignalsDisclaimerProfilePickerResult) -->
+
+<enum name="EnterpriseSignalsDisclaimerProfilePickerResult">
+  <int value="0" label="Accepted"/>
+  <int value="1" label="Declined"/>
+  <int value="2" label="Profile picker closed"/>
+  <int value="3" label="Dismissed without explicit user action"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/enterprise/signin/signals_disclaimer_metrics.h:EnterpriseSignalsDisclaimerProfilePickerResult) -->
+
+<!-- LINT.IfChange(EnterpriseSkillValidationResult) -->
+
+<enum name="EnterpriseSkillValidationResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Hash Mismatch"/>
+  <int value="2" label="Invalid Format (parse error)"/>
+  <int value="3" label="Invalid Name"/>
+  <int value="4" label="Invalid Description"/>
+  <int value="5" label="Invalid Prompt"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/skills/internal/enterprise_skills_provider.h:EnterpriseSkillValidationResult) -->
 
 <!-- LINT.IfChange(EnterpriseSkyVaultMigrationDialogAction) -->
 

@@ -10,6 +10,8 @@
 #include "build/branding_buildflags.h"
 #include "build/buildflag.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/infobars/browser_infobar_manager.h"
+#include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/obsolete_system/obsolete_system.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
@@ -17,7 +19,6 @@
 #include "chrome/browser/ui/session_crashed_bubble.h"
 #include "chrome/browser/ui/startup/automation_infobar_delegate.h"
 #include "chrome/browser/ui/startup/bad_flags_prompt.h"
-#include "chrome/browser/ui/startup/bidding_and_auction_consented_debugging_infobar_delegate.h"
 #include "chrome/browser/ui/startup/google_api_keys_infobar_delegate.h"
 #include "chrome/browser/ui/startup/obsolete_system_infobar_delegate.h"
 #include "chrome/browser/ui/startup/oscryptasync_availability_infobar_delegate.h"
@@ -28,6 +29,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/infobars/content/content_infobar_manager.h"
 #include "components/prefs/pref_service.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/common/content_switches.h"
 #include "google_apis/google_api_keys.h"
 
@@ -36,6 +38,8 @@
 #endif
 
 #if BUILDFLAG(CHROME_FOR_TESTING)
+#include "chrome/browser/infobars/browser_infobar_manager.h"
+#include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/ui/startup/chrome_for_testing_infobar_delegate.h"
 #endif
 
@@ -125,17 +129,22 @@ void AddInfoBarsIfNecessary(BrowserWindowInterface* browser,
   if (show_bad_flags_security_warnings) {
 #if BUILDFLAG(CHROME_FOR_TESTING)
     if (!IsGpuTest()) {
-      ChromeForTestingInfoBarDelegate::Create();
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::CHROME_FOR_TESTING_INFOBAR_DELEGATE)) {
+        auto* browser_infobar_manager =
+            infobars::BrowserInfoBarManager::From(g_browser_process);
+        if (browser_infobar_manager) {
+          browser_infobar_manager->ShowGlobally(
+              infobars::InfoBarDelegate::CHROME_FOR_TESTING_INFOBAR_DELEGATE);
+        }
+      } else {
+        ChromeForTestingInfoBarDelegate::Create();
+      }
     }
 #endif
 
     if (IsAutomationEnabled()) {
       AutomationInfoBarDelegate::Create();
-    }
-
-    if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-            switches::kProtectedAudiencesConsentedDebugToken)) {
-      BiddingAndAuctionConsentedDebuggingDelegate::Create(web_contents);
     }
   }
 
@@ -186,14 +195,34 @@ void AddInfoBarsIfNecessary(BrowserWindowInterface* browser,
       infobars::ContentInfoBarManager::FromWebContents(web_contents);
 
   if (!google_apis::HasAPIKeyConfigured()) {
-    GoogleApiKeysInfoBarDelegate::Create(infobar_manager);
+    if (infobars::IsInfoBarMigrated(
+            infobars::InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE)) {
+      if (auto* manager =
+              infobars::BrowserInfoBarManager::From(g_browser_process)) {
+        manager->Show(
+            tabs::TabInterface::GetFromContents(web_contents),
+            infobars::InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE);
+      }
+    } else {
+      GoogleApiKeysInfoBarDelegate::Create(infobar_manager);
+    }
   }
 
   if (ObsoleteSystem::IsObsoleteNowOrSoon()) {
     PrefService* local_state = g_browser_process->local_state();
     if (!local_state ||
         !local_state->GetBoolean(prefs::kSuppressUnsupportedOSWarning)) {
-      ObsoleteSystemInfoBarDelegate::Create(infobar_manager);
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::OBSOLETE_SYSTEM_INFOBAR_DELEGATE)) {
+        if (auto* manager =
+                infobars::BrowserInfoBarManager::From(g_browser_process)) {
+          manager->Show(
+              tabs::TabInterface::GetFromContents(web_contents),
+              infobars::InfoBarDelegate::OBSOLETE_SYSTEM_INFOBAR_DELEGATE);
+        }
+      } else {
+        ObsoleteSystemInfoBarDelegate::Create(infobar_manager);
+      }
     }
   }
 

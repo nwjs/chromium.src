@@ -36,6 +36,7 @@
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_coordinator.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signin/signin_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/signout_action_sheet/signout_action_sheet_coordinator.h"
+#import "ios/chrome/browser/composebox/public/features.h"
 #import "ios/chrome/browser/regional_capabilities/model/regional_capabilities_service_factory.h"
 #import "ios/chrome/browser/settings/bulk_upload/coordinator/bulk_upload_coordinator.h"
 #import "ios/chrome/browser/settings/bulk_upload/coordinator/bulk_upload_coordinator_delegate.h"
@@ -162,9 +163,8 @@ enum class ActionAfterReauth {
                                          browser:(Browser*)browser {
   if ((self = [super initWithBaseViewController:navigationController
                                         browser:browser])) {
-    CHECK(navigationController, base::NotFatalUntil::M142);
-    CHECK_EQ(browser->type(), Browser::Type::kRegular,
-             base::NotFatalUntil::M145);
+    CHECK(navigationController);
+    CHECK_EQ(browser->type(), Browser::Type::kRegular);
     _baseNavigationController = navigationController;
   }
   return self;
@@ -450,6 +450,15 @@ enum class ActionAfterReauth {
   [handler closePresentedViewsAndOpenURL:command];
 }
 
+- (void)openConnectedAppsWebPage {
+  CHECK(IsComposeboxConnectedAppsSettingEnabled());
+  GURL url(kConnectedAppsURL);
+  OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:url];
+  id<SceneCommands> handler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+  [handler closePresentedViewsAndOpenURL:command];
+}
+
 - (void)signOutFromTargetRect:(CGRect)targetRect {
   if (!self.authService->HasPrimaryIdentity()) {
     // This could happen in very rare cases, if the account somehow got removed
@@ -671,7 +680,7 @@ enum class ActionAfterReauth {
       trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings;
   SigninTrustedVaultDialogIntent intent =
       SigninTrustedVaultDialogIntentDegradedRecoverability;
-  CHECK(!_trustedVaultReauthenticationCoordinator, base::NotFatalUntil::M145);
+  CHECK(!_trustedVaultReauthenticationCoordinator);
   _trustedVaultReauthenticationCoordinator =
       [[TrustedVaultReauthenticationCoordinator alloc]
           initWithBaseViewController:self.viewController
@@ -683,8 +692,18 @@ enum class ActionAfterReauth {
   [_trustedVaultReauthenticationCoordinator start];
 }
 
-- (void)openMDMErrodDialogWithSystemIdentity:(id<SystemIdentity>)identity {
-  self.authService->ShowMDMErrorDialogForIdentity(identity);
+- (void)openMDMErrorDialogWithSystemIdentity:(id<SystemIdentity>)identity
+                                  completion:(ProceduralBlock)completion {
+  [self.viewController preventUserInteraction];
+  __weak __typeof(self) weakSelf = self;
+  base::OnceCallback<void(bool)> callback = base::BindOnce(^void(bool) {
+    [weakSelf.viewController allowUserInteraction];
+    if (completion) {
+      completion();
+    }
+  });
+  self.authService->ShowMDMErrorDialogForIdentity(identity,
+                                                  std::move(callback));
 }
 
 - (void)openBookmarksLimitExceededHelp {
@@ -768,7 +787,7 @@ enum class ActionAfterReauth {
 
 - (void)accountMenuCoordinatorWantsToBeStopped:
     (AccountMenuCoordinator*)coordinator {
-  CHECK_EQ(_accountMenuCoordinator, coordinator, base::NotFatalUntil::M140);
+  CHECK_EQ(_accountMenuCoordinator, coordinator);
   [self stopAccountMenuCoordinator];
 }
 
@@ -776,8 +795,7 @@ enum class ActionAfterReauth {
 
 - (void)syncEncryptionPassphraseTableViewControllerDidDisappear:
     (SyncEncryptionPassphraseTableViewController*)viewController {
-  CHECK_EQ(_syncEncryptionPassphraseTableViewController, viewController,
-           base::NotFatalUntil::M142);
+  CHECK_EQ(_syncEncryptionPassphraseTableViewController, viewController);
   _syncEncryptionPassphraseTableViewController.presentationDelegate = nil;
   [_syncEncryptionPassphraseTableViewController settingsWillBeDismissed];
   _syncEncryptionPassphraseTableViewController = nil;

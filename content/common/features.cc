@@ -4,6 +4,7 @@
 
 #include "content/common/features.h"
 
+#include "base/feature.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/time/time.h"
@@ -253,9 +254,6 @@ BASE_FEATURE(kEnforceSameDocumentOriginInvariants,
 BASE_FEATURE(kExperimentalContentSecurityPolicyFeatures,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables NonString Tokens
-BASE_FEATURE(kFedCmNonStringToken, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Controls whether FedCM preserves ports in well-known URLs during testing.
 // When enabled, well-known URLs retain the original port from the provider URL
 // instead of stripping it via eTLD+1 extraction. This is primarily used in
@@ -325,6 +323,9 @@ BASE_FEATURE_ENUM_PARAM(FontDataServiceTypefaceType,
                         &font_data_service_typeface);
 #endif  // BUILDFLAG(IS_LINUX)
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+
+// Enables speculative font family prewarming through FontDataManager.
+BASE_FEATURE(kFontDataManagerPrewarming, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, route CSS local() font lookups through FontDataService.
 BASE_FEATURE(kFontDataServiceForCSSLocalFonts,
@@ -579,6 +580,9 @@ BASE_FEATURE(kPreloadActivationReportWithExtensionInterception,
 // feature.
 BASE_FEATURE(kPreloadingConfig, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kPrioritizeResizeTaskRunnerOnStartup,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // A misunderstanding when fixing crbug.com/40076091 meant that non-speculative
 // RFHs were being created with a provisional RenderFrame in the renderer. This
 // is nominally harmless, but can crash prerenders if devtool's network
@@ -632,6 +636,13 @@ BASE_FEATURE(kReduceMojoURLLoaderFactoryCloning,
 // fallback factory.
 BASE_FEATURE_PARAM(bool,
                    kUseLazyURLLoaderFactoryForServiceWorkerFallback,
+                   &kReduceMojoURLLoaderFactoryCloning,
+                   false);
+
+// Controls whether lazy URLLoaderFactory cloning is used for subresource
+// proxying factory bundle during navigation commit.
+BASE_FEATURE_PARAM(bool,
+                   kUseLazyURLLoaderFactoryForSubresourceProxying,
                    &kReduceMojoURLLoaderFactoryCloning,
                    false);
 
@@ -701,6 +712,12 @@ BASE_FEATURE(kScrollAfterOSKViewportShrinkFix,
 BASE_FEATURE(kSanitizeLocationHeadersDuringNavigation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls whether the final URL of a failed subframe navigation is sanitized
+// when committing an error page in the initiator's process.
+// See https://crbug.com/517156678.
+BASE_FEATURE(kSanitizeFailedSubframeNavigationUrls,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Controls whether the `original_url` contains the full URL or just the
 // sanitized origin when sent to the renderer on commit.
 // See https://crbug.com/495463654.
@@ -754,6 +771,11 @@ BASE_FEATURE(kServiceWorkerStaticRouterConsolidateMainScriptResponse,
 BASE_FEATURE(kServiceWorkerStaticRouterStartServiceWorker,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, the browser sends `ServiceWorkerVersion.typedRouterRules`
+// instead of `routerRules` in CDP.
+BASE_FEATURE(kServiceWorkerStaticRouterTypedRulesForDevTools,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, suppresses the service worker timeout when a payment handler
 // window is open.
 BASE_FEATURE(kServiceWorkerSuppressTimeoutWhenPaymentWindowOpen,
@@ -798,7 +820,7 @@ BASE_FEATURE(kSharedWorkerSecureContextDerivationFromBrowser,
 // Storage Access API) will correctly restrict SameSite cookies on WebSocket
 // connections.
 BASE_FEATURE(kRestrictSharedWorkerWebSocketCrossSiteCookies,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables skipping the early call to CommitPending when navigating away from a
 // crashed frame.

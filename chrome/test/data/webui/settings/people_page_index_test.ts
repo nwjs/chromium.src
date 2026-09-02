@@ -6,26 +6,88 @@ import 'chrome://settings/settings.js';
 import 'chrome://settings/lazy_load.js';
 
 import type {SettingsPeoplePageIndexElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, loadTimeData, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
+import {loadTimeData, PrefsBrowserProxy, PrefService, resetRouterForTesting, Router, routes, SignedInState, StatusAction, SyncBrowserProxyImpl} from 'chrome://settings/settings.js';
 // </if>
 
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
+
+function getInitialPrefs(): chrome.settingsPrivate.PrefObject[] {
+  return [
+    {
+      key: 'signin.allowed_on_next_startup',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'import_dialog_autofill_form_data',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'import_dialog_bookmarks',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'import_dialog_history',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'import_dialog_saved_passwords',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'import_dialog_search_engine',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'bookmark_bar.show_on_all_tabs',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'search.suggest_enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'url_keyed_anonymized_data_collection.enabled',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: true,
+    },
+    {
+      key: 'spellcheck.use_spelling_service',
+      type: chrome.settingsPrivate.PrefType.BOOLEAN,
+      value: false,
+    },
+    {
+      key: 'spellcheck.dictionaries',
+      type: chrome.settingsPrivate.PrefType.LIST,
+      value: ['en-US'],
+    },
+  ];
+}
 
 suite('PeoplePageIndex', function() {
   let index: SettingsPeoplePageIndexElement;
   let browserProxy: TestSyncBrowserProxy;
 
   async function createPeoplePageIndex(): Promise<void> {
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getInitialPrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await PrefService.getInstance().whenInitialized();
+
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    const settingsPrefs = document.createElement('settings-prefs');
-    document.body.appendChild(settingsPrefs);
-    await CrSettingsPrefs.initialized;
     index = document.createElement('settings-people-page-index');
-    index.prefs = settingsPrefs.prefs!;
     document.body.appendChild(index);
     return flushTasks();
   }

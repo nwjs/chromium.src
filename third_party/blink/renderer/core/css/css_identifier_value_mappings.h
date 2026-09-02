@@ -1552,6 +1552,9 @@ inline CSSIdentifierValue::CSSIdentifierValue(cc::SnapAxis axis)
     case cc::SnapAxis::kBoth:
       value_id_ = CSSValueID::kBoth;
       break;
+    case cc::SnapAxis::kPair:
+      value_id_ = CSSValueID::kPair;
+      break;
   }
 }
 
@@ -1568,6 +1571,8 @@ inline cc::SnapAxis CSSIdentifierValue::ConvertTo() const {
       return cc::SnapAxis::kInline;
     case CSSValueID::kBoth:
       return cc::SnapAxis::kBoth;
+    case CSSValueID::kPair:
+      return cc::SnapAxis::kPair;
     default:
       break;
   }
@@ -1687,16 +1692,10 @@ inline EMarginTrim CSSIdentifierValue::ConvertTo() const {
       return kMarginTrimNone;
     case CSSValueID::kBlock:
       return kMarginTrimBlock;
-    case CSSValueID::kInline:
-      return kMarginTrimInline;
     case CSSValueID::kBlockStart:
       return kMarginTrimBlockStart;
-    case CSSValueID::kInlineStart:
-      return kMarginTrimInlineStart;
     case CSSValueID::kBlockEnd:
       return kMarginTrimBlockEnd;
-    case CSSValueID::kInlineEnd:
-      return kMarginTrimInlineEnd;
     default:
       NOTREACHED();
   }

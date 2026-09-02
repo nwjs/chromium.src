@@ -18,6 +18,7 @@ class DebugInfoGetter;
 class ExtensionsActivity;
 class DataTypeRegistry;
 class ServerConnectionManager;
+class SyncAccessTokenFetcher;
 class SyncCycleContext;
 class SyncEngineEventListener;
 class SyncScheduler;
@@ -61,7 +62,9 @@ class EngineComponentsFactory {
       const std::string& cache_guid,
       const std::string& store_birthday,
       const std::string& bag_of_chips,
-      base::TimeDelta poll_interval) = 0;
+      base::TimeDelta poll_interval,
+      const std::string& account_email,
+      SyncAccessTokenFetcher* sync_access_token_fetcher) = 0;
 };
 
 }  // namespace syncer

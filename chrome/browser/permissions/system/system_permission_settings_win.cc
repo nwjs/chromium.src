@@ -5,10 +5,12 @@
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 
 #include <memory>
+#include <optional>
 #include <utility>
 
-#include "base/check_deref.h"
+#include "base/location.h"
 #include "base/notreached.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/win/scoped_com_initializer.h"
 #include "chrome/browser/permissions/system/geolocation_observation.h"
@@ -17,7 +19,6 @@
 #include "chrome/browser/permissions/system/system_media_source_win.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/web_contents.h"
-#include "services/device/public/cpp/device_features.h"
 #include "services/device/public/cpp/geolocation/geolocation_system_permission_manager.h"
 #include "services/device/public/cpp/geolocation/location_system_permission_status.h"
 
@@ -53,6 +54,21 @@ SystemPermission CheckAudioCapturePermission() {
   }
 }
 
+// Returns the system-level location permission status, or `std::nullopt` if
+// there is no system permission layer to consult. The
+// `GeolocationSystemPermissionManager` is only created on OS versions that can
+// query the permission, so a null instance means the OS does not gate location
+// access at all and callers should treat location as allowed. See
+// crbug.com/540482875.
+std::optional<device::LocationSystemPermissionStatus>
+GetSystemGeolocationStatus() {
+  auto* manager = device::GeolocationSystemPermissionManager::GetInstance();
+  if (manager == nullptr) {
+    return std::nullopt;
+  }
+  return manager->GetSystemPermission();
+}
+
 class PlatformHandleImpl : public PlatformHandle {
  public:
   PlatformHandleImpl()
@@ -72,16 +88,10 @@ class PlatformHandleImpl : public PlatformHandle {
   // PlatformHandle:
   bool CanPrompt(ContentSettingsType type) override {
     switch (type) {
-      case ContentSettingsType::GEOLOCATION: {
-        if (base::FeatureList::IsEnabled(
-                features::kWinSystemLocationPermission)) {
-          return device::GeolocationSystemPermissionManager::GetInstance()
-                     ->GetSystemPermission() ==
-                 device::LocationSystemPermissionStatus::kNotDetermined;
-        } else {
-          return false;
-        }
-      }
+      case ContentSettingsType::GEOLOCATION:
+        return GetSystemGeolocationStatus().value_or(
+                   device::LocationSystemPermissionStatus::kAllowed) ==
+               device::LocationSystemPermissionStatus::kNotDetermined;
       // crbug.com/414523295: while the status of camera/microphone can be
       // determined, we currently don't support requesting them on Windows.
       // Until this is fixed we will return `false`.
@@ -97,14 +107,9 @@ class PlatformHandleImpl : public PlatformHandle {
   bool IsDenied(ContentSettingsType type) override {
     switch (type) {
       case ContentSettingsType::GEOLOCATION:
-        if (base::FeatureList::IsEnabled(
-                features::kWinSystemLocationPermission)) {
-          return device::GeolocationSystemPermissionManager::GetInstance()
-                     ->GetSystemPermission() ==
-                 device::LocationSystemPermissionStatus::kDenied;
-        } else {
-          return false;
-        }
+        return GetSystemGeolocationStatus().value_or(
+                   device::LocationSystemPermissionStatus::kAllowed) ==
+               device::LocationSystemPermissionStatus::kDenied;
       case ContentSettingsType::MEDIASTREAM_CAMERA:
       case ContentSettingsType::MEDIASTREAM_MIC:
       case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
@@ -117,14 +122,9 @@ class PlatformHandleImpl : public PlatformHandle {
   bool IsAllowed(ContentSettingsType type) override {
     switch (type) {
       case ContentSettingsType::GEOLOCATION:
-        if (base::FeatureList::IsEnabled(
-                features::kWinSystemLocationPermission)) {
-          return device::GeolocationSystemPermissionManager::GetInstance()
-                     ->GetSystemPermission() ==
-                 device::LocationSystemPermissionStatus::kAllowed;
-        } else {
-          return true;
-        }
+        return GetSystemGeolocationStatus().value_or(
+                   device::LocationSystemPermissionStatus::kAllowed) ==
+               device::LocationSystemPermissionStatus::kAllowed;
       case ContentSettingsType::MEDIASTREAM_CAMERA:
       case ContentSettingsType::MEDIASTREAM_MIC:
       case ContentSettingsType::CAMERA_PAN_TILT_ZOOM:
@@ -149,10 +149,10 @@ class PlatformHandleImpl : public PlatformHandle {
                           ContentSettingsType type) override {
     switch (type) {
       case ContentSettingsType::GEOLOCATION: {
-        if (base::FeatureList::IsEnabled(
-                features::kWinSystemLocationPermission)) {
-          device::GeolocationSystemPermissionManager::GetInstance()
-              ->OpenSystemPermissionSetting();
+        if (auto* manager =
+                device::GeolocationSystemPermissionManager::GetInstance();
+            manager != nullptr) {
+          manager->OpenSystemPermissionSetting();
         }
         return;
       }
@@ -172,8 +172,15 @@ class PlatformHandleImpl : public PlatformHandle {
     switch (type) {
       case ContentSettingsType::GEOLOCATION: {
         DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-        if (!base::FeatureList::IsEnabled(
-                features::kWinSystemLocationPermission)) {
+        auto* manager =
+            device::GeolocationSystemPermissionManager::GetInstance();
+        if (manager == nullptr) {
+          // No system permission prompt is available on this OS version, so
+          // there is no decision to wait for. Still honor the contract of
+          // always invoking `callback`, asynchronously so that callers are not
+          // re-entered while they are still setting up their prompt UI.
+          base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+              FROM_HERE, std::move(callback));
           return;
         }
         geolocation_callbacks_.push_back(std::move(callback));
@@ -186,8 +193,7 @@ class PlatformHandleImpl : public PlatformHandle {
               &PlatformHandleImpl::OnSystemPermissionUpdated,
               weak_factory_.GetWeakPtr());
           observation_ = Observe(std::move(clb));
-          CHECK_DEREF(device::GeolocationSystemPermissionManager::GetInstance())
-              .RequestSystemPermission();
+          manager->RequestSystemPermission();
         }
         return;
       }

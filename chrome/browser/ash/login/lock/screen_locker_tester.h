@@ -7,27 +7,51 @@
 
 #include <string>
 
-#include "base/functional/callback.h"
-#include "base/scoped_observation.h"
-#include "components/session_manager/core/session_manager.h"
-#include "components/session_manager/core/session_manager_observer.h"
+#include "base/memory/raw_ref.h"
+#include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_auto_reset.h"
 
 class AccountId;
 
 namespace ash {
 
+class Authenticator;
+class FakeSessionManagerClient;
+class ScreenLocker;
+class ScreenLockerController;
+
 // ScreenLockerTester provides a high-level API to test the lock screen.
 // Must be created after the SessionManager is initialized.
-class ScreenLockerTester : public session_manager::SessionManagerObserver {
+class ScreenLockerTester {
  public:
-  ScreenLockerTester();
+  // RAII object to set/reset a fake callback for
+  // FakeSessionManagerClient::RequestLockScreen. In production,
+  // `RequestLockScreen` sends a request to the session_manager daemon, then it
+  // will call back into `ScreenLockServiceProvider`. This class enables the
+  // plumbing for browser tests.
+  class ScopedRequestLockScreenOverride {
+   public:
+    // FakeSessionManagerClient and ScreenLockerController must outlive this
+    // instance.
+    ScopedRequestLockScreenOverride();
+    ScopedRequestLockScreenOverride(const ScopedRequestLockScreenOverride&) =
+        delete;
+    ScopedRequestLockScreenOverride& operator=(
+        const ScopedRequestLockScreenOverride&) = delete;
+    ~ScopedRequestLockScreenOverride();
 
+   private:
+    const raw_ref<FakeSessionManagerClient> fake_session_manager_client_;
+    const raw_ref<ScreenLockerController> screen_locker_controller_;
+  };
+
+  ScreenLockerTester();
   ScreenLockerTester(const ScreenLockerTester&) = delete;
   ScreenLockerTester& operator=(const ScreenLockerTester&) = delete;
-
-  ~ScreenLockerTester() override;
+  ~ScreenLockerTester();
 
   // Synchronously lock the device.
+  // Session state must be ACTIVE before calling this.
   void Lock();
 
   // Not necessary when using Lock() because it does this internally, this is
@@ -59,15 +83,8 @@ class ScreenLockerTester : public session_manager::SessionManagerObserver {
                            const std::string& password);
 
  private:
-  // session_manager::SessionManagerObserver:
-  void OnSessionStateChanged() override;
-
-  base::ScopedObservation<session_manager::SessionManager,
-                          session_manager::SessionManagerObserver>
-      session_manager_observation_{this};
-
-  base::OnceClosure on_lock_callback_;
-  base::OnceClosure on_unlock_callback_;
+  base::WeakAutoReset<ScreenLocker, scoped_refptr<Authenticator>>
+      authenticator_reset_;
 };
 
 }  // namespace ash

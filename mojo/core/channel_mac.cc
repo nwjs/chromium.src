@@ -32,6 +32,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/thread_annotations.h"
 #include "base/trace_event/typed_macros.h"
+#include "build/build_config.h"
 #include "mojo/core/ipcz_driver/envelope.h"
 
 namespace mojo::core {
@@ -39,7 +40,13 @@ namespace mojo::core {
 namespace {
 
 // Kill switch.
-BASE_FEATURE(kUseMachVouchers, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kUseMachVouchers,
+#if defined(ARCH_CPU_X86_FAMILY)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 bool ShouldUseVouchers() {
   static bool enabled = base::FeatureList::IsEnabled(kUseMachVouchers);
@@ -347,6 +354,10 @@ class ChannelMac : public Channel,
   }
 
   void SendPendingMessagesLocked() EXCLUSIVE_LOCKS_REQUIRED(write_lock_) {
+    if (!send_buffer_.address()) {
+      return;
+    }
+
     // If a previous send failed due to the receiver's kernel message queue
     // being full, attempt to send that failed message first.
     if (send_buffer_contains_message_ && !reject_writes_) {
@@ -376,6 +387,10 @@ class ChannelMac : public Channel,
 
   bool SendMessageLocked(MessagePtr message)
       EXCLUSIVE_LOCKS_REQUIRED(write_lock_) {
+    if (!send_buffer_.address()) {
+      return false;
+    }
+
     DCHECK(!send_buffer_contains_message_);
     base::BufferIterator<char> UNSAFE_TODO(buffer(
         reinterpret_cast<char*>(send_buffer_.address()), send_buffer_.size()));
@@ -535,6 +550,10 @@ class ChannelMac : public Channel,
     TRACE_EVENT(TRACE_DISABLED_BY_DEFAULT("toplevel.ipc"), "Mojo read message");
 
     DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
+
+    if (!receive_buffer_.address()) {
+      return;
+    }
 
     base::BufferIterator<char> UNSAFE_TODO(
         buffer(reinterpret_cast<char*>(receive_buffer_.address()),

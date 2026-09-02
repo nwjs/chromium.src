@@ -34,6 +34,7 @@
 #include "third_party/blink/public/common/fingerprinting_protection/noise_token.h"
 #include "third_party/blink/public/common/metrics/document_update_reason.h"
 #include "third_party/blink/public/common/page/color_provider_color_maps.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/page/page.mojom-blink-forward.h"
@@ -201,9 +202,6 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   // PluginsChangedObservers.
   static void ResetPluginData();
 
-  // When this method is called, page_scheduler_->SetIsMainFrameLocal should
-  // also be called to update accordingly.
-  // TODO(npm): update the |page_scheduler_| directly in this method.
   void SetMainFrame(Frame*);
   Frame* MainFrame() const { return main_frame_.Get(); }
 
@@ -367,6 +365,13 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
   // frame, applies the same safe-area-inset* to the given |setter|'s document
   // as well. The input |insets| is unscaled and in the size of dips.
   void SetMaxSafeAreaInsets(LocalFrame* setter, gfx::Insets insets);
+
+  const RendererPreferences& GetRendererPreferences() const {
+    return renderer_preferences_;
+  }
+  void SetRendererPreferences(const RendererPreferences& prefs) {
+    renderer_preferences_ = prefs;
+  }
 
   void SetDefaultPageScaleLimits(float min_scale, float max_scale);
   void SetUserAgentPageScaleConstraints(
@@ -739,6 +744,8 @@ class CORE_EXPORT Page final : public GarbageCollected<Page>,
 
   // The information determining the browsing context group this page lives in.
   base::UnguessableToken browsing_context_group_token_;
+
+  RendererPreferences renderer_preferences_;
 
   Member<CloseTaskHandler> close_task_handler_;
 };

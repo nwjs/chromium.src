@@ -186,18 +186,6 @@ group("make_platform_generated") {
   ]
 }
 
-rust_static_library("font_format_check") {
-  allow_unsafe = true  # Needed for FFI that underpins the `cxx` crate.
-  crate_root = "fonts/opentype/format_check.rs"
-  sources = [ crate_root ]
-  cxx_bindings = [ crate_root ]
-  deps = [
-    "//third_party/rust/font_types/v0_12:lib",
-    "//third_party/rust/read_fonts/v0_41:lib",
-    "//third_party/rust/skrifa/v0_44:lib",
-  ]
-}
-
 rust_static_library("rustfft_ffi") {
   allow_unsafe = true  # Needed for FFI that underpins the `cxx` crate.
   crate_root = "audio/rustfft_ffi.rs"
@@ -457,8 +445,6 @@ component("platform") {
     "audio/reverb_convolver.h",
     "audio/reverb_convolver_stage.cc",
     "audio/reverb_convolver_stage.h",
-    "audio/reverb_input_buffer.cc",
-    "audio/reverb_input_buffer.h",
     "audio/simple_fft_convolver.cc",
     "audio/simple_fft_convolver.h",
     "audio/sinc_resampler.cc",
@@ -1569,10 +1555,7 @@ component("platform") {
     "text/text_encoding_detector.h",
     "text/text_justify.h",
     "text/text_run.h",
-    "text/truncation.h",
     "text/unicode_bidi.h",
-    "text/unicode_range.cc",
-    "text/unicode_range.h",
     "text/unicode_utilities.cc",
     "text/unicode_utilities.h",
     "text/web_entities.cc",
@@ -1811,6 +1794,7 @@ component("platform") {
     ":allow_discouraged_type",
     ":blink_platform_public_deps",
     ":platform_export",
+    "//build/rust/crubit",
     "//gpu/command_buffer/client:raster_interface",
     "//media/capture:capture_lib",
     "//mojo/public/cpp/base",
@@ -1837,8 +1821,8 @@ component("platform") {
     "//ui/native_theme/features",
   ]
   deps = [
-    ":font_format_check",
     ":rustfft_ffi",
+    "fonts:font_format_bindings",
     "//base:base_static",
     "//base/allocator:buildflags",
     "//build:chromecast_buildflags",
@@ -2233,6 +2217,7 @@ source_set("blink_platform_unittests_sources") {
     "audio/audio_destination_test.cc",
     "audio/audio_destination_uma_reporter_test.cc",
     "audio/audio_frame_stats_accumulator_test.cc",
+    "audio/audio_utilities_test.cc",
     "audio/biquad_test.cc",
     "audio/denormal_disabler_test.cc",
     "audio/direct_convolver_test.cc",
@@ -2240,6 +2225,7 @@ source_set("blink_platform_unittests_sources") {
     "audio/fft_frame_test.cc",
     "audio/push_pull_fifo_multithread_test.cc",
     "audio/push_pull_fifo_test.cc",
+    "audio/reverb_convolver_test.cc",
     "audio/up_sampler_test.cc",
     "audio/vector_math_test.cc",
     "bindings/parkable_string_test.cc",
@@ -2806,7 +2792,7 @@ source_set("blink_image_decoder_fuzzer_test_support") {
   ]
   deps = [ ":platform" ]
   if (enable_jxl_decoder) {
-    deps += [ "//third_party/rust/jxl/v0_4/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_5/wrapper:jxl_rs" ]
   }
 }
 
@@ -2914,12 +2900,6 @@ if (enable_dav1d_decoder) {
       ":platform",
     ]
     seed_corpuses = [ "//third_party/blink/web_tests/images/resources/avif" ]
-    libfuzzer_options = [
-      # Large AVIF images can take a while to decode under ASAN (especially when
-      # they are fuzzer generated). The default timeout is 25 seconds.
-      "timeout_per_input=50",
-    ]
-    centipede_options = libfuzzer_options
     additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
   }
 }
@@ -2931,15 +2911,10 @@ if (enable_jxl_decoder) {
     deps = [
       ":blink_image_decoder_fuzzer_test_support",
       ":platform",
-      "//third_party/rust/jxl/v0_4/wrapper:jxl_rs",
+      "//third_party/rust/jxl/v0_5/wrapper:jxl_rs",
     ]
     seed_corpuses =
         [ "//third_party/blink/web_tests/external/wpt/jpegxl/resources" ]
-    libfuzzer_options = [
-      # Large JXL images can take a while to decode under ASAN (especially when
-      # they are fuzzer generated). The default timeout is 25 seconds.
-      "timeout_per_input=50",
-    ]
     additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
   }
 }
@@ -3130,6 +3105,7 @@ source_set("unit_tests") {
     "graphics/gpu/drawing_buffer_software_rendering_test.cc",
     "graphics/image_decoding_store_test.cc",
     "graphics/image_frame_generator_test.cc",
+    "graphics/memory_managed_paint_recorder_test.cc",
     "graphics/offscreen_canvas_placeholder_test.cc",
     "graphics/paint_worklet_paint_dispatcher_test.cc",
     "graphics/scoped_raster_timer_test.cc",

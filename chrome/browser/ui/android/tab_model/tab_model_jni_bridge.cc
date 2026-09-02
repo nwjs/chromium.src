@@ -12,7 +12,6 @@
 #include <utility>
 
 #include "base/android/jni_android.h"
-#include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/android/jni_weak_ref.h"
 #include "base/android/token_android.h"
@@ -65,7 +64,6 @@
 using base::android::AttachCurrentThread;
 using base::android::ConvertUTF8ToJavaString;
 using base::android::JavaRef;
-using base::android::SafeGetArrayLength;
 using base::android::ScopedJavaLocalRef;
 using chrome::android::ActivityType;
 using chrome::android::CustomTabProfileType;
@@ -782,6 +780,14 @@ std::optional<tab_groups::TabGroupId> TabModelJniBridge::CreateTabGroup(
   return tab_groups::TabGroupId::FromOptionalToken(group_id_token);
 }
 
+std::optional<split_tabs::SplitTabId> TabModelJniBridge::CreateSplit(
+    const std::vector<tabs::TabHandle>& tabs) {
+  // TODO(https://crbug.com/480192698): Implement this once split tabs are
+  // supported on Desktop Android.
+  NOTIMPLEMENTED();
+  return std::nullopt;
+}
+
 void TabModelJniBridge::SetTabGroupVisualData(
     tab_groups::TabGroupId group_id,
     const tab_groups::TabGroupVisualData& visual_data) {
@@ -824,6 +830,12 @@ void TabModelJniBridge::Ungroup(const std::set<tabs::TabHandle>& tabs) {
   JNIEnv* env = AttachCurrentThread();
   ScopedJavaLocalRef<jobject> jobj = java_object_.get(env);
   Java_TabModelJniBridge_ungroup(env, jobj, tabs_to_ungroup);
+}
+
+void TabModelJniBridge::Unsplit(split_tabs::SplitTabId split_id) {
+  // TODO(https://crbug.com/480192698): Implement this once split tabs are
+  // supported on Desktop Android.
+  NOTIMPLEMENTED();
 }
 
 void TabModelJniBridge::MoveGroupTo(tab_groups::TabGroupId group_id,

@@ -32,11 +32,11 @@
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/session_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/side_panel/side_panel_action_callback.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
@@ -108,8 +108,8 @@ ui::ImageModel CreateFavicon(const gfx::VectorIcon& icon) {
 
 }  // namespace
 
-// An element in |RecentTabsSubMenuModel::local_tab_items_| or
-// |RecentTabsSubMenuModel::remote_tab_items_| that stores
+// An element in `RecentTabsSubMenuModel::local_tab_items_` or
+// `RecentTabsSubMenuModel::remote_tab_items_` that stores
 // the navigation information of a local or other devices' tab required to
 // restore the tab.
 struct RecentTabsSubMenuModel::TabItem {
@@ -131,7 +131,7 @@ struct RecentTabsSubMenuModel::TabItem {
   GURL url;
 };
 
-// An element in |RecentTabsSubMenuModel::sub_menu_items_| that records a sub
+// An element in `RecentTabsSubMenuModel::sub_menu_items_` that records a sub
 // menu item's model and its own command id.
 // TODO(emshack): This solution, where sub menus are represented by a
 // SimpleMenuModel and managed by the parent RecentTabsSubMenuModel, is not
@@ -156,7 +156,7 @@ struct RecentTabsSubMenuModel::SubMenuItem {
 
 RecentTabsSubMenuModel::RecentTabsSubMenuModel(
     ui::AcceleratorProvider* accelerator_provider,
-    Browser* browser)
+    BrowserWindowInterface* browser)
     : ui::SimpleMenuModel(this),
       browser_(browser),
       session_sync_service_(
@@ -510,8 +510,6 @@ void RecentTabsSubMenuModel::BuildLocalEntries() {
         }
         case sessions::tab_restore::Type::WINDOW: {
           auto& window = static_cast<sessions::tab_restore::Window&>(*entry);
-          // TODO(https://crbug.com/41227458): Consider if we should re-add the
-          // ability for single tab windows to be represented as single tabs.
           BuildLocalWindowItem(window, ++last_local_model_index_);
           break;
         }
@@ -732,7 +730,7 @@ void RecentTabsSubMenuModel::BuildLocalSplitItem(
   const gfx::VectorIcon* icon = nullptr;
   if (split.visual_data.split_layout() ==
       split_tabs::SplitTabLayout::kStacked) {
-    icon = &kSplitSceneHorizontalCustomIcon;
+    icon = &kSplitScene2Icon;
   } else {
     icon = &(features::IsRoundedIconsEnabled() ? kSplitSceneIcon
                                                : kSplitSceneOldIcon);
@@ -938,7 +936,7 @@ void RecentTabsSubMenuModel::AddSplitItemToModel(
   const gfx::VectorIcon* icon = nullptr;
   if (split.visual_data.split_layout() ==
       split_tabs::SplitTabLayout::kStacked) {
-    icon = &kSplitSceneHorizontalCustomIcon;
+    icon = &kSplitScene2Icon;
   } else {
     icon = &(features::IsRoundedIconsEnabled() ? kSplitSceneIcon
                                                : kSplitSceneOldIcon);

@@ -85,10 +85,10 @@ TEST(CursorTest, IsValidCursorThemeName) {
 }
 
 TEST(CursorTest, IsValidCursorThemeSize) {
+  EXPECT_TRUE(IsValidCursorThemeSize(0));
   EXPECT_TRUE(IsValidCursorThemeSize(16));
   EXPECT_TRUE(IsValidCursorThemeSize(24));
   EXPECT_TRUE(IsValidCursorThemeSize(512));
-  EXPECT_FALSE(IsValidCursorThemeSize(0));
   EXPECT_FALSE(IsValidCursorThemeSize(-1));
   EXPECT_FALSE(IsValidCursorThemeSize(513));
 }

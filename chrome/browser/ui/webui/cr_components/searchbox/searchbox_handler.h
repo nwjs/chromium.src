@@ -124,7 +124,8 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                          uint32_t cursor_position,
                          omnibox::SuggestInventory suggest_inventory,
                          bool is_on_focus,
-                         const std::string& keyword) override;
+                         const std::string& keyword,
+                         searchbox::mojom::InputMethod input_method) override;
   void StopAutocomplete(bool clear_result) override;
   void OpenAutocompleteMatch(uint8_t line,
                              const GURL& url,
@@ -134,7 +135,6 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                              bool via_keyboard) override;
   void SetSmartComposeStats(
       searchbox::mojom::SmartComposeStatsPtr smart_compose_stats) override {}
-  void SetInputMethod(searchbox::mojom::InputMethod input_method) override;
   void SetPopupSelection(
       searchbox::mojom::OmniboxPopupSelectionPtr selection) override;
   void OpenPopupSelection(uint32_t result_sequence_id,
@@ -158,7 +158,8 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                      bool ctrl_key,
                      bool meta_key,
                      bool shift_key) override;
-  void GetPlaceholderConfig(GetPlaceholderConfigCallback callback) override;
+  void GetCyclingPlaceholderConfig(
+      GetCyclingPlaceholderConfigCallback callback) override;
   void GetRecentTabs(GetRecentTabsCallback callback) override;
   void GetTabPreview(int32_t tab_id, GetTabPreviewCallback callback) override {}
   void WaitForTabFaviconLoad(int32_t tab_id,
@@ -171,6 +172,7 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                       AddFileContextCallback callback) override {}
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
+                     searchbox::mojom::TabAttachmentSource source,
                      AddTabContextCallback) override {}
   void DeleteContext(const base::UnguessableToken& file_token,
                      bool from_automatic_chip) override {}
@@ -184,9 +186,11 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                    bool shift_key,
                    bool is_voice_search) override {}
   void OpenLensSearch() override {}
-  void SetActiveToolMode(omnibox::ToolMode tool) override {}
+  void SetActiveToolMode(omnibox::ToolMode tool,
+                         bool is_set_by_server) override {}
   void RecordToolSelectionAction(omnibox::ToolMode tool) override {}
-  void SetActiveModelMode(omnibox::ModelMode model) override {}
+  void SetActiveModelMode(omnibox::ModelMode model,
+                          bool is_set_by_aim) override {}
   void RecordModelSelectionAction(omnibox::ModelMode model) override {}
   void ActivateMetricsFunnel(const std::string& funnel_name) override {}
   void GetDriveDisclaimerStatus(
@@ -195,6 +199,8 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   void OnDriveUploadClicked(OnDriveUploadClickedCallback callback) override;
   void OpenProfilePicker() override {}
   void GetPageClassification(GetPageClassificationCallback callback) override;
+  void StartScreenshare(bool prefer_entire_screen,
+                        StartScreenshareCallback callback) override {}
 #if !BUILDFLAG(IS_ANDROID)
   void SetSmartTabSharingActive(bool active) override;
   void GetSmartTabSharingActive(
@@ -203,20 +209,6 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   void set_delegate(Delegate* delegate) { omnibox_delegate_ = delegate; }
 
  protected:
-  FRIEND_TEST_ALL_PREFIXES(RealboxHandlerTest, AutocompleteController_Start);
-  FRIEND_TEST_ALL_PREFIXES(RealboxHandlerTest,
-                           AutocompleteController_StartWithSuggestInventory);
-  FRIEND_TEST_ALL_PREFIXES(RealboxHandlerTest, SetInputMethodTest);
-  FRIEND_TEST_ALL_PREFIXES(RealboxHandlerTest, RealboxUpdatesEditModelInput);
-  FRIEND_TEST_ALL_PREFIXES(LensSearchboxHandlerTest,
-                           Lens_AutocompleteController_Start);
-  FRIEND_TEST_ALL_PREFIXES(WebuiOmniboxHandlerTest,
-                           OpenAutocompleteMatch_KeyboardModifiers);
-  FRIEND_TEST_ALL_PREFIXES(WebuiOmniboxHandlerTest, OpenLensSearch);
-  FRIEND_TEST_ALL_PREFIXES(ContextualSearchboxHandlerTest,
-                           QueryAutocomplete_SetsLensInputs);
-  FRIEND_TEST_ALL_PREFIXES(ContextualSearchboxHandlerTest,
-                           QueryAutocomplete_SetsLensInputs_InToolModes);
   SearchboxHandler(
       mojo::PendingReceiver<searchbox::mojom::PageHandler> pending_page_handler,
       mojo::PendingRemote<searchbox::mojom::Page> pending_page,
@@ -263,14 +255,6 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                           AutocompleteController::Observer>
       autocomplete_controller_observation_{this};
 
-  // TODO(crbug.com/534328951): This is not ideal state to keep in the
-  //   SearchboxHandler since it related to the `AutocompleteInput`. Instead
-  //   create the AutocompleteInput first.
-  // This is needed in order to keep track of the last input method without
-  // needing to call an async getter from the `page_`.
-  omnibox::metrics::ChromeSearchboxStats::InputMethod input_method_ =
-      omnibox::metrics::ChromeSearchboxStats::KEYBOARD;
-
   mojo::Receiver<searchbox::mojom::PageHandler> page_handler_;
   mojo::Remote<searchbox::mojom::Page> page_;
   base::WeakPtrFactory<SearchboxHandler> weak_ptr_factory_{this};
@@ -304,6 +288,7 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
       bookmarks::BookmarkModel* bookmark_model,
       const omnibox::GroupConfigMap& suggestion_groups_map,
       const TemplateURLService* turl_service) const;
+  virtual bool ShouldShowFirstContextualDescription() const;
   virtual std::optional<searchbox::mojom::AutocompleteMatchPtr>
   CreateAutocompleteMatch(const AutocompleteMatch& match,
                           size_t line,

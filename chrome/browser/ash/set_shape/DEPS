@@ -1,0 +1,30 @@
+include_rules = [
+  # ChromeOS should not depend on //chrome. See //docs/chromeos/code.md for
+  # details.
+  "-chrome",
+
+  # This directory is in //chrome, which violates the rule above. Allow this
+  # directory to #include its own files.
+  "+chrome/browser/ash/set_shape",
+
+  "+chromeos/constants",
+]
+
+specific_include_rules = {
+  "set_shape_allowlist_browsertest\\.cc": [
+    "+chrome/browser/content_settings/host_content_settings_map_factory.h",
+    "+chrome/browser/profiles/profile.h",
+    "+chrome/browser/ui/tabs/tab_strip_model.h",
+    "+chrome/browser/ui/web_applications/test",
+    "+chrome/browser/web_applications/isolated_web_apps",
+    "+chrome/test/base",
+  ],
+  "set_shape_browsertest\\.cc": [
+    "+chrome/browser/content_settings/host_content_settings_map_factory.h",
+    "+chrome/browser/profiles/profile.h",
+    "+chrome/browser/ui/tabs/tab_strip_model.h",
+    "+chrome/browser/ui/web_applications/test",
+    "+chrome/browser/web_applications/isolated_web_apps",
+    "+chrome/test/base",
+  ],
+}

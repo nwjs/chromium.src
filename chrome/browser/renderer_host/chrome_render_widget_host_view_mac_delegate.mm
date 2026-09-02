@@ -9,11 +9,11 @@
 #include "base/auto_reset.h"
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/browser/actor/ui/actor_overlay_ui.h"
-#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/profiles/profile.h"
 #import "chrome/browser/renderer_host/chrome_render_widget_host_view_mac_history_swiper.h"
+#include "chrome/browser/renderer_host/chrome_render_widget_host_view_mac_history_swiping_control.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/tabs/inactive_window_mouse_event_controller.h"
@@ -165,7 +165,9 @@
   if (!webContents) {
     return NO;
   }
-  return !DevToolsWindow::IsDevToolsWindow(webContents);
+  auto* swiping_control =
+      history_swiper::HistorySwipingControl::FromWebContents(webContents);
+  return !swiping_control || swiping_control->ShouldAllowHistorySwiping();
 }
 
 - (NSView*)viewThatWantsHistoryOverlay {

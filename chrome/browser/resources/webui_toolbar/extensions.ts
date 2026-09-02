@@ -8,11 +8,10 @@ import './toolbar_divider.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ExtensionActionInfo} from '/shared/extensions_bar_data_model.mojom-webui.js';
 
-import {getCss} from './extensions.css.js';
+import {BrowserProxyImpl} from './browser_proxy.js';
 import {getHtml} from './extensions.html.js';
+import {getCss} from './toolbar_action_container.css.js';
 import {ToolbarActionContainerMixin} from './toolbar_action_container_mixin.js';
-
-export type {KeyedActionState as KeyedExtensionState} from './toolbar_action_container_mixin.js';
 
 const initialState: ExtensionActionInfo[] = [];
 
@@ -35,6 +34,32 @@ export class ExtensionsElement extends ExtensionsElementBase {
   // ToolbarActionContainerMixin override
   override getKey(state: ExtensionActionInfo): string {
     return state.id;
+  }
+
+  override moveItem(id: string, index: number) {
+    BrowserProxyImpl.getInstance().toolbarUIHandler.moveExtensionAction(
+        id, index);
+  }
+
+  override moveItemBy(id: string, delta: number) {
+    BrowserProxyImpl.getInstance().toolbarUIHandler.moveExtensionActionBy(
+        id, delta);
+  }
+
+  override getMimeType() {
+    return 'application/x-webui-extension-action';
+  }
+
+  override getBroadcastChannelName() {
+    return 'extension-action-drag';
+  }
+
+  override get childTagName() {
+    return 'webui-toolbar-extension';
+  }
+
+  override isDraggable(state: ExtensionActionInfo, _index: number): boolean {
+    return state.id !== '';
   }
 }
 

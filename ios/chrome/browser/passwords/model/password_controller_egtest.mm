@@ -140,8 +140,16 @@ void WaitForBottomSheetAndOpenKeyboard(NSString* username) {
 // Types `text` on an input field with `fieldID`. Dismisses the credential
 // bottom sheet if `dismissBottomSheet` is true.
 void TypeTextOnField(NSString* text, const std::string& fieldID) {
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
-      performAction:chrome_test_util::TapWebElementWithId(fieldID)];
+  NSString* checkFocusScript =
+      [NSString stringWithFormat:
+                    @"document.activeElement === document.getElementById('%@')",
+                    base::SysUTF8ToNSString(fieldID)];
+  base::Value result = [ChromeEarlGrey evaluateJavaScript:checkFocusScript];
+  bool isFocused = result.is_bool() && result.GetBool();
+  if (!isFocused) {
+    [[EarlGrey selectElementWithMatcher:chrome_test_util::WebViewMatcher()]
+        performAction:chrome_test_util::TapWebElementWithId(fieldID)];
+  }
   TypeText(text);
   // Wait for the current input field to contain the `text` (i.e. typing from
   // SimulatePhysicalKeyboardEvent finished) before proceeding to next step.
@@ -795,8 +803,8 @@ void LoginOnUff() {
 // Tests that the typed credentials are correctly saved in the sign-in UFF flow.
 - (void)testSaveTypedCredentialInUff {
   // TODO(crbug.com/453627553): Re-enable the test.
-  if (@available(iOS 26.1, *)) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.1.");
+  if (@available(iOS 18.5, *)) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 18.5.");
   }
 
   NSString* usernameValue = @"test-username";
@@ -881,8 +889,8 @@ void LoginOnUff() {
 // flow when there is already a credential stored for the corresponding email.
 - (void)testUpdateTypedCredentialInUff {
   // TODO(crbug.com/453627553): Re-enable the test.
-  if (@available(iOS 26.1, *)) {
-    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 26.1.");
+  if (@available(iOS 18.5, *)) {
+    EARL_GREY_TEST_DISABLED(@"Test disabled on iOS 18.5.");
   }
 
   NSString* usernameValue = @"test-username";

@@ -13,11 +13,13 @@ export function getHtml(this: SearchboxInputElement) {
 <div id="inputInnerContainer" part="input-inner-container">
     <slot name="contextual-entrypoint"></slot>
     <cr-searchbox-icon id="icon" .match="${this.selectedMatch}"
+        page-url="${this.pageUrl}"
         default-icon="${this.searchboxIcon}" in-searchbox part="icon">
     </cr-searchbox-icon>
     <slot name="thumbnail"></slot>
     ${this.inputKeywordModel?.type === KeywordType.kInKeyword ?
-      html`<span>${this.inputKeywordModel.displayText}</span>` : ''}
+      html`<span id="keyword">${
+          this.inputKeywordModel.displayText}</span>` : ''}
     ${this.multiLineEnabled ? html`
       <textarea id="input" autocomplete="off"
           part="searchbox-input"

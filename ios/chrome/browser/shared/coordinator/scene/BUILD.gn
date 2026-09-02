@@ -29,10 +29,11 @@ source_set("scene_activation_level") {
 source_set("scene_state_header") {
   sources = [
     "connection_information.h",
+    "scene_agent.h",
     "scene_controller.h",
     "scene_delegate.h",
     "scene_state.h",
-    "scene_state_options.h",
+    "scene_state_animator.h",
     "scene_state_prefs.h",
     "scene_ui_provider.h",
   ]
@@ -42,7 +43,6 @@ source_set("scene_state_header") {
     ":url_context",
     "//ios/chrome/app/application_delegate:tab_opening",
     "//ios/chrome/browser/scoped_ui_blocker/ui_bundled:protocols",
-    "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/window_activities/model",
@@ -61,6 +61,7 @@ source_set("scene_state_header_for_otr_profile_deletion") {
 source_set("scene_testing") {
   sources = [ "scene_controller_testing.h" ]
   frameworks = [ "UIKit.framework" ]
+  deps = [ ":scene_state_header" ]
 }
 
 source_set("task_updater_scene_agent") {
@@ -91,6 +92,7 @@ source_set("scene") {
 
   deps = [
     ":scene_state_header_for_otr_profile_deletion",
+    ":scene_testing",
     ":tab_activity_utils",
     ":task_updater_scene_agent",
     "//base",
@@ -153,8 +155,7 @@ source_set("scene") {
     "//ios/chrome/browser/default_browser/model:default_browser_interest_signals",
     "//ios/chrome/browser/default_browser/promo/public:features",
     "//ios/chrome/browser/docking_promo/model",
-    "//ios/chrome/browser/enterprise/data_protection/model",
-    "//ios/chrome/browser/enterprise/data_protection/public:features",
+    "//ios/chrome/browser/enterprise/data_protection/coordinator",
     "//ios/chrome/browser/enterprise/model/idle",
     "//ios/chrome/browser/feature_engagement/model",
     "//ios/chrome/browser/first_run/coordinator",
@@ -173,7 +174,6 @@ source_set("scene") {
     "//ios/chrome/browser/lens/ui_bundled:lens_entrypoint",
     "//ios/chrome/browser/lens_overlay/model",
     "//ios/chrome/browser/level_up/model",
-    "//ios/chrome/browser/main/model",
     "//ios/chrome/browser/main/ui_bundled",
     "//ios/chrome/browser/main/ui_bundled:default_browser_scene_agent",
     "//ios/chrome/browser/main/ui_bundled:incognito_blocker_scene_agent",
@@ -285,7 +285,8 @@ source_set("unit_tests") {
     "scene_delegate_unittests.mm",
     "scene_state_prefs_unittest.mm",
     "scene_util_unittest.mm",
-    "state/layout_state_unittest.mm",
+    "state/browser_layout_state_unittest.mm",
+    "state/scene_layout_state_unittest.mm",
     "task_updater_scene_agent_unittest.mm",
   ]
   deps = [
@@ -308,8 +309,7 @@ source_set("unit_tests") {
     "//ios/chrome/app/profile:test_utils",
     "//ios/chrome/browser/authentication/ui_bundled/signin:signin_in_progress",
     "//ios/chrome/browser/bookmarks/model",
-    "//ios/chrome/browser/enterprise/data_protection/model",
-    "//ios/chrome/browser/enterprise/data_protection/public:features",
+    "//ios/chrome/browser/enterprise/data_protection/coordinator",
     "//ios/chrome/browser/favicon/model",
     "//ios/chrome/browser/history/model",
     "//ios/chrome/browser/incognito_reauth/ui_bundled:incognito_reauth_scene_agent",

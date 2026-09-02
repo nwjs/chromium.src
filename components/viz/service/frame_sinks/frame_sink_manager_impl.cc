@@ -298,13 +298,11 @@ void FrameSinkManagerImpl::CreateCompositorDisplayLink(
           update_vsync_displays_cb);
 }
 
-void FrameSinkManagerImpl::UpdateVSyncDisplays(
-    int64_t display_id,
-    bool is_browser_vsync_supported) {
+void FrameSinkManagerImpl::UpdateVSyncDisplays(int64_t display_id) {
   for (auto& root_frame_sink : root_sink_map_) {
     if (root_frame_sink.second->external_begin_frame_source()) {
       root_frame_sink.second->external_begin_frame_source()->UpdateVSyncDisplay(
-          display_id, is_browser_vsync_supported);
+          display_id);
     }
   }
 }
@@ -859,6 +857,33 @@ CapturableFrameSink* FrameSinkManagerImpl::FindCapturableFrameSink(
 void FrameSinkManagerImpl::OnCapturerConnectionLost(
     FrameSinkVideoCapturerImpl* capturer) {
   video_capturers_.erase(capturer);
+}
+
+bool FrameSinkManagerImpl::IsValidUnboundedFrameSinkId(
+    const FrameSinkId& parent_frame_sink_id,
+    const FrameSinkId& unbounded_frame_sink_id) const {
+  // Unbounded surface FrameSinkIds are allocated by the browser process, so
+  // they must not use the renderer's own client_id namespace.
+  if (unbounded_frame_sink_id.client_id() == parent_frame_sink_id.client_id()) {
+    return false;
+  }
+  // Check the hierarchy tree to verify unbounded_frame_sink_id belongs to the
+  // frame sink hierarchy.
+  if (ChildContains(parent_frame_sink_id, unbounded_frame_sink_id)) {
+    return true;
+  }
+  FrameSinkId root_id = parent_frame_sink_id;
+  while (!root_sink_map_.contains(root_id)) {
+    FrameSinkId oldest_parent = GetOldestParentByChildFrameId(root_id);
+    if (!oldest_parent.is_valid()) {
+      break;
+    }
+    root_id = oldest_parent;
+  }
+  if (root_id != parent_frame_sink_id && root_id.is_valid()) {
+    return ChildContains(root_id, unbounded_frame_sink_id);
+  }
+  return false;
 }
 
 bool FrameSinkManagerImpl::ChildContains(

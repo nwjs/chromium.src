@@ -14,7 +14,6 @@
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/metrics/desktop_session_duration/desktop_session_duration_tracker.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
@@ -328,9 +327,8 @@ RestartabilityState RestartabilityMonitor::ComputeCurrentState() {
         }
 
         TabStripModel* tab_strip_model = browser_interface->GetTabStripModel();
-        for (int i = 0; i < tab_strip_model->count(); ++i) {
-          if (CouldTabDisplayBeforeUnloadDialog(
-                  tab_strip_model->GetWebContentsAt(i))) {
+        for (tabs::TabInterface* tab : *tab_strip_model) {
+          if (CouldTabDisplayBeforeUnloadDialog(tab->GetContents())) {
             state.has_dirty_tabs = true;
             break;
           }

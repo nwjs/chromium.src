@@ -11,6 +11,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_tick_clock.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
@@ -28,7 +29,6 @@
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -36,7 +36,6 @@
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
-#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/fake_gaia_mixin.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -56,7 +55,6 @@
 #include "net/dns/mock_host_resolver.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "ui/base/base_window.h"
-#include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_tracker.h"
@@ -174,8 +172,10 @@ class GlicExperimentalOptInTest
     if (!web_contents) {
       web_contents = browser()->tab_strip_model()->GetActiveWebContents();
     }
-    views::Widget* widget = service()->opt_in_controller().ShowDialog(
-        web_contents, std::move(callback));
+    service()->opt_in_controller().ShowDialog(web_contents,
+                                              std::move(callback));
+    views::Widget* widget =
+        service()->opt_in_controller().GetDialogWidgetForTesting();
     if (!widget) {
       return nullptr;
     }
@@ -449,8 +449,9 @@ IN_PROC_BROWSER_TEST_F(GlicExperimentalOptInTest, WebviewURL_OptInNotNeeded) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
   base::test::TestFuture<bool> future;
-  views::Widget* widget = service()->opt_in_controller().ShowDialog(
-      web_contents, future.GetCallback());
+  service()->opt_in_controller().ShowDialog(web_contents, future.GetCallback());
+  views::Widget* widget =
+      service()->opt_in_controller().GetDialogWidgetForTesting();
   EXPECT_FALSE(widget);
   EXPECT_TRUE(future.Get());
 }
@@ -651,6 +652,49 @@ IN_PROC_BROWSER_TEST_F(GlicExperimentalOptInTest, RejectOptIn) {
                                       OptInFlow::kExperimentalTriggering, 1);
 }
 
+IN_PROC_BROWSER_TEST_F(GlicExperimentalOptInTest, RejectThenAcceptOptIn) {
+  service()->enabling().SetCompletedFre(glic::prefs::FreStatus::kIncomplete);
+  ASSERT_FALSE(service()->enabling().HasConsented());
+
+  // Capture the dialog result to verify it gets rejected upon closing.
+  base::test::TestFuture<bool> opt_in_result;
+  views::Widget* widget =
+      ShowDialogAndWait(nullptr, opt_in_result.GetCallback());
+  ASSERT_TRUE(widget);
+
+  content::WebContents* dialog_contents = WaitForGuestContents();
+
+  // 1. Reject first dialog
+  views::test::WidgetDestroyedWaiter waiter(widget);
+  ASSERT_TRUE(ExecJs(dialog_contents, "window.location.hash = '#noThanks';"));
+
+  // The dialog should close and the result should be false (rejected).
+  waiter.Wait();
+  EXPECT_FALSE(opt_in_result.Get());
+  EXPECT_FALSE(service()->enabling().HasConsented());
+
+  // 2. Show second dialog
+  base::test::TestFuture<bool> opt_in_result2;
+  views::Widget* widget2 =
+      ShowDialogAndWait(nullptr, opt_in_result2.GetCallback());
+  ASSERT_TRUE(widget2);
+
+  auto* guest_view2 = GetGuestViewManager()->WaitForNextGuestViewCreated();
+  ASSERT_TRUE(guest_view2);
+  content::WebContents* dialog_contents2 = guest_view2->web_contents();
+  ASSERT_TRUE(dialog_contents2);
+  EXPECT_TRUE(content::WaitForLoadStop(dialog_contents2));
+
+  // 3. Accept second dialog
+  views::test::WidgetDestroyedWaiter waiter2(widget2);
+  ASSERT_TRUE(ExecJs(dialog_contents2, "window.location.hash = '#continue';"));
+
+  // The dialog should close and the result should be true (accepted).
+  waiter2.Wait();
+  EXPECT_TRUE(opt_in_result2.Get());
+  EXPECT_TRUE(service()->enabling().HasConsented());
+}
+
 IN_PROC_BROWSER_TEST_F(GlicExperimentalOptInTest,
                        GlicOptInImpressionMetricRecordedOnLoad) {
   base::UserActionTester user_action_tester;
@@ -787,13 +831,15 @@ IN_PROC_BROWSER_TEST_F(GlicExperimentalOptInTest, MultipleOptInRequests) {
 
   base::test::TestFuture<bool> future(base::test::TestFutureMode::kQueue);
 
-  views::Widget* widget1 = service->opt_in_controller().ShowDialog(
-      web_contents, future.GetCallback());
+  service->opt_in_controller().ShowDialog(web_contents, future.GetCallback());
+  views::Widget* widget1 =
+      service->opt_in_controller().GetDialogWidgetForTesting();
   ASSERT_TRUE(widget1);
 
   // Second request should return the same widget and queue callbacks.
-  views::Widget* widget2 = service->opt_in_controller().ShowDialog(
-      web_contents, future.GetCallback());
+  service->opt_in_controller().ShowDialog(web_contents, future.GetCallback());
+  views::Widget* widget2 =
+      service->opt_in_controller().GetDialogWidgetForTesting();
   EXPECT_EQ(widget1, widget2);
 
   views::test::WidgetVisibleWaiter(widget1).Wait();
@@ -1143,15 +1189,11 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(browser()->tab_strip_model()->count(), 1);
 
   // 2. Create Window B (background window).
-  BrowserWindowInterface* window_b = CreateBrowserWindow(GetProfile());
-  ASSERT_TRUE(window_b);
+  BrowserWindowInterface* window_b = CreateAdditionalBrowserWindow();
 
   // Ensure Window A is active.
-  {
-    ui_test_utils::BrowserDidBecomeActiveWaiter waiter(browser());
-    browser()->GetWindow()->Activate();
-    waiter.Wait();
-  }
+  browser()->GetWindow()->Activate();
+  ASSERT_OK(WaitForWindowActive(browser()));
 
   // 3. Add suitable tab to Window B.
   GURL fallback_url(
@@ -1162,11 +1204,8 @@ IN_PROC_BROWSER_TEST_F(
   content::TestNavigationObserver observer(triggering_contents);
   observer.Wait();
   // Ensure Window A is still active overall.
-  {
-    ui_test_utils::BrowserDidBecomeActiveWaiter waiter(browser());
-    browser()->GetWindow()->Activate();
-    waiter.Wait();
-  }
+  browser()->GetWindow()->Activate();
+  ASSERT_OK(WaitForWindowActive(browser()));
 
   // 4. Call GetOrCreateSuitableWebContents.
   content::WebContents* web_contents =
@@ -1187,77 +1226,6 @@ IN_PROC_BROWSER_TEST_F(
   // Window B should now be active!
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser(),
             window_b);
-}
-
-IN_PROC_BROWSER_TEST_F(GlicExperimentalOptInTest, VerifyA11yLabelsInDialog) {
-  service()->enabling().SetCompletedFre(glic::prefs::FreStatus::kIncomplete);
-  views::Widget* widget = ShowDialogAndWait();
-  ASSERT_TRUE(widget);
-
-  content::WebContents* guest_contents = WaitForGuestContents();
-  ASSERT_TRUE(guest_contents);
-
-  // The links are created dynamically after 100ms in page.html.
-  // We wait for the links to be created and have their aria-labels set by our
-  // injected script.
-  bool labels_correct = base::test::RunUntil([this, guest_contents]() {
-    // Check "safely" link label
-    auto safely_element = EvalJs(
-        guest_contents, "!!document.querySelector('a[href*=\"use-policy\"]')");
-    if (!safely_element.is_ok() || safely_element != true) {
-      return false;
-    }
-    auto safely_label = EvalJs(guest_contents,
-                               "document.querySelector('a[href*=\"use-policy\"]"
-                               "').getAttribute('aria-label')");
-    if (!safely_label.is_ok() ||
-        safely_label !=
-            l10n_util::GetStringUTF8(
-                IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_CONSIDER_SAFELY_ARIA_LABEL)) {
-      return false;
-    }
-
-    // Check "unexpected results" link label
-    auto unexpected_element =
-        EvalJs(guest_contents,
-               "!!document.querySelector('a[href*=\"unexpected_results\"]')");
-    if (!unexpected_element.is_ok() || unexpected_element != true) {
-      return false;
-    }
-    auto unexpected_label =
-        EvalJs(guest_contents,
-               "document.querySelector('a[href*=\"unexpected_results\"]')."
-               "getAttribute('aria-label')");
-    if (!unexpected_label.is_ok() ||
-        unexpected_label !=
-            l10n_util::GetStringUTF8(
-                IDS_SETTINGS_GLIC_PERMISSIONS_WEB_ACTUATION_TOGGLE_CONSIDER_UNEXPECTED_RESULTS_ARIA_LABEL)) {
-      return false;
-    }
-
-    // Check "Review the risks" link label
-    auto risks_element =
-        EvalJs(guest_contents,
-               "!!document.querySelector('a[href*=\"gemini_spark_safety\"]')");
-    if (!risks_element.is_ok() || risks_element != true) {
-      return false;
-    }
-    auto risks_label = EvalJs(guest_contents,
-                              "document.querySelector('a[href*=\"gemini_spark_"
-                              "safety\"]').getAttribute('aria-label')");
-    if (!risks_label.is_ok() ||
-        risks_label !=
-            l10n_util::GetStringUTF8(
-                IDS_SETTINGS_GLIC_EXPERIMENTAL_TRIGGERING_CONSIDER_REVIEW_RISKS_LINK_LABEL_SPARK)) {
-      return false;
-    }
-
-    return true;
-  });
-
-  EXPECT_TRUE(labels_correct);
-
-  service()->opt_in_controller().CloseDialog(false);
 }
 
 }  // namespace glic

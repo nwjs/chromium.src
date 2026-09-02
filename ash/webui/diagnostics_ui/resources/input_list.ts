@@ -101,12 +101,12 @@ export class InputListElement extends InputListElementBase {
       InternalDisplayPowerStateObserverReceiver|null = null;
   private tabletModeReceiver: TabletModeObserverReceiver|null = null;
   private lidStateReceiver: LidStateObserverReceiver|null = null;
-  private keyboardTester: KeyboardTesterElement;
+  private keyboardTester: KeyboardTesterElement|null = null;
   private touchscreenTester: TouchscreenTesterElement|null = null;
   private touchpadTester: TouchpadTesterElement|null = null;
-  private browserProxy: DiagnosticsBrowserProxy =
+  private readonly browserProxy: DiagnosticsBrowserProxy =
       DiagnosticsBrowserProxyImpl.getInstance();
-  private inputDataProvider: InputDataProviderInterface =
+  private readonly inputDataProvider: InputDataProviderInterface =
       getInputDataProvider();
 
   private computeShowTouchpads(numTouchpads: number): boolean {
@@ -286,6 +286,7 @@ export class InputListElement extends InputListElementBase {
     const keyboard: KeyboardInfo|undefined = this.keyboards.find(
         (keyboard: KeyboardInfo) => keyboard.id === e.detail.evdevId);
     assert(keyboard);
+    assert(this.keyboardTester);
     this.keyboardTester.keyboard = keyboard;
     this.keyboardTester.show();
   }
@@ -298,6 +299,7 @@ export class InputListElement extends InputListElementBase {
     const params = new URLSearchParams(window.location.search);
     if (params.has('showDefaultKeyboardTester') && this.keyboards.length > 0 &&
         !this.keyboardTester?.isOpen()) {
+      assert(this.keyboardTester);
       this.keyboardTester.keyboard = this.keyboards[0];
       this.keyboardTester.show();
     }
@@ -361,6 +363,7 @@ export class InputListElement extends InputListElementBase {
   onHostDeviceStatusChanged(): void {
     // If the keyboard tester isn't open or we aren't testing an internal
     // keyboard, do nothing.
+    assert(this.keyboardTester);
     if (!this.keyboardTester.isOpen() ||
         this.keyboardTester.keyboard.connectionType !=
             ConnectionType.kInternal) {

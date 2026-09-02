@@ -33,6 +33,7 @@
 <translation id="1290883685122687410">Реттеу қатесі: <ph name="METAINSTALLER_EXIT_CODE" />. <ph name="WINDOWS_ERROR" /></translation>
 <translation id="1302523850133262269">Chrome ең соңғы жүйе жаңартуларын орнатуда, күте тұрыңыз.</translation>
 <translation id="1330562121671411446">Тілді анықтау</translation>
+<translation id="1333654552732143316">Chrome-ды іске қосу</translation>
 <translation id="1341711321000856656">Басқа Chrome профиліндегі құпия сөздерді көру үшін ауысуға болады</translation>
 <translation id="1343830902827845050">Chrome аккаунтына кіріңіз</translation>
 <translation id="1356661055722410047">Жаңалық! Енді экрандағы мәтін мен суреттерді де аудара аласыз.</translation>
@@ -147,6 +148,7 @@
 <translation id="2424440923901031101">Бұл кеңейтім Chrome Web Store саясатына қайшы, сондықтан қауіпті болуы мүмкін. Сіз кірген сайттардағы деректеріңізді, оның ішінде жеке ақпаратыңызды бұдан былай көрмеуі және өзгерте алмауы үшін, оны Chrome-нан жойыңыз.</translation>
 <translation id="2467438592969358367">Google Chrome құпия сөздерді экспорттағысы келеді. Бұған рұқсат беру үшін Windows құпия сөзіңізді теріңіз.</translation>
 <translation id="2472092250898121027">Бұл кеңейтімде зиянды бағдарлама бар болғандықтан, ол қауіпті. Сіз кірген сайттардағы деректеріңізді, оның ішінде жеке ақпаратыңызды бұдан былай көрмеуі және өзгерте алмауы үшін, оны Chrome-нан жойыңыз.</translation>
+<translation id="2482846200327569645"><ph name="EXISTING_USER" /> әлдеқашан кірді. Браузерді пайдалану тарихын бөлек сақтау үшін Chrome-ға <ph name="USER_EMAIL_ADDRESS" /> ретінде жеке профиліңізбен кіріңіз. Бетбелгілер мен басқа деректерді <ph name="DEVICE" /> ала аласыз.</translation>
 <translation id="2485422356828889247">Жою</translation>
 <translation id="2513154137948333830">Өшіріп қосу қажет: <ph name="INSTALL_SUCCESS" /></translation>
 <translation id="2523492931736391680">Жұмысыңыз Chrome-да қорғалады</translation>
@@ -198,6 +200,7 @@
 <translation id="2916983411556218750">Chrome браузерін дайындайық</translation>
 <translation id="2926952073016206995">Chrome бұл сайт үшін камераны пайдалануға рұқсат сұрайды.</translation>
 <translation id="2945997411976714835">Орнату қатесі: орнату процесі басталмады.</translation>
+<translation id="2959224682348913614"><ph name="EXISTING_USER" /> әлдеқашан кірді. Браузерді пайдалану тарихын бөлек сақтау үшін Chrome-ға <ph name="USER_EMAIL_ADDRESS" /> ретінде жеке профиліңізбен кіріңіз. Құпия сөздер мен басқа деректерді <ph name="DEVICE" /> ала аласыз.</translation>
 <translation id="2969728957078202736"><ph name="PAGE_TITLE" /> – Желіге кіру – Chrome</translation>
 <translation id="2970681950995291301">Chrome-нан Google аккаунтын өшіру үшін Chrome-нан "Параметрлер" бетінде шығыңыз.</translation>
 <translation id="2976869732253036751">Телефондағы Chrome арқылы бағаны бақылау туралы хабарландырулар алыңыз</translation>
@@ -217,6 +220,7 @@
 <translation id="3073571714401714450">Chrome Dev-дегі Gemini-ды қосу/өшіру</translation>
 <translation id="3080151273017101988">Google Chrome жабылғанда, фондық қолданбаларды пайдалануды жалғастыру</translation>
 <translation id="308397506772922478">Құпия фразаны ұмытып қалған болсаңыз немесе осы параметрді өзгерту керек болса, <ph name="BEGIN_LINK" />аккаунтыңыздағы Chrome деректерін жойыңыз<ph name="END_LINK" />.</translation>
+<translation id="3089427491314610412"><ph name="EXISTING_USER" /> әлдеқашан кірді. Браузерді пайдалану тарихын бөлек сақтау үшін Chrome-ға <ph name="USER_EMAIL_ADDRESS" /> ретінде жеке профиліңізбен кіріңіз. Сақталған ақпарат пен басқа деректерді <ph name="DEVICE" /> ала аласыз.</translation>
 <translation id="3100998948628680988">Chrome профиліне ат қойыңыз</translation>
 <translation id="310459126943037700">Тапсырмалар аяқталмады.</translation>
 <translation id="3104828284009500087">Беттегі кез келген нәрсені іздеңіз.</translation>
@@ -229,6 +233,7 @@
 <translation id="3140883423282498090">Өзгертулеріңіз Google Chrome келесі рет қайта іске қосылғанда күшіне енеді.</translation>
 <translation id="3149510190863420837">Chrome Apps</translation>
 <translation id="3161522574479303604">Барлық тіл</translation>
+<translation id="318555301233810762"><ph name="EXISTING_USER" /> әлдеқашан кірді. Браузерді пайдалану тарихын бөлек сақтау үшін Chrome-ға <ph name="USER_EMAIL_ADDRESS" /> ретінде жеке профиліңізбен кіріңіз. Бетбелгілер мен басқа деректер барлық құрылғыңызда қолжетімді болады.</translation>
 <translation id="319199214552513804">Осы кеңейтімді және тағы басқасын компьютерлеріңізге орнату үшін Chrome аккаунтына кіріңіз.</translation>
 <translation id="3196187562065225381">Chrome жүктеп алуды блоктады, себебі бұл файл қауіпті.</translation>
 <translation id="3222857603094643834">Осы беттегі кез келген нәрсені Google Lens-бен іздеңіз</translation>
@@ -267,6 +272,7 @@
 <translation id="3598673391539778844">Chrome-дағы Gemini-ды жүйелік науада көрсету</translation>
 <translation id="3622716124581627104">Заттарды не орындарды анықтауға және мәтінді көшіруге не аударуға болады. Google Lens пайдалансаңыз, бет скриншоты Google-ға жіберіледі. <ph name="LEARN_MORE" /></translation>
 <translation id="3622797965165704966">Енді Chrome қолданбасын Google аккаунтымен және ортақ компьютерлерде пайдалану жеңілірек.</translation>
+<translation id="3628103251823745322"><ph name="EXISTING_USER" /> әлдеқашан кірді. Браузерді пайдалану тарихын бөлек сақтау үшін Chrome-ға <ph name="USER_EMAIL_ADDRESS" /> ретінде жеке профиліңізбен кіріңіз. Сақталған ақпарат пен басқа деректер барлық құрылғыңызда қолжетімді болады.</translation>
 <translation id="3635073343384702370">Құпия сөздер сақталған кезде, Chrome оларды тексере алады.</translation>
 <translation id="3636970668267555808">Chrome-ды әдепкі браузер етіп орнату арқылы өзіңіз білетін, ұнататын және сенетін функцияларды оңай пайдаланыңыз.</translation>
 <translation id="3667616615096815454">Орнату мүмкін болмады, себебі сервер қолданбаны анықтай алмады.</translation>
@@ -349,7 +355,6 @@
 <translation id="4437295824090654417">Қысқаша мазмұнын біліп, қосымша сұрақтар қою үшін бұл құжатты Chrome-дағы Gemini-мен бөлісіңіз.</translation>
 <translation id="4450664632294415862">Chrome – Желіге кіру – <ph name="PAGE_TITLE" /></translation>
 <translation id="4458462641685292929">Google Chrome браузерінде басқа операция орындалуда. Әрекетті кейінірек қайталаңыз.</translation>
-<translation id="4459234553906210702">Жарнама өлшеу функциясы сіз кіретін сайттарға өз жарнамаларының өнімділігін өлшеуге көмектесетін ақпаратты Chrome браузерінен сұратуға мүмкіндік береді. Сайттар бір-біріне барынша аз ақпарат жіберетіндіктен, сайтаралық бақылау шектеледі.</translation>
 <translation id="4493028449971051158">Іске қосу қатесі: орнату құралын әкімші ретінде іске қосыңыз.</translation>
 <translation id="4501471624619070934">Орнату мүмкін болмады, себебі бұл елде кіруге шектеу қойылған.</translation>
 <translation id="4571503333518166079">Chrome хабарландыру параметрлері бөліміне өту</translation>
@@ -382,7 +387,6 @@
 <translation id="4885446229353981848">Google Lens таңбашасын үнемі көрсету</translation>
 <translation id="4891791193823137474">Google Chrome жүйесіне фонда жұмыс істеуге рұқсат беру</translation>
 <translation id="4895437082222824641">Сілтемені жаңа Chrome қойындысында ашу</translation>
-<translation id="4896867431081882115">Chrome-ды әдепкі браузер етіп орнату арқылы өзіңіз танитын, ұнататын және сенетін функцияларды оңай пайдаланыңыз. Жылдам кіру үшін, Chrome тапсырмалар жолағына бекітіледі.</translation>
 <translation id="4904953848704395458">Chrome-дағы Gemini-ды пернелер тіркесімімен ашыңыз.</translation>
 <translation id="4918086044614829423">Қабылдау</translation>
 <translation id="4918844574251943176">Сурет көшірілді.</translation>
@@ -595,6 +599,7 @@ Google Chrome параметрлеріңізді қалпына келтіре �
 <translation id="6933858244219479645">ChromeOS жүйесі</translation>
 <translation id="6938166777909186039">Google Chrome-ның жаңа нұсқаларын алып тұру үшін Windows 10 не одан кейінгі операциялық жүйе керек болады. Бұл компьютерде Windows 8.1 нұсқасы орнатылған.</translation>
 <translation id="6943584222992551122">Бұл адамның браузерді пайдалану деректері құрылғыдан жойылады. Деректерді қалпына келтіру үшін Chrome браузеріне <ph name="USER_EMAIL" /> болып кіріңіз.</translation>
+<translation id="6962628299694876291"><ph name="EXISTING_USER" /> әлдеқашан кірді. Браузерді пайдалану тарихын бөлек сақтау үшін Chrome-ға <ph name="USER_EMAIL_ADDRESS" /> ретінде жеке профиліңізбен кіріңіз. Құпия сөздер мен басқа деректер барлық құрылғыңызда қолжетімді болады.</translation>
 <translation id="6965382102122355670">Жарайды</translation>
 <translation id="6967962315388095737">mDNS трафигіне рұқсат беретін Google Chrome Beta кіріс ережесі.</translation>
 <translation id="6979589607440534284">Неліктен Chrome кейбір файлдарды блоктайтыны туралы ақпарат жаңа қойындыдан ашылады.</translation>
@@ -748,6 +753,7 @@ Google Chrome параметрлеріңізді қалпына келтіре �
 <translation id="8367705492654390392">Кез келген нәрсе сұраңыз</translation>
 <translation id="8367950957770994118">Chrome-дағы Gemini-ды қажет кезде лезде ашыңыз.</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Барлық құқықтары қорғалған.</translation>
+<translation id="8370748943308169953">Chrome-ға <ph name="USER_NAME" /> ретінде кіруге арналған QR коды</translation>
 <translation id="8377158135256176353">Chrome Canary-дегі Gemini-ды қосу/өшіру</translation>
 <translation id="8387459386171870978">Chrome-ды пайдалана беру</translation>
 <translation id="8394720698884623075">URL мекенжайларын Chrome браузерінде сақталған қауіпсіз емес сайттар тізімімен салыстырып тексереді.</translation>

@@ -7,6 +7,8 @@
 
 #include <windows.h>
 
+#include <vector>
+
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
@@ -50,12 +52,23 @@ class SettingsWindowFinderWin {
   // Stops observing size/location changes.
   virtual void StopObservingLocationChanges();
 
+  // Run with true when the user starts dragging or resizing the observed
+  // window, and with false when they let go. Only meaningful while observing.
+  using WindowMoveSizeCallback = base::RepeatingCallback<void(bool)>;
+  virtual void SetMoveSizeCallback(WindowMoveSizeCallback on_move_size);
+
  protected:
   virtual HWND FindSettingsTopLevelWindow() const;
 
- private:
-  bool IsLikelySettingsWindow(HWND hwnd) const;
+  // Virtual for testing.
+  virtual bool IsLikelySettingsWindow(HWND hwnd) const;
+  virtual HWND GetRootWindow(HWND hwnd) const;
 
+  // Instance-side handler for the static WinEventCallback. Exposed to tests
+  // via the virtual seams above.
+  void HandleWinEvent(DWORD event, HWND hwnd, LONG idObject);
+
+ private:
   static void CALLBACK WinEventCallback(HWINEVENTHOOK hWinEventHook,
                                         DWORD event,
                                         HWND hwnd,
@@ -70,10 +83,14 @@ class SettingsWindowFinderWin {
   WindowFoundCallback on_found_;
   base::OnceClosure on_timeout_;
   WindowResizedCallback on_resized_;
+  WindowMoveSizeCallback on_move_size_;
   HWND observed_hwnd_ = nullptr;
   base::OneShotTimer timeout_timer_;
   HWINEVENTHOOK winevent_hook_ = nullptr;
-  HWINEVENTHOOK location_change_hook_ = nullptr;
+  HWINEVENTHOOK uncloak_hook_ = nullptr;
+
+  // Hooks on `observed_hwnd_`, installed and released as a set.
+  std::vector<HWINEVENTHOOK> observation_hooks_;
 
   bool is_active_ = false;
 

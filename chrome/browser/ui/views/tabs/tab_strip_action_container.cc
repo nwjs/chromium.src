@@ -7,13 +7,16 @@
 #include <memory>
 
 #include "base/feature_list.h"
+#include "base/notimplemented.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
+#include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
+#include "chrome/browser/geic/geic_button.h"
+#include "chrome/browser/geic/geic_enabling.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_nudge_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager_factory.h"
-#include "chrome/browser/glic/browser_ui/glic_button_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_split_button_controller.h"
 #include "chrome/browser/glic/glic_profile_manager.h"
@@ -25,6 +28,7 @@
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -246,7 +250,14 @@ TabStripActionContainer::TabStripActionContainer(
       glic_actor_button_container_->SetVisible(false);
     }
     glic_button_ = AddChildView(CreateGlicButton());
+  } else if (geic::IsGeicEnabled(browser_window_interface_->GetProfile())) {
+    geic_button_ =
+        AddChildView(geic::GeicButton::Create(browser_window_interface_));
+  }
 
+  if (glic::GlicEnabling::IsProfileEligible(
+          browser_window_interface_->GetProfile()) ||
+      geic_button_) {
 #if !BUILDFLAG(IS_MAC)
     std::unique_ptr<views::Separator> separator =
         std::make_unique<views::Separator>();
@@ -271,6 +282,7 @@ TabStripActionContainer::TabStripActionContainer(
     separator_ = AddChildView(std::move(separator));
 #endif  // !BUILDFLAG(IS_MAC)
   }
+
   SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kHorizontal)
       .SetMainAxisAlignment(views::LayoutAlignment::kStart)
@@ -471,8 +483,33 @@ void TabStripActionContainer::ShowActorTaskListBubble() {
   if (!glic_actor_task_icon_) {
     return;
   }
-  ActorTaskListBubbleController::From(browser_window_interface_)
-      ->ShowBubble(glic_actor_task_icon());
+  if (!actor_task_list_bubble_) {
+    Profile* profile = browser_window_interface_->GetProfile();
+    auto* manager =
+        glic::GlicActorTaskIconManagerFactory::GetForProfile(profile);
+    auto* controller =
+        ActorTaskListBubbleController::From(browser_window_interface_);
+    if (manager && controller) {
+      actor_task_list_bubble_ = std::make_unique<ActorTaskListBubble>(
+          profile, browser_window_interface_,
+          manager->actor_task_list_bubble_rows(),
+          base::BindRepeating(&ActorTaskListBubbleController::OnTaskRowClicked,
+                              base::Unretained(controller)));
+    }
+  }
+  if (actor_task_list_bubble_) {
+    actor_task_list_bubble_->Show(glic_actor_task_icon_);
+  }
+}
+
+void TabStripActionContainer::CloseActorTaskListBubble() {
+  if (actor_task_list_bubble_) {
+    actor_task_list_bubble_->Close();
+  }
+}
+
+bool TabStripActionContainer::IsActorTaskListBubbleShowing() {
+  return actor_task_list_bubble_ && actor_task_list_bubble_->IsShowing();
 }
 
 void TabStripActionContainer::ShowGlicActorNudge(
@@ -493,6 +530,8 @@ void TabStripActionContainer::UpdateButtonBorders(
 
   if (glic_button_) {
     UpdateGlicActorButtonContainerBorders();
+  } else if (geic_button_) {
+    UpdateGeicButtonBorders();
   }
 }
 
@@ -571,51 +610,8 @@ TabStripActionContainer::CreateGlicButton() {
 }
 
 void TabStripActionContainer::OnGlicButtonClicked() {
-  CHECK(glic_split_button_controller_);
-
-  // Indicate that the glic button was pressed so that we can either close the
-  // IPH promo (if present) or note that it has already been used to prevent
-  // unnecessarily displaying the promo.
-  BrowserUserEducationInterface::From(browser_window_interface_)
-      ->NotifyFeaturePromoFeatureUsed(
-          feature_engagement::kIPHGlicPromoFeature,
-          FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
-
-  std::optional<std::string> prompt_suggestion;
-  glic::GlicNudgeController* nudge_controller =
-      glic_split_button_controller_->nudge_controller();
-  CHECK(nudge_controller);
-  prompt_suggestion = nudge_controller->GetPromptSuggestion();
-  nudge_controller->ClearPromptSuggestion();
-
-  glic::mojom::InvocationSource source;
-  glic::GlicButtonController* button_controller =
-      glic_split_button_controller_->button_controller();
-  CHECK(button_controller);
-  source = button_controller->GetInvocationSource(
-      glic_button_->GetIsShowingNudge(), /*is_toolbar=*/false);
-
-  auto* glic_service = glic::GlicKeyedServiceFactory::GetGlicKeyedService(
-      browser_window_interface_->GetProfile());
-  const bool is_panel_showing =
-      glic_service->IsPanelShowingForBrowser(*browser_window_interface_);
-  if (!is_panel_showing && prompt_suggestion.has_value() &&
-      !prompt_suggestion->empty()) {
-    tabs::TabInterface* active_tab =
-        TabListInterface::From(browser_window_interface_)->GetActiveTab();
-    if (active_tab) {
-      glic::GlicInvokeOptions options(glic::Target(*active_tab), source);
-      options.prompts.push_back(std::move(*prompt_suggestion));
-      glic_service->Invoke(std::move(options));
-    }
-  } else {
-    glic_service->ToggleUI(browser_window_interface_,
-                           /*prevent_close=*/false, source);
-  }
-
-  if (glic_button_->GetIsShowingNudge()) {
-    nudge_controller->OnNudgeActivity(glic::GlicNudgeActivity::kNudgeClicked);
-  }
+  glic::GlicSplitButtonController::From(browser_window_interface_)
+      ->OnGlicButtonClicked();
 
   ExecuteHideTabStripNudge(glic_button_);
   // Reset state manually since there wont be a mouse up event as the animation
@@ -736,6 +732,20 @@ void TabStripActionContainer::UpdateGlicActorButtonContainerBorders() {
   glic_button_->SetBorder(views::CreateEmptyBorder(glic_border));
   // Force a background repaint to account for the new border insets.
   glic_button_->RefreshBackground();
+}
+
+void TabStripActionContainer::UpdateGeicButtonBorders() {
+  CHECK(geic_button_);
+  gfx::Insets border_insets = border_insets_;
+  int min_vertical_inset =
+      std::min(border_insets.top(), border_insets.bottom());
+  border_insets.set_top_bottom(min_vertical_inset, min_vertical_inset);
+
+  gfx::Insets geic_border = gfx::Insets().set_left_right(
+                                border_insets.top(), border_insets.bottom()) +
+                            border_insets;
+  geic_button_->SetBorder(views::CreateEmptyBorder(geic_border));
+  geic_button_->RefreshBackground();
 }
 
 void TabStripActionContainer::OnTabStripNudgeButtonTimeout(

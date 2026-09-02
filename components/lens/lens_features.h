@@ -186,6 +186,10 @@ BASE_DECLARE_FEATURE(kLensOverlayNonBlockingPrivacyNotice);
 COMPONENT_EXPORT(LENS_FEATURES)
 BASE_DECLARE_FEATURE(kLensOverlayNonBlockingPrivacyNoticeForImageSearch);
 
+// Enables WebP encoding unconditionally.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensEnableWebpForImageUpload);
+
 // Enables using separate request ids for page contents vs page viewport
 // uploads.
 // TODO(crbug.com/479292553): Make this flag apply to the legacy CSB flow.
@@ -1123,6 +1127,39 @@ extern const base::FeatureParam<bool> kLensOnlySendAaiExcludeRawAndDriveFiles;
 
 COMPONENT_EXPORT(LENS_FEATURES)
 extern bool IsLensOnlySendAaiExcludeRawAndDriveFilesEnabled();
+
+// Enables Identity Delegation for Lens Composebox requests.
+COMPONENT_EXPORT(LENS_FEATURES)
+BASE_DECLARE_FEATURE(kLensComposeboxIdentityDelegation);
+
+COMPONENT_EXPORT(LENS_FEATURES)
+extern const base::FeatureParam<std::string>
+    kLensComposeboxIdentityDelegationClusterInfoEndpointUrl;
+
+COMPONENT_EXPORT(LENS_FEATURES)
+extern const base::FeatureParam<std::string>
+    kLensComposeboxIdentityDelegationEndpointUrl;
+
+COMPONENT_EXPORT(LENS_FEATURES)
+extern const base::FeatureParam<std::string>
+    kLensComposeboxIdentityDelegationUploadChunkEndpointUrl;
+
+COMPONENT_EXPORT(LENS_FEATURES)
+bool UseIdentityDelegationForLensComposeboxRequests();
+
+// Returns the finch configured endpoint URL for the cluster info request for
+// composebox.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern std::string GetLensComposeboxClusterInfoEndpointUrl();
+
+// Returns the finch configured endpoint URL for the Lens composebox.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern std::string GetLensComposeboxEndpointUrl();
+
+// Returns the finch configured upload chunk endpoint URL for the Lens
+// composebox.
+COMPONENT_EXPORT(LENS_FEATURES)
+extern std::string GetLensComposeboxUploadChunkEndpointUrl();
 
 }  // namespace lens::features
 #endif  // COMPONENTS_LENS_LENS_FEATURES_H_

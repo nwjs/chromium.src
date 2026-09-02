@@ -23,7 +23,6 @@
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
 #include "chrome/browser/ui/views/location_bar/custom_tab_bar_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
 #include "chrome/browser/ui/views/toolbar/overflow_button.h"
 #include "chrome/browser/ui/views/toolbar/pinned_action_toolbar_button.h"
@@ -46,6 +45,7 @@
 #include "chromeos/ash/experiences/arc/mojom/intent_helper.mojom-forward.h"  // nogncheck https://crbug.com/784179
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
+class ActorTaskListBubble;
 class AvatarToolbarButton;
 class AvatarToolbarButtonInterface;
 class BatterySaverButton;
@@ -197,6 +197,9 @@ class ToolbarView : public views::AccessiblePaneView,
   AppMenuIconController* app_menu_icon_controller() {
     return &app_menu_icon_controller_;
   }
+
+  // The ToolbarController may be nullptr. This happens when there is a
+  // WebUIToolbarWebView that is handling all toolbar controls.
   ToolbarController* toolbar_controller() { return toolbar_controller_.get(); }
   const ToolbarController* toolbar_controller() const {
     return toolbar_controller_.get();
@@ -252,6 +255,8 @@ class ToolbarView : public views::AccessiblePaneView,
   void TriggerGlicActorNudge(const std::u16string& nudge_text) override;
   void SetGlicActorNudgePressedState(bool pressed) override;
   void ShowActorTaskListBubble() override;
+  void CloseActorTaskListBubble() override;
+  bool IsActorTaskListBubbleShowing() override;
 
   // Updates glic button parenting after hiding glic actor task icon.
   void FinalizeHideGlicActorTaskIcon();
@@ -288,7 +293,6 @@ class ToolbarView : public views::AccessiblePaneView,
   PinnedToolbarActions* GetPinnedToolbarActions() override;
   gfx::Size GetToolbarButtonSize() const override;
   views::BubbleAnchor GetDefaultExtensionDialogAnchor() override;
-  PageActionIconView* GetPageActionIconView(PageActionIconType type) override;
   page_actions::PageActionViewInterface* GetPageActionViewInterface(
       actions::ActionId action_id) override;
   AppMenuControl* GetAppMenuControl() override;
@@ -400,6 +404,7 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<glic::ToolbarGlicButton> glic_button_ = nullptr;
   raw_ptr<glic::ToolbarGlicActorTaskIcon> glic_actor_task_icon_ = nullptr;
   raw_ptr<ToolbarDivider> glic_button_divider_ = nullptr;
+  std::unique_ptr<ActorTaskListBubble> actor_task_list_bubble_;
 
   // When locked, the container is unable to change its expanded state.
   // Changes will be staged until after this is unlocked.

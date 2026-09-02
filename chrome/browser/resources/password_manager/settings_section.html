@@ -87,14 +87,6 @@
       </pref-toggle-button>
     </template>
   </if>
-    <pref-toggle-button id="accountStorageToggle" class="hr"
-        hidden="[[!shouldShowAccountStorageSettingToggle_]]"
-        label="$i18n{accountStorageToggleLabel}"
-        sub-label="[[getAccountStorageSubLabel_(accountEmail)]]"
-        checked="[[isAccountStoreUser]]"
-        change-requires-validation
-        on-validate-and-change-pref="changeAccountStorageEnabled_">
-    </pref-toggle-button>
   <template is="dom-if"
       if="[[shouldShowMovePasswordsEntry_(isAccountStoreUser,
             passwordsOnDevice_, localPasswordCount_)]]"
@@ -125,10 +117,7 @@
       on-click="onTrustedVaultBannerClick_" external>
   </cr-link-row>
   <template is="dom-if" if="[[!passwordManagerDisabled_]]" restamp>
-    <passwords-importer account-email="[[accountEmail]]"
-        is-account-store-user="[[isAccountStoreUser]]"
-        is-user-syncing-passwords="[[isSyncingPasswords]]">
-    </passwords-importer>
+    <passwords-importer></passwords-importer>
   </template>
   <template is="dom-if" if="[[hasPasswordsToExport_]]" restamp>
     <passwords-exporter></passwords-exporter>

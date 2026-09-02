@@ -12,7 +12,7 @@ export function getHtml(this: SignalsDisclaimerElement) {
 <!--_html_template_start_-->
 <main class="${this.isModalDialog ? 'modal-dialog' : 'profile-picker'}">
   <div id="header-container">
-    <div id="avatar-container" class="tangible-sync-style">
+    <div id="avatar-container">
       <img id="avatar" alt="" src="${this.pictureUrl}">
       <div class="work-badge">
         <cr-icon class="icon" icon="cr:domain"></cr-icon>
@@ -23,7 +23,11 @@ export function getHtml(this: SignalsDisclaimerElement) {
     <h1 class="title" tabindex="-1">${this.i18n('signalsDisclaimerTitle')}</h1>
     <p class="subtitle">
       ${this.i18n('signalsDisclaimerSubtitle')}
-      <a href="#" @click="${this.onLearnMoreClick}">${this.i18n('learnMore')}</a>
+      <span id="learnMoreLink" class="link" role="link" tabindex="0"
+          @click="${this.onLearnMoreClick}"
+          @keydown="${this.onLearnMoreKeydown}">
+        ${this.i18n('learnMore')}
+      </span>
     </p>
   </div>
   <div class="disclaimer-container">

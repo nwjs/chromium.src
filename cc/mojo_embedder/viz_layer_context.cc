@@ -261,7 +261,7 @@ void ComputePropertyTreeNodeUpdate(
   wire->surface_contents_scale = new_node.surface_contents_scale;
   wire->subtree_capture_id = new_node.subtree_capture_id;
   wire->subtree_size = new_node.subtree_size;
-  wire->blend_mode = base::checked_cast<uint32_t>(new_node.blend_mode);
+  wire->blend_mode = new_node.blend_mode;
   wire->target_id = new_node.target_id;
   wire->view_transition_target_id = new_node.view_transition_target_id;
   wire->closest_ancestor_with_cached_render_surface_id =
@@ -1451,6 +1451,8 @@ VizLayerContext::VizLayerContext(viz::mojom::CompositorFrameSink& frame_sink,
       host_impl.settings().enable_fluent_scrollbar;
   settings->enable_fluent_overlay_scrollbar =
       host_impl.settings().enable_fluent_overlay_scrollbar;
+  settings->enable_unbounded_element =
+      host_impl.settings().enable_unbounded_element;
   frame_sink.BindLayerContext(std::move(context), std::move(settings));
 }
 
@@ -1891,6 +1893,21 @@ void VizLayerContext::OnMojoConnectionError(uint32_t custom_reason,
 
   DLOG(ERROR) << description;
   host_impl_->DidLoseLayerTreeFrameSink();
+}
+
+void VizLayerContext::SetUnboundedFrameSinkId(
+    const viz::FrameSinkId& frame_sink_id,
+    const viz::LocalSurfaceId& local_surface_id) {
+  service_->SetUnboundedFrameSinkId(frame_sink_id, local_surface_id);
+}
+
+void VizLayerContext::SetUnboundedLocalSurfaceId(
+    const viz::LocalSurfaceId& local_surface_id) {
+  service_->SetUnboundedLocalSurfaceId(local_surface_id);
+}
+
+void VizLayerContext::DismissUnboundedFrameSink() {
+  service_->DismissUnboundedFrameSink();
 }
 
 }  // namespace cc::mojo_embedder

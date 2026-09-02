@@ -262,7 +262,7 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
 }
 
 - (void)logMagicStackEngagementForType:(ContentSuggestionsModuleType)type {
-  [self.contentSuggestionsMetricsRecorder
+  [ContentSuggestionsMetricsRecorder
       recordMagicStackModuleEngagementForType:type
                                       atIndex:
                                           [self indexForMagicStackModule:type]];
@@ -732,24 +732,12 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
 
 // Starts a fetch of the Segmentation module ranking.
 - (void)fetchMagicStackModuleRankingFromSegmentationPlatform {
-  if (!base::FeatureList::IsEnabled(segmentation_platform::features::
-                                        kSegmentationPlatformIosModuleRanker)) {
-    segmentation_platform::ClassificationResult result(
-        segmentation_platform::PredictionStatus::kNotReady);
-    self.hasReceivedMagicStackResponse = YES;
-    [self didReceiveSegmentationServiceResult:result];
-    return;
-  }
   auto inputContext =
       base::MakeRefCounted<segmentation_platform::InputContext>();
-  if (base::FeatureList::IsEnabled(
-          segmentation_platform::features::
-              kSegmentationPlatformIosModuleRankerSplitBySurface)) {
-    inputContext->metadata_args.emplace(
-        segmentation_platform::kIsShowingStartSurface,
-        segmentation_platform::processing::ProcessedValue::FromFloat(
-            [self.homeStartDataSource isStartSurface]));
-  }
+  inputContext->metadata_args.emplace(
+      segmentation_platform::kIsShowingStartSurface,
+      segmentation_platform::processing::ProcessedValue::FromFloat(
+          [self.homeStartDataSource isStartSurface]));
   int mvtFreshnessImpressionCount = _prefService->GetInteger(
       prefs::kIosMagicStackSegmentationMVTImpressionsSinceFreshness);
   inputContext->metadata_args.emplace(
@@ -796,24 +784,19 @@ using segmentation_platform::home_modules::SavePasswordsEphemeralModule;
           levelUpFreshnessImpressionCount));
   segmentation_platform::PredictionOptions options;
 
-  if (base::FeatureList::IsEnabled(
-          kSegmentationPlatformIosModuleRankerCaching)) {
-    // Ignores tab resumption freshness since local tab always logs a freshness
-    // signal for Start.
-    BOOL hasNoFreshnessSignal = shortcutsFreshnessImpressionCount != 0 &&
-                                parcelTrackingFreshnessImpressionCount != 0 &&
-                                levelUpFreshnessImpressionCount != 0;
-    hasNoFreshnessSignal =
-        hasNoFreshnessSignal && safetyCheckFreshnessImpressionCount != 0;
-    if (hasNoFreshnessSignal && [self.homeStartDataSource isStartSurface]) {
-      options = segmentation_platform::PredictionOptions::ForCached(true);
-    } else {
-      options = segmentation_platform::PredictionOptions::ForOnDemand(true);
-    }
-    options.can_update_cache_for_future_requests = true;
+  // Ignores tab resumption freshness since local tab always logs a freshness
+  // signal for Start.
+  BOOL hasNoFreshnessSignal = shortcutsFreshnessImpressionCount != 0 &&
+                              parcelTrackingFreshnessImpressionCount != 0 &&
+                              levelUpFreshnessImpressionCount != 0;
+  hasNoFreshnessSignal =
+      hasNoFreshnessSignal && safetyCheckFreshnessImpressionCount != 0;
+  if (hasNoFreshnessSignal && [self.homeStartDataSource isStartSurface]) {
+    options = segmentation_platform::PredictionOptions::ForCached(true);
   } else {
-    options.on_demand_execution = true;
+    options = segmentation_platform::PredictionOptions::ForOnDemand(true);
   }
+  options.can_update_cache_for_future_requests = true;
   inputContext->metadata_args.emplace(
       segmentation_platform::kNumPriceDropsInShoppingList,
       segmentation_platform::processing::ProcessedValue::FromFloat(-1.0f));

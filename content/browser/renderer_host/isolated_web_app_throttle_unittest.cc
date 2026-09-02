@@ -36,6 +36,7 @@ namespace {
 
 const char kAppUrl[] = "https://isolated.app";
 const char kAppUrl2[] = "https://isolated.app/page";
+const char kOtherAppUrl[] = "https://other-isolated.app";
 const char kNonAppUrl[] = "https://example.com";
 const char kNonAppUrl2[] = "https://example.com/page";
 static constexpr WebExposedIsolationLevel kNotIsolated =
@@ -47,7 +48,8 @@ class IsolatedWebAppContentBrowserClient : public ContentBrowserClient {
  public:
   bool ShouldUrlUseApplicationIsolationLevel(BrowserContext* browser_context,
                                              const GURL& url) override {
-    return url.GetHost() == GURL(kAppUrl).GetHost();
+    return url.GetHost() == GURL(kAppUrl).GetHost() ||
+           url.GetHost() == GURL(kOtherAppUrl).GetHost();
   }
 
   bool HandleExternalProtocol(
@@ -331,6 +333,36 @@ TEST_F(IsolatedWebAppThrottleTest, AllowIframeNavigationOutOfApp) {
   CommitRendererInitiatedNavigation(iframe_id, kNonAppUrl, corp_coep_headers());
 }
 
+TEST_F(IsolatedWebAppThrottleTest, BlockIframeNavigationToOtherIsolatedWebApp) {
+  CommitBrowserInitiatedNavigation(kAppUrl, coop_coep_headers());
+  EXPECT_EQ(kIsolatedApplication, GetWebExposedIsolationLevel(main_frame_id()));
+  FrameTreeNodeId iframe_id = CreateIframe(main_frame_id(), "test_frame");
+
+  // Navigating an iframe to a different Isolated Web App should be blocked.
+  auto simulator = StartRendererInitiatedNavigation(iframe_id, kOtherAppUrl);
+
+  auto start_result = simulator->GetLastThrottleCheckResult();
+  EXPECT_EQ(NavigationThrottle::BLOCK_REQUEST, start_result.action());
+}
+
+TEST_F(IsolatedWebAppThrottleTest, BlockIframeRedirectToOtherIsolatedWebApp) {
+  CommitBrowserInitiatedNavigation(kAppUrl, coop_coep_headers());
+  EXPECT_EQ(kIsolatedApplication, GetWebExposedIsolationLevel(main_frame_id()));
+  FrameTreeNodeId iframe_id = CreateIframe(main_frame_id(), "test_frame");
+
+  auto simulator = StartRendererInitiatedNavigation(iframe_id, kNonAppUrl);
+
+  auto start_result = simulator->GetLastThrottleCheckResult();
+  EXPECT_EQ(NavigationThrottle::PROCEED, start_result.action());
+
+  // Redirect to a different Isolated Web App.
+  simulator->SetRedirectHeaders(corp_coep_headers());
+  simulator->Redirect(GURL(kOtherAppUrl));
+
+  auto redirect_result = simulator->GetLastThrottleCheckResult();
+  EXPECT_EQ(NavigationThrottle::BLOCK_REQUEST, redirect_result.action());
+}
+
 TEST_F(IsolatedWebAppThrottleTest,
        BlockIframeRendererInitiatedNavigationIntoIsolatedWebApp) {
   CommitBrowserInitiatedNavigation(kAppUrl, coop_coep_headers());
@@ -342,6 +374,53 @@ TEST_F(IsolatedWebAppThrottleTest,
 
   // Perform a renderer-initiated navigation the iframe to an app page.
   auto simulator = StartRendererInitiatedNavigation(iframe_id, kAppUrl);
+
+  auto start_result = simulator->GetLastThrottleCheckResult();
+  EXPECT_EQ(NavigationThrottle::BLOCK_REQUEST, start_result.action());
+}
+
+TEST_F(IsolatedWebAppThrottleTest,
+       BlockDataIframeRendererInitiatedNavigationIntoIsolatedWebApp) {
+  CommitBrowserInitiatedNavigation(kAppUrl, coop_coep_headers());
+  EXPECT_EQ(kIsolatedApplication, GetWebExposedIsolationLevel(main_frame_id()));
+  FrameTreeNodeId iframe_id = CreateIframe(main_frame_id(), "test_frame");
+
+  // Navigate the iframe to a data: URL, which commits with an opaque origin
+  // whose precursor is the app origin.
+  const char kDataUrl[] = "data:text/html,body";
+  CommitRendererInitiatedNavigation(iframe_id, kDataUrl);
+  url::Origin iframe_origin =
+      FrameTreeNode::GloballyFindByID(iframe_id)->current_origin();
+  EXPECT_TRUE(iframe_origin.opaque());
+  EXPECT_EQ(
+      url::Origin::Create(GURL(kAppUrl)).GetTupleOrPrecursorTupleIfOpaque(),
+      iframe_origin.GetTupleOrPrecursorTupleIfOpaque());
+
+  // The data: iframe must not be allowed to navigate itself back into the app.
+  auto simulator = StartRendererInitiatedNavigation(iframe_id, kAppUrl2);
+
+  auto start_result = simulator->GetLastThrottleCheckResult();
+  EXPECT_EQ(NavigationThrottle::BLOCK_REQUEST, start_result.action());
+}
+
+TEST_F(IsolatedWebAppThrottleTest, BlockIsolatedIframeInDataIframe) {
+  CommitBrowserInitiatedNavigation(kAppUrl, coop_coep_headers());
+  EXPECT_EQ(kIsolatedApplication, GetWebExposedIsolationLevel(main_frame_id()));
+
+  // Create a data: URL iframe, which commits with an opaque origin whose
+  // precursor is the app origin.
+  FrameTreeNodeId child_iframe_id =
+      CreateIframe(main_frame_id(), "test_frame1");
+  CommitRendererInitiatedNavigation(child_iframe_id, "data:text/html,body");
+  EXPECT_TRUE(FrameTreeNode::GloballyFindByID(child_iframe_id)
+                  ->current_origin()
+                  .opaque());
+
+  // Try to create an app iframe within the data: iframe.
+  FrameTreeNodeId grandchild_iframe_id =
+      CreateIframe(child_iframe_id, "test_frame2");
+  auto simulator =
+      StartRendererInitiatedNavigation(grandchild_iframe_id, kAppUrl);
 
   auto start_result = simulator->GetLastThrottleCheckResult();
   EXPECT_EQ(NavigationThrottle::BLOCK_REQUEST, start_result.action());

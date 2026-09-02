@@ -370,6 +370,7 @@ struct SameSizeAsDocumentLoader
   std::optional<blink::mojom::FetchCacheMode> force_fetch_cache_mode;
   FramePolicy frame_policy;
   std::optional<uint64_t> visited_link_salt;
+  const base::UnguessableToken initiator_state_token;
   Member<LocalFrame> frame;
   Member<HistoryItem> history_item;
   Member<DocumentParser> parser;
@@ -560,6 +561,7 @@ DocumentLoader::DocumentLoader(
       force_fetch_cache_mode_(params_->force_fetch_cache_mode),
       frame_policy_(params_->frame_policy.value_or(FramePolicy())),
       visited_link_salt_(params_->visited_link_salt),
+      initiator_state_token_(params_->initiator_state_token),
       frame_(frame),
       // For back/forward navigations, the browser passed a history item to use
       // at commit time in |params_|. Set it as the current history item of this
@@ -767,6 +769,7 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   params->service_worker_network_provider =
       std::move(service_worker_network_provider_);
   params->devtools_navigation_token = devtools_navigation_token_;
+  params->initiator_state_token = initiator_state_token_;
   params->base_auction_nonce = base_auction_nonce_;
   params->is_user_activated = had_sticky_activation_;
   params->had_transient_user_activation =
@@ -2908,6 +2911,16 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
     }
   }
 
+  // A plugin-intercepted response commits a browser-generated wrapper
+  // document; wrappers that style themselves do so via UA-inserted inline
+  // style attributes, which the intercepted resource's CSP would drop.
+  // Exempt inline style, as `TextDocument` does for the same reason: all
+  // rendered content is inserted by the UA. Everything else the policy
+  // expresses stays enforced.
+  if (response_.InterceptedByPlugin()) {
+    csp->SetOverrideAllowInlineStyle(true);
+  }
+
   content_security_notifier_ =
       HeapMojoRemote<mojom::blink::ContentSecurityNotifier>(
           frame_->DomWindow());
@@ -2924,6 +2937,10 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
                             }());
   base::UmaHistogramBoolean("API.StorageAccess.DocumentInheritedStorageAccess",
                             inherited_has_storage_access);
+
+  // Every window should have a valid `initiator_state_token`.
+  CHECK(!initiator_state_token_.is_empty());
+  frame_->DomWindow()->SetInitiatorStateToken(initiator_state_token_);
 
   frame_->DomWindow()->SetPolicyContainer(std::move(policy_container_));
   frame_->DomWindow()->SetContentSecurityPolicy(csp);
@@ -4015,8 +4032,9 @@ ContentSecurityPolicy* DocumentLoader::CreateCSP() {
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         parsed_embedder_policies = ParseContentSecurityPolicies(
             header.header_value, header.type, header.source, Url());
+    initiator_state_token_ = base::UnguessableToken::Create();
     policy_container_->AddContentSecurityPolicies(
-        mojo::Clone(parsed_embedder_policies));
+        mojo::Clone(parsed_embedder_policies), initiator_state_token_);
     csp->AddPolicies(std::move(parsed_embedder_policies));
   }
 

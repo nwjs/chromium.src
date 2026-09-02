@@ -51,8 +51,9 @@ class SqlSharedCacheIsolatedDatabaseReaderTest
                                               std::string_view header_data,
                                               std::string_view body_data,
                                               bool set_ready = true) {
-    SqlSharedCacheIsolatedDatabase db("nik", temp_dir_.GetPath(),
-                                      SqlSharedCacheDbId(1));
+    SqlSharedCacheIsolatedDatabase db(
+        "nik", temp_dir_.GetPath(), SqlSharedCacheDbId(1),
+        base::SingleThreadTaskRunner::GetCurrentDefault());
     EXPECT_TRUE(db.Init().has_value());
 
     auto headers =
@@ -83,9 +84,9 @@ class SqlSharedCacheIsolatedDatabaseReaderTest
     return std::move(pending_file_set.value());
   }
 
+  base::test::ScopedFeatureList feature_list_;
   base::test::TaskEnvironment task_environment_;
   base::ScopedTempDir temp_dir_;
-  base::test::ScopedFeatureList feature_list_;
 };
 
 INSTANTIATE_TEST_SUITE_P(

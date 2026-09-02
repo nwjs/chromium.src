@@ -39,15 +39,18 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
-import org.chromium.base.test.util.Batch;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowSortOrder;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileResolver;
 import org.chromium.chrome.browser.profiles.ProfileResolverJni;
@@ -72,9 +75,9 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 
 /** Unit tests for {@link BookmarkToolbarMediator}. */
-@Batch(Batch.UNIT_TESTS)
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
 public class BookmarkToolbarMediatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -154,7 +157,8 @@ public class BookmarkToolbarMediatorTest {
                         mIncognitoEnabledSupplier,
                         mBookmarkManagerOpener,
                         mSnackbarManager,
-                        mClipboard);
+                        mClipboard,
+                        /* bookmarkDeleteObserver= */ null);
         mBookmarkDelegateSupplier.set(mBookmarkDelegate);
         RobolectricUtil.runAllBackgroundAndUi();
     }
@@ -192,7 +196,8 @@ public class BookmarkToolbarMediatorTest {
                         mIncognitoEnabledSupplier,
                         mBookmarkManagerOpener,
                         mSnackbarManager,
-                        mClipboard);
+                        mClipboard,
+                        /* bookmarkDeleteObserver= */ null);
     }
 
     @Test
@@ -242,6 +247,40 @@ public class BookmarkToolbarMediatorTest {
                 .onPropertyChanged(any(), eq(BookmarkToolbarProperties.SOFT_KEYBOARD_VISIBLE));
 
         mModel.removeObserver(mPropertyObserver);
+    }
+
+    @Test
+    @DisableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_topLevelFolder_mobile() {
+        DeviceInfo.setIsDesktopForTesting(false);
+        mMediator.onFolderStateSet(mBookmarkModel.getMobileFolderId());
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_topLevelFolder_desktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getMobileFolderId());
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_readingListFolder_desktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mMediator.onFolderStateSet(mBookmarkModel.getLocalOrSyncableReadingListFolder());
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NONE));
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT})
+    public void testNavigationButton_subFolder_desktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        BookmarkId subFolderId =
+                mBookmarkModel.addFolder(mBookmarkModel.getDesktopFolderId(), 0, "subfolder");
+        mMediator.onFolderStateSet(subFolderId);
+        assertTrue(navigationButtonMatchesModel(NavigationButton.NORMAL_VIEW_BACK));
     }
 
     @Test

@@ -27,6 +27,7 @@
 #include "components/enterprise/connectors/core/common.h"
 #include "components/enterprise/connectors/core/reporting_service_settings.h"
 #include "components/policy/core/common/cloud/mock_cloud_policy_client.h"
+#include "components/safe_browsing/content/browser/web_ui/web_ui_content_info_singleton.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -271,6 +272,60 @@ TEST_P(RealtimeReportingClientUmaTest, TestUmaEventUploadSucceeds) {
   histogram_.ExpectTotalCount("Enterprise.ReportingEventUploadFailure", 0);
 }
 
+TEST_P(RealtimeReportingClientUmaTest,
+       TestUploadCallbackReceivesEnrichedRequest) {
+// Profile reporting is not supported on Ash.
+#if BUILDFLAG(IS_CHROMEOS)
+  if (is_profile_reporting()) {
+    return;
+  }
+#endif
+
+  SetUpReportingClient(is_profile_reporting());
+
+  ReportingSettings settings;
+  settings.per_profile = is_profile_reporting();
+  ::chrome::cros::reporting::proto::Event extension_install_event;
+  extension_install_event.mutable_browser_extension_install_event()->set_id(
+      "extension_id");
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(*client_.get(), UploadSecurityEvent(_, _, _))
+      .WillOnce(
+          [&](bool include_device_info,
+              ::chrome::cros::reporting::proto::UploadEventsRequest&& request,
+              policy::CloudPolicyClient::ResultCallback callback) {
+            upload_callback_ = std::move(callback);
+            run_loop.Quit();
+          });
+  reporting_client_->ReportEvent(std::move(extension_install_event),
+                                 std::move(settings));
+  run_loop.Run();
+
+  ASSERT_TRUE(upload_callback_);
+
+  safe_browsing::WebUIContentInfoSingleton::GetInstance()
+      ->ClearReportingEvents();
+  safe_browsing::WebUIContentInfoSingleton::GetInstance()
+      ->AddListenerForTesting();
+
+  ::chrome::cros::reporting::proto::UploadEventsRequest enriched_request;
+  enriched_request.mutable_device()->set_client_id("test_enriched_client_id");
+  enriched_request.mutable_browser()->set_chrome_version("100.0.0.0");
+
+  std::move(upload_callback_)
+      .Run(policy::CloudPolicyClient::Result::CreateForRealtimeUpload(
+          policy::DM_STATUS_SUCCESS, /*response_code=*/200, enriched_request));
+
+  const auto& requests = safe_browsing::WebUIContentInfoSingleton::GetInstance()
+                             ->upload_event_requests();
+  ASSERT_EQ(1u, requests.size());
+  EXPECT_EQ("test_enriched_client_id", requests[0].first.device().client_id());
+  EXPECT_EQ("100.0.0.0", requests[0].first.browser().chrome_version());
+  safe_browsing::WebUIContentInfoSingleton::GetInstance()
+      ->ClearListenerForTesting();
+}
+
 TEST_P(RealtimeReportingClientUmaTest, TestUmaEventUploadFails) {
 // Profile reporting is not supported on Ash.
 #if BUILDFLAG(IS_CHROMEOS)
@@ -347,32 +402,6 @@ TEST_F(RealtimeReportingClientTestBase,
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
-TEST_F(RealtimeReportingClientTestBase, TestCrowdstrikeSignalsPopulated) {
-  base::DictValue event;
-  device_signals::CrowdStrikeSignals signals;
-  signals.agent_id = "agent-123";
-  signals.customer_id = "customer-123";
-  device_signals::AgentSignalsResponse agent_signals;
-  agent_signals.crowdstrike_signals = signals;
-  device_signals::SignalsAggregationResponse response;
-  response.agent_signals_response = agent_signals;
-  AddCrowdstrikeSignalsToEvent(event, response);
-  const base::ListValue& agentList = event.Find("securityAgents")->GetList();
-  ASSERT_EQ(agentList.size(), 1u);
-  const base::DictValue& signalValues =
-      agentList[0].GetDict().Find("crowdstrike")->GetDict();
-  EXPECT_EQ(signalValues.Find("agent_id")->GetString(), "agent-123");
-  EXPECT_EQ(signalValues.Find("customer_id")->GetString(), "customer-123");
-}
-
-TEST_F(RealtimeReportingClientTestBase,
-       TestCrowdstrikeSignalsNotPopulatedForEmptyResponse) {
-  base::DictValue event;
-  device_signals::SignalsAggregationResponse response;
-  response.agent_signals_response = std::nullopt;
-  AddCrowdstrikeSignalsToEvent(event, response);
-  EXPECT_EQ(event.Find("securityAgents"), nullptr);
-}
 
 TEST_F(RealtimeReportingClientOidcTest, Username) {
   RealtimeReportingClient client(profile_);
@@ -382,14 +411,14 @@ TEST_F(RealtimeReportingClientOidcTest, Username) {
 // TODO(b/342232001): Add more tests for the `RealtimeReportingClientOidcTest`
 // fixture to cover key use cases.
 
-class ProtoBasedCrowdStrikeSignalTest
+class CrowdStrikeSignalTest
     : public RealtimeReportingClientTestBase,
       public testing::WithParamInterface<Event::EventCase> {
  public:
-  ProtoBasedCrowdStrikeSignalTest() = default;
+  CrowdStrikeSignalTest() = default;
 };
 
-TEST_P(ProtoBasedCrowdStrikeSignalTest, TestCrowdstrikeSignalsPopulated) {
+TEST_P(CrowdStrikeSignalTest, TestCrowdstrikeSignalsPopulated) {
   device_signals::CrowdStrikeSignals signals;
   signals.agent_id = "agent-123";
   signals.customer_id = "customer-123";
@@ -409,7 +438,7 @@ TEST_P(ProtoBasedCrowdStrikeSignalTest, TestCrowdstrikeSignalsPopulated) {
   EXPECT_EQ(security_agent.crowdstrike().customer_id(), "customer-123");
 }
 
-TEST_P(ProtoBasedCrowdStrikeSignalTest,
+TEST_P(CrowdStrikeSignalTest,
        TestCrowdstrikeSignalsNotPopulatedForEmptyResponse) {
   device_signals::SignalsAggregationResponse response;
   auto event = GetTestEvent(GetParam());
@@ -420,7 +449,7 @@ TEST_P(ProtoBasedCrowdStrikeSignalTest,
 }
 
 INSTANTIATE_TEST_SUITE_P(,
-                         ProtoBasedCrowdStrikeSignalTest,
+                         CrowdStrikeSignalTest,
                          testing::Values(Event::kPasswordReuseEvent,
                                          Event::kPasswordChangedEvent,
                                          Event::kDangerousDownloadEvent,

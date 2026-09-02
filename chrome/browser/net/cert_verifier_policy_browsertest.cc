@@ -50,7 +50,7 @@
 #include "chrome/browser/net/profile_network_context_service_factory.h"
 #include "chrome/browser/net/server_certificate_database_service_factory.h"  // nogncheck
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/server_certificate_database/server_certificate_database.h"  // nogncheck
@@ -184,8 +184,6 @@ class CertVerifierServiceCACertificatesPolicyMldsaTest
 
   net::EmbeddedTestServer https_test_server_{
       net::EmbeddedTestServer::TYPE_HTTPS};
-  base::test::ScopedFeatureList feature_list_{
-      net::features::kTlsMldsaSignatures};
 };
 
 IN_PROC_BROWSER_TEST_P(CertVerifierServiceCACertificatesPolicyMldsaTest,

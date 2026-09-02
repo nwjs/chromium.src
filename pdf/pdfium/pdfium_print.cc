@@ -181,8 +181,12 @@ void TransformPDFPageForPrinting(
   // document of multiple page sizes. To give better user experience, we
   // decided to have same crop box and media box values. Hence, the user will
   // see a list of uniform pages.
+  //
+  // Some downstream components (e.g. cups-filters) may use the trim box
+  // instead of the crop box, so reset that as well.
   FPDFPage_SetMediaBox(page, 0, 0, page_size.width(), page_size.height());
   FPDFPage_SetCropBox(page, 0, 0, page_size.width(), page_size.height());
+  FPDFPage_SetTrimBox(page, 0, 0, page_size.width(), page_size.height());
 
   // Transformation is not required, so return early. Do this check only after
   // updating the media box and crop box. For more detailed information, please
@@ -488,9 +492,9 @@ ScopedFPDFDocument PDFiumPrint::CreateSinglePageRasterPdf(
       if (pos + size < pos || pos + size > compressed_bitmap_span.size()) {
         return 0;
       }
-      // TODO(thestig): spanify arguments to remove the error.
-      base::span<uint8_t> UNSAFE_TODO(buf_span(buf, size));
-      buf_span.copy_from(compressed_bitmap_span.subspan(pos, size));
+      // SAFETY: PDFium provides a valid pointer and size for `buf`.
+      UNSAFE_BUFFERS(base::span(buf, size))
+          .copy_from(compressed_bitmap_span.subspan(pos, size));
       return 1;
     };
     file_access.m_Param = &compressed_bitmap_span;

@@ -29,7 +29,6 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck crbug.com/40147906
 #endif
 
-class Browser;
 class BrowserWindowInterface;
 class BrowserWindow;
 class Profile;
@@ -116,6 +115,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
   // only checks for |profile| in general.
   static bool AllowDevToolsFor(Profile* profile,
                                content::WebContents* web_contents);
+  static bool AllowDevToolsFor(Profile* profile,
+                               content::DevToolsAgentHost* agent_host);
 
   // Return the DevToolsWindow for the given WebContents if one exists,
   // otherwise nullptr.

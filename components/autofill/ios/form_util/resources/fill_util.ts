@@ -44,48 +44,46 @@ class JsonSafeObject {
 // naming convention.
 /* eslint-disable @typescript-eslint/naming-convention */
 
-// TODO(crbug.com/493624186): Fix members asserted as non-null .
-/* eslint-disable no-restricted-syntax */
 export class AutofillFormFieldData extends JsonSafeObject {
-  name!: string;
-  value!: string;
-  renderer_id!: string;
-  form_control_type!: string;
-  autocomplete_attribute!: string;
-  max_length!: number;
-  is_autofilled!: boolean;
+  name: string = '';
+  value: string = '';
+  renderer_id: string = '';
+  form_control_type: string = '';
+  autocomplete_attribute?: string;
+  max_length?: number;
+  is_autofilled?: boolean;
   // TODO(crbug.com/393114125): Remove after fully launching
   // `AutofillField::field_modifiers_`.
-  is_user_edited_deprecated!: boolean;
-  is_checkable!: boolean;
-  is_focusable!: boolean;
-  should_autocomplete!: boolean;
-  role!: number;
-  placeholder_attribute!: string;
-  aria_label!: string;
-  aria_description!: string;
-  option_texts!: string[];
-  option_values!: string[];
+  is_user_edited_deprecated: boolean = false;
+  is_checkable?: boolean;
+  is_focusable: boolean = false;
+  should_autocomplete: boolean = false;
+  role?: number;
+  placeholder_attribute: string = '';
+  aria_label: string = '';
+  aria_description: string = '';
+  option_texts?: string[];
+  option_values?: string[];
   label?: string;
   identifier?: string;
   name_attribute?: string;
   id_attribute?: string;
   pattern_attribute?: string;
   challenge?: string;
+  should_insert_at_cursor?: boolean;
 }
 
 export class AutofillFormData extends JsonSafeObject {
-  name!: string;
-  renderer_id!: string;
-  origin!: string;
-  action!: string;
-  fields!: AutofillFormFieldData[];
-  host_frame!: string;
+  name: string = '';
+  renderer_id?: string;
+  origin: string = '';
+  action: string = '';
+  fields: AutofillFormFieldData[] = [];
+  host_frame: string = '';
   child_frames?: FrameTokenWithPredecessor[];
   name_attribute?: string;
   id_attribute?: string;
 }
-/* eslint-enable no-restricted-syntax */
 /* eslint-enable @typescript-eslint/naming-convention */
 
 export declare interface FrameTokenWithPredecessor {
@@ -242,6 +240,50 @@ export function setInputElementValue(
   }
 
   if (input !== activeElement) {
+    createAndDispatchHTMLEvent(input, 'blur', true, false);
+    createAndDispatchHTMLEvent(activeElement, 'focus', true, false);
+  }
+  return filled;
+}
+
+/**
+ * Replaces the selected text (or inserts at the current cursor position) in an
+ * input element without overwriting the entire field.
+ *
+ * @param value The value to replace or insert.
+ * @param input The input element where selection is replaced.
+ * @return Whether the value has been set successfully.
+ */
+export function insertInputElementValueAtCursor(
+    value: string, input: HTMLInputElement): boolean {
+  const activeElement = document.activeElement;
+  if (input !== activeElement) {
+    // Dispatch synthetic blur and focus events to simulate the user lifecycle.
+    createAndDispatchHTMLEvent(activeElement, 'blur', true, false);
+    createAndDispatchHTMLEvent(input, 'focus', true, false);
+  }
+
+  const currentVal = input.value ?? '';
+  const endOfVal = currentVal.length;
+  // Some input types may return null for selectionStart
+  // and selectionEnd. Fall back to the end of the value in those cases.
+  const selStart = (typeof input.selectionStart === 'number') ?
+      input.selectionStart :
+      endOfVal;
+  const selEnd =
+      (typeof input.selectionEnd === 'number') ? input.selectionEnd : endOfVal;
+
+  const newVal =
+      currentVal.slice(0, selStart) + value + currentVal.slice(selEnd);
+
+  const filled = setInputElementValueInternal(newVal, input);
+
+  const newCursorPos = selStart + value.length;
+  // Set the cursor position to the end of the inserted value.
+  input.setSelectionRange(newCursorPos, newCursorPos);
+
+  if (input !== activeElement) {
+    // Dispatch synthetic blur and focus events to simulate the user lifecycle.
     createAndDispatchHTMLEvent(input, 'blur', true, false);
     createAndDispatchHTMLEvent(activeElement, 'focus', true, false);
   }
@@ -547,8 +589,8 @@ export function getCanonicalActionForForm(formElement: HTMLFormElement):
 }
 
 declare interface OptionFieldStrings {
-    option_values: string[] & {toJSON?: string|null};
-    option_texts: string[]&{toJSON?: string | null};
+  option_values?: string[]&{toJSON?: string | null};
+  option_texts?: string[]&{toJSON?: string | null};
 }
 
 /**

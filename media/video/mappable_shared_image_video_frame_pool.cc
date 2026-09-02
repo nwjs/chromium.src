@@ -150,10 +150,13 @@ class MappableSharedImageVideoFramePool::PoolImpl
 
     bool IsMetadataCompatible(const gfx::Size& size,
                               gfx::BufferUsage usage,
-                              const gfx::ColorSpace& color_space) const {
+                              const gfx::ColorSpace& color_space,
+                              bool expected_scanout) const {
       return size == shared_image->size() &&
              usage == shared_image->buffer_usage() &&
-             color_space == shared_image->color_space();
+             color_space == shared_image->color_space() &&
+             shared_image->usage().Has(gpu::SHARED_IMAGE_USAGE_SCANOUT) ==
+                 expected_scanout;
     }
 
     int32_t buffer_id = -1;
@@ -224,8 +227,7 @@ class MappableSharedImageVideoFramePool::PoolImpl
       const gfx::Rect& visible_rect,
       const gfx::Size& natural_size,
       const gfx::ColorSpace& color_space,
-      base::TimeDelta timestamp,
-      bool video_frame_allow_overlay);
+      base::TimeDelta timestamp);
 
   // Get the resource needed for a frame out of the pool, or create it if
   // necessary.
@@ -1051,18 +1053,16 @@ void MappableSharedImageVideoFramePool::PoolImpl::OnCopiesDoneOnMediaThread(
   scoped_refptr<VideoFrame> frame = BindAndCreateMailboxHardwareFrameResource(
       frame_resource, gfx::Rect(video_frame->visible_rect().size()),
       video_frame->natural_size(), video_frame->ColorSpace(),
-      video_frame->timestamp(), video_frame->metadata().allow_overlay);
+      video_frame->timestamp());
   if (!frame) {
     CompleteCopyRequestAndMaybeStartNextCopy(std::move(video_frame));
     return;
   }
 
-  bool new_allow_overlay = frame->metadata().allow_overlay;
   bool new_read_lock_fences_enabled =
       frame->metadata().read_lock_fences_enabled;
   frame->set_hdr_metadata(video_frame->hdr_metadata());
   frame->metadata().MergeMetadataFrom(video_frame->metadata());
-  frame->metadata().allow_overlay = new_allow_overlay;
   frame->metadata().read_lock_fences_enabled = new_read_lock_fences_enabled;
   CompleteCopyRequestAndMaybeStartNextCopy(std::move(frame));
 }
@@ -1073,8 +1073,7 @@ scoped_refptr<VideoFrame> MappableSharedImageVideoFramePool::PoolImpl::
         const gfx::Rect& visible_rect,
         const gfx::Size& natural_size,
         const gfx::ColorSpace& color_space,
-        base::TimeDelta timestamp,
-        bool video_frame_allow_overlay) {
+        base::TimeDelta timestamp) {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
   gpu::SharedImageInterface* sii = gpu_factories_->SharedImageInterface();
   if (!sii) {
@@ -1165,37 +1164,6 @@ scoped_refptr<VideoFrame> MappableSharedImageVideoFramePool::PoolImpl::
 
   frame->set_color_space(frame_resource->shared_image->color_space());
 
-  bool allow_overlay = false;
-  if (frame_resource->shared_image->usage().Has(
-          gpu::SHARED_IMAGE_USAGE_SCANOUT)) {
-#if BUILDFLAG(IS_WIN)
-    // Windows direct composition path only supports NV12 video overlays.
-    allow_overlay =
-        output_format_ == GpuVideoAcceleratorFactories::OutputFormat::NV12;
-#else
-    switch (output_format_) {
-      case GpuVideoAcceleratorFactories::OutputFormat::YV12:
-        allow_overlay = video_frame_allow_overlay;
-        break;
-      case GpuVideoAcceleratorFactories::OutputFormat::P010:
-      case GpuVideoAcceleratorFactories::OutputFormat::NV12:
-        allow_overlay = true;
-        break;
-      case GpuVideoAcceleratorFactories::OutputFormat::XR30:
-      case GpuVideoAcceleratorFactories::OutputFormat::XB30:
-#if BUILDFLAG(IS_APPLE)
-        allow_overlay = IOSurfaceCanSetColorSpace(color_space);
-#else
-        // TODO(crbug.com/41350508): Enable this for ChromeOS.
-        allow_overlay = false;
-#endif
-        break;
-      case GpuVideoAcceleratorFactories::OutputFormat::UNDEFINED:
-        break;
-    }
-#endif  // BUILDFLAG(IS_WIN)
-  }
-  frame->metadata().allow_overlay = allow_overlay;
   frame->metadata().read_lock_fences_enabled = true;
   frame->metadata().is_webgpu_compatible = is_webgpu_compatible;
   return frame;
@@ -1242,11 +1210,48 @@ MappableSharedImageVideoFramePool::PoolImpl::GetOrCreateFrameResource(
     const gfx::ColorSpace& color_space) {
   DCHECK(media_task_runner_->RunsTasksInCurrentSequence());
 
+  auto* sii = gpu_factories_->SharedImageInterface();
+  if (!sii) {
+    return nullptr;
+  }
+
+  // SCANOUT usage should be added only if scanout of SharedImages for this
+  // use case is supported.
+  auto si_caps = sii->GetCapabilities();
+  bool add_scanout_usage = false;
+#if BUILDFLAG(IS_WIN)
+  // Direct composition path only supports NV12 video overlays.
+  add_scanout_usage =
+      si_caps.supports_scanout_shared_images_for_software_video_frames &&
+      output_format_ == GpuVideoAcceleratorFactories::OutputFormat::NV12;
+#else
+  add_scanout_usage = si_caps.supports_scanout_shared_images;
+  switch (output_format_) {
+    case GpuVideoAcceleratorFactories::OutputFormat::YV12:
+    case GpuVideoAcceleratorFactories::OutputFormat::P010:
+    case GpuVideoAcceleratorFactories::OutputFormat::NV12:
+      break;
+    case GpuVideoAcceleratorFactories::OutputFormat::XR30:
+    case GpuVideoAcceleratorFactories::OutputFormat::XB30:
+#if BUILDFLAG(IS_APPLE)
+      add_scanout_usage &= IOSurfaceCanSetColorSpace(color_space);
+#else
+      // TODO(crbug.com/41350508): Enable this for ChromeOS.
+      add_scanout_usage = false;
+#endif
+      break;
+    default:
+      add_scanout_usage = false;
+      break;
+  }
+#endif
+
   auto it = resources_pool_.begin();
   while (it != resources_pool_.end()) {
     FrameResource* frame_resource = *it;
     if (!frame_resource->is_used()) {
-      if (frame_resource->IsMetadataCompatible(size, usage, color_space)) {
+      if (frame_resource->IsMetadataCompatible(size, usage, color_space,
+                                               add_scanout_usage)) {
         frame_resource->MarkUsed();
         return frame_resource;
       } else {
@@ -1260,11 +1265,6 @@ MappableSharedImageVideoFramePool::PoolImpl::GetOrCreateFrameResource(
     }
   }
 
-  auto* sii = gpu_factories_->SharedImageInterface();
-  if (!sii) {
-    return nullptr;
-  }
-
   // |si_format| could be modified internally later based on the
   // type of buffer (shared memory or native gpu buffer) backing the
   // shared image. https://issues.chromium.org/339546249.
@@ -1274,22 +1274,6 @@ MappableSharedImageVideoFramePool::PoolImpl::GetOrCreateFrameResource(
   gpu::SharedImageUsageSet si_usage = gpu::SHARED_IMAGE_USAGE_GLES2_READ |
                                       gpu::SHARED_IMAGE_USAGE_RASTER_READ |
                                       gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
-
-  // SCANOUT usage should be added only if scanout of SharedImages for this
-  // use case is supported.
-  auto si_caps = sii->GetCapabilities();
-#if BUILDFLAG(IS_WIN)
-  // On Windows, overlays are in general not supported. However, in some
-  // cases they are supported for the software video frame use case in
-  // particular. This cap details whether that support is present.
-  bool add_scanout_usage =
-      si_caps.supports_scanout_shared_images_for_software_video_frames;
-#else
-  // On all other platforms, whether scanout for SharedImages is supported
-  // for this particular use case is no different than the general case.
-  bool add_scanout_usage = si_caps.supports_scanout_shared_images;
-#endif
-
   if (add_scanout_usage) {
     si_usage |= gpu::SHARED_IMAGE_USAGE_SCANOUT;
   }

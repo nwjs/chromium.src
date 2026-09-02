@@ -26,15 +26,6 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
-<!-- LINT.IfChange(AccidentalClickType) -->
-
-<enum name="AccidentalClickType">
-  <int value="0" label="Click"/>
-  <int value="1" label="Accidental Click"/>
-</enum>
-
-<!-- LINT.ThenChange(//chrome/browser/ui/views/tabs/tab_strip_combo_button.cc:AccidentalClickType) -->
-
 <!-- LINT.IfChange(AndroidTabMediaState) -->
 
 <enum name="AndroidTabMediaState">
@@ -361,6 +352,7 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="Keyboard shortcut"/>
   <int value="10" label="New tab button"/>
   <int value="11" label="Link click shortcut"/>
+  <int value="12" label="Mac menu bar"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/tabs/split_tab_metrics.h:SplitTabCreatedSource) -->
@@ -428,6 +420,28 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(chrome/browser/ui/views/tabs/dragging/tab_drag_controller.h:TabDragPinnedness) -->
 
+<!-- LINT.IfChange(TabGroupFocusEntryPoint) -->
+
+<enum name="TabGroupFocusEntryPoint">
+  <int value="0" label="Editor bubble ('Focus group')"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/tabs/tab_enums.h:TabGroupFocusEntryPoint) -->
+
+<!-- LINT.IfChange(TabGroupFocusExitReason) -->
+
+<enum name="TabGroupFocusExitReason">
+  <int value="0" label="Editor bubble ('Unfocus group')"/>
+  <int value="1" label="Tab strip back/unfocus button"/>
+  <int value="2" label="Group closed or deleted"/>
+  <int value="3" label="Group ungrouped"/>
+  <int value="4" label="Last tab in focused group closed"/>
+  <int value="5" label="Active tab unpinned"/>
+  <int value="6" label="Tab group header dragged into window"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/tabs/tab_enums.h:TabGroupFocusExitReason) -->
+
 <!-- LINT.IfChange(TabGroupingTransitionType) -->
 
 <enum name="TabGroupingTransitionType">
@@ -473,16 +487,18 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Skipped (Empty URL)"/>
 </enum>
 
-<enum name="TabSearchCloseActions">
-  <int value="0" label="User did not close via Tab Search UI">
-    The UI was dismissed via interactions outside what is offered by the Tab
-    Search UI.
-  </int>
-  <int value="1" label="User switched to an open tab">
-    The Tab Search UI was dismissed as a result of the user opting to switch to
-    a currently open tab.
-  </int>
+<!-- LINT.IfChange(TabSearchCloseAction) -->
+
+<enum name="TabSearchCloseAction">
+  <int value="0" label="No action taken"/>
+  <int value="1" label="Closed tab"/>
+  <int value="2" label="Opened recent tab"/>
+  <int value="3" label="Switched tab"/>
+  <int value="4" label="Opened recent tab and closed tab"/>
+  <int value="5" label="Switched tab and closed tab"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webui/tab_search/tab_search_page_handler.h:TabSearchCloseAction) -->
 
 <enum name="TabSearchOpenActions">
   <int value="0" label="User opened the Tab Search UI via a mouse click"/>
@@ -491,6 +507,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="User opened the Tab Search UI via touch gesture"/>
 </enum>
 
+<!-- LINT.IfChange(TabSearchRecentlyClosedItemOpenAction) -->
+
 <enum name="TabSearchRecentlyClosedItemOpenAction">
   <int value="0"
       label="Opened a recently closed item from an unfiltered item list"/>
@@ -498,15 +516,21 @@ chromium-metrics-reviews@google.com.
       label="Opened a recently closed item from a filtered item list"/>
 </enum>
 
+<!-- LINT.ThenChange(//chrome/browser/resources/tab_search/tab_search_api_proxy.ts:TabSearchRecentlyClosedItemOpenAction) -->
+
 <enum name="TabSearchRecentlyClosedToggleActions">
   <int value="0" label="Expand the recently closed items section"/>
   <int value="1" label="Collapse the recently closed items section"/>
 </enum>
 
+<!-- LINT.IfChange(TabSearchTabSwitchAction) -->
+
 <enum name="TabSearchTabSwitchAction">
   <int value="0" label="Switch to tab from unfiltered tab list"/>
   <int value="1" label="Switch to tab from filtered search tab list"/>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/resources/tab_search/tab_search_page.ts:TabSearchTabSwitchAction) -->
 
 <!-- LINT.IfChange(TabSearchWebUIAction) -->
 

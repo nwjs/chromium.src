@@ -79,7 +79,8 @@ GlicInvokeHandler::ResolvedTarget GlicInvokeHandler::ResolveTargetSurface(
   if (const auto* default_surface =
           std::get_if<DefaultSurface>(&target.surface)) {
     BrowserWindowInterface* browser = default_surface->browser;
-    if (browser) {
+    if (browser &&
+        browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
       tabs::TabInterface* tab = TabListInterface::From(browser)->GetActiveTab();
       if (tab) {
         return TabSurface{tab, /*is_new=*/false};
@@ -96,7 +97,8 @@ GlicInvokeHandler::ResolvedTarget GlicInvokeHandler::ResolveTargetSurface(
     return {TabSurface{nullptr, /*is_new=*/false}};
   } else if (const auto* new_tab_opt = std::get_if<NewTab>(&target.surface)) {
     BrowserWindowInterface* browser = new_tab_opt->window;
-    if (!browser) {
+    if (!browser ||
+        browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
 #if !BUILDFLAG(IS_ANDROID)
       tabs::TabInterface* tab = CreateBrowserAndGetActiveTab(profile);
       if (tab) {
@@ -196,6 +198,24 @@ GlicInvokeHandler::GlicInvokeHandler(
 
 GlicInvokeHandler::~GlicInvokeHandler() = default;
 
+bool GlicInvokeHandler::RequiresClientInvoke(
+    const mojom::InvokeOptionsPtr& mojo_options,
+    bool has_auto_submit_passkey) {
+  return mojo_options->invocation_source ==
+             mojom::InvocationSource::kCaptureRegionHotkey ||
+         has_auto_submit_passkey || !mojo_options->payload.is_null() ||
+         (mojo_options->prompts && !mojo_options->prompts->empty()) ||
+         !mojo_options->context.is_null() ||
+         mojo_options->feature_mode != mojom::FeatureMode::kUnspecified ||
+         (mojo_options->actuation_target != mojom::ActuationTarget::kUnknown &&
+          mojo_options->actuation_target !=
+              mojom::ActuationTarget::kAgentDecides) ||
+         mojo_options->disable_zero_state_suggestions ||
+         mojo_options->skill_id.has_value() ||
+         !mojo_options->zss_config.is_null() ||
+         mojo_options->actuation_tab_id.has_value();
+}
+
 void GlicInvokeHandler::Invoke() {
   timeout_timer_.Start(FROM_HERE, options_.timeout.value_or(kDefaultTimeout),
                        base::BindOnce(&GlicInvokeHandler::OnError,
@@ -220,6 +240,11 @@ void GlicInvokeHandler::Invoke() {
   }
 
   std::vector<std::unique_ptr<GlicInvokeTask>> tasks;
+
+  if (IsActuatingFeatureMode() && IsTabTarget()) {
+    tasks.push_back(std::make_unique<SetTabPendingActuationTask>(
+        instance_->profile(), GetTab().GetHandle()));
+  }
 
   if (should_wait_for_load_ && IsTabTarget()) {
     tasks.push_back(
@@ -299,8 +324,12 @@ void GlicInvokeHandler::Invoke() {
         instance_->profile(), options_.fre_override));
   }
 
-  tasks.push_back(std::make_unique<SendToClientTask>(
-      &*instance_, CreateMojoOptions(), auto_submit_passkey_));
+  mojom::InvokeOptionsPtr mojo_options = CreateMojoOptions();
+
+  if (RequiresClientInvoke(mojo_options, auto_submit_passkey_.has_value())) {
+    tasks.push_back(std::make_unique<SendToClientTask>(
+        &*instance_, std::move(mojo_options), auto_submit_passkey_));
+  }
 
   if (IsActuatingFeatureMode()) {
     if (auto* task_manager = instance_->GetActorTaskManager()) {
@@ -404,6 +433,7 @@ bool GlicInvokeHandler::IsActuatingFeatureMode() const {
     case mojom::FeatureMode::kActuation:
     case mojom::FeatureMode::kExperimentalTriggering:
     case mojom::FeatureMode::kUniversalCart:
+    case mojom::FeatureMode::kPasswordChange:
       return true;
     default:
       return false;

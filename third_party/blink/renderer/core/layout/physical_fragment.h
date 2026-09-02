@@ -7,11 +7,13 @@
 
 #include <unicode/ubidi.h>
 
+#include <algorithm>
 #include <iterator>
 #include <optional>
 
 #include "base/containers/span.h"
 #include "base/dcheck_is_on.h"
+#include "cc/input/scroll_snap_data.h"
 #include "third_party/blink/renderer/core/animation/animation_trigger.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/element.h"
@@ -19,11 +21,13 @@
 #include "third_party/blink/renderer/core/editing/forward.h"
 #include "third_party/blink/renderer/core/layout/anchor_map.h"
 #include "third_party/blink/renderer/core/layout/break_token.h"
+#include "third_party/blink/renderer/core/layout/geometry/axis.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_rect.h"
 #include "third_party/blink/renderer/core/layout/ink_overflow.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
 #include "third_party/blink/renderer/core/layout/layout_inline.h"
 #include "third_party/blink/renderer/core/layout/physical_fragment_link.h"
+#include "third_party/blink/renderer/core/layout/snap_area.h"
 #include "third_party/blink/renderer/core/layout/split_axis_item.h"
 #include "third_party/blink/renderer/core/layout/style_variant.h"
 #include "third_party/blink/renderer/core/style/computed_style_base_constants.h"
@@ -122,7 +126,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
    public:
     PropagatedData(const GCedHeapVector<SplitAxisItem<LayoutBoxModelObject>>*
                        sticky_descendants,
-                   const GCedHeapVector<Member<Element>>* snap_areas,
+                   const GCedHeapVector<SnapArea>* snap_areas,
                    const Member<const LayoutObject> scroll_initial_target,
                    const TriggerScopedNameMap* named_triggers)
         : sticky_descendants(sticky_descendants),
@@ -132,7 +136,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
     void Trace(Visitor* visitor) const;
     Member<const GCedHeapVector<SplitAxisItem<LayoutBoxModelObject>>>
         sticky_descendants;
-    Member<const GCedHeapVector<Member<Element>>> snap_areas;
+    Member<const GCedHeapVector<SnapArea>> snap_areas;
     Member<const LayoutObject> scroll_initial_target;
     Member<const TriggerScopedNameMap> named_triggers;
   };
@@ -410,8 +414,7 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
   // True if this is a non-overlay overscroll container which can have
   // its contents shifted by its ::overscroll-area-parents.
   bool IsNonOverlayOverscrollScrollContainer() const {
-    return IsCSSBox() && layout_object_->InternalOverscrollArea() ==
-                             EInternalOverscrollArea::kAuto;
+    return IsCSSBox() && layout_object_->IsContentMovingOverscrollContainer();
   }
 
   // Return true if the given object is the effective root scroller in its
@@ -683,19 +686,22 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
     return propagated_data_ ? propagated_data_->scroll_initial_target : nullptr;
   }
   const Member<const LayoutObject> PropagatedScrollInitialTarget() const {
-    return IsScrollContainer() ? nullptr : ScrollInitialTarget();
+    // Check the plain field access first: it's null for the common case
+    // (nothing set an initial scroll target), which makes the result null
+    // either way without needing IsScrollContainer()'s virtual call.
+    const Member<const LayoutObject> target = ScrollInitialTarget();
+    return (!target || IsScrollContainer()) ? nullptr : target;
   }
 
-  const GCedHeapVector<Member<Element>>* SnapAreas() const {
-    return propagated_data_ ? propagated_data_->snap_areas.Get() : nullptr;
-  }
-  const GCedHeapVector<Member<Element>>* PropagatedSnapAreas() const {
-    return IsScrollContainer() ? nullptr : SnapAreas();
+  const GCedHeapVector<SnapArea>& SnapAreas() const;
+
+  bool HasPendingSnapAreas() const {
+    return std::ranges::any_of(SnapAreas(), &SnapArea::IsPending);
   }
 
   bool HasPropagatedLayoutObjects() const {
     return HasPendingStickyDescendants() || PropagatedScrollInitialTarget() ||
-           PropagatedSnapAreas() || NamedTriggers() || HasChildAnchors();
+           HasPendingSnapAreas() || NamedTriggers() || HasChildAnchors();
   }
 
   class OofData : public GarbageCollected<OofData> {
@@ -781,43 +787,43 @@ class CORE_EXPORT PhysicalFragment : public GarbageCollected<PhysicalFragment> {
   const uint8_t sub_type_ : 4;       // BoxType, TextItemType, or LineBoxType
   const uint8_t style_variant_ : 2;  // StyleVariant
   const uint8_t is_hidden_for_paint_ : 1;
-  uint8_t : 0;  // NOLINT, zero-length bitfield used to allow the compiler to
-                // split memory locations. If the above bitfields are part of
-                // the same memory location as the bitfields below, they will
-                // all be updated together, which will result in races.
+  uint8_t : 0;  // Zero-length bitfield used to allow the compiler to split
+                // memory locations. If the above bitfields are part of the
+                // same memory location as the bitfields below, they will all
+                // be updated together, which will result in races.
 
-  uint8_t has_floating_descendants_for_paint_ : 1;  // NOLINT
-  uint8_t has_adjoining_object_descendants_ : 1;    // NOLINT
-  uint8_t depends_on_percentage_block_size_ : 1;    // NOLINT
+  uint8_t has_floating_descendants_for_paint_ : 1;
+  uint8_t has_adjoining_object_descendants_ : 1;
+  uint8_t depends_on_percentage_block_size_ : 1;
   uint8_t has_running_anchor_transform_animation_ : 1;
-  mutable uint8_t children_valid_ : 1;              // NOLINT
+  mutable uint8_t children_valid_ : 1;
 
   // The following bitfields are only to be used by PhysicalLineBoxFragment
   // (it's defined here to save memory, since that class has no bitfields).
-  uint8_t has_propagated_descendants_ : 1;             // NOLINT
-  uint8_t has_hanging_ : 1;                            // NOLINT
-  uint8_t is_opaque_ : 1;                              // NOLINT
-  uint8_t is_block_in_inline_ : 1;                     // NOLINT
-  uint8_t is_line_for_parallel_flow_ : 1;              // NOLINT
-  uint8_t is_math_fraction_ : 1;                       // NOLINT
-  uint8_t is_math_operator_ : 1;                       // NOLINT
-  uint8_t may_have_descendant_above_block_start_ : 1;  // NOLINT
+  uint8_t has_propagated_descendants_ : 1;
+  uint8_t has_hanging_ : 1;
+  uint8_t is_opaque_ : 1;
+  uint8_t is_block_in_inline_ : 1;
+  uint8_t is_line_for_parallel_flow_ : 1;
+  uint8_t is_math_fraction_ : 1;
+  uint8_t is_math_operator_ : 1;
+  uint8_t may_have_descendant_above_block_start_ : 1;
 
   // The following are only used by PhysicalBoxFragment but are initialized
   // for all types to allow methods using them to be inlined.
-  uint8_t is_fieldset_container_ : 1;                           // NOLINT
-  uint8_t is_table_part_ : 1;                                   // NOLINT
-  uint8_t is_painted_atomically_ : 1;                           // NOLINT
-  uint8_t has_collapsed_borders_ : 1;                           // NOLINT
-  uint8_t has_first_baseline_ : 1;                              // NOLINT
-  uint8_t has_last_baseline_ : 1;                               // NOLINT
-  uint8_t use_last_baseline_for_inline_baseline_ : 1;           // NOLINT
-  const uint8_t has_fragmented_out_of_flow_data_ : 1;           // NOLINT
-  uint8_t has_out_of_flow_fragment_child_ : 1;                  // NOLINT
-  const uint8_t has_out_of_flow_in_fragmentainer_subtree_ : 1;  // NOLINT
+  uint8_t is_fieldset_container_ : 1;
+  uint8_t is_table_part_ : 1;
+  uint8_t is_painted_atomically_ : 1;
+  uint8_t has_collapsed_borders_ : 1;
+  uint8_t has_first_baseline_ : 1;
+  uint8_t has_last_baseline_ : 1;
+  uint8_t use_last_baseline_for_inline_baseline_ : 1;
+  const uint8_t has_fragmented_out_of_flow_data_ : 1;
+  uint8_t has_out_of_flow_fragment_child_ : 1;
+  const uint8_t has_out_of_flow_in_fragmentainer_subtree_ : 1;
 
   // The following are only used by PhysicalLineBoxFragment.
-  uint8_t base_direction_ : 1;  // NOLINT, TextDirection
+  uint8_t base_direction_ : 1;  // TextDirection
 
   Member<const PropagatedData> propagated_data_;
   Member<const BreakToken> break_token_;

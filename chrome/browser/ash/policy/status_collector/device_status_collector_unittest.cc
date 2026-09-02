@@ -138,6 +138,7 @@
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "ui/aura/env.h"
 #include "ui/aura/test/test_windows.h"
+#include "ui/message_center/message_center.h"
 
 namespace policy {
 
@@ -879,6 +880,8 @@ class DeviceStatusCollectorTestBase : public testing::Test {
   ~DeviceStatusCollectorTestBase() override = default;
 
   void SetUp() override {
+    message_center::MessageCenter::Initialize();
+
     scoped_stub_install_attributes_.Get()->SetCloudManaged("managed.com",
                                                            "device_id");
 
@@ -950,7 +953,10 @@ class DeviceStatusCollectorTestBase : public testing::Test {
         TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
         TestingBrowserProcess::GetGlobal()
             ->platform_part()
-            ->browser_policy_connector_ash());
+            ->browser_policy_connector_ash(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->component_manager_ash());
     reporting_user_tracker_ = std::make_unique<ReportingUserTracker>(
         user_manager::UserManager::Get());
   }
@@ -991,6 +997,7 @@ class DeviceStatusCollectorTestBase : public testing::Test {
     content::RunAllTasksUntilIdle();
     storage::ExternalMountPoints::GetSystemInstance()->RevokeAllFileSystems();
     DiskMountManager::Shutdown();
+    message_center::MessageCenter::Shutdown();
   }
 
  protected:
@@ -1272,8 +1279,6 @@ class DeviceStatusCollectorTestBase : public testing::Test {
   base::SimpleTestClock test_clock_;
 
   apps::ScopedOmitBorealisAppsForTesting scoped_omit_borealis_apps_for_testing_;
-  apps::ScopedOmitPluginVmAppsForTesting
-      scoped_omit_plugin_vm_apps_for_testing_;
 
   ash::ScopedCrasAudioHandlerForTesting cras_audio_handler_;
 

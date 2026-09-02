@@ -36,6 +36,7 @@ import androidx.browser.customtabs.CustomTabsIntent;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.LocaleUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
@@ -55,6 +56,9 @@ import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicEnabling;
+import org.chromium.chrome.browser.glic.GlicKeyedService.GlicInvocationSource;
+import org.chromium.chrome.browser.glic.GlicKeyedServiceHandler;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.lens.LensController;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
@@ -79,11 +83,13 @@ import org.chromium.chrome.browser.share.send_tab_to_self.SendTabToSelfAndroidBr
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabContextMenuItemDelegate;
 import org.chromium.chrome.browser.tab.TabUtils;
+import org.chromium.chrome.browser.tab_bottom_sheet.TabBottomSheetUtils;
 import org.chromium.chrome.browser.translate.TranslateBridge;
 import org.chromium.chrome.browser.translate.TranslateUtils;
 import org.chromium.chrome.browser.ui.lens.LensOverlayCoordinator;
 import org.chromium.chrome.browser.ui.lens.LensOverlayInvocationSource;
 import org.chromium.chrome.browser.ui.lens.LensOverlayTabHelper;
+import org.chromium.chrome.browser.ui.side_panel.AndroidSidePanelEnabledFn;
 import org.chromium.chrome.browser.ui.signin.ForcedSigninStatusProvider;
 import org.chromium.components.browser_ui.share.ShareParams;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
@@ -137,6 +143,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private static final String UMA_CONTEXTUAL_CUSTOM_ACTION_TYPE_SELECTED =
             "CustomTabs.ContextMenu.SelectedContextualCustomActionType";
     private static @Nullable Boolean sIsDefaultBrowserForTesting;
+
+    // Feature params on ClankGlicContextMenu gating each context-menu entry
+    // point, so every entry shares the same feature (and experiment).
+    @VisibleForTesting static final String PARAM_SHOW_ASK_GEMINI_ON_LINK = "show_on_link";
+    @VisibleForTesting static final String PARAM_SHOW_ASK_GEMINI_ON_PAGE = "show_on_page";
 
     private final Context mContext;
     private final ContextMenuItemDelegate mItemDelegate;
@@ -263,6 +274,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             Action.SEND_TAB_TO_SELF,
             Action.TRANSLATE,
             Action.CREATE_QR_CODE,
+            Action.ASK_GEMINI,
         })
         @Retention(RetentionPolicy.SOURCE)
         public @interface Action {
@@ -325,7 +337,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             int SEND_TAB_TO_SELF = 56;
             int TRANSLATE = 57;
             int CREATE_QR_CODE = 58;
-            int NUM_ENTRIES = 59;
+            int ASK_GEMINI = 59;
+            int NUM_ENTRIES = 60;
         }
 
         // LINT.ThenChange(/tools/metrics/histograms/enums.xml:ContextMenuOptionAndroid)
@@ -504,6 +517,37 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         return DevToolsWindowAndroid.canViewSource(getProfile(), mItemDelegate.getWebContents());
     }
 
+    @VisibleForTesting
+    boolean shouldShowAskGeminiForLink() {
+        // Enable on desktop if side panel is enabled, and enable on mobile if
+        // bottom sheet is enabled.
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
+                && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
+                        PARAM_SHOW_ASK_GEMINI_ON_LINK,
+                        true)
+                && (AndroidSidePanelEnabledFn.isEnabled()
+                        || TabBottomSheetUtils.isTabBottomSheetEnabled())
+                && !DeviceInfo.isAutomotive()
+                && !mItemDelegate.isIncognito()
+                && GlicEnabling.isEnabledForProfile(getProfile());
+    }
+
+    @VisibleForTesting
+    boolean shouldShowAskGeminiForPage() {
+        // The empty-space (page) entry point is desktop Android only, where
+        // Glic is presented in the side panel.
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
+                && ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
+                        PARAM_SHOW_ASK_GEMINI_ON_PAGE,
+                        false)
+                && AndroidSidePanelEnabledFn.isEnabled()
+                && !DeviceInfo.isAutomotive()
+                && !mItemDelegate.isIncognito()
+                && GlicEnabling.isEnabledForProfile(getProfile());
+    }
+
     @Override
     public List<ModelList> buildContextMenu() {
         int nextCustomMenuItemId = CUSTOM_MENU_ITEM_ID_START;
@@ -537,6 +581,12 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                 pageNavigationGroup.add(createListItem(Item.RELOAD));
             }
             groupedItems.add(pageNavigationGroup);
+
+            if (shouldShowAskGeminiForPage()) {
+                ModelList geminiGroup = new ModelList();
+                geminiGroup.add(createListItem(Item.ASK_GEMINI));
+                groupedItems.add(geminiGroup);
+            }
 
             if (mMode != ContextMenuMode.THIN_WEB_VIEW) {
                 ModelList pageGroup = new ModelList();
@@ -600,7 +650,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                     && UrlUtilities.isAcceptedScheme(mParams.getUrl())) {
                 if (mMode == ContextMenuMode.NORMAL) {
                     boolean isIncognitoForced = IncognitoUtils.isIncognitoModeForced(getProfile());
-                    ListItem openInNewTabItem = createManagedListItem(Item.OPEN_IN_NEW_TAB, isIncognitoForced);
+                    ListItem openInNewTabItem =
+                            createManagedListItem(Item.OPEN_IN_NEW_TAB, isIncognitoForced);
                     ListItem openInNewTabInGroupItem =
                             createManagedListItem(Item.OPEN_IN_NEW_TAB_IN_GROUP, isIncognitoForced);
                     linkGroup.add(openInNewTabItem);
@@ -669,6 +720,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
                         linkGroup.add(createListItem(Item.OPEN_IN_EPHEMERAL_TAB, showNewLabel));
                         mShowEphemeralTabNewLabel = showNewLabel;
                     }
+                }
+                if (shouldShowAskGeminiForLink()) {
+                    linkGroup.add(createListItem(Item.ASK_GEMINI));
                 }
             }
             if (!MailTo.isMailTo(mParams.getLinkUrl().getSpec())
@@ -932,6 +986,11 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             }
         }
 
+        if (mMode != ContextMenuMode.THIN_WEB_VIEW) {
+            ModelList modelList = mParams.getMenuModelBridge().populateModelList();
+            if (!modelList.isEmpty()) groupedItems.add(modelList);
+        }
+
         if (shouldShowDeveloperMenu() && areMandatoryFlowsCompleted(getProfile())) {
             ModelList developerGroup = new ModelList();
             if (mMode != ContextMenuMode.THIN_WEB_VIEW) {
@@ -947,11 +1006,6 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             if (!developerGroup.isEmpty()) {
                 groupedItems.add(developerGroup);
             }
-        }
-
-        if (mMode != ContextMenuMode.THIN_WEB_VIEW) {
-            ModelList modelList = mParams.getMenuModelBridge().populateModelList();
-            if (!modelList.isEmpty()) groupedItems.add(modelList);
         }
 
         return groupedItems;
@@ -1416,6 +1470,13 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
             if (mItemDelegate instanceof TabContextMenuItemDelegate tabDelegate) {
                 tabDelegate.onOpenInReadingMode();
             }
+        } else if (itemId == R.id.contextmenu_ask_gemini) {
+            recordContextMenuSelection(ContextMenuUma.Action.ASK_GEMINI);
+            Tab askGeminiTab = getTab();
+            if (askGeminiTab != null) {
+                GlicKeyedServiceHandler.invoke(
+                        getProfile(), askGeminiTab, GlicInvocationSource.WEB_CONTENTS_CONTEXT_MENU);
+            }
         } else {
             onTabBackedItemSelected(itemId);
         }
@@ -1685,7 +1746,9 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     }
 
     private ListItem createManagedListItem(@Item int item, boolean isIncognitoForced) {
-        ListItem listItem = createListItem(item, /* showInProductHelp= */ false, /* enabled= */ !isIncognitoForced);
+        ListItem listItem =
+                createListItem(
+                        item, /* showInProductHelp= */ false, /* enabled= */ !isIncognitoForced);
         if (isIncognitoForced) {
             listItem.model.set(ListMenuItemProperties.START_ICON_ID, R.drawable.ic_domain);
         }

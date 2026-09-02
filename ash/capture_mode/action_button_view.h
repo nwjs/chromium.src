@@ -64,6 +64,7 @@ class ASH_EXPORT ActionButtonView : public views::Button {
 
   const views::ImageView* image_view_for_testing() const { return image_view_; }
   const views::Label* label_for_testing() const { return label_; }
+  SystemShadow* shadow_for_testing() const { return shadow_.get(); }
 
  private:
   // Rank used to determine ordering of action buttons.

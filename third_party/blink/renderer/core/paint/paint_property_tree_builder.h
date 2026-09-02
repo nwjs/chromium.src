@@ -217,9 +217,13 @@ struct PaintPropertyTreeBuilderFragmentContext {
   // all non-alias effects.
   bool self_or_ancestor_participates_in_view_transition = false;
 
+  // Set to true when we visit an object with filter operations that have a
+  // tainted origin, and propagated to all its descendants.
+  bool is_in_tainted_subtree = false;
+
   // Set to true when we visit a canvas child and is propagated to all
   // descendant effects.
-  bool is_in_canvas_subtree = false;
+  bool is_in_drawable_canvas_subtree = false;
 
   // Whether newly created children should flatten their inherited transform
   // (equivalently, draw into the plane of their parent). Should generally
@@ -316,7 +320,7 @@ struct PaintPropertyTreeBuilderContext final {
 
   // This is always recalculated in PaintPropertyTreeBuilder::UpdateForSelf()
   // which overrides the inherited value.
-  CompositingReasons direct_compositing_reasons = CompositingReason::kNone;
+  CompositingReasons direct_compositing_reasons;
 };
 
 class VisualViewportPaintPropertyTreeBuilder {

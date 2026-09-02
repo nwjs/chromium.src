@@ -17,7 +17,6 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {PageRemote as SearchboxPageRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
-import {WindowOpenDisposition} from 'chrome://resources/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockInputState} from 'chrome://webui-test/cr_components/searchbox/searchbox_test_utils.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
@@ -911,7 +910,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     assertEquals(
         'Ask about these',
-        innerComposebox.getInputElement().$.input.placeholder);
+        innerComposebox.getInputElement().$.input.getAttribute('placeholder'));
   });
 
   test('Single tab file updates zero state placeholder', async () => {
@@ -926,7 +925,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     assertEquals(
         'Ask about this tab',
-        innerComposebox.getInputElement().$.input.placeholder);
+        innerComposebox.getInputElement().$.input.getAttribute('placeholder'));
   });
 
   test('Single image file updates zero state placeholder', async () => {
@@ -941,7 +940,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     assertEquals(
         'Ask about this image',
-        innerComposebox.getInputElement().$.input.placeholder);
+        innerComposebox.getInputElement().$.input.getAttribute('placeholder'));
   });
 
   test('Single pdf file updates zero state placeholder', async () => {
@@ -956,7 +955,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
 
     assertEquals(
         'Ask about this doc',
-        innerComposebox.getInputElement().$.input.placeholder);
+        innerComposebox.getInputElement().$.input.getAttribute('placeholder'));
   });
 
   test('Single unknown file updates zero state placeholder', async () => {
@@ -969,8 +968,10 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     await contextualComposebox.updateComplete;
     await innerComposebox.updateComplete;
 
-    assertFalse(innerComposebox.getInputElement().$.input.placeholder.includes(
-        'Ask about'));
+    const placeholder =
+        innerComposebox.getInputElement().$.input.getAttribute('placeholder') ||
+        '';
+    assertFalse(placeholder.includes('Ask about'));
   });
 
   test('Overlay hint text overridden by file hint', async () => {
@@ -991,7 +992,7 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     // File hint should take precedence over overlay hint.
     assertEquals(
         'Ask about this image',
-        innerComposebox.getInputElement().$.input.placeholder);
+        innerComposebox.getInputElement().$.input.getAttribute('placeholder'));
   });
 
   test('Arrow in zero state is ignored in full tab', async () => {
@@ -1108,9 +1109,8 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
     anchor.click();
     await microtasksFinished();
 
-    const [url, disposition] = await testProxy.handler.whenCalled('openUrl');
+    const url = await mockComposeboxPageHandler.whenCalled('navigateUrl');
     assertEquals('https://google.com/', url);
-    assertEquals(WindowOpenDisposition.NEW_FOREGROUND_TAB, disposition);
   });
 
   test(
@@ -1170,6 +1170,9 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
           1,
           mockComposeboxPageHandler.getCallCount(
               'recordNextboxAnimationImpression'));
+      const [shown] =
+          mockComposeboxPageHandler.getArgs('recordNextboxAnimationImpression');
+      assertTrue(shown);
     });
 
     test('block animation if canShow is false', async () => {
@@ -1181,9 +1184,30 @@ suite('ContextualTasksComposeboxZeroStateTest', () => {
       assertEquals(
           1, mockComposeboxPageHandler.getCallCount('canShowNextboxAnimation'));
       assertEquals(
-          0,
+          1,
           mockComposeboxPageHandler.getCallCount(
               'recordNextboxAnimationImpression'));
+      const [shown] =
+          mockComposeboxPageHandler.getArgs('recordNextboxAnimationImpression');
+      assertFalse(shown);
+    });
+
+    test('allow animation if limiting is disabled', async () => {
+      loadTimeData.overrideValues({
+        contextMenuAnimationLimitingEnabled: false,
+      });
+      contextualTasksApp.$.composebox.isZeroState = true;
+      await microtasksFinished();
+
+      assertEquals(
+          0, mockComposeboxPageHandler.getCallCount('canShowNextboxAnimation'));
+      assertEquals(
+          1,
+          mockComposeboxPageHandler.getCallCount(
+              'recordNextboxAnimationImpression'));
+      const [shown] =
+          mockComposeboxPageHandler.getArgs('recordNextboxAnimationImpression');
+      assertTrue(shown);
     });
   });
 });

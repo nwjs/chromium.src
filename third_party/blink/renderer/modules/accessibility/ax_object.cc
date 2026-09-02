@@ -80,6 +80,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_text_area_element.h"
 #include "third_party/blink/renderer/core/html/forms/text_control_element.h"
+#include "third_party/blink/renderer/core/html/html_area_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_dialog_element.h"
 #include "third_party/blink/renderer/core/html/html_element.h"
@@ -2648,6 +2649,35 @@ bool AXObject::IsPlainContent() const {
   return true;
 }
 
+// Shared checks for the details relation from an invoking element to its
+// target popover.
+AXObject* AXObject::GetPopoverForDetailsRelation(
+    const HTMLElement& popover,
+    bool exclude_plain_content) const {
+  if (ElementTraversal::NextSkippingChildren(*GetElement()) == &popover) {
+    // The next element is already the popover.
+    return nullptr;
+  }
+
+  // Avoid details relation between the popover and one of its descendants.
+  if (GetElement()->IsDescendantOrShadowDescendantOf(&popover)) {
+    return nullptr;
+  }
+
+  // The popover may be absent from the accessibility tree, e.g. when it is
+  // display-locked and its subtree has been pruned.
+  AXObject* ax_popover = AXObjectCache().Get(&popover);
+  if (!ax_popover) {
+    return nullptr;
+  }
+
+  if (exclude_plain_content && ax_popover->IsPlainContent()) {
+    return nullptr;
+  }
+
+  return ax_popover;
+}
+
 // Popover invoking elements should have details relationships with their
 // target popover, when that popover is:
 // a) open, and
@@ -2662,29 +2692,14 @@ AXObject* AXObject::GetPopoverTargetForInvoker() const {
   if (!popover || !popover->popoverOpen()) {
     return nullptr;
   }
-  if (ElementTraversal::NextSkippingChildren(*form_element) == popover) {
-    // The next element is already the popover.
-    return nullptr;
-  }
 
-  // Hint popovers that represent plain text content should not estbablish a details
-  // relation - as they are used to derive the text alternative - as if they are a
-  // tooltip. See the TextAlternativeFromTooltip function for more on this.
-  AXObject* ax_popover = AXObjectCache().Get(popover);
-  if (popover->PopoverType() == PopoverValueType::kHint &&
-      ax_popover->IsPlainContent()) {
-    return nullptr;
-  }
-
-  // Only expose a details relationship if the trigger isn't
-  // contained within the popover itself (shadow-including). E.g. a close
-  // button within the popover should not get a details relationship back
-  // to the containing popover.
-  if (GetElement()->IsDescendantOrShadowDescendantOf(popover)) {
-    return nullptr;
-  }
-
-  return ax_popover;
+  // Hint popovers that represent plain text content should not establish a
+  // details relation - as they are used to derive the text alternative - as if
+  // they are a tooltip. See the TextAlternativeFromTooltip function for more on
+  // this.
+  const bool exclude_plain_content =
+      popover->PopoverType() == PopoverValueType::kHint;
+  return GetPopoverForDetailsRelation(*popover, exclude_plain_content);
 }
 
 // Buttons with the CommandFor attribute should have details relationships with
@@ -2701,19 +2716,6 @@ AXObject* AXObject::GetCommandForElementForDetailsRelation() const {
     return nullptr;
   }
 
-  // The next element is already the target element.
-  if (ElementTraversal::NextSkippingChildren(*html_element) == command_for) {
-    return nullptr;
-  }
-
-  // Only expose a details relationship if the trigger isn't
-  // contained within the popover itself (shadow-including). E.g. a close
-  // button within the popover should not get a details relationship back
-  // to the containing popover.
-  if (html_element->IsDescendantOrShadowDescendantOf(command_for)) {
-    return nullptr;
-  }
-
   // A button with commandfor might point to an open popover, but the command
   // might be unrelated - for example `show-modal`. Commands that aren't related
   // to the showing or hiding of popovers should not establish a details
@@ -2726,17 +2728,10 @@ AXObject* AXObject::GetCommandForElementForDetailsRelation() const {
     return nullptr;
   }
 
-  // Hint popovers that represent plain text content should not estbablish a
-  // details relation - as they are used to derive the text alternative - as if
-  // they are a tooltip. See the TextAlternativeFromTooltip function for more on
-  // this.
-  AXObject* ax_popover = AXObjectCache().Get(command_for);
-  if (command_for->PopoverType() == PopoverValueType::kHint &&
-      ax_popover->IsPlainContent()) {
-    return nullptr;
-  }
-
-  return ax_popover;
+  // Exclude plain-content hint popovers, as in GetPopoverTargetForInvoker().
+  const bool exclude_plain_content =
+      command_for->PopoverType() == PopoverValueType::kHint;
+  return GetPopoverForDetailsRelation(*command_for, exclude_plain_content);
 }
 
 // Interest for invoking elements (with the `interestfor` attribute) should
@@ -2755,27 +2750,10 @@ AXObject* AXObject::GetInterestForTargetPopover() const {
     return nullptr;
   }
 
-  if (ElementTraversal::NextSkippingChildren(*GetElement()) == popover) {
-    // The next element is already the popover.
-    return nullptr;
-  }
-
-  AXObject* ax_popover = AXObjectCache().Get(popover);
-  if (!ax_popover) {
-    return nullptr;
-  }
-
-  // Only expose a details relationship if the trigger isn't
-  // contained within the popover itself (shadow-including).
-  if (GetElement()->IsDescendantOrShadowDescendantOf(popover)) {
-    return nullptr;
-  }
-
-  if (ax_popover->IsPlainContent()) {
-    return nullptr;
-  }
-
-  return ax_popover;
+  // Interest targets act as tooltips regardless of popover type.
+  // See the TextAlternativeFromTooltip function.
+  return GetPopoverForDetailsRelation(*popover,
+                                      /*exclude_plain_content=*/true);
 }
 
 AXObject* AXObject::GetScrollMarkerTarget() const {
@@ -3011,6 +2989,50 @@ bool AXObject::IsValidationMessage() const {
   return false;
 }
 
+namespace {
+
+// Returns the ARIA role implied for a focusgroup item, or kUnknown when no
+// role should be inferred. This encapsulates the accessibility policy for
+// focusgroup item-role inference:
+//  * Non-control inferred roles preserve explicit ARIA and richer native
+//    semantics.
+//  * The owner's role must match the behavior's minimum ARIA role, so items of
+//    an owner with a non-implied explicit role are left untouched.
+//  * The inferred role is the behavior's item minimum ARIA role, which is
+//    kUnknown for behaviors whose items do not map to an ARIA role.
+// Callers own the AXObject/cache lookups needed to supply |owner_role|.
+ax::mojom::blink::Role InferFocusgroupItemRole(
+    const FocusgroupData& owner_data,
+    ax::mojom::blink::Role owner_role,
+    ax::mojom::blink::Role item_raw_aria_role,
+    ax::mojom::blink::Role item_native_role) {
+  // Only infer item roles when the owner's role matches the behavior's minimum
+  // ARIA role. We don't want to infer roles for focusgroup items within a
+  // focusgroup owner that has an explicit role set to something other than the
+  // behavior's minimum.
+  if (owner_role != focusgroup::FocusgroupMinimumAriaRole(owner_data)) {
+    return ax::mojom::blink::Role::kUnknown;
+  }
+
+  // Not all focusgroup behaviors map their items to an ARIA role.
+  const ax::mojom::blink::Role implied_role =
+      focusgroup::FocusgroupItemMinimumAriaRole(owner_data);
+
+  // Non-control roles describe content and must not replace author-supplied or
+  // native semantics. Control roles may replace button semantics as described
+  // at the call site.
+  if (!ui::IsControl(implied_role) &&
+      (item_raw_aria_role != ax::mojom::blink::Role::kUnknown ||
+       (item_native_role != ax::mojom::blink::Role::kGenericContainer &&
+        item_native_role != ax::mojom::blink::Role::kUnknown))) {
+    return ax::mojom::blink::Role::kUnknown;
+  }
+
+  return implied_role;
+}
+
+}  // namespace
+
 ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
   // Focusgroup child implied role inference:
   // Applies only when:
@@ -3056,21 +3078,13 @@ ax::mojom::blink::Role AXObject::ComputeFinalRoleForSerialization() const {
     if (focusgroup_owner) {
       AXObject* focusgroup_owner_axobj = AXObjectCache().Get(focusgroup_owner);
       if (focusgroup_owner_axobj) {
-        // Check to see if the focusgroup owner's role matches the behavior's
-        // minimum ARIA role. We don't want to infer roles for focusgroup items
-        // within a focusgroup owner that has an explicit role set to something
-        // other than thek behavior's minimum.
-        if (focusgroup_owner_axobj->RoleValue() ==
-            focusgroup::FocusgroupMinimumAriaRole(
-                focusgroup_owner->GetFocusgroupData())) {
-          ax::mojom::blink::Role implied_role =
-              focusgroup::FocusgroupItemMinimumAriaRole(
-                  focusgroup_owner->GetFocusgroupData());
-          // Not all focusgroup behaviors will have their items map to an ARIA
-          // role.
-          if (implied_role != ax::mojom::blink::Role::kUnknown) {
-            return implied_role;
-          }
+        // Orchestrate the AX/cache lookups here and delegate the inference
+        // policy to InferFocusgroupItemRole().
+        const ax::mojom::blink::Role implied_role = InferFocusgroupItemRole(
+            focusgroup_owner->GetFocusgroupData(),
+            focusgroup_owner_axobj->RoleValue(), RawAriaRole(), role_);
+        if (implied_role != ax::mojom::blink::Role::kUnknown) {
+          return implied_role;
         }
       }
     }
@@ -5007,6 +5021,19 @@ bool AXObject::ComputeIsHiddenViaStyle(const ComputedStyle* style) {
   if (style) {
     if (GetLayoutObject()) {
       return style->Visibility() != EVisibility::kVisible;
+    }
+
+    // <area> is display:none by default, in which case it has no box of its
+    // own, but it is rendered as part of the <img> that uses its <map>. Its
+    // visibility is the image's.
+    if (const auto* area = DynamicTo<HTMLAreaElement>(GetNode());
+        area && RuntimeEnabledFeatures::HTMLAreaElementDisplayNoneEnabled()) {
+      HTMLImageElement* image = area->ImageElement();
+      const LayoutObject* image_layout_object =
+          image ? image->GetLayoutObject() : nullptr;
+      return !image_layout_object ||
+             image_layout_object->StyleRef().Visibility() !=
+                 EVisibility::kVisible;
     }
 
     // TODO(crbug.com/1286465): It's not consistent to only check
@@ -7578,22 +7605,27 @@ void AXObject::GetRelativeBounds(AXObject** out_container,
       // If it's a popup, account for the popup window's offset.
       auto& chrome_client = view->GetPage()->GetChromeClient();
       if (chrome_client.IsPopup()) {
-        gfx::Rect frame_rect = view->FrameToScreen(view->FrameRect());
-        LocalFrameView* root_view =
+        gfx::Rect frame_rect;
+        LocalFrameView* reference_view =
             AXObjectCache().GetDocument().GetFrame()->View();
-        gfx::Rect root_frame_rect =
-            root_view->FrameToScreen(root_view->FrameRect());
-        // If a color picker popup is found inside of an iframe, account for the
-        // distance from the current frame to the parent frame.
-        auto* owner_element = chrome_client.GetPopupClientOwnerElement();
-        if (auto* input_element = DynamicTo<HTMLInputElement>(owner_element)) {
-          if (input_element->FormControlType() ==
-              FormControlType::kInputColor) {
-            gfx::Point origin(root_frame_rect.origin());
-            owner_element->GetDocument()
-                .GetFrame()
-                ->AdjustOffsetByAncestorFrames(&origin);
-            root_frame_rect.set_origin(origin);
+        Element* owner_element = chrome_client.GetPopupClientOwnerElement();
+        LocalFrame* owner_frame = owner_element->GetDocument().GetFrame();
+        gfx::Rect reference_frame_rect;
+        if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+          frame_rect = view->FrameToScreen(gfx::Rect(view->Size()));
+          if (owner_frame && owner_frame->View()) {
+            reference_view = owner_frame->View();
+          }
+          reference_frame_rect =
+              reference_view->FrameToScreen(gfx::Rect(reference_view->Size()));
+        } else {
+          frame_rect = view->FrameToScreen(view->DeprecatedFrameRect());
+          reference_frame_rect = reference_view->FrameToScreen(
+              reference_view->DeprecatedFrameRect());
+          if (owner_frame) {
+            gfx::Point origin(reference_frame_rect.origin());
+            owner_frame->DeprecatedAdjustOffsetByAncestorFrames(&origin);
+            reference_frame_rect.set_origin(origin);
           }
         }
 
@@ -7603,9 +7635,9 @@ void AXObject::GetRelativeBounds(AXObject** out_container,
         float scale_factor =
             view->GetPage()->GetChromeClient().WindowToViewportScalar(
                 layout_object->GetFrame(), 1.0f);
-        out_bounds_in_container.set_origin(
-            gfx::PointF(scale_factor * (frame_rect.x() - root_frame_rect.x()),
-                        scale_factor * (frame_rect.y() - root_frame_rect.y())));
+        out_bounds_in_container.set_origin(gfx::PointF(
+            scale_factor * (frame_rect.x() - reference_frame_rect.x()),
+            scale_factor * (frame_rect.y() - reference_frame_rect.y())));
       }
     }
     return;

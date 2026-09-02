@@ -52,6 +52,8 @@ public class BookmarkPopupViewRenderTest {
     public ChromeRenderTestRule mRenderTestRule =
             ChromeRenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(ChromeRenderTestRule.Component.UI_BROWSER_BOOKMARKS)
+                    .setRevision(1)
+                    .setDescription("Remove duplicate popup background")
                     .build();
 
     private BookmarkPopupView mView;
@@ -96,5 +98,37 @@ public class BookmarkPopupViewRenderTest {
                     mView.setFolderName("Mobile bookmarks");
                 });
         mRenderTestRule.render(mView, "bookmark_popup_view");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    public void testBookmarkPopupView_PriceTrackingUnchecked() throws IOException {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mView.setHeaderText("Bookmark added");
+                    mView.setTitle("Test Bookmark");
+                    mView.setFolderName("Mobile bookmarks");
+                    mView.setPriceTrackingVisible(true);
+                    mView.setPriceTrackingEnabled(true);
+                    mView.setPriceTrackingSwitchChecked(false);
+                });
+        mRenderTestRule.render(mView, "bookmark_popup_view_price_tracking_unchecked");
+    }
+
+    @Test
+    @MediumTest
+    @Feature({"RenderTest"})
+    public void testBookmarkPopupView_PriceTrackingChecked() throws IOException {
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mView.setHeaderText("Bookmark added");
+                    mView.setTitle("Test Bookmark");
+                    mView.setFolderName("Mobile bookmarks");
+                    mView.setPriceTrackingVisible(true);
+                    mView.setPriceTrackingEnabled(true);
+                    mView.setPriceTrackingSwitchChecked(true);
+                });
+        mRenderTestRule.render(mView, "bookmark_popup_view_price_tracking_checked");
     }
 }

@@ -8,9 +8,6 @@
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/memory/weak_ptr.h"
-#include "base/metrics/histogram_functions.h"
-#include "base/time/time.h"
-#include "base/timer/elapsed_timer.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/gfx/android/java_bitmap.h"
@@ -51,7 +48,6 @@ void MenuModelBridge::AddExtensionItems() {
   if (!menu_model_) {
     return;
   }
-  base::ElapsedTimer timer;
   JNIEnv* env = base::android::AttachCurrentThread();
   for (size_t i = 0; i < menu_model_->GetItemCount(); ++i) {
     if (!menu_model_->IsVisibleAt(i)) {
@@ -67,22 +63,26 @@ void MenuModelBridge::AddExtensionItems() {
           optional_bitmap = image.GetImage().AsBitmap();
         }
         Java_MenuModelBridge_addCommand(
-            env, java_obj_, menu_model_->GetLabelAt(i), optional_bitmap,
-            menu_model_->IsEnabledAt(i), i);
+            env, java_obj_, menu_model_->GetCommandIdAt(i),
+            menu_model_->GetDisplayOrderAt(i), menu_model_->GetLabelAt(i),
+            optional_bitmap, menu_model_->IsEnabledAt(i), i);
         break;
       }
       case MenuModel::TYPE_CHECK:
         Java_MenuModelBridge_addCheck(
-            env, java_obj_, menu_model_->GetLabelAt(i),
+            env, java_obj_, menu_model_->GetCommandIdAt(i),
+            menu_model_->GetDisplayOrderAt(i), menu_model_->GetLabelAt(i),
             menu_model_->IsItemCheckedAt(i), menu_model_->IsEnabledAt(i), i);
         break;
       case MenuModel::TYPE_RADIO:
         Java_MenuModelBridge_addRadioButton(
-            env, java_obj_, menu_model_->GetLabelAt(i),
+            env, java_obj_, menu_model_->GetCommandIdAt(i),
+            menu_model_->GetDisplayOrderAt(i), menu_model_->GetLabelAt(i),
             menu_model_->IsItemCheckedAt(i), menu_model_->IsEnabledAt(i), i);
         break;
       case MenuModel::TYPE_SEPARATOR: {
-        Java_MenuModelBridge_addDivider(env, java_obj_);
+        Java_MenuModelBridge_addDivider(env, java_obj_,
+                                        menu_model_->GetDisplayOrderAt(i));
         break;
       }
       /* Don't handle TYPE_BUTTON_ITEM for now; it's not available in the Chrome
@@ -96,8 +96,10 @@ void MenuModelBridge::AddExtensionItems() {
         auto submenu_model_bridge = std::make_unique<MenuModelBridge>(
             menu_model_->GetSubmenuModelAt(i)->AsWeakPtr());
         Java_MenuModelBridge_addSubmenu(
-            env, java_obj_, menu_model_->GetLabelAt(i), optional_bitmap,
-            menu_model_->IsEnabledAt(i), submenu_model_bridge->GetJavaObject());
+            env, java_obj_, menu_model_->GetCommandIdAt(i),
+            menu_model_->GetDisplayOrderAt(i), menu_model_->GetLabelAt(i),
+            optional_bitmap, menu_model_->IsEnabledAt(i),
+            submenu_model_bridge->GetJavaObject());
         submenu_model_bridges_.push_back(std::move(submenu_model_bridge));
         break;
       }
@@ -111,11 +113,6 @@ void MenuModelBridge::AddExtensionItems() {
         /* Do nothing. */
     }
   }
-
-  base::UmaHistogramCustomMicrosecondsTimes(
-      "MenuModelBridge.AddExtensionItems.Duration",
-      base::Microseconds(timer.Elapsed().InMicrosecondsF()),
-      base::Microseconds(1), base::Microseconds(2000), 100);
 }
 
 }  // namespace ui

@@ -315,7 +315,7 @@ ScopedHInternet NetworkFetcher::OpenRequest() {
     flags |= WINHTTP_FLAG_SECURE;
   }
   return ScopedHInternet(::WinHttpOpenRequest(
-      connect_handle_.get(), verb_.data(),
+      connect_handle_.get(), verb_.c_str(),
       base::SysUTF8ToWide(path_for_request_).c_str(), nullptr,
       WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags));
 }
@@ -331,8 +331,8 @@ HRESULT NetworkFetcher::SendRequest(const std::string& data) {
 
   const uint32_t bytes_to_send =
       base::saturated_cast<uint32_t>(request_data_.size());
-  void* request_body = bytes_to_send ? const_cast<char*>(request_data_.c_str())
-                                     : WINHTTP_NO_REQUEST_DATA;
+  void* request_body =
+      bytes_to_send ? request_data_.data() : WINHTTP_NO_REQUEST_DATA;
   if (!::WinHttpSendRequest(request_handle_.get(),
                             WINHTTP_NO_ADDITIONAL_HEADERS, 0, request_body,
                             bytes_to_send, bytes_to_send, context())) {
@@ -607,7 +607,7 @@ void __stdcall NetworkFetcher::WinHttpStatusCallback(HINTERNET handle,
 
   std::string msg;
   if (!status_string.empty()) {
-    absl::StrAppendFormat(&msg, "status=%s", status_string.data());
+    absl::StrAppendFormat(&msg, "status=%s", status_string);
   } else {
     absl::StrAppendFormat(&msg, "status=%#lx", status);
   }

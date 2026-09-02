@@ -7,6 +7,8 @@ package org.chromium.chrome.browser.actor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,14 +24,27 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.app.tabwindow.TabWindowManagerSingleton;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabBuilder;
 import org.chromium.chrome.browser.tab.TabObserver;
+import org.chromium.chrome.browser.tab.TabState;
+import org.chromium.chrome.browser.tab.TabStateExtractor;
+import org.chromium.chrome.browser.tabmodel.TabCreator;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabRemover;
+import org.chromium.chrome.browser.tabwindow.TabWindowManager;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.url.GURL;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 
 /** Unit tests for {@link ActorBackgroundActuationManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -48,6 +63,12 @@ public class ActorBackgroundActuationManagerTest {
     @Mock private OffscreenRenderingManager mOffscreenRenderingManager;
     @Mock private WindowAndroid mWindowAndroid;
     @Mock private Tab mTab;
+    @Mock private TabModelSelector mTabModelSelector;
+    @Mock private TabModel mTabModel;
+    @Mock private TabRemover mTabRemover;
+    @Mock private TabCreator mTabCreator;
+    @Mock private Tab mPlaceholderTab;
+    @Mock private TabWindowManager mTabWindowManager;
 
     private ActorBackgroundActuationManager mManager;
 
@@ -56,9 +77,17 @@ public class ActorBackgroundActuationManagerTest {
         ProfileManager.setLastUsedProfileForTesting(mProfile);
         ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
         OffscreenRenderingManager.setInstanceForTesting(mOffscreenRenderingManager);
+        TabWindowManagerSingleton.setTabWindowManagerForTesting(mTabWindowManager);
 
         when(mOffscreenRenderingManager.getOffscreenWindow()).thenReturn(mWindowAndroid);
         TabBuilder.setTabForTesting(mTab);
+
+        when(mTabModel.getTabCreator()).thenReturn(mTabCreator);
+        when(mTabModel.getTabRemover()).thenReturn(mTabRemover);
+        when(mTabModel.indexOf(mTab)).thenReturn(0);
+        when(mPlaceholderTab.getId()).thenReturn(101);
+        when(mTabCreator.createFrozenTab(any(), anyInt(), anyInt())).thenReturn(mPlaceholderTab);
+        when(mTabWindowManager.getWindowIdForSelector(mTabModelSelector)).thenReturn(42);
 
         mManager = new ActorBackgroundActuationManager();
     }
@@ -69,6 +98,7 @@ public class ActorBackgroundActuationManagerTest {
         ActorKeyedServiceFactory.setForTesting(null);
         OffscreenRenderingManager.setInstanceForTesting(null);
         TabBuilder.setTabForTesting(null);
+        TabWindowManagerSingleton.setTabWindowManagerForTesting(null);
     }
 
     @Test
@@ -103,10 +133,9 @@ public class ActorBackgroundActuationManagerTest {
 
         // Verify setup failed notification was sent to native
         verify(mActorKeyedService).notifyBackgroundSetupFailed(MESSAGE_ID_FAIL);
-        // Verify cleanup destroyed the tab and stopped offscreen rendering
+        // Verify cleanup stopped offscreen rendering
         verify(mTab).removeObserver(observer);
         verify(mOffscreenRenderingManager).stopOffscreenRendering(mTab);
-        verify(mTab).destroy();
     }
 
     @Test
@@ -124,7 +153,6 @@ public class ActorBackgroundActuationManagerTest {
         verify(mActorKeyedService).notifyBackgroundSetupFailed(MESSAGE_ID_CRASH);
         verify(mTab).removeObserver(observer);
         verify(mOffscreenRenderingManager).stopOffscreenRendering(mTab);
-        verify(mTab).destroy();
     }
 
     @Test
@@ -139,8 +167,7 @@ public class ActorBackgroundActuationManagerTest {
         // Cancel/Cleanup before load finished
         mManager.cleanupContext(MESSAGE_ID_CANCELLED);
 
-        // Verify cleanup immediately destroyed the tab
-        verify(mTab).destroy();
+        // Verify cleanup stopped offscreen rendering
         verify(mOffscreenRenderingManager).stopOffscreenRendering(mTab);
 
         // Simulate native destruction triggering onDestroyed
@@ -154,5 +181,160 @@ public class ActorBackgroundActuationManagerTest {
 
         // Verify setPreparedBackgroundTab was NOT called because of our fast-guard
         verify(mActorKeyedService, never()).setPreparedBackgroundTab(any(), any());
+    }
+
+    @Test
+    public void testTransitionActiveTasksToBackground() {
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(100, testTabState);
+
+        when(mTabModelSelector.getModel(false)).thenReturn(mTabModel);
+        when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModel.getTabRemover()).thenReturn(mTabRemover);
+        when(mTabModel.getCount()).thenReturn(1);
+        when(mTabModel.getTabAt(0)).thenReturn(mTab);
+        when(mTabModel.iterator()).thenReturn(Collections.singletonList(mTab).iterator());
+
+        when(mTab.getId()).thenReturn(100);
+        when(mTab.getProfile()).thenReturn(mProfile);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
+
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
+        when(mActorKeyedService.getActiveTaskIdOnTab(100, false)).thenReturn(123);
+
+        ActorTask task = mock(ActorTask.class);
+        when(task.getId()).thenReturn(123);
+        when(task.getTabs()).thenReturn(Collections.singleton(100));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(task));
+
+        mManager.transitionActiveTasksToBackground(mTabModelSelector);
+
+        // Verify offscreen rendering was started for the transitioned tab
+        verify(mOffscreenRenderingManager).startOffscreenRendering(eq(mTab), anyInt(), anyInt());
+
+        // Verify the transitioned session is tracked
+        mManager.destroy();
+        verify(mOffscreenRenderingManager).stopOffscreenRendering(mTab);
+
+        TabStateExtractor.resetTabStatesForTesting();
+    }
+
+    @Test
+    public void testTransitionActiveTasksToBackground_MultipleTabs() {
+        TabStateExtractor.setTabStateForTesting(100, new TabState());
+        TabStateExtractor.setTabStateForTesting(101, new TabState());
+
+        Tab tab2 = mock(Tab.class);
+        when(tab2.getId()).thenReturn(101);
+        when(tab2.getProfile()).thenReturn(mProfile);
+        when(mTabModel.indexOf(tab2)).thenReturn(1);
+
+        when(mTabModel.iterator()).thenReturn(Arrays.asList(mTab, tab2).iterator());
+
+        when(mTabModelSelector.getModel(false)).thenReturn(mTabModel);
+        when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModel.getTabRemover()).thenReturn(mTabRemover);
+
+        when(mTab.getId()).thenReturn(100);
+        when(mTab.getProfile()).thenReturn(mProfile);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
+
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
+        when(mActorKeyedService.getActiveTaskIdOnTab(100, false)).thenReturn(123);
+        when(mActorKeyedService.getActiveTaskIdOnTab(101, false)).thenReturn(123);
+
+        ActorTask task = mock(ActorTask.class);
+        when(task.getId()).thenReturn(123);
+        when(task.getTabs()).thenReturn(new LinkedHashSet<>(Arrays.asList(100, 101)));
+        when(mActorKeyedService.getActiveTasks()).thenReturn(Collections.singletonList(task));
+
+        mManager.transitionActiveTasksToBackground(mTabModelSelector);
+
+        // Verify offscreen rendering is started for both tabs
+        verify(mOffscreenRenderingManager).startOffscreenRendering(eq(mTab), anyInt(), anyInt());
+        verify(mOffscreenRenderingManager).startOffscreenRendering(eq(tab2), anyInt(), anyInt());
+
+        mManager.destroy();
+        verify(mOffscreenRenderingManager).stopOffscreenRendering(tab2);
+
+        TabStateExtractor.resetTabStatesForTesting();
+    }
+
+    @Test
+    public void testProvisionBackgroundTabForTask_Success() {
+        @SuppressWarnings("unchecked")
+        Callback<Tab> callback = mock(Callback.class);
+        mManager.provisionBackgroundTabForTask(mProfile, 123, callback);
+
+        // Verify offscreen rendering started
+        verify(mOffscreenRenderingManager).startOffscreenRendering(eq(mTab), anyInt(), anyInt());
+
+        // Capture and trigger page load success
+        ArgumentCaptor<TabObserver> captor = ArgumentCaptor.forClass(TabObserver.class);
+        verify(mTab).addObserver(captor.capture());
+        TabObserver observer = captor.getValue();
+
+        observer.onPageLoadFinished(mTab, new GURL(TEST_URL));
+
+        // Verify callback invoked with tab
+        verify(callback).onResult(mTab);
+    }
+
+    @Test
+    public void testProvisionBackgroundTabForTask_ExistingSession() {
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
+        when(mActorKeyedService.getActiveTaskIdOnTab(100, false)).thenReturn(123);
+        when(mTab.getId()).thenReturn(100);
+        when(mTab.getProfile()).thenReturn(mProfile);
+        when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModel.getTabRemover()).thenReturn(mTabRemover);
+        mManager.transitionActiveTasksToBackground(mTabModelSelector);
+
+        @SuppressWarnings("unchecked")
+        Callback<Tab> callback = mock(Callback.class);
+        mManager.provisionBackgroundTabForTask(mProfile, 123, callback);
+
+        verify(mOffscreenRenderingManager).startOffscreenRendering(eq(mTab), anyInt(), anyInt());
+
+        ArgumentCaptor<TabObserver> captor = ArgumentCaptor.forClass(TabObserver.class);
+        verify(mTab, atLeastOnce()).addObserver(captor.capture());
+        TabObserver observer = captor.getValue();
+
+        observer.onPageLoadFinished(mTab, new GURL(TEST_URL));
+        verify(callback).onResult(mTab);
+    }
+
+    @Test
+    public void testProvisionBackgroundTabForTask_PageLoadFailed() {
+        @SuppressWarnings("unchecked")
+        Callback<Tab> callback = mock(Callback.class);
+        mManager.provisionBackgroundTabForTask(mProfile, 123, callback);
+
+        ArgumentCaptor<TabObserver> captor = ArgumentCaptor.forClass(TabObserver.class);
+        verify(mTab, atLeastOnce()).addObserver(captor.capture());
+        TabObserver observer = captor.getValue();
+
+        observer.onPageLoadFailed(mTab, -1);
+
+        verify(mOffscreenRenderingManager).stopOffscreenRendering(mTab);
+        verify(mTab).destroy();
+        verify(callback).onResult(null);
+    }
+
+    @Test
+    public void testProvisionBackgroundTabForTask_Crash() {
+        @SuppressWarnings("unchecked")
+        Callback<Tab> callback = mock(Callback.class);
+        mManager.provisionBackgroundTabForTask(mProfile, 123, callback);
+
+        ArgumentCaptor<TabObserver> captor = ArgumentCaptor.forClass(TabObserver.class);
+        verify(mTab, atLeastOnce()).addObserver(captor.capture());
+        TabObserver observer = captor.getValue();
+
+        observer.onCrash(mTab);
+
+        verify(mOffscreenRenderingManager).stopOffscreenRendering(mTab);
+        verify(mTab).destroy();
+        verify(callback).onResult(null);
     }
 }

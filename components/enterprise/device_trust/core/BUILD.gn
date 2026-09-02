@@ -1,0 +1,137 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("core") {
+  configs += [ "//components/enterprise:extra_warnings" ]
+
+  sources = [
+    "common_types.cc",
+    "device_trust_constants.cc",
+  ]
+
+  public = [
+    "common_types.h",
+    "device_trust_constants.h",
+    "device_trust_key_manager.h",
+  ]
+
+  deps = [ "//base" ]
+
+  public_deps = [
+    "//components/policy/proto",
+    "//crypto",
+  ]
+}
+
+source_set("metrics") {
+  configs += [ "//components/enterprise:extra_warnings" ]
+
+  public = [ "metrics_utils.h" ]
+  sources = [ "metrics_utils.cc" ]
+
+  public_deps = [
+    ":core",
+    "//base",
+  ]
+}
+
+source_set("device_trust_connector_service") {
+  configs += [ "//components/enterprise:extra_warnings" ]
+
+  public = [ "device_trust_connector_service.h" ]
+
+  sources = [ "device_trust_connector_service.cc" ]
+
+  deps = [
+    "//components/enterprise/device_trust",
+    "//components/url_matcher",
+    "//url",
+  ]
+
+  public_deps = [
+    ":core",
+    "//base",
+    "//components/device_signals/core/browser",
+    "//components/keyed_service/core",
+    "//components/prefs",
+  ]
+}
+
+source_set("device_trust_service") {
+  configs += [ "//components/enterprise:extra_warnings" ]
+
+  public = [ "device_trust_service.h" ]
+  sources = [ "device_trust_service.cc" ]
+
+  deps = [
+    ":device_trust_connector_service",
+    ":metrics",
+    "//components/enterprise/device_trust/core/attestation",
+    "//components/enterprise/device_trust/core/signals",
+  ]
+
+  public_deps = [
+    ":core",
+    "//base",
+    "//components/keyed_service/core",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  configs += [ "//components/enterprise:extra_warnings" ]
+
+  public = [
+    "fake_device_trust_connector_service.h",
+    "mock_device_trust_service.h",
+  ]
+
+  sources = [
+    "fake_device_trust_connector_service.cc",
+    "mock_device_trust_service.cc",
+  ]
+
+  deps = [
+    "//components/enterprise/device_trust",
+    "//components/pref_registry",
+    "//components/prefs:test_support",
+    "//components/sync_preferences:test_support",
+  ]
+
+  public_deps = [
+    ":core",
+    ":device_trust_connector_service",
+    ":device_trust_service",
+    "//base",
+    "//testing/gmock",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "common_types_unittest.cc",
+    "device_trust_connector_service_unittest.cc",
+    "device_trust_service_unittest.cc",
+  ]
+
+  deps = [
+    ":core",
+    ":device_trust_connector_service",
+    ":device_trust_service",
+    ":metrics",
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//components/enterprise/device_trust",
+    "//components/enterprise/device_trust/core/attestation:test_support",
+    "//components/enterprise/device_trust/core/attestation:unit_tests",
+    "//components/enterprise/device_trust/core/signals:test_support",
+    "//components/prefs:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//url",
+  ]
+}

@@ -47,6 +47,7 @@
 #include "third_party/blink/renderer/platform/audio/audio_bus.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
 #include "third_party/blink/renderer/platform/mojo/heap_mojo_remote.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 
 namespace blink {
@@ -191,6 +192,8 @@ base::DictValue ConvertToolErrorToDictValue(
   return dict;
 }
 
+}  // namespace
+
 // Helper class for converting types and managing async processing.
 class LanguageModelPromptBuilder
     : public GarbageCollected<LanguageModelPromptBuilder>,
@@ -257,7 +260,7 @@ class LanguageModelPromptBuilder
                       ScriptState* script_state,
                       ImageBitmap* bitmap);
 
-  SelfKeepAlive<LanguageModelPromptBuilder> keep_alive_{this};
+  SelfKeepAlive<LanguageModelPromptBuilder> keep_alive_{{}, this};
   Vector<mojom::blink::AILanguageModelPromptPtr> processed_prompts_;
 
   int processed_remaining_ = 0;
@@ -868,10 +871,10 @@ void LanguageModelPromptBuilder::OnBitmapLoaded(PendingEntry* entry,
         execution_context->AddConsoleMessage(
             mojom::blink::ConsoleMessageSource::kJavaScript,
             mojom::blink::ConsoleMessageLevel::kWarning,
-            String::Format("Image input will be stretched from %.2f:1 to a "
-                           "square aspect ratio. "
-                           "This may adversely affect AI model comprehension.",
-                           aspect_ratio));
+            Format("Image input will be stretched from {:.2f}:1 to a square "
+                   "aspect ratio. This may adversely affect AI model "
+                   "comprehension.",
+                   aspect_ratio));
       }
     }
   }
@@ -898,8 +901,6 @@ void LanguageModelPromptBuilder::OnBitmapLoaded(PendingEntry* entry,
           skia_bitmap.value()),
       entry);
 }
-
-}  // namespace
 
 void ConvertPromptInputsToMojo(
     ScriptState* script_state,

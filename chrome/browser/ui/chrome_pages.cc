@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -236,15 +237,19 @@ std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
           {ContentSettingsType::WEB_PRINTING, "webPrinting"},
           {ContentSettingsType::AUTO_PICTURE_IN_PICTURE,
            "autoPictureInPicture"},
-          {ContentSettingsType::INLINE_CUE_MENU, "inlineCueMenu"},
+          {ContentSettingsType::INLINE_CUE_MENU, "ai/inlineCueMenu"},
       });
 
   const std::string_view* override =
       base::FindOrNull(kSettingsPathOverrides, type);
-  return base::StrCat(
-      {kContentSettingsSubPage, "/",
-       override ? *override
-                : site_settings::ContentSettingsTypeToGroupName(type)});
+  if (override) {
+    if (override->find('/') != std::string_view::npos) {
+      return std::string(*override);
+    }
+    return base::StrCat({kContentSettingsSubPage, "/", *override});
+  }
+  return base::StrCat({kContentSettingsSubPage, "/",
+                       site_settings::ContentSettingsTypeToGroupName(type)});
 }
 #endif
 
@@ -312,7 +317,7 @@ BrowserWindowInterface* GetOrCreateBrowserForProfile(Profile* profile) {
   BrowserWindowInterface* browser =
       ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
   if (!browser) {
-    return Browser::Create(Browser::CreateParams(profile, true));
+    return CreateBrowserWindow(BrowserWindowCreateParams(profile, true));
   }
   return browser;
 }

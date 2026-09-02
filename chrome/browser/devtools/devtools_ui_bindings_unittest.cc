@@ -385,7 +385,7 @@ TEST_F(DevToolsUIBindingsSyncInfoTest, ImageAlwaysProvided) {
       "sync@devtools.dev", signin::ConsentLevel::kSignin);
   sync_service_->SetSignedIn(signin::ConsentLevel::kSignin, account_info);
 
-  EXPECT_TRUE(account_info.account_image.IsEmpty());
+  EXPECT_FALSE(account_info.GetAvatarImage().has_value());
 
   base::DictValue info =
       DevToolsUIBindings::GetSyncInformationForProfile(&profile_);
@@ -432,6 +432,8 @@ class DevToolsUIBindingsDispatchHttpRequestTest : public testing::Test {
             base::Unretained(this)));
 
     web_contents_ = web_contents_factory_.CreateWebContents(profile_.get());
+    content::NavigationSimulator::NavigateAndCommitFromBrowser(
+        web_contents_, GURL("devtools://devtools/bundled/devtools_app.html"));
     bindings_ = std::make_unique<DevToolsUIBindings>(web_contents_);
 
     auto registry = std::make_unique<DevToolsHttpServiceRegistry>();
@@ -826,6 +828,8 @@ class DevToolsUIBindingsDispatchHttpRequestStreamingTest
         base::Unretained(this)));
 
     web_contents_ = web_contents_factory_.CreateWebContents(profile_.get());
+    content::NavigationSimulator::NavigateAndCommitFromBrowser(
+        web_contents_, GURL("devtools://devtools/bundled/devtools_app.html"));
     test_bindings_ = std::make_unique<TestDevToolsUIBindings>(web_contents_);
 
     auto registry = std::make_unique<DevToolsHttpServiceRegistry>();
@@ -982,12 +986,19 @@ TEST_F(DevToolsUIBindingsHostConfigTest, GetHostConfigWithFeatures) {
   EXPECT_FALSE(
       initial_instrumentation_breakpoints->FindBool("enabled").value_or(true));
 
+  const base::DictValue* initial_source_map_scopes =
+      initial_config.FindDict("devToolsSourceMapScopesInSourcesPanel");
+  ASSERT_TRUE(initial_source_map_scopes);
+  EXPECT_FALSE(
+      initial_source_map_scopes->FindBool("enabled").value_or(true));
+
   // Enable features.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       {::features::kDevToolsProtocolMonitor, ::features::kDevToolsFreestyler,
        ::features::kDevToolsAiV2Architecture,
-       ::features::kDevToolsInstrumentationBreakpoints},
+       ::features::kDevToolsInstrumentationBreakpoints,
+       ::features::kDevToolsSourceMapScopesInSourcesPanel},
       {});
 
   // Verify state of features after enabling them.
@@ -1013,6 +1024,11 @@ TEST_F(DevToolsUIBindingsHostConfigTest, GetHostConfigWithFeatures) {
   ASSERT_TRUE(instrumentation_breakpoints);
   EXPECT_TRUE(
       instrumentation_breakpoints->FindBool("enabled").value_or(false));
+
+  const base::DictValue* source_map_scopes =
+      result.FindDict("devToolsSourceMapScopesInSourcesPanel");
+  ASSERT_TRUE(source_map_scopes);
+  EXPECT_TRUE(source_map_scopes->FindBool("enabled").value_or(false));
 }
 
 TEST_F(DevToolsUIBindingsHostConfigTest, GetHostConfigGdpProfiles) {

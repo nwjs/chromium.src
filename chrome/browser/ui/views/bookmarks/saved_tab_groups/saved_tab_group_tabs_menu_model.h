@@ -19,7 +19,7 @@
 #include "ui/menus/simple_menu_model.h"
 #include "url/gurl.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace favicon_base {
 struct FaviconImageResult;
@@ -33,16 +33,16 @@ class STGTabsMenuModel : public ui::SimpleMenuModel,
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kDeleteGroupMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kLeaveGroupMenuItem);
-  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kConvertToBookmarkMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kMoveGroupToNewWindowMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kOpenGroup);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kToggleGroupPinStateMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTabsTitleItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kTab);
 
-  explicit STGTabsMenuModel(Browser* browser, TabGroupMenuContext menu_context);
+  explicit STGTabsMenuModel(BrowserWindowInterface* browser,
+                            TabGroupMenuContext menu_context);
   STGTabsMenuModel(ui::SimpleMenuModel::Delegate* delegate,
-                   Browser* browser,
+                   BrowserWindowInterface* browser,
                    TabGroupMenuContext menu_context);
 
   STGTabsMenuModel(const STGTabsMenuModel&) = delete;
@@ -68,7 +68,7 @@ class STGTabsMenuModel : public ui::SimpleMenuModel,
       int command_id,
       const favicon_base::FaviconImageResult& image_result);
 
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
   base::CancelableTaskTracker cancelable_task_tracker_;
   bool should_enable_move_menu_item_;
   bool should_enable_open_menu_item_;

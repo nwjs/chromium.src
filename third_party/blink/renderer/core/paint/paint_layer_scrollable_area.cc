@@ -312,7 +312,34 @@ static int CornerStart(const LayoutBox& box,
 gfx::Rect PaintLayerScrollableArea::CornerRect() const {
   int horizontal_thickness;
   int vertical_thickness;
-  if (!VerticalScrollbar() && !HorizontalScrollbar()) {
+
+  // If there is a custom scrollbar in either direction, then it will be a
+  // non-overlay scrollbar and shouldn't have a fixed sized resizer.
+  bool has_custom_scrollbar =
+      (VerticalScrollbar() && VerticalScrollbar()->IsCustomScrollbar()) ||
+      (HorizontalScrollbar() && HorizontalScrollbar()->IsCustomScrollbar());
+
+  // We should use a fixed size for the corner if there is a resizer with no
+  // non-overlay scrollbars in order to make sure that it is big enough for the
+  // user to click or touch. We should not use a fixed size when there are
+  // non-overlay scrollbars so that the resizer matches the size of the
+  // scrollbar.
+  bool use_fixed_size =
+      RuntimeEnabledFeatures::TextAreaResizerFixedSizeEnabled() &&
+      GetPageScrollbarTheme().UsesOverlayScrollbars() &&
+      GetLayoutBox()->CanResize() && !has_custom_scrollbar &&
+      // Custom resizers are excluded
+      !Resizer();
+
+  if (use_fixed_size) {
+    // 15 DIP is a reasonable size for pointer hit testing, and becomes 30 DIP
+    // for touch. It is also large enough to contain the 7x7 resizer with 2px
+    // spacing.
+    const float kFixedCornerSizeDIP = 15.0f;
+    int thickness = std::round(kFixedCornerSizeDIP * ScaleFromDIP());
+    horizontal_thickness = thickness;
+    vertical_thickness = thickness;
+  } else if (!VerticalScrollbar() && !HorizontalScrollbar()) {
     // We need to know the thickness of custom scrollbars even when they don't
     // exist in order to set the resizer square size properly.
     horizontal_thickness = GetPageScrollbarTheme().ScrollbarThickness(
@@ -325,6 +352,7 @@ gfx::Rect PaintLayerScrollableArea::CornerRect() const {
     vertical_thickness = HorizontalScrollbar()->ScrollbarThickness();
     horizontal_thickness = vertical_thickness;
   } else {
+    DCHECK(VerticalScrollbar() && HorizontalScrollbar());
     horizontal_thickness = VerticalScrollbar()->ScrollbarThickness();
     vertical_thickness = HorizontalScrollbar()->ScrollbarThickness();
   }
@@ -354,33 +382,6 @@ gfx::Rect PaintLayerScrollableArea::ScrollCornerRect() const {
 
 void PaintLayerScrollableArea::SetScrollCornerNeedsPaintInvalidation() {
   ScrollableArea::SetScrollCornerNeedsPaintInvalidation();
-}
-
-gfx::Rect
-PaintLayerScrollableArea::ConvertFromScrollbarToContainingEmbeddedContentView(
-    const Scrollbar& scrollbar,
-    const gfx::Rect& scrollbar_rect) const {
-  LayoutView* view = GetLayoutBox()->View();
-  if (!view)
-    return scrollbar_rect;
-
-  gfx::Rect rect = scrollbar_rect;
-  rect.Offset(ScrollbarOffset(scrollbar));
-  return ToPixelSnappedRect(
-      GetLayoutBox()->LocalToAbsoluteRect(PhysicalRect(rect)));
-}
-
-gfx::Point
-PaintLayerScrollableArea::ConvertFromScrollbarToContainingEmbeddedContentView(
-    const Scrollbar& scrollbar,
-    const gfx::Point& scrollbar_point) const {
-  LayoutView* view = GetLayoutBox()->View();
-  if (!view)
-    return scrollbar_point;
-
-  gfx::Point point = scrollbar_point + ScrollbarOffset(scrollbar);
-  return ToRoundedPoint(
-      GetLayoutBox()->LocalToAbsolutePoint(PhysicalOffset(point)));
 }
 
 gfx::Point
@@ -2068,12 +2069,12 @@ void PaintLayerScrollableArea::UpdateFocusDataForSnapAreas() {
   }
 
   for (auto& fragment : layout_box->PhysicalFragments()) {
-    if (auto* snap_areas = fragment.SnapAreas()) {
-      for (Element* snap_area : *snap_areas) {
+    for (const auto& item : fragment.SnapAreas()) {
+      if (auto* element = item.GetElementIfConsumed()) {
         cc::ElementId element_id =
-            CompositorElementIdFromDOMNodeId(snap_area->GetDomNodeId());
+            CompositorElementIdFromDOMNodeId(element->GetDomNodeId());
         container_data->UpdateSnapAreaFocus(id_to_index.at(element_id),
-                                            snap_area->HasFocusWithin());
+                                            element->HasFocusWithin());
       }
     }
   }
@@ -2216,13 +2217,13 @@ void PaintLayerScrollableArea::UpdateScrollCornerStyle() {
       style_source.StyleRef().UsesStandardScrollbarStyle();
   const ComputedStyle* corner =
       (GetLayoutBox()->IsScrollContainer() && !uses_standard_scrollbar_style)
-          ? style_source.GetUncachedPseudoElementStyle(
-                StyleRequest(kPseudoIdScrollbarCorner, style_source.Style()))
+          ? style_source.GetUncachedPseudoElementStyle(StyleRequest(
+                kPseudoIdScrollbarCorner, &style_source.StyleRef()))
           : nullptr;
   if (corner) {
     if (!scroll_corner_) {
       scroll_corner_ = LayoutCustomScrollbarPart::CreateAnonymous(
-          &GetLayoutBox()->GetDocument(), this);
+          GetLayoutBox()->GetDocument(), this);
     }
     scroll_corner_->SetStyle(std::move(corner));
   } else if (scroll_corner_) {
@@ -2342,12 +2343,12 @@ void PaintLayerScrollableArea::UpdateResizerStyle(
   const ComputedStyle* resizer =
       GetLayoutBox()->IsScrollContainer()
           ? style_source.GetUncachedPseudoElementStyle(
-                StyleRequest(kPseudoIdResizer, style_source.Style()))
+                StyleRequest(kPseudoIdResizer, &style_source.StyleRef()))
           : nullptr;
   if (resizer) {
     if (!resizer_) {
       resizer_ = LayoutCustomScrollbarPart::CreateAnonymous(
-          &GetLayoutBox()->GetDocument(), this);
+          GetLayoutBox()->GetDocument(), this);
     }
     resizer_->SetStyle(std::move(resizer));
   } else if (resizer_) {
@@ -2371,7 +2372,7 @@ void PaintLayerScrollableArea::EnqueueForSnapUpdateIfNeeded() {
     // Enqueue ourselves for a snap update if we have any snap-areas, or if we
     // currently have snap-data (and it needs to be cleared).
     for (const auto& fragment : box->PhysicalFragments()) {
-      if (fragment.SnapAreas() || GetSnapContainerData()) {
+      if (!fragment.SnapAreas().empty() || GetSnapContainerData()) {
         box->GetFrameView()->AddPendingSnapUpdate(this);
         break;
       }
@@ -2553,8 +2554,8 @@ PhysicalRect PaintLayerScrollableArea::ScrollIntoView(
   // details
   const MapCoordinatesFlags flag =
       (RuntimeEnabledFeatures::CSSPositionStickyStaticScrollPositionEnabled())
-          ? kIgnoreStickyOffset
-          : 0;
+          ? MapCoordinatesFlags{MapCoordinatesMode::kIgnoreStickyOffset}
+          : MapCoordinatesFlags{};
 
   PhysicalRect local_expose_rect =
       GetLayoutBox()->AbsoluteToLocalRect(absolute_rect);
@@ -2756,9 +2757,8 @@ bool PaintLayerScrollableArea::ShouldScrollOnMainThread() const {
     if (const auto* properties =
             GetLayoutBox()->FirstFragment().PaintProperties()) {
       if (const auto* scroll = properties->Scroll()) {
-        return paint_artifact_compositor->GetMainThreadRepaintReasons(
-                   *scroll) !=
-               cc::MainThreadScrollingReason::kNotScrollingOnMain;
+        return !paint_artifact_compositor->GetMainThreadRepaintReasons(*scroll)
+                    .empty();
       }
     }
   }
@@ -3523,7 +3523,7 @@ Node* PaintLayerScrollableArea::GetSnapTargetAlongAxis(
   using cc::SnapAxis::kInline;
   using cc::SnapAxis::kX;
   using cc::SnapAxis::kY;
-  if (!GetLayoutBox() || !GetLayoutBox()->Style()) {
+  if (!GetLayoutBox()) {
     return nullptr;
   }
   bool horiz = GetLayoutBox()->StyleRef().GetWritingDirection().IsHorizontal();

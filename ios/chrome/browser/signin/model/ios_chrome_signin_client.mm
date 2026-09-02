@@ -49,7 +49,15 @@ class IOSChromeOAuthConsumerRegistry : public signin::OAuthConsumerRegistry {
     NOTREACHED();
   }
 
+  signin::OAuthConsumer GetOAuthConsumerForDrivePickerHost() const override {
+    NOTREACHED();
+  }
+
   signin::OAuthConsumer GetOAuthConsumerForBrowserActuator() const override {
+    NOTREACHED();
+  }
+
+  signin::OAuthConsumer GetOAuthConsumerForSiteTokenProvider() const override {
     NOTREACHED();
   }
 };

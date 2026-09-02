@@ -51,12 +51,6 @@ CONTENT_EXPORT extern const base::FeatureParam<int>
 CONTENT_EXPORT extern const base::FeatureParam<int>
     kPrerender2NoVarySearchWaitForHeadersTimeoutForEmbedders;
 
-// If enabled, suppresses prerendering on slow network.
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kSuppressesPrerenderingOnSlowNetwork);
-
-CONTENT_EXPORT extern const base::FeatureParam<base::TimeDelta>
-    kSuppressesPrerenderingOnSlowNetworkThreshold;
-
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kPrerender2DisallowNonTrustworthyHttp);
 
 // If enabled, requests the compositor warm-up (crbug.com/41496019) for
@@ -77,6 +71,9 @@ CONTENT_EXPORT extern const base::FeatureParam<std::string>
     kPrerender2ReuseInitiatorProcessEagerness;
 CONTENT_EXPORT extern const base::FeatureParam<int>
     kPrerender2ReuseInitiatorProcessMaxReuseCount;
+
+CONTENT_EXPORT extern const base::FeatureParam<bool>
+    kPrerender2CrossOriginIframesNesting;
 
 CONTENT_EXPORT bool UsePrefetchPrerenderIntegration();
 }  // namespace features

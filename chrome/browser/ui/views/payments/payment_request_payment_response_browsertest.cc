@@ -4,18 +4,29 @@
 
 #include <vector>
 
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/views/payments/payment_request_browsertest_base.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view_ids.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
+#include "components/payments/core/features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 
 namespace payments {
 
+class PaymentRequestPaymentResponseTest : public PaymentRequestBrowserTestBase {
+ protected:
+  PaymentRequestPaymentResponseTest() { SetBypassUserInteractionForTesting(); }
+
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      features::kPaymentRequestMandatoryPaymentAppUi};
+};
+
 using PaymentRequestPaymentResponseShippingAddressTest =
-    PaymentRequestBrowserTestBase;
+    PaymentRequestPaymentResponseTest;
 
 // Tests that the PaymentResponse contains all the required fields for a
 // shipping address and shipping option.
@@ -41,7 +52,7 @@ IN_PROC_BROWSER_TEST_F(PaymentRequestPaymentResponseShippingAddressTest,
   InvokePaymentRequestUIWithJs("buyWithMethods([{supportedMethods:'" +
                                payment_method_name + "'}]);");
   ResetEventWaiterForSequence(
-      {DialogEvent::PROCESSING_SPINNER_SHOWN, DialogEvent::DIALOG_CLOSED});
+      {DialogEvent::LOADING_VIEW_SHOWN, DialogEvent::DIALOG_CLOSED});
   ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON, dialog_view());
   ASSERT_TRUE(WaitForObservedEvent());
 
@@ -58,7 +69,7 @@ IN_PROC_BROWSER_TEST_F(PaymentRequestPaymentResponseShippingAddressTest,
 }
 
 using PaymentRequestPaymentResponseAllContactDetailsTest =
-    PaymentRequestBrowserTestBase;
+    PaymentRequestPaymentResponseTest;
 
 // Tests that the PaymentResponse contains all the required fields for contact
 // details when all three details are requested.
@@ -76,7 +87,7 @@ IN_PROC_BROWSER_TEST_F(PaymentRequestPaymentResponseAllContactDetailsTest,
   InvokePaymentRequestUIWithJs("buyWithMethods([{supportedMethods:'" +
                                payment_method_name + "'}]);");
   ResetEventWaiterForSequence(
-      {DialogEvent::PROCESSING_SPINNER_SHOWN, DialogEvent::DIALOG_CLOSED});
+      {DialogEvent::LOADING_VIEW_SHOWN, DialogEvent::DIALOG_CLOSED});
   ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON, dialog_view());
   ASSERT_TRUE(WaitForObservedEvent());
 
@@ -93,11 +104,9 @@ IN_PROC_BROWSER_TEST_F(
     RetryWithPayerErrors_HasSameValueButDifferentErrorsShown) {
   // Installs two apps so that the Payment Request UI will be shown.
   std::string a_method_name;
-  InstallPaymentApp("a.com", "/payment_request_success_responder.js",
-                    &a_method_name);
+  InstallPaymentApp("a.com", "/payment_handler_sw.js", &a_method_name);
   std::string b_method_name;
-  InstallPaymentApp("b.com", "/payment_request_success_responder.js",
-                    &b_method_name);
+  InstallPaymentApp("b.com", "/payment_handler_sw.js", &b_method_name);
 
   NavigateTo("/payment_request_retry_with_payer_errors.html");
 
@@ -116,7 +125,10 @@ IN_PROC_BROWSER_TEST_F(
 
   // Click on pay.
   EXPECT_TRUE(IsPayButtonEnabled());
-  ResetEventWaiterForSequence({DialogEvent::PROCESSING_SPINNER_SHOWN});
+  ResetEventWaiterForSequence({DialogEvent::LOADING_VIEW_SHOWN,
+                               DialogEvent::PAYMENT_HANDLER_WINDOW_OPENED,
+                               DialogEvent::LOADING_VIEW_HIDDEN,
+                               DialogEvent::PAYMENT_HANDLER_TITLE_SET});
   ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON, dialog_view());
 
   ASSERT_TRUE(
@@ -125,26 +137,33 @@ IN_PROC_BROWSER_TEST_F(
                       "\"payerEmail\": \"johndoe@hades.com\"",
                       "\"payerPhone\": \"+16502111111\""});
 
-  ResetEventWaiterForSequence({DialogEvent::PROCESSING_SPINNER_HIDDEN,
-                               DialogEvent::SPEC_DONE_UPDATING,
-                               DialogEvent::PROCESSING_SPINNER_HIDDEN,
-                               DialogEvent::BACK_TO_PAYMENT_SHEET_NAVIGATION});
-  ASSERT_TRUE(content::ExecJs(GetActiveWebContents(), "retry({});"));
+  RetryPaymentRequest("{}", dialog_view());
 
-  // Select "contact2" profile
+  // Select "contact2" profile.
   OpenContactInfoScreen();
   views::View* list_view = dialog_view()->GetViewByID(
       static_cast<int>(DialogViewID::CONTACT_INFO_SHEET_LIST_VIEW));
   DCHECK(list_view);
+  ResetEventWaiter(DialogEvent::BACK_NAVIGATION);
   ClickOnDialogViewAndWait(list_view->children()[1]);
 
+  // Click on pay again to complete the retried payment.
+  EXPECT_TRUE(IsPayButtonEnabled());
+  ResetEventWaiterForSequence({DialogEvent::LOADING_VIEW_SHOWN,
+                               DialogEvent::PAYMENT_HANDLER_WINDOW_OPENED,
+                               DialogEvent::LOADING_VIEW_HIDDEN,
+                               DialogEvent::PAYMENT_HANDLER_TITLE_SET});
+  ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON, dialog_view());
+
+  ASSERT_TRUE(
+      content::ExecJs(GetActiveWebContents(), "processRetryResponse();"));
   ExpectBodyContains({"\"payerName\": \"Jane A. Smith\"",
                       "\"payerEmail\": \"jsmith@example.com\"",
                       "\"payerPhone\": \"+13105557889\""});
 }
 
 using PaymentRequestPaymentResponseOneContactDetailTest =
-    PaymentRequestBrowserTestBase;
+    PaymentRequestPaymentResponseTest;
 
 // Tests that the PaymentResponse contains all the required fields for contact
 // details when all ont detail is requested.
@@ -162,7 +181,7 @@ IN_PROC_BROWSER_TEST_F(PaymentRequestPaymentResponseOneContactDetailTest,
   InvokePaymentRequestUIWithJs("buyWithMethods([{supportedMethods:'" +
                                payment_method_name + "'}]);");
   ResetEventWaiterForSequence(
-      {DialogEvent::PROCESSING_SPINNER_SHOWN, DialogEvent::DIALOG_CLOSED});
+      {DialogEvent::LOADING_VIEW_SHOWN, DialogEvent::DIALOG_CLOSED});
   ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON, dialog_view());
   ASSERT_TRUE(WaitForObservedEvent());
 

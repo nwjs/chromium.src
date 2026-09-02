@@ -6,6 +6,8 @@ import("//chrome/common/features.gni")
 
 source_set("actor") {
   sources = [
+    "chrome_page_stability_monitor_delegate.cc",
+    "chrome_page_stability_monitor_delegate.h",
     "click_dispatcher.cc",
     "click_dispatcher.h",
     "click_tool.cc",
@@ -20,10 +22,6 @@ source_set("actor") {
     "mouse_move_tool.h",
     "no_op_tool.cc",
     "no_op_tool.h",
-    "page_stability_metrics.cc",
-    "page_stability_metrics.h",
-    "page_stability_monitor_delegate.cc",
-    "page_stability_monitor_delegate.h",
     "script_tool.cc",
     "script_tool.h",
     "scroll_tool.cc",
@@ -48,7 +46,7 @@ source_set("actor") {
 
   deps = [
     "//chrome/common",
-    "//components/actor/core:journal",
+    "//components/actor/core",
     "//components/actor/core:logging",
     "//components/page_content_annotations/content/renderer",
     "//components/page_content_annotations/core",

@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/containers/to_vector.h"
 #include "components/cbor/reader.h"
 #include "device/fido/ctap_get_assertion_request.h"
 #include "device/fido/ctap_make_credential_request.h"
 #include "device/fido/ctap_request_common.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_test_data.h"
 #include "device/fido/mock_fido_device.h"
 #include "device/fido/public/fido_constants.h"
@@ -26,8 +26,7 @@ TEST(CTAPRequestTest, TestConstructMakeCredentialRequestParam) {
   PublicKeyCredentialRpEntity rp("acme.com");
   rp.name = "Acme";
 
-  PublicKeyCredentialUserEntity user(
-      fido_parsing_utils::Materialize(test_data::kUserId));
+  PublicKeyCredentialUserEntity user(base::ToVector(test_data::kUserId));
   user.name = "johnpsmith@example.com";
   user.display_name = "John P. Smith";
 
@@ -202,8 +201,7 @@ TEST(CTAPRequestTest, ParseHMACSecret) {
 
     PublicKeyCredentialRpEntity rp("acme.com");
     rp.name = "Acme";
-    PublicKeyCredentialUserEntity user(
-        fido_parsing_utils::Materialize(test_data::kUserId));
+    PublicKeyCredentialUserEntity user(base::ToVector(test_data::kUserId));
     user.name = "johnpsmith@example.com";
     user.display_name = "John P. Smith";
     CtapMakeCredentialRequest make_credential_request(

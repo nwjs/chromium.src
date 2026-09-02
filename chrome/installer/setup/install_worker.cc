@@ -53,6 +53,7 @@
 #include "chrome/installer/setup/setup_constants.h"
 #include "chrome/installer/setup/setup_util.h"
 #include "chrome/installer/setup/update_active_setup_version_work_item.h"
+#include "chrome/installer/setup/wof_compression.h"
 #include "chrome/installer/util/app_command.h"
 #include "chrome/installer/util/callback_work_item.h"
 #include "chrome/installer/util/conditional_work_item.h"
@@ -290,20 +291,24 @@ void AddChromeWorkItems(const InstallParams& install_params,
     delete_old_archive_work_item->set_rollback_enabled(false);
   }
 
-  // Move the version directory into place. Note that we pass true for
-  // check_duplicates to avoid failing on in-use repair runs if the
-  // current_version is the same as the new_version.
+  // Move the version directory into place. Unconditionally check for duplicates
+  // to avoid failing on in-use repair runs or overinstall retries if the
+  // version directory already exists.
   const base::FilePath target_version_dir =
       target_path.AppendASCII(new_version.GetString());
-  bool check_for_duplicates =
-      (current_version.IsValid() && current_version == new_version);
   // Allow items in `src_path` to be left behind. It is in a temporary directory
   // that will eventually be cleaned up.
   install_list->AddMoveTreeWorkItem(
       src_path.AppendASCII(new_version.GetString()), target_version_dir,
       temp_path,
-      WorkItem::MoveTreeOptions{.check_for_duplicates = check_for_duplicates,
+      WorkItem::MoveTreeOptions{.check_for_duplicates = true,
                                 .lenient_deletion = true});
+
+  // Compress the locale packs now that they are in their final location.
+  // Copying a WOF compressed file expands it, and the move above falls back to
+  // a copy when the destination is on another volume or the move loses a race,
+  // so this cannot be done any earlier.
+  AddWofCompressionWorkItems(target_version_dir, install_list);
 
   // Copy installer in install directory.
   AddInstallerCopyTasks(install_params, install_list);

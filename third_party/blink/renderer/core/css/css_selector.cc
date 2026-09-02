@@ -34,7 +34,6 @@
 #include "base/containers/span.h"
 #include "base/strings/string_view_util.h"
 #include "style_rule.h"
-#include "third_party/blink/renderer/core/css/active_navigation_condition.h"
 #include "third_party/blink/renderer/core/css/css_markup.h"
 #include "third_party/blink/renderer/core/css/css_selector_list.h"
 #include "third_party/blink/renderer/core/css/navigation_query.h"
@@ -424,9 +423,10 @@ PseudoId CSSSelector::GetPseudoId(PseudoType type) {
       return kPseudoIdOverscrollAreaParent;
     case kPseudoOverscrollBackdrop:
       return kPseudoIdOverscrollBackdrop;
+    case kPseudoSkeleton:
+      return kPseudoIdSkeleton;
     case kPseudoAnimatedImage:
     case kPseudoActive:
-    case kPseudoActiveNavigation:
     case kPseudoActiveOption:
     case kPseudoActiveViewTransition:
     case kPseudoActiveViewTransitionType:
@@ -727,6 +727,7 @@ constexpr static NameToPseudoStruct kPseudoTypeWithoutArgumentsMap[] = {
     {"select-listbox", CSSSelector::kPseudoSelectListbox},
     {"selection", CSSSelector::kPseudoSelection},
     {"single-button", CSSSelector::kPseudoSingleButton},
+    {"skeleton", CSSSelector::kPseudoSkeleton},
     {"spelling-error", CSSSelector::kPseudoSpellingError},
     {"stalled", CSSSelector::kPseudoStalled},
     {"start", CSSSelector::kPseudoStart},
@@ -753,7 +754,6 @@ constexpr static NameToPseudoStruct kPseudoTypeWithArgumentsMap[] = {
     {"-internal-overscroll-area-parent",
      CSSSelector::kPseudoOverscrollAreaParent},
     {"-webkit-any", CSSSelector::kPseudoAny},
-    {"active-navigation", CSSSelector::kPseudoActiveNavigation},
     {"active-view-transition-type",
      CSSSelector::kPseudoActiveViewTransitionType},
     {"cue", CSSSelector::kPseudoCue},
@@ -922,7 +922,12 @@ CSSSelector::PseudoType CSSSelector::NameToPseudoType(
   }
 
   if (match->type == CSSSelector::kPseudoNavSource &&
-      !RuntimeEnabledFeatures::RouteMatchingEnabled()) {
+      !RuntimeEnabledFeatures::NavigationStateEnabled()) {
+    return CSSSelector::kPseudoUnknown;
+  }
+
+  if (match->type == CSSSelector::kPseudoSkeleton &&
+      !RuntimeEnabledFeatures::DeclarativeSkeletonsEnabled()) {
     return CSSSelector::kPseudoUnknown;
   }
 
@@ -1054,6 +1059,11 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
         bits_.set<PseudoTypeField>(kPseudoUnknown);
       }
       break;
+    case kPseudoSkeleton:
+      if (Match() != kPseudoElement) {
+        bits_.set<PseudoTypeField>(kPseudoUnknown);
+      }
+      break;
     case kPseudoHasDatalist:
     case kPseudoHasOpenMenuitem:
     case kPseudoHostHasNonAutoAppearance:
@@ -1071,7 +1081,6 @@ void CSSSelector::UpdatePseudoType(const AtomicString& value,
       [[fallthrough]];
     // For pseudo-classes
     case kPseudoActive:
-    case kPseudoActiveNavigation:
     case kPseudoActiveOption:
     case kPseudoActiveViewTransition:
     case kPseudoActiveViewTransitionType:
@@ -1264,9 +1273,11 @@ template <bool expand_pseudo_references>
 void CSSSelector::SerializeSelectorList(const CSSSelectorList* selector_list,
                                         StringBuilder& builder,
                                         uintptr_t scope_id) {
-  const CSSSelector* first_sub_selector = selector_list->First();
+  const CSSSelector* first_sub_selector =
+      selector_list->FirstIncludingUnparsedInvalid();
   for (const CSSSelector* sub_selector = first_sub_selector; sub_selector;
-       sub_selector = CSSSelectorList::Next(*sub_selector)) {
+       sub_selector =
+           CSSSelectorList::NextIncludingUnparsedInvalid(*sub_selector)) {
     if (sub_selector != first_sub_selector) {
       builder.Append(", ");
     }
@@ -1301,6 +1312,8 @@ void CSSSelector::SerializeSimpleSelector(StringBuilder& builder,
   } else if (Match() == kClass) {
     builder.Append('.');
     SerializeIdentifier(SerializingValue(), builder);
+  } else if (Match() == kInvalidList && IsUnparsedInvalid()) {
+    builder.Append(Value());
   } else if (Match() == kPseudoClass || Match() == kPagePseudoClass) {
     if (GetPseudoType() == kPseudoUnparsed) {
       builder.Append(Value());
@@ -1404,16 +1417,9 @@ void CSSSelector::SerializeSimpleSelector(StringBuilder& builder,
         break;
       }
       case kPseudoLinkTo: {
-        DCHECK(GetRouteLocation());
+        DCHECK(GetNavigationLocation());
         builder.Append("(");
-        GetRouteLocation()->SerializeTo(builder);
-        builder.Append(")");
-        break;
-      }
-      case kPseudoActiveNavigation: {
-        DCHECK(GetActiveNavigationCondition());
-        builder.Append("(");
-        GetActiveNavigationCondition()->SerializeTo(builder);
+        GetNavigationLocation()->SerializeTo(builder);
         builder.Append(")");
         break;
       }
@@ -1627,15 +1633,9 @@ void CSSSelector::SetSelectorList(CSSSelectorList* selector_list) {
   data_.rare_data_->selector_list_ = selector_list;
 }
 
-void CSSSelector::SetRouteLocation(RouteLocation* location) {
+void CSSSelector::SetNavigationLocation(NavigationLocation* location) {
   CreateRareData();
-  data_.rare_data_->route_location_ = location;
-}
-
-void CSSSelector::SetActiveNavigationCondition(
-    ActiveNavigationCondition* condition) {
-  CreateRareData();
-  data_.rare_data_->active_navigation_condition_ = condition;
+  data_.rare_data_->navigation_location_ = location;
 }
 
 void CSSSelector::SetContainsPseudoInsideHasPseudoClass() {
@@ -1802,6 +1802,7 @@ bool CSSSelector::IsTreeAbidingPseudoElement() const {
           GetPseudoType() == kPseudoViewTransitionOld ||
           GetPseudoType() == kPseudoViewTransitionNew ||
           GetPseudoType() == kPseudoOverscrollAreaParent ||
+          GetPseudoType() == kPseudoSkeleton ||
           IsElementBackedPseudoElement(GetPseudoType()));
 }
 
@@ -1870,6 +1871,7 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoViewTransitionNew:
     case kPseudoViewTransitionOld:
     case kPseudoOverscrollAreaParent:
+    case kPseudoSkeleton:
       return true;
 
     // It's possible that we should support ::slotted() after ::part().
@@ -1892,7 +1894,6 @@ bool CSSSelector::IsAllowedAfterPart() const {
     case kPseudoAutofillSelected:
     case kPseudoWebKitAutofill:
     case kPseudoActive:
-    case kPseudoActiveNavigation:
     case kPseudoActiveOption:
     case kPseudoActiveViewTransition:
     case kPseudoActiveViewTransitionType:
@@ -2144,30 +2145,7 @@ CSSSelector::RareData::~RareData() = default;
 
 // a helper function for checking nth-arguments
 bool CSSSelector::RareData::MatchNth(unsigned unsigned_count) {
-  // These very large values for aN + B or count can't ever match, so
-  // give up immediately if we see them.
-  int max_value = std::numeric_limits<int>::max() / 2;
-  int min_value = std::numeric_limits<int>::min() / 2;
-  if (unsigned_count > static_cast<unsigned>(max_value) ||
-      NthAValue() > max_value || NthAValue() < min_value ||
-      NthBValue() > max_value || NthBValue() < min_value) [[unlikely]] {
-    return false;
-  }
-
-  int count = static_cast<int>(unsigned_count);
-  if (!NthAValue()) {
-    return count == NthBValue();
-  }
-  if (NthAValue() > 0) {
-    if (count < NthBValue()) {
-      return false;
-    }
-    return (count - NthBValue()) % NthAValue() == 0;
-  }
-  if (count > NthBValue()) {
-    return false;
-  }
-  return (NthBValue() - count) % (-NthAValue()) == 0;
+  return CSSSelector::MatchNth(NthAValue(), NthBValue(), unsigned_count);
 }
 
 CSSSelector::RareData* CSSSelector::RareData::Renest(StyleRule* new_parent) {
@@ -2197,8 +2175,7 @@ void CSSSelector::Trace(Visitor* visitor) const {
 
 void CSSSelector::RareData::Trace(Visitor* visitor) const {
   visitor->Trace(selector_list_);
-  visitor->Trace(route_location_);
-  visitor->Trace(active_navigation_condition_);
+  visitor->Trace(navigation_location_);
 }
 
 const CSSSelector* CSSSelector::SelectorListOrParent() const {
@@ -2255,7 +2232,6 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
   switch (type) {
     case CSSSelector::kPseudoAnimatedImage:
     case CSSSelector::kPseudoActive:
-    case CSSSelector::kPseudoActiveNavigation:
     case CSSSelector::kPseudoActiveOption:
     case CSSSelector::kPseudoActiveViewTransition:
     case CSSSelector::kPseudoActiveViewTransitionType:
@@ -2267,6 +2243,7 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
     case CSSSelector::kPseudoChecked:
     case CSSSelector::kPseudoDefault:
     case CSSSelector::kPseudoDefined:
+    case CSSSelector::kPseudoDialogInTopLayer:
     case CSSSelector::kPseudoDir:
     case CSSSelector::kPseudoDisabled:
     case CSSSelector::kPseudoDrag:
@@ -2315,6 +2292,7 @@ bool CSSSelector::SupportsPseudoStateChange(PseudoType type) {
     case CSSSelector::kPseudoPictureInPicture:
     case CSSSelector::kPseudoPlaceholderShown:
     case CSSSelector::kPseudoPlaying:
+    case CSSSelector::kPseudoPopoverInTopLayer:
     case CSSSelector::kPseudoPopoverOpen:
     case CSSSelector::kPseudoReadOnly:
     case CSSSelector::kPseudoReadWrite:

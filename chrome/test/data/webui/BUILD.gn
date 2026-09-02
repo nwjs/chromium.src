@@ -69,6 +69,7 @@ source_set("browser_tests") {
       "bookmarks/bookmarks_browsertest.cc",
       "chrome_apis/chrome_histograms_browsertest.cc",
       "chrome_apis/chrome_timeticks_browsertest.cc",
+      "content_settings/content_settings_browsertest.cc",
       "css/css_browsertest.cc",
       "data_sharing/data_sharing_browsertest.cc",
       "device_log/device_log_ui_browsertest.cc",
@@ -99,9 +100,9 @@ source_set("browser_tests") {
       "omnibox_everywhere/omnibox_everywhere_browsertest.cc",
       "omnibox_popup/omnibox_popup_browsertest.cc",
       "optimization_guide_internals/optimization_guide_internals_browsertest.cc",
+      "organizer_panel/organizer_panel_browsertest.cc",
       "password_manager/password_manager_browsertest.cc",
       "password_manager_internals/password_manager_internals_browsertest.cc",
-      "personal_context_notice/personal_context_notice_browsertest.cc",
       "sandbox/sandbox_browsertest.cc",
       "settings/settings_browsertest.cc",
       "side_panel/commerce/commerce_browsertest.cc",
@@ -219,7 +220,6 @@ source_set("browser_tests") {
       "chromeos/personalization_app/personalization_app_sea_pen_browsertest.cc",
       "chromeos/print_management/print_management_browsertest.cc",
       "chromeos/print_preview/print_preview_browsertest.cc",
-      "chromeos/print_preview_cros/print_preview_cros_browsertest.cc",
       "chromeos/sanitize_ui/sanitize_ui_browsertest.cc",
       "chromeos/scanning/scanning_app_browsertest.cc",
       "chromeos/set_time_dialog/set_time_dialog_browsertest.cc",
@@ -478,13 +478,6 @@ source_set("interactive_ui_tests") {
   }
 }
 
-if (is_chromeos) {
-  group("closure_compile") {
-    testonly = true
-    deps = [ "chromeos:closure_compile" ]
-  }
-}
-
 grit("resources") {
   testonly = true
   defines = chrome_grit_defines
@@ -641,6 +634,7 @@ generate_grd("build_grd") {
       "actor_overlay:build_grdp",
       "bookmarks:build_grdp",
       "chrome_apis:build_grdp",
+      "content_settings:build_grdp",
       "cr_components/cr_shortcut_input:build_grdp",
       "cr_components/help_bubble:build_grdp",
       "cr_components/history_clusters:build_grdp",
@@ -676,9 +670,9 @@ generate_grd("build_grd") {
       "omnibox_everywhere:build_grdp",
       "omnibox_popup:build_grdp",
       "optimization_guide_internals:build_grdp",
+      "organizer_panel:build_grdp",
       "password_manager:build_grdp",
       "password_manager_internals:build_grdp",
-      "personal_context_notice:build_grdp",
       "sandbox:build_grdp",
       "settings:build_grdp",
       #"side_panel:build_grdp",
@@ -702,6 +696,7 @@ generate_grd("build_grd") {
 
       "$target_gen_dir/webview/resources.grdp",
       "$target_gen_dir/bookmarks/resources.grdp",
+      "$target_gen_dir/content_settings/resources.grdp",
       "$target_gen_dir/cr_components/cr_shortcut_input/resources.grdp",
       "$target_gen_dir/cr_components/help_bubble/resources.grdp",
       "$target_gen_dir/cr_components/history_clusters/resources.grdp",
@@ -737,9 +732,9 @@ generate_grd("build_grd") {
       "$target_gen_dir/omnibox_everywhere/resources.grdp",
       "$target_gen_dir/omnibox_popup/resources.grdp",
       "$target_gen_dir/optimization_guide_internals/resources.grdp",
+      "$target_gen_dir/organizer_panel/resources.grdp",
       "$target_gen_dir/password_manager/resources.grdp",
       "$target_gen_dir/password_manager_internals/resources.grdp",
-      "$target_gen_dir/personal_context_notice/resources.grdp",
       "$target_gen_dir/sandbox/resources.grdp",
       "$target_gen_dir/settings/resources.grdp",
       #"$target_gen_dir/side_panel/customize_chrome/resources.grdp",
@@ -876,7 +871,6 @@ generate_grd("build_grd") {
       "chromeos/personalization_app:build_grdp",
       "chromeos/print_management:build_grdp",
       "chromeos/print_preview:build_grdp",
-      "chromeos/print_preview_cros:build_grdp",
       "chromeos/projector_app:build_grdp",
       "chromeos/sanitize_ui:build_grdp",
       "chromeos/scanning:build_grdp",
@@ -926,7 +920,6 @@ generate_grd("build_grd") {
       "$target_gen_dir/chromeos/personalization_app/resources.grdp",
       "$target_gen_dir/chromeos/print_management/resources.grdp",
       "$target_gen_dir/chromeos/print_preview/resources.grdp",
-      "$target_gen_dir/chromeos/print_preview_cros/resources.grdp",
       "$target_gen_dir/chromeos/resources.grdp",
       "$target_gen_dir/chromeos/vc_background_ui/resources.grdp",
       "$target_gen_dir/chromeos/sanitize_ui/resources.grdp",

@@ -403,9 +403,8 @@ void ModelBrokerAndroid::SolutionFactory::OnAICoreModelUpdated(
     parent_->model_already_downloaded_ = true;
     parent_->has_active_download_progress_ = false;
     // Performance hint is not supported on Android.
-    OnDeviceBaseModelSpec spec{
-        result->name, result->version,
-        proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_UNSPECIFIED};
+    OnDeviceBaseModelSpec spec{.model_name = result->name,
+                               .model_version = result->version};
     base_model_specs_.insert_or_assign(aicore_feature, spec);
     // Register the model download for all features that share the same
     // AICore feature, since multiple mojom::OnDeviceFeature values may map to
@@ -722,6 +721,12 @@ void ModelBrokerAndroid::OnDownloadProgressUpdated(int64_t downloaded_bytes,
 
 void ModelBrokerAndroid::AddObserver(
     mojo::PendingRemote<mojom::ModelBrokerDebugObserver>) {
+  // Not yet implemented on Android.
+}
+
+void ModelBrokerAndroid::AddAssetDownloadObserver(
+    const std::string& asset_name,
+    mojo::PendingRemote<on_device_model::mojom::DownloadObserver> observer) {
   // Not yet implemented on Android.
 }
 

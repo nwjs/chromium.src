@@ -8,13 +8,15 @@ import android.app.Activity;
 import android.view.LayoutInflater;
 import android.view.View;
 
-import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.components.bookmarks.BookmarkId;
+import org.chromium.components.commerce.core.ShoppingService;
 import org.chromium.components.image_fetcher.ImageFetcherConfig;
 import org.chromium.components.image_fetcher.ImageFetcherFactory;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -32,18 +34,23 @@ public class BookmarkPopupCoordinator {
     private final BookmarkImageFetcher mBookmarkImageFetcher;
 
     /**
-     * Constructor.
+     * Constructs the BookmarkPopupCoordinator. This represents the MVC component responsible for
+     * managing the popup view shown when adding or editing a bookmark via the desktop window.
      *
      * @param activity The Android activity.
      * @param profile The current Profile.
      * @param anchor The anchor view for the popup window.
      * @param bookmarkManagerOpener Interface to open the bookmark manager.
+     * @param shoppingService Shopping service to fetch price tracking info if available.
+     * @param priceDropNotificationManager Manager to handle price drop notifications.
      */
     public BookmarkPopupCoordinator(
             Activity activity,
             Profile profile,
             View anchor,
-            BookmarkManagerOpener bookmarkManagerOpener) {
+            BookmarkManagerOpener bookmarkManagerOpener,
+            @Nullable ShoppingService shoppingService,
+            PriceDropNotificationManager priceDropNotificationManager) {
         mView =
                 (BookmarkPopupView)
                         LayoutInflater.from(activity)
@@ -54,6 +61,14 @@ public class BookmarkPopupCoordinator {
 
         int popupWidth =
                 activity.getResources().getDimensionPixelSize(R.dimen.bookmark_popup_width);
+        if (activity.getResources().getDisplayMetrics().widthPixels < popupWidth) {
+            mPropertyModel.set(BookmarkPopupProperties.IMAGE_VISIBLE, false);
+            popupWidth -=
+                    activity.getResources()
+                            .getDimensionPixelSize(R.dimen.bookmark_popup_image_size);
+        } else {
+            mPropertyModel.set(BookmarkPopupProperties.IMAGE_VISIBLE, true);
+        }
 
         mPopupWindow =
                 new AnchoredPopupWindow.Builder(
@@ -89,6 +104,8 @@ public class BookmarkPopupCoordinator {
                         mBookmarkImageFetcher,
                         activity,
                         profile,
+                        shoppingService,
+                        priceDropNotificationManager,
                         () -> mPopupWindow.dismiss());
         mPopupWindow.addOnDismissListener(mMediator::destroy);
         mPopupWindow.addOnDismissListener(mView::destroy);
@@ -104,8 +121,18 @@ public class BookmarkPopupCoordinator {
         mPopupWindow.dismiss();
     }
 
-    @VisibleForTesting
+    /** Returns the popup window for testing. */
     public AnchoredPopupWindow getPopupWindowForTesting() {
         return mPopupWindow;
+    }
+
+    /** Returns the property model for testing. */
+    PropertyModel getPropertyModelForTesting() {
+        return mPropertyModel;
+    }
+
+    /** Returns the view for testing. */
+    BookmarkPopupView getViewForTesting() {
+        return mView;
     }
 }

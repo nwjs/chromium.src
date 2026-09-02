@@ -512,8 +512,8 @@ void HotseatWidgetDelegateView::Init(ScrollableShelfView* scrollable_shelf_view,
   translucent_background_->layer()->SetName("hotseat/Background");
 
   // Create a shadow and stack at the bottom.
-  shadow_ = SystemShadow::CreateShadowOnTextureLayer(
-      SystemShadow::Type::kElevation12);
+  shadow_ = SystemShadow::CreateShadowOnNinePatchLayer(
+      SystemShadow::Type::kElevation12, SystemShadow::LayerRecreatedCallback());
   auto* parent_layer = translucent_background_->layer()->parent();
   auto* shadow_layer = shadow_->GetLayer();
   parent_layer->Add(shadow_layer);
@@ -550,7 +550,8 @@ void HotseatWidgetDelegateView::UpdateTranslucentBackground() {
   // Update the shadow content bounds and corner radius.
   shadow_->GetLayer()->SetVisible(true);
   gfx::Rect background_bounds = translucent_background_->bounds();
-  shadow_->SetRoundedCornerRadius(background_bounds.height() / 2);
+  shadow_->SetRoundedCorners(
+      gfx::RoundedCornersF(background_bounds.height() / 2.0f));
   shadow_->SetContentBounds(background_bounds);
 }
 

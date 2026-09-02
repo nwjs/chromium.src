@@ -104,7 +104,7 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kManageIban:
     case SuggestionType::kManageLoyaltyCard:
     case SuggestionType::kManageEnhancedAutofill:
-    case SuggestionType::kUndoOrClear:
+    case SuggestionType::kUndo:
     case SuggestionType::kDatalistEntry:
     case SuggestionType::kAutocompleteEntry:
     case SuggestionType::kComposeResumeNudge:
@@ -122,6 +122,7 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kOpenGemini:
     case SuggestionType::kAtMemoryNoConnection:
     case SuggestionType::kAtMemoryAiDisclosure:
+    case SuggestionType::kAtMemoryFetching:
     case SuggestionType::kAtMemoryGenericError:
     case SuggestionType::kAtMemorySearchAffordance:
     case SuggestionType::kAtMemorySourceAttribution:
@@ -151,6 +152,7 @@ bool IsSuggestionHandledInPasswordManager(SuggestionType type) {
     case SuggestionType::kAutofillAiOtherOrders:
     case SuggestionType::kAutofillAiOtherShipments:
     case SuggestionType::kAutofillAiPrivateInferenceNotice:
+    case SuggestionType::kRemoveAutofillAi:
     case SuggestionType::kBnplFootnote:
     case SuggestionType::kAutocompleteAtMemoryButton:
     case SuggestionType::kMaximizeCreditCardBenefitsEntry:
@@ -514,6 +516,10 @@ bool PasswordAutofillManager::IsSearching() const {
   return false;
 }
 
+autofill::FieldGlobalId PasswordAutofillManager::GetQueriedFieldId() const {
+  return last_field_id_;
+}
+
 void PasswordAutofillManager::OnAddPasswordFillData(
     const autofill::PasswordFormFillData& fill_data) {
   if (!autofill::IsValidPasswordFormFillData(fill_data)) {
@@ -773,6 +779,7 @@ bool PasswordAutofillManager::ShowPopup(
         autofill::AutofillSuggestionTriggerSource::kPasswordManager,
         /*form_control_ax_id=*/0, autofill::PopupAnchorType::kField);
   }
+  last_field_id_ = field_id;
   last_session_id_ = autofill_client_->ShowAutofillSuggestions(
       last_popup_open_args_, weak_ptr_factory_.GetWeakPtr());
   return true;

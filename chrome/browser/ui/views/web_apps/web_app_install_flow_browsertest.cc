@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/web_apps/progress_delay.h"
 #include "chrome/browser/ui/views/web_apps/web_app_install_dialog_delegate.h"
@@ -172,6 +171,31 @@ IN_PROC_BROWSER_TEST_F(WebAppInstallFlowBrowserTest, SimpleInstallFlow) {
   const webapps::AppId app_id = install_observer.Wait();
   EXPECT_EQ(FindAppWithUrlInScope(app_url), app_id);
   EXPECT_EQ(1, action_tester.GetActionCount("WebAppSimpleDialogAccepted"));
+}
+
+IN_PROC_BROWSER_TEST_F(WebAppInstallFlowBrowserTest, FocusRestoredOnCancel) {
+  const GURL app_url =
+      embedded_https_test_server().GetURL("/banners/manifest_test_page.html");
+  ASSERT_TRUE(NavigateAndAwaitInstallabilityCheck(browser(), app_url));
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    auto* icon = GetPwaInstallIconView();
+    return icon && icon->GetVisible();
+  }));
+
+  auto* icon = GetPwaInstallIconView();
+  ASSERT_NE(icon, nullptr);
+  icon->RequestFocus();
+  EXPECT_TRUE(icon->HasFocus());
+
+  views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
+                                       "WebAppInstallFlowDialog");
+  chrome::ExecuteCommand(browser(), IDC_INSTALL_PWA);
+  views::Widget* widget = waiter.WaitIfNeededAndGet();
+  ASSERT_NE(widget, nullptr);
+
+  widget->CloseWithReason(views::Widget::ClosedReason::kCancelButtonClicked);
+  ASSERT_TRUE(base::test::RunUntil([&]() { return icon->HasFocus(); }));
+  EXPECT_TRUE(icon->HasFocus());
 }
 
 IN_PROC_BROWSER_TEST_F(WebAppInstallFlowBrowserTest, DetailedInstallFlow) {

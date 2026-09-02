@@ -10,6 +10,7 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/new_tab_button.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
 #include "chrome/browser/ui/views/test/vertical_tabs_interactive_test_mixin.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "content/public/test/browser_test.h"
@@ -34,7 +35,7 @@ class VerticalTabStripBottomContainerInteractiveUiTest
   using VerticalTabsInteractiveTestMixin::VerticalTabsInteractiveTestMixin;
 
   const std::vector<base::test::FeatureRef> GetDisabledFeatures() override {
-    return {tab_groups::kOrganizerPanel};
+    return {organizer_panel::kOrganizerPanel};
   }
 
  private:
@@ -149,8 +150,9 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripBottomContainerInteractiveUiTest,
             views::View::ConvertPointFromScreen(vt_region_view, &pt_above);
             return !vt_region_view->IsPositionInWindowCaption(pt_center) &&
                    !vt_region_view->IsPositionInWindowCaption(pt_above);
-          },
-          "Check that clicking new tab does not expose caption space"));
+          })
+          .SetDescription(
+              "Check that clicking new tab does not expose caption space"));
 }
 
 class NewTabButtonContextMenuInteractiveUITest
@@ -158,15 +160,6 @@ class NewTabButtonContextMenuInteractiveUITest
  public:
   NewTabButtonContextMenuInteractiveUITest() = default;
   ~NewTabButtonContextMenuInteractiveUITest() override = default;
-
-  void SetUpInProcessBrowserTestFixture() override {
-    VerticalTabStripBottomContainerInteractiveUiTest::
-        SetUpInProcessBrowserTestFixture();
-    feature_list_.InitAndEnableFeature(features::kTabGroupMenuMoreEntryPoints);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 IN_PROC_BROWSER_TEST_F(NewTabButtonContextMenuInteractiveUITest,

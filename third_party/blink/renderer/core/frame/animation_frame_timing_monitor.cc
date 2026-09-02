@@ -20,7 +20,6 @@
 #include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/timing/animation_frame_timing_info.h"
 #include "third_party/blink/renderer/core/timing/dom_window_performance.h"
-#include "third_party/blink/renderer/core/timing/performance_mark_conditional.h"
 #include "third_party/blink/renderer/core/timing/third_party_script_detector.h"
 #include "third_party/blink/renderer/core/timing/timing_utils.h"
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
@@ -28,7 +27,9 @@
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/event_loop.h"
+#include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 #include "v8-local-handle.h"
 #include "v8-message.h"
@@ -43,17 +44,33 @@ constexpr base::TimeDelta kLongScriptDuration = base::Milliseconds(5);
 // https://w3c.github.io/timing-entrytypes-registry/.
 constexpr size_t kConditionalUserTimingBufferSize = 200;
 
-// A worker task that occupies the event loop for at least this long is reported
-// as a congested moment.
-// TODO(crbug.com/534893134): Reporting a congested moment when many small tasks
-// saturate the task queue is a future extension.
+// A congested moment is a span during which the thread stays backlogged
+// (tasks pending but not yet handled). kCongestionThreshold is the minimum
+// span such a moment must last to be reported; shorter moments are discarded.
 constexpr base::TimeDelta kCongestionThreshold = base::Milliseconds(200);
+
+// Once a congested moment is open, it stays open while tasks run
+// consecutively. A congested moment ends only when the thread stays idle longer
+// than this threshold between one task ending and the next starting.
+//
+// The threshold intentionally matches kLongScriptDuration: an idle gap shorter
+// than our script-attribution threshold is treated as continuous, while
+// staying well below the 50 ms long-task boundary so distinct congestion is
+// still reported separately.
+//
+// Continuation is decided by the actual idle gap between one task ending and
+// the next starting (rather than by scheduled start times), because that
+// directly measures whether the thread stayed busy without idle gaps.
+constexpr base::TimeDelta kCongestionIdleGap = base::Milliseconds(5);
 }  // namespace
 
 AnimationFrameTimingMonitor::AnimationFrameTimingMonitor(Client& client,
                                                          CoreProbeSink* sink)
     : client_(client) {
   Thread::Current()->AddTaskTimeObserver(this);
+  if (!IsMainThread()) {
+    CHECK(RuntimeEnabledFeatures::LongAnimationFrameWorkerEnabled());
+  }
   sink->AddAnimationFrameTimingMonitor(this);
   enabled_ = true;
 }
@@ -79,9 +96,43 @@ void AnimationFrameTimingMonitor::WillHandleInput(LocalFrame* frame) {
 
 void AnimationFrameTimingMonitor::MarkConditional(const AtomicString& name,
                                                   base::TimeTicks start_time) {
-  if (conditional_marks_.size() < kConditionalUserTimingBufferSize) {
-    conditional_marks_.push_back(ConditionalMarkInfo(name, start_time));
+  if (conditional_marks_.size() + conditional_measures_.size() >=
+      kConditionalUserTimingBufferSize) {
+    return;
   }
+  conditional_marks_.push_back(ConditionalMarkInfo(name, start_time));
+  conditional_mark_names_to_timestamps_.Set(name, start_time);
+}
+
+void AnimationFrameTimingMonitor::MeasureConditional(
+    const AtomicString& name,
+    const AtomicString& start_mark,
+    const AtomicString& end_mark,
+    base::TimeTicks end_time) {
+  if (conditional_marks_.size() + conditional_measures_.size() >=
+      kConditionalUserTimingBufferSize) {
+    return;
+  }
+
+  // Eagerly resolve mark names to timestamps using the map.
+  base::TimeTicks resolved_start_time;
+  if (!start_mark.IsNull()) {
+    auto it = conditional_mark_names_to_timestamps_.find(start_mark);
+    if (it != conditional_mark_names_to_timestamps_.end()) {
+      resolved_start_time = it->value;
+    }
+  }
+
+  base::TimeTicks resolved_end_time = end_time;
+  if (!end_mark.IsNull()) {
+    auto it = conditional_mark_names_to_timestamps_.find(end_mark);
+    if (it != conditional_mark_names_to_timestamps_.end()) {
+      resolved_end_time = it->value;
+    }
+  }
+
+  conditional_measures_.push_back(
+      ConditionalMeasureInfo(name, resolved_start_time, resolved_end_time));
 }
 
 void AnimationFrameTimingMonitor::BeginMainFrame(
@@ -143,6 +194,11 @@ AnimationFrameTimingMonitor::RecordRenderingUpdateEndTime(
     current_frame_timing_info_->SetConditionalMarks(conditional_marks_);
   }
 
+  if (!conditional_measures_.empty()) {
+    CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
+    current_frame_timing_info_->SetConditionalMeasures(conditional_measures_);
+  }
+
   current_frame_timing_info_->SetStyleDuration(render_style_duration_);
   current_frame_timing_info_->SetLayoutDuration(render_layout_duration_);
 
@@ -183,6 +239,11 @@ AnimationFrameTimingMonitor::RecordRenderingUpdateEndTime(
   if (!conditional_marks_.empty()) {
     CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
     conditional_marks_.clear();
+    conditional_mark_names_to_timestamps_.clear();
+  }
+  if (!conditional_measures_.empty()) {
+    CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
+    conditional_measures_.clear();
   }
   longest_task_duration_ = total_blocking_time_excluding_longest_task_ =
       base::TimeDelta();
@@ -221,46 +282,108 @@ void AnimationFrameTimingMonitor::ApplyTaskDuration(
   }
 }
 
-void AnimationFrameTimingMonitor::DidProcessTask(base::TimeTicks start_time,
-                                                 base::TimeTicks end_time) {
+void AnimationFrameTimingMonitor::DidProcessTask(
+    base::TimeTicks start_time,
+    base::TimeTicks end_time,
+    base::TimeTicks desired_execution_time) {
   if (IsMainThread()) {
     OnMainThreadTaskCompleted(start_time, end_time, /*frame=*/nullptr);
     return;
   }
 
   CHECK(RuntimeEnabledFeatures::LongAnimationFrameWorkerEnabled());
-  OnWorkerTaskCompleted(start_time, end_time);
+  OnWorkerTaskCompleted(start_time, end_time, desired_execution_time);
+}
+
+void AnimationFrameTimingMonitor::AccumulateCurrentTaskScripts() {
+  congestion_script_count_ += script_count_;
+  congestion_scripts_.Append(current_scripts_.begin(), current_scripts_.end());
 }
 
 void AnimationFrameTimingMonitor::OnWorkerTaskCompleted(
     base::TimeTicks start_time,
-    base::TimeTicks end_time) {
+    base::TimeTicks end_time,
+    base::TimeTicks desired_execution_time) {
   entry_point_depth_ = 0;
   pending_script_info_ = std::nullopt;
   current_task_start_ = base::TimeTicks();
   // The worker has no rendering lifecycle, so the task simply returns to idle.
   state_ = State::kIdle;
 
-  HeapVector<Member<ScriptTimingInfo>> scripts;
-  std::swap(scripts, current_scripts_);
-  uint32_t script_count = script_count_;
-  script_count_ = 0;
+  // A congested moment is an interval during which the thread stays saturated
+  // with pending work: it runs tasks consecutively without going idle.
+  // Saturation is detected by queuing delay: a task whose desired execution
+  // time is earlier than when the previous task started running means at least
+  // two tasks were already pending at once (backlog depth >= 2).
+  //
+  // `desired_execution_time` is the time the task was meant to run. For an
+  // immediate task that is when it was enqueued; for a delayed task (e.g. a
+  // setTimeout timer) that is its scheduled run time (enqueue time + delay). It
+  // can be null if the scheduler does not record these times; treat that as
+  // "no queuing delay" and fall back to the actual start time.
+  const base::TimeTicks scheduled =
+      desired_execution_time.is_null() ? start_time : desired_execution_time;
+  const bool has_queuing_delay =
+      !prev_task_start_.is_null() && (scheduled < prev_task_start_);
 
-  // A single task that occupies the event loop for at least the congestion
-  // threshold is reported as a congested moment, attributing the long scripts
-  // collected during the task.
-  base::TimeDelta task_duration = end_time - start_time;
-  if (task_duration < kCongestionThreshold) {
+  if (!congestion_run_start_.is_null()) {
+    // A congested moment is already open.
+    if (start_time - congestion_run_end_ <= kCongestionIdleGap) {
+      // Still busy: this task started within kCongestionIdleGap of the previous
+      // one ending, so the worker never went idle. Extend the interval to this
+      // task's end and fold in its scripts.
+      congestion_run_end_ = end_time;
+      AccumulateCurrentTaskScripts();
+    } else {
+      // Worker went idle: a real idle gap preceded this task, so the interval
+      // ended at the previous task; this task is not part of it. Close and
+      // report it.
+      FinalizeCongestedMoment();
+    }
+  } else if (has_queuing_delay) {
+    // A congested moment begins: start it at the earlier of the two scheduled
+    // times and fold in this task's scripts.
+    congestion_run_start_ = std::min(scheduled, prev_scheduled_start_);
+    congestion_run_end_ = end_time;
+    AccumulateCurrentTaskScripts();
+  }
+
+  // This task's script state has been consumed (folded above, or the task is
+  // not part of a congested moment); clear it so it does not leak into the
+  // next task.
+  script_count_ = 0;
+  current_scripts_.clear();
+  prev_scheduled_start_ = scheduled;
+  prev_task_start_ = start_time;
+}
+
+void AnimationFrameTimingMonitor::FinalizeCongestedMoment() {
+  if (congestion_run_start_.is_null()) {
     return;
   }
 
-  AnimationFrameTimingInfo* info =
-      MakeGarbageCollected<AnimationFrameTimingInfo>(start_time);
-  info->SetRenderEndTime(end_time);
-  info->SetScripts(scripts);
-  info->SetScriptCount(script_count);
-  info->SetTotalBlockingDuration(task_duration - kCongestionThreshold);
-  client_.ReportCongestedMoment(info);
+  // FinalizeCongestedMoment() also runs when the backlog clears without the
+  // moment having crossed the threshold (in OnWorkerTaskCompleted), so re-check
+  // the span here and only report a moment that stayed backlogged past the
+  // threshold. Shorter moments are discarded.
+  // A moment with no script entry points (scriptCount == 0) is backlog from
+  // worker-internal/native tasks that carry no JS attribution, so it is not
+  // actionable and is not reported.
+  base::TimeDelta span = congestion_run_end_ - congestion_run_start_;
+  if (span >= kCongestionThreshold && congestion_script_count_ > 0) {
+    AnimationFrameTimingInfo* info =
+        MakeGarbageCollected<AnimationFrameTimingInfo>(congestion_run_start_);
+    info->SetRenderEndTime(congestion_run_end_);
+    info->SetScripts(congestion_scripts_);
+    info->SetScriptCount(congestion_script_count_);
+    info->SetTotalBlockingDuration(span - kCongestionThreshold);
+    client_.ReportCongestedMoment(info);
+  }
+
+  congestion_run_start_ = base::TimeTicks();
+  congestion_run_end_ = base::TimeTicks();
+  congestion_script_count_ = 0;
+  congestion_scripts_.clear();
 }
 
 void AnimationFrameTimingMonitor::OnMainThreadTaskCompleted(
@@ -355,6 +478,13 @@ void AnimationFrameTimingMonitor::OnMainThreadTaskCompleted(
   if (!conditional_marks_.empty()) {
     CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
     std::swap(conditional_marks, conditional_marks_);
+    conditional_mark_names_to_timestamps_.clear();
+  }
+
+  Vector<ConditionalMeasureInfo> conditional_measures;
+  if (!conditional_measures_.empty()) {
+    CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
+    std::swap(conditional_measures, conditional_measures_);
   }
 
   longest_task_duration_ = total_blocking_time_excluding_longest_task_ =
@@ -390,6 +520,11 @@ void AnimationFrameTimingMonitor::OnMainThreadTaskCompleted(
   if (!conditional_marks.empty()) {
     CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
     timing_info->SetConditionalMarks(conditional_marks);
+  }
+
+  if (!conditional_measures.empty()) {
+    CHECK(RuntimeEnabledFeatures::ConditionalTracingLoAFEnabled());
+    timing_info->SetConditionalMeasures(conditional_measures);
   }
 
   DOMWindowPerformance::performance(*frame->DomWindow())
@@ -476,7 +611,7 @@ void AnimationFrameTimingMonitor::RecordLongAnimationFrameTrace(
   }
   TRACE_EVENT_BEGIN(
       "devtools.timeline", "AnimationFrame", track_id, info.FrameStartTime(),
-      flow_id, "id", String::Format("%016" PRIx64, trace_id),
+      flow_id, "id", Format("{:016x}", trace_id),
       [&](perfetto::EventContext ctx) {
         auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
         auto* data = event->set_animation_frame_timing_info();
@@ -627,6 +762,7 @@ void AnimationFrameTimingMonitor::Trace(Visitor* visitor) const {
   visitor->Trace(current_scripts_);
   visitor->Trace(frame_handling_input_);
   visitor->Trace(task_attributed_window_);
+  visitor->Trace(congestion_scripts_);
 }
 
 BASE_FEATURE(kAlwaysLogLOAFURL, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -638,9 +774,8 @@ bool ShouldAllowScriptURL(const String& url) {
     return true;
   }
 
-  KURL kurl(url);
-  return kurl.ProtocolIsData() || kurl.ProtocolIsInHttpFamily() ||
-         kurl.ProtocolIs("blob") || kurl.IsEmpty();
+  return url.empty() || ProtocolIs(url, "data") || ProtocolIs(url, "http") ||
+         ProtocolIs(url, "https") || ProtocolIs(url, "blob");
 }
 
 }  // namespace
@@ -720,8 +855,14 @@ ScriptTimingInfo* AnimationFrameTimingMonitor::PopScriptEntryPointInternal(
     return nullptr;
   }
 
-  if (!ShouldAllowScriptURL(script_info.source_location.url) ||
-      state_ == State::kIdle) {
+  if (state_ == State::kIdle) {
+    return nullptr;
+  }
+
+  // Only count entry points whose source URL we would surface. This excludes
+  // non-web scripts such as chrome-extension://, so scriptCount reflects the
+  // page's own top-level JS entry points.
+  if (!ShouldAllowScriptURL(script_info.source_location.url)) {
     return nullptr;
   }
 

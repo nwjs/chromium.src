@@ -176,31 +176,10 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
 
   virtual void DidOverscroll(const ui::DidOverscrollParams& params) {}
 
-  // Identical to `CopyFromSurface()`, except that this method issues the
-  // `viz::CopyOutputRequest` against the exact `viz::Surface` currently
-  // embedded by this View, while `CopyFromSurface()` may return a copy of any
-  // Surface associated with this View, generated after the current Surface. The
-  // caller is responsible for making sure that the target Surface is embedded
-  // and available for copy when this API is called. This Surface can be removed
-  // from the UI after this call.
-  //
-  // TODO(crbug.com/40276723): merge this API into `CopyFromSurface()`,
-  // and enable it fully on Android.
-  virtual void CopyFromExactSurface(
-      const gfx::Rect& src_rect,
-      const gfx::Size& output_size,
-      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback);
-
   // For testing only.
   virtual ui::FilteredGestureProvider* GetFilteredGestureProviderForTesting();
 
 #if BUILDFLAG(IS_ANDROID)
-  virtual void CopyFromExactSurfaceWithIpcDelay(
-      const gfx::Rect& src_rect,
-      const gfx::Size& output_size,
-      base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback,
-      base::TimeDelta ipc_delay);
-
   // Returns whethere there's a touch sequence active on Viz.
   //  false: There's definitely no active touch sequence on Viz.
   //  true: A touch sequence is likely active on Viz, but could be a false
@@ -217,6 +196,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
       blink::mojom::DragEventSourceInfoPtr event_info) = 0;
 
   virtual void SetTouchpadOverscrollHistoryNavigation(bool enabled) {}
+
+  virtual void ReportScrollJankStats(uint32_t total_frames,
+                                     uint32_t janky_frames) {}
 #endif
 
   // For HiDPI capture mode, allow applying a render scale multiplier
@@ -277,6 +259,9 @@ class CONTENT_EXPORT RenderWidgetHostViewBase
   WidgetType GetWidgetType();
 
   virtual void SendInitialPropertiesIfNeeded() {}
+
+  // Opts the view out of frame eviction.
+  virtual void OptOutFrameEviction() {}
 
   // Called when screen information or native widget bounds change.
   virtual void UpdateScreenInfo();

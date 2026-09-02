@@ -34,7 +34,8 @@ UIWindow* GetAnyKeyWindow();
 void GREYAssertErrorNil(NSError* error);
 
 // Assert the error is nil. Postpone the error description to the error message.
-void GREYAssertErrorNil(NSError* error, NSString* description);
+void GREYAssertErrorNil(NSError* error, NSString* format, ...)
+    NS_FORMAT_FUNCTION(2, 3);
 
 }  // namespace chrome_test_util
 
@@ -216,6 +217,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // induced.
 - (void)waitForPageToFinishLoading;
 
+// Waits for all WebStates across foreground tabs to finish loading within a
+// timeout, or a GREYAssert is induced.
+- (void)waitForAllWebStatesToFinishLoading;
+
 // Waits for the page to finish loading within the given `timeout`. Returns nil
 // on success, or else an NSError indicating why the operation failed.
 - (NSError*)waitForPageToFinishLoadingWithTimeout:(base::TimeDelta)timeout;
@@ -390,6 +395,12 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 - (void)openSendTabToSelfNewTabWithURL:(NSString*)url
                           textFragment:(NSString*)textFragment
                              entryGUID:(NSString*)guid;
+
+// Opens a new background tab with the given URL, text fragment, and marks it
+// as originating from Send Tab To Self with the given entry GUID.
+- (void)openSendTabToSelfNewBackgroundTabWithURL:(NSString*)url
+                                    textFragment:(NSString*)textFragment
+                                       entryGUID:(NSString*)guid;
 
 // Triggers a sync cycle for a `type`.
 - (void)triggerSyncCycleForType:(syncer::DataType)type;
@@ -1141,6 +1152,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Hides Reader mode in the current tab.
 - (void)hideReaderMode;
+
+// Programmatically crashes the host application.
+- (void)induceCrash;
 
 @end
 

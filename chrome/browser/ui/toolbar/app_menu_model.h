@@ -22,7 +22,6 @@
 
 class AppMenuIconController;
 class BookmarkSubMenuModel;
-class Browser;
 class BrowserWindowInterface;
 
 // Values should correspond to 'WrenchMenuAction' enum in enums.xml.
@@ -123,6 +122,7 @@ enum AppMenuAction {
   MENU_ACTION_SHOW_TRAVEL = 100,
   MENU_ACTION_SHOW_CONTACT_INFO = 101,
   // MENU_ACTION_SHOW_CONTEXTUAL_TASKS_SIDE_PANEL = 102, // DEPRECATED
+  MENU_ACTION_NEW_ISOLATED_WINDOW = 103,
   LIMIT_MENU_ACTION
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/ui/enums.xml:WrenchMenuAction)
@@ -144,7 +144,8 @@ class ToolsMenuModel : public ui::SimpleMenuModel {
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kChromeLabsMenuItem);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kReadingModeMenuItem);
 
-  ToolsMenuModel(ui::SimpleMenuModel::Delegate* delegate, Browser* browser);
+  ToolsMenuModel(ui::SimpleMenuModel::Delegate* delegate,
+                 BrowserWindowInterface* browser);
 
   ToolsMenuModel(const ToolsMenuModel&) = delete;
   ToolsMenuModel& operator=(const ToolsMenuModel&) = delete;
@@ -152,7 +153,7 @@ class ToolsMenuModel : public ui::SimpleMenuModel {
   ~ToolsMenuModel() override;
 
  private:
-  void Build(Browser* browser);
+  void Build(BrowserWindowInterface* browser);
 };
 
 class ExtensionsMenuModel : public ui::SimpleMenuModel {
@@ -161,7 +162,7 @@ class ExtensionsMenuModel : public ui::SimpleMenuModel {
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kVisitChromeWebStoreMenuItem);
 
   ExtensionsMenuModel(ui::SimpleMenuModel::Delegate* delegate,
-                      Browser* browser);
+                      BrowserWindowInterface* browser);
 
   ExtensionsMenuModel(const ExtensionsMenuModel&) = delete;
   ExtensionsMenuModel& operator=(const ExtensionsMenuModel&) = delete;
@@ -169,14 +170,15 @@ class ExtensionsMenuModel : public ui::SimpleMenuModel {
   ~ExtensionsMenuModel() override;
 
  private:
-  void Build(Browser* browser);
+  void Build(BrowserWindowInterface* browser);
 };
 
 class HelpMenuModel : public ui::SimpleMenuModel {
  public:
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kReportUnsafeSiteMenuItem);
 
-  HelpMenuModel(ui::SimpleMenuModel::Delegate* delegate, Browser* browser);
+  HelpMenuModel(ui::SimpleMenuModel::Delegate* delegate,
+                BrowserWindowInterface* browser);
 
   HelpMenuModel(const HelpMenuModel&) = delete;
   HelpMenuModel& operator=(const HelpMenuModel&) = delete;
@@ -184,7 +186,7 @@ class HelpMenuModel : public ui::SimpleMenuModel {
   ~HelpMenuModel() override;
 
  private:
-  void Build(Browser* browser);
+  void Build(BrowserWindowInterface* browser);
 };
 
 // A menu model that builds the contents of the app menu.
@@ -261,7 +263,7 @@ class AppMenuModel : public ui::SimpleMenuModel,
   // is used to decide whether or not to include an item for opening the upgrade
   // dialog.
   AppMenuModel(ui::AcceleratorProvider* provider,
-               Browser* browser,
+               BrowserWindowInterface* browser,
                AppMenuIconController* app_menu_icon_controller = nullptr,
                AlertMenuItem alert_item = AlertMenuItem::kNone);
 
@@ -285,7 +287,7 @@ class AppMenuModel : public ui::SimpleMenuModel,
                                   ui::Accelerator* accelerator) const override;
 
   // Getters.
-  Browser* browser() const { return browser_; }
+  BrowserWindowInterface* browser() const { return browser_; }
 
   BookmarkSubMenuModel* bookmark_sub_menu_model() const {
     return bookmark_sub_menu_model_.get();
@@ -360,7 +362,7 @@ class AppMenuModel : public ui::SimpleMenuModel,
 
   raw_ptr<ui::AcceleratorProvider> provider_;  // weak
 
-  const raw_ptr<Browser> browser_;  // weak
+  const raw_ptr<BrowserWindowInterface> browser_;  // weak
   const raw_ptr<AppMenuIconController> app_menu_icon_controller_;
 
   PrefChangeRegistrar local_state_pref_change_registrar_;

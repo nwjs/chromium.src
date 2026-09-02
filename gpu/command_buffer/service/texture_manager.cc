@@ -1100,8 +1100,11 @@ void Texture::UpdateNumMipLevels() {
     max_level_ = std::max(base_level_, unclamped_max_level_);
     max_level_ = std::min(max_level_, levels - 1);
   } else {
-    base_level_ = unclamped_base_level_;
-    max_level_ = unclamped_max_level_;
+    DCHECK_LE(0, unclamped_base_level_);
+    DCHECK_LE(0, unclamped_max_level_);
+    GLint max_levels = static_cast<GLint>(face_infos_[0].level_infos.size());
+    base_level_ = std::min(unclamped_base_level_, max_levels - 1);
+    max_level_ = std::min(unclamped_max_level_, max_levels - 1);
   }
   for (size_t ii = 0; ii < face_infos_.size(); ++ii)
     UpdateFaceNumMipLevels(ii);
@@ -1451,9 +1454,10 @@ void Texture::Update() {
     return;
 
   if (face_infos_.empty() ||
-      static_cast<size_t>(base_level_) >= MaxValidMipLevel()) {
+      static_cast<size_t>(unclamped_base_level_) >= MaxValidMipLevel()) {
     texture_complete_ = false;
     cube_complete_ = false;
+    completeness_dirty_ = false;
     return;
   }
 
@@ -2684,7 +2688,12 @@ void TextureManager::ValidateAndDoTexImage(
       DoTexSubImageRowByRowWorkaround(texture_state, state, sub_args,
                                       unpack_params);
 
-      SetLevelCleared(texture_ref, args.target, args.level, true);
+      // https://crbug.com/517337579: Only mark the level as cleared if the
+      // workaround succeeded, to prevent leaking uninitialized VRAM if
+      // sub-image uploads failed.
+      if (ERRORSTATE_PEEK_GL_ERROR(error_state, function_name) == GL_NO_ERROR) {
+        SetLevelCleared(texture_ref, args.target, args.level, true);
+      }
       return;
     }
   }
@@ -2718,7 +2727,12 @@ void TextureManager::ValidateAndDoTexImage(
               : DoTexSubImageArguments::CommandType::kTexSubImage2D};
       DoTexSubImageWithAlignmentWorkaround(texture_state, state, sub_args);
 
-      SetLevelCleared(texture_ref, args.target, args.level, true);
+      // https://crbug.com/517337579: Only mark the level as cleared if the
+      // workaround succeeded, to prevent leaking uninitialized VRAM if
+      // sub-image uploads failed.
+      if (ERRORSTATE_PEEK_GL_ERROR(error_state, function_name) == GL_NO_ERROR) {
+        SetLevelCleared(texture_ref, args.target, args.level, true);
+      }
       return;
     }
   }

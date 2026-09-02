@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -93,7 +94,8 @@ const char kKioskNewBrowserWindowHistogram[] = "Kiosk.NewBrowserWindow";
 class NavigationWaiter : public content::WebContentsObserver,
                          public views::WidgetObserver {
  public:
-  NavigationWaiter(Browser* browser, base::OnceClosure callback)
+  NavigationWaiter(Browser* browser,
+                   base::OnceCallback<void(const std::string&)> callback)
       : browser_(browser), callback_(std::move(callback)) {
     content::WebContents* web_contents = GetActiveWebContents(browser);
     if (!web_contents) {
@@ -102,7 +104,7 @@ class NavigationWaiter : public content::WebContentsObserver,
       // being closed.
       // One known case of this is a picture-in-picture browser.
       LOG(WARNING) << "New browser without WebContents detected.";
-      RunCallback();
+      RunCallback(std::string());
       return;
     }
 
@@ -112,27 +114,30 @@ class NavigationWaiter : public content::WebContentsObserver,
       Observe(GetActiveWebContents(browser));
       // Observe the browser's widget visibility changes if someone wants to
       // show it in between.
-      widget_observation_.Observe(browser->GetBrowserView().GetWidget());
+      widget_observation_.Observe(
+          CHECK_DEREF(BrowserView::GetBrowserViewForBrowser(browser))
+              .GetWidget());
     } else {
-      RunCallback();
+      RunCallback(web_contents->GetVisibleURL().spec());
     }
   }
 
   NavigationWaiter(const NavigationWaiter&) = delete;
   NavigationWaiter& operator=(const NavigationWaiter&) = delete;
+
  private:
-  // content::WebContentsObserver
+  // content::WebContentsObserver:
   void DidStartNavigation(content::NavigationHandle* navigation) override {
-    RunCallback();
+    RunCallback(navigation->GetURL().spec());
   }
 
-  void RunCallback() {
+  void RunCallback(std::string url) {
     // The callback should be called only once.
     if (callback_.is_null()) {
       return;
     }
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, std::move(callback_));
+        FROM_HERE, base::BindOnce(std::move(callback_), std::move(url)));
   }
 
   // views::WidgetObserver:
@@ -144,7 +149,7 @@ class NavigationWaiter : public content::WebContentsObserver,
     // This prevents other non-navigation events, such as
     // subsequent tabs, from showing the window before a URL-based
     // decision can be made.
-    RunCallback();
+    RunCallback(std::string());
   }
 
   void OnWidgetDestroying(views::Widget* widget) override {
@@ -154,7 +159,7 @@ class NavigationWaiter : public content::WebContentsObserver,
   raw_ptr<Browser> browser_;
   base::ScopedObservation<views::Widget, WidgetObserver> widget_observation_{
       this};
-  base::OnceClosure callback_;
+  base::OnceCallback<void(const std::string&)> callback_;
 };
 
 KioskBrowserWindowHandler::KioskBrowserWindowHandler(
@@ -184,12 +189,13 @@ KioskBrowserWindowHandler::KioskBrowserWindowHandler(
 KioskBrowserWindowHandler::~KioskBrowserWindowHandler() = default;
 
 bool KioskBrowserWindowHandler::TriageNewSettingsBrowserWindow(
-    Browser* browser) {
+    Browser* browser,
+    const std::string& url) {
   url_waiters_.erase(browser);
   // It is safe to assume that no other tabs are present in `browser`, because
   // creating a second tab causes the browser window to be shown, which would
   // have caused the window to be closed before getting here.
-  std::string url_string = GetUrlOfActiveTab(browser);
+  std::string url_string = url.empty() ? GetUrlOfActiveTab(browser) : url;
 
   if (KioskSettingsNavigationThrottle::IsSettingsPage(url_string)) {
     base::UmaHistogramEnumeration(kKioskNewBrowserWindowHistogram,
@@ -258,8 +264,10 @@ void KioskBrowserWindowHandler::HandleNewSettingsWindow(
     return;
   }
 
-  bool app_browser = browser->is_type_app() || browser->is_type_app_popup() ||
-                     browser->is_type_popup();
+  bool app_browser =
+      browser->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+      browser->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP ||
+      browser->GetType() == BrowserWindowInterface::Type::TYPE_POPUP;
   if (!app_browser) {
     // If this browser is not an app browser, create a new app browser if none
     // yet exists.
@@ -292,9 +300,9 @@ void KioskBrowserWindowHandler::CloseAllUnexpectedBrowserWindows() {
         // Do not close the main web app window (if any).
         bool is_web_app = web_app_name.has_value();
         bool is_web_app_window =
-            is_web_app &&
-            (browser_window_interface.GetBrowserForMigrationOnly()
-                 ->app_name() == web_app_name);
+            is_web_app && (BrowserInitState::From(&browser_window_interface)
+                               ->create_params()
+                               .app_name == web_app_name);
         return !is_web_app_window;
       });
 }
@@ -329,8 +337,9 @@ void KioskBrowserWindowHandler::OnCompleteBrowserAdded(Browser* browser) {
 }
 
 void KioskBrowserWindowHandler::OnBrowserNavigationWatchEnded(
-    Browser* browser) {
-  if (TriageNewSettingsBrowserWindow(browser)) {
+    Browser* browser,
+    const std::string& url) {
+  if (TriageNewSettingsBrowserWindow(browser, url)) {
     browser->GetWindow()->Show();
   }
 }
@@ -361,20 +370,22 @@ void KioskBrowserWindowHandler::OnBrowserClosed(
 bool KioskBrowserWindowHandler::IsNewBrowserWindowAllowed(
     Browser* browser) const {
   return kiosk_policies_.IsWindowCreationAllowed() &&
-         browser->is_type_app_popup() && web_app_name_.has_value() &&
-         browser->app_name() == web_app_name_.value();
+         browser->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP &&
+         web_app_name_.has_value() &&
+         BrowserInitState::From(browser)->create_params().app_name ==
+             web_app_name_.value();
 }
 
 bool KioskBrowserWindowHandler::IsDevToolsAllowedBrowser(
     Browser* browser) const {
-  return browser->is_type_devtools() &&
+  return browser->GetType() == BrowserWindowInterface::Type::TYPE_DEVTOOLS &&
          kiosk_troubleshooting_controller_
              ->AreKioskTroubleshootingToolsEnabled();
 }
 
 bool KioskBrowserWindowHandler::IsNormalTroubleshootingBrowserAllowed(
     Browser* browser) const {
-  return browser->is_type_normal() &&
+  return browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
          kiosk_troubleshooting_controller_
              ->AreKioskTroubleshootingToolsEnabled();
 }
@@ -403,8 +414,9 @@ void KioskBrowserWindowHandler::CloseBrowserWindowsIf(
           LOG(WARNING) << "kiosk: Closing unexpected browser window with url "
                        << GetUrlOfActiveTab(browser_window_interface)
                        << " of app "
-                       << browser_window_interface->GetBrowserForMigrationOnly()
-                              ->app_name();
+                       << BrowserInitState::From(browser_window_interface)
+                              ->create_params()
+                              .app_name;
           CloseBrowserAndSetTimer(browser_window_interface);
         }
         return true;

@@ -21,6 +21,7 @@ import android.view.accessibility.AccessibilityNodeInfo.Selection;
 import android.view.accessibility.AccessibilityNodeInfo.SelectionPosition;
 
 import androidx.annotation.Nullable;
+import androidx.core.view.accessibility.AccessibilityEventCompat;
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -47,7 +48,6 @@ import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
 import org.chromium.ui.accessibility.testservice.EventMatcher;
 import org.chromium.ui.accessibility.testservice.IAccessibilityTestHelperService;
 import org.chromium.ui.accessibility.testservice.NodeMatcher;
-import org.chromium.ui.accessibility.testservice.WaitForParams;
 import org.chromium.ui.test.util.DeviceRestriction;
 
 import java.io.IOException;
@@ -75,6 +75,7 @@ public class WebContentsAccessibilityE2ETest {
     private static final String ACCESSIBILITY_TEST_SERVICE_NAME =
             ACCESSIBILITY_TEST_SERVICE_COMPONENT_NAME.flattenToString();
     private static final long BIND_TIMEOUT_MS = 5000;
+    private static final long DEFAULT_TIMEOUT_MS = 10000;
     private static final String TAG = "WebContentsAXTest";
 
     private static final String EXTRA_SELECTION_START_OFFSET_TYPE =
@@ -145,8 +146,7 @@ public class WebContentsAccessibilityE2ETest {
 
     private boolean waitForEvent(EventMatcher matcher) {
         try {
-            return getAccessibilityHelperService()
-                    .waitFor(new WaitForParamsBuilder().setEventMatcher(matcher).build());
+            return getAccessibilityHelperService().waitForEvent(matcher, DEFAULT_TIMEOUT_MS);
         } catch (Exception e) {
             Log.e(TAG, "Error waiting for event", e);
             return false;
@@ -155,22 +155,28 @@ public class WebContentsAccessibilityE2ETest {
 
     private boolean waitForNode(NodeMatcher matcher) {
         try {
-            return getAccessibilityHelperService()
-                    .waitFor(new WaitForParamsBuilder().setNodeMatcher(matcher).build());
+            return getAccessibilityHelperService().waitForNode(matcher, DEFAULT_TIMEOUT_MS);
         } catch (Exception e) {
             Log.e(TAG, "Error waiting for node", e);
             return false;
         }
     }
 
+    private boolean waitForActiveWindow() {
+        try {
+            return getAccessibilityHelperService().waitForActiveWindow(DEFAULT_TIMEOUT_MS);
+        } catch (Exception e) {
+            Log.e(TAG, "Error waiting for active window", e);
+            return false;
+        }
+    }
+
     private boolean waitForNodeOnEvent(EventMatcher eventMatcher, NodeMatcher nodeMatcher) {
         try {
-            return getAccessibilityHelperService()
-                    .waitFor(
-                            new WaitForParamsBuilder()
-                                    .setEventMatcher(eventMatcher)
-                                    .setNodeMatcher(nodeMatcher)
-                                    .build());
+            boolean eventReceived =
+                    getAccessibilityHelperService().waitForEvent(eventMatcher, DEFAULT_TIMEOUT_MS);
+            if (!eventReceived) return false;
+            return getAccessibilityHelperService().waitForNode(nodeMatcher, DEFAULT_TIMEOUT_MS);
         } catch (Exception e) {
             Log.e(TAG, "Error waiting for node on event", e);
             return false;
@@ -179,6 +185,8 @@ public class WebContentsAccessibilityE2ETest {
 
     private void setupTest(String html, NodeMatcher matcher) throws Throwable {
         mActivityTestRule.launchContentShellWithUrl(UrlUtils.encodeHtmlDataUri(html));
+        boolean windowActive = waitForActiveWindow();
+        Assert.assertTrue("Window failed to become active after launch.", windowActive);
         mActivityTestRule.mockWebContentsAccessibilityImpl();
         mActivityTestRule.mWcax = mActivityTestRule.getWebContentsAccessibility();
         mActivityTestRule.mWcax.setThrottleDelayForTesting(new java.util.HashMap<>());
@@ -285,6 +293,7 @@ public class WebContentsAccessibilityE2ETest {
     @Test
     @SmallTest
     @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    @DisabledTest(message = "crbug.com/529689125")
     public void testAccessibilityServiceReceivesInitialEvent_SdkBalklavaAndAbove()
             throws Throwable {
         Assume.assumeTrue(
@@ -350,6 +359,97 @@ public class WebContentsAccessibilityE2ETest {
                                                 .build())
                                 .build());
         Assert.assertTrue("Service did not receive accessibility focus event", eventReceived);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    public void testDialogPaneEnter_accessibilityFocus() throws Throwable {
+        String html =
+                """
+                <button>Outside Dialog</button>
+                <div role="dialog" aria-label="Test Dialog">
+                  <button>Inside Dialog</button>
+                </div>
+                """;
+        setupTest(html, new NodeMatcherBuilder().setText("Outside Dialog").build());
+
+        // Perform ACTION_ACCESSIBILITY_FOCUS on the button inside the dialog.
+        boolean actionRes =
+                getAccessibilityHelperService()
+                        .performActionOnNode(
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.widget.Button")
+                                        .setText("Inside Dialog")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS,
+                                /* arguments= */ null);
+        Assert.assertTrue("Failed to perform accessibility focus action", actionRes);
+
+        // Verify TYPE_WINDOW_STATE_CHANGED event was received specifically for PANE_APPEARED.
+        boolean eventReceived =
+                waitForEvent(
+                        new EventMatcherBuilder()
+                                .setEventType(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+                                .setContentChangeTypes(
+                                        AccessibilityEventCompat.CONTENT_CHANGE_TYPE_PANE_APPEARED)
+                                .build());
+        Assert.assertTrue(
+                "Service did not receive TYPE_WINDOW_STATE_CHANGED (PANE_APPEARED) event for dialog"
+                        + " pane enter",
+                eventReceived);
+    }
+
+    @Test
+    @SmallTest
+    @MinAndroidSdkLevel(Build.VERSION_CODES.BAKLAVA)
+    public void testDialogPaneExit_accessibilityFocus() throws Throwable {
+        String html =
+                """
+                <button>Outside Dialog</button>
+                <div role="dialog" aria-label="Test Dialog">
+                  <button>Inside Dialog</button>
+                </div>
+                """;
+        setupTest(html, new NodeMatcherBuilder().setText("Inside Dialog").build());
+
+        // First move accessibility focus inside the dialog.
+        boolean focusInsideRes =
+                getAccessibilityHelperService()
+                        .performActionOnNode(
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.widget.Button")
+                                        .setText("Inside Dialog")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS,
+                                /* arguments= */ null);
+        Assert.assertTrue("Failed to focus node inside dialog", focusInsideRes);
+
+        // Move accessibility focus outside the dialog to trigger pane exit.
+        boolean focusOutsideRes =
+                getAccessibilityHelperService()
+                        .performActionOnNode(
+                                new NodeMatcherBuilder()
+                                        .setClassName("android.widget.Button")
+                                        .setText("Outside Dialog")
+                                        .build(),
+                                AccessibilityNodeInfoCompat.ACTION_ACCESSIBILITY_FOCUS,
+                                /* arguments= */ null);
+        Assert.assertTrue("Failed to focus node outside dialog", focusOutsideRes);
+
+        // Verify TYPE_WINDOW_STATE_CHANGED event was received specifically for PANE_DISAPPEARED.
+        boolean eventReceived =
+                waitForEvent(
+                        new EventMatcherBuilder()
+                                .setEventType(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED)
+                                .setContentChangeTypes(
+                                        AccessibilityEventCompat
+                                                .CONTENT_CHANGE_TYPE_PANE_DISAPPEARED)
+                                .build());
+        Assert.assertTrue(
+                "Service did not receive TYPE_WINDOW_STATE_CHANGED (PANE_DISAPPEARED) event for"
+                        + " dialog pane exit",
+                eventReceived);
     }
 
     @Test
@@ -660,7 +760,7 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
 WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
   EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] isInputFocusedViaFindFocus
     TextView text:"Line one" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
-    View text:"\\n" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
+    View text:"\\n" editable notVisibleToUser actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
     View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:{1, child}
       TextView text:"Link text" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"] extendedSelectionStart:{0, text}
     TextView text:" node" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
@@ -748,6 +848,7 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
 
     @Test
     @SmallTest
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // crbug.com/542055199
     @MinAndroidSdkLevel(Build.VERSION_CODES.KITKAT) // API Level 19
     public void fireGeneratedEvent_ariaLabelChange_firesTextChangeType() throws Throwable {
         // Create an HTML document where there is a div tag with aria-label attribute set.
@@ -780,7 +881,7 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
 
     @Test
     @SmallTest
-    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // flaky crbug.com/534257179
+    @DisabledTest(message = "crbug.com/534257179")
     @MinAndroidSdkLevel(Build.VERSION_CODES.KITKAT) // API Level 19
     public void fireGeneratedEvent_alertDisplayStyleChange_firesSubtreeChangeType()
             throws Throwable {
@@ -904,6 +1005,7 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
 
     @Test
     @SmallTest
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO) // crbug.com/542071685
     public void fireGeneratedEvent_defaultActionVerbChanged_firesContentChanged() throws Throwable {
         // Create an HTML document with a disabled button (default action verb of NONE).
         String html =
@@ -939,32 +1041,6 @@ WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
         // actions including CLICK.
         String treeDump = getAccessibilityHelperService().dumpWebContentsAccessibilityTree();
         Assert.assertTrue("Tree dump should contain CLICK action", treeDump.contains("CLICK"));
-    }
-
-    private static class WaitForParamsBuilder {
-        private static final long DEFAULT_TIMEOUT_MS = 10000;
-
-        @Nullable private EventMatcher mEventMatcher;
-        @Nullable private NodeMatcher mNodeMatcher;
-        private final long mTimeoutMs = DEFAULT_TIMEOUT_MS;
-
-        public WaitForParamsBuilder setEventMatcher(EventMatcher eventMatcher) {
-            mEventMatcher = eventMatcher;
-            return this;
-        }
-
-        public WaitForParamsBuilder setNodeMatcher(NodeMatcher nodeMatcher) {
-            mNodeMatcher = nodeMatcher;
-            return this;
-        }
-
-        public WaitForParams build() {
-            WaitForParams matcher = new WaitForParams();
-            matcher.eventMatcher = mEventMatcher;
-            matcher.nodeMatcher = mNodeMatcher;
-            matcher.timeoutMs = mTimeoutMs;
-            return matcher;
-        }
     }
 
     @SuppressWarnings("unused")

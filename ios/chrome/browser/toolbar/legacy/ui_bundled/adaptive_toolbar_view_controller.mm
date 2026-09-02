@@ -466,8 +466,8 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
       ToolbarCollapsedHeight(self.traitCollection.preferredContentSizeCategory);
   const CGFloat expandedCollapsedDelta = expandedHeight - collapsedHeight;
 
-  const CGFloat height =
-      AlignValueToPixel(collapsedHeight + expandedCollapsedDelta * progress);
+  const CGFloat height = AlignValueToLowerPixel(
+      collapsedHeight + expandedCollapsedDelta * progress);
 
   self.view.locationBarContainerHeight.constant = height;
   self.view.locationBarContainer.layer.cornerRadius = height / 2;
@@ -575,7 +575,13 @@ const base::TimeDelta kProgressBarEndAnimationDuration =
       base::RecordAction(
           base::UserMetricsAction("MobileToolbarNewTabShortcutOnNTP"));
     }
-    base::RecordAction(base::UserMetricsAction("MobileToolbarNewTabShortcut"));
+    if (self.buttonFactory.style == ToolbarStyle::kIncognito) {
+      base::RecordAction(
+          base::UserMetricsAction("MobileToolbarNewIncognitoTabShortcut"));
+    } else {
+      base::RecordAction(
+          base::UserMetricsAction("MobileToolbarNewTabShortcut"));
+    }
     base::RecordAction(base::UserMetricsAction("MobileTabNewTab"));
   } else {
     NOTREACHED();

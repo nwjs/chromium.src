@@ -174,84 +174,12 @@ std::pair<bool, std::optional<std::string>> DecideIfCollectionIsEnabled(
 
 // Logs statistics about the sampling profiler.
 void LogProfilerStats(std::optional<ProcessType> process_type,
-                      const base::PoissonAllocationSamplerStats& profiler_stats,
                       size_t num_samples,
                       base::ByteSize expected_sampling_interval) {
-  const double hit_rate =
-      profiler_stats.address_cache_hits
-          ? (static_cast<double>(profiler_stats.address_cache_hits) /
-             (profiler_stats.address_cache_hits +
-              profiler_stats.address_cache_misses))
-          : 0.0;
   base::UmaHistogramCounts100000(
       ProcessHistogramName("HeapProfiling.InProcess.SamplesPerSnapshot",
                            process_type),
       num_samples);
-  base::UmaHistogramCounts1M(
-      ProcessHistogramName(
-          "HeapProfiling.InProcess.SampledAddressCacheHitCount", process_type),
-      profiler_stats.address_cache_hits);
-  base::UmaHistogramCounts10000(
-      ProcessHistogramName("HeapProfiling.InProcess.SampledAddressCacheHitRate",
-                           process_type),
-      hit_rate * 10000);
-  base::UmaHistogramCounts1M(
-      ProcessHistogramName("HeapProfiling.InProcess.SampledAddressCacheMaxSize",
-                           process_type),
-      profiler_stats.address_cache_max_size);
-  base::UmaHistogramPercentage(
-      ProcessHistogramName(
-          "HeapProfiling.InProcess.SampledAddressCacheMaxLoadFactor",
-          process_type),
-      100 * profiler_stats.address_cache_max_load_factor);
-  for (size_t bucket_length :
-       profiler_stats.address_cache_bucket_stats.lengths) {
-    base::UmaHistogramCounts100(
-        ProcessHistogramName(
-            "HeapProfiling.InProcess.SampledAddressCacheBucketLengths",
-            process_type),
-        bucket_length);
-  }
-  // Expected to cluster around 100% - target range is around 95% to 105%.
-  base::UmaHistogramCustomCounts(
-      ProcessHistogramName(
-          "HeapProfiling.InProcess.SampledAddressCacheUniformity",
-          process_type),
-      100 * profiler_stats.address_cache_bucket_stats.chi_squared, 0, 200, 50);
-
-  if (base::FeatureList::IsEnabled(base::kUseLockFreeBloomFilter)) {
-    const size_t kMaxSaturationSize = 65;
-    static_assert(kMaxSaturationSize == base::kMaxLockFreeBloomFilterBits + 1,
-                  "LockFreeBloomFilter's max bits has changed. Need to update "
-                  "the metric.");
-
-    const double bloom_filter_hit_rate =
-        profiler_stats.bloom_filter_hits
-            ? (static_cast<double>(profiler_stats.bloom_filter_hits) /
-               (profiler_stats.bloom_filter_hits +
-                profiler_stats.bloom_filter_misses))
-            : 0.0;
-    base::UmaHistogramCounts1M(
-        ProcessHistogramName("HeapProfiling.InProcess.BloomFilterHitCount",
-                             process_type),
-        profiler_stats.bloom_filter_hits);
-    base::UmaHistogramCounts10000(
-        ProcessHistogramName("HeapProfiling.InProcess.BloomFilterHitRate",
-                             process_type),
-        bloom_filter_hit_rate * 10000);
-    base::UmaHistogramExactLinear(
-        ProcessHistogramName("HeapProfiling.InProcess.BloomFilterMaxSaturation",
-                             process_type),
-        profiler_stats.bloom_filter_max_saturation, kMaxSaturationSize);
-
-    base::UmaHistogramCounts1M("HeapProfiling.InProcess.BloomFilterHitCount",
-                               profiler_stats.bloom_filter_hits);
-    base::UmaHistogramCounts10000("HeapProfiling.InProcess.BloomFilterHitRate",
-                                  bloom_filter_hit_rate * 10000);
-    base::UmaHistogramExactLinear(
-        "HeapProfiling.InProcess.BloomFilterMaxSaturation",
-        profiler_stats.bloom_filter_max_saturation, kMaxSaturationSize);
-  }
 
   CHECK(expected_sampling_interval.is_positive());
   const size_t actual_interval =
@@ -269,14 +197,10 @@ void LogProfilerStats(std::optional<ProcessType> process_type,
 std::vector<base::SamplingHeapProfiler::Sample> RetrieveAndLogSnapshot(
     ProcessType process_type,
     base::ByteSize expected_sampling_interval) {
-  auto samples = base::SamplingHeapProfiler::Get()->GetSamples(0);
-  const base::PoissonAllocationSamplerStats profiler_stats =
-      base::PoissonAllocationSampler::Get()->GetAndResetStats();
-  LogProfilerStats(process_type, profiler_stats, samples.size(),
-                   expected_sampling_interval);
+  auto samples = base::SamplingHeapProfiler::Get()->GetSamples(std::nullopt);
+  LogProfilerStats(process_type, samples.size(), expected_sampling_interval);
   // Also summarize over all process types.
-  LogProfilerStats(std::nullopt, profiler_stats, samples.size(),
-                   expected_sampling_interval);
+  LogProfilerStats(std::nullopt, samples.size(), expected_sampling_interval);
   return samples;
 }
 
@@ -360,6 +284,10 @@ HeapProfilerController::~HeapProfilerController() {
   CHECK_EQ(g_instance, this);
   g_instance = nullptr;
 
+  if (profiling_session_) {
+    base::SamplingHeapProfiler::Get()->Stop(*profiling_session_);
+  }
+
   // BrowserProcessSnapshotController must be deleted on the sequence that its
   // WeakPtr's are bound to.
   if (browser_process_snapshot_controller_) {
@@ -383,21 +311,20 @@ bool HeapProfilerController::StartIfEnabled() {
     return false;
   }
   const size_t sampling_rate_bytes = GetSamplingRateForProcess(process_type_);
-  if (sampling_rate_bytes > 0) {
-    base::SamplingHeapProfiler::Get()->SetSamplingInterval(sampling_rate_bytes);
-    expected_sampling_rate_ = base::ByteSize(sampling_rate_bytes);
-  } else {
-    // Using the default rate.
-    expected_sampling_rate_ = base::ByteSize(
-        base::PoissonAllocationSampler::Get()->SamplingInterval());
+  if (sampling_rate_bytes == 0) {
+    return false;
   }
+  expected_sampling_rate_ = base::ByteSize(sampling_rate_bytes);
+
   const float hash_set_load_factor =
       GetHashSetLoadFactorForProcess(process_type_);
   if (hash_set_load_factor > 0) {
     base::PoissonAllocationSampler::Get()->SetTargetHashSetLoadFactor(
         hash_set_load_factor);
   }
-  base::SamplingHeapProfiler::Get()->Start();
+  profiling_session_ = base::SamplingHeapProfiler::Get()->Start(
+      expected_sampling_rate_,
+      base::SamplingHeapProfiler::Priority::kBackground);
 
   if (process_type_ != ProcessType::kBrowser) {
     // ChildProcessSnapshotController will trigger snapshots.
@@ -623,10 +550,16 @@ void HeapProfilerController::RetrieveAndSendSnapshot(
       frames.emplace_back(address, module);
     }
 
+    std::optional<size_t> merged_resident_bytes;
+    if (value.total > 0) {
+      merged_resident_bytes = value.resident_total;
+    }
+
     // Heap "samples" represent allocation stacks aggregated over time so
     // do not have a meaningful timestamp.
     profile_builder.OnSampleCompleted(std::move(frames), base::TimeTicks(),
-                                      value.total, value.count);
+                                      value.total, value.count,
+                                      merged_resident_bytes);
 
     total_sampled_bytes += value.total;
   }

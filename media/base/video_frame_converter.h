@@ -30,10 +30,14 @@ class MEDIA_EXPORT VideoFrameConverter {
   //   * PIXEL_FORMAT_ARGB
   //   * PIXEL_FORMAT_I420
   //   * PIXEL_FORMAT_I420A
+  //   * PIXEL_FORMAT_I422
+  //   * PIXEL_FORMAT_I422A
   //   * PIXEL_FORMAT_I444
   //   * PIXEL_FORMAT_I444A
   //   * PIXEL_FORMAT_NV12
   //   * PIXEL_FORMAT_NV12A
+  //   * PIXEL_FORMAT_NV16
+  //   * PIXEL_FORMAT_NV24
   //   * PIXEL_FORMAT_YUV420P10
   //   * PIXEL_FORMAT_YUV422P10
   //   * PIXEL_FORMAT_YUV444P10
@@ -43,6 +47,9 @@ class MEDIA_EXPORT VideoFrameConverter {
   //   * PIXEL_FORMAT_YUV420AP10
   //   * PIXEL_FORMAT_YUV422AP10
   //   * PIXEL_FORMAT_YUV444AP10
+  //   * PIXEL_FORMAT_P010LE
+  //   * PIXEL_FORMAT_P210LE
+  //   * PIXEL_FORMAT_P410LE
   //
   // Output formats:
   //   * PIXEL_FORMAT_I420
@@ -51,8 +58,12 @@ class MEDIA_EXPORT VideoFrameConverter {
   //   * PIXEL_FORMAT_I444A
   //   * PIXEL_FORMAT_NV12
   //   * PIXEL_FORMAT_NV12A
+  //   * PIXEL_FORMAT_P010LE
   EncoderStatus ConvertAndScale(const VideoFrame& src_frame,
                                 VideoFrame& dest_frame);
+
+  // Returns the destination color space for video encoding based on source.
+  static gfx::ColorSpace GetDestinationColorSpace(const VideoFrame& src_frame);
 
   size_t get_pool_size_for_testing() const {
     return frame_pool_->get_pool_size_for_testing();
@@ -65,24 +76,30 @@ class MEDIA_EXPORT VideoFrameConverter {
                                             const gfx::Rect& visible_rect,
                                             const gfx::Size& natural_size);
 
-  // Wraps an NV12x frame within an I420x frame with the Y and A planes of the
-  // I420x wrapping frame pointing directly into the Y and A planes of the NV12x
-  // frame. The U and V planes of the I420x wrapper point into `scratch_space_`.
+  // Wraps a biplanar frame (NV12x, NV16, NV24, P010LE) within a triplanar
+  // frame with matching chroma sampling. The Y (and A if applicable) plane of
+  // the wrapper points directly into the corresponding plane of the source
+  // frame.
+  // The U and V planes of the wrapper point into scratch space allocated from
+  // `frame_pool_`.
   //
-  // Allows for conversion of NV12 data into I420 data without copies of the
+  // Allows for conversion to and from biplanar formats without copies of the
   // Y and A planes.
   //
   // Warning: VideoFrame will const_cast away the protections on `frame`, so
   // it's the callers responsibility to ensure they write only to the planes
   // they intend to.
-  scoped_refptr<VideoFrame> WrapNV12xFrameInI420xFrame(const VideoFrame& frame);
+  scoped_refptr<VideoFrame> WrapBiplanarFrameInTriplanarFrame(
+      const VideoFrame& frame);
 
   EncoderStatus ConvertAndScaleRGB(const VideoFrame* src_frame,
                                    VideoFrame& dest_frame);
   EncoderStatus ConvertAndScaleI4xxx(const VideoFrame* src_frame,
                                      VideoFrame& dest_frame);
-  EncoderStatus ConvertAndScaleNV12x(const VideoFrame* src_frame,
-                                     VideoFrame& dest_frame);
+  EncoderStatus ConvertAndScaleNVxx(const VideoFrame* src_frame,
+                                    VideoFrame& dest_frame);
+  EncoderStatus ConvertAndScalePx10(const VideoFrame* src_frame,
+                                    VideoFrame& dest_frame);
   EncoderStatus ConvertAndScaleHBD(const VideoFrame* src_frame,
                                    VideoFrame& dest_frame);
 

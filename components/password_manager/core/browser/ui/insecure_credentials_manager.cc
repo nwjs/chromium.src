@@ -151,7 +151,6 @@ InsecureCredentialsManager::GetInsecureCredentialEntries() const {
           {InsecureType::kLeaked,
            InsecurityMetadata(base::Time(), IsMuted(false),
                               TriggerBackendNotification(false))});
-      continue;
     }
     if (weak_passwords_.contains(credential.password)) {
       credential.password_issues.insert(
@@ -216,7 +215,7 @@ void InsecureCredentialsManager::OnSavedPasswordsChanged(
   base::flat_set<std::u16string> passwords_to_recheck;
   for (const auto& change : changes) {
     if (ChangeRequiresRerunningWeakCheck(change)) {
-      passwords_to_recheck.insert(change.credential().password_value);
+      passwords_to_recheck.insert(change.credential().password_value.value());
     }
   }
   if (!passwords_to_recheck.empty()) {

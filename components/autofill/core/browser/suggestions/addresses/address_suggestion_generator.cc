@@ -147,28 +147,6 @@ struct ProfileWithText {
   std::u16string text;
 };
 
-Suggestion CreateUndoOrClearFormSuggestion() {
-#if BUILDFLAG(IS_IOS)
-  std::u16string value =
-      l10n_util::GetStringUTF16(IDS_AUTOFILL_CLEAR_FORM_MENU_ITEM);
-  // TODO(crbug.com/40266549): iOS still uses Clear Form logic, replace with
-  // Undo.
-  Suggestion suggestion(value, SuggestionType::kUndoOrClear);
-  suggestion.icon = Suggestion::Icon::kClear;
-#else
-  std::u16string value = l10n_util::GetStringUTF16(IDS_AUTOFILL_UNDO_MENU_ITEM);
-  if constexpr (BUILDFLAG(IS_ANDROID)) {
-    value = base::i18n::ToUpper(value);
-  }
-  Suggestion suggestion(value, SuggestionType::kUndoOrClear);
-  suggestion.icon = Suggestion::Icon::kUndo;
-#endif
-  // TODO(crbug.com/40266549): update "Clear Form" a11y announcement to "Undo"
-  suggestion.acceptance_a11y_announcement =
-      l10n_util::GetStringUTF16(IDS_AUTOFILL_A11Y_ANNOUNCE_CLEARED_FORM);
-  return suggestion;
-}
-
 bool ShouldUseNationalFormatPhoneNumber(FieldType trigger_field_type) {
   return GroupTypeOfFieldType(trigger_field_type) == FieldTypeGroup::kPhone &&
          trigger_field_type != PHONE_HOME_WHOLE_NUMBER &&
@@ -316,12 +294,13 @@ std::optional<Suggestion> GetSuggestionForTestAddresses(
                         SuggestionType::kDevtoolsTestAddresses);
   suggestion.main_text.is_primary = Suggestion::Text::IsPrimary(false);
   suggestion.icon = Suggestion::Icon::kCode;
-  suggestion.acceptability = Suggestion::Acceptability::kUnacceptable;
+  suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
   suggestion.children.emplace_back(
       l10n_util::GetStringUTF16(IDS_AUTOFILL_TEST_ADDRESS_BY_COUNTRY),
       SuggestionType::kDevtoolsTestAddressByCountry);
   suggestion.children.back().acceptability =
-      Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle;
+      Suggestion::Acceptability::kUnselectableAndUnacceptable;
   suggestion.children.emplace_back(SuggestionType::kSeparator);
   for (const AutofillProfile& test_address : test_addresses) {
     CHECK(test_address.is_devtools_testing_profile());
@@ -460,7 +439,7 @@ std::vector<Suggestion> GetAddressFooterSuggestions(bool is_autofilled) {
   std::vector<Suggestion> footer_suggestions;
   footer_suggestions.emplace_back(SuggestionType::kSeparator);
   if (is_autofilled) {
-    footer_suggestions.push_back(CreateUndoOrClearFormSuggestion());
+    footer_suggestions.push_back(CreateUndoSuggestion());
   }
   footer_suggestions.push_back(CreateManageAddressesSuggestion());
   return footer_suggestions;
@@ -599,7 +578,8 @@ std::vector<Suggestion> CreateSuggestionsFromProfiles(
     suggestion.payload = std::move(payloads[i]);
     suggestion.acceptance_a11y_announcement =
         l10n_util::GetStringUTF16(IDS_AUTOFILL_A11Y_ANNOUNCE_FILLED_FORM);
-    suggestion.acceptability = Suggestion::Acceptability::kAcceptable;
+    suggestion.acceptability =
+        Suggestion::Acceptability::kSelectableAndAcceptable;
     if (suggestion.type == SuggestionType::kAddressFieldByFieldFilling) {
       suggestion.field_by_field_filling_type_used =
           std::optional(trigger_field_type);

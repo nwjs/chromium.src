@@ -7,14 +7,14 @@
 
 #include <optional>
 
+#include "base/component_export.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
-#include "base/i18n/base_i18n_export.h"
 #include "base/i18n/language_tag.h"
-#include "third_party/rust/cxx/v1/cxx.h"
+#include "base/memory/raw_ptr_exclusion.h"
 
-namespace base::i18n_internal {
-struct IcuFallbacker;
+namespace icu4x {
+class LocaleFallbacker;
 }
 
 namespace base::i18n {
@@ -41,7 +41,7 @@ namespace base::i18n {
 //
 //   // No match:
 //   matcher.Match(GetKnownLanguageTag<"de">()); // Returns nullopt
-class BASE_I18N_EXPORT LanguageTagMatcher {
+class COMPONENT_EXPORT(LANGUAGE_TAG_WITH_ICU) LanguageTagMatcher {
  public:
   // Creates a new matcher for the given set of supported locales.
   // Precomputes matching logic for the provided list of supported locales.
@@ -85,10 +85,10 @@ class BASE_I18N_EXPORT LanguageTagMatcher {
  private:
   explicit LanguageTagMatcher(
       base::flat_map<LanguageTag, LanguageTag> closest_supported_tag,
-      rust::Box<i18n_internal::IcuFallbacker> icu_fallbacker);
+      std::unique_ptr<icu4x::LocaleFallbacker> icu_fallbacker);
 
   base::flat_map<LanguageTag, LanguageTag> closest_supported_tag_;
-  rust::Box<i18n_internal::IcuFallbacker> icu_fallbacker_;
+  std::unique_ptr<icu4x::LocaleFallbacker> icu_fallbacker_;
 };
 
 // This class provides the same methods as `LanguageTagMatcher` with an
@@ -96,7 +96,7 @@ class BASE_I18N_EXPORT LanguageTagMatcher {
 // language tag needs to be given during construction which makes it useful for
 // usages where a default is needed but the client does not necessarily know
 // which language to use as default.
-class BASE_I18N_EXPORT LanguageTagMatcherWithDefault {
+class COMPONENT_EXPORT(LANGUAGE_TAG_WITH_ICU) LanguageTagMatcherWithDefault {
  public:
   // Similar to `LanguageTagMatcher::Create` but also takes as the first
   // argument, a default locale.

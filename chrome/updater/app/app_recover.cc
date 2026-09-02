@@ -110,21 +110,27 @@ std::vector<RegistrationRequest> AppRecover::RecordRegisteredApps() const {
     registration.brand_path = data->GetBrandPath(app);
     registration.ap = data->GetAP(app);
     registration.existence_checker_path = data->GetExistenceCheckerPath(app);
-    if (app == browser_app_id_) {
+    const bool is_browser_app =
+        !browser_app_id_.empty() &&
+        base::EqualsCaseInsensitiveASCII(app, browser_app_id_);
+    if (is_browser_app) {
       found_browser_registration = true;
     }
-    if (app == browser_app_id_ && browser_version_.IsValid()) {
+    if (is_browser_app && browser_version_.IsValid()) {
       registration.version = browser_version_.GetString();
     } else {
-      registration.version = data->GetProductVersion(app).GetString();
+      const base::Version pv = data->GetProductVersion(app);
+      registration.version = pv.IsValid() ? pv.GetString() : kNullVersion;
     }
     apps.push_back(registration);
   }
-  if (!found_browser_registration) {
+  if (!browser_app_id_.empty() && !found_browser_registration) {
     RegistrationRequest registration;
     registration.app_id = browser_app_id_;
-    registration.version = browser_version_.GetString();
-    apps.emplace_back(registration);
+    registration.version = browser_version_.IsValid()
+                               ? browser_version_.GetString()
+                               : kNullVersion;
+    apps.push_back(registration);
   }
   return apps;
 }
@@ -138,6 +144,7 @@ int AppRecover::ReinstallUpdater() const {
   int exit_code = -1;
   base::CommandLine uninstall_command(setup_path);
   uninstall_command.AppendSwitch(kUninstallSwitch);
+  uninstall_command.AppendSwitch(kSkipUninstallScriptSwitch);
   if (IsSystemInstall(updater_scope())) {
     uninstall_command.AppendSwitch(kSystemSwitch);
   }

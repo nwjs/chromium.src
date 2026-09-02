@@ -631,6 +631,84 @@ std::optional<FeatureConfig> GetCustomConfig(const base::Feature* feature) {
                     feature_engagement::kMaxStoragePeriod,
                     feature_engagement::kMaxStoragePeriod);
     return config;
+  } else if (kIPHiOSPromoSettingsCardDefaultBrowserFeature.name ==
+             feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.storage_type = StorageType::DEVICE;
+    config.blocked_by.type = BlockedBy::Type::NONE;
+    config.blocking.type = Blocking::Type::NONE;
+    // Promo cannot be shown again once dismissed.
+    config.used = EventConfig(
+        feature_engagement::events::kDefaultBrowserSettingsCardPromoUsed,
+        Comparator(LESS_THAN, 1), feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod);
+
+    // Show this promo once every 7 days.
+    config.trigger = EventConfig("default_browser_settings_card_promo_trigger",
+                                 Comparator(LESS_THAN, 1), 7,
+                                 feature_engagement::kMaxStoragePeriod);
+
+    // Promo card should only be shown 4 times max.
+    config.event_configs.insert(EventConfig(
+        "default_browser_settings_card_promo_trigger", Comparator(LESS_THAN, 4),
+        feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod));
+
+    // Default Browser promos should be shown after 3 or more days since FRE.
+    config.event_configs.insert(EventConfig(events::kIOSDefaultBrowserFREShown,
+                                            Comparator(EQUAL, 0), 3, 365));
+
+    // Default Browser promos can be shown only after Chrome has been opened 7
+    // or more times.
+    config.event_configs.insert(EventConfig(
+        events::kChromeOpened, Comparator(GREATER_THAN_OR_EQUAL, 7), 365, 365));
+
+    // Default Browser promos shouldn't be shown if the Post Restore Default
+    // Browser Promo has been shown in the past 7 days.
+    config.event_configs.insert(
+        EventConfig("post_restore_default_browser_promo_trigger",
+                    Comparator(EQUAL, 0), 7, 365));
+
+    return config;
+  } else if (kIPHiOSPromoSettingsCellDefaultBrowserFeature.name ==
+             feature->name) {
+    FeatureConfig config;
+    config.valid = true;
+    config.availability = Comparator(ANY, 0);
+    config.session_rate = Comparator(ANY, 0);
+    config.storage_type = StorageType::DEVICE;
+    config.blocked_by.type = BlockedBy::Type::NONE;
+    config.blocking.type = Blocking::Type::NONE;
+    config.used = EventConfig(
+        feature_engagement::events::kDefaultBrowserSettingsCellPromoUsed,
+        Comparator(LESS_THAN, 1), feature_engagement::kMaxStoragePeriod,
+        feature_engagement::kMaxStoragePeriod);
+
+    // No impression limit.
+    config.trigger =
+        EventConfig("default_browser_settings_cell_promo_trigger",
+                    Comparator(ANY, 0), feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+
+    // Default Browser promos should be shown after 3 or more days since FRE.
+    config.event_configs.insert(EventConfig(events::kIOSDefaultBrowserFREShown,
+                                            Comparator(EQUAL, 0), 3, 365));
+
+    // Default Browser promos can be shown only after Chrome has been opened 7
+    // or more times.
+    config.event_configs.insert(EventConfig(
+        events::kChromeOpened, Comparator(GREATER_THAN_OR_EQUAL, 7), 365, 365));
+
+    // Default Browser promos shouldn't be shown if the Post Restore Default
+    // Browser Promo has been shown in the past 7 days.
+    config.event_configs.insert(
+        EventConfig("post_restore_default_browser_promo_trigger",
+                    Comparator(EQUAL, 0), 7, 365));
+
+    return config;
   } else {
     return std::nullopt;
   }

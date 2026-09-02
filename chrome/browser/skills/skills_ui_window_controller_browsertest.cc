@@ -22,13 +22,16 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/prefs/pref_service.h"
 #include "components/skills/features.h"
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skill.mojom.h"
 #include "components/skills/public/skills_metrics.h"
+#include "components/skills/public/skills_prefs.h"
 #include "components/skills/public/skills_service.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/controls/button/label_button.h"
@@ -324,6 +327,131 @@ IN_PROC_BROWSER_TEST_F(SkillsUiWindowControllerBrowserTest,
   EXPECT_EQ(user_action_tester_.GetActionCount(
                 "Toast.ActionButtonClicked.SkillSaved"),
             1);
+}
+
+IN_PROC_BROWSER_TEST_F(SkillsUiWindowControllerBrowserTest,
+                       StoreLastSavedSkillMetadataAndInvoke) {
+  const std::string kSkillId = "skill-123";
+  const std::string kSkillName = "Skill Name";
+  const std::string kSkillIcon = "Skill Icon";
+
+  window_controller()->StoreLastSavedSkillMetadata(kSkillId, kSkillName,
+                                                   kSkillIcon);
+  window_controller()->ShowToast(ToastId::kSkillSaved);
+  EXPECT_TRUE(browser()->GetFeatures().toast_controller()->IsShowingToast());
+
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+
+  // Click toast action button ("Try It").
+  ClickToastActionButton();
+
+  // Verify that the skill was invoked with name and icon parameters.
+  EXPECT_EQ(tab_controller()->GetLastInvokedSkillIdForTesting(), kSkillId);
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+}
+
+IN_PROC_BROWSER_TEST_F(SkillsUiWindowControllerBrowserTest,
+                       UserFlow_CreateSkill_DisableSkills_ThenInvoke) {
+  // Enable Glic late to avoid a crash in GlicTabIndicatorHelper during tab
+  // creation.
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(true);
+
+  // Open Dialog.
+  skills::Skill initial_skill(/*id=*/"",
+                              /*name=*/"",
+                              /*icon=*/"", "Skill Prompt");
+  tab_controller()->ShowDialog(std::move(initial_skill),
+                               SkillsDialogEntryPoint::kWebClientPrefilled,
+                               mojom::SkillsDialogType::kAdd, nullptr);
+
+  // Get WebContents to inject JS.
+  content::WebContents* web_contents = GetDialogWebContents();
+  ASSERT_TRUE(web_contents);
+  ASSERT_TRUE(content::WaitForLoadStop(web_contents));
+
+  // Setup Listener for "Dialog Closed".
+  base::test::TestFuture<void> close_future;
+  tab_controller()->SetOnDialogClosedCallbackForTesting(
+      close_future.GetCallback());
+
+  static constexpr char kSaveScript[] = R"(
+  (async () => {
+    const root = document.querySelector('skills-dialog-app').shadowRoot;
+
+    for (let i = 0; i < 50; i++) {
+      const btn = root.querySelector('#saveButton');
+      if (btn && !btn.disabled) {
+          setTimeout(() => btn.click(), 0);
+          return 'CLICKED';
+      }
+
+      // Fill inputs if found & empty
+      let el = root.querySelector('#nameText');
+      if (el && !el.value) {
+        el.value = 'Test';
+        el.dispatchEvent(new CustomEvent('value-changed', {
+          bubbles: true,
+          composed: true,
+          detail: { value: 'Test' }
+        }));
+      }
+      el = root.querySelector('#instructionsText');
+      if (el && !el.value) {
+        el.value = 'Test';
+        el.dispatchEvent(new Event('input', {
+          bubbles: true,
+          composed: true
+        }));
+      }
+      await new Promise(r => setTimeout(r, 100));
+    }
+    return 'TIMEOUT';
+  })();
+)";
+
+  EXPECT_EQ("CLICKED", content::EvalJs(web_contents, kSaveScript));
+
+  // Wait for the C++ backend to process the save and close the dialog.
+  ASSERT_TRUE(close_future.Wait());
+  EXPECT_EQ(nullptr, GetDialogWebContents());
+
+  // Now disable skills dynamically!
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      skills::prefs::kChromeSkillsEnabled, false);
+
+  // Click the Toast "Try It" button.
+  ClickToastActionButton();
+
+  // Verify that nothing was invoked because skills are disabled.
+  EXPECT_TRUE(tab_controller()->GetLastInvokedSkillIdForTesting().empty());
+  glic::GlicEnabling::SetBypassEnablementChecksForTesting(false);
+}
+
+IN_PROC_BROWSER_TEST_F(SkillsUiWindowControllerBrowserTest,
+                       PrefChange_ClosesDialogAndReloadsPage) {
+  // 1. Open chrome://skills page in the active tab.
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(),
+                                           GURL(chrome::kChromeUISkillsURL)));
+  content::WebContents* web_contents =
+      browser()->GetActiveTabInterface()->GetContents();
+  ASSERT_TRUE(web_contents);
+
+  // 2. Open a skills dialog on the active tab.
+  skills::Skill initial_skill(/*id=*/"", /*name=*/"", /*icon=*/"",
+                              /*prompt=*/"Test Prompt");
+  tab_controller()->ShowDialog(std::move(initial_skill),
+                               SkillsDialogEntryPoint::kWebClientPrefilled,
+                               mojom::SkillsDialogType::kAdd, nullptr);
+  EXPECT_TRUE(tab_controller()->IsShowing());
+
+  // 3. Flip the skills enabled pref to false and verify dialog closes and page
+  // reloads.
+  content::TestNavigationObserver reload_observer(web_contents);
+  browser()->GetProfile()->GetPrefs()->SetBoolean(
+      skills::prefs::kChromeSkillsEnabled, false);
+  reload_observer.Wait();
+  EXPECT_FALSE(tab_controller()->IsShowing());
+  EXPECT_TRUE(reload_observer.last_navigation_succeeded());
 }
 
 }  // namespace skills

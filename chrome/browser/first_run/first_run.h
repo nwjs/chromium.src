@@ -74,6 +74,9 @@ struct MasterPrefs {
   bool confirm_to_quit;
 #endif
 #if BUILDFLAG(IS_LINUX)
+  // NW.js: do not require the first-run EULA/terms-of-service dialog on Linux.
+  // Upstream flipped this default to true (crrev 1292cde56e9b8), which blocks
+  // startup of freshly-launched nw apps waiting on a modal EULA dialog.
   bool eula_required = false;
 #endif
 };

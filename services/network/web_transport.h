@@ -14,6 +14,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/completion_once_callback.h"
+#include "net/http/http_request_headers.h"
 #include "net/log/net_log_with_source.h"
 #include "net/quic/web_transport_client.h"
 #include "services/network/public/mojom/client_security_state.mojom.h"
@@ -61,6 +62,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebTransport final
           anticipated_concurrent_incoming_unidirectional_streams,
       std::optional<uint16_t>
           anticipated_concurrent_incoming_bidirectional_streams,
+      std::vector<net::HttpRequestHeaders::HeaderKeyValuePair>
+          additional_headers,
       NetworkContext* context,
       mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client,
       mojo::PendingRemote<mojom::URLLoaderNetworkServiceObserver>
@@ -82,6 +85,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebTransport final
   void SendFin(uint32_t stream_id) override;
   void AbortStream(uint32_t stream_id, uint8_t code) override;
   void StopSending(uint32_t stream_id, uint8_t code) override;
+  void SetStreamPriority(
+      uint32_t stream_id,
+      mojom::WebTransportStreamPriorityPtr priority) override;
   void SetOutgoingDatagramExpirationDuration(base::TimeDelta duration) override;
   void GetStats(GetStatsCallback callback) override;
   void Close(mojom::WebTransportCloseInfoPtr close_info) override;
@@ -97,6 +103,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebTransport final
   void OnClosed(
       const std::optional<net::WebTransportCloseInfo>& close_info) override;
   void OnError(const net::WebTransportError& error) override;
+  void OnDraining() override;
   void OnIncomingBidirectionalStreamAvailable() override;
   void OnIncomingUnidirectionalStreamAvailable() override;
   void OnDatagramReceived(std::string_view datagram) override;
@@ -117,6 +124,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) WebTransport final
 
   bool closing_ = false;
   bool torn_down_ = false;
+
+  bool draining_received_ = false;
 
   // Destroy `streams_` before `closing_` and `torn_down_`; its destructor
   // calls back into `WebTransport` to check those flags.

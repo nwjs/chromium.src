@@ -263,7 +263,7 @@ class MockObserver : public MockPageNodeObserver {
     // Node should be created without edges.
     EXPECT_FALSE(page_node->GetOpenerFrameNode());
     EXPECT_FALSE(page_node->GetEmbedderFrameNode());
-    EXPECT_FALSE(page_node->GetMainFrameNode());
+    EXPECT_FALSE(page_node->GetPrimaryMainFrameNode());
     EXPECT_TRUE(page_node->GetMainFrameNodes().empty());
   }
 
@@ -371,8 +371,9 @@ TEST_F(PageNodeImplTest, ObserverWorks) {
 
   const GURL kTestUrl = GURL("https://foo.com/");
   int64_t navigation_id = 0x1234;
-  EXPECT_CALL(obs, OnMainFrameUrlChanged(_))
-      .WillOnce(Invoke(&obs, &MockObserver::SetNotifiedPageNode));
+  EXPECT_CALL(obs, OnMainFrameUrlChanged(_, _))
+      .WillOnce(testing::WithArg<0>(
+          Invoke(&obs, &MockObserver::SetNotifiedPageNode)));
   EXPECT_CALL(
       obs, OnPageNotificationPermissionStatusChange(
                _, std::make_optional(blink::mojom::PermissionStatus::GRANTED)));
@@ -429,8 +430,9 @@ TEST_F(PageNodeImplTest, SetMainFrameRestoredState) {
 
   MockObserver obs(graph());
 
-  EXPECT_CALL(obs, OnMainFrameUrlChanged(_))
-      .WillOnce(Invoke(&obs, &MockObserver::SetNotifiedPageNode));
+  EXPECT_CALL(obs, OnMainFrameUrlChanged(_, _))
+      .WillOnce(testing::WithArg<0>(
+          Invoke(&obs, &MockObserver::SetNotifiedPageNode)));
   EXPECT_CALL(obs, OnPageNotificationPermissionStatusChange(
                        _, std::optional<blink::mojom::PermissionStatus>()));
   page->SetMainFrameRestoredState(kUrl,
@@ -452,7 +454,8 @@ TEST_F(PageNodeImplTest, PublicInterface) {
   // Simply test that the public interface impls yield the same result as their
   // private counterpart.
 
-  EXPECT_EQ(page_node->main_frame_node(), public_page_node->GetMainFrameNode());
+  EXPECT_EQ(page_node->primary_main_frame_node(),
+            public_page_node->GetPrimaryMainFrameNode());
 }
 
 TEST_F(PageNodeImplTest, OpenerFrameNode) {

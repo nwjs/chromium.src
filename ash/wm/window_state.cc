@@ -7,6 +7,7 @@
 #include <absl/cleanup/cleanup.h>
 
 #include <optional>
+#include <ranges>
 #include <utility>
 
 #include "ash/accessibility/accessibility_controller.h"
@@ -41,9 +42,7 @@
 #include "ash/wm/wm_metrics.h"
 #include "base/check_is_test.h"
 #include "base/check_op.h"
-#include "base/containers/adapters.h"
 #include "base/containers/fixed_flat_map.h"
-#include "base/debug/crash_logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notimplemented.h"
@@ -574,6 +573,7 @@ bool WindowState::IsRestoring(WindowStateType previous_state) const {
 void WindowState::DisableZOrdering(aura::Window* window_on_top) {
   ui::ZOrderLevel z_order = GetZOrdering();
   if (z_order != ui::ZOrderLevel::kNormal && !IsPip()) {
+    aura::Window::ScopedDeleteBlocker blocker(window_);
     // |window_| is hidden first to avoid canceling fullscreen mode when it is
     // no longer always on top and gets added to default container. This avoids
     // sending redundant OnFullscreenStateChanged to the layout manager. The
@@ -1185,9 +1185,6 @@ void WindowState::SetBoundsDirectCrossFade(const gfx::Rect& bounds_in_parent,
     return;
   }
 
-  SCOPED_CRASH_KEY_NUMBER("333095196", "state_type",
-                          std::to_underlying(GetStateType()));
-
   CrossFadeAnimation(window_, std::move(old_layer_owner));
 }
 
@@ -1299,7 +1296,7 @@ void WindowState::RestoreHistoryStack::Clear() {
 
 void WindowState::RestoreHistoryStack::PopIncompatible(
     WindowStateType current_state_type) {
-  for (auto state_type : base::Reversed(window_states_)) {
+  for (auto state_type : std::views::reverse(window_states_)) {
     if (CanRestoreState(current_state_type, IgnoreGrouping(state_type))) {
       break;
     }

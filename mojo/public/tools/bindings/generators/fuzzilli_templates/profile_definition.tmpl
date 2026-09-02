@@ -8,6 +8,9 @@ private let mojoBuiltins: [String: ILType] = [
     "{{receiver|fully_qualified_name}}CallbackRouter":
        .constructor([] => .js{{receiver|format_unique_name}}CallbackRouter),
 {%- endfor %}
+{%- for struct in structs %}
+    "{{struct|fully_qualified_name}}": .{{struct|format_il_type}}Constructor,
+{%- endfor %}
 ]
 
 private let keepGenerators = [
@@ -65,7 +68,9 @@ let mojo{{primary.name}}Profile = Profile(
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
-    disabledMutators: v8Profile.disabledMutators,
+    disabledMutators: [
+        "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
+    ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
     additionalObjectGroups: [
 {%- for remote in interface_remotes %}
@@ -83,8 +88,14 @@ let mojo{{primary.name}}Profile = Profile(
         .{{(method|callback_receiver_name)|to_camel(True)}},
         {%- endfor %}
 {%- endfor %}
+{%- for struct in structs + response_structs %}
+        .{{struct|format_unique_name|to_camel(True)}},
+{%- endfor %}
     ] + commonMojoObjectGroups,
     additionalEnumerations: [
+{%- for enum in enums %}
+        .{{enum|format_il_type}},
+{%- endfor %}
     ] + commonMojoEnumerations,
     additionalOptionsBags: [] + commonMojoOptionsBags,
     optionalPostProcessor: nil

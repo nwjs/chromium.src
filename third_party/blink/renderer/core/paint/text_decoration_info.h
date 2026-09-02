@@ -10,6 +10,7 @@
 #include "base/types/strong_alias.h"
 #include "cc/paint/paint_record.h"
 #include "third_party/blink/renderer/core/core_export.h"
+#include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/inline/used_font.h"
 #include "third_party/blink/renderer/core/paint/decoration_line_painter.h"
 #include "third_party/blink/renderer/core/paint/line_relative_rect.h"
@@ -29,6 +30,7 @@ namespace blink {
 
 class ComputedStyle;
 class DecoratingBox;
+class FragmentItem;
 class InlinePaintContext;
 class TextDecorationOffset;
 
@@ -41,6 +43,22 @@ enum class ResolvedUnderlinePosition {
 
 using IsSvgText = base::StrongAlias<class IsSvgTextTag, bool>;
 
+struct TextDecorationFragmentContext {
+  STACK_ALLOCATED();
+
+ public:
+  const FragmentItem* previous_fragment_on_line = nullptr;
+  const FragmentItem* next_fragment_on_line = nullptr;
+  // Cursor positioned at the current fragment, used to walk the decorated
+  // run when resolving `text-decoration-inset` percentages. Stored as a
+  // pointer to keep this struct cheap to copy in the per-fragment paint
+  // path; the cursor must outlive any painter holding this context.
+  const InlineCursor* fragment_cursor = nullptr;
+};
+
+CORE_EXPORT TextDecorationFragmentContext
+ComputeTextDecorationFragmentContext(const InlineCursor& cursor);
+
 // Holds the resolved metrics and styling for a single AppliedTextDecoration.
 // This immutable structure decouples index-specific properties from the overall
 // TextDecorationInfo context.
@@ -48,12 +66,12 @@ struct ResolvedDecoration {
   STACK_ALLOCATED();
 
  public:
-  // ResolveDecorationAt() must fill `applied_text_decoration`, so it never be
-  // nullptr.
-  const AppliedTextDecoration* applied_text_decoration = nullptr;
+  const AppliedTextDecoration* applied_text_decoration;
   UsedFont used_font;
   TextDecorationLine lines = TextDecorationLine::kNone;
   float resolved_thickness = 0.f;
+  float line_left_inset = 0.f;
+  float line_right_inset = 0.f;
   float effective_zoom = 1.0f;
   // This field is available only if a decorating box is applied and `lines`
   // has underline.
@@ -64,9 +82,9 @@ struct ResolvedDecoration {
   bool has_overline = false;
   bool is_flipped_underline_and_overline = false;
 
-  // ResolvedDecoration should be initialized with a UsedFont because
-  // UsedFont has no default constructor.
-  explicit ResolvedDecoration(const UsedFont& font) : used_font(font) {}
+  ResolvedDecoration(const UsedFont& font,
+                     const AppliedTextDecoration& decoration)
+      : applied_text_decoration(&decoration), used_font(font) {}
 
   bool HasUnderline() const { return has_underline; }
   bool HasOverline() const { return has_overline; }
@@ -101,7 +119,11 @@ class CORE_EXPORT TextDecorationInfo {
                      const Color selection_decoration_color,
                      const AppliedTextDecoration* decoration_override = nullptr,
                      IsSvgText is_svg_text = IsSvgText(false),
-                     float svg_resource_scaling_factor = 1.0f);
+                     float svg_resource_scaling_factor = 1.0f,
+                     TextDecorationFragmentContext fragment_context = {},
+                     bool conservative_inset_bounds = false);
+
+  static bool NeedsFragmentContextForInset(const ComputedStyle& style);
 
   wtf_size_t AppliedDecorationCount() const;
   const AppliedTextDecoration& AppliedDecoration(wtf_size_t) const;
@@ -162,6 +184,22 @@ class CORE_EXPORT TextDecorationInfo {
 
   LayoutUnit Width() const { return width_; }
 
+  void ResolveDecorationInsets(wtf_size_t decoration_index,
+                               ResolvedDecoration& decoration) const;
+
+  struct DecoratedRunMetrics {
+    float size_before;
+    float size_after;
+    float total_size;
+  };
+
+  // Returns the inline size before and after the current fragment within the
+  // contiguous decorated run, plus the total run size. Falls back to treating
+  // the current fragment as the whole run when no cursor is available.
+  DecoratedRunMetrics ComputeDecoratedRunMetrics(
+      const ResolvedDecoration& decoration,
+      wtf_size_t decoration_index) const;
+
   // The |ComputedStyle| of the target text/box to paint decorations for.
   const ComputedStyle& target_style_;
   // The |ComputedStyle| of the [decorating box]. Decorations are computed from
@@ -186,6 +224,10 @@ class CORE_EXPORT TextDecorationInfo {
   const LayoutUnit width_;
   const float target_ascent_ = 0.f;
   const float svg_resource_scaling_factor_;
+  const TextDecorationFragmentContext fragment_context_;
+  // In conservative overflow mode, positive text-decoration-inset values do
+  // not shrink the computed bounds.
+  const bool conservative_inset_bounds_;
 
   // |union_all_lines_| represents the lines found in all
   // AppliedTextDecorations.

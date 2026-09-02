@@ -25,11 +25,13 @@ import androidx.annotation.VisibleForTesting;
 import androidx.core.graphics.Insets;
 
 import org.chromium.base.Callback;
+import org.chromium.base.CallbackUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -193,6 +195,11 @@ public class WebAppHeaderLayoutCoordinator extends EmptyTabObserver
 
         mTabSupplier = tabSupplier;
         mThemeColorProvider = themeColorProvider;
+        mThemeColorProvider.addTintObserver(this);
+        onTintChanged(
+                mThemeColorProvider.getTint(),
+                mThemeColorProvider.getActivityFocusTint(),
+                mThemeColorProvider.getBrandedColorScheme());
         mIncognitoStateProvider = new IncognitoStateProvider();
 
         mOnUnoccludedWidthCallback = this::onUnoccludedWidthChanged;
@@ -294,17 +301,13 @@ public class WebAppHeaderLayoutCoordinator extends EmptyTabObserver
         mToggleButtonView.setVisibility(View.VISIBLE);
         syncToggleButtonView();
         mToggleButtonView.setOnTouchListener(
-                new View.OnTouchListener() {
-                    @SuppressLint("ClickableViewAccessibility")
-                    @Override
-                    public boolean onTouch(View v, MotionEvent event) {
-                        if (event.getAction() != MotionEvent.ACTION_UP) return false;
-                        assert mMediator != null;
-                        mMediator.setUserToggleHeaderAsOverlay(
-                                !mMediator.getUserToggleHeaderAsOverlay());
-                        syncToggleButtonView();
-                        return false;
-                    }
+                (v, event) -> {
+                    if (event.getAction() != MotionEvent.ACTION_UP) return false;
+                    assert mMediator != null;
+                    mMediator.setUserToggleHeaderAsOverlay(
+                            !mMediator.getUserToggleHeaderAsOverlay());
+                    syncToggleButtonView();
+                    return false;
                 });
         mToggleButtonView.setForegroundTintList(mThemeColorProvider.getTint());
 
@@ -401,23 +404,29 @@ public class WebAppHeaderLayoutCoordinator extends EmptyTabObserver
 
             // TODO(crbug.com/453007852): When ObservableSupplier<E> extends Supplier<@Nullable E>,
             // remove cast to Supplier<@Nullable MenuButtonState>,
+            // Pass View.NO_ID to prevent MenuButtonCoordinator from searching mActivity for
+            // R.id.menu_button_wrapper, which would incorrectly bind to CustomTabToolbar's
+            // MenuButton. Explicitly set the MenuButton view resolved from the header container
+            // instead.
             mMenuButtonCoordinator =
                     new MenuButtonCoordinator(
                             mActivity,
                             mAppMenuCoordinatorSupplier,
                             mBrowserStateBrowserControlsVisibilityDelegate,
                             mActivityWindowAndroid,
-                            /* clearOmniboxFocus= */ () -> {},
+                            /* clearOmniboxFocus= */ CallbackUtils.emptyRunnable(),
                             mRequestRenderRunnable,
                             /* canShowAppUpdateBadge= */ false,
-                            /* isInOverviewModeSupplier= */ () -> false,
+                            /* isInOverviewModeSupplier= */ SupplierUtils.alwaysFalse(),
                             mThemeColorProvider,
                             mIncognitoStateProvider,
                             (Supplier<@Nullable MenuButtonState>) mMenuButtonStateSupplier,
                             this::onMenuButtonClicked,
-                            R.id.menu_button_wrapper,
+                            View.NO_ID,
                             /* visibilityDelegate= */ null,
                             /* isWebApp= */ true);
+            mMenuButtonCoordinator.setMenuButton(
+                    mMenuButtonContainer.findViewById(R.id.menu_button_wrapper));
         }
     }
 
@@ -632,6 +641,7 @@ public class WebAppHeaderLayoutCoordinator extends EmptyTabObserver
 
         mDesktopWindowStateManager.removeObserver(this);
         mBrowserControlsStateProvider.removeObserver(this);
+        mThemeColorProvider.removeTintObserver(this);
 
         if (mView != null) {
             mView.destroy();

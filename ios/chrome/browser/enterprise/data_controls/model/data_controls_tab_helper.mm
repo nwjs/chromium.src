@@ -10,21 +10,33 @@
 #import "base/functional/callback.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/strings/utf_string_conversions.h"
+#import "components/enterprise/common/proto/connectors.pb.h"
+#import "components/enterprise/connectors/core/analysis_settings.h"
 #import "components/enterprise/data_controls/core/browser/features.h"
 #import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/data_controls/core/browser/rule.h"
 #import "components/policy/core/common/policy_types.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/ios_cloud_binary_upload_service_factory.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/pasteboard_content_handler_ios.h"
 #import "ios/chrome/browser/enterprise/common/util.h"
+#import "ios/chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
+#import "ios/chrome/browser/enterprise/connectors/connectors_service.h"
+#import "ios/chrome/browser/enterprise/connectors/connectors_service_factory.h"
+#import "ios/chrome/browser/enterprise/connectors/connectors_util.h"
+#import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_metrics.h"
-#import "ios/chrome/browser/enterprise/data_controls/model/data_controls_pasteboard_manager.h"
+#import "ios/chrome/browser/enterprise/data_controls/utils/ios_clipboard_context.h"
 #import "ios/chrome/browser/enterprise/enterprise_dialog/model/warning_dialog.h"
+#import "ios/chrome/browser/policy/model/browser_policy_connector_ios.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/components/enterprise/analysis/features.h"
 #import "ios/web/public/web_state.h"
 #import "ui/base/clipboard/clipboard_format_type.h"
 #import "ui/base/clipboard/clipboard_metadata.h"
@@ -51,6 +63,13 @@ void DataControlsTabHelper::ShouldAllowCopy(
   CopyPolicyVerdicts verdicts =
       IsCopyAllowedByPolicy(source_url, metadata, profile);
 
+  std::string domain = GetManagementDomain(profile);
+  NSString* snackbar_title =
+      domain.empty()
+          ? l10n_util::GetNSString(IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
+          : l10n_util::GetNSStringF(IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
+                                    base::UTF8ToUTF16(domain));
+
   switch (verdicts.copy_action_verdict.level()) {
     case Rule::Level::kWarn:
       ShowWarningDialog(
@@ -62,7 +81,7 @@ void DataControlsTabHelper::ShouldAllowCopy(
                          std::move(callback)));
       break;
     case Rule::Level::kBlock:
-      ShowRestrictSnackbar(GetManagementDomain(profile));
+      ShowRestrictSnackbar(snackbar_title);
       [[fallthrough]];
     case Rule::Level::kReport:
     case Rule::Level::kAllow:
@@ -76,6 +95,14 @@ void DataControlsTabHelper::ShouldAllowCopy(
 
 void DataControlsTabHelper::ShouldAllowPaste(
     base::OnceCallback<void(bool)> callback) {
+  // If there is a `pasteboard_content_handler_` instance then the previous scan
+  // is not completed and user is trying to paste again. Block the current and
+  // following paste event directly until the previous scan is done.
+  if (pasteboard_content_handler_) {
+    std::move(callback).Run(false);
+    return;
+  }
+
   // TODO(crbug.com/444224082): Include size and format type for paste
   // operations.
   ui::ClipboardMetadata metadata;
@@ -98,29 +125,251 @@ void DataControlsTabHelper::ShouldAllowPaste(
       source.source_profile ? source.source_profile->AsWeakPtr()
                             : base::WeakPtr<ProfileIOS>{};
 
+  NSString* snackbar_title =
+      domain.empty()
+          ? l10n_util::GetNSString(IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
+          : l10n_util::GetNSStringF(IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
+                                    base::UTF8ToUTF16(domain));
+
   switch (policy_verdict.verdict.level()) {
     case Rule::Level::kWarn:
       paste_event_state_ = PasteEventState::kDisplayingWarningDialog;
       ShowWarningDialog(
           enterprise::DialogType::kClipboardPasteWarn, domain,
           base::BindOnce(
-              &DataControlsTabHelper::FinishPaste, weak_factory_.GetWeakPtr(),
-              destination_url, source.source_url, profile->AsWeakPtr(),
-              weakSourceProfile, metadata, std::move(policy_verdict.verdict),
-              std::move(callback)));
+              &DataControlsTabHelper::PasteIfAllowedByDataControls,
+              weak_factory_.GetWeakPtr(), destination_url, source.source_url,
+              profile->AsWeakPtr(), weakSourceProfile, metadata,
+              std::move(policy_verdict.verdict), std::move(callback)));
       break;
     case Rule::Level::kBlock:
-      ShowRestrictSnackbar(domain);
+      ShowRestrictSnackbar(snackbar_title);
       [[fallthrough]];
     case Rule::Level::kReport:
     case Rule::Level::kAllow:
     case Rule::Level::kNotSet:
-      FinishPaste(destination_url, source.source_url, profile->AsWeakPtr(),
-                  weakSourceProfile, metadata,
-                  std::move(policy_verdict.verdict), std::move(callback),
-                  /*bypassed=*/false);
+      PasteIfAllowedByDataControls(destination_url, source.source_url,
+                                   profile->AsWeakPtr(), weakSourceProfile,
+                                   metadata, std::move(policy_verdict.verdict),
+                                   std::move(callback),
+                                   /*bypassed=*/false);
       break;
   }
+}
+
+void DataControlsTabHelper::PasteIfAllowedByDataControls(
+    const GURL& destination_url,
+    const GURL& source_url,
+    base::WeakPtr<ProfileIOS> destination_profile,
+    base::WeakPtr<ProfileIOS> source_profile,
+    const ui::ClipboardMetadata& metadata,
+    Verdict verdict,
+    base::OnceCallback<void(bool)> callback,
+    bool bypassed) {
+  // Record the verdict level to the Paste histogram.
+  base::UmaHistogramEnumeration(
+      kIOSWebStateDataControlsClipboardPasteVerdictHistogram, verdict.level());
+
+  if (verdict.level() > Rule::Level::kNotSet && destination_profile.get()) {
+    MaybeReportDataControlsPaste(
+        source_url, destination_url, source_profile.get(),
+        destination_profile.get(), metadata, verdict, bypassed);
+  }
+
+  // The user may have navigated away from the page into which the paste
+  // operation was initiated. If the URL has changed, we should block the paste
+  // operation as the original destination is no longer available.
+  if (destination_url != web_state_->GetLastCommittedURL()) {
+    FinishPaste(std::move(callback), /*verdict_or_scan_success=*/false,
+                /*analysis_warn_bypassed=*/false);
+    return;
+  }
+
+  bool allowed = verdict.level() != Rule::Level::kBlock;
+  if (verdict.level() == Rule::Level::kWarn) {
+    allowed = bypassed;
+
+    // Record whether user ignores the warning and decides to paste anyway.
+    base::UmaHistogramBoolean(
+        kIOSWebStateDataControlsClipboardPasteClipboardWarningBypassedHistogram,
+        bypassed);
+  }
+
+  // Block the paste if it is not allowed or if the destination_profile is
+  // destroyed.
+  if (!allowed || !destination_profile) {
+    FinishPaste(std::move(callback), /*verdict_or_scan_success=*/false,
+                /*analysis_warn_bypassed=*/false);
+    return;
+  }
+
+  // Get the connector service for both source profile and destination profile.
+  // Only when neither profile has Bulk Data Entry enabled, we allow the paste.
+  // Otherwise, run the Pasted Content Analysis.
+  enterprise_connectors::ConnectorsService* source_profile_service = nullptr;
+  if (source_profile) {
+    source_profile_service =
+        enterprise_connectors::ConnectorsServiceFactory::GetForProfile(
+            source_profile.get());
+  }
+
+  // No need to check destination profile here because paste will be blocked if
+  // it is destroyed.
+  enterprise_connectors::ConnectorsService* destination_profile_service =
+      enterprise_connectors::ConnectorsServiceFactory::GetForProfile(
+          destination_profile.get());
+
+  bool source_profile_connector_enabled =
+      (source_profile_service &&
+       enterprise_connectors::IsBulkDataEntryConnectorEnabled(
+           source_profile_service));
+  bool destination_profile_connector_enabled =
+      (destination_profile_service &&
+       enterprise_connectors::IsBulkDataEntryConnectorEnabled(
+           destination_profile_service));
+
+  if (!source_profile_connector_enabled &&
+      !destination_profile_connector_enabled) {
+    FinishPaste(std::move(callback), /*verdict_or_scan_success=*/allowed,
+                /*analysis_warn_bypassed=*/false);
+    return;
+  }
+
+  // Prioritize using the destination profile's enterprise connector if it is
+  // enabled.
+  base::WeakPtr<ProfileIOS> profile = destination_profile_connector_enabled
+                                          ? destination_profile
+                                          : source_profile;
+
+  enterprise_connectors::ContentMetaData::CopiedTextSource copy_source =
+      IOSClipboardContext::GetCopiedTextSource(source_url, source_profile.get(),
+                                               destination_profile.get());
+
+  DataControlsPasteboardManager::GetInstance()->GetPasteboardTextAndImage(
+      base::BindOnce(&DataControlsTabHelper::RunPastedContentAnalysis,
+                     weak_factory_.GetWeakPtr(), destination_url, profile,
+                     std::move(copy_source), std::move(callback)));
+}
+
+void DataControlsTabHelper::PasteIfAllowedByContentAnalysis(
+    base::OnceCallback<void(bool)> callback,
+    enterprise_connectors::RequestHandlerResult result) {
+  // Pasteboard content changed because the user copied new content before
+  // content analysis was done, the old paste event is stale and should be
+  // discarded.
+  if (paste_event_state_ == PasteEventState::kPasteEventStale) {
+    FinishPaste(std::move(callback), /*verdict_or_scan_success=*/false,
+                /*analysis_warn_bypassed=*/false);
+    return;
+  }
+
+  using enterprise_connectors::RequestHandlerResultActionLevel;
+  RequestHandlerResultActionLevel action_level = ResultToActionLevel(result);
+
+  // Always call `FinishPaste` if the paste is allowed because the pasteboard
+  // items might need to be restored before pasting.
+  switch (action_level) {
+    case RequestHandlerResultActionLevel::kNotScan:
+    case RequestHandlerResultActionLevel::kAudit:
+      FinishPaste(std::move(callback), /*verdict_or_scan_success=*/true,
+                  /*analysis_warn_bypassed=*/false);
+      break;
+    case RequestHandlerResultActionLevel::kWarn:
+      paste_event_state_ = PasteEventState::kDisplayingWarningDialog;
+      ShowWarningDialog(
+          enterprise::DialogType::kPastedContentWarn, std::string(),
+          base::BindOnce(&DataControlsTabHelper::FinishPaste,
+                         weak_factory_.GetWeakPtr(), std::move(callback),
+                         /*verdict_or_scan_success=*/false));
+      break;
+    case RequestHandlerResultActionLevel::kBlock:
+      ShowRestrictSnackbar(l10n_util::GetNSString(
+          IDS_ENTERPRISE_CONTENT_ANALYSIS_PASTE_BLOCKED_MESSAGE));
+      FinishPaste(std::move(callback), /*verdict_or_scan_success=*/false,
+                  /*analysis_warn_bypassed=*/false);
+      break;
+  }
+}
+
+void DataControlsTabHelper::RunPastedContentAnalysis(
+    const GURL& destination_url,
+    base::WeakPtr<ProfileIOS> profile,
+    enterprise_connectors::ContentMetaData::CopiedTextSource copied_source,
+    base::OnceCallback<void(bool)> callback,
+    std::optional<PasteboardContentDLP> pasteboard_content) {
+  // This method should be guarded by `IsBulkDataEntryConnectorEnabled` check in
+  // the `PasteIfAllowedByDataControls` method.
+  CHECK(base::FeatureList::IsEnabled(
+      enterprise_connectors::kEnableBulkDataEntryConnectorIOS));
+
+  // If the `pasteboard_content` does not have a value, the pasteboard
+  // text/image size exceeds 100MB and we directly block the paste without
+  // scanning.
+  if (!pasteboard_content.has_value()) {
+    enterprise_connectors::RequestHandlerResult result;
+    result.final_result =
+        enterprise_connectors::FinalContentAnalysisResult::FAILURE;
+    PasteIfAllowedByContentAnalysis(std::move(callback), std::move(result));
+    return;
+  }
+
+  // Silently block the paste event without showing the snackbar since it is
+  // no longer valid if:
+  // 1. The profile with the pasted content analysis turned on is destroyed,
+  // and we cannot get the connevtor service, we should block the paste to
+  // prevent user trying to bypass the rules.
+  // 2. The user navigates away from the page while we were trying to get
+  // the pasteboard content.
+  if (!profile || destination_url != web_state_->GetLastCommittedURL()) {
+    FinishPaste(std::move(callback), /*verdict_or_scan_success=*/false,
+                /*analysis_warn_bypassed=*/false);
+    return;
+  }
+
+  // Create a `PasteboardContentHandlerIOS` and use it to upload the content for
+  // scanning and pass the result to `PasteIfAllowedByContentAnalysis` as a
+  // callback.
+  std::optional<enterprise_connectors::AnalysisSettings> settings =
+      std::nullopt;
+
+  enterprise_connectors::ConnectorsService* connectors_service =
+      enterprise_connectors::ConnectorsServiceFactory::GetForProfile(
+          profile.get());
+  if (connectors_service) {
+    settings = connectors_service->GetAnalysisSettings(
+        destination_url,
+        enterprise_connectors::AnalysisConnector::BULK_DATA_ENTRY);
+  }
+
+  auto content_analysis_info =
+      std::make_unique<enterprise_connectors::ContentAnalysisInfo>(
+          destination_url,
+          std::move(settings).value_or(
+              enterprise_connectors::AnalysisSettings()),
+          enterprise_connectors::ContentAnalysisRequest::CLIPBOARD_PASTE,
+          *web_state_);
+
+  enterprise_connectors::PasteboardInfo info = {
+      .text = std::move(pasteboard_content->text),
+      .image = std::move(pasteboard_content->image),
+      .destination_url = destination_url};
+
+  pasteboard_content_handler_ = std::make_unique<
+      enterprise_connectors::PasteboardContentHandlerIOS>(
+      std::move(info),
+      enterprise_connectors::IOSCloudBinaryUploadServiceFactory::GetForProfile(
+          profile.get()),
+      enterprise_connectors::IOSReportingEventRouterFactory::GetForProfile(
+          profile.get()),
+      std::move(copied_source), std::move(content_analysis_info),
+      base::BindRepeating([]() -> policy::BrowserPolicyConnector* {
+        return GetApplicationContext()->GetBrowserPolicyConnector();
+      }),
+      base::BindOnce(&DataControlsTabHelper::PasteIfAllowedByContentAnalysis,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
+
+  paste_event_state_ = PasteEventState::kWaitingScanDecision;
+  pasteboard_content_handler_->StartContentAnalysisRequest();
 }
 
 void DataControlsTabHelper::ShouldAllowCut(
@@ -298,44 +547,16 @@ void DataControlsTabHelper::FinishShare(const GURL& source_url,
   std::move(callback).Run(allowed);
 }
 
-void DataControlsTabHelper::FinishPaste(
-    const GURL& destination_url,
-    const GURL& source_url,
-    base::WeakPtr<ProfileIOS> destination_profile,
-    base::WeakPtr<ProfileIOS> source_profile,
-    const ui::ClipboardMetadata& metadata,
-    Verdict verdict,
-    base::OnceCallback<void(bool)> callback,
-    bool bypassed) {
-  // Record the verdict level to the Paste histogram.
-  base::UmaHistogramEnumeration(
-      kIOSWebStateDataControlsClipboardPasteVerdictHistogram, verdict.level());
+void DataControlsTabHelper::FinishPaste(base::OnceCallback<void(bool)> callback,
+                                        bool verdict_or_scan_success,
+                                        bool analysis_warn_bypassed) {
+  bool allowed = analysis_warn_bypassed || verdict_or_scan_success;
 
-  // Reset the `paste_event_state_` to `kIdle`.
-  paste_event_state_ = PasteEventState::kIdle;
-
-  if (verdict.level() > Rule::Level::kNotSet && destination_profile.get()) {
-    MaybeReportDataControlsPaste(
-        source_url, destination_url, source_profile.get(),
-        destination_profile.get(), metadata, verdict, bypassed);
-  }
-
-  // The user may have navigated away from the page into which the paste
-  // operation was initiated. If the URL has changed, we should block the paste
-  // operation as the original destination is no longer available.
-  if (destination_url != web_state_->GetLastCommittedURL()) {
-    std::move(callback).Run(false);
-    return;
-  }
-
-  bool allowed = verdict.level() != Rule::Level::kBlock;
-  if (verdict.level() == Rule::Level::kWarn) {
-    allowed = bypassed;
-
-    // Record whether user ignores the warning and decides to paste anyway.
-    base::UmaHistogramBoolean(
-        kIOSWebStateDataControlsClipboardPasteClipboardWarningBypassedHistogram,
-        bypassed);
+  if (analysis_warn_bypassed) {
+    // `analysis_warn_bypassed` should only be true when
+    // `pasteboard_content_handler_` is not null.
+    CHECK(pasteboard_content_handler_);
+    pasteboard_content_handler_->ReportWarningBypass();
   }
 
   if (allowed) {
@@ -345,6 +566,8 @@ void DataControlsTabHelper::FinishPaste(
   } else {
     std::move(callback).Run(false);
   }
+  pasteboard_content_handler_.reset();
+  paste_event_state_ = PasteEventState::kIdle;
 }
 
 void DataControlsTabHelper::ShowWarningDialog(
@@ -363,12 +586,7 @@ void DataControlsTabHelper::ShowWarningDialog(
   }
 }
 
-void DataControlsTabHelper::ShowRestrictSnackbar(std::string_view org_domain) {
-  NSString* title =
-      org_domain.empty()
-          ? l10n_util::GetNSString(IDS_POLICY_ACTION_BLOCKED_BY_ORGANIZATION)
-          : l10n_util::GetNSStringF(IDS_DATA_CONTROLS_BLOCKED_LABEL_WITH_DOMAIN,
-                                    base::UTF8ToUTF16(org_domain));
+void DataControlsTabHelper::ShowRestrictSnackbar(NSString* title) {
   SnackbarMessage* message = [[SnackbarMessage alloc] initWithTitle:title];
   [snackbar_handler_ showSnackbarMessageAfterDismissingKeyboard:message];
 }
@@ -391,6 +609,12 @@ void DataControlsTabHelper::OnPasteboardContentChanged() {
     case PasteEventState::kDisplayingWarningDialog:
       [enterprise_handler_ dismissEnterpriseWarningDialog];
       paste_event_state_ = PasteEventState::kIdle;
+      break;
+    case PasteEventState::kWaitingScanDecision:
+      paste_event_state_ = PasteEventState::kPasteEventStale;
+      break;
+    case PasteEventState::kPasteEventStale:
+      // Do nothing as we have not received a Scan Result yet.
       break;
   }
 }

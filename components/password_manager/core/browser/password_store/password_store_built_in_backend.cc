@@ -87,6 +87,11 @@ bool ShouldForwardSyncErrorToStore(
     case SyncError::kTrustedVaultRecoverabilityDegradedForPasswords:
     case SyncError::kTrustedVaultRecoverabilityDegradedForEverything:
     case SyncError::kBookmarksLimitExceeded:
+#if BUILDFLAG(IS_IOS)
+    case SyncError::kDeviceManagementError:
+      // TODO(crbug.com/539816393): Update this case if it needs to block saving
+#endif  // BUILDFLAG(IS_IOS)
+
       return false;  // These errors aren't directly actionable (yet).
     case SyncError::kNone:
     case SyncError::kNeedsPassphrase:
@@ -115,6 +120,10 @@ PasswordChangesOrError SyncErrorToBackendError(
     case SyncError::kBookmarksLimitExceeded:
     case SyncError::kTrustedVaultRecoverabilityDegradedForPasswords:
     case SyncError::kTrustedVaultRecoverabilityDegradedForEverything:
+#if BUILDFLAG(IS_IOS)
+    case SyncError::kDeviceManagementError:
+#endif  // BUILDFLAG(IS_IOS)
+
       return std::nullopt;  // These errors aren't directly actionable (yet).
     case SyncError::kNeedsPassphrase:
       return PasswordStoreBackendError(BackendError::kNeedsPassphrase);
@@ -161,6 +170,9 @@ ActionableError SyncErrorToActionableError(
 #endif
     case SyncError::kNeedsClientUpgrade:
     case SyncError::kBookmarksLimitExceeded:
+#if BUILDFLAG(IS_IOS)
+    case SyncError::kDeviceManagementError:
+#endif  // BUILDFLAG(IS_IOS)
       return ActionableError::kInactionable;
   }
 }
@@ -457,10 +469,6 @@ void PasswordStoreBuiltInBackend::OnStateChanged(syncer::SyncService* sync) {
 #endif
 
   CHECK(sync_observation_.IsObservingSource(sync));
-  if (!base::FeatureList::IsEnabled(
-          features::kPasswordStorePropagatesActionableErrors)) {
-    return;
-  }
   if (remote_form_changes_received_callback_) {
     if (ShouldForwardSyncErrorToStore(sync->GetUserActionableError())) {
       remote_form_changes_received_callback_.Run(

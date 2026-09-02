@@ -12,6 +12,7 @@
 #include "base/no_destructor.h"
 #include "base/notreached.h"
 #include "base/state_transitions.h"
+#include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/dictation/logging.h"
 #include "chrome/browser/dictation/metrics.h"
@@ -26,7 +27,10 @@
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/mojom/input/focus_type.mojom.h"
+#include "ui/events/keycodes/keyboard_codes.h"
 
 namespace content {
 
@@ -47,7 +51,7 @@ namespace dictation {
 
 SessionController::SessionController(SessionControllerDelegate& delegate)
     : delegate_(delegate) {
-  VT_LOG() << "=== Session Started";
+  VT_LOG(GetBrowserContext()) << "=== Session Started";
 }
 
 SessionController::~SessionController() {
@@ -56,7 +60,7 @@ SessionController::~SessionController() {
   if (attached_stream_provider_) {
     EndDictationStream();
   }
-  VT_LOG() << "=== Session Ended";
+  VT_LOG(GetBrowserContext()) << "=== Session Ended";
 }
 
 void SessionController::ResetUi() {
@@ -66,7 +70,8 @@ void SessionController::ResetUi() {
 void SessionController::StartDictationStream(
     const TargetDetails& target_details,
     DictationStreamStartTrigger trigger) {
-  VT_LOG() << "Starting DictationStream on target " << target_details.target_id;
+  VT_LOG(GetBrowserContext())
+      << "Starting DictationStream on target " << target_details.target_id;
   // TODO(b/525856380): Add support for "swapping in" a new stream. That is,
   // end the current stream and start a new one without entering the
   // finalization state which could flash states the UI.
@@ -75,7 +80,7 @@ void SessionController::StartDictationStream(
   CHECK(!attached_stream_provider_);
 
   if (is_shutting_down_) {
-    VT_LOG() << "\tAborting session shutdown";
+    VT_LOG(GetBrowserContext()) << "\tAborting session shutdown";
     is_shutting_down_ = false;
   }
 
@@ -96,6 +101,38 @@ void SessionController::StartDictationStream(
 
   if (ui_) {
     ui_->OnStartedStream(target_details.target_id);
+  }
+}
+
+void SessionController::DidGetUserInteraction(
+    const blink::WebInputEvent& event) {
+  if (event.GetType() != blink::WebInputEvent::Type::kRawKeyDown &&
+      event.GetType() != blink::WebInputEvent::Type::kKeyDown &&
+      event.GetType() != blink::WebInputEvent::Type::kChar) {
+    return;
+  }
+
+  const auto& key_event = static_cast<const blink::WebKeyboardEvent&>(event);
+  if (key_event.windows_key_code == ui::VKEY_TAB) {
+    // Don't handle tab key presses here. Let stream ending for those be handled
+    // by the focus change logic.
+    return;
+  }
+
+  if (key_event.windows_key_code == ui::VKEY_ESCAPE) {
+    if (attached_stream_provider_) {
+      EndDictationStream();
+    } else {
+      FinalizeAndShutdown();
+    }
+    return;
+  }
+
+  // If the user starts typing, end the stream.
+  const bool event_has_text = !base::IsUnicodeControl(key_event.text[0]);
+  if (attached_stream_provider_ && web_contents()->IsFocusedElementEditable() &&
+      event_has_text) {
+    EndDictationStream();
   }
 }
 
@@ -162,7 +199,7 @@ void SessionController::PrimaryPageChanged(content::Page& page) {
 }
 
 void SessionController::EndDictationStream() {
-  VT_LOG() << __func__;
+  VT_LOG(GetBrowserContext()) << __func__;
   CHECK(attached_stream_provider_);
   CHECK(state_ == SessionState::kStreamInitializing ||
         state_ == SessionState::kTranscribing);
@@ -190,7 +227,7 @@ void SessionController::UiRequestEndActiveStream() {
 }
 
 void SessionController::FinalizeAndShutdown() {
-  VT_LOG() << __func__;
+  VT_LOG(GetBrowserContext()) << __func__;
   is_shutting_down_ = true;
   if (attached_stream_provider_) {
     EndDictationStream();
@@ -301,7 +338,8 @@ void SessionController::MoveToState(SessionState new_state) {
     return;
   }
 
-  VT_LOG() << "SessionState: " << state_ << " --> " << new_state;
+  VT_LOG(GetBrowserContext())
+      << "SessionState: " << state_ << " --> " << new_state;
 
   using enum SessionState;
 #if DCHECK_IS_ON()
@@ -339,6 +377,10 @@ void SessionController::EndSessionAsynchronously() {
 
 void SessionController::PurgeToDeleteStreamProviders() {
   to_delete_stream_providers_.clear();
+}
+
+content::BrowserContext* SessionController::GetBrowserContext() const {
+  return delegate_->GetBrowserContext();
 }
 
 }  // namespace dictation

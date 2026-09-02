@@ -136,7 +136,9 @@ NativePaintWorkletData* ElementAnimations::EnsureClipPathNpwData(
   return clip_path_npw_data_;
 }
 
-void ElementAnimations::RecalcCompositedStatus(Element* element) {
+void ElementAnimations::RecalcCompositedStatus(
+    Element* element,
+    Animation::CompositorPendingReason pending_reason) {
   Animation::NativePaintWorkletReasons reasons = Animation::kNoPaintWorklet;
   // Multiple animations targeting the same property cannot be composited as
   // the compositor does not support composite-ordering. The overlapping_reasons
@@ -144,9 +146,19 @@ void ElementAnimations::RecalcCompositedStatus(Element* element) {
   Animation::NativePaintWorkletReasons overlapping_reasons =
       Animation::kNoPaintWorklet;
   for (auto& entry : Animations()) {
-    if (entry.key->CalculateAnimationPlayState() ==
-        V8AnimationPlayState::Enum::kIdle) {
+    const Animation* animation = entry.key;
+    V8AnimationPlayState::Enum play_state =
+        animation->CalculateAnimationPlayState();
+    if (play_state == V8AnimationPlayState::Enum::kIdle) {
       continue;
+    }
+    // A finished animation that is not in effect (i.e. no fill-mode) can
+    // be treated as if idle. This animation will stop ticking until reset via
+    // an API call. It will no longer appear in a getAnimations() call.
+    if (play_state == V8AnimationPlayState::Enum::kFinished) {
+      if (!animation->effect() || !animation->effect()->IsInEffect()) {
+        continue;
+      }
     }
 
     Animation::NativePaintWorkletReasons reasons_to_add =
@@ -166,6 +178,14 @@ void ElementAnimations::RecalcCompositedStatus(Element* element) {
   if (background_color_npw_data_) {
     background_color_npw_data_->UpdateCompositedPaintStatus(
         reasons, overlapping_reasons);
+    if (pending_reason ==
+        Animation::CompositorPendingReason::kPendingEffectChange) {
+      // TODO(kevers): We are over invalidating if the effect is invalidated
+      // on a different animation from the one animating background color.
+      // Recalc compositedStatus could take the animation instead of the
+      // element as a parameter to remedy.
+      background_color_npw_data_->SetAnimationCurve(nullptr);
+    }
   }
 
   if (clip_path_npw_data_) {
@@ -226,9 +246,6 @@ void ElementAnimations::CancelCompositedAnimationsAffectingProperties(
     }
 
     for (const auto& property : effect->Model()->DynamicProperties()) {
-      if (!property.IsCSSProperty()) {
-        continue;
-      }
       if (property_bitset.Has(property.GetCSSProperty().PropertyID())) {
         entry.key->SetCompositorPending(
             Animation::CompositorPendingReason::kPendingCancel);

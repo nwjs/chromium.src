@@ -20,7 +20,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view_interface.h"
 #include "chrome/browser/ui/views/promos/ios_promo_bubble.h"
 #include "chrome/browser/ui/views/side_panel/side_panel.h"
@@ -82,15 +81,10 @@ void ShowIOSDesktopPromoBubble(PromoType promo_type,
           bubble_type);
       break;
     }
-    case PromoType::kPayment:
-      page_actions::PageActionViewInterface* icon_view;
-      if (IsPageActionMigrated(PageActionIconType::kSaveCard)) {
-        icon_view = toolbar_button_provider->GetPageActionViewInterface(
-            kActionShowPaymentsBubbleOrPage);
-      } else {
-        icon_view = toolbar_button_provider->GetPageActionIconView(
-            PageActionIconType::kSaveCard);
-      }
+    case PromoType::kPayment: {
+      page_actions::PageActionViewInterface* icon_view =
+          toolbar_button_provider->GetPageActionViewInterface(
+              kActionShowPaymentsBubbleOrPage);
       CHECK(icon_view);
 
       IOSPromoBubble::ShowPromoBubble(
@@ -99,6 +93,7 @@ void ShowIOSDesktopPromoBubble(PromoType promo_type,
           icon_view, kAutofillSavePaymentsPageActionElementId, profile,
           PromoType::kPayment, bubble_type);
       break;
+    }
     case PromoType::kEnhancedBrowsing:
       IOSPromoBubble::ShowPromoBubble(
           {toolbar_button_provider->GetAppMenuControl()->GetAnchor()},
@@ -154,7 +149,7 @@ void RunCallback(std::optional<base::OnceClosure> callback) {
 void OnIOSPromoClassificationResult(
     PromoType promo_type,
     BubbleType bubble_type,
-    base::WeakPtr<Browser> browser,
+    base::WeakPtr<BrowserWindowInterface> browser,
     std::optional<base::OnceClosure> promo_will_be_shown_callback,
     std::optional<base::OnceClosure> promo_not_shown_callback,
     const segmentation_platform::ClassificationResult& result) {
@@ -213,7 +208,7 @@ void VerifyIOSPromoEligibilityCriteriaAsync(
         ->GetClassificationResult(
             segmentation_platform::kDeviceSwitcherKey, options, input_context,
             base::BindOnce(&OnIOSPromoClassificationResult, promo_type,
-                           bubble_type, browser->AsWeakPtr(),
+                           bubble_type, browser->GetWeakPtr(),
                            std::move(promo_will_be_shown_callback),
                            std::move(promo_not_shown_callback)));
     return;

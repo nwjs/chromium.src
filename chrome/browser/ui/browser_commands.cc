@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/browser_commands.h"
 
+#include <algorithm>
 #include <memory>
 #include <numeric>
 #include <optional>
@@ -70,6 +71,7 @@
 #include "chrome/browser/ui/bookmarks/bookmark_utils_desktop.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -112,6 +114,7 @@
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_selection_state.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -122,6 +125,7 @@
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/browser/upgrade_detector/upgrade_detector.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
@@ -182,6 +186,7 @@
 #include "components/zoom/page_zoom.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/browsing_data_remover.h"
+#include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
@@ -272,17 +277,17 @@ const char kChPlatformOverrideForTabletSite[] = "Android";
 void CreateAndShowNewWindowWithContents(
     std::unique_ptr<content::WebContents> contents,
     BrowserWindowInterface* original_browser) {
-  Browser* new_browser = nullptr;
+  BrowserWindowInterface* new_browser = nullptr;
   DCHECK(original_browser->GetType() != BrowserWindowInterface::TYPE_APP_POPUP);
   if (original_browser->GetType() == BrowserWindowInterface::TYPE_APP) {
     const Browser* browser = original_browser->GetBrowserForMigrationOnly();
     const bool is_trusted_source =
         WindowFeatureController::From(original_browser)->IsTrustedSource();
-    new_browser = Browser::Create(Browser::CreateParams::CreateForApp(
-        browser->app_name(), is_trusted_source, gfx::Rect(),
-        original_browser->GetProfile(), true));
+    new_browser = CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
+        BrowserInitState::From(browser)->create_params().app_name,
+        is_trusted_source, gfx::Rect(), original_browser->GetProfile(), true));
   } else {
-    new_browser = Browser::Create(Browser::CreateParams(
+    new_browser = CreateBrowserWindow(BrowserWindowCreateParams(
         original_browser->GetType(), original_browser->GetProfile(), true));
   }
   // Preserve the size of the original window. The new window has already
@@ -370,8 +375,8 @@ content::WebContents* DuplicateTabAt(BrowserWindowInterface* browser,
   content::WebContents* raw_contents_dupe = contents_dupe.get();
 
   bool pinned = false;
-  if (browser->GetBrowserForMigrationOnly()->CanSupportWindowFeature(
-          Browser::WindowFeature::kFeatureTabStrip)) {
+  if (WindowFeatureController::From(browser)->CanSupportWindowFeature(
+          WindowFeatureController::WindowFeature::kFeatureTabStrip)) {
     // If this is a tabbed browser, just create a duplicate tab inside the same
     // window next to the tab being duplicated.
     TabStripModel* tab_strip_model = browser->GetTabStripModel();
@@ -476,9 +481,10 @@ void MoveTabsToWindowImpl(BrowserWindowInterface* source,
   target->GetWindow()->Show();
 }
 
-Browser* CreateNewBrowser(Browser* browser, bool user_gesture) {
-  auto params = Browser::CreateParams(browser->GetProfile(), user_gesture);
-  return Browser::Create(params);
+BrowserWindowInterface* CreateNewBrowser(BrowserWindowInterface* browser,
+                                         bool user_gesture) {
+  auto params = BrowserWindowCreateParams(browser->GetProfile(), user_gesture);
+  return CreateBrowserWindow(std::move(params));
 }
 
 struct MruTabResult {
@@ -540,6 +546,62 @@ void ActivateTab(TabStripModel* model,
   model->ActivateTabAt(index, gesture_detail);
 }
 
+bool IsTabSelectable(
+    TabStripModel* model,
+    tabs::TabInterface* tab,
+    const std::optional<tab_groups::TabGroupId>& focused_group) {
+  // Do not select the tab if it is in a collapsed group.
+  if (tab->GetGroup().has_value() &&
+      model->IsGroupCollapsed(tab->GetGroup().value())) {
+    return false;
+  }
+
+  // Do not select the tab if it is not part of the focused state.
+  if (focused_group.has_value() &&
+      !tabs::TabStripModelSelectionState::IsTabValidInFocusedGroup(
+          tab, focused_group)) {
+    return false;
+  }
+
+  return true;
+}
+
+bool FocusAdjacentTabGroupInFocusMode(TabStripModel* tab_strip_model,
+                                      bool next) {
+  std::optional<tab_groups::TabGroupId> current_focused_group =
+      tab_strip_model->GetFocusedGroup();
+  if (!current_focused_group.has_value()) {
+    return false;
+  }
+
+  TabGroupModel* group_model = tab_strip_model->group_model();
+  if (!group_model) {
+    return false;
+  }
+
+  std::vector<tab_groups::TabGroupId> groups_in_order =
+      group_model->ListTabGroups();
+  if (groups_in_order.empty()) {
+    return false;
+  }
+
+  std::ranges::sort(groups_in_order, {}, [&](const tab_groups::TabGroupId& id) {
+    return group_model->GetTabGroup(id)->ListTabs().start();
+  });
+
+  auto it = std::ranges::find(groups_in_order, *current_focused_group);
+  if (it == groups_in_order.end()) {
+    return false;
+  }
+
+  size_t current_index = std::distance(groups_in_order.begin(), it);
+  size_t target_index = next ? (current_index + 1) % groups_in_order.size()
+                             : (current_index + groups_in_order.size() - 1) %
+                                   groups_in_order.size();
+  tab_strip_model->SetFocusedGroup(groups_in_order[target_index]);
+  return true;
+}
+
 }  // namespace
 
 using base::UserMetricsAction;
@@ -596,13 +658,13 @@ tabs::TabInterface* GetTabAndRevertIfNecessaryHelper(
     case WindowOpenDisposition::NEW_WINDOW: {
       std::unique_ptr<WebContents> new_tab = current_contents->Clone();
       WebContents* raw_new_tab = new_tab.get();
-      Browser* new_browser =
-          Browser::Create(Browser::CreateParams(browser->GetProfile(), true));
-      new_browser->tab_strip_model()->AddWebContents(std::move(new_tab), -1,
-                                                     ui::PAGE_TRANSITION_LINK,
-                                                     AddTabTypes::ADD_ACTIVE);
+      BrowserWindowInterface* new_browser = CreateBrowserWindow(
+          BrowserWindowCreateParams(browser->GetProfile(), true));
+      new_browser->GetTabStripModel()->AddWebContents(std::move(new_tab), -1,
+                                                      ui::PAGE_TRANSITION_LINK,
+                                                      AddTabTypes::ADD_ACTIVE);
       new_browser->GetWindow()->Show();
-      return new_browser->tab_strip_model()->GetTabForWebContents(raw_new_tab);
+      return new_browser->GetTabStripModel()->GetTabForWebContents(raw_new_tab);
     }
     default:
       BrowserWindow::FromBrowser(browser)->GetLocationBar()->Revert();
@@ -751,16 +813,15 @@ bool ExecuteCommand(BrowserWindowInterface* browser,
                     int command,
                     base::TimeTicks time_stamp) {
   return browser->GetFeatures().browser_command_controller()->ExecuteCommand(
-      command, time_stamp);
+      command, std::nullopt, time_stamp);
 }
 
 bool ExecuteCommandWithContext(BrowserWindowInterface* browser,
                                int command,
                                actions::ActionInvocationContext context,
                                base::TimeTicks time_stamp) {
-  return browser->GetFeatures()
-      .browser_command_controller()
-      ->ExecuteCommandWithContext(command, std::move(context), time_stamp);
+  return browser->GetFeatures().browser_command_controller()->ExecuteCommand(
+      command, std::move(context), time_stamp);
 }
 
 bool ExecuteCommandWithDisposition(BrowserWindowInterface* browser,
@@ -769,7 +830,8 @@ bool ExecuteCommandWithDisposition(BrowserWindowInterface* browser,
                                    base::TimeTicks time_stamp) {
   return browser->GetFeatures()
       .browser_command_controller()
-      ->ExecuteCommandWithDisposition(command, disposition, time_stamp);
+      ->ExecuteCommandWithDisposition(command, disposition, std::nullopt,
+                                      time_stamp);
 }
 
 bool ExecuteCommandWithDispositionAndContext(
@@ -780,8 +842,8 @@ bool ExecuteCommandWithDispositionAndContext(
     base::TimeTicks time_stamp) {
   return browser->GetFeatures()
       .browser_command_controller()
-      ->ExecuteCommandWithDispositionAndContext(command, disposition,
-                                                std::move(context), time_stamp);
+      ->ExecuteCommandWithDisposition(command, disposition, std::move(context),
+                                      time_stamp);
 }
 
 void UpdateCommandEnabled(BrowserWindowInterface* browser,
@@ -868,7 +930,7 @@ void NewEmptyWindow(Profile* profile, bool should_trigger_session_restore) {
 
 BrowserWindowInterface* OpenEmptyWindow(Profile* profile,
                                         bool should_trigger_session_restore) {
-  if (Browser::GetCreationStatusForProfile(profile) !=
+  if (GetBrowserWindowCreationStatusForProfile(*profile) !=
       Browser::CreationStatus::kOk) {
     return nullptr;
   }
@@ -878,12 +940,12 @@ BrowserWindowInterface* OpenEmptyWindow(Profile* profile,
     return nullptr;
   }
 
-  Browser::CreateParams params =
-      Browser::CreateParams(Browser::TYPE_NORMAL, profile, true);
+  BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_NORMAL, profile,
+                                   true);
   params.should_trigger_session_restore = should_trigger_session_restore;
 
   base::TimeTicks now = base::TimeTicks::Now();
-  Browser* browser = Browser::Create(params);
+  BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
   if (auto* manager = InitialWebUIWindowMetricsManager::From(browser)) {
     manager->SetWindowCreationInfo(
         waap::NewWindowCreationSource::kBrowserInitiated, now);
@@ -891,7 +953,7 @@ BrowserWindowInterface* OpenEmptyWindow(Profile* profile,
 
   // Startup tabs could be created during browser creation. Add an empty tab
   // only if no tabs are created.
-  if (browser->tab_strip_model()->empty()) {
+  if (browser->GetTabStripModel()->empty()) {
     AddTabAt(browser, GURL(), -1, true);
   }
 
@@ -1291,8 +1353,8 @@ content::WebContents& NewTab(BrowserWindowInterface* browser,
       NewTabGroupingUserData::kNewTabGroupingUserDataKey,
       std::make_unique<NewTabGroupingUserData>(active_tab_group_id));
 
-  if (browser->GetBrowserForMigrationOnly()->SupportsWindowFeature(
-          Browser::WindowFeature::kFeatureTabStrip)) {
+  if (WindowFeatureController::From(browser)->SupportsWindowFeature(
+          WindowFeatureController::WindowFeature::kFeatureTabStrip)) {
     return *AddAndReturnTabAt(browser, GURL(), -1, true, std::nullopt);
   }
 
@@ -1326,7 +1388,8 @@ void NewTabFromClipboardURL(BrowserWindowInterface* browser) {
     clipboard->ReadText(
         ui::ClipboardBuffer::kSelection, /* data_dst = */ std::nullopt,
         base::BindOnce(
-            [](base::WeakPtr<Browser> browser_weak, std::u16string text) {
+            [](base::WeakPtr<BrowserWindowInterface> browser_weak,
+               std::u16string text) {
               if (!browser_weak || text.empty()) {
                 return;
               }
@@ -1338,12 +1401,15 @@ void NewTabFromClipboardURL(BrowserWindowInterface* browser) {
                   ->Classify(text, false, false,
                              metrics::OmniboxEventProto::BLANK, &match,
                              nullptr);
-              if (match.destination_url.is_valid()) {
-                browser_weak->tab_strip_model()->delegate()->AddTabAt(
+              if (match.destination_url.is_valid() &&
+                  content::ChildProcessSecurityPolicy::GetInstance()
+                      ->IsWebSafeScheme(
+                          std::string(match.destination_url.scheme()))) {
+                browser_weak->GetTabStripModel()->delegate()->AddTabAt(
                     match.destination_url, -1, true);
               }
             },
-            browser->GetBrowserForMigrationOnly()->AsWeakPtr()));
+            browser->GetWeakPtr()));
   }
 #endif
 }
@@ -1388,10 +1454,19 @@ void CloseTab(BrowserWindowInterface* browser) {
     return;
   }
 
-  const bool single_pinned_tab_selected =
-      active_tab->IsPinned() &&
-      browser->GetTabStripModel()->selection_model().size() == 1;
-  if (single_pinned_tab_selected &&
+  const auto& selected_tabs =
+      browser->GetTabStripModel()->selection_model().selected_tabs();
+  bool all_selected_tabs_pinned = !selected_tabs.empty();
+  for (const tabs::TabInterface* tab : selected_tabs) {
+    if (!tab->IsPinned()) {
+      all_selected_tabs_pinned = false;
+      break;
+    }
+  }
+
+  // If all selected tabs are pinned, show a confirmation toast if one isn't
+  // already shown.
+  if (all_selected_tabs_pinned &&
       toast_controller->GetCurrentToastId() != ToastId::kClosePinnedTab) {
     BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
     CHECK(browser_view);
@@ -1402,10 +1477,11 @@ void CloseTab(BrowserWindowInterface* browser) {
     ToastParams params(ToastId::kClosePinnedTab);
     params.body_string_replacement_params.emplace_back(
         accelerator.GetShortcutText());
+    params.body_string_cardinality_param = selected_tabs.size();
     toast_controller->MaybeShowToast(std::move(params));
   } else {
     CloseSelectedTabAndRecordTabCountMetric(browser);
-    if (single_pinned_tab_selected) {
+    if (all_selected_tabs_pinned) {
       base::RecordAction(
           UserMetricsAction("Tab.PinnedTabToastClosedAfterConfirmation"));
     }
@@ -1474,14 +1550,18 @@ void MoveTabPrevious(BrowserWindowInterface* browser) {
 void SelectNumberedTab(BrowserWindowInterface* browser,
                        int index,
                        TabStripUserGestureDetails gesture_detail) {
+  TabStripModel* model = browser->GetTabStripModel();
+  std::optional<tab_groups::TabGroupId> focused_group =
+      model->GetFocusedGroup();
   int visible_count = 0;
-  for (int i = 0; i < browser->GetTabStripModel()->count(); i++) {
-    if (browser->GetTabStripModel()->IsTabCollapsed(i)) {
+  for (tabs::TabInterface* tab : *model) {
+    if (!IsTabSelectable(model, tab, focused_group)) {
       continue;
     }
+
     if (visible_count == index) {
       base::RecordAction(UserMetricsAction("SelectNumberedTab"));
-      browser->GetTabStripModel()->ActivateTabAt(i, gesture_detail);
+      model->ActivateTab(tab, gesture_detail);
       break;
     }
     visible_count += 1;
@@ -1490,12 +1570,18 @@ void SelectNumberedTab(BrowserWindowInterface* browser,
 
 void SelectLastTab(BrowserWindowInterface* browser,
                    TabStripUserGestureDetails gesture_detail) {
-  for (int i = browser->GetTabStripModel()->count() - 1; i >= 0; i--) {
-    if (!browser->GetTabStripModel()->IsTabCollapsed(i)) {
-      base::RecordAction(UserMetricsAction("SelectLastTab"));
-      browser->GetTabStripModel()->ActivateTabAt(i, gesture_detail);
-      break;
+  TabStripModel* model = browser->GetTabStripModel();
+  std::optional<tab_groups::TabGroupId> focused_group =
+      model->GetFocusedGroup();
+  for (int i = model->count() - 1; i >= 0; i--) {
+    tabs::TabInterface* tab = model->GetTabAtIndex(i);
+    if (!IsTabSelectable(model, tab, focused_group)) {
+      continue;
     }
+
+    base::RecordAction(UserMetricsAction("SelectLastTab"));
+    model->ActivateTab(tab, gesture_detail);
+    break;
   }
 }
 
@@ -1553,16 +1639,18 @@ bool CanMoveTabsToNewWindow(BrowserWindowInterface* browser,
 void MoveGroupToNewWindow(BrowserWindowInterface* browser,
                           tab_groups::TabGroupId group) {
   Browser* current_browser = browser->GetBrowserForMigrationOnly();
-  Browser* new_browser;
-  if (current_browser->is_type_app() &&
+  BrowserWindowInterface* new_browser;
+  if (current_browser->GetType() == BrowserWindowInterface::Type::TYPE_APP &&
       web_app::AppBrowserController::From(current_browser)->has_tab_strip()) {
     auto* app_controller = web_app::AppBrowserController::From(current_browser);
-    new_browser = Browser::Create(Browser::CreateParams::CreateForApp(
-        current_browser->app_name(), app_controller->IsTrustedSource(),
-        gfx::Rect(), current_browser->GetProfile(), true));
-    web_app::MaybeAddPinnedHomeTab(new_browser, app_controller->app_id());
+    new_browser = CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
+        BrowserInitState::From(current_browser)->create_params().app_name,
+        app_controller->IsTrustedSource(), gfx::Rect(),
+        current_browser->GetProfile(), true));
+    web_app::MaybeAddPinnedHomeTab(new_browser->GetBrowserForMigrationOnly(),
+                                   app_controller->app_id());
   } else {
-    new_browser = CreateNewBrowser(current_browser, true);
+    new_browser = CreateNewBrowser(browser, true);
   }
 
   MoveGroupToWindowImpl(browser, new_browser, group);
@@ -1575,17 +1663,19 @@ void MoveTabsToNewWindow(BrowserWindowInterface* browser,
   }
 
   Browser* current_browser = browser->GetBrowserForMigrationOnly();
-  Browser* new_browser;
+  BrowserWindowInterface* new_browser;
   base::TimeTicks now = base::TimeTicks::Now();
-  if (current_browser->is_type_app() &&
+  if (current_browser->GetType() == BrowserWindowInterface::Type::TYPE_APP &&
       web_app::AppBrowserController::From(current_browser)->has_tab_strip()) {
     auto* app_controller = web_app::AppBrowserController::From(current_browser);
-    new_browser = Browser::Create(Browser::CreateParams::CreateForApp(
-        current_browser->app_name(), app_controller->IsTrustedSource(),
-        gfx::Rect(), current_browser->GetProfile(), true));
-    web_app::MaybeAddPinnedHomeTab(new_browser, app_controller->app_id());
+    new_browser = CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
+        BrowserInitState::From(current_browser)->create_params().app_name,
+        app_controller->IsTrustedSource(), gfx::Rect(),
+        current_browser->GetProfile(), true));
+    web_app::MaybeAddPinnedHomeTab(new_browser->GetBrowserForMigrationOnly(),
+                                   app_controller->app_id());
   } else {
-    new_browser = CreateNewBrowser(current_browser, true);
+    new_browser = CreateNewBrowser(browser, true);
   }
   if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
     manager->SetWindowCreationInfo(
@@ -1613,8 +1703,8 @@ WebContents* DuplicateTabAt(BrowserWindowInterface* browser, int index) {
 
 void DuplicateSplit(BrowserWindowInterface* browser,
                     split_tabs::SplitTabId split) {
-  CHECK(browser->GetBrowserForMigrationOnly()->CanSupportWindowFeature(
-      Browser::WindowFeature::kFeatureTabStrip));
+  CHECK(WindowFeatureController::From(browser)->CanSupportWindowFeature(
+      WindowFeatureController::WindowFeature::kFeatureTabStrip));
 
   TabStripModel* model = browser->GetTabStripModel();
   split_tabs::SplitTabData* split_data = model->GetSplitData(split);
@@ -1696,10 +1786,7 @@ void NewSplitTab(BrowserWindowInterface* browser,
   tab_strip_model->AddToNewSplit(
       {active_index}, split_tabs::SplitTabVisualData(layout), source);
 
-  if (content::WebContents* active_contents =
-          tab_strip_model->GetActiveWebContents()) {
-    active_contents->Focus();
-  }
+  tab_strip_model->ActivateTabAt(active_index + 1);
 }
 
 void AddNewTabToGroup(BrowserWindowInterface* browser) {
@@ -1751,6 +1838,10 @@ void FocusNextTabGroup(BrowserWindowInterface* browser) {
     return;
   }
 
+  if (FocusAdjacentTabGroupInFocusMode(tab_strip_model, /*next=*/true)) {
+    return;
+  }
+
   int current_index = tab_strip_model->active_index();
   std::optional<tab_groups::TabGroupId> current_group_id =
       tab_strip_model->GetTabGroupForTab(current_index);
@@ -1773,6 +1864,10 @@ void FocusNextTabGroup(BrowserWindowInterface* browser) {
 void FocusPreviousTabGroup(BrowserWindowInterface* browser) {
   TabStripModel* tab_strip_model = browser->GetTabStripModel();
   if (!tab_strip_model->SupportsTabGroups()) {
+    return;
+  }
+
+  if (FocusAdjacentTabGroupInFocusMode(tab_strip_model, /*next=*/false)) {
     return;
   }
 
@@ -1819,7 +1914,7 @@ bool GroupAllUngroupedTabs(BrowserWindowInterface* browser) {
 }
 
 void AddNewTabToRecentGroup(BrowserWindowInterface* browser) {
-  if (!features::IsTabGroupMenuMoreEntryPointsEnabled()) {
+  if (!base::FeatureList::IsEnabled(features::kNewTabButtonContextMenu)) {
     return;
   }
 
@@ -1843,8 +1938,10 @@ void AddNewTabToRecentGroup(BrowserWindowInterface* browser) {
   AddTabAt(browser, GURL(), -1, true, group_id);
 }
 
-void UnfocusTabGroup(BrowserWindowInterface* browser) {
+void UnfocusTabGroup(BrowserWindowInterface* browser,
+                     TabGroupFocusExitReason exit_reason) {
   if (base::FeatureList::IsEnabled(features::kTabGroupsFocusing)) {
+    base::UmaHistogramEnumeration("TabGroups.Focus.ExitReason", exit_reason);
     browser->GetTabStripModel()->SetFocusedGroup(std::nullopt);
   }
 }
@@ -2776,8 +2873,8 @@ BrowserWindowInterface* OpenInChrome(
           ->FindTabbedBrowser();
 
   if (!target_browser) {
-    target_browser = Browser::Create(
-        Browser::CreateParams(hosted_app_browser->GetProfile(), true));
+    target_browser = CreateBrowserWindow(
+        BrowserWindowCreateParams(hosted_app_browser->GetProfile(), true));
   }
 
   web_app::ReparentWebContentsIntoBrowserImpl(

@@ -887,6 +887,31 @@ public class KeyboardShortcuts {
                     }
                 }
                 return true;
+            case KeyEvent.KEYCODE_TAB:
+            case KeyEvent.KEYCODE_PAGE_DOWN:
+            case KeyEvent.KEYCODE_PAGE_UP:
+            case KeyEvent.KEYCODE_BUTTON_R1:
+            case KeyEvent.KEYCODE_BUTTON_L1:
+                @KeyboardShortcutsSemanticMeaning int meaning = getKeyboardSemanticMeaning(event);
+
+                if (meaning != KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_RIGHT
+                        && meaning != KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_LEFT) {
+                    break;
+                }
+
+                if (event.getAction() != KeyEvent.ACTION_DOWN || event.getRepeatCount() != 0) {
+                    return true;
+                }
+
+                if (meaning == KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_RIGHT) {
+                    menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.select_next_tab, false);
+                } else {
+                    menuOrKeyboardActionController.onMenuOrKeyboardAction(
+                            R.id.select_previous_tab, false);
+                }
+
+                return true;
             case KeyEvent.KEYCODE_TV:
             case KeyEvent.KEYCODE_GUIDE:
             case KeyEvent.KEYCODE_DVR:
@@ -1080,8 +1105,8 @@ public class KeyboardShortcuts {
 
         RecordHistogram.recordEnumeratedHistogram(
                 AccessibilityState.isKnownScreenReaderEnabled()
-                        ? "Accessibility.Android.KeyboardShortcut.ScreenReaderRunning6"
-                        : "Accessibility.Android.KeyboardShortcut.NoScreenReader6",
+                        ? "Accessibility.Android.KeyboardShortcut.ScreenReaderRunning7"
+                        : "Accessibility.Android.KeyboardShortcut.NoScreenReader7",
                 semanticMeaning,
                 KeyboardShortcuts.KeyboardShortcutsSemanticMeaning.MAX_VALUE);
 
@@ -1196,19 +1221,6 @@ public class KeyboardShortcuts {
                         TabModelUtils.setIndex(currentTabModel, tabCount - 1);
                     }
                     return true;
-                case KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_RIGHT:
-                    if (tabSwitchingEnabled && tabCount > 1) {
-                        TabModelUtils.setIndex(
-                                currentTabModel, (currentTabModel.index() + 1) % tabCount);
-                    }
-                    return true;
-                case KeyboardShortcutsSemanticMeaning.MOVE_TO_TAB_LEFT:
-                    if (tabSwitchingEnabled && tabCount > 1) {
-                        TabModelUtils.setIndex(
-                                currentTabModel,
-                                (currentTabModel.index() + tabCount - 1) % tabCount);
-                    }
-                    return true;
                 case KeyboardShortcutsSemanticMeaning.CLOSE_TAB:
                     List<Tab> tabsToClose = currentTabModel.getOrderedMultiSelectedTabs();
                     Tab tab = TabModelUtils.getCurrentTab(currentTabModel);
@@ -1217,10 +1229,7 @@ public class KeyboardShortcuts {
                         // bulk selection or already confirmed by the manager.
                         boolean canClose =
                                 PinnedTabClosureManagerFactory.getInstance()
-                                        .shouldCloseTab(
-                                                tabModelSelector,
-                                                tab,
-                                                /* isBulkClose= */ tabsToClose.size() > 1);
+                                        .shouldCloseTab(tabModelSelector, tab, tabsToClose);
                         if (canClose) {
                             currentTabModel
                                     .getTabRemover()
@@ -1274,10 +1283,10 @@ public class KeyboardShortcuts {
                     menuOrKeyboardActionController.onMenuOrKeyboardAction(R.id.print_id, false);
                     return true;
                 case KeyboardShortcutsSemanticMeaning.ZOOM_IN:
-                    ZoomController.zoomInPage(currentWebContents);
+                    ZoomController.zoomInPage(currentTab);
                     return true;
                 case KeyboardShortcutsSemanticMeaning.ZOOM_OUT:
-                    ZoomController.zoomOutPage(currentWebContents);
+                    ZoomController.zoomOutPage(currentTab);
                     return true;
                 case KeyboardShortcutsSemanticMeaning.ZOOM_RESET:
                     ZoomController.zoomResetPage(currentWebContents, browserContextHandle);

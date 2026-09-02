@@ -18,6 +18,8 @@ import androidx.core.widget.ImageViewCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.chromium.base.Callback;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
@@ -68,6 +70,13 @@ public class ExtensionsMenuCoordinator
         implements Destroyable,
                 ExtensionsToolbarBridge.Observer,
                 ExtensionsToolbarBridge.MenuDelegate {
+    /**
+     * Threshold to ignore click events on the menu button immediately following a popup dismissal.
+     * Touch-down on the button dismisses the popup, and the subsequent touch-up generates a click
+     * event that should not immediately re-open the menu.
+     */
+    private static final long CLICK_TO_DISMISS_THRESHOLD_MS = 200;
+
     private final Context mContext;
     private final ListMenu mExtensionsMenu;
     private final ListMenuButton mExtensionsMenuButton;
@@ -94,8 +103,11 @@ public class ExtensionsMenuCoordinator
                 }
             };
     private final ModalDialogManager mModalDialogManager;
+    private final Callback<@Nullable Tab> mTabSupplierObserver =
+            (tab) -> updateButtonState(tab != null ? tab.getWebContents() : null);
 
     @Nullable @VisibleForTesting ExtensionsMenuMediator mMediator;
+    private long mLastDismissalTimeMs;
 
     /**
      * Constructor.
@@ -176,6 +188,13 @@ public class ExtensionsMenuCoordinator
         // Menu mediator is created when menu is triggered.
         mExtensionsMenuButton.setOnClickListener(
                 (view) -> {
+                    // Ignore clicks triggered by the touch-up of the gesture that just dismissed
+                    // the menu.
+                    if (mLastDismissalTimeMs != 0
+                            && TimeUtils.elapsedRealtimeMillis() - mLastDismissalTimeMs
+                                    < CLICK_TO_DISMISS_THRESHOLD_MS) {
+                        return;
+                    }
                     TrackerFactory.getTrackerForProfile(mProfile)
                             .notifyEvent(EventConstants.EXTENSIONS_MENU_BUTTON_CLICKED);
                     createMediator();
@@ -188,6 +207,7 @@ public class ExtensionsMenuCoordinator
 
                     @Override
                     public void onPopupMenuDismissed() {
+                        mLastDismissalTimeMs = TimeUtils.elapsedRealtimeMillis();
                         mMenuButtonPinningDelegate.requestLayoutWithViewUtils();
                         destroyMediator();
                         mExtensionModels.clear();
@@ -219,6 +239,7 @@ public class ExtensionsMenuCoordinator
 
         mExtensionModels = new ModelList();
         setUpExtensionsRecyclerView(mContentView, mContext, mExtensionModels);
+        mCurrentTabSupplier.addSyncObserver(mTabSupplierObserver);
         updateButtonState();
 
         mModalDialogManager.addObserver(mModalDialogManagerObserver);
@@ -440,9 +461,8 @@ public class ExtensionsMenuCoordinator
         extensionRecyclerView.setItemAnimator(null);
     }
 
-    private void updateButtonState() {
-        Tab currentTab = mCurrentTabSupplier.get();
-        if (currentTab == null || currentTab.getWebContents() == null) return;
+    private void updateButtonState(@Nullable WebContents webContents) {
+        if (webContents == null) return;
 
         int color = SemanticColorUtils.getDefaultIconColor(mContext);
 
@@ -454,7 +474,7 @@ public class ExtensionsMenuCoordinator
 
         ExtensionsMenuButtonState state =
                 mExtensionsToolbarBridge.getMenuButtonState(
-                        currentTab.getWebContents(), iconSizeDp, iconSizeDp, density, color);
+                        webContents, iconSizeDp, iconSizeDp, density, color);
 
         if (state.getIcon() != null) {
             mExtensionsMenuButton.setImageBitmap(state.getIcon());
@@ -468,6 +488,11 @@ public class ExtensionsMenuCoordinator
         mExtensionsMenuButton.setContentDescription(state.getAccessibleText());
     }
 
+    private void updateButtonState() {
+        Tab currentTab = mCurrentTabSupplier.get();
+        updateButtonState(currentTab != null ? currentTab.getWebContents() : null);
+    }
+
     @Override
     public void onToolbarControlStateUpdated() {
         updateButtonState();
@@ -475,7 +500,7 @@ public class ExtensionsMenuCoordinator
 
     @Override
     public void onActiveWebContentsChanged(WebContents webContents) {
-        updateButtonState();
+        updateButtonState(webContents);
     }
 
     @Override
@@ -505,6 +530,7 @@ public class ExtensionsMenuCoordinator
 
     @Override
     public void destroy() {
+        mCurrentTabSupplier.removeObserver(mTabSupplierObserver);
         destroyMediator();
         mModalDialogManager.removeObserver(mModalDialogManagerObserver);
         mExtensionsMenuButton.setOnClickListener(null);

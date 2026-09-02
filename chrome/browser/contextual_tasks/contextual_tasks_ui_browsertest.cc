@@ -16,6 +16,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_composebox_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_cookie_synchronizer.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_types.h"
@@ -28,8 +29,8 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -381,6 +382,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
       ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false);
   controller_->TransferNavigationToEmbeddedPage(params);
   run_loop.Run();
+  browser()->tab_strip_model()->GetActiveWebContents()->Stop();
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest, HandleLensButtonClick) {
@@ -695,7 +697,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest, CanZoom) {
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksNoMockBrowserTest,
                        IncognitoDoesNotCrash) {
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
       incognito_browser, GURL(chrome::kChromeUINewTabPageURL)));
   EXPECT_TRUE(ui_test_utils::NavigateToURL(
@@ -928,7 +930,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   GURL initial_url("https://example.com/");
   auto input_state_model = std::make_unique<contextual_search::InputStateModel>(
       *session_handle, config, initial_url, /*is_off_the_record=*/false,
-      /*is_signed_in=*/true);
+      /*is_signed_in=*/true,
+      /*browser_identity_matches_aim_identity=*/true);
 
   content::WebContents* web_contents =
       TabListInterface::From(browser())->GetActiveTab()->GetContents();

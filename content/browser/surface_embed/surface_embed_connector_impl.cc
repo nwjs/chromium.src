@@ -24,6 +24,9 @@
 #include "third_party/blink/public/mojom/frame/intrinsic_sizing_info.mojom.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/mojom/input/pointer_lock_result.mojom.h"
+#include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_enums.mojom.h"
+#include "ui/accessibility/ax_tree_id.h"
 #include "ui/base/cursor/cursor.h"
 #include "ui/compositor/compositor.h"
 
@@ -44,6 +47,23 @@ class SurfaceEmbedConnectorImpl::WCObserver : public WebContentsObserver {
         surface_embed_connector_(surface_embed_connector) {}
 
   ~WCObserver() override = default;
+
+  // WebContentsObserver:
+  void RenderFrameHostChanged(RenderFrameHost* old_host,
+                              RenderFrameHost* new_host) override {
+    // Re-stitch for the new main frame. UpdateAccessibilityTree() resets the
+    // stored embed parent first, so a stale relationship is not observed during
+    // or after cross-document navigation. Refresh the outgoing frame's AX data
+    // so it reflects the cleared relationship.
+    surface_embed_connector_->UpdateAccessibilityTree();
+    if (old_host) {
+      static_cast<RenderFrameHostImpl*>(old_host)->UpdateAXTreeData();
+    }
+  }
+
+  void AXTreeIDForMainFrameHasChanged() override {
+    surface_embed_connector_->UpdateAccessibilityTree();
+  }
 
  private:
   raw_ptr<SurfaceEmbedConnectorImpl> surface_embed_connector_;
@@ -96,10 +116,6 @@ void SurfaceEmbedConnector::Attach(WebContents* child_web_contents,
       child_web_contents, parent_web_contents, outer_document_rfh, delegate));
   static_cast<WebContentsImpl*>(child_web_contents)
       ->SetSurfaceEmbedConnector(std::move(connector));
-
-  static_cast<WebContentsImpl*>(parent_web_contents)
-      ->SurfaceEmbedChildWebContentsAttached(child_web_contents,
-                                             outer_document_rfh);
 }
 
 // static
@@ -112,14 +128,12 @@ void SurfaceEmbedConnector::Detach(WebContents* child_web_contents) {
     // visibility/intersection notifications from being sent to it.
     connector->OnVisibilityChanged(blink::mojom::FrameVisibility::kNotRendered);
 
-    if (WebContentsImpl* parent_web_contents =
-            connector->parent_web_contents()) {
-      parent_web_contents->SurfaceEmbedChildWebContentsDetached(
-          child_web_contents);
-    }
+    // Clear the container accessibility info so we don't try to stitch later.
+    connector->SetParentAccessibilityInfo(ui::kInvalidAXNodeID,
+                                          ui::AXTreeIDUnknown());
   }
 
-  // Connector will be freed by ClearSurfaceEmbedConnector().
+  // Frees the connector and refreshes the child main frame's AX data.
   static_cast<WebContentsImpl*>(child_web_contents)
       ->ClearSurfaceEmbedConnector();
 }
@@ -133,13 +147,11 @@ SurfaceEmbedConnectorImpl::SurfaceEmbedConnectorImpl(
       child_web_contents_(static_cast<WebContentsImpl*>(child_web_contents)),
       // Rely on Chromium's WeakPtrFactory to automatically invalidate this
       // pointer safely at the start of parent_web_contents's destructor.
-      parent_web_contents_(
-          parent_web_contents ? parent_web_contents->GetWeakPtr() : nullptr) {
+      parent_web_contents_(parent_web_contents->GetWeakPtr()),
+      embedder_rfh_(
+          static_cast<RenderFrameHostImpl*>(embedder_rfh)->GetWeakPtr()) {
+  CHECK_EQ(WebContents::FromRenderFrameHost(embedder_rfh), parent_web_contents);
   wc_observer_ = std::make_unique<WCObserver>(this, child_web_contents);
-  // The parent WebContents could be null if the child is being moved from one
-  // parent to another.
-  // TODO(crbug.com/496266440): Repoint this observer to the new parent
-  // WebContents when the move occurs.
   parent_wc_observer_ =
       std::make_unique<ParentWCObserver>(this, parent_web_contents);
   CHECK(current_child_frame_host());
@@ -232,6 +244,22 @@ void SurfaceEmbedConnectorImpl::OnSynchronizeVisualProperties(
   SynchronizeVisualProperties(visual_properties, true);
 }
 
+void SurfaceEmbedConnectorImpl::UpdateRenderThrottlingStatus(
+    bool is_throttled,
+    bool subtree_throttled,
+    bool display_locked) {
+  if (is_throttled != is_throttled_ ||
+      subtree_throttled != subtree_throttled_ ||
+      display_locked != display_locked_) {
+    is_throttled_ = is_throttled;
+    subtree_throttled_ = subtree_throttled;
+    display_locked_ = display_locked;
+    if (view_) {
+      view_->UpdateRenderThrottlingStatus();
+    }
+  }
+}
+
 // static
 WebContentsImpl* SurfaceEmbedConnectorImpl::GetParentWebContents(
     WebContentsImpl* web_contents) {
@@ -292,8 +320,21 @@ void SurfaceEmbedConnectorImpl::SetFocusedFrameTree(
   // SetFocusedFrameTree should not be involved.
   CHECK(ContainsOrIsFocusedWebContents(child_web_contents()));
 
+  CHECK(embedder_rfh_);
+  FrameTreeNode* embedder_node = embedder_rfh_->frame_tree_node();
+  embedder_node->frame_tree().SetFocusedFrame(embedder_node,
+                                              /*source=*/nullptr);
+  delegate_->RequestFocusOnEmbedElement();
+
   // Ensure that outer frame trees are focused.
   parent_web_contents()->GetPrimaryFrameTree().FocusOuterFrameTrees();
+
+  // Ensure that the embedded page has focus. This is needed when the focused
+  // frame tree belongs to an inner WebContents of the SurfaceEmbed child.
+  child_web_contents()
+      ->GetPrimaryMainFrame()
+      ->GetRenderWidgetHost()
+      ->SetPageFocus(true);
 
   // Ensure that the embedder's page has focus so that it can display active UI
   // and therefore the embedded plugin is also active.
@@ -361,6 +402,7 @@ void SurfaceEmbedConnectorImpl::SetView(RenderWidgetHostViewChildFrame* view,
   // try to move these updates to a single IPC (see https://crbug.com/750179).
   if (view_) {
     view_->SetFrameConnector(this);
+    view_->host()->UpdateVisualProperties(/*propagate=*/true);
 
     // If the child frame is already visible, it became visible before the
     // frame connector was attached. We need to retroactively update the
@@ -548,6 +590,18 @@ SurfaceEmbedConnectorImpl::GetLocalFrameSizeInPixelsForTesting() {
   return local_frame_size_in_pixels_;
 }
 
+bool SurfaceEmbedConnectorImpl::IsThrottledForTesting() {
+  return IsThrottled();
+}
+
+bool SurfaceEmbedConnectorImpl::IsSubtreeThrottledForTesting() {
+  return IsSubtreeThrottled();
+}
+
+bool SurfaceEmbedConnectorImpl::IsDisplayLockedForTesting() {
+  return IsDisplayLocked();
+}
+
 void SurfaceEmbedConnectorImpl::EnableAutoResize(const gfx::Size& min_size,
                                                  const gfx::Size& max_size) {}
 
@@ -721,14 +775,31 @@ void SurfaceEmbedConnectorImpl::UpdateViewForCurrentRenderFrameHost() {
 
   if (!base_view) {
     SetView(nullptr, /*allow_paint_holding=*/false);
-    return;
+  } else {
+    CHECK(base_view->IsRenderWidgetHostViewChildFrame());
+    auto* child_view = static_cast<RenderWidgetHostViewChildFrame*>(base_view);
+
+    if (view_ != child_view) {
+      SetView(child_view, /*allow_paint_holding=*/false);
+    }
   }
 
-  CHECK(base_view->IsRenderWidgetHostViewChildFrame());
-  auto* child_view = static_cast<RenderWidgetHostViewChildFrame*>(base_view);
+  UpdateAccessibilityTree();
+}
 
-  if (view_ != child_view) {
-    SetView(child_view, /*allow_paint_holding=*/false);
+void SurfaceEmbedConnectorImpl::OnAttachedToParent() {
+  UpdateViewForCurrentRenderFrameHost();
+  if (parent_web_contents()) {
+    CHECK(embedder_rfh_);
+    parent_web_contents()->SurfaceEmbedChildWebContentsAttached(
+        child_web_contents_, embedder_rfh_.get());
+  }
+}
+
+void SurfaceEmbedConnectorImpl::OnDetachedFromParent() {
+  if (parent_web_contents()) {
+    parent_web_contents()->SurfaceEmbedChildWebContentsDetached(
+        child_web_contents_);
   }
 }
 
@@ -738,6 +809,67 @@ void SurfaceEmbedConnectorImpl::ResetRectInParentView() {
   // lines or not.
   rect_in_parent_view_in_dip_ = gfx::Rect();
   last_received_local_frame_size_ = gfx::Size();
+}
+
+void SurfaceEmbedConnectorImpl::UpdateAccessibilityTree() {
+  auto* child_rfh = child_web_contents_
+                        ? static_cast<content::RenderFrameHostImpl*>(
+                              child_web_contents_->GetPrimaryMainFrame())
+                        : nullptr;
+
+  if (!child_rfh) {
+    return;
+  }
+
+  const ui::AXTreeID previous_embed_parent_ax_tree_id =
+      embed_parent_ax_tree_id_;
+  embed_parent_ax_tree_id_ = ui::AXTreeIDUnknown();
+
+  if (container_accessibility_node_id_ != ui::kInvalidAXNodeID &&
+      container_accessibility_tree_id_ != ui::AXTreeIDUnknown()) {
+    auto child_ax_tree_id = child_rfh->GetAXTreeID();
+    auto parent_ax_tree_id = container_accessibility_tree_id_;
+    auto* parent_render_frame_host =
+        content::RenderFrameHost::FromAXTreeID(parent_ax_tree_id);
+
+    const bool parent_is_valid =
+        parent_render_frame_host &&
+        WebContents::FromRenderFrameHost(parent_render_frame_host) ==
+            parent_web_contents();
+
+    if (child_ax_tree_id != ui::AXTreeIDUnknown() && parent_is_valid) {
+      ui::AXActionData action_data;
+      action_data.action = ax::mojom::Action::kStitchChildTree;
+      action_data.target_tree_id = parent_ax_tree_id;
+      // Note we set the target node ID and not the target role. Setting both is
+      // an error that is logged but the program proceeds without any other
+      // error.
+      action_data.target_node_id = container_accessibility_node_id_;
+      action_data.child_tree_id = child_ax_tree_id;
+      parent_render_frame_host->AccessibilityPerformAction(action_data);
+      embed_parent_ax_tree_id_ = parent_ax_tree_id;
+    }
+  }
+
+  if (embed_parent_ax_tree_id_ != previous_embed_parent_ax_tree_id) {
+    child_rfh->UpdateAXTreeData();
+  }
+}
+
+ui::AXTreeID SurfaceEmbedConnectorImpl::GetParentAXTreeID() const {
+  return embed_parent_ax_tree_id_;
+}
+
+void SurfaceEmbedConnectorImpl::SetParentAccessibilityInfo(
+    ui::AXNodeID ax_node_id,
+    const ui::AXTreeID& ax_tree_id) {
+  if (ax_node_id == container_accessibility_node_id_ &&
+      ax_tree_id == container_accessibility_tree_id_) {
+    return;
+  }
+  container_accessibility_node_id_ = ax_node_id;
+  container_accessibility_tree_id_ = ax_tree_id;
+  UpdateAccessibilityTree();
 }
 
 RenderFrameHostImpl* SurfaceEmbedConnectorImpl::current_child_frame_host()

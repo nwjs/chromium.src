@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/tracked_element_data.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_linked_hash_set.h"
+#include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/loader/fetch/ad_tagging_utils.h"
 #include "third_party/blink/renderer/platform/region_capture_crop_id.h"
@@ -78,6 +79,7 @@
 namespace gfx {
 class QuadF;
 class RectF;
+class Transform;
 class Vector2dF;
 }  // namespace gfx
 
@@ -93,9 +95,11 @@ class AnimationTrigger;
 class AriaNotificationOptions;
 class Attr;
 class Attribute;
+class BoxQuadOptions;
 class CheckVisibilityOptions;
 class ColumnPseudoElement;
 class ComputedStyleBuilder;
+class ConvertCoordinateOptions;
 class ContainerQueryData;
 class ContainerQueryEvaluator;
 class ContainerQueryList;
@@ -109,8 +113,15 @@ class CustomElementRegistry;
 class DisplayLockContext;
 class DisplayStyle;
 class Document;
+class DOMMatrix;
+class DOMMatrixInit;
+class DOMPoint;
+class DOMPointInit;
+class DOMQuad;
+class DOMQuadInit;
 class DOMRect;
 class DOMRectList;
+class DOMRectReadOnly;
 class DOMStringMap;
 class DOMTokenList;
 class EditContext;
@@ -121,6 +132,7 @@ class ElementIntersectionObserverData;
 class ExceptionState;
 class FocusOptions;
 class GetAnimationsOptions;
+class HTMLCanvasElement;
 class HTMLElement;
 class HTMLSubmitButtonBehavior;
 class HTMLTemplateElement;
@@ -162,6 +174,7 @@ class StyleScopeData;
 class TextVisitor;
 class TrustedParserOptions;
 class V8UnionBooleanOrScrollIntoViewOptions;
+class V8UnionCSSPseudoElementOrDocumentOrElementOrText;
 class V8UnionKeyframeAnimationOptionsOrUnrestrictedDouble;
 class V8UnionStringLegacyNullToEmptyStringOrTrustedHTML;
 class V8UnionStringOrTrustedHTML;
@@ -634,6 +647,24 @@ class CORE_EXPORT Element : public ContainerNode {
   gfx::Rect VisibleBoundsRespectingClipsInLocalRoot() const;
 
   DOMRectList* getClientRects();
+  HeapVector<Member<DOMQuad>> getBoxQuads(const BoxQuadOptions* options,
+                                          ExceptionState&) const;
+  DOMQuad* convertQuadFromNode(
+      DOMQuadInit* quad,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options,
+      ExceptionState&) const;
+  DOMQuad* convertRectFromNode(
+      DOMRectReadOnly* rect,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options,
+      ExceptionState&) const;
+  DOMPoint* convertPointFromNode(
+      DOMPointInit* point,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options,
+      ExceptionState&) const;
+
   // Returns a list of clients Rects in zoomed pixel units.
   Vector<gfx::RectF> GetClientRectsNoAdjustment();
 
@@ -1143,6 +1174,25 @@ class CORE_EXPORT Element : public ContainerNode {
   bool IsCanvasOrInCanvasSubtree() const;
   // Called when `IsInCanvasSubtree()` changes.
   virtual void DidChangeIsInCanvasSubtree();
+#if DCHECK_IS_ON()
+  void VerifySubtreeIsInCanvas(bool value);
+#endif
+
+  HTMLCanvasElement* CanvasForDrawing() const;
+
+  DOMMatrix* getCanvasTransform();
+  void setCanvasTransform(DOMMatrixInit* matrix,
+                          ExceptionState& exception_state);
+  bool HasCanvasTransform() const;
+  // Returns the transform that should be used for mapping the border-box,
+  // before CSS transforms, to the canvas coordinate space. When the element is
+  // in a canvas subtree, this affects the geometry of the element (e.g., for
+  // hit-testing, `getBoundingClientRect()`) and can be used to make the
+  // element's geometry match its drawn position in a canvas. Returns nullptr
+  // if the element is not in a canvas subtree.
+  const gfx::Transform* GetUsedCanvasTransform() const;
+  const gfx::Transform* GetCanvasTransformInternal() const;
+  void SetCanvasTransformInternal(const gfx::Transform& transform);
 
   bool IsDefined() const {
     // An element whose custom element state is "uncustomized" or "custom"
@@ -1206,6 +1256,7 @@ class CORE_EXPORT Element : public ContainerNode {
   void FocusWithinStateChanged();
   void ActiveViewTransitionStateChanged();
   void ActiveViewTransitionTypeStateChanged();
+  void OverscrollTargetStateChanged();
 
   void SetDragged(bool) override;
 
@@ -2017,6 +2068,17 @@ class CORE_EXPORT Element : public ContainerNode {
 
   bool RecalcSelfOrAncestorHasContainerTiming() const;
 
+  // True if this element carries the container timing ignore marker, either
+  // spelled `containertimingignore` or with the deprecated dashed
+  // `containertiming-ignore` spelling. Both are functional; the dashed one
+  // additionally warns in the console.
+  //
+  // TODO(crbug.com/539984792): the dashed spelling is going away right after
+  // the origin trial ends. Once it does, drop this helper and inline
+  // FastHasAttribute(html_names::kContainertimingignoreAttr) back into its
+  // callers.
+  bool HasContainerTimingIgnoreAttribute() const;
+
   // The "nonce" attribute is hidden when:
   // 1) The Content-Security-Policy is delivered from the HTTP headers.
   // 2) The Element is part of the active document.
@@ -2345,8 +2407,6 @@ class CORE_EXPORT Element : public ContainerNode {
   bool SkipStyleRecalcForContainer(const ComputedStyle& style,
                                    const StyleRecalcChange& child_change,
                                    const StyleRecalcContext&);
-
-  void MarkNonSlottedHostChildrenForStyleRecalc();
 
   void RebuildPseudoElementLayoutTree(PseudoId, WhitespaceAttacher&);
   void RebuildColumnLayoutTrees(WhitespaceAttacher&);

@@ -112,6 +112,7 @@ class RealboxSearchBrowserTestPage : public searchbox::mojom::Page {
                searchbox::mojom::SelectionStep),
               (override));
   MOCK_METHOD(void, OpenCurrentSelection, (WindowOpenDisposition), (override));
+  MOCK_METHOD(void, ResetPopupToInitialState, (), (override));
   MOCK_METHOD(void, SetAimButtonVisible, (bool visible), (override));
   MOCK_METHOD(
       void,
@@ -166,7 +167,8 @@ class RealboxSearchPreloadBrowserTest : public SearchPrefetchBaseBrowserTest {
         0, base::ASCIIToUTF16(input_query),
         /*prevent_inline_autocomplete=*/false, 0,
         omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT,
-        /*is_on_focus=*/false, /*keyword=*/"");
+        /*is_on_focus=*/false, /*keyword=*/"",
+        searchbox::mojom::InputMethod::kKeyboard);
     remote_page_handler.FlushForTesting();
 
     // Prefetch should be triggered.
@@ -263,6 +265,17 @@ IN_PROC_BROWSER_TEST_F(RealboxSearchPreloadWithoutSearchStatsBrowserTest,
                                        browser()->GetProfile(), prerender_url));
 }
 
+namespace {
+class RealboxHandlerPublic : public RealboxHandler {
+ public:
+  using RealboxHandler::RealboxHandler;
+  using SearchboxHandler::autocomplete_controller_observation_;
+  using SearchboxHandler::client;
+  using SearchboxHandler::omnibox_controller;
+  using SearchboxHandler::SetAutocompleteControllerForTesting;
+};
+}  // namespace
+
 class RealboxHandlerTest : public InProcessBrowserTest,
                            public testing::WithParamInterface<bool> {
  public:
@@ -279,11 +292,11 @@ class RealboxHandlerTest : public InProcessBrowserTest,
 
  protected:
   testing::NiceMock<MockSearchboxPage> page_;
-  std::unique_ptr<RealboxHandler> handler_;
+  std::unique_ptr<RealboxHandlerPublic> handler_;
 
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
-    handler_ = std::make_unique<RealboxHandler>(
+    handler_ = std::make_unique<RealboxHandlerPublic>(
         mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
         page_.BindAndGetRemote(), browser()->GetProfile(),
         /*web_contents=*/browser()->tab_strip_model()->GetActiveWebContents(),
@@ -349,7 +362,8 @@ IN_PROC_BROWSER_TEST_F(RealboxHandlerTest, RealboxUpdatesEditModelInput) {
   handler_->QueryAutocomplete(
       0, u"", /*prevent_inline_autocomplete=*/false, 0,
       omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT,
-      /*is_on_focus=*/true, /*keyword=*/"");
+      /*is_on_focus=*/true, /*keyword=*/"",
+      searchbox::mojom::InputMethod::kKeyboard);
 
   EXPECT_EQ(input.focus_type(), metrics::OmniboxFocusType::INTERACTION_FOCUS);
 
@@ -365,7 +379,8 @@ IN_PROC_BROWSER_TEST_F(RealboxHandlerTest, RealboxUpdatesEditModelInput) {
   handler_->QueryAutocomplete(
       0, u"match", /*prevent_inline_autocomplete=*/false, 0,
       omnibox::SuggestInventory::SUGGEST_INVENTORY_DEFAULT,
-      /*is_on_focus=*/false, /*keyword=*/"");
+      /*is_on_focus=*/false, /*keyword=*/"",
+      searchbox::mojom::InputMethod::kKeyboard);
 
   // Assert that the input text gets correctly updated for the realbox.
   EXPECT_EQ(u"match", omnibox_edit_model_->GetInputForTesting().text());
@@ -440,8 +455,12 @@ IN_PROC_BROWSER_TEST_P(RealboxHandlerTest, MatchVectorIcons) {
         // An empty resource name is effectively a blank icon.
         EXPECT_TRUE(svg_name.empty());
       } else if (is_bookmark) {
-        EXPECT_EQ("//resources/cr_components/searchbox/icons/bookmark_cr23.svg",
-                  svg_name);
+        EXPECT_EQ(
+            features::IsWebUIRoundedIconsEnabled()
+                ? "//resources/cr_components/searchbox/icons/bookmark_cr23.svg"
+                : "//resources/cr_components/searchbox/icons/"
+                  "bookmark_cr23_old.svg",
+            svg_name);
       } else {
         EXPECT_FALSE(svg_name.empty());
       }
@@ -461,11 +480,20 @@ IN_PROC_BROWSER_TEST_P(RealboxHandlerTest, AnswerVectorIcons) {
     const std::string& svg_name =
         handler_->AutocompleteIconToResourceName(vector_icon);
     if (is_bookmark) {
-      EXPECT_EQ("//resources/cr_components/searchbox/icons/bookmark_cr23.svg",
-                svg_name);
+      EXPECT_EQ(
+          features::IsWebUIRoundedIconsEnabled()
+              ? "//resources/cr_components/searchbox/icons/bookmark_cr23.svg"
+              : "//resources/cr_components/searchbox/icons/"
+                "bookmark_cr23_old.svg",
+          svg_name);
     } else {
       EXPECT_FALSE(svg_name.empty());
-      EXPECT_NE("search.svg", svg_name);
+      EXPECT_NE(
+          features::IsWebUIRoundedIconsEnabled()
+              ? "//resources/cr_components/searchbox/icons/search_cr23.svg"
+              : "//resources/cr_components/searchbox/icons/"
+                "search_cr23_old.svg",
+          svg_name);
     }
   }
 }

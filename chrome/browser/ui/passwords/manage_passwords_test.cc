@@ -145,7 +145,7 @@ void ManagePasswordsTest::ExecuteManagePasswordsCommand() {
   // Show the window to ensure that it's active.
   browser()->GetWindow()->Show();
 
-  CommandUpdater* updater = browser()->command_controller();
+  CommandUpdater* updater = chrome::BrowserCommandController::From(browser());
   EXPECT_TRUE(updater->IsCommandEnabled(IDC_MANAGE_PASSWORDS_FOR_PAGE));
   EXPECT_TRUE(updater->ExecuteCommand(IDC_MANAGE_PASSWORDS_FOR_PAGE));
 }
@@ -247,6 +247,7 @@ void ManagePasswordsTest::SetupMovingPasswords() {
       .WillByDefault(
           Return(base::span<const password_manager::StoredCredential>()));
   ON_CALL(*form_manager, GetURL).WillByDefault(ReturnRef(test_form()->url));
+  ON_CALL(*form_manager, IsFetchCompleted).WillByDefault(Return(true));
   GetController()->OnShowMoveToAccountBubble(std::move(form_manager));
   // Clearing the mock here ensures that |GetBestMatches| won't be called with a
   // reference to |best_matches|.

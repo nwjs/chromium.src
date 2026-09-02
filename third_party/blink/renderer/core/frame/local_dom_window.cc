@@ -132,7 +132,7 @@
 #include "third_party/blink/renderer/core/page/scrolling/sync_scroll_attempt_heuristic.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/core/route_matching/route_map.h"
+#include "third_party/blink/renderer/core/route_matching/navigation_state.h"
 #include "third_party/blink/renderer/core/scheduler/scripted_idle_task_controller.h"
 #include "third_party/blink/renderer/core/scheduler/task_attribution_util.h"
 #include "third_party/blink/renderer/core/script/modulator.h"
@@ -407,10 +407,6 @@ bool LocalDOMWindow::IsContextThread() const {
   return IsMainThread();
 }
 
-bool LocalDOMWindow::ShouldInstallV8Extensions() const {
-  return GetFrame()->Client()->AllowScriptExtensions();
-}
-
 ContentSecurityPolicy* LocalDOMWindow::GetContentSecurityPolicyForWorld(
     const DOMWrapperWorld* world) {
   if (!world || !world->IsIsolatedWorld()) {
@@ -526,11 +522,8 @@ bool LocalDOMWindow::AllowInlineJavascriptUrl(const DOMWrapperWorld* world,
 
   // AllowInline below will check the source's hash against CSP, which is why
   // it needs an exact script_source.
-  const int kJavascriptSchemeLength = sizeof("javascript:") - 1;
   String decoded_url = DecodeUrlEscapeSequences(
       url.GetString(), DecodeUrlMode::kUtf8OrIsomorphic);
-  String script_source =
-      decoded_url.DeprecatedSubstring(kJavascriptSchemeLength);
 
   // Check the CSP of the caller (the "source browsing context") if required,
   // as per https://html.spec.whatwg.org/C/#javascript-protocol.
@@ -611,6 +604,11 @@ KURL LocalDOMWindow::OutgoingReferrerUrl() const {
 
   // Step: 3.1.4: "Let referrerSource be document's URL."
   return referrer_document->OutgoingReferrerUrl();
+}
+
+void LocalDOMWindow::SetInitiatorStateToken(
+    const base::UnguessableToken& initiator_state_token) {
+  initiator_state_token_ = initiator_state_token;
 }
 
 CoreProbeSink* LocalDOMWindow::GetProbeSink() {
@@ -1036,10 +1034,10 @@ void LocalDOMWindow::DispatchPagehideEvent(
     return;
   }
 
-  if (auto* route_map = RouteMap::Get(document_)) {
+  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
     // In case we come back to this document later via BFCache, there must not
     // be a dangling active navigation.
-    route_map->OnNavigationDone();
+    NavigationState::AttemptFinishNavigationAndDestroy(document_);
   }
 
   // The navigation that triggered this pagehide is past the point of being
@@ -2432,8 +2430,8 @@ void LocalDOMWindow::FinishedLoading(FrameLoader::NavigationFinishState state) {
     print(nullptr);
   }
 
-  if (auto* route_map = RouteMap::Get(document_)) {
-    route_map->OnNavigationDone();
+  if (RuntimeEnabledFeatures::NavigationStateEnabled()) {
+    NavigationState::AttemptFinishNavigationAndDestroy(document_);
   }
 }
 
@@ -2534,9 +2532,6 @@ DOMWindow* LocalDOMWindow::open(v8::Isolate* isolate,
   frame_request.GetResourceRequest().SetReferrerString(referrer.referrer);
   frame_request.GetResourceRequest().SetReferrerPolicy(
       referrer.referrer_policy);
-
-  bool has_user_gesture = LocalFrame::HasTransientUserActivation(GetFrame());
-  frame_request.GetResourceRequest().SetHasUserGesture(has_user_gesture);
 
   FrameTree::FindResult result =
       GetFrame()->Tree().FindOrCreateFrameForNavigation(

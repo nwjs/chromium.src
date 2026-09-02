@@ -11,6 +11,7 @@
 #include <optional>
 #include <vector>
 
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "components/remote_cocoa/app_shim/immersive_mode_controller_cocoa.h"
@@ -221,6 +222,11 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
 
   bool CanGoBack() const { return can_go_back_; }
   bool CanGoForward() const { return can_go_forward_; }
+  CocoaWindowMoveLoop* window_move_loop() const {
+    return window_move_loop_.get();
+  }
+  void SetWindowMoveLoopForTesting(
+      std::unique_ptr<CocoaWindowMoveLoop> move_loop);
 
   // Whether to run a custom animation for the provided |transition|.
   bool ShouldRunCustomAnimationFor(
@@ -527,9 +533,18 @@ class REMOTE_COCOA_APP_SHIM_EXPORT NativeWidgetNSWindowBridge
   // Manages immersive mode when in fullscreen.
   std::unique_ptr<ImmersiveModeControllerCocoa> immersive_mode_controller_;
 
+  // When `window_` is made visible, its `alphaValue` is forced to 0 to avoid
+  // flashing a blank window. The value to restore it to when the compositor
+  // frame is received is stored here.
+  std::optional<float> pending_alpha_value_;
+
   // This tracks whether current window can go back or go forward.
   bool can_go_back_ = false;
   bool can_go_forward_ = false;
+
+  base::RepeatingCallback<void(NSWindow*, bool)>
+      capture_exclusion_applier_for_testing_;
+  bool allow_screenshots_ = true;
 
   display::ScopedDisplayObserver display_observer_{this};
 

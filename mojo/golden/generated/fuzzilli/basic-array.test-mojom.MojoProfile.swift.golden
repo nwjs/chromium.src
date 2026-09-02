@@ -10,7 +10,7 @@
 //     basic-array.test-mojom
 //
 
-private static let mojoPrefix = "golden."
+private let mojoPrefix = "golden."
 
 ///
 /// Interfaces
@@ -46,15 +46,15 @@ extension ObjectGroup {
             "get": [
                 .plain(.jsGoldenEntryArray),
                 .plain(.integer),
-            ] => .jsPromise,
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetResponse),
             "syncGetBools": [
-            ] => .jsPromise,
+            ] => .jsGoldenPrimary_SyncGetBoolsResponse,
             "syncGetStrings": [
-            ] => .jsPromise,
+            ] => .jsGoldenPrimary_SyncGetStringsResponse,
             "getBools": [
-            ] => .jsPromise,
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetBoolsResponse),
             "getStrings": [
-            ] => .jsPromise,
+            ] => .jsPromise(resolvingTo: .jsGoldenPrimary_GetStringsResponse),
             "passFloats": [
                 .plain(.jsFloatArray),
             ] => .undefined,
@@ -84,6 +84,93 @@ extension ObjectGroup {
 }
 
 ///
+/// Structs
+///
+extension ILType {
+    fileprivate static let jsGoldenEntry: ILType = .object(
+        ofGroup: "golden.Entry",
+        withProperties: [
+        ])
+    fileprivate static let jsGoldenEntryConstructor: ILType = .constructor([
+    ] => .jsGoldenEntry)
+    fileprivate static let jsGoldenPrimary_GetResponse: ILType = .object(
+        ofGroup: "golden.Primary_GetResponse",
+        withProperties: [
+            "result",
+        ])
+    fileprivate static let jsGoldenPrimary_SyncGetBoolsResponse: ILType = .object(
+        ofGroup: "golden.Primary_SyncGetBoolsResponse",
+        withProperties: [
+            "bools",
+        ])
+    fileprivate static let jsGoldenPrimary_SyncGetStringsResponse: ILType = .object(
+        ofGroup: "golden.Primary_SyncGetStringsResponse",
+        withProperties: [
+            "strings",
+        ])
+    fileprivate static let jsGoldenPrimary_GetBoolsResponse: ILType = .object(
+        ofGroup: "golden.Primary_GetBoolsResponse",
+        withProperties: [
+            "bools",
+        ])
+    fileprivate static let jsGoldenPrimary_GetStringsResponse: ILType = .object(
+        ofGroup: "golden.Primary_GetStringsResponse",
+        withProperties: [
+            "strings",
+        ])
+}
+
+extension ObjectGroup {
+    fileprivate static let goldenEntry = ObjectGroup(
+        name: "golden.Entry",
+        instanceType: .jsGoldenEntry,
+        properties: [
+        ],
+        methods: [:]
+    )
+    fileprivate static let goldenPrimaryGetResponse = ObjectGroup(
+        name: "golden.Primary_GetResponse",
+        instanceType: .jsGoldenPrimary_GetResponse,
+        properties: [
+            "result": .jsGoldenEntry,
+        ],
+        methods: [:]
+    )
+    fileprivate static let goldenPrimarySyncGetBoolsResponse = ObjectGroup(
+        name: "golden.Primary_SyncGetBoolsResponse",
+        instanceType: .jsGoldenPrimary_SyncGetBoolsResponse,
+        properties: [
+            "bools": .jsBooleanArray,
+        ],
+        methods: [:]
+    )
+    fileprivate static let goldenPrimarySyncGetStringsResponse = ObjectGroup(
+        name: "golden.Primary_SyncGetStringsResponse",
+        instanceType: .jsGoldenPrimary_SyncGetStringsResponse,
+        properties: [
+            "strings": .jsStringArray,
+        ],
+        methods: [:]
+    )
+    fileprivate static let goldenPrimaryGetBoolsResponse = ObjectGroup(
+        name: "golden.Primary_GetBoolsResponse",
+        instanceType: .jsGoldenPrimary_GetBoolsResponse,
+        properties: [
+            "bools": .jsBooleanArray,
+        ],
+        methods: [:]
+    )
+    fileprivate static let goldenPrimaryGetStringsResponse = ObjectGroup(
+        name: "golden.Primary_GetStringsResponse",
+        instanceType: .jsGoldenPrimary_GetStringsResponse,
+        properties: [
+            "strings": .jsStringArray,
+        ],
+        methods: [:]
+    )
+}
+
+///
 /// Arrays
 ///
 extension ILType {
@@ -98,6 +185,10 @@ extension ILType {
     fileprivate static let jsIntegerArray: ILType =
         .createJsArrayType(ofElementType: .jsIntegerElement)
 }
+
+/// Generate an array with only one element. As Fuzzilli runs, the
+/// OperationMutator and VariadicInputReducer will modify the
+/// `CreateArray` operation to increase  or decrease the element count.
 private let MojoGoldenEntryArrayGenerator = CodeGenerator(
     "MojoGoldenEntryArrayGenerator",
     inputs: .required(.jsGoldenEntry),
@@ -106,7 +197,7 @@ private let MojoGoldenEntryArrayGenerator = CodeGenerator(
     b.createArray(
         with: [elem],
         elementGroupName:
-            ObjectGroup.goldenEntry.group.name)
+            ObjectGroup.goldenEntry.name)
 }
 private let MojoBooleanArrayGenerator = CodeGenerator(
     "MojoBooleanArrayGenerator",
@@ -116,7 +207,7 @@ private let MojoBooleanArrayGenerator = CodeGenerator(
     b.createArray(
         with: [elem],
         elementGroupName:
-            ObjectGroup.booleanElement.group.name)
+            ObjectGroup.booleanElement.name)
 }
 private let MojoStringArrayGenerator = CodeGenerator(
     "MojoStringArrayGenerator",
@@ -126,7 +217,7 @@ private let MojoStringArrayGenerator = CodeGenerator(
     b.createArray(
         with: [elem],
         elementGroupName:
-            ObjectGroup.stringElement.group.name)
+            ObjectGroup.stringElement.name)
 }
 private let MojoFloatArrayGenerator = CodeGenerator(
     "MojoFloatArrayGenerator",
@@ -136,7 +227,7 @@ private let MojoFloatArrayGenerator = CodeGenerator(
     b.createArray(
         with: [elem],
         elementGroupName:
-            ObjectGroup.floatElement.group.name)
+            ObjectGroup.floatElement.name)
 }
 private let MojoIntegerArrayGenerator = CodeGenerator(
     "MojoIntegerArrayGenerator",
@@ -146,7 +237,7 @@ private let MojoIntegerArrayGenerator = CodeGenerator(
     b.createArray(
         with: [elem],
         elementGroupName:
-            ObjectGroup.integerElement.group.name)
+            ObjectGroup.integerElement.name)
 }
 
 ///
@@ -205,6 +296,7 @@ private let mojoBuiltins: [String: ILType] = [
     /// is only called once, and (2) the remote is saved to a global variable so it
     /// can be closed at the end of the program.
     "getOrCreatePrimaryRemote": .function([] => .jsGoldenPrimaryRemote),
+    "golden.Entry": .jsGoldenEntryConstructor,
 ]
 
 private let keepGenerators = [
@@ -259,12 +351,20 @@ let mojoPrimaryProfile = Profile(
     ] + commonMojoCodeGenerators,
     additionalProgramTemplates: WeightedList([]),
     disabledCodeGenerators: mojoDisabledGenerators,
-    disabledMutators: v8Profile.disabledMutators,
+    disabledMutators: [
+        "ExplorationMutator", "ProbingMutator", "PropertyAccessorMutator"
+    ],
     additionalBuiltins: mojoBuiltins.merging(commonMojoBuiltins) { (existing, _) in existing },
     additionalObjectGroups: [
         .goldenPrimaryRemote,
         .goldenPrimaryRemoteWrapper,
         .goldenPrimaryPendingReceiver,
+        .goldenEntry,
+        .goldenPrimaryGetResponse,
+        .goldenPrimarySyncGetBoolsResponse,
+        .goldenPrimarySyncGetStringsResponse,
+        .goldenPrimaryGetBoolsResponse,
+        .goldenPrimaryGetStringsResponse,
     ] + commonMojoObjectGroups,
     additionalEnumerations: [
     ] + commonMojoEnumerations,

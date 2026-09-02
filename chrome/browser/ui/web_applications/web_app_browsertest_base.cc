@@ -20,6 +20,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -131,18 +132,17 @@ bool WebAppBrowserTestBase::NavigateInRenderer(content::WebContents* contents,
 
 // static
 bool WebAppBrowserTestBase::NavigateAndAwaitInstallabilityCheck(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const GURL& url) {
   auto* manager = webapps::TestAppBannerManagerDesktop::FromWebContents(
-      browser->tab_strip_model()->GetActiveWebContents());
+      browser->GetTabStripModel()->GetActiveWebContents());
   EXPECT_TRUE(ui_test_utils::NavigateToURL(browser, url));
   return manager->WaitForInstallableCheck();
 }
 
 Browser* WebAppBrowserTestBase::NavigateInNewWindowAndAwaitInstallabilityCheck(
     const GURL& url) {
-  Browser* new_browser = Browser::Create(
-      Browser::CreateParams(Browser::TYPE_NORMAL, profile(), true));
+  Browser* new_browser = CreateBrowser(profile());
   AddBlankTabAndShow(new_browser);
   NavigateAndAwaitInstallabilityCheck(new_browser, url);
   return new_browser;
@@ -154,11 +154,12 @@ std::optional<webapps::AppId> WebAppBrowserTestBase::FindAppWithUrlInScope(
       url, web_app::WebAppFilter::InstalledInChrome());
 }
 
-Browser* WebAppBrowserTestBase::OpenPopupAndWait(Browser* browser,
-                                                 const GURL& url,
-                                                 const gfx::Size& popup_size) {
+Browser* WebAppBrowserTestBase::OpenPopupAndWait(
+    BrowserWindowInterface* browser,
+    const GURL& url,
+    const gfx::Size& popup_size) {
   content::WebContents* const web_contents =
-      browser->tab_strip_model()->GetActiveWebContents();
+      browser->GetTabStripModel()->GetActiveWebContents();
 
   ui_test_utils::BrowserCreatedObserver browser_created_observer;
   std::string open_window_script = base::StringPrintf(

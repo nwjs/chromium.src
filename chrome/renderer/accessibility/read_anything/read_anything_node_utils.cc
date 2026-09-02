@@ -148,24 +148,30 @@ std::string GetHtmlTagForPDF(const ui::AXNode* ax_node,
 std::string GetHeadingHtmlTagForPDF(const ui::AXNode* ax_node,
                                     const std::string& html_tag) {
   // Sometimes whole paragraphs can be formatted as a heading. If the text is
-  // longer than 2 lines, assume it was meant to be a paragragh.
-  if (ax_node->GetTextContentLengthUTF8() > (2 * kMaxLineWidth)) {
+  // longer than 2 lines, assume it was meant to be a paragragh. Since the "ch"
+  // unit in CSS doesn't actually correspond exactly to the number of
+  // characters, use a larger multiplier to approximate 2 actual lines of RM.
+  int multiplier =
+      features::IsPdfAccessibilityHeuristicEnhancementsEnabled() ? 3 : 2;
+  if (ax_node->GetTextContentLengthUTF8() > (multiplier * kMaxLineWidth)) {
     return "p";
   }
 
-  // A single block of text could be incorrectly formatted with multiple heading
-  // nodes (one for each line of text) instead of a single paragraph node. This
-  // case should be detected to improve readability. If there are multiple
-  // consecutive nodes with the same heading level, assume that they are all a
-  // part of one paragraph.
-  ui::AXNode* next = ax_node->GetNextUnignoredSibling();
-  ui::AXNode* prev = ax_node->GetPreviousUnignoredSibling();
+  if (!features::IsPdfAccessibilityHeuristicEnhancementsEnabled()) {
+    // A single block of text could be incorrectly formatted with multiple
+    // heading nodes (one for each line of text) instead of a single paragraph
+    // node. This case should be detected to improve readability. If there are
+    // multiple consecutive nodes with the same heading level, assume that they
+    // are all a part of one paragraph.
+    ui::AXNode* next = ax_node->GetNextUnignoredSibling();
+    ui::AXNode* prev = ax_node->GetPreviousUnignoredSibling();
 
-  if ((next && next->GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag) ==
-                   html_tag) ||
-      (prev && prev->GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag) ==
-                   html_tag)) {
-    return "span";
+    if ((next && next->GetStringAttribute(
+                     ax::mojom::StringAttribute::kHtmlTag) == html_tag) ||
+        (prev && prev->GetStringAttribute(
+                     ax::mojom::StringAttribute::kHtmlTag) == html_tag)) {
+      return "span";
+    }
   }
 
   int32_t hierarchical_level =

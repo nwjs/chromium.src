@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/views/tabs/fake_base_tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/fake_tab_slot_controller.h"
 #include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
+#include "chrome/browser/ui/views/tabs/tab/glow_hover_controller.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_close_button.h"
 #include "chrome/browser/ui/views/tabs/tab_container_impl.h"
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
@@ -183,8 +184,6 @@ class TabContainerTest : public ChromeViewsTestBase {
   TabContainerTest()
       : animation_mode_reset_(gfx::AnimationTestApi::SetRichAnimationRenderMode(
             gfx::Animation::RichAnimationRenderMode::FORCE_ENABLED)) {
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kTabStripNewTabButtonFlickerFix);
   }
   TabContainerTest(const TabContainerTest&) = delete;
   TabContainerTest& operator=(const TabContainerTest&) = delete;
@@ -431,7 +430,6 @@ class TabContainerTest : public ChromeViewsTestBase {
 
   // Used to force animation on, so that any tests that rely on animation pass
   // on machines where animation is turned off.
-  base::test::ScopedFeatureList scoped_feature_list_;
   gfx::AnimationTestApi::RenderModeResetter animation_mode_reset_;
 
   int tab_container_width_ = 0;
@@ -634,6 +632,71 @@ TEST_F(TabContainerTest, TabViewOrderWithGroups) {
   EXPECT_EQ(GetTabSlotViewsInFocusOrder(), GetTabSlotViewsInVisualOrder());
   MoveTab(4, 3);
   EXPECT_EQ(GetTabSlotViewsInFocusOrder(), GetTabSlotViewsInVisualOrder());
+}
+
+// Verifies GetChildIndexForSlotView() computes the children() index matching
+// the layout model's slot order, and stays consistent through inserts and
+// moves.
+TEST_F(TabContainerTest, GetChildIndexForSlotView) {
+  auto* container = views::AsViewClass<TabContainerImpl>(tab_container_.get());
+  ASSERT_TRUE(container);
+
+  const auto expect_indices_match_children = [&]() {
+    for (int i = 0; i < container->GetTabCount(); ++i) {
+      Tab* const tab = container->GetTabAtModelIndex(i);
+      EXPECT_EQ(container->children()[container->GetChildIndexForSlotView(tab)],
+                tab);
+    }
+  };
+
+  Tab* tab0 = AddTab(0);
+  EXPECT_EQ(0u, container->GetChildIndexForSlotView(tab0));
+
+  // Appending places the new tab after existing ones.
+  Tab* tab1 = AddTab(1);
+  EXPECT_EQ(1u, container->GetChildIndexForSlotView(tab1));
+
+  // Inserting in the middle shifts successors.
+  Tab* middle = AddTab(1);
+  EXPECT_EQ(1u, container->GetChildIndexForSlotView(middle));
+  EXPECT_EQ(2u, container->GetChildIndexForSlotView(tab1));
+  expect_indices_match_children();
+
+  // Moves keep the mapping consistent.
+  MoveTab(0, 2);
+  expect_indices_match_children();
+  MoveTab(2, 1);
+  expect_indices_match_children();
+}
+
+// Verifies GetChildIndexForSlotView() accounts for group headers, which
+// occupy their own slot in children().
+TEST_F(TabContainerTest, GetChildIndexForSlotViewWithGroups) {
+  auto* container = views::AsViewClass<TabContainerImpl>(tab_container_.get());
+  ASSERT_TRUE(container);
+
+  AddTab(0);
+  AddTab(1);
+  AddTab(2);
+
+  tab_groups::TabGroupId group = tab_groups::TabGroupId::GenerateNew();
+  AddTabToGroup(1, group);
+
+  // The header slots immediately before the group's first tab.
+  TabGroupHeader* const header = container->GetGroupViews(group)->header();
+  EXPECT_EQ(1u, container->GetChildIndexForSlotView(header));
+  EXPECT_EQ(2u, container->GetChildIndexForSlotView(
+                    container->GetTabAtModelIndex(1)));
+  EXPECT_EQ(3u, container->GetChildIndexForSlotView(
+                    container->GetTabAtModelIndex(2)));
+
+  // Every slot view is found at its computed index in children().
+  for (views::View* view : GetTabSlotViewsInVisualOrder()) {
+    TabSlotView* const slot_view = static_cast<TabSlotView*>(view);
+    EXPECT_EQ(
+        container->children()[container->GetChildIndexForSlotView(slot_view)],
+        slot_view);
+  }
 }
 
 namespace {
@@ -1080,6 +1143,68 @@ TEST_F(TabContainerTest, GroupUnderlineBasics) {
                 TabGroupUnderline::kStrokeThickness);
 }
 
+TEST_F(TabContainerTest, GroupUnderlineHiddenInFocusMode) {
+  AddTab(0);
+  tab_groups::TabGroupId group = tab_groups::TabGroupId::GenerateNew();
+  AddTabToGroup(0, group);
+  tab_container_->CompleteAnimationAndLayout();
+
+  std::vector<TabGroupViews*> views = ListGroupViews();
+  EXPECT_EQ(1u, views.size());
+  views[0]->UpdateBounds();
+
+  const TabGroupUnderline* underline = views[0]->underline();
+  EXPECT_TRUE(underline->GetVisible());
+
+  // Focus the group and verify underline becomes hidden.
+  tab_strip_controller_->SetFocusedGroup(group);
+  views[0]->UpdateBounds();
+  EXPECT_FALSE(underline->GetVisible());
+
+  // Unfocus the group and verify underline becomes visible again.
+  tab_strip_controller_->SetFocusedGroup(std::nullopt);
+  views[0]->UpdateBounds();
+  EXPECT_TRUE(underline->GetVisible());
+}
+
+TEST_F(TabContainerTest, MultipleGroupsUnderlineHiddenInFocusMode) {
+  AddTab(0);
+  AddTab(1);
+  AddTab(2);
+
+  tab_groups::TabGroupId group1 = tab_groups::TabGroupId::GenerateNew();
+  tab_groups::TabGroupId group2 = tab_groups::TabGroupId::GenerateNew();
+  tab_groups::TabGroupId group3 = tab_groups::TabGroupId::GenerateNew();
+
+  AddTabToGroup(0, group1);
+  AddTabToGroup(1, group2);
+  AddTabToGroup(2, group3);
+
+  tab_container_->CompleteAnimationAndLayout();
+
+  TabGroupViews* group1_views = tab_container_->GetGroupViews(group1);
+  TabGroupViews* group2_views = tab_container_->GetGroupViews(group2);
+  TabGroupViews* group3_views = tab_container_->GetGroupViews(group3);
+
+  EXPECT_TRUE(group1_views->underline()->GetVisible());
+  EXPECT_TRUE(group2_views->underline()->GetVisible());
+  EXPECT_TRUE(group3_views->underline()->GetVisible());
+
+  // Focus group 2 and verify all group underlines are hidden.
+  tab_strip_controller_->SetFocusedGroup(group2);
+  tab_container_->CompleteAnimationAndLayout();
+  EXPECT_FALSE(group1_views->underline()->GetVisible());
+  EXPECT_FALSE(group2_views->underline()->GetVisible());
+  EXPECT_FALSE(group3_views->underline()->GetVisible());
+
+  // Unfocus and verify underlines become visible again.
+  tab_strip_controller_->SetFocusedGroup(std::nullopt);
+  tab_container_->CompleteAnimationAndLayout();
+  EXPECT_TRUE(group1_views->underline()->GetVisible());
+  EXPECT_TRUE(group2_views->underline()->GetVisible());
+  EXPECT_TRUE(group3_views->underline()->GetVisible());
+}
+
 TEST_F(TabContainerTest, UnderlineBoundsTabVisibilityChange) {
   // Validates that group underlines are updated correctly in a single Layout
   // call when the visibility of tabs in the group change. See
@@ -1356,7 +1481,7 @@ TEST_F(TabContainerTest, ZOrder_MixedScenario) {
   container_impl->CompleteAnimationAndLayout();
 
   // Hover over the grouped tab.
-  grouped_tab->tab_style_views()->ShowHover(TabStyle::ShowHoverStyle::kSubtle);
+  grouped_tab->ShowHover(TabStyle::ShowHoverStyle::kSubtle);
   grouped_tab->tab_style_views()
       ->GetHoverControllerForTesting()
       ->animation_for_testing()
@@ -1473,7 +1598,7 @@ TEST_F(TabContainerTest, ZOrder_HoveredTabIsAfterNormalTab) {
   container_impl->CompleteAnimationAndLayout();
 
   // Hover over the first tab.
-  tab1->tab_style_views()->ShowHover(TabStyle::ShowHoverStyle::kSubtle);
+  tab1->ShowHover(TabStyle::ShowHoverStyle::kSubtle);
   tab1->tab_style_views()
       ->GetHoverControllerForTesting()
       ->animation_for_testing()

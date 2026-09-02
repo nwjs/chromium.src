@@ -468,9 +468,15 @@ void AutocompleteResult::SortAndCull(
   // current input & platform are supported, delegate to the framework.
   if (is_zero_suggest) {
     PSections sections;
-    if (is_android_any && omnibox::IsAndroidHub(page_classification)) {
+    if (is_android_any &&
+        page_classification == metrics::OmniboxEventProto::ANDROID_HUB) {
       sections.push_back(
           std::make_unique<AndroidHubZPSSection>(suggestion_groups_map_));
+    } else if (is_android_any &&
+               page_classification ==
+                   metrics::OmniboxEventProto::ANDROID_TAB_SEARCH_OVERLAY) {
+      sections.push_back(
+          std::make_unique<AndroidTabSearchZPSSection>(suggestion_groups_map_));
     } else if (is_android_any &&
                omnibox::IsAndroidWidget(page_classification)) {
       sections.push_back(
@@ -547,7 +553,8 @@ void AutocompleteResult::SortAndCull(
           default:
             NOTREACHED();
         }
-      } else if (omnibox::IsNTPPage(page_classification)) {
+      } else if (omnibox::IsNTPPage(page_classification) ||
+                 page_classification == OmniboxEventProto::OMNIBOX_EVERYWHERE) {
         // IPH is shown for NTP ZPS in the Omnibox only.  If it is shown, reduce
         // the limit of the normal NTP ZPS Section to make room for the IPH.
         bool has_iph_match =
@@ -711,9 +718,15 @@ void AutocompleteResult::SortAndCull(
     matches_ = Section::GroupMatches(std::move(sections), matches_);
   } else if (use_grouping_for_non_zps) {
     PSections sections;
-    if (is_android_any && omnibox::IsAndroidHub(page_classification)) {
+    if (is_android_any &&
+        page_classification == metrics::OmniboxEventProto::ANDROID_HUB) {
       sections.push_back(
           std::make_unique<AndroidHubNonZPSSection>(suggestion_groups_map_));
+    } else if (is_android_any &&
+               page_classification ==
+                   metrics::OmniboxEventProto::ANDROID_TAB_SEARCH_OVERLAY) {
+      sections.push_back(std::make_unique<AndroidTabSearchNonZPSSection>(
+          suggestion_groups_map_));
     } else if (is_android_any && omnibox::IsComposebox(page_classification)) {
       sections.push_back(std::make_unique<AndroidComposeboxNonZPSSection>(
           suggestion_groups_map_));

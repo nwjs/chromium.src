@@ -39,7 +39,7 @@ class PageInfoControllerAndroid : public PageInfoUI {
 
   void OnSuspiciousSiteBackToSafety(JNIEnv* env);
   void OnSuspiciousSiteMarkAsSafe(JNIEnv* env);
-  void OpenUrl(JNIEnv* env, const base::android::JavaRef<jstring>& jurl);
+  void OpenSafeBrowsingHelpCenter(JNIEnv* env);
   void SetIsSuspiciousSite(JNIEnv* env, bool is_suspicious_site);
 
   // PageInfoUI implementations.
@@ -47,8 +47,6 @@ class PageInfoControllerAndroid : public PageInfoUI {
                          ChosenObjectInfoList chosen_object_info_list) override;
   void SetIdentityInfo(const IdentityInfo& identity_info) override;
   void SetPageFeatureInfo(const PageFeatureInfo& info) override;
-  void SetAdPersonalizationInfo(
-      const AdPersonalizationInfo& ad_personalization_info) override;
 
  private:
   // Returns an optional value which is set if this permission should be

@@ -535,25 +535,6 @@ class CloudPolicyClientTest : public testing::Test {
     CreateClient("", "", kFlexSysVendor, kFlexProductName, kFlexProductVersion);
   }
 
-  base::DictValue MakeDefaultRealtimeReport() {
-    base::DictValue context;
-    context.SetByDottedPath("profile.gaiaEmail", "name@gmail.com");
-    context.SetByDottedPath("browser.userAgent", "User-Agent");
-    context.SetByDottedPath("profile.profileName", "Profile 1");
-    context.SetByDottedPath("profile.profilePath", "C:\\User Data\\Profile 1");
-
-    base::DictValue event;
-    event.Set("time", "2019-05-22T13:01:45Z");
-    event.SetByDottedPath("foo.prop1", "value1");
-    event.SetByDottedPath("foo.prop2", "value2");
-    event.SetByDottedPath("foo.prop3", "value3");
-
-    base::ListValue event_list;
-    event_list.Append(std::move(event));
-    return policy::RealtimeReportingJobConfiguration::BuildReport(
-        std::move(event_list), std::move(context));
-  }
-
   ::chrome::cros::reporting::proto::UploadEventsRequest
   MakeDefaultUploadEventsRequest() {
     ::chrome::cros::reporting::proto::UploadEventsRequest request;
@@ -2761,9 +2742,8 @@ TEST_F(CloudPolicyClientTest, UploadSecurityEventNotRegistered) {
                                result_future.GetCallback());
 
   const CloudPolicyClient::Result result = result_future.Get();
-  EXPECT_EQ(result,
-            CloudPolicyClient::Result(CloudPolicyClient::NotRegistered()));
-  }
+  EXPECT_TRUE(result.IsClientNotRegisteredError());
+}
 
 class CloudPolicyClientUploadSecurityEventTest
     : public CloudPolicyClientTest,
@@ -2831,10 +2811,42 @@ TEST_P(CloudPolicyClientUploadSecurityEventTest, TestWithProtoFormat) {
   }
 
   EXPECT_EQ(1, request.events_size());
+  EXPECT_EQ(result.upload_events_request().SerializeAsString(),
+            request.SerializeAsString());
+}
+
+TEST_P(CloudPolicyClientUploadSecurityEventTest,
+       TestCallbackReceivesEnrichedProtoFields) {
+  RegisterClient();
+
+  ExpectAndCaptureJSONJob(/*response=*/"{}");
+
+  base::test::TestFuture<CloudPolicyClient::Result> result_future;
+
+  // Pass an initial request with only an event, no device or chrome_version
+  // metadata.
+  ::chrome::cros::reporting::proto::UploadEventsRequest initial_request =
+      MakeDefaultUploadEventsRequest();
+  EXPECT_FALSE(initial_request.has_device());
+  EXPECT_TRUE(initial_request.browser().chrome_version().empty());
+
+  client_->UploadSecurityEvent(include_device_info(),
+                               std::move(initial_request),
+                               result_future.GetCallback());
+
+  const auto& returned_request = result_future.Get().upload_events_request();
+  EXPECT_TRUE(returned_request.has_browser());
+  EXPECT_FALSE(returned_request.browser().chrome_version().empty());
+  EXPECT_EQ(version_info::GetVersionNumber(),
+            returned_request.browser().chrome_version());
+  if (include_device_info()) {
+    EXPECT_TRUE(returned_request.has_device());
+    EXPECT_EQ(kDMToken, returned_request.device().dm_token());
+    EXPECT_EQ(client_id_, returned_request.device().client_id());
+  }
 }
 
 TEST_F(CloudPolicyClientTest, RealtimeReportMerge) {
-
   auto config = std::make_unique<RealtimeReportingJobConfiguration>(
       client_.get(), service_.configuration()->GetRealtimeReportingServerUrl(),
       /*include_device_info*/ true,

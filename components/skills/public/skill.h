@@ -17,6 +17,12 @@ namespace skills {
 // LINT.IfChange(Skill)
 // Represents a single skill.
 struct Skill {
+  // TODO(crbug.com/538134415): Have other skills code use these shared
+  // constants to avoid duplicating validation constraints.
+  static constexpr size_t kMaxNameLength = 20;
+  static constexpr size_t kMaxDescriptionLength = 100;
+  static constexpr size_t kMaxPromptLength = 20000;
+
   // A unique identifier for the skill. It's GUID now but can be other IDs in
   // the future.
   std::string id;
@@ -42,6 +48,9 @@ struct Skill {
   // The image URL associated with the skill.
   GURL image_url;
 
+  // The category of the skill.
+  std::string category;
+
   // The source of the skill which can be 1P or user created.
   sync_pb::SkillSource source = sync_pb::SkillSource::SKILL_SOURCE_USER_CREATED;
 
@@ -60,7 +69,8 @@ struct Skill {
         const std::string& curated_by = "",
         const GURL& image_url = GURL(),
         const sync_pb::SkillSource& source =
-            sync_pb::SkillSource::SKILL_SOURCE_USER_CREATED);
+            sync_pb::SkillSource::SKILL_SOURCE_USER_CREATED,
+        const std::string& category = "");
   Skill(const Skill&);
   Skill& operator=(const Skill&);
   Skill(Skill&&);

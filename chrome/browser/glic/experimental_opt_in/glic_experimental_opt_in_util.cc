@@ -11,13 +11,16 @@
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/device_info_sync_service_factory.h"
-#include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/themes/theme_service_factory.h"
 #include "components/sync_device_info/device_info.h"
 #include "components/sync_device_info/device_info_sync_service.h"
 #include "components/sync_device_info/local_device_info_provider.h"
 #include "net/base/url_util.h"
 #include "url/gurl.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/themes/theme_service_factory.h"
+#endif
 
 namespace glic {
 
@@ -59,8 +62,6 @@ GURL DecorateGlicOptInUrl(Profile* profile, GURL url) {
   std::string theme_value = use_dark_mode ? "dark" : "light";
   url = net::AppendOrReplaceQueryParameter(url, "theme", theme_value);
 #endif
-
-  url = MaybeAddMultiInstanceParameter(url);
 
   // Localize to Chrome UI language.
   return GetLocalizedGuestURL(url);

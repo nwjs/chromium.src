@@ -3,7 +3,12 @@
 # Copyright 2026 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
-"""Installs and manages skills for the Gemini CLI."""
+"""Installs and manages Chromium agent skills.
+
+'link' and 'uninstall' manage local skill links under .agents/skills, which
+any agent that discovers that location can use. 'list', 'enable' and 'disable'
+are implemented with the Gemini CLI and require it to be installed.
+"""
 
 import argparse
 import copy
@@ -13,6 +18,7 @@ import re
 import os
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,7 +28,7 @@ SKILL_DIRS = [
     _PROJECT_ROOT / 'agents' / 'shared' / 'skills',
     _PROJECT_ROOT / 'agents' / 'skills',
     _PROJECT_ROOT / 'internal' / 'agents' / 'skills',
-    _PROJECT_ROOT / 'third_party' / 'depot_tools' / 'agents' / 'skills'
+    _PROJECT_ROOT / 'third_party' / 'depot_tools' / 'agents' / 'skills',
 ]
 sys.path.append(str(_PROJECT_ROOT))
 from agents.common import gemini_helpers
@@ -31,6 +37,7 @@ from agents.common import gemini_helpers
 @dataclass
 class SkillInfo:
     """Holds information about a skill."""
+
     name: str
     enabled: bool = False
     location: str | None = None
@@ -53,11 +60,13 @@ def get_installed_skills() -> dict[str, SkillInfo]:
     gemini_cmd = _get_gemini_cmd()
     output = ''
     try:
-        res = subprocess.run(gemini_cmd + ['skills', 'list', '--debug'],
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT,
-                             text=True,
-                             check=True)
+        res = subprocess.run(
+            gemini_cmd + ['skills', 'list', '--debug'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=True,
+        )
         output = res.stdout
     except subprocess.CalledProcessError as e:
         logging.info(' list error, %s', e)
@@ -68,15 +77,19 @@ def get_installed_skills() -> dict[str, SkillInfo]:
     skill_pattern = re.compile(
         r'^\s*([a-zA-Z0-9_-]+)\s+\[(Enabled|Disabled)\]\s*\n'
         r'\s*Description:\s+(.*?)\s*\n'
-        r'\s*Location:\s+(.*)', re.MULTILINE)
+        r'\s*Location:\s+(.*)',
+        re.MULTILINE,
+    )
     for match in skill_pattern.finditer(output):
         name, status, _, location = match.groups()
         # Strip the SKILLS.md file from the location
         location = Path(location).parent
-        skills[name] = SkillInfo(name=name,
-                                 enabled=(status == 'Enabled'),
-                                 location=location.as_posix(),
-                                 installed=True)
+        skills[name] = SkillInfo(
+            name=name,
+            enabled=(status == 'Enabled'),
+            location=location.as_posix(),
+            installed=True,
+        )
     return skills
 
 
@@ -92,9 +105,9 @@ def get_available_skills() -> dict[str, SkillInfo]:
         if d.exists():
             for skill in sorted(d.iterdir()):
                 if skill.is_dir() and (skill / 'SKILL.md').exists():
-                    available_skills[skill.name] = SkillInfo(name=skill.name,
-                                                             available=True,
-                                                             path=skill)
+                    available_skills[skill.name] = SkillInfo(
+                        name=skill.name, available=True, path=skill
+                    )
     return available_skills
 
 
@@ -146,7 +159,7 @@ def _print_skills_table(data: dict[str, SkillInfo]) -> None:
             'available': 'yes' if skill_data.available else 'no',
             'installed': 'yes' if skill_data.installed else 'no',
             'enabled': 'yes' if skill_data.enabled else 'no',
-            'location': location
+            'location': location,
         }
         col_widths['SKILL'] = max(col_widths['SKILL'], len(name))
         col_widths['LOCATION'] = max(col_widths['LOCATION'], len(location))
@@ -185,8 +198,11 @@ def _run_skill_command(action: str, name_or_path: str | Path) -> None:
         'enable': 'Enabling',
         'disable': 'Disabling',
     }
-    logging.info('  %s skill: %s',
-                 action_labels.get(action, action.capitalize()), display_name)
+    logging.info(
+        '  %s skill: %s',
+        action_labels.get(action, action.capitalize()),
+        display_name,
+    )
     subprocess.run(cmd, capture_output=True, text=True, check=True)
 
 
@@ -231,8 +247,11 @@ def link_skills(names: list[str]) -> bool:
         target_dir = _PROJECT_ROOT / '.agents' / 'skills'
         target_dir.mkdir(parents=True, exist_ok=True)
         try:
-            os.symlink(skill.path,
-                       _PROJECT_ROOT / '.agents' / 'skills' / skill.name, True)
+            os.symlink(
+                skill.path,
+                _PROJECT_ROOT / '.agents' / 'skills' / skill.name,
+                True,
+            )
         except FileExistsError:
             logging.info('Skill "%s" is already linked.', name)
     return success
@@ -242,11 +261,49 @@ def _handle_uninstall(args: argparse.Namespace) -> bool:
     return uninstall_skills(args.names)
 
 
-def uninstall_skills(names: list[str]) -> bool:
+def _is_local_link_name(name: str) -> bool:
+    """Returns True if `name` may be joined under .agents/skills.
+
+    Only a single, non-empty, unanchored path component is safe to join, so
+    that a name can never refer to a path outside of .agents/skills.
+    """
+    if not name or name in ('.', '..'):
+        return False
+    if '/' in name or '\\' in name:
+        return False
+    # Rejects drive-relative names such as 'C:name' on Windows.
+    return not os.path.splitdrive(name)[0]
+
+
+def _unlink_local_skill(name: str) -> bool:
+    """Removes the link created by `link_skills()` for `name`, if any.
+
+    Returns:
+      True if a local symlink was removed.
+    """
+    if not _is_local_link_name(name):
+        return False
+    link = _PROJECT_ROOT / '.agents' / 'skills' / name
+    # Only unlink. Do not delete as it risks permanently losing files.
+    if not link.is_symlink():
+        return False
+    logging.info('Uninstalling skill: %s', name)
+    link.unlink()
+    return True
+
+
+def uninstall_skills(names: Iterable[str]) -> bool:
     """Handles the 'uninstall' command."""
+    names = set(names)
+    # First remove every local link, so that argument order cannot leave one
+    # behind and so that Gemini is only needed for the remaining skills.
+    remaining = [name for name in names if not _unlink_local_skill(name)]
+    if not remaining:
+        return True
+
     installed = get_installed_skills()
     success = True
-    for name in names:
+    for name in remaining:
         logging.info('Uninstalling skill: %s', name)
         skill = installed.get(name)
         if not skill:
@@ -259,8 +316,11 @@ def uninstall_skills(names: list[str]) -> bool:
             try:
                 _run_skill_command('uninstall', name)
             except subprocess.CalledProcessError as e:
-                logging.error('Error: Failed to uninstall "%s": %s', name,
-                              e.stderr.strip() if e.stderr else str(e))
+                logging.error(
+                    'Error: Failed to uninstall "%s": %s',
+                    name,
+                    e.stderr.strip() if e.stderr else str(e),
+                )
                 success = False
             except FileNotFoundError:
                 success = False
@@ -287,8 +347,12 @@ def enable_disable_skills(action: str, names: list[str]) -> bool:
         try:
             _run_skill_command(action, name)
         except subprocess.CalledProcessError as e:
-            logging.error('Error: Failed to %s "%s": %s', action, name,
-                          e.stderr.strip() if e.stderr else str(e))
+            logging.error(
+                'Error: Failed to %s "%s": %s',
+                action,
+                name,
+                e.stderr.strip() if e.stderr else str(e),
+            )
             success = False
         except FileNotFoundError:
             success = False
@@ -297,10 +361,14 @@ def enable_disable_skills(action: str, names: list[str]) -> bool:
 
 def main() -> None:
     """CLI for managing skills."""
-    parser = argparse.ArgumentParser(description='Manage Gemini CLI skills.')
+    parser = argparse.ArgumentParser(
+        description='Manage Chromium agent skills.'
+    )
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
-    list_parser = subparsers.add_parser('list', help='List skills')
+    list_parser = subparsers.add_parser(
+        'list', help='List skills (requires Gemini CLI)'
+    )
     list_parser.set_defaults(func=_handle_list)
 
     # Common parser for commands that take skill names as arguments.
@@ -308,10 +376,10 @@ def main() -> None:
     names_parser.add_argument('names', nargs='+', help='Names of the skills')
 
     for cmd, help_text, handler in [
-        ('link', 'Link skills', _handle_link),
-        ('uninstall', 'Uninstall skills', _handle_uninstall),
-        ('enable', 'Enable skills', _handle_enable),
-        ('disable', 'Disable skills', _handle_disable),
+        ('link', 'Link skills into .agents/skills', _handle_link),
+        ('uninstall', 'Uninstall skills or local links', _handle_uninstall),
+        ('enable', 'Enable skills (requires Gemini CLI)', _handle_enable),
+        ('disable', 'Disable skills (requires Gemini CLI)', _handle_disable),
     ]:
         p = subparsers.add_parser(cmd, help=help_text, parents=[names_parser])
         p.set_defaults(func=handler)

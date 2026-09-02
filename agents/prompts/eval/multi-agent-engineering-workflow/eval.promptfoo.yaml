@@ -1,0 +1,45 @@
+description: >-
+  Verify multi-agent-engineering-workflow skill triggers as an orchestrator,
+  investigates and defines project specifications, and routes to appropriate
+  multi-agent sub-skills.
+owner: joedow@chromium.org
+prompts:
+  - "{{query}}"
+providers:
+  - id: python:../../../testing/gemini_provider.py
+    config:
+      timeoutSeconds: 300
+      extensions: []
+      skills:
+        - multi-agent-engineering-workflow
+
+tests:
+  - description: >-
+      Trigger: Query requesting workflow orchestration for code refactoring
+      and review
+    vars:
+      query: >-
+        Run the multi-agent engineering workflow to refactor the code.
+    assert:
+      - type: contains
+        value: "project.magi.json"
+      - type: icontains
+        value: "ROUTING.md"
+
+  - description: "Functional: Verify environment discovery and harness check"
+    vars:
+      query: "How does the engineering workflow handle environment discovery?"
+    assert:
+      - type: contains
+        value: "project.magi.json#environment"
+      - type: icontains
+        value: "temp_directory"
+
+  - description: "Quality: Verify workflow orchestration stage transitions"
+    vars:
+      query: "Explain the orchestration paths in the engineering workflow."
+    assert:
+      - type: icontains
+        value: "FAST_PATH"
+      - type: icontains
+        value: "RIGOR_PATH"

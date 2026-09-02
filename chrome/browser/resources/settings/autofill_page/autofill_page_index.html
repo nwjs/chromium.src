@@ -7,26 +7,43 @@
 
 <cr-view-manager id="viewManager" class="cr-centered-card-container"
     show-all$="[[shouldShowAll]]">
+
   <settings-autofill-page slot="view" id="parent" prefs="{{prefs}}">
   </settings-autofill-page>
 
-  <settings-payments-section slot="view" id="payments" prefs="{{prefs}}"
+  <settings-contact-info-page slot="view" id="contactInfo" prefs="{{prefs}}"
       data-parent-view-id="parent">
-  </settings-payments-section>
+  </settings-contact-info-page>
 
-  <settings-autofill-section slot="view" id="addresses" prefs="{{prefs}}"
+  <settings-identity-docs-page slot="view" id="identityDocs" prefs="{{prefs}}"
       data-parent-view-id="parent">
-  </settings-autofill-section>
-
-  <template is="dom-if" if="[[autofillAiAvailable_]]">
-    <settings-autofill-ai-section slot="view" id="autofillAi" prefs="{{prefs}}"
-        data-parent-view-id="parent">
-    </settings-autofill-ai-section>
-  </template>
+  </settings-identity-docs-page>
 
 <if expr="is_win or is_macosx">
   <settings-passkeys-subpage slot="view" id="passkeys"
       data-parent-view-id="parent">
   </settings-passkeys-subpage>
 </if>
+
+  <settings-payments-page slot="view" id="payments" prefs="{{prefs}}"
+      data-parent-view-id="parent">
+  </settings-payments-page>
+
+  <settings-travel-page slot="view" id="travel" prefs="{{prefs}}"
+      data-parent-view-id="parent">
+  </settings-travel-page>
+
+  <template is="dom-if" if="[[isShoppingEnabled_]]">
+    <settings-shopping-page slot="view" id="shopping" prefs="{{prefs}}"
+        data-parent-view-id="parent">
+    </settings-shopping-page>
+  </template>
+
+  <template is="dom-if" if="[[showSuggestionsFromGeminiSettings_]]">
+    <settings-suggestions-from-gemini-subpage slot="view"
+        id="suggestionsFromGemini" data-parent-view-id="parent"
+        prefs="{{prefs}}">
+    </settings-suggestions-from-gemini-subpage>
+  </template>
+
 </cr-view-manager>

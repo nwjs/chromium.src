@@ -88,7 +88,8 @@ class OmniboxPopupPresenterBase
 
   // Creates and returns a new deactivation blocker. The caller is responsible
   // for managing the lifecycle of the returned blocker (typically via
-  // std::unique_ptr).
+  // std::unique_ptr). Returns nullptr if
+  // `omnibox::kOmniboxKeepOpenOnFileSelection` is disabled.
   virtual std::unique_ptr<OmniboxPopupDeactivationBlocker>
   CreateDeactivationBlocker();
   virtual void OnFileSelectionClosed();
@@ -114,7 +115,8 @@ class OmniboxPopupPresenterBase
 
   // Returns the currently "active" Popup content, whichever one is visible or
   // going to be visible within the popup.
-  OmniboxPopupWebUIBaseContent* GetWebUIContent() const;
+  OmniboxPopupWebUIBaseContent* GetWebUIContent();
+  const OmniboxPopupWebUIBaseContent* GetWebUIContent() const;
 
   // Returns the timeout if showing should be deferred until the WebUI has
   // painted a new frame, or std::nullopt if it should not be deferred.
@@ -139,6 +141,8 @@ class OmniboxPopupPresenterBase
 
   views::Widget* get_widget_for_testing() { return widget_.get(); }
 
+  views::Widget* GetWidget() const { return widget_.get(); }
+
   void set_widget_for_testing(std::unique_ptr<views::Widget> widget) {
     widget_ = std::move(widget);
   }
@@ -153,12 +157,21 @@ class OmniboxPopupPresenterBase
   // handlers.
   void SetPermissionPromptShowing(bool showing);
 
+  // Resets prompt showing and dismissal state flags.
+  void ResetPermissionPromptShowingState();
+
   // Handles common dismissal state updates when a permission prompt is closed.
   void HandlePermissionPromptDismissal();
 
   // Returns true if a permission prompt is showing or being dismissed,
   // which should prevent out-of-focus activation events from hiding the popup.
   bool IsPermissionPromptPreventingClose() const;
+
+  // Returns true if the presenter is currently deactivating.
+  virtual bool IsDeactivating() const;
+
+  // Returns whether the WebUI content view receives focus.
+  virtual bool ShouldReceiveFocus() const;
 
  protected:
   inline static constexpr std::string_view kWebUIPopupMetricPrefix =
@@ -193,9 +206,6 @@ class OmniboxPopupPresenterBase
   // Returns whether or not the popup should include the location bar cutout.
   virtual bool ShouldShowLocationBarCutout() const;
 
-  // Returns whether the WebUI content view receive focus.
-  virtual bool ShouldReceiveFocus() const;
-
   // Returns true if the popup widget should start transparent to allow the
   // initial layout pass to complete without visual artifacts.
   virtual bool ShouldHideForInitialLayout() const;
@@ -210,8 +220,6 @@ class OmniboxPopupPresenterBase
                                              bool is_first_show);
 
   LocationBar* location_bar() const { return location_bar_.get(); }
-
-  views::Widget* GetWidget() const { return widget_.get(); }
 
   OmniboxController* controller() const { return controller_.get(); }
 

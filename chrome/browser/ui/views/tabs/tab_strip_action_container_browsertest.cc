@@ -22,7 +22,6 @@
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -106,7 +105,7 @@ class TabStripActionContainerBrowserTest : public InProcessBrowserTest {
  protected:
   glic::TabStripGlicButton* GlicNudgeButton() {
     return views::AsViewClass<glic::TabStripGlicButton>(
-        tab_strip_action_container()->GetGlicButton());
+        tab_strip_action_container()->GetGlicButtonForTesting());
   }
 
   glic::TabStripGlicActorTaskIcon* GlicActorTaskIcon() {

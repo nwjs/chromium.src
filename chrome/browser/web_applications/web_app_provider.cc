@@ -38,7 +38,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/update/isolated_web_app_update_manager.h"
 #include "chrome/browser/web_applications/jobs/uninstall/remove_web_app_job.h"
 #include "chrome/browser/web_applications/manifest_update_manager.h"
-#include "chrome/browser/web_applications/navigation_capturing_log.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
 #include "chrome/browser/web_applications/os_integration/web_app_protocol_handler_manager.h"
@@ -55,7 +54,6 @@
 #include "chrome/browser/web_applications/web_app_filter.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_manager.h"
-#include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_origin_association_manager.h"
 #include "chrome/browser/web_applications/web_app_pref_guardrails.h"
@@ -71,6 +69,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/model/data_type_store_service.h"
+#include "components/webapps/browser/navigation_capturing_log.h"
 #include "components/webapps/common/manifest_id_constants.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_thread.h"
@@ -208,11 +207,6 @@ WebAppSyncBridge& WebAppProvider::sync_bridge_unsafe() {
 WebAppInstallManager& WebAppProvider::install_manager() {
   CheckIsConnected();
   return *install_manager_;
-}
-
-WebAppInstallFinalizer& WebAppProvider::install_finalizer() {
-  CheckIsConnected();
-  return *install_finalizer_;
 }
 
 ManifestUpdateManager& WebAppProvider::manifest_update_manager() {
@@ -364,7 +358,6 @@ void WebAppProvider::Shutdown() {
   install_manager_->Shutdown();
   web_app_policy_manager_->Shutdown();
   icon_manager_->Shutdown();
-  install_finalizer_->Shutdown();
   profile_deletion_manager_->Shutdown();
   is_registry_ready_ = false;
 }
@@ -422,7 +415,6 @@ void WebAppProvider::CreateSubsystems(Profile* profile) {
 
   icon_manager_ = std::make_unique<WebAppIconManager>(profile);
   translation_manager_ = std::make_unique<WebAppTranslationManager>(profile);
-  install_finalizer_ = std::make_unique<WebAppInstallFinalizer>(profile);
 
   auto file_handler_manager =
       std::make_unique<WebAppFileHandlerManager>(profile);
@@ -448,7 +440,9 @@ void WebAppProvider::CreateSubsystems(Profile* profile) {
 
   web_contents_manager_ = std::make_unique<WebContentsManager>();
   visited_manifest_manager_ = std::make_unique<VisitedManifestManager>();
-  navigation_capturing_log_ = std::make_unique<NavigationCapturingLog>();
+  navigation_capturing_log_ = std::make_unique<NavigationCapturingLog>(
+      base::FeatureList::IsEnabled(features::kRecordWebAppDebugInfo) ? 1000
+                                                                     : 20);
   profile_deletion_manager_ =
       std::make_unique<WebAppProfileDeletionManager>(profile);
 }
@@ -460,7 +454,6 @@ void WebAppProvider::ConnectSubsystems() {
   sync_bridge_->SetProvider(pass_key, *this);
   install_manager_->SetProvider(pass_key, *this);
   icon_manager_->SetProvider(pass_key, *this);
-  install_finalizer_->SetProvider(pass_key, *this);
   manifest_update_manager_->SetProvider(pass_key, *this);
   externally_managed_app_manager_->SetProvider(pass_key, *this);
   preinstalled_web_app_manager_->SetProvider(pass_key, *this);
@@ -535,7 +528,6 @@ void WebAppProvider::OnSyncBridgeReady(
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   registrar_->Start();
-  install_finalizer_->Start();
   icon_manager_->Start();
   translation_manager_->Start();
   install_manager_->Start();

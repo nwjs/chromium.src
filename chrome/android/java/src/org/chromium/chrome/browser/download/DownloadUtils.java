@@ -15,14 +15,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
+import android.os.SystemClock;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.style.ClickableSpan;
 import android.text.style.StyleSpan;
+import android.view.ViewConfiguration;
 import android.webkit.MimeTypeMap;
 
 import androidx.annotation.MainThread;
@@ -39,6 +42,7 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.FileUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
+import org.chromium.base.PackageManagerUtils;
 import org.chromium.build.annotations.Contract;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -46,6 +50,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.download.home.DownloadActivityLauncher;
+import org.chromium.chrome.browser.download.DownloadMetrics.DownloadOpenTarget;
 import org.chromium.chrome.browser.download.DownloadMetrics.OpenWithExternalAppsSource;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -97,6 +102,10 @@ public class DownloadUtils {
     private static final String MIME_TYPE_ZIP = "application/zip";
     private static final String DOCUMENTS_UI_PACKAGE_NAME = "com.android.documentsui";
     private static @Nullable Boolean sIsDownloadRestrictedByPolicyForTesting;
+    // Tracks the timestamp and identifier of the last openFile request to debounce rapid
+    // consecutive clicks (e.g. double-taps) and prevent launching duplicate chooser dialogs.
+    private static long sLastOpenFileTimeMs;
+    private static @Nullable String sLastOpenFileIdentifier;
 
     /**
      * Displays the download manager UI. Note the UI is different on tablets and on phones.
@@ -406,13 +415,26 @@ public class DownloadUtils {
     }
 
     /**
-     * Opens a file using a {@link DownloadOpenRequest}. Attempts the provided MIME type,
-     * then falls back to one inferred from the file extension.
+     * Opens a file using a {@link DownloadOpenRequest}. Attempts the provided MIME type, then falls
+     * back to one inferred from the file extension.
      *
-     * @param req The {@link DownloadOpenRequest} containing file path, MIME, GUID,
-     *         profile, URLs, source, and context.
+     * @param req The {@link DownloadOpenRequest} containing file path, MIME, GUID, profile, URLs,
+     *     source, and context.
      */
     public static boolean openFile(DownloadOpenRequest req) {
+        // Debounce rapid consecutive clicks on the same downloaded item (e.g. double-taps).
+        String identifier = req.mDownloadGuid != null ? req.mDownloadGuid : req.mFilePath;
+        long currentTimeMs = SystemClock.elapsedRealtime();
+        if (sLastOpenFileIdentifier != null
+                && sLastOpenFileIdentifier.equals(identifier)
+                && currentTimeMs - sLastOpenFileTimeMs < ViewConfiguration.getDoubleTapTimeout()) {
+            // Drop duplicate request within the double-tap window; treat as already handled so
+            // failure toasts or fallback UI are not shown.
+            return true;
+        }
+        sLastOpenFileTimeMs = currentTimeMs;
+        sLastOpenFileIdentifier = identifier;
+
         DownloadMetrics.recordDownloadOpen(req.mSource, req.mMimeType);
 
         boolean canOpen = doOpenFile(req);
@@ -452,44 +474,69 @@ public class DownloadUtils {
      */
     private static boolean doOpenFile(DownloadOpenRequest req) {
         DownloadManagerService service = DownloadManagerService.getDownloadManagerService();
+        boolean isIncognito = OtrProfileId.isOffTheRecord(req.mOtrProfileId);
 
-        // Check if Chrome should open the file itself.
-        if (service.isDownloadOpenableInBrowser(req.mMimeType)) {
-            // Share URIs use the content:// scheme when able, which looks bad when displayed
-            // in the URL bar.
-            Uri contentUri = getUriForItem(req.mFilePath);
-            Uri fileUri = contentUri;
-            if (!ContentUriUtils.isContentUri(req.mFilePath)) {
-                File file = new File(req.mFilePath);
-                fileUri = Uri.fromFile(file);
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.OPEN_DOWNLOAD_IN_PREFERRED_APP)) {
+            Intent targetIntent = createViewIntent(req);
+            Context context = req.mContext;
+            String chromePackage = context.getPackageName();
+
+            // Query OS for default handler or system resolver (chooser)
+            ResolveInfo defaultApp =
+                    PackageManagerUtils.resolveActivity(
+                            targetIntent, PackageManager.MATCH_DEFAULT_ONLY);
+            String resolvedPackage =
+                    (defaultApp != null && defaultApp.activityInfo != null)
+                            ? defaultApp.activityInfo.packageName
+                            : null;
+
+            // Default handler is Chrome -> Open in Chrome internally
+            if (chromePackage.equals(resolvedPackage)) {
+                if (service.isDownloadOpenableInBrowser(req.mMimeType, isIncognito)
+                        && openInChromeInternal(req)) {
+                    DownloadMetrics.recordDownloadOpenTarget(DownloadOpenTarget.CHROME_DEFAULT);
+                    service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
+                    return true;
+                }
+            } else if (resolvedPackage != null) {
+                // Default handler is not Chrome and not null -> OS chooser or external app
+                if (isSystemResolver(defaultApp)) {
+                    DownloadMetrics.recordDownloadOpenTarget(DownloadOpenTarget.OS_CHOOSER);
+                } else {
+                    DownloadMetrics.recordDownloadOpenTarget(DownloadOpenTarget.OTHER_APP_DEFAULT);
+                }
+                if (fireOpenIntentForDownload(context, targetIntent)) {
+                    service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
+                    return true;
+                }
             }
-            String normalizedMimeType = Intent.normalizeMimeType(req.mMimeType);
 
-            // Sharing for media files is disabled on automotive.
-            boolean isAutomotive = DeviceInfo.isAutomotive();
-            Intent intent =
-                    MediaViewerUtils.getMediaViewerIntent(
-                            /* displayUri= */ fileUri,
-                            /* contentUri= */ contentUri,
-                            normalizedMimeType,
-                            !isAutomotive,
-                            !isAutomotive,
-                            req.mContext);
-            IntentHandler.startActivityForTrustedIntent(req.mContext, intent);
-            service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
-            return true;
-        }
+            // Handler is null (0 OS apps match). Check if Chrome can view internally.
+            if (service.isDownloadOpenableInBrowser(req.mMimeType, isIncognito)
+                    && openInChromeInternal(req)) {
+                DownloadMetrics.recordDownloadOpenTarget(DownloadOpenTarget.CHROME_FALLBACK);
+                service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
+                return true;
+            }
+        } else {
+            // Check if Chrome should open the file itself.
+            if (service.isDownloadOpenableInBrowser(req.mMimeType, isIncognito)
+                    && openInChromeInternal(req)) {
+                service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
+                return true;
+            }
 
-        // Check if any apps can open the file.
-        if (openFileWithExternalApps(
-                req.mFilePath,
-                req.mMimeType,
-                req.mOriginalUrl,
-                req.mReferrer,
-                req.mContext,
-                OpenWithExternalAppsSource.OPEN_FILE)) {
-            service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
-            return true;
+            // Check if any apps can open the file.
+            if (openFileWithExternalApps(
+                    req.mFilePath,
+                    req.mMimeType,
+                    req.mOriginalUrl,
+                    req.mReferrer,
+                    req.mContext,
+                    OpenWithExternalAppsSource.OPEN_FILE)) {
+                service.updateLastAccessTime(req.mDownloadGuid, req.mOtrProfileId);
+                return true;
+            }
         }
 
         // If this is a zip file, check if Android Files app exists.
@@ -513,22 +560,99 @@ public class DownloadUtils {
                     return true;
                 }
             } catch (Exception e) {
-                Log.e(TAG, "Cannot find files app for openning zip files", e);
+                Log.e(TAG, "Cannot find files app for opening zip files", e);
             }
         }
         return false;
     }
 
     /**
-     * Infers the MIME type from the file name or file path when the original MIME type
-     * might be incorrect. This is used as a fallback when opening files fails with the
-     * original MIME type.
+     * Creates an {@link Intent} to view a downloaded file based on the {@link DownloadOpenRequest}.
+     *
+     * @param req The {@link DownloadOpenRequest} containing file path, MIME, and origin URLs.
+     * @return The {@link Intent} that can be used to view the file.
+     */
+    @VisibleForTesting
+    static Intent createViewIntent(DownloadOpenRequest req) {
+        Uri uri =
+                ContentUriUtils.isContentUri(req.mFilePath)
+                        ? Uri.parse(req.mFilePath)
+                        : getUriForOtherApps(req.mFilePath);
+        return MediaViewerUtils.createViewIntentForUri(
+                uri, req.mMimeType, req.mOriginalUrl, req.mReferrer);
+    }
+
+    /**
+     * Checks if the resolved activity is a system disambiguation resolver.
+     *
+     * @param info The {@link ResolveInfo} for the resolved activity.
+     * @return True if the resolved activity is the system resolver; false otherwise.
+     */
+    @VisibleForTesting
+    static boolean isSystemResolver(@Nullable ResolveInfo info) {
+        if (info == null || info.activityInfo == null) return true;
+        String pkg = info.activityInfo.packageName;
+        String name = info.activityInfo.name;
+        return "android".equals(pkg) || (name != null && name.contains("ResolverActivity"));
+    }
+
+    /**
+     * Opens downloaded file internally within Chrome (PDF viewer, new tab, or media viewer CCT).
+     *
+     * @param req The {@link DownloadOpenRequest} containing file URI, MIME type, and context.
+     * @return Whether Chrome was able to successfully open the {@link DownloadOpenRequest}.
+     */
+    @VisibleForTesting
+    static boolean openInChromeInternal(DownloadOpenRequest req) {
+        // 1. PDF inline viewing in Chrome tab
+        if (MimeTypeUtils.PDF_MIME_TYPE.equalsIgnoreCase(req.mMimeType)) {
+            String fileUri = getUriForItem(req.mFilePath).toString();
+            String encodedPdfUrl = PdfUtils.encodePdfPageUrl(fileUri);
+            if (encodedPdfUrl != null) {
+                LoadUrlParams params = new LoadUrlParams(encodedPdfUrl);
+                ChromeAsyncTabLauncher delegate =
+                        new ChromeAsyncTabLauncher(OtrProfileId.isOffTheRecord(req.mOtrProfileId));
+                delegate.launchNewTab(params, TabLaunchType.FROM_CHROME_UI, /* parent= */ null);
+                return true;
+            }
+            return false;
+        }
+
+        // 2. Media / Web MIME types
+        Uri contentUri = getUriForItem(req.mFilePath);
+        Uri fileUri = contentUri;
+        if (!ContentUriUtils.isContentUri(req.mFilePath)) {
+            File file = new File(req.mFilePath);
+            fileUri = Uri.fromFile(file);
+        }
+        String normalizedMimeType = Intent.normalizeMimeType(req.mMimeType);
+
+        // Sharing for media files is disabled on automotive.
+        boolean isAutomotive = DeviceInfo.isAutomotive();
+        Intent intent =
+                MediaViewerUtils.getMediaViewerIntent(
+                        /* displayUri= */ fileUri,
+                        /* contentUri= */ contentUri,
+                        normalizedMimeType,
+                        !isAutomotive,
+                        !isAutomotive,
+                        req.mContext);
+        if (intent != null) {
+            IntentHandler.startActivityForTrustedIntent(req.mContext, intent);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Infers the MIME type from the file name or file path when the original MIME type might be
+     * incorrect. This is used as a fallback when opening files fails with the original MIME type.
      *
      * @param fileName The file name (preferred) to extract extension from.
      * @param filePath The file path to use if fileName is empty.
      * @param originalMimeType The original MIME type to compare against.
-     * @return The inferred MIME type if it differs from the original, or null if no
-     *         different MIME type can be inferred.
+     * @return The inferred MIME type if it differs from the original, or null if no different MIME
+     *     type can be inferred.
      */
     @VisibleForTesting
     public static @Nullable String inferMimeTypeFromExtension(
@@ -544,6 +668,11 @@ public class DownloadUtils {
             return inferred;
         }
         return null;
+    }
+
+    public static void resetLastOpenFileForTesting() {
+        sLastOpenFileTimeMs = 0;
+        sLastOpenFileIdentifier = null;
     }
 
     /**
@@ -589,7 +718,8 @@ public class DownloadUtils {
         }
         boolean isIncognito = OtrProfileId.isOffTheRecord(otrProfileId);
         // TODO(https://crbug.com/327680567): Ensure the pdf page is opened in the intended window.
-        if (PdfUtils.shouldOpenPdfInline(isIncognito)
+        if (!ChromeFeatureList.isEnabled(ChromeFeatureList.OPEN_DOWNLOAD_IN_PREFERRED_APP)
+                && PdfUtils.shouldOpenPdfInline(isIncognito)
                 && newMimeType.equals(MimeTypeUtils.PDF_MIME_TYPE)) {
             String fileUri = getUriForItem(filePath).toString();
             String encodedPdfUrl = PdfUtils.encodePdfPageUrl(fileUri);

@@ -14,6 +14,7 @@ import org.chromium.chrome.browser.browser_controls.BrowserControlsOffsetTagsInf
 import org.chromium.chrome.browser.tab.Tab.LoadUrlResult;
 import org.chromium.components.find_in_page.FindMatchRectsDetails;
 import org.chromium.components.find_in_page.FindNotificationDetails;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.net.NetError;
@@ -112,6 +113,9 @@ public class EmptyTabObserver implements TabObserver {
             Tab tab, NavigationHandle navigationHandle) {}
 
     @Override
+    public void onDocumentLoadedInPrimaryMainFrame(Tab tab) {}
+
+    @Override
     public void onDidFinishNavigationEnd() {}
 
     @Override
@@ -198,4 +202,7 @@ public class EmptyTabObserver implements TabObserver {
 
     @Override
     public void onTabUnarchived(Tab tab) {}
+
+    @Override
+    public void onAlertStateChanged(Tab tab, @Nullable @TabAlert Integer alertState) {}
 }

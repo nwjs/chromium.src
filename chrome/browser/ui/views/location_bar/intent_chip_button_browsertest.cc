@@ -69,8 +69,6 @@ class IntentChipButtonBrowserTest
     std::vector<base::test::FeatureRefAndParams> features_to_enable =
         apps::test::GetFeaturesToEnableLinkCapturingUX(GetParam());
 
-    features_to_enable.push_back({::features::kPageActionsMigration, {}});
-
     scoped_feature_list_.InitWithFeaturesAndParameters(features_to_enable, {});
   }
 
@@ -197,7 +195,7 @@ IN_PROC_BROWSER_TEST_P(IntentChipButtonBrowserTest,
   Browser* app_browser = ClickIntentChip(/*wait_for_browser=*/true);
   ASSERT_EQ(1, user_action_tester.GetActionCount("IntentPickerIconClicked"));
   ASSERT_TRUE(app_browser);
-  ASSERT_TRUE(app_browser->is_type_app());
+  ASSERT_EQ(app_browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
 }
 
 IN_PROC_BROWSER_TEST_P(IntentChipButtonBrowserTest,
@@ -281,8 +279,6 @@ class IntentChipButtonBrowserUiTest
   IntentChipButtonBrowserUiTest() {
     std::vector<base::test::FeatureRefAndParams> features_to_enable =
         apps::test::GetFeaturesToEnableLinkCapturingUX(GetParam());
-
-    features_to_enable.push_back({::features::kPageActionsMigration, {}});
 
     scoped_feature_list_.InitWithFeaturesAndParameters(features_to_enable, {});
   }

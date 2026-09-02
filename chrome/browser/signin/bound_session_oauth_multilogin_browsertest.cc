@@ -826,16 +826,8 @@ class BoundSessionOAuthMultiloginPersistentErrorTest
                                             GetParam().disabled_features) {}
 };
 
-// TODO(crbug.com/533927599): Flaky on Linux
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_RefreshTokensBoundToDifferentKeys \
-  DISABLED_RefreshTokensBoundToDifferentKeys
-#else
-#define MAYBE_RefreshTokensBoundToDifferentKeys \
-  RefreshTokensBoundToDifferentKeys
-#endif  // BUILDFLAG(IS_LINUX)
 IN_PROC_BROWSER_TEST_P(BoundSessionOAuthMultiloginPersistentErrorTest,
-                       MAYBE_RefreshTokensBoundToDifferentKeys) {
+                       RefreshTokensBoundToDifferentKeys) {
   const std::string email_1 = "user1@gmail.com";
   const GaiaId::Literal fake_gaia_id_1("fake-gaia-id-1");
   const std::string refresh_token_1 = "refresh-token-1";
@@ -1131,8 +1123,14 @@ IN_PROC_BROWSER_TEST_F(BoundSessionOAuthMultiloginStandardTest,
                 net::SchemefulSite::Deserialize("https://google.com")))));
 }
 
+// TODO(crbug.com/544649705): Flaky on mac.
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_StartsMultipleSessions DISABLED_StartsMultipleSessions
+#else
+#define MAYBE_StartsMultipleSessions StartsMultipleSessions
+#endif
 IN_PROC_BROWSER_TEST_F(BoundSessionOAuthMultiloginStandardTest,
-                       StartsMultipleSessions) {
+                       MAYBE_StartsMultipleSessions) {
   const UnexportableSigningKeyId key_id = GenerateNewSigningKey();
   const std::vector<uint8_t> wrapped_key = GetWrappedKey(key_id);
   signin::MakeAccountAvailable(

@@ -138,11 +138,12 @@ void FacilitatedPaymentsController::OnPaymentAppSelected(
 
 void FacilitatedPaymentsController::ShowPixAccountLinkingPrompt(
     int strike_count,
+    const std::string& account_email,
     base::OnceCallback<void()> on_accepted,
     base::OnceCallback<void()> on_declined) {
   on_pix_account_linking_prompt_accepted_ = std::move(on_accepted);
   on_pix_account_linking_prompt_declined_ = std::move(on_declined);
-  view_->ShowPixAccountLinkingPrompt(strike_count);
+  view_->ShowPixAccountLinkingPrompt(strike_count, account_email);
 }
 
 void FacilitatedPaymentsController::ShowPixAccountLinkingSuccessScreen() {
@@ -155,8 +156,7 @@ void FacilitatedPaymentsController::ShowAccountLinkingPrompt(
     base::OnceCallback<void()> on_declined,
     base::OnceCallback<void()> on_dismissed) {
   if (is_prompt_showing_) {
-    payments::facilitated::LogAccountLinkingPromptFailedToShow(
-        params.fop_type);
+    payments::facilitated::LogAccountLinkingPromptFailedToShow(params.fop_type);
     return;
   }
   is_prompt_showing_ = true;
@@ -166,11 +166,15 @@ void FacilitatedPaymentsController::ShowAccountLinkingPrompt(
   on_dismissed_callback_ = std::move(on_dismissed);
   CHECK(view_);
   if (!view_->ShowAccountLinkingPrompt(params)) {
-    payments::facilitated::LogAccountLinkingPromptFailedToShow(
-        params.fop_type);
+    payments::facilitated::LogAccountLinkingPromptFailedToShow(params.fop_type);
     DismissPrompt();
     return;
   }
+}
+
+void FacilitatedPaymentsController::ShowAccountLinkingFailureNotification(
+    payments::facilitated::FacilitatedPaymentsType fop_type) {
+  view_->ShowAccountLinkingFailureNotification(fop_type);
 }
 
 void FacilitatedPaymentsController::OnPixAccountLinkingPromptAccepted(
@@ -187,7 +191,7 @@ void FacilitatedPaymentsController::OnPixAccountLinkingPromptDeclined(
   }
 }
 
-void FacilitatedPaymentsController::OnAccountLinkingPromptShown(JNIEnv * env,
+void FacilitatedPaymentsController::OnAccountLinkingPromptShown(JNIEnv* env,
                                                                 int32_t type) {
   payments::facilitated::LogAccountLinkingPromptUserAction(
       static_cast<payments::facilitated::FacilitatedPaymentsType>(type),
@@ -195,7 +199,9 @@ void FacilitatedPaymentsController::OnAccountLinkingPromptShown(JNIEnv * env,
 }
 
 void FacilitatedPaymentsController::OnAccountLinkingPromptAction(
-    JNIEnv * env, int32_t type, int32_t action) {
+    JNIEnv* env,
+    int32_t type,
+    int32_t action) {
   // kShown is handled exclusively by OnAccountLinkingPromptShown, so we use >
   // rather than >= here.
   CHECK(

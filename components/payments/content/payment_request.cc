@@ -46,6 +46,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "net/base/schemeful_site.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "third_party/blink/public/common/features.h"
@@ -157,6 +158,11 @@ PaymentRequestOutcome MapAbortReasonToOutcome(
   }
 }
 
+constexpr char kTimeToCheckoutInitToCompleteSuccessfullyHistogramName[] =
+    "PaymentRequest.TimeToCheckout.InitToCompleteSuccessfully";
+constexpr char kTimeToCheckoutShowToCompleteSuccessfullyHistogramName[] =
+    "PaymentRequest.TimeToCheckout.ShowToCompleteSuccessfully";
+
 }  // namespace
 
 PaymentRequest::PaymentRequest(
@@ -216,7 +222,15 @@ void PaymentRequest::Init(
 
   journey_logger_.RecordCheckoutStep(
       JourneyLogger::CheckoutFunnelStep::kInitiated);
+  content::RenderFrameHost* rfh = delegate_->GetRenderFrameHost();
+  if (rfh && rfh->GetParent() && rfh->GetMainFrame() &&
+      !net::SchemefulSite::IsSameSite(
+          rfh->GetLastCommittedOrigin(),
+          rfh->GetMainFrame()->GetLastCommittedOrigin())) {
+    journey_logger_.SetInitiatedInCrossSiteIframe();
+  }
   is_initialized_ = true;
+  init_time_ = base::TimeTicks::Now();
   client_.Bind(std::move(client));
 
   const GURL last_committed_url = delegate_->GetLastCommittedURL();
@@ -333,6 +347,9 @@ void PaymentRequest::Init(
       delegate_->GetApplicationLocale(), delegate_->GetPersonalDataManager(),
       delegate_->GetContentWeakPtr(), journey_logger_.GetWeakPtr(),
       /*csp_checker=*/weak_ptr_factory_.GetWeakPtr());
+  if (observer_for_testing_) {
+    observer_for_testing_->OnPaymentRequestStateInitDone(state_.get());
+  }
 
   journey_logger_.SetRequestedInformation(
       spec_->request_shipping(), spec_->request_payer_email(),
@@ -418,6 +435,7 @@ void PaymentRequest::Show(bool wait_for_updated_details,
   journey_logger_.RecordCheckoutStep(
       JourneyLogger::CheckoutFunnelStep::kShowCalled);
   is_show_called_ = true;
+  show_time_ = base::TimeTicks::Now();
 
   // A tab can display only one PaymentRequest UI at a time.
   if (display_manager_)
@@ -702,6 +720,16 @@ void PaymentRequest::Complete(mojom::PaymentComplete result) {
     has_recorded_completion_ = true;
     base::UmaHistogramEnumeration("PaymentRequest.Outcome",
                                   PaymentRequestOutcome::kSuccess);
+    if (!init_time_.is_null()) {
+      base::UmaHistogramLongTimes(
+          kTimeToCheckoutInitToCompleteSuccessfullyHistogramName,
+          base::TimeTicks::Now() - init_time_);
+    }
+    if (!show_time_.is_null()) {
+      base::UmaHistogramLongTimes(
+          kTimeToCheckoutShowToCompleteSuccessfullyHistogramName,
+          base::TimeTicks::Now() - show_time_);
+    }
     DCHECK(spec_->details().total);
 
     delegate_->GetPrefService()->SetBoolean(kPaymentsFirstTransactionCompleted,
@@ -720,6 +748,7 @@ void PaymentRequest::CanMakePayment() {
   }
 
   // It's valid to call canMakePayment() without calling show() first.
+  journey_logger_.SetCanMakePaymentCalled();
 
   if (observer_for_testing_)
     observer_for_testing_->OnCanMakePaymentCalled();
@@ -756,6 +785,7 @@ void PaymentRequest::HasEnrolledInstrument() {
   }
 
   // It's valid to call hasEnrolledInstrument() without calling show() first.
+  journey_logger_.SetHasEnrolledInstrumentCalled();
 
   if (observer_for_testing_)
     observer_for_testing_->OnHasEnrolledInstrumentCalled();
@@ -1219,6 +1249,7 @@ void PaymentRequest::OnPaymentHandlerOpenWindowCalled() {
   // invoked payment app is shown to the user.
   journey_logger_.SetPaymentAppUkmSourceId(
       state_->selected_app()->UkmSourceId());
+  journey_logger_.SetPaymentAppWindowOpened();
 }
 
 void PaymentRequest::RecordFirstAbortReason(

@@ -16,9 +16,12 @@
 #include "chrome/browser/ash/arc/session/arc_provisioning_result.h"
 #include "chrome/browser/ash/arc/session/arc_session_manager.h"
 #include "chrome/browser/ash/arc/test/test_arc_session_manager.h"
+#include "chrome/browser/ash/login/users/scoped_account_id_annotator.h"
 #include "chrome/browser/ui/ash/login/fake_login_display_host.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
+#include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
+#include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
@@ -29,6 +32,9 @@
 #include "chromeos/ash/experiences/arc/test/arc_util_test_support.h"
 #include "chromeos/ash/experiences/arc/test/fake_arc_session.h"
 #include "components/prefs/pref_service.h"
+#include "components/prefs/testing_pref_service.h"
+#include "components/services/app_service/public/cpp/app_service_registry.h"
+#include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "ui/message_center/message_center.h"
@@ -70,8 +76,8 @@ class ArcProvisionNotificationServiceTest : public BrowserWithTestWindowTest {
     // Create the service (normally handled by ArcServiceLauncher).
     ArcProvisionNotificationService::GetForBrowserContext(profile());
 
-    arc::prefs::RegisterLocalStatePrefs(local_state_.registry());
-    arc::StabilityMetricsManager::Initialize(&local_state_);
+    arc::StabilityMetricsManager::Initialize(
+        TestingBrowserProcess::GetGlobal()->local_state());
   }
 
   void TearDown() override {
@@ -93,12 +99,22 @@ class ArcProvisionNotificationServiceTest : public BrowserWithTestWindowTest {
     return session_manager::SessionManager::Get();
   }
 
+  TestingProfile* CreateProfile(const std::string& profile_name) override {
+    ash::ScopedAccountIdAnnotator annotator(
+        profile_manager()->profile_manager(),
+        session_manager::SessionManager::Get()
+            ->GetPrimarySession()
+            ->account_id());
+    return BrowserWithTestWindowTest::CreateProfile(profile_name);
+  }
+
+ protected:
   std::unique_ptr<ArcServiceManager> arc_service_manager_;
   std::unique_ptr<ArcDlcInstaller> arc_dlc_installer_;
   std::unique_ptr<ArcSessionManager> arc_session_manager_;
 
  private:
-  TestingPrefServiceSimple local_state_;
+  apps::AppServiceRegistry app_service_registry_;
 };
 
 }  // namespace

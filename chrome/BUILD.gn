@@ -20,7 +20,7 @@ import("//chrome/chrome_paks.gni")
 import("//chrome/common/features.gni")
 import("//chrome/process_version_rc_template.gni")
 import("//components/optimization_guide/features.gni")
-import("//content/common/features.gni")
+import("//content/public/common/features.gni")
 import("//extensions/buildflags/buildflags.gni")
 import("//media/media_options.gni")
 import("//services/on_device_model/on_device_model.gni")
@@ -192,6 +192,8 @@ if (!is_android && !is_mac) {
         "app/chrome_exe_main_win.cc",
         "app/delay_load_failure_hook_win.cc",
         "app/delay_load_failure_hook_win.h",
+        "app/llvm_profile_util.cc",
+        "app/llvm_profile_util.h",
         "app/main_dll_loader_win.cc",
         "app/main_dll_loader_win.h",
       ]
@@ -203,6 +205,7 @@ if (!is_android && !is_mac) {
         ":visual_elements_resources",
         "//base",
         "//build:branding_buildflags",
+        "//build/config/compiler:compiler_buildflags",
         "//chrome/app:chrome_exe_main_exports",
         "//chrome/app:exit_code_watcher",
         "//chrome/app/version_assembly:chrome_exe_manifest",
@@ -237,6 +240,10 @@ if (!is_android && !is_mac) {
         "//chrome/windows_services/elevated_tracing_service",
         "//components/crash/win:chrome_wer",
       ]
+
+      if (enable_separate_renderer_binary) {
+        data_deps += [ ":chrome_renderer" ]
+      }
 
       if (is_chrome_branded) {
         data_deps += [
@@ -427,98 +434,119 @@ if (!is_android && !is_mac) {
 }  # !is_android && !is_mac
 
 if (is_win || (is_linux && !is_component_build)) {
-  shared_library("chrome_dll") {
-    configs += [ "//build/config/compiler:wexit_time_destructors" ]
-    configs -= [ "//build/config/compiler:thinlto_optimize_default" ]
-    configs += [ "//build/config/compiler:thinlto_optimize_max" ]
+  # This template is used to create `chrome_dll`; it's instantiated twice,
+  # once normally (to create `chrome.dll`) and once with `collect_inputs_only`.
+  # In the latter case, rather than doing the link, it simply writes a list of
+  # all linker inputs (.obj, .lib), which will be passed to the
+  # `resource_allowlist` target.
+  template("chrome_dll_tmpl") {
+    shared_library(target_name) {
+      forward_variables_from(invoker, "*", [ "collect_inputs_only" ])
+      configs += [ "//build/config/compiler:wexit_time_destructors" ]
+      configs -= [ "//build/config/compiler:thinlto_optimize_default" ]
+      configs += [ "//build/config/compiler:thinlto_optimize_max" ]
 
-    defines = []
-    ldflags = []
+      defines = []
+      ldflags = []
 
-    sources = [
-      "app/chrome_main.cc",
-      "app/chrome_main.h",
-      "app/chrome_main_delegate.cc",
-      "app/chrome_main_delegate.h",
-      "app/startup_timestamps.h",
-    ]
+      sources = [
+        "app/chrome_main.cc",
+        "app/chrome_main.h",
+        "app/chrome_main_delegate.cc",
+        "app/chrome_main_delegate.h",
+        "app/startup_timestamps.h",
+      ]
 
-    if (is_win) {
-      sources += [ "//base/win/dllmain.cc" ]
-    }
+      if (is_win) {
+        sources += [ "//base/win/dllmain.cc" ]
+      }
 
-    if (is_linux) {
-      sources += [
+      if (is_linux) {
+        sources += [
           "app/chrome_main_linux.cc",
           "app/chrome_main_linux.h",
+        ]
+      }
+
+      if (defined(invoker.collect_inputs_only) && invoker.collect_inputs_only) {
+        output_name = "chrome_dll_inputs"
+        ldflags = [ "--collect-inputs-only" ]
+      } else {
+        output_name = "nw"
+      }
+
+      deps = [
+        ":dependencies",
+        "//chrome/app:chrome_dll_resources",
+        "//chrome/app:command_ids",
+        "//chrome/browser:chrome_content_browser_client",
+        "//chrome/browser:chrome_process_singleton",
+        "//chrome/browser:process_singleton",
+        "//chrome/browser:startup_data",
+        "//chrome/browser/lifetime",
+        "//chrome/common:buildflags",
+        "//chrome/common:version_header",
+        "//chrome/common/profiler",
       ]
+
+      # reverts commit a2052ac9b6ec749735f3d8e269bf5a5600935914
+      if (is_win) {
+        configs += [ "//build/config/win:delayloads" ]
+
+        deps += [
+          ":chrome_dll_manifest",
+          ":chrome_dll_version",
+          "//chrome/app/theme:chrome_unscaled_resources",
+          "//chrome/browser/win:isolated_browser_support",
+          "//chrome/install_static:install_static_util",
+          "//chrome/install_static:secondary_module",
+          "//chrome/installer/util:isolation_support",
+          "//chrome/chrome_elf",
+          "//components/crash/core/app",
+          "//components/memory_system",
+          "//components/policy:generated",
+          "//components/webapps/isolated_web_apps:scheme",
+          "//crypto",
+          "//net:net_resources",
+          "//sandbox/win:sandbox",
+          "//third_party/wtl",
+          "//ui/views",
+        ]
+
+        if (!is_component_build) {
+          deps += [
+            "//v8:v8_initializers",
+          ]
+        }
+      }
+
+      if (use_aura) {
+        deps += [ "//ui/compositor" ]
+      }
+
+      if (is_chrome_for_testing) {
+        deps += [ "//chrome/browser/chrome_for_testing:browser" ]
+      }
+
+      if (is_linux) {
+        deps += [ "//headless:headless_shell_lib", ]
+      }
     }
-    output_name = "nw"
+  }
 
-    deps = [
-      ":dependencies",
-      "//chrome/app:chrome_dll_resources",
-      "//chrome/app:command_ids",
-      "//chrome/browser:chrome_content_browser_client",
-      "//chrome/browser:chrome_process_singleton",
-      "//chrome/browser:process_singleton",
-      "//chrome/browser:startup_data",
-      "//chrome/browser/lifetime",
-      "//chrome/common:buildflags",
-      "//chrome/common:version_header",
-      "//chrome/common/profiler",
-    ]
-
-    # reverts commit a2052ac9b6ec749735f3d8e269bf5a5600935914
-    if (is_win) {
-    configs += [ "//build/config/win:delayloads" ]
-
-    deps += [
-        ":chrome_dll_manifest",
-        ":chrome_dll_version",
-        "//chrome/app/theme:chrome_unscaled_resources",
-        "//chrome/browser/win:isolated_browser_support",
-        "//chrome/install_static:install_static_util",
-        "//chrome/install_static:secondary_module",
-        "//chrome/installer/util:isolation_support",
-        "//chrome/chrome_elf",
-        "//components/crash/core/app",
-        "//components/memory_system",
-        "//components/policy:generated",
-        "//components/webapps/isolated_web_apps:scheme",
-        "//crypto",
-        "//net:net_resources",
-        "//sandbox/win:sandbox",
-        "//third_party/wtl",
-        "//ui/views",
-    ]
-
-    if (!is_component_build) {
-      deps += [
-        "//v8:v8_initializers",
-      ]
+  if (enable_resource_allowlist_generation) {
+    chrome_dll_tmpl("chrome_dll_inputs") {
+      collect_inputs_only = true
     }
-
-    } #is_win
-
-    if (use_aura) {
-      deps += [ "//ui/compositor" ]
-    }
-
-    if (is_chrome_for_testing) {
-      deps += [ "//chrome/browser/chrome_for_testing:browser" ]
-    }
-
-    if (is_linux) {
-      deps += [ "//headless:headless_shell_lib", ]
-    }
+  }
+  chrome_dll_tmpl("chrome_dll") {
   }
 
   if (is_win) {
-  copy("copy_first_run") {
-    sources = [ "app/FirstRun" ]
-    outputs = [ "$root_out_dir/First Run" ]
-  }
+    copy("copy_first_run") {
+      sources = [ "app/FirstRun" ]
+      outputs = [ "$root_out_dir/First Run" ]
+    }
   }
 } else if (is_mac) {
   chrome_helper_name = chrome_product_full_name + " Helper"
@@ -581,7 +609,11 @@ if (is_win || (is_linux && !is_component_build)) {
       "CHROMIUM_CREATOR=$chrome_mac_creator_code",
     ]
 
-    sources = [ "app/chrome_exe_main_mac.cc" ]
+    sources = [
+      "app/chrome_exe_main_mac.cc",
+      "app/llvm_profile_util.cc",
+      "app/llvm_profile_util.h",
+    ]
 
     configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
@@ -592,6 +624,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//base:compiler_specific",
       "//base/allocator:early_zone_registration_apple",
       "//build:branding_buildflags",
+      "//build/config/compiler:compiler_buildflags",
       "//chrome/common:buildflags",
       "//chrome/common:version_header",
     ]
@@ -819,7 +852,19 @@ if (is_win || (is_linux && !is_component_build)) {
         "CHROMIUM_HELPER_BUNDLE_ID_SUFFIX=${invoker.helper_bundle_id_suffix}",
       ]
 
-      sources = [ "app/chrome_exe_main_mac.cc" ]
+      _is_aperitif_helper =
+          defined(invoker.is_aperitif_helper) && invoker.is_aperitif_helper
+
+      sources = []
+      if (_is_aperitif_helper) {
+        sources += [ "app/chrome_exe_main_mac.c" ]
+      } else {
+        sources += [
+          "app/chrome_exe_main_mac.cc",
+          "app/llvm_profile_util.cc",
+          "app/llvm_profile_util.h",
+        ]
+      }
 
       configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
@@ -832,9 +877,14 @@ if (is_win || (is_linux && !is_component_build)) {
         "//base:compiler_specific",
         "//base/allocator:early_zone_registration_apple",
         "//build:branding_buildflags",
+        "//build/config/compiler:compiler_buildflags",
         "//chrome/common:version_header",
         "//sandbox/mac:seatbelt",
       ]
+
+      if (_is_aperitif_helper) {
+        deps += [ "//content/public/app:aperitif" ]
+      }
 
       if (defined(invoker.deps)) {
         deps += invoker.deps
@@ -846,12 +896,11 @@ if (is_win || (is_linux && !is_component_build)) {
 
       ldflags = []
 
-      if (is_component_build) {
-        # In a component build, the framework is directly linked to the
-        # executable because dlopen() and loading all the dependent dylibs
-        # is time-consuming, see https://crbug.com/40176946.
+      if (_is_aperitif_helper || is_component_build) {
         deps += [ ":chrome_framework+link_nested" ]
+      }
 
+      if (is_component_build) {
         ldflags += [
           # The helper is in Chromium.app/Contents/Frameworks/Chromium
           # Framework.framework/Versions/X/Helpers/Chromium
@@ -866,6 +915,8 @@ if (is_win || (is_linux && !is_component_build)) {
           # Add an rpath up to the base for all other libraries.
           "-Wl,-rpath,@loader_path/../../../../../../../../../..",
         ]
+      } else if (_is_aperitif_helper) {
+        ldflags += [ "-Wcrl,installnametool,-change,@executable_path/../Frameworks/$chrome_framework_name.framework/Versions/$chrome_version_full/Libraries/libaperitif.dylib,@executable_path/../../../../Libraries/libaperitif.dylib,-change,@executable_path/../Frameworks/$chrome_framework_name.framework/Versions/$chrome_version_full/$chrome_framework_name,@executable_path/../../../../$chrome_framework_name" ]
       }
 
       if (false) {
@@ -900,18 +951,28 @@ if (is_win || (is_linux && !is_component_build)) {
     ".alerts",
     " (Alerts)",
   ]
+  aperitif_alert_helper_params = [
+    "aperitif_alerts",
+    ".alerts",
+    " (Aperitif Alerts)",
+  ]
 
   # Merge all helper apps needed by //content and //chrome.
-  chrome_mac_helpers = content_mac_helpers + [ alert_helper_params ]
+  chrome_mac_helpers = content_mac_helpers + content_mac_aperitif_helpers + [
+                         alert_helper_params,
+                         aperitif_alert_helper_params,
+                       ]
 
   # Create all helper apps required by //content.
   foreach(helper_params, content_mac_helpers) {
     chrome_helper_app("chrome_helper_app_${helper_params[0]}") {
       helper_name_suffix = helper_params[2]
       helper_bundle_id_suffix = helper_params[1]
+      is_aperitif_helper = false
       if (enable_separate_renderer_binary && helper_params[0] == "renderer") {
-        # TODO(crbug.com/534570563): Accommodate Apéritif in a follow-up CL to
-        # update chrome_exe_main_mac.c and link librenderer.dylib directly.
+        # TODO(crbug.com/534570563): Accommodate Apéritif when
+        # enable_separate_renderer_binary is true by updating
+        # chrome_exe_main_mac.cc to link librenderer.dylib directly.
         defines = [ "RENDERER_HELPER_EXECUTABLE" ]
         data_deps = [ ":chrome_renderer" ]
       }
@@ -940,10 +1001,31 @@ if (is_win || (is_linux && !is_component_build)) {
     public_deps = [ ":chrome_helper_app_alerts_plist_strings" ]
   }
 
+  # Create all aperitif helper apps.
+  foreach(helper_params, content_mac_aperitif_helpers) {
+    chrome_helper_app("chrome_helper_app_${helper_params[0]}") {
+      helper_name_suffix = helper_params[2]
+      helper_bundle_id_suffix = helper_params[1]
+      is_aperitif_helper = true
+    }
+  }
+
   chrome_helper_app("chrome_helper_app_${alert_helper_params[0]}") {
     helper_name_suffix = alert_helper_params[2]
     helper_bundle_id_suffix = alert_helper_params[1]
     info_plist_target = ":chrome_helper_app_alerts_plist"
+    deps = [
+      ":chrome_app_icon",
+      ":chrome_asset_catalog",
+      ":chrome_helper_app_alerts_resources",
+    ]
+  }
+
+  chrome_helper_app("chrome_helper_app_${aperitif_alert_helper_params[0]}") {
+    helper_name_suffix = aperitif_alert_helper_params[2]
+    helper_bundle_id_suffix = aperitif_alert_helper_params[1]
+    info_plist_target = ":chrome_helper_app_alerts_plist"
+    is_aperitif_helper = true
     deps = [
       ":chrome_app_icon",
       ":chrome_asset_catalog",
@@ -957,6 +1039,14 @@ if (is_win || (is_linux && !is_component_build)) {
       _helper_bundle_id = helper_params[1]
       _helper_suffix = helper_params[2]
 
+      _is_aperitif_helper = false
+      foreach(aperitif_params,
+              content_mac_aperitif_helpers + [ aperitif_alert_helper_params ]) {
+        if (helper_params[0] == aperitif_params[0]) {
+          _is_aperitif_helper = true
+        }
+      }
+
       action("verify_libraries_chrome_helper_app_${_helper_target}") {
         script = "//chrome/tools/build/mac/verify_dynamic_libraries.py"
         inputs = [ "${root_out_dir}/${chrome_helper_name}${_helper_suffix}.app/Contents/MacOS/${chrome_helper_name}${_helper_suffix}" ]
@@ -969,8 +1059,30 @@ if (is_win || (is_linux && !is_component_build)) {
           "--image",
           rebase_path(inputs[0], root_out_dir),
 
-          # Do not --allow more libraries here without consulting with the
-          # security team (security-dev@chromium.org).
+          "--exact-match",
+        ]
+
+        # Do not --allow more libraries here without consulting with the
+        # security team (security-dev@chromium.org).
+        if (_is_aperitif_helper) {
+          if (is_component_build) {
+            args += [
+              "--allow",
+              "@rpath/libaperitif.dylib",
+              "--allow",
+              "@rpath/$chrome_framework_name.framework/$chrome_framework_name",
+            ]
+          } else {
+            args += [
+              "--allow",
+              "@executable_path/../../../../Libraries/libaperitif.dylib",
+              "--allow",
+              "@executable_path/../../../../$chrome_framework_name",
+            ]
+          }
+        }
+
+        args += [
           "--allow",
           "/usr/lib/libsandbox.1.dylib",
           "--allow",
@@ -1070,6 +1182,40 @@ if (is_win || (is_linux && !is_component_build)) {
       ]
       outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
       public_deps = [ "//ui/gl:angle_library_copy" ]
+    }
+  }
+
+  if (verify_dynamic_libraries) {
+    action("verify_libraries_aperitif") {
+      script = "//chrome/tools/build/mac/verify_dynamic_libraries.py"
+      inputs = [ "$root_out_dir/libaperitif.dylib" ]
+      outputs = [ "$target_out_dir/run_$target_name.stamp" ]
+      args = [
+        "--stamp",
+        rebase_path(outputs[0], root_out_dir),
+        "-B",
+        objdump_path,
+        "--image",
+        rebase_path(inputs[0], root_out_dir),
+        "--exact-match",
+
+        # Do not --allow more libraries here without consulting with the
+        # security team (security-dev@chromium.org).
+        "--allow",
+        "/usr/lib/libsandbox.1.dylib",
+        "--allow",
+        "/usr/lib/libSystem.B.dylib",
+      ]
+      deps = [ "//content/public/app:aperitif" ]
+    }
+  }
+
+  bundle_data("aperitif_library") {
+    sources = [ "$root_out_dir/libaperitif.dylib" ]
+    outputs = [ "{{bundle_contents_dir}}/Libraries/{{source_file_part}}" ]
+    public_deps = [ "//content/public/app:aperitif" ]
+    if (verify_dynamic_libraries) {
+      public_deps += [ ":verify_libraries_aperitif" ]
     }
   }
 
@@ -1302,11 +1448,13 @@ if (is_win || (is_linux && !is_component_build)) {
     public_deps = [ ":chrome_dll" ]
 
     bundle_deps = [
+      ":aperitif_library",
       ":chrome_framework_helpers",
       ":chrome_framework_resources",
       ":optimization_guide_library",
       ":swiftshader_binaries",
       ":widevine_cdm_library",
+      "//chrome/browser/lens/sapisid:sapisid_bundle_data",
       "//chrome/browser/resources/media/mei_preload:component_bundle",
       "//chrome/browser/web_applications/isolated_web_apps/key_distribution/preload:component_bundle",
       "//components/privacy_sandbox/privacy_sandbox_attestations/preload:component_bundle",
@@ -1818,8 +1966,8 @@ if (is_android) {
 # //chrome/android:${_variant}_resource_allowlist.
 if (is_win && enable_resource_allowlist_generation) {
   generate_resource_allowlist("resource_allowlist") {
-    deps = [ ":chrome_dll" ]
-    inputs = [ "$root_out_dir/chrome.dll.pdb" ]
+    deps = [ ":chrome_dll_inputs" ]
+    inputs = [ "$root_out_dir/chrome_dll_inputs.dll" ]
     output = _chrome_resource_allowlist
   }
 }
@@ -2003,22 +2151,103 @@ if (_cros_generate_embed_section_target) {
     deps = [ ":chrome" ]
   }
 }
-
 if (enable_separate_renderer_binary) {
+  _chrome_renderer_sources = [
+    "app/chrome_main_delegate.cc",
+    "app/chrome_main_delegate.h",
+    "app/chrome_renderer_main.cc",
+    "app/llvm_profile_util.cc",
+    "app/llvm_profile_util.h",
+    "app/startup_timestamps.h",
+    "common/chrome_content_client.cc",
+    "common/chrome_content_client.h",
+  ]
+
+  _chrome_renderer_deps = [
+    "//base",
+    "//base:i18n",
+    "//build/config/compiler:compiler_buildflags",
+    "//chrome/common",
+    "//chrome/common:version_header",
+    "//chrome/renderer",
+    "//components/crash/core/app",
+    "//components/crash/core/common",
+    "//components/heap_profiling/in_process",
+    "//components/heap_profiling/in_process:mojom",
+    "//components/memory_system",
+    "//components/pdf/common:constants",
+    "//components/startup_metric_utils",
+    "//components/upload_list",
+    "//components/variations/service",
+    "//content/public/app",
+    "//v8",
+  ]
+  if (is_win || is_linux || is_chromeos || is_mac) {
+    _chrome_renderer_deps += [ "//components/webapps/isolated_web_apps:scheme" ]
+  }
+
+  if (is_win) {
+    process_version_rc_template("chrome_renderer_dll_version") {
+      sources = [ "app/chrome_renderer_dll.ver" ]
+      output = "$target_gen_dir/chrome_renderer_dll_version.rc"
+    }
+  }
+
   if (is_win || is_mac) {
     shared_library("chrome_renderer") {
+      if (enable_separate_pgo) {
+        configs -= [ "//build/config/compiler/pgo:default_pgo_flags" ]
+        configs += [ "//build/config/compiler/pgo:renderer_pgo_flags" ]
+      }
+
       if (is_mac) {
         output_name = "renderer"
       }
-      sources = [ "app/chrome_main.cc" ]
+
+      if (is_win) {
+        # On Windows, chrome_renderer is built as a shared library DLL, so match
+        # the compiler and linker configs from :chrome_dll.
+        configs += [ "//build/config/compiler:wexit_time_destructors" ]
+        configs -= [ "//build/config/compiler:thinlto_optimize_default" ]
+        configs += [ "//build/config/compiler:thinlto_optimize_max" ]
+        configs += [ "//build/config/win:delayloads" ]
+      }
+
+      sources = _chrome_renderer_sources
+      if (is_mac) {
+        sources += [
+          "app/chrome_crash_reporter_client.cc",
+          "app/chrome_crash_reporter_client.h",
+        ]
+      }
+      if (is_win) {
+        sources += [ "//base/win/dllmain.cc" ]
+      }
+
       defines = [ "BUILDING_CHROME_RENDERER" ]
-      deps = [ "//base" ]
+      deps = _chrome_renderer_deps + [ "//chrome/child" ]
+      if (is_win) {
+        deps += [
+          ":chrome_renderer_dll_version",
+          "//chrome/chrome_elf",
+          "//chrome/install_static:secondary_module",
+          "//sandbox/win:sandbox",
+        ]
+      }
     }
   } else {
     executable("chrome_renderer") {
-      sources = [ "app/chrome_main.cc" ]
+      if (enable_separate_pgo) {
+        configs -= [ "//build/config/compiler/pgo:default_pgo_flags" ]
+        configs += [ "//build/config/compiler/pgo:renderer_pgo_flags" ]
+      }
+
+      sources = _chrome_renderer_sources + [
+                  "app/chrome_crash_reporter_client.cc",
+                  "app/chrome_crash_reporter_client.h",
+                ]
       defines = [ "BUILDING_CHROME_RENDERER" ]
-      deps = [ "//base" ]
+      deps = _chrome_renderer_deps
     }
   }
 }

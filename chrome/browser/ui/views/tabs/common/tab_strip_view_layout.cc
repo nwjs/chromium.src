@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/views/tabs/common/pinned_tab_container_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view.h"
@@ -17,19 +18,25 @@
 namespace {
 
 // The pinned container main axis size should not be larger than half the
-// available space unless the unpinned container will not fill that space. Also
-// make sure the size is at least the minimum.
-int CalculatePinnedContainerMainAxisSize(int pinned_preferred,
-                                         int unpinned_preferred,
-                                         int available,
-                                         int min_pinned) {
-  if (pinned_preferred == 0) {
+// available space unless the unpinned container will not fill that space.
+// When pinned tabs are present, the size must be at least as large as the min
+// size.
+int CalculatePinnedContainerMainAxisSize(int pinned_preferred_size,
+                                         int unpinned_preferred_size,
+                                         int available_size,
+                                         int min_pinned_size) {
+  if (pinned_preferred_size == 0) {
     return 0;
   }
-  return std::max(
-      std::min(pinned_preferred,
-               std::max(available / 2, available - unpinned_preferred)),
-      min_pinned);
+  const int tab_overlap = TabStyle::Get()->GetTabOverlap();
+  const int effective_unpinned_size =
+      unpinned_preferred_size > 0
+          ? std::max(0, unpinned_preferred_size - tab_overlap)
+          : 0;
+  const int target_size = std::min(
+      pinned_preferred_size,
+      std::max(available_size - effective_unpinned_size, available_size / 2));
+  return std::max(target_size, min_pinned_size);
 }
 
 }  // namespace
@@ -63,35 +70,57 @@ views::ProposedLayout TabStripViewLayout::CalculateHorizontalLayout(
       tab_strip_view->unpinned_tabs_scroll_view();
   views::Separator* tabs_separator = tab_strip_view->GetTabsSeparator();
 
+  const int tab_overlap = TabStyle::Get()->GetTabOverlap();
   int x = 0;
-  const int container_height = size_bounds.height().value_or(
-      GetLayoutConstant(LayoutConstant::kTabHeight));
+  const int container_height = TabStyle::Get()->GetStandardHeight();
 
   const int pinned_preferred_width =
       pinned_tabs_scroll_view->GetPreferredSize(size_bounds).width();
   const int unpinned_preferred_width =
       unpinned_tabs_scroll_view->GetPreferredSize(size_bounds).width();
 
+  int unpinned_target_preferred_width = unpinned_preferred_width;
+  if (const auto* unpinned_container =
+          tab_strip_view->GetUnpinnedTabsContainer()) {
+    unpinned_target_preferred_width =
+        unpinned_container->GetTargetPreferredSize().width();
+  }
+
+  // Query the parent layout manager (e.g. FlexLayout in the region view) for
+  // the total space available for the tab strip in the window. Avoid querying
+  // the parent when size_bounds has a width of 0 (e.g. when calculating minimum
+  // size) so we do not report the live window width as the minimum size.
+  const views::SizeBounds available_for_tabstrip =
+      (tab_strip_view->parent() && size_bounds.width() != 0)
+          ? tab_strip_view->parent()->GetAvailableSize(tab_strip_view)
+          : size_bounds;
+  const views::SizeBound available_width =
+      available_for_tabstrip.width().is_bounded()
+          ? available_for_tabstrip.width()
+          : size_bounds.width();
+
   // Place the pinned container.
   int pinned_width = pinned_preferred_width;
-  if (size_bounds.width().is_bounded()) {
-    const int available_width = size_bounds.width().value();
+  if (available_width.is_bounded()) {
     int min_pinned_width = 0;
     if (const auto* pinned_container =
             tab_strip_view->GetPinnedTabsContainer()) {
       min_pinned_width = pinned_container->GetMinimumSize().width();
     }
     pinned_width = CalculatePinnedContainerMainAxisSize(
-        pinned_preferred_width, unpinned_preferred_width, available_width,
-        min_pinned_width);
+        pinned_preferred_width, unpinned_target_preferred_width,
+        available_width.value(), min_pinned_width);
   }
 
   gfx::Rect pinned_bounds(x, 0, pinned_width, container_height);
   layouts.child_layouts.emplace_back(pinned_tabs_scroll_view,
                                      pinned_tabs_scroll_view->GetVisible(),
                                      pinned_bounds);
+  const bool has_unpinned = unpinned_preferred_width > 0;
+
   if (pinned_width > 0) {
-    x += pinned_width;
+    // Unpinned container overlaps with the last pinned tab by tab_overlap.
+    x += has_unpinned ? std::max(0, pinned_width - tab_overlap) : pinned_width;
   }
 
   // The tabs separator isn't visible for the horizontal orientation.
@@ -99,17 +128,24 @@ views::ProposedLayout TabStripViewLayout::CalculateHorizontalLayout(
 
   // Place the unpinned container.
   int unpinned_width = unpinned_preferred_width;
-  if (size_bounds.width().is_bounded()) {
-    const int available_width = size_bounds.width().value();
-    unpinned_width = std::min(unpinned_preferred_width,
-                              std::max(available_width - pinned_width, 0));
+  if (available_width.is_bounded()) {
+    const int available_unpinned_width =
+        std::max(available_width.value() - x, 0);
+    tab_strip_view->SetAvailableUnpinnedSpace(
+        views::SizeBound(available_unpinned_width));
+    unpinned_width =
+        std::min(unpinned_preferred_width, available_unpinned_width);
+  } else {
+    tab_strip_view->SetAvailableUnpinnedSpace(views::SizeBound());
   }
   gfx::Rect unpinned_bounds(x, 0, unpinned_width, container_height);
   layouts.child_layouts.emplace_back(unpinned_tabs_scroll_view,
                                      unpinned_tabs_scroll_view->GetVisible(),
                                      unpinned_bounds);
 
-  layouts.host_size = gfx::Size(x + unpinned_width, container_height);
+  const int total_host_width =
+      has_unpinned ? std::max(pinned_width, x + unpinned_width) : pinned_width;
+  layouts.host_size = gfx::Size(total_host_width, container_height);
   return layouts;
 }
 
@@ -209,7 +245,7 @@ views::ProposedLayout TabStripViewLayout::CalculateVerticalLayout(
                                      separator_bounds);
 
   // Place the unpinned container using the entire available width, we do not
-  // inset the x value by |region_horizontal_padding| here because, when the tab
+  // inset the x value by `region_horizontal_padding` here because, when the tab
   // strip is collapsed, tab groups need to draw the group colored line in this
   // space.
   gfx::Rect unpinned_container_bounds(0, y, size_bounds.width().value(),

@@ -62,6 +62,7 @@ source_set("impl") {
     "//components/keyed_service/core",
     "//components/pref_registry",
     "//components/prefs",
+    "//components/signin/public/base",
     "//components/startup_metric_utils",
     "//net",
     "//third_party/abseil-cpp:absl",
@@ -113,6 +114,7 @@ source_set("impl") {
         "first_run_internal_linux.cc",
         "upgrade_util_linux.cc",
       ]
+      deps += [ "//chrome/browser/ui/views:eula_dialog_linux" ]
     }
 
     if (is_linux || is_mac) {

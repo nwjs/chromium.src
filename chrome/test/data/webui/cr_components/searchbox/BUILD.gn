@@ -15,6 +15,7 @@ build_webui_tests("build") {
   ]
 
   files = [
+    "keyword_mode_manager_test.ts",
     "searchbox_dropdown_test.ts",
     "searchbox_icon_test.ts",
     "searchbox_input_test.ts",
@@ -22,6 +23,7 @@ build_webui_tests("build") {
     "searchbox_mixin_test.ts",
     "searchbox_test_utils.ts",
     "searchbox_selection_mixin_test.ts",
+    "searchbox_utils_test.ts",
     "test_searchbox_browser_proxy.ts",
     "placeholder_text_cycler_test.ts",
   ]

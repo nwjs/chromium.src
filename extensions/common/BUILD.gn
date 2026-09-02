@@ -114,6 +114,7 @@ mojom("mojom") {
     "mojom/stack_frame.mojom",
     "mojom/url_pattern_set.mojom",
     "mojom/view_type.mojom",
+    "mojom/web_request_host.mojom",
   ]
 
   public_deps = [
@@ -576,6 +577,7 @@ static_library("common") {
 
   deps = [
     "//base",
+    "//base:i18n",
     "//build:android_buildflags",
     "//build:branding_buildflags",
     "//build:chromeos_buildflags",
@@ -694,6 +696,7 @@ source_set("unit_tests") {
     "feature_switch_unittest.cc",
     "features/complex_feature_unittest.cc",
     "features/feature_provider_unittest.cc",
+    "features/simple_feature_test_constants.h",
     "features/simple_feature_unittest.cc",
     "file_util_unittest.cc",
     "hashed_extension_id_unittest.cc",

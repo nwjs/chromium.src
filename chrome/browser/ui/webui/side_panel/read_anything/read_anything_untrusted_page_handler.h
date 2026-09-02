@@ -46,6 +46,8 @@ using ash::language_packs::PackResult;
 #include "extensions/browser/extension_registry_observer.h"
 #endif
 
+using read_anything::mojom::ReadAnythingOpenTrigger;
+
 namespace content {
 class NavigationHandle;
 class ScopedAccessibilityMode;
@@ -218,6 +220,9 @@ class ReadAnythingUntrustedPageHandler :
   void OnLineFocusChanged(
       read_anything::mojom::LineFocus current_line_focus,
       read_anything::mojom::LineFocus last_non_disabled_line_focus) override;
+  void OnLineFocusFeatureUsed() override;
+  void ShouldShowLineFocusNewBadge(
+      ShouldShowLineFocusNewBadgeCallback callback) override;
   void GetVoicePackInfo(const std::string& language) override;
   void InstallVoicePack(const std::string& language) override;
   void UninstallVoice(const std::string& language) override;
@@ -363,8 +368,13 @@ class ReadAnythingUntrustedPageHandler :
 
   bool AreInnerContentsPdfContent(
       std::vector<content::WebContents*> inner_contents);
+  bool IsGoogleDocs(const GURL& url) const;
 
   content::WebContents* GetWebContents() const;
+
+  // Returns the actual language of the text currently displayed in the Reading
+  // Mode panel.
+  std::string GetDisplayLanguage();
 
   void OnScreenAIServiceInitialized(bool successful);
 
@@ -386,7 +396,7 @@ class ReadAnythingUntrustedPageHandler :
   // the current url scheme in ReadAnything.DistillationScheme.
   void RecordDistillationSchemeHistogram(const GURL& url) const;
 
-  // Called by the DistillerDelegate with the result of a DomDistiller
+  // Called by the DomDistillerDelegate with the result of a DomDistiller
   // distillation.
   void ProcessDistilledArticle(
       const dom_distiller::DistilledArticleProto* article_proto);
@@ -419,8 +429,8 @@ class ReadAnythingUntrustedPageHandler :
 
   // Private implementation for dom_distiller::ViewRequestDelegate, not part of
   // the public API.
-  class DistillerDelegate;
-  std::unique_ptr<DistillerDelegate> distiller_delegate_;
+  class DomDistillerDelegate;
+  std::unique_ptr<DomDistillerDelegate> distiller_delegate_;
 
   const mojo::Receiver<read_anything::mojom::UntrustedPageHandler> receiver_;
   const mojo::Remote<read_anything::mojom::UntrustedPage> page_;
@@ -497,6 +507,12 @@ class ReadAnythingUntrustedPageHandler :
   // Hold DOM distiller distillation results.
   std::optional<std::string> dom_distiller_title_;
   std::optional<std::string> dom_distiller_content_;
+
+  // Tracks the start time of a readability distillation triggered by an active
+  // accessibility tree ID change. This is used to measure readability
+  // distilation latency from a tree change event and is null for SPA or manual
+  // redistillations.
+  base::TimeTicks readability_distillation_tree_change_start_time_;
 
   mojo::Remote<reading_mode::mojom::DistillationEvaluator>
       distillation_evaluator_;

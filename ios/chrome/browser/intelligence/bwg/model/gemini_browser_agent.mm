@@ -43,6 +43,7 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_camera_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_configuration.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_consent_provider_handler.h"
+#import "ios/chrome/browser/intelligence/bwg/model/gemini_gateway_manager.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_link_opening_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_context.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_page_state_change_handler.h"
@@ -57,7 +58,6 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_picker_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_utils.h"
-#import "ios/chrome/browser/intelligence/bwg/model/gemini_view_state_change_handler.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_availability.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_feature_availability.h"
@@ -69,7 +69,7 @@
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_observer.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/tab_grid_state_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -82,8 +82,10 @@
 #import "ios/chrome/browser/shared/model/web_state_list/tab_utils.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/custom_leading_view_type.h"
 #import "ios/chrome/browser/shared/public/commands/fullscreen_commands.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
+#import "ios/chrome/browser/shared/public/commands/location_bar_badge_commands.h"
 #import "ios/chrome/browser/shared/public/commands/omnibox_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
@@ -100,7 +102,6 @@
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ios/public/provider/chrome/browser/bwg/bwg_gateway_protocol.h"
 #import "ios/public/provider/chrome/browser/bwg/gemini_api.h"
 #import "ios/web/public/favicon/favicon_status.h"
 #import "ios/web/public/ui/crw_web_view_proxy.h"
@@ -268,13 +269,9 @@ void ShowGeminiMicrophonePermissionAlert(UIViewController* base_view_controller,
 }
 
 // Returns true if the page context is eligible to be listed in the tab picker.
-// A context is eligible if it is explicitly attached and its computation state
-// is either success or pending (meaning it is not blocked or protected).
+// A context is eligible if its computation state is either success or pending
+// (meaning it is not blocked or protected).
 bool IsPageContextEligibleForTabPicker(GeminiPageContext* context) {
-  if (context.geminiPageContextAttachmentState !=
-      ios::provider::GeminiPageContextAttachmentState::kAttached) {
-    return false;
-  }
   auto computation_state = context.geminiPageContextComputationState;
   return computation_state ==
              ios::provider::GeminiPageContextComputationState::kSuccess ||
@@ -351,125 +348,6 @@ GeminiBrowserAgent::GeminiBrowserAgent(Browser* browser)
       base::BindRepeating(&GeminiBrowserAgent::OnMicrophonePrefChanged,
                           base::Unretained(this)));
 
-  bwg_gateway_ = ios::provider::CreateGeminiGateway();
-
-  if (bwg_gateway_) {
-    gemini_link_opening_handler_ = [[GeminiLinkOpeningHandler alloc]
-        initWithURLLoader:UrlLoadingBrowserAgent::FromBrowser(browser_)
-               dispatcher:browser_->GetCommandDispatcher()];
-    gemini_page_state_change_handler_ = [[GeminiPageStateChangeHandler alloc]
-        initWithPrefService:browser_->GetProfile()->GetPrefs()];
-    bwg_gateway_.pageStateChangeHandler = gemini_page_state_change_handler_;
-
-    bwg_session_handler_ = [[GeminiSessionHandler alloc]
-        initWithWebStateList:browser_->GetWebStateList()
-                     tracker:feature_engagement::TrackerFactory::GetForProfile(
-                                 browser_->GetProfile())
-                 prefService:browser_->GetProfile()->GetPrefs()];
-
-    base::WeakPtr<GeminiBrowserAgent> weak_this = weak_factory_.GetWeakPtr();
-    bwg_session_handler_.tabDetachRequestCallback = ^(NSString* tab_id) {
-      if (weak_this) {
-        weak_this->DetachTabWithID(tab_id);
-      }
-    };
-    bwg_session_handler_.tabAttachedCallback = ^(NSString* tab_id) {
-      if (weak_this) {
-        weak_this->UpdateLocalTabAttachmentState(
-            tab_id, ios::provider::GeminiPageContextAttachmentState::kAttached);
-      }
-    };
-    bwg_session_handler_.tabDetachedCallback = ^(NSString* tab_id) {
-      if (weak_this) {
-        weak_this->UpdateLocalTabAttachmentState(
-            tab_id, ios::provider::GeminiPageContextAttachmentState::kDetached);
-      }
-    };
-    bwg_session_handler_.attachedTabsCountProvider = ^{
-      if (weak_this) {
-        return weak_this->AttachedTabsCount();
-      }
-      return (NSUInteger)0;
-    };
-    bwg_session_handler_.isMultiTabUsedProvider = ^{
-      if (weak_this) {
-        return weak_this->GetSharedTabs().count > 0;
-      }
-      return NO;
-    };
-
-    gemini_view_state_handler_ =
-        [[GeminiViewStateChangeHandler alloc] initWithTarget:this];
-    bwg_session_handler_.geminiViewStateDelegate = gemini_view_state_handler_;
-    gemini_link_opening_handler_.geminiViewStateDelegate =
-        gemini_view_state_handler_;
-    bwg_gateway_.sessionHandler = bwg_session_handler_;
-    bwg_gateway_.linkOpeningHandler = gemini_link_opening_handler_;
-
-    gemini_suggestion_handler_ = [[GeminiSuggestionHandler alloc]
-        initWithWebStateList:browser_->GetWebStateList()];
-    bwg_gateway_.suggestionHandler = gemini_suggestion_handler_;
-
-    gemini_consent_provider_handler_ = [[GeminiConsentProviderHandler alloc]
-        initWithPrefService:browser_->GetProfile()->GetPrefs()];
-    bwg_gateway_.consentProviderHandler = gemini_consent_provider_handler_;
-
-    if (gemini::IsFeatureAvailable(gemini::Feature::kImageRemix,
-                                   browser_->GetProfile())) {
-      gemini_camera_handler_ = [[GeminiCameraHandler alloc]
-          initWithPrefService:browser_->GetProfile()->GetPrefs()];
-      bwg_gateway_.cameraHandler = gemini_camera_handler_;
-    }
-
-    if (IsGeminiMultiTabContextEnabled()) {
-      gemini_tab_picker_handler_ = [[GeminiTabPickerHandler alloc] init];
-
-      CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
-      gemini_tab_picker_handler_.tabPickerHandler =
-          static_cast<id<TabPickerCommands>>(dispatcher);
-      gemini_tab_picker_handler_.snackbarHandler =
-          static_cast<id<SnackbarCommands>>(dispatcher);
-
-      gemini_tab_picker_handler_.selectionCallback =
-          ^(std::set<web::WebStateID> selected_tabs) {
-            if (weak_this) {
-              weak_this->OnTabPickerSelectionChanged(selected_tabs);
-            }
-          };
-      gemini_tab_picker_handler_.selectedTabsProvider = ^{
-        if (weak_this) {
-          std::set<web::WebStateID> eligible_tabs;
-          for (const auto& [tab_id, context] : weak_this->attached_tabs_) {
-            if (IsPageContextEligibleForTabPicker(context)) {
-              eligible_tabs.insert(tab_id);
-            }
-          }
-          return eligible_tabs;
-        }
-        return std::set<web::WebStateID>();
-      };
-
-      bwg_gateway_.tabPickerHandler = gemini_tab_picker_handler_;
-    }
-
-    if (IsGeminiActorEnabled()) {
-      gemini_actuation_handler_ = [[GeminiActuationHandler alloc]
-          initWithActorService:actor::ActorServiceFactory::GetForProfile(
-                                   browser_->GetProfile())
-                  webStateList:browser_->GetWebStateList()];
-      bwg_gateway_.actuationHandler = gemini_actuation_handler_;
-    }
-
-    ConfigureGemini();
-  }
-
-  if (!IsIOSGeminiBottomSheetMigrationEnabled()) {
-    gemini_container_mediator_ = [[GeminiContainerMediator alloc]
-        initWithWebStateList:browser_->GetWebStateList()
-                     profile:browser_->GetProfile()
-                     gateway:bwg_gateway_];
-  }
-
   // Sets up observation of fullscreen state.
   if (IsFullscreenRefactoringEnabled()) {
     FullscreenBrowserAgent* agent =
@@ -524,6 +402,81 @@ GeminiBrowserAgent::GeminiBrowserAgent(Browser* browser)
     identity_manager_->AddObserver(this);
   }
   last_known_gemini_availability_ = IsGeminiAvailableForActiveWebState();
+
+  if (IsIOSGeminiBottomSheetMigrationEnabled()) {
+    return;
+  }
+
+  gemini_container_mediator_ =
+      [[GeminiContainerMediator alloc] initWithBrowser:browser_
+                                          eventHandler:this];
+
+  // TODO(crbug.com/537761575): Move tab managment related work to into a
+  // dedicated helper/service class GeminiTabSessionManager.
+  if (gemini_container_mediator_.gateway) {
+    base::WeakPtr<GeminiBrowserAgent> weak_this = weak_factory_.GetWeakPtr();
+    GeminiSessionHandler* session_handler =
+        gemini_container_mediator_.gatewayManager.sessionHandler;
+    if (session_handler) {
+      session_handler.tabDetachRequestCallback = ^(NSString* tabID) {
+        if (weak_this) {
+          weak_this->DetachTabWithID(tabID);
+        }
+      };
+      session_handler.tabAttachedCallback = ^(NSString* tab_id) {
+        if (weak_this) {
+          weak_this->UpdateLocalTabAttachmentState(
+              tab_id,
+              ios::provider::GeminiPageContextAttachmentState::kAttached);
+        }
+      };
+      session_handler.tabDetachedCallback = ^(NSString* tab_id) {
+        if (weak_this) {
+          weak_this->UpdateLocalTabAttachmentState(
+              tab_id,
+              ios::provider::GeminiPageContextAttachmentState::kDetached);
+        }
+      };
+      session_handler.attachedTabsCountProvider = ^{
+        if (weak_this) {
+          return weak_this->AttachedTabsCount();
+        }
+        return (NSUInteger)0;
+      };
+      session_handler.isMultiTabUsedProvider = ^{
+        if (weak_this) {
+          return weak_this->GetSharedTabs().count > 0;
+        }
+        return NO;
+      };
+    }
+
+    GeminiTabPickerHandler* tab_picker_handler =
+        gemini_container_mediator_.gatewayManager.tabPickerHandler;
+    if (tab_picker_handler) {
+      tab_picker_handler.selectionCallback =
+          ^(std::set<web::WebStateID> selected_tabs) {
+            if (weak_this) {
+              weak_this->OnTabPickerSelectionChanged(selected_tabs);
+            }
+          };
+      tab_picker_handler.selectedTabsProvider = ^{
+        if (weak_this) {
+          std::set<web::WebStateID> eligible_tabs;
+          for (const auto& [tab_id, context] : weak_this->attached_tabs_) {
+            if (IsPageContextEligibleForTabPicker(context) &&
+                context.geminiPageContextAttachmentState ==
+                    ios::provider::GeminiPageContextAttachmentState::
+                        kAttached) {
+              eligible_tabs.insert(tab_id);
+            }
+          }
+          return eligible_tabs;
+        }
+        return std::set<web::WebStateID>();
+      };
+    }
+  }
 }
 
 GeminiBrowserAgent::~GeminiBrowserAgent() {
@@ -537,21 +490,10 @@ GeminiBrowserAgent::~GeminiBrowserAgent() {
     browser_->RemoveObserver(this);
   }
 
-  [gemini_link_opening_handler_ disconnect];
-  gemini_link_opening_handler_ = nil;
-
-  [gemini_view_state_handler_ disconnect];
-  gemini_view_state_handler_ = nil;
-
-  gemini_actuation_handler_ = nil;
-
   if (!IsIOSGeminiBottomSheetMigrationEnabled()) {
     [gemini_container_mediator_ disconnect];
     gemini_container_mediator_ = nil;
   }
-
-  [gemini_consent_provider_handler_ disconnect];
-  gemini_consent_provider_handler_ = nil;
 
   if (keyboard_show_observer_) {
     [[NSNotificationCenter defaultCenter]
@@ -589,19 +531,10 @@ GeminiBrowserAgent::~GeminiBrowserAgent() {
 }
 
 void GeminiBrowserAgent::BrowserDestroyed(Browser* browser) {
-  [gemini_link_opening_handler_ disconnect];
-  gemini_link_opening_handler_ = nil;
-
-  gemini_actuation_handler_ = nil;
-  gemini_tab_picker_handler_ = nil;
-
   if (!IsIOSGeminiBottomSheetMigrationEnabled()) {
     [gemini_container_mediator_ disconnect];
     gemini_container_mediator_ = nil;
   }
-
-  [gemini_consent_provider_handler_ disconnect];
-  gemini_consent_provider_handler_ = nil;
 
   if (identity_manager_) {
     identity_manager_->RemoveObserver(this);
@@ -649,7 +582,8 @@ bool GeminiBrowserAgent::IsFloatyVisible() const {
 }
 
 bool GeminiBrowserAgent::IsInGeminiLiveMode() const {
-  return gemini::IsFeatureAvailable(gemini::Feature::kLive,
+  return is_floaty_invoked_ &&
+         gemini::IsFeatureAvailable(gemini::Feature::kLive,
                                     browser_->GetProfile()) &&
          ios::provider::GetCurrentMode() ==
              ios::provider::GeminiViewMode::kLive;
@@ -675,35 +609,14 @@ void GeminiBrowserAgent::OnPrimaryAccountChanged(
       event.GetEventTypeFor(signin::ConsentLevel::kSignin);
 
   if (event_type == signin::PrimaryAccountChangeEvent::Type::kSet) {
-    ConfigureGemini();
+    [gemini_container_mediator_ configureGemini];
   }
 
   if (event_type != signin::PrimaryAccountChangeEvent::Type::kNone) {
     browser_->GetProfile()->GetPrefs()->ClearPref(prefs::kGeminiConversationId);
 
-    if (is_floaty_invoked_) {
-      ForceDismissFloaty();
-    }
+    ForceDismissFloaty();
   }
-}
-
-void GeminiBrowserAgent::ConfigureGemini() {
-  AuthenticationService* auth_service =
-      AuthenticationServiceFactory::GetForProfile(browser_->GetProfile());
-  if (!auth_service || !auth_service->HasPrimaryIdentity()) {
-    return;
-  }
-
-  GeminiStartupConfiguration* config =
-      [[GeminiStartupConfiguration alloc] init];
-  config.authService = auth_service;
-  config.gateway = bwg_gateway_;
-  config.imageRemixEnabled = gemini::IsFeatureAvailable(
-      gemini::Feature::kImageRemix, browser_->GetProfile());
-  config.geminiLiveEnabled = gemini::IsFeatureAvailable(gemini::Feature::kLive,
-                                                        browser_->GetProfile());
-
-  ios::provider::ConfigureWithStartupConfiguration(config);
 }
 
 void GeminiBrowserAgent::OnIdentityManagerShutdown(
@@ -711,9 +624,7 @@ void GeminiBrowserAgent::OnIdentityManagerShutdown(
   if (identity_manager_) {
     identity_manager_->RemoveObserver(this);
     identity_manager_ = nullptr;
-    if (is_floaty_invoked_) {
-      ForceDismissFloaty();
-    }
+    ForceDismissFloaty();
   }
 }
 
@@ -724,7 +635,7 @@ void GeminiBrowserAgent::OnExtendedAccountInfoUpdated(
     const AccountInfo& account_info) {
   if (identity_manager_->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin)
           .account_id == account_info.account_id) {
-    ConfigureGemini();
+    [gemini_container_mediator_ configureGemini];
     UpdateGeminiAvailability();
     UpdateGeminiLiveIconVisibility();
   }
@@ -949,20 +860,22 @@ bool GeminiBrowserAgent::HasCompletedFirstRun() {
 }
 
 void GeminiBrowserAgent::UpdateGeminiLiveIconVisibility(bool animated) {
-  if (IsChromeNextIaEnabled() || !IsGeminiLiveEnabled()) {
+  if (!IsGeminiLiveEnabled()) {
     return;
   }
-  CGFloat progress = 1.0;
-  if (fullscreen_controller_) {
-    progress = fullscreen_controller_->GetProgress();
-  }
-  BOOL visible = IsInGeminiLiveMode() && (progress < 0.1);
 
+  CustomLeadingViewType type = IsInGeminiLiveMode()
+                                   ? CustomLeadingViewType::kGeminiLive
+                                   : CustomLeadingViewType::kNone;
   CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
-  if ([dispatcher dispatchingForProtocol:@protocol(OmniboxCommands)]) {
+  if (IsChromeNextIaEnabled()) {
+    id<LocationBarBadgeCommands> location_bar_badge_handler =
+        HandlerForProtocol(dispatcher, LocationBarBadgeCommands);
+    [location_bar_badge_handler setBadgeCustomLeadingViewType:type];
+  } else {
     id<OmniboxCommands> omnibox_handler =
         HandlerForProtocol(dispatcher, OmniboxCommands);
-    [omnibox_handler setCustomLeadingViewVisible:visible animated:animated];
+    [omnibox_handler setCustomLeadingViewType:type];
   }
 }
 
@@ -1185,15 +1098,17 @@ void GeminiBrowserAgent::PresentFloaty(UIViewController* base_view_controller,
     ForceShowFloatyIfInvoked();
     ios::provider::UpdateGeminiViewState(
         ios::provider::GeminiViewState::kExpanded, /*animated=*/true);
+    if (IsAppSwitcherAISummarizationEnabled() &&
+        startup_state.isMismatchedAccount) {
+      ios::provider::ShowAccountSnackbar();
+    }
   } else {
     SetSessionCommandHandlers();
-    [gemini_page_state_change_handler_
-        setBaseViewController:base_view_controller];
 
     CHECK(gemini_container_mediator_, base::NotFatalUntil::M155);
     GeminiConfiguration* config = [gemini_container_mediator_
-        createGeminiConfigurationForActiveWebState:startup_state];
-    config.baseViewController = base_view_controller;
+        createGeminiConfigurationForActiveWebState:startup_state
+                                baseViewController:base_view_controller];
     config.initialBottomOffset = GetFloatyOffset();
     config.hostWindowScene = browser_->GetSceneState().scene;
 
@@ -1212,53 +1127,8 @@ void GeminiBrowserAgent::PresentFloaty(UIViewController* base_view_controller,
       &GeminiBrowserAgent::OnPageContextGenerated, weak_factory_.GetWeakPtr()));
 }
 
-void GeminiBrowserAgent::OnProcessingStatusChanged(
-    ios::provider::GeminiClientMode processing_status,
-    ios::provider::GeminiDormantReason dormant_reason) {
-  UpdateGeminiLiveIconVisibility();
-  if (!IsInGeminiLiveMode()) {
-    return;
-  }
-
-  LogLiveStatusTransition(processing_status_, processing_status);
-
-  processing_status_ = processing_status;
-  switch (processing_status) {
-    case ios::provider::GeminiClientMode::kTranscribing:
-      RequestPageContextGeneration();
-      break;
-    case ios::provider::GeminiClientMode::kThinking:
-      live_thinking_start_time_ = base::TimeTicks::Now();
-      break;
-    case ios::provider::GeminiClientMode::kResponding: {
-      live_turn_count_++;
-      live_response_start_time_ = base::TimeTicks::Now();
-      if (!live_thinking_start_time_.is_null()) {
-        base::TimeDelta latency =
-            live_response_start_time_ - live_thinking_start_time_;
-        RecordGeminiLiveResponseLatency(latency);
-        live_thinking_start_time_ = base::TimeTicks();
-      }
-      // Update partial page context (i.e., live sharing context label) when
-      // transitioning out of the transcribing (i.e., speaking) state.
-      UpdateFloatyWithPartialPageContext();
-      break;
-    }
-    case ios::provider::GeminiClientMode::kDormant:
-      RecordGeminiLiveDormantReason(dormant_reason);
-      HandleDormantStatus(dormant_reason);
-      LogLiveSessionMetrics();
-      break;
-    default:
-      // No-op.
-      break;
-  }
-}
-
 void GeminiBrowserAgent::HandleDormantStatus(
     ios::provider::GeminiDormantReason dormant_reason) {
-  SwitchToChatModeOrDismiss(/*animated=*/true);
-
   if (IsGeminiLiveDormantReasonsEnabled()) {
     switch (dormant_reason) {
       case ios::provider::GeminiDormantReason::kLowVolumeInBackground:
@@ -1266,25 +1136,35 @@ void GeminiBrowserAgent::HandleDormantStatus(
       case ios::provider::GeminiDormantReason::kInterruptedByExternalAudio:
       case ios::provider::GeminiDormantReason::kUserStop:
       case ios::provider::GeminiDormantReason::kUserPause:
+        SwitchToChatModeOrDismiss(/*animated=*/true,
+                                  ios::provider::GeminiViewState::kExpanded);
         break;
       case ios::provider::GeminiDormantReason::kInactivityTimeout:
+        SwitchToChatModeOrDismiss(/*animated=*/true,
+                                  ios::provider::GeminiViewState::kCollapsed);
         is_showing_live_session_dormant_snackbar_ = true;
         ShowLiveSessionDormantSnackbar(
             IDS_IOS_GEMINI_LIVE_CONTINUE_SESSION_SNACKBAR);
         break;
       case ios::provider::GeminiDormantReason::kLongInteractionTimeout:
       case ios::provider::GeminiDormantReason::kServerPause:
+        SwitchToChatModeOrDismiss(/*animated=*/true,
+                                  ios::provider::GeminiViewState::kCollapsed);
         is_showing_live_session_dormant_snackbar_ = true;
         ShowLiveSessionDormantSnackbar(
             IDS_IOS_GEMINI_LIVE_SERVER_PAUSE_SNACKBAR);
         break;
       default:
+        SwitchToChatModeOrDismiss(/*animated=*/true,
+                                  ios::provider::GeminiViewState::kCollapsed);
         is_showing_live_session_dormant_snackbar_ = true;
         ShowLiveSessionDormantSnackbar(
             IDS_IOS_GEMINI_LIVE_GENERAL_DORMANT_SNACKBAR);
         break;
     }
   } else {
+    SwitchToChatModeOrDismiss(/*animated=*/true,
+                              ios::provider::GeminiViewState::kCollapsed);
     is_showing_live_session_dormant_snackbar_ = true;
     ShowLiveSessionDormantSnackbar(
         IDS_IOS_GEMINI_LIVE_GENERAL_DORMANT_SNACKBAR);
@@ -1331,6 +1211,81 @@ void GeminiBrowserAgent::LogLiveSessionMetrics(bool floaty_dismissed) {
   }
 }
 
+#pragma mark - GeminiContainerMediatorEventHandler
+
+void GeminiBrowserAgent::OnViewStateChanged(
+    ios::provider::GeminiViewState view_state) {
+  UpdateLiveModeUI();
+
+  if (view_state == ios::provider::GeminiViewState::kExpanded) {
+    if (last_shown_view_state_ != ios::provider::GeminiViewState::kExpanded) {
+      PrepareFloatyToBeShown();
+    }
+    if (is_floaty_temporarily_hidden_) {
+      ForceShowFloatyIfInvoked();
+      is_hidden_by_keyboard_ = false;
+    }
+    RequestPageContextGeneration();
+  } else if (view_state == ios::provider::GeminiViewState::kCollapsed) {
+    ResetFullscreenDisabler();
+  } else if (view_state == ios::provider::GeminiViewState::kHidden) {
+    ResetFullscreenDisabler();
+
+    // TODO(crbug.com/517583120): Remove when the temporary actuation prototype
+    // is cleaned up.
+    if (IsGeminiActorEnabled()) {
+      if (actor::ActorService* actor_service =
+              actor::ActorServiceFactory::GetForProfile(
+                  browser_->GetProfile())) {
+        actor_service->StopAllTasks();
+      }
+    }
+  }
+}
+
+void GeminiBrowserAgent::OnProcessingStatusChanged(
+    ios::provider::GeminiClientMode processing_status,
+    ios::provider::GeminiDormantReason dormant_reason) {
+  UpdateGeminiLiveIconVisibility();
+  if (!IsInGeminiLiveMode()) {
+    return;
+  }
+
+  LogLiveStatusTransition(processing_status_, processing_status);
+
+  processing_status_ = processing_status;
+  switch (processing_status) {
+    case ios::provider::GeminiClientMode::kTranscribing:
+      RequestPageContextGeneration();
+      break;
+    case ios::provider::GeminiClientMode::kThinking:
+      live_thinking_start_time_ = base::TimeTicks::Now();
+      break;
+    case ios::provider::GeminiClientMode::kResponding: {
+      live_turn_count_++;
+      live_response_start_time_ = base::TimeTicks::Now();
+      if (!live_thinking_start_time_.is_null()) {
+        base::TimeDelta latency =
+            live_response_start_time_ - live_thinking_start_time_;
+        RecordGeminiLiveResponseLatency(latency);
+        live_thinking_start_time_ = base::TimeTicks();
+      }
+      // Update partial page context (i.e., live sharing context label) when
+      // transitioning out of the transcribing (i.e., speaking) state.
+      UpdateFloatyWithPartialPageContext();
+      break;
+    }
+    case ios::provider::GeminiClientMode::kDormant:
+      RecordGeminiLiveDormantReason(dormant_reason);
+      HandleDormantStatus(dormant_reason);
+      LogLiveSessionMetrics();
+      break;
+    default:
+      // No-op.
+      break;
+  }
+}
+
 void GeminiBrowserAgent::CollapseFloatyIfInvoked() {
   if (!is_floaty_invoked_) {
     return;
@@ -1338,11 +1293,6 @@ void GeminiBrowserAgent::CollapseFloatyIfInvoked() {
 
   ios::provider::UpdateGeminiViewState(
       ios::provider::GeminiViewState::kCollapsed, /*animated=*/true);
-}
-
-void GeminiBrowserAgent::OnGeminiLiveUserDidBargeIn() {
-  processing_status_ = ios::provider::GeminiClientMode::kTranscribing;
-  RequestPageContextGeneration();
 }
 
 void GeminiBrowserAgent::SetLastShownViewState(
@@ -1377,16 +1327,40 @@ void GeminiBrowserAgent::OnGeminiLiveUserDidPressStopButton() {
   // stop button.
 }
 
+void GeminiBrowserAgent::OnGeminiLiveUserDidBargeIn() {
+  processing_status_ = ios::provider::GeminiClientMode::kTranscribing;
+  RequestPageContextGeneration();
+}
+
 void GeminiBrowserAgent::OnModeChanged(ios::provider::GeminiViewMode mode) {
+  if (IsFullscreenInitialized()) {
+    if (IsFullscreenRefactoringEnabled()) {
+      [HandlerForProtocol(browser_->GetCommandDispatcher(), FullscreenCommands)
+          exitFullscreenWithTrigger:FullscreenModeTransitionTrigger::
+                                        kUserInitiatedFinishedByCode
+                           animated:YES];
+    } else {
+      fullscreen_controller_->ExitFullscreen();
+    }
+  }
+
   if (mode == ios::provider::GeminiViewMode::kLive) {
     RecordLiveSessionStarted();
     if (live_session_start_time_.is_null()) {
       live_session_start_time_ = base::TimeTicks::Now();
       live_turn_count_ = 0;
     }
+    if (last_shown_view_state_ == ios::provider::GeminiViewState::kExpanded) {
+      ResetFullscreenDisabler();
+    }
   } else {
     LogLiveSessionMetrics();
   }
+  UpdateGeminiLiveIconVisibility();
+}
+
+void GeminiBrowserAgent::OnGeminiUIDidAppear() {
+  ResetFullscreenDisabler();
 }
 
 void GeminiBrowserAgent::DismissGeminiFromOtherWindows(
@@ -1441,7 +1415,7 @@ void GeminiBrowserAgent::DismissFloaty() {
   LogLiveSessionMetrics(/*force=*/true);
 
   CHECK(gemini_container_mediator_, base::NotFatalUntil::M155);
-  [gemini_container_mediator_ disconnect];
+  [gemini_container_mediator_ onFloatyDismiss];
 
   // TODO(crbug.com/517583120): Remove when the temporary actuation prototype is
   // cleaned up.
@@ -1481,6 +1455,9 @@ void GeminiBrowserAgent::DismissFloaty() {
 }
 
 void GeminiBrowserAgent::ForceDismissFloaty() {
+  if (!is_floaty_invoked_) {
+    return;
+  }
   is_floaty_temporarily_hidden_ = false;
   DismissFloaty();
 }
@@ -1587,7 +1564,9 @@ void GeminiBrowserAgent::UpdateAttachedTabContexts(
                      weak_factory_.GetWeakPtr()));
 }
 
-void GeminiBrowserAgent::SwitchToChatModeOrDismiss(bool animated) {
+void GeminiBrowserAgent::SwitchToChatModeOrDismiss(
+    bool animated,
+    ios::provider::GeminiViewState target_state) {
   web::WebState* active_web_state =
       browser_->GetWebStateList()->GetActiveWebState();
   GeminiTabHelper* tab_helper = GetActiveTabHelper(active_web_state);
@@ -1595,7 +1574,7 @@ void GeminiBrowserAgent::SwitchToChatModeOrDismiss(bool animated) {
     DismissFloaty();
   } else {
     ios::provider::SwitchToMode(ios::provider::GeminiViewMode::kFloaty,
-                                animated);
+                                target_state, animated);
   }
 }
 
@@ -1682,12 +1661,14 @@ void GeminiBrowserAgent::ShowFloatyIfInvoked(
   // be hidden quickly followed by a new WebState being shown where
   // hiding/showing the floaty are valid invocations.
   bool is_web_navigation = source == gemini::FloatyUpdateSource::WebNavigation;
+  bool is_context_menu = source == gemini::FloatyUpdateSource::ContextMenu;
 
   web::WebState* web_state = browser_->GetWebStateList()->GetActiveWebState();
   GeminiTabHelper* gemini_tab_helper = GetActiveTabHelper(web_state);
   bool should_block =
       gemini_tab_helper && gemini_tab_helper->ShouldBlockFloatyFromShowing();
-  if ((!is_web_navigation && triggered_during_transition) || should_block) {
+  if ((!is_web_navigation && !is_context_menu && triggered_during_transition) ||
+      should_block) {
     return;
   }
 
@@ -1754,12 +1735,18 @@ void GeminiBrowserAgent::OnActiveWebStateChanged(web::WebState* old_active,
         removeObserver:scroll_observer_];
 
     web::WebStateID old_active_id = old_active->GetUniqueIdentifier();
-    if (HasSharedTabs() && GetAttachedPageContext(old_active_id)) {
-      // We are switching tabs and there is more than one tab attached to the
-      // conversation. Refetch the old active tab's page context to ensure it
-      // reflects its most recent state (instead of the state when the Floaty
-      // was last invoked).
-      UpdateAttachedTabContexts({old_active_id});
+    if (GeminiPageContext* old_context =
+            GetAttachedPageContext(old_active_id)) {
+      if (old_context.geminiPageContextAttachmentState !=
+          ios::provider::GeminiPageContextAttachmentState::kAttached) {
+        RemoveAttachedPageContext(old_active_id);
+      } else if (HasSharedTabs()) {
+        // We are switching tabs and there is more than one tab attached to the
+        // conversation. Refetch the old active tab's page context to ensure it
+        // reflects its most recent state (instead of the state when the Floaty
+        // was last invoked).
+        UpdateAttachedTabContexts({old_active_id});
+      }
     }
   }
 
@@ -2065,9 +2052,13 @@ void GeminiBrowserAgent::PropagatePageContextToProvider(
     }
   }
 
-  // Save the new active web state to attached tabs.
-  if (active_web_state && !IsTabGridVisible() &&
-      IsGeminiMultiTabContextEnabled()) {
+  // Save the active page context to `attached_tabs`. If we are on the tab
+  // grid, the active page context will be saved as `kBlocked` unless we have
+  // other tabs attached. This prevents the current tab from being erroneously
+  // showed as `kBlocked` when we open the Floaty on a different attached tab.
+  bool should_save_active_context = !IsTabGridVisible() || !HasSharedTabs();
+  if (IsGeminiMultiTabContextEnabled() && active_web_state &&
+      should_save_active_context) {
     SetAttachedPageContext(active_web_state->GetUniqueIdentifier(),
                            active_page_context);
   }
@@ -2143,11 +2134,6 @@ void GeminiBrowserAgent::ResetFullscreenDisabler() {
     return;
   }
 
-  if (IsChromeNextIaEnabled() && IsAppBarHiddenInFullscreen() &&
-      is_floaty_invoked_) {
-    return;
-  }
-
   fullscreen_disabler_.reset();
 }
 
@@ -2180,16 +2166,6 @@ void GeminiBrowserAgent::ApplyUserPrefsToPageContext(
     gemini_page_context.geminiPageContextAttachmentState =
         ios::provider::GeminiPageContextAttachmentState::kAttached;
   }
-}
-
-void GeminiBrowserAgent::SetSessionCommandHandlers() {
-  id<SettingsCommands> settings_handler =
-      HandlerForProtocol(browser_->GetCommandDispatcher(), SettingsCommands);
-  id<GeminiCommands> gemini_handler =
-      HandlerForProtocol(browser_->GetCommandDispatcher(), GeminiCommands);
-
-  bwg_session_handler_.settingsHandler = settings_handler;
-  bwg_session_handler_.geminiHandler = gemini_handler;
 }
 
 void GeminiBrowserAgent::OnPageContentPrefChanged() {
@@ -2226,43 +2202,18 @@ void GeminiBrowserAgent::OnMicrophonePrefChanged() {
   }
 }
 
+void GeminiBrowserAgent::SetSessionCommandHandlers() {
+  CHECK(gemini_container_mediator_, base::NotFatalUntil::M155);
+  CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
+  gemini_container_mediator_.gatewayManager.sessionHandler.settingsHandler =
+      HandlerForProtocol(dispatcher, SettingsCommands);
+  gemini_container_mediator_.gatewayManager.sessionHandler.geminiHandler =
+      HandlerForProtocol(dispatcher, GeminiCommands);
+}
+
 void GeminiBrowserAgent::OnPageContextGenerated(
     GeminiPageContext* gemini_page_context) {
   PropagatePageContextToProvider(gemini_page_context);
-}
-
-void GeminiBrowserAgent::OnViewStateChanged(
-    ios::provider::GeminiViewState view_state) {
-  UpdateLiveModeUI();
-
-  if (view_state == ios::provider::GeminiViewState::kExpanded) {
-    if (last_shown_view_state_ != ios::provider::GeminiViewState::kExpanded) {
-      PrepareFloatyToBeShown();
-    }
-    if (is_floaty_temporarily_hidden_) {
-      ForceShowFloatyIfInvoked();
-      is_hidden_by_keyboard_ = false;
-    }
-    RequestPageContextGeneration();
-  } else if (view_state == ios::provider::GeminiViewState::kCollapsed) {
-    ResetFullscreenDisabler();
-  } else if (view_state == ios::provider::GeminiViewState::kHidden) {
-    ResetFullscreenDisabler();
-
-    // TODO(crbug.com/517583120): Remove when the temporary actuation prototype
-    // is cleaned up.
-    if (IsGeminiActorEnabled()) {
-      if (actor::ActorService* actor_service =
-              actor::ActorServiceFactory::GetForProfile(
-                  browser_->GetProfile())) {
-        actor_service->StopAllTasks();
-      }
-    }
-  }
-}
-
-void GeminiBrowserAgent::OnGeminiUIDidAppear() {
-  ResetFullscreenDisabler();
 }
 
 web::WebStateID GeminiBrowserAgent::GetActiveWebStateID() const {
@@ -2456,6 +2407,7 @@ void GeminiBrowserAgent::DetachTabWithID(NSString* tab_id) {
   CHECK(detached_tab_id != active_web_state_id);
 
   RemoveAttachedPageContext(detached_tab_id);
+  RecordGeminiTabDetached();
 
   GeminiPageContext* active_page_context =
       GetAttachedPageContext(active_web_state_id);
@@ -2476,6 +2428,13 @@ void GeminiBrowserAgent::UpdateLocalTabAttachmentState(
   if (GeminiPageContext* page_context =
           GetAttachedPageContext(attached_tab_id)) {
     page_context.geminiPageContextAttachmentState = new_state;
+    if (new_state ==
+        ios::provider::GeminiPageContextAttachmentState::kAttached) {
+      RecordGeminiActiveTabAttached();
+    } else if (new_state ==
+               ios::provider::GeminiPageContextAttachmentState::kDetached) {
+      RecordGeminiActiveTabDetached();
+    }
   }
 }
 

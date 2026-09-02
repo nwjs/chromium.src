@@ -11,6 +11,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/task/thread_pool.h"
 #include "net/disk_cache/backend_cleanup_tracker.h"
+#include "net/disk_cache/sql/shared_cache_client_remote.h"
 #include "net/disk_cache/sql/sql_persistent_store.h"
 
 namespace disk_cache {
@@ -18,6 +19,7 @@ namespace disk_cache {
 SqlSharedCacheManager::SqlSharedCacheManager(
     SqlPersistentStore& store,
     const base::FilePath& path,
+    scoped_refptr<SqlReadCacheMemoryMonitor> read_cache_memory_monitor,
     scoped_refptr<BackendCleanupTracker> cleanup_tracker)
     : store_(store),
       directory_(path),
@@ -25,6 +27,7 @@ SqlSharedCacheManager::SqlSharedCacheManager(
           {base::MayBlock(), base::TaskPriority::USER_BLOCKING,
            base::TaskShutdownBehavior::BLOCK_SHUTDOWN})),
       index_database_(db_task_runner_, store_->GetAsyncTaskManager(), path),
+      read_cache_memory_monitor_(std::move(read_cache_memory_monitor)),
       cleanup_tracker_(cleanup_tracker) {}
 
 SqlSharedCacheManager::~SqlSharedCacheManager() {
@@ -151,7 +154,7 @@ SqlSharedCacheManager::RegisterNewSqlSharedCache(
       nik_str, *store_, directory_,
       base::BindRepeating(&SqlSharedCacheManager::OnSqlSharedCacheUnreferenced,
                           weak_factory_.GetWeakPtr()),
-      db_task_runner, cleanup_tracker_);
+      db_task_runner, read_cache_memory_monitor_, cleanup_tracker_);
   SqlSharedCache* cache_ptr = cache.get();
   shared_caches_.insert(std::move(cache));
   CHECK(shared_caches_by_nik_string_.emplace(nik_str, cache_ptr).second);
@@ -213,6 +216,66 @@ void SqlSharedCacheManager::OnGetNikStringForDbId(
       result.value(), shared_cache_db_id, std::move(db_operation_handle)));
 }
 
+void SqlSharedCacheManager::DeleteResources(
+    std::vector<SqlSharedCacheResourceId> resources,
+    base::OnceClosure callback) {
+  absl::flat_hash_map<SqlSharedCacheDbId, std::vector<SqlSharedCacheRowId>>
+      grouped_resources;
+  for (const auto& resource : resources) {
+    grouped_resources[resource.db_id].push_back(resource.row_id);
+  }
+  PostDbOperation(
+      base::BindOnce(&SqlSharedCacheManager::DeleteNextResourceGroup,
+                     weak_factory_.GetWeakPtr(), std::move(grouped_resources),
+                     std::move(callback)));
+}
+
+void SqlSharedCacheManager::DeleteNextResourceGroup(
+    absl::flat_hash_map<SqlSharedCacheDbId, std::vector<SqlSharedCacheRowId>>
+        grouped_resources,
+    base::OnceClosure callback,
+    DbOperationHandle db_operation_handle) {
+  if (grouped_resources.empty()) {
+    if (callback) {
+      std::move(callback).Run();
+    }
+    return;
+  }
+
+  auto it = grouped_resources.begin();
+  const SqlSharedCacheDbId db_id = it->first;
+  std::vector<SqlSharedCacheRowId> row_ids = std::move(it->second);
+  grouped_resources.erase(it);
+
+  auto next_task =
+      base::BindOnce(&SqlSharedCacheManager::DeleteNextResourceGroup,
+                     weak_factory_.GetWeakPtr(), std::move(grouped_resources),
+                     std::move(callback), std::move(db_operation_handle));
+
+  DoGetCacheByDbId(
+      db_id,
+      base::BindOnce(
+          [](std::vector<SqlSharedCacheRowId> row_ids,
+             base::OnceClosure next_task,
+             scoped_refptr<SqlSharedCacheHandle> handle) {
+            if (handle && *handle) {
+              auto* cache = handle->get();
+              cache->DeleteEntries(
+                  row_ids,
+                  base::BindOnce(
+                      [](base::OnceClosure next_task,
+                         base::expected<void,
+                                        SqlSharedCacheIsolatedDatabase::Error>
+                             result) { std::move(next_task).Run(); },
+                      std::move(next_task)));
+            } else {
+              std::move(next_task).Run();
+            }
+          },
+          std::move(row_ids), std::move(next_task)),
+      DbOperationHandle(base::DoNothing()));
+}
+
 void SqlSharedCacheManager::OnSqlSharedCacheUnreferenced(
     SqlSharedCache& cache) {
   PostDbOperation(
@@ -244,6 +307,149 @@ void SqlSharedCacheManager::DoDeleteUnreferencedSqlSharedCache(
   shared_caches_.erase(cache_it);
   cache_to_delete->Cleanup(
       base::DoNothingWithBoundArgs(std::move(db_operation_handle)));
+}
+
+void SqlSharedCacheManager::ProcessSharedCacheEligibleEntries(
+    std::map<net::NetworkIsolationKey,
+             base::queue<SqlPersistentStore::SharedCacheEligibleEntry>> entries,
+    scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
+    base::OnceCallback<void(
+        std::vector<SqlPersistentStore::SharedCacheEligibleEntry>)> callback,
+    base::RepeatingCallback<void(const CacheEntryKey&)>
+        on_entry_copied_callback) {
+  CHECK(abort_flag);
+  PostDbOperation(base::BindOnce(
+      &SqlSharedCacheManager::DoProcessSharedCacheEligibleEntries,
+      weak_factory_.GetWeakPtr(), std::move(entries), abort_flag,
+      std::move(callback), std::move(on_entry_copied_callback)));
+}
+
+void SqlSharedCacheManager::DoProcessSharedCacheEligibleEntries(
+    std::map<net::NetworkIsolationKey,
+             base::queue<SqlPersistentStore::SharedCacheEligibleEntry>> entries,
+    scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
+    base::OnceCallback<void(
+        std::vector<SqlPersistentStore::SharedCacheEligibleEntry>)> callback,
+    base::RepeatingCallback<void(const CacheEntryKey&)>
+        on_entry_copied_callback,
+    DbOperationHandle db_operation_handle) {
+  base::queue<base::queue<SqlPersistentStore::SharedCacheEligibleEntry>> groups;
+  for (auto& [nik, entry_queue] : entries) {
+    groups.push(std::move(entry_queue));
+  }
+
+  ProcessNextNikGroup(
+      std::move(groups), abort_flag, {},
+      std::move(callback).Then(base::OnceClosure(
+          base::DoNothingWithBoundArgs(std::move(db_operation_handle)))),
+      std::move(on_entry_copied_callback));
+}
+
+void SqlSharedCacheManager::ProcessNextNikGroup(
+    base::queue<base::queue<SqlPersistentStore::SharedCacheEligibleEntry>>
+        groups,
+    scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
+    std::vector<SqlPersistentStore::SharedCacheEligibleEntry> all_unprocessed,
+    base::OnceCallback<void(
+        std::vector<SqlPersistentStore::SharedCacheEligibleEntry>)> callback,
+    base::RepeatingCallback<void(const CacheEntryKey&)>
+        on_entry_copied_callback) {
+  CHECK(abort_flag);
+  if (groups.empty() || abort_flag->data.load(std::memory_order_relaxed)) {
+    while (!groups.empty()) {
+      auto& group = groups.front();
+      while (!group.empty()) {
+        all_unprocessed.push_back(std::move(group.front()));
+        group.pop();
+      }
+      groups.pop();
+    }
+    std::move(callback).Run(std::move(all_unprocessed));
+    return;
+  }
+  CHECK(!groups.front().empty());
+  const net::NetworkIsolationKey next_nik = groups.front().front().nik;
+  DoGetCacheByNik(
+      next_nik, /*require_shared_cache_db_id=*/true,
+      base::BindOnce(&SqlSharedCacheManager::OnGetSharedCacheForProcess,
+                     weak_factory_.GetWeakPtr(), next_nik, std::move(groups),
+                     std::move(abort_flag), std::move(all_unprocessed),
+                     std::move(callback), std::move(on_entry_copied_callback)),
+      DbOperationHandle(base::DoNothing()));
+}
+
+void SqlSharedCacheManager::OnGetSharedCacheForProcess(
+    net::NetworkIsolationKey current_nik,
+    base::queue<base::queue<SqlPersistentStore::SharedCacheEligibleEntry>>
+        groups,
+    scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
+    std::vector<SqlPersistentStore::SharedCacheEligibleEntry> all_unprocessed,
+    base::OnceCallback<void(
+        std::vector<SqlPersistentStore::SharedCacheEligibleEntry>)> callback,
+    base::RepeatingCallback<void(const CacheEntryKey&)>
+        on_entry_copied_callback,
+    scoped_refptr<SqlSharedCacheHandle> handle) {
+  // `groups` is a `base::queue` of entry queues (each inner queue contains
+  // entries sharing the same NetworkIsolationKey).
+  CHECK(!groups.empty());
+  CHECK(!groups.front().empty());
+  CHECK(groups.front().front().nik == current_nik);
+  auto entry_queue = std::move(groups.front());
+  groups.pop();
+  if (!handle) {
+    ProcessNextNikGroup(std::move(groups), abort_flag,
+                        std::move(all_unprocessed), std::move(callback),
+                        std::move(on_entry_copied_callback));
+    return;
+  }
+  (*handle)->CopyEntries(
+      std::move(entry_queue), abort_flag,
+      base::BindOnce(&SqlSharedCacheManager::OnProcessEntryCompleted,
+                     weak_factory_.GetWeakPtr(), handle, std::move(groups),
+                     abort_flag, std::move(all_unprocessed),
+                     std::move(callback), on_entry_copied_callback),
+      std::move(on_entry_copied_callback));
+}
+
+void SqlSharedCacheManager::OnProcessEntryCompleted(
+    scoped_refptr<SqlSharedCacheHandle> handle,
+    base::queue<base::queue<SqlPersistentStore::SharedCacheEligibleEntry>>
+        groups,
+    scoped_refptr<base::RefCountedData<std::atomic_bool>> abort_flag,
+    std::vector<SqlPersistentStore::SharedCacheEligibleEntry> all_unprocessed,
+    base::OnceCallback<void(
+        std::vector<SqlPersistentStore::SharedCacheEligibleEntry>)> callback,
+    base::RepeatingCallback<void(const CacheEntryKey&)>
+        on_entry_copied_callback,
+    base::queue<SqlPersistentStore::SharedCacheEligibleEntry> results) {
+  while (!results.empty()) {
+    all_unprocessed.push_back(std::move(results.front()));
+    results.pop();
+  }
+  ProcessNextNikGroup(std::move(groups), abort_flag, std::move(all_unprocessed),
+                      std::move(callback), std::move(on_entry_copied_callback));
+}
+
+void SqlSharedCacheManager::RegisterClient(
+    const net::NetworkIsolationKey& network_isolation_key,
+    std::unique_ptr<SharedCacheClientRemote> client) {
+  GetCacheByNik(network_isolation_key, /*require_shared_cache_db_id=*/false,
+                base::BindOnce(
+                    [](std::unique_ptr<SharedCacheClientRemote> client,
+                       scoped_refptr<SqlSharedCacheHandle> handle) {
+                      if (handle) {
+                        (*handle)->RegisterClient(std::move(client));
+                      }
+                    },
+                    std::move(client)));
+}
+
+void SqlSharedCacheManager::SetSimulateDbFailureForTesting(bool fail) {
+  if (index_database_) {
+    index_database_
+        .AsyncCall(&SqlSharedCacheIndexDatabase::SetSimulateDbFailureForTesting)
+        .WithArgs(fail);
+  }
 }
 
 }  // namespace disk_cache

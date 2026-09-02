@@ -7,7 +7,6 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -19,7 +18,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.robolectric.Robolectric.buildActivity;
-import static org.robolectric.Shadows.shadowOf;
 
 import android.app.Activity;
 import android.content.Context;
@@ -29,6 +27,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.util.Size;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.ImageView.ScaleType;
 import android.widget.TextView;
 
@@ -53,11 +52,14 @@ import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.embedder_support.util.UrlUtilities;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.url.JUnitTestGURLs;
 
 /** Unit tests for {@link TabHoverCardView}. */
@@ -69,6 +71,7 @@ public class TabHoverCardViewUnitTest {
 
     @Captor private ArgumentCaptor<Callback<Bitmap>> mGetThumbnailCallbackCaptor;
     @Captor private ArgumentCaptor<Callback<Long>> mMemoryUsageCallbackCaptor;
+    @Captor private ArgumentCaptor<TabObserver> mTabObserverCaptor;
 
     @Mock private Tab mHoveredTab;
     @Mock private TabModelSelector mTabModelSelector;
@@ -85,6 +88,7 @@ public class TabHoverCardViewUnitTest {
     private TabThumbnailView mThumbnailView;
     private TextView mTitleView;
     private TextView mUrlView;
+    private TextView mAlertStatusView;
     private TextView mMemoryUsageView;
     private Context mContext;
     private Bitmap mBitmap;
@@ -104,6 +108,7 @@ public class TabHoverCardViewUnitTest {
         mThumbnailView = mTabHoverCardView.findViewById(R.id.thumbnail);
         mTitleView = mTabHoverCardView.findViewById(R.id.title);
         mUrlView = mTabHoverCardView.findViewById(R.id.url);
+        mAlertStatusView = mTabHoverCardView.findViewById(R.id.alert_status);
         mMemoryUsageView = mTabHoverCardView.findViewById(R.id.memory_usage);
 
         mContext = mTabHoverCardView.getContext();
@@ -169,6 +174,38 @@ public class TabHoverCardViewUnitTest {
     }
 
     @Test
+    public void show_AlertStatus() {
+        var url = JUnitTestGURLs.EXAMPLE_URL;
+        var title = "Tab 1";
+        when(mHoveredTab.getTitle()).thenReturn(title);
+        when(mHoveredTab.getUrl()).thenReturn(url);
+        when(mHoveredTab.getId()).thenReturn(1);
+        when(mHoveredTab.getAlertState()).thenReturn(TabAlert.GLIC_SHARING);
+
+        mTabHoverCardView.show(mHoveredTab, 10f, 20f);
+
+        assertEquals(
+                "Alert status view should be visible.",
+                View.VISIBLE,
+                mAlertStatusView.getVisibility());
+        assertEquals(
+                "Alert status text is incorrect.",
+                mContext.getString(R.string.tooltip_tab_alert_state_glic_sharing),
+                mAlertStatusView.getText().toString());
+        assertNotNull(
+                "Alert status icon should be present.",
+                mAlertStatusView.getCompoundDrawablesRelative()[0]);
+
+        // Verify alert status is gone when tab has no alert.
+        when(mHoveredTab.getAlertState()).thenReturn(null);
+        mTabHoverCardView.show(mHoveredTab, 10f, 20f);
+        assertEquals(
+                "Alert status view should be hidden when alert state is null.",
+                View.GONE,
+                mAlertStatusView.getVisibility());
+    }
+
+    @Test
     public void show_MemoryUsage() {
         var url = JUnitTestGURLs.EXAMPLE_URL;
         var title = "Tab 1";
@@ -195,6 +232,42 @@ public class TabHoverCardViewUnitTest {
                 "Memory usage view should be visible.",
                 View.VISIBLE,
                 mMemoryUsageView.getVisibility());
+    }
+
+    @Test
+    public void show_AlertStatusAndMemoryUsage_BottomMargin() {
+        var url = JUnitTestGURLs.EXAMPLE_URL;
+        var title = "Tab 1";
+        when(mHoveredTab.getTitle()).thenReturn(title);
+        when(mHoveredTab.getUrl()).thenReturn(url);
+        when(mHoveredTab.getId()).thenReturn(1);
+        when(mHoveredTab.getAlertState()).thenReturn(TabAlert.GLIC_SHARING);
+
+        mTabHoverCardView.show(mHoveredTab, 10f, 20f);
+
+        int textContentMargin =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.tab_hover_card_text_content_margin);
+        int footerRowSpacing =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.tab_hover_card_footer_row_spacing);
+
+        MarginLayoutParams alertLayoutParams =
+                (MarginLayoutParams) mAlertStatusView.getLayoutParams();
+        assertEquals(
+                "Alert status bottom margin should be text content margin when memory usage is"
+                        + " gone.",
+                textContentMargin,
+                alertLayoutParams.bottomMargin);
+
+        verify(mHoveredTab).getMemoryUsageBytes(mMemoryUsageCallbackCaptor.capture());
+        mMemoryUsageCallbackCaptor.getValue().onResult(100_000_000L);
+
+        assertEquals(
+                "Alert status bottom margin should be footer row spacing when memory usage is"
+                        + " visible.",
+                footerRowSpacing,
+                alertLayoutParams.bottomMargin);
     }
 
     @Test
@@ -256,7 +329,7 @@ public class TabHoverCardViewUnitTest {
         // Verify chrome:// tab hover card display text.
         assertEquals(
                 "Card URL text is incorrect.",
-                mHoveredTab.getUrl().getSpec().replaceFirst("/$", ""),
+                UrlUtilities.stripTrailingSlash(mHoveredTab.getUrl().getSpec()),
                 mUrlView.getText());
         verify(mTabHoverCardView).setX(10f);
         verify(mTabHoverCardView).setY(20f);
@@ -341,11 +414,10 @@ public class TabHoverCardViewUnitTest {
         // Test incognito colors.
         mTabHoverCardView.updateHoverCardColors(true);
         int backgroundColor = R.color.gm3_baseline_surface_container_highest_dark;
-        verify(mTabHoverCardView)
-                .setBackgroundTintList(
-                        eq(
-                                ColorStateList.valueOf(
-                                        ContextCompat.getColor(mContext, backgroundColor))));
+        assertEquals(
+                "Incognito background tint is incorrect.",
+                ColorStateList.valueOf(ContextCompat.getColor(mContext, backgroundColor)),
+                mTabHoverCardView.getBackgroundTintList());
         assertEquals(
                 "Title text color is incorrect.",
                 mContext.getColor(R.color.default_text_color_light),
@@ -354,16 +426,18 @@ public class TabHoverCardViewUnitTest {
                 "URL text color is incorrect.",
                 mContext.getColor(R.color.default_text_color_secondary_light),
                 mUrlView.getCurrentTextColor());
+        assertEquals(
+                "Alert status text color is incorrect.",
+                mContext.getColor(R.color.default_text_color_secondary_light),
+                mAlertStatusView.getCurrentTextColor());
 
         // Test standard colors.
         mTabHoverCardView.updateHoverCardColors(false);
-        // Invoked in #updateHoverCardColors() in #initialize() in setup and in test.
-        verify(mTabHoverCardView, times(2))
-                .setBackgroundTintList(
-                        eq(
-                                ColorStateList.valueOf(
-                                        ContextCompat.getColor(
-                                                mContext, R.color.tab_hover_card_bg_color))));
+        assertEquals(
+                "Standard background tint is incorrect.",
+                ColorStateList.valueOf(
+                        ContextCompat.getColor(mContext, R.color.tab_hover_card_bg_color)),
+                mTabHoverCardView.getBackgroundTintList());
         assertEquals(
                 "Title text color is incorrect.",
                 SemanticColorUtils.getDefaultTextColor(mContext),
@@ -372,6 +446,10 @@ public class TabHoverCardViewUnitTest {
                 "URL text color is incorrect.",
                 SemanticColorUtils.getDefaultTextColorSecondary(mContext),
                 mUrlView.getCurrentTextColor());
+        assertEquals(
+                "Alert status text color is incorrect.",
+                SemanticColorUtils.getDefaultTextColorSecondary(mContext),
+                mAlertStatusView.getCurrentTextColor());
     }
 
     @Test
@@ -409,18 +487,6 @@ public class TabHoverCardViewUnitTest {
     }
 
     @Test
-    public void maybeUpdateBackgroundOnLowEndDevice() {
-        SysUtils.setIsLowEndDeviceForTesting(true);
-        mTabHoverCardView.maybeUpdateBackgroundOnLowEndDevice();
-
-        assertEquals(
-                "Content view background resource is incorrect.",
-                R.drawable.popup_bg_8dp,
-                shadowOf(mContentView.getBackground()).getCreatedFromResId());
-        assertNull("Container background should be null.", mTabHoverCardView.getBackground());
-    }
-
-    @Test
     public void testComponentOrder() {
         assertEquals(
                 "Component at index 0 should be the title.",
@@ -435,8 +501,83 @@ public class TabHoverCardViewUnitTest {
                 R.id.thumbnail,
                 mContentView.getChildAt(2).getId());
         assertEquals(
-                "Component at index 3 should be the memory usage.",
-                R.id.memory_usage,
+                "Component at index 3 should be the alert status.",
+                R.id.alert_status,
                 mContentView.getChildAt(3).getId());
+        assertEquals(
+                "Component at index 4 should be the memory usage.",
+                R.id.memory_usage,
+                mContentView.getChildAt(4).getId());
+    }
+
+    @Test
+    public void testLiveUpdatesWhileShowing() {
+        var url = JUnitTestGURLs.EXAMPLE_URL;
+        var title = "Tab 1";
+        when(mHoveredTab.getTitle()).thenReturn(title);
+        when(mHoveredTab.getUrl()).thenReturn(url);
+        when(mHoveredTab.getId()).thenReturn(1);
+        when(mHoveredTab.getAlertState()).thenReturn(null);
+
+        mTabHoverCardView.show(mHoveredTab, 10f, 20f);
+        verify(mHoveredTab).addObserver(mTabObserverCaptor.capture());
+        TabObserver observer = mTabObserverCaptor.getValue();
+
+        assertEquals(
+                "Alert status view should be initially hidden.",
+                View.GONE,
+                mAlertStatusView.getVisibility());
+
+        // Live update alert status.
+        observer.onAlertStateChanged(mHoveredTab, TabAlert.GLIC_ACCESSING);
+        assertEquals(
+                "Alert status view should be visible after update.",
+                View.VISIBLE,
+                mAlertStatusView.getVisibility());
+        assertEquals(
+                "Alert status text is incorrect after update.",
+                mContext.getString(R.string.tooltip_tab_alert_state_glic_accessing),
+                mAlertStatusView.getText().toString());
+
+        // Live update title.
+        when(mHoveredTab.getTitle()).thenReturn("Updated Title");
+        observer.onTitleUpdated(mHoveredTab);
+        assertEquals(
+                "Title text should be updated.", "Updated Title", mTitleView.getText().toString());
+
+        // Hide card should remove observer.
+        mTabHoverCardView.hide();
+        verify(mHoveredTab).removeObserver(observer);
+    }
+
+    @Test
+    public void getHoverCardWidthPx() {
+        // Window is large enough: returns default width.
+        mContext.getResources().getDisplayMetrics().widthPixels = mHoverCardWidth * 2;
+        assertEquals(
+                "Hover card width should be default dimen when window is large.",
+                mHoverCardWidth,
+                TabHoverCardView.getHoverCardWidthPx(mContext));
+
+        // Window is narrow: returns 90% of window width.
+        int narrowWindowWidth = mHoverCardWidth - 10;
+        mContext.getResources().getDisplayMetrics().widthPixels = narrowWindowWidth;
+        int expectedNarrowWidth = Math.round(0.9f * narrowWindowWidth);
+        assertEquals(
+                "Hover card width should be bounded by window width percent when window is narrow.",
+                expectedNarrowWidth,
+                TabHoverCardView.getHoverCardWidthPx(mContext));
+    }
+
+    @Test
+    public void onMeasure_EnforcesBoundedWidth() {
+        mContext.getResources().getDisplayMetrics().widthPixels = mHoverCardWidth * 2;
+        mTabHoverCardView.measure(
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        assertEquals(
+                "Measured width should match getHoverCardWidth.",
+                mHoverCardWidth,
+                mTabHoverCardView.getMeasuredWidth());
     }
 }

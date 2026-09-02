@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.tasks.tab_management;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -29,14 +30,16 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.Token;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
+import org.chromium.chrome.browser.tabmodel.TabList;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.PropertyModel;
 
-import java.util.Arrays;
+import java.util.List;
 
 /** Unit tests for {@link GroupedLayoutDelegate}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -49,10 +52,12 @@ public class GroupedLayoutDelegateUnitTest {
     @Mock private ThumbnailProvider mThumbnailProvider;
     @Mock private Tab mTab1;
     @Mock private Tab mTab2;
+    @Mock private Tab mTab3;
     @Mock private TabModel mTabModel;
 
     private static final int TAB1_ID = 456;
     private static final int TAB2_ID = 789;
+    private static final int TAB3_ID = 999;
 
     private TabListModel mModelList;
     private GroupedLayoutDelegate mDelegate;
@@ -64,6 +69,157 @@ public class GroupedLayoutDelegateUnitTest {
         when(mMediator.getCurrentTabModelChecked()).thenReturn(mTabModel);
         when(mTab1.getId()).thenReturn(TAB1_ID);
         when(mTab2.getId()).thenReturn(TAB2_ID);
+        when(mTab3.getId()).thenReturn(TAB3_ID);
+    }
+
+    @Test
+    public void testRequiresThumbnailUpdateOnDeselect() {
+        assertTrue(mDelegate.requiresThumbnailUpdateOnDeselect());
+    }
+
+    @Test
+    public void testRequiresThumbnailUpdateOnSelect() {
+        assertTrue(mDelegate.requiresThumbnailUpdateOnSelect());
+    }
+
+    @Test
+    public void testGetMediaIndicatorState_NotInGroup() {
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab1.getMediaState()).thenReturn(MediaState.AUDIBLE);
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(false);
+
+        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
+        int state = mDelegate.getMediaIndicatorState(mTab1, model);
+        assertEquals(MediaState.AUDIBLE, state);
+    }
+
+    @Test
+    public void testGetMediaIndicatorState_InGroup() {
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab1.getMediaState()).thenReturn(MediaState.AUDIBLE);
+        when(mTab2.getMediaState()).thenReturn(MediaState.RECORDING);
+
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mMediator.getRelatedTabsForId(1)).thenReturn(List.of(mTab1, mTab2));
+
+        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
+        int state = mDelegate.getMediaIndicatorState(mTab1, model);
+        assertEquals(MediaState.RECORDING, state);
+    }
+
+    @Test
+    public void testGetMediaIndicatorState_InGroup_RepTabHasMaxPriority() {
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab1.getMediaState()).thenReturn(MediaState.MAX_VALUE);
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+
+        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
+        int state = mDelegate.getMediaIndicatorState(mTab1, model);
+        assertEquals(MediaState.MAX_VALUE, state);
+
+        // Fast exit should mean getRelatedTabsForId is never called.
+        verify(mMediator, never()).getRelatedTabsForId(1);
+    }
+
+    @Test
+    public void testGetMediaIndicatorState_InGroup_RepTabHasHigherPriority() {
+        when(mTab1.getId()).thenReturn(1);
+        when(mTab1.getMediaState()).thenReturn(MediaState.RECORDING);
+        when(mTab2.getMediaState()).thenReturn(MediaState.AUDIBLE);
+
+        when(mMediator.isTabInTabGroup(mTab1)).thenReturn(true);
+        when(mMediator.getRelatedTabsForId(1)).thenReturn(List.of(mTab1, mTab2));
+
+        PropertyModel model = new PropertyModel(TabProperties.ALL_KEYS_TAB_GRID);
+        int state = mDelegate.getMediaIndicatorState(mTab1, model);
+        assertEquals(MediaState.RECORDING, state);
+    }
+
+    @Test
+    public void testGetInsertionIndexOfTab() {
+        createAndAddPropertyModel(TAB1_ID);
+
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(2);
+        setupRepresentativeTab(mTab1, mTab1, 0);
+        setupRepresentativeTab(mTab2, mTab2, 1);
+
+        int insertionIndex1 = mDelegate.getInsertionIndexOfTab(mTab1);
+        int insertionIndex2 = mDelegate.getInsertionIndexOfTab(mTab2);
+
+        assertEquals(0, insertionIndex1);
+        assertEquals(1, insertionIndex2);
+    }
+
+    @Test
+    public void testGetInsertionIndexOfTab_WithArchivedTabGroup() {
+        // Add an archived group card at index 0.
+        PropertyModel archivedModel =
+                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
+                        .with(CARD_TYPE, ARCHIVED_TAB_GROUP)
+                        .build();
+        mModelList.add(new ListItem(TabProperties.UiType.TAB, archivedModel));
+
+        // Add a regular tab model card at index 1.
+        createAndAddPropertyModel(TAB1_ID);
+
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(1);
+        setupRepresentativeTab(mTab1, mTab1, 0);
+
+        int insertionIndex = mDelegate.getInsertionIndexOfTab(mTab1);
+
+        // Insertion index should be offset by 1 (due to archived card) and return 1.
+        assertEquals(1, insertionIndex);
+    }
+
+    @Test
+    public void testGetInsertionIndexOfTab_NullTab() {
+        int insertionIndex = mDelegate.getInsertionIndexOfTab(null);
+        assertEquals(TabModel.INVALID_TAB_INDEX, insertionIndex);
+    }
+
+    @Test
+    public void testOnTabAdded_NewTab_Standalone() {
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(1);
+        setupRepresentativeTab(mTab1, mTab1, 0);
+
+        int index = mDelegate.onTabAdded(mTab1);
+
+        assertEquals(0, index);
+        verify(mMediator).addTabCardToModel(mTab1, 0);
+    }
+
+    @Test
+    public void testOnTabAdded_NewTabInGroup_RepresentativeTab() {
+        when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(1);
+        setupRepresentativeTab(mTab1, mTab1, 0);
+
+        int index = mDelegate.onTabAdded(mTab1);
+
+        assertEquals(0, index);
+        verify(mMediator).addTabCardToModel(mTab1, 0);
+    }
+
+    @Test
+    public void testOnTabAdded_NewTabInGroup_NonRepresentativeTab() {
+        when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(1);
+        setupRepresentativeTab(mTab2, mTab1, 0);
+
+        int index = mDelegate.onTabAdded(mTab2);
+
+        assertEquals(TabList.INVALID_TAB_INDEX, index);
+        verify(mMediator, never()).addTabCardToModel(any(), anyInt());
+    }
+
+    @Test
+    public void testOnTabAdded_AlreadyInModel() {
+        createAndAddPropertyModel(TAB1_ID);
+
+        int index = mDelegate.onTabAdded(mTab1);
+
+        assertEquals(0, index);
+        verify(mMediator, never()).addTabCardToModel(any(), anyInt());
     }
 
     @Test
@@ -84,7 +240,7 @@ public class GroupedLayoutDelegateUnitTest {
 
         verify(mMediator).updateTabGroupProperties(mTab1, model, TabGroupColorId.BLUE);
         verify(mMediator).updateFaviconForTab(model, mTab1, null, null);
-        verify(mMediator).updateDescriptionString(mTab1, model);
+        verify(mMediator).updateDescriptionString(model);
         verify(mMediator).updateActionButtonDescriptionString(mTab1, model);
         verify(mMediator).updateThumbnailFetcher(model, TAB1_ID);
     }
@@ -146,8 +302,7 @@ public class GroupedLayoutDelegateUnitTest {
         when(mTabModel.getTabCountForGroup(TAB_GROUP_ID)).thenReturn(2);
         when(mTab2.getTabGroupId()).thenReturn(TAB_GROUP_ID);
 
-        // Add to mModelList so indexFromTabId finds it.
-        PropertyModel model = createAndAddPropertyModel(TAB1_ID);
+        createAndAddPropertyModel(TAB1_ID);
 
         mDelegate.didMoveTabOutOfGroup(mTab1, 1);
 
@@ -175,7 +330,7 @@ public class GroupedLayoutDelegateUnitTest {
     public void testDidMergeTabToGroup() {
         setupTabsInModel(mTab1, mTab2);
         setupRepresentativeTab(mTab1, mTab1, 0);
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(Arrays.asList(mTab1, mTab2));
+        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1, mTab2));
 
         PropertyModel model1 = createAndAddPropertyModel(TAB1_ID);
         model1.set(TabProperties.TITLE, "Tab 1");
@@ -194,14 +349,14 @@ public class GroupedLayoutDelegateUnitTest {
     public void testDidMergeTabToGroup_UpdatesCards() {
         setupTabsInModel(mTab1, mTab2);
         setupRepresentativeTab(mTab2, mTab2, 0);
-        when(mMediator.getRelatedTabsForId(TAB2_ID)).thenReturn(Arrays.asList(mTab1, mTab2));
+        when(mMediator.getRelatedTabsForId(TAB2_ID)).thenReturn(List.of(mTab1, mTab2));
         when(mTabModel.getTabById(TAB1_ID)).thenReturn(mTab1);
         when(mTab1.getTabGroupId()).thenReturn(TAB_GROUP_ID);
         when(mTabModel.getGroupLastShownTabId(TAB_GROUP_ID)).thenReturn(TAB2_ID);
         when(mTabModel.getTabById(TAB2_ID)).thenReturn(mTab2);
 
-        // Only mTab1 is in the model list
-        PropertyModel model1 = createAndAddPropertyModel(TAB1_ID);
+        // Only TAB1_ID is in the model list
+        createAndAddPropertyModel(TAB1_ID);
 
         mDelegate.didMergeTabToGroup(mTab2, false);
 
@@ -213,13 +368,13 @@ public class GroupedLayoutDelegateUnitTest {
 
     @Test
     public void testDidMoveTabGroup() {
-        // Setup mModelList: [TAB2, TAB1].
-        PropertyModel model2 = createAndAddPropertyModel(TAB2_ID);
-        PropertyModel model1 = createAndAddPropertyModel(TAB1_ID);
+        // Setup mModelList: [TAB2_ID, TAB1_ID].
+        createAndAddPropertyModel(TAB2_ID);
+        createAndAddPropertyModel(TAB1_ID);
 
-        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(Arrays.asList(mTab1));
-        when(mTabModel.getRelatedTabList(TAB1_ID)).thenReturn(Arrays.asList(mTab1));
-        when(mTabModel.getRelatedTabList(TAB2_ID)).thenReturn(Arrays.asList(mTab2));
+        when(mMediator.getRelatedTabsForId(TAB1_ID)).thenReturn(List.of(mTab1));
+        when(mTabModel.getRelatedTabList(TAB1_ID)).thenReturn(List.of(mTab1));
+        when(mTabModel.getRelatedTabList(TAB2_ID)).thenReturn(List.of(mTab2));
 
         // After move, mTab1 is at 0, mTab2 is at 1. We mock the destination tab for calculating new
         // position.
@@ -236,20 +391,18 @@ public class GroupedLayoutDelegateUnitTest {
 
     @Test
     public void testDidMoveTabGroup_NonExistentTab() {
-        Tab newTab = org.mockito.Mockito.mock(Tab.class);
-        when(newTab.getId()).thenReturn(999);
-        when(newTab.getTabGroupId()).thenReturn(TAB_GROUP_ID);
+        when(mTab3.getTabGroupId()).thenReturn(TAB_GROUP_ID);
 
-        when(mMediator.getRelatedTabsForId(999)).thenReturn(Arrays.asList(newTab));
-        when(mTabModel.getRelatedTabList(999)).thenReturn(Arrays.asList(newTab));
-        when(mTabModel.getTabAt(2)).thenReturn(newTab);
+        when(mMediator.getRelatedTabsForId(TAB3_ID)).thenReturn(List.of(mTab3));
+        when(mTabModel.getRelatedTabList(TAB3_ID)).thenReturn(List.of(mTab3));
+        when(mTabModel.getTabAt(2)).thenReturn(mTab3);
 
-        setupRepresentativeTab(newTab, newTab, 1);
-        when(mTabModel.getRepresentativeTabAt(2)).thenReturn(newTab);
-        when(mTabModel.representativeIndexOf(newTab)).thenReturn(2);
+        setupRepresentativeTab(mTab3, mTab3, 1);
+        when(mTabModel.getRepresentativeTabAt(2)).thenReturn(mTab3);
+        when(mTabModel.representativeIndexOf(mTab3)).thenReturn(2);
 
         // mModelList is empty at this point, so the tab is non-existent.
-        mDelegate.didMoveTabGroup(newTab, 2, 1);
+        mDelegate.didMoveTabGroup(mTab3, 2, 1);
 
         // Verify it doesn't crash and we don't try to update a tab.
         verify(mMediator, never()).updateTab(anyInt(), any(), anyBoolean(), anyBoolean());
@@ -278,48 +431,6 @@ public class GroupedLayoutDelegateUnitTest {
 
         verify(mMediator, never()).updateTabGroupProperties(any(), any(), anyInt());
         verify(mMediator, never()).updateFaviconForTab(any(), any(), any(), any());
-    }
-
-    @Test
-    public void testGetInsertionIndexOfTab() {
-        createAndAddPropertyModel(TAB1_ID);
-
-        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(2);
-        setupRepresentativeTab(mTab1, mTab1, 0);
-        setupRepresentativeTab(mTab2, mTab2, 1);
-
-        int insertionIndex1 = mDelegate.getInsertionIndexOfTab(mTab1);
-        int insertionIndex2 = mDelegate.getInsertionIndexOfTab(mTab2);
-
-        assertEquals(0, insertionIndex1);
-        assertEquals(1, insertionIndex2);
-    }
-
-    @Test
-    public void testGetInsertionIndexOfTab_WithArchivedTabGroup() {
-        // Add an archived group card at index 0.
-        PropertyModel archivedModel =
-                new PropertyModel.Builder(TabProperties.ALL_KEYS_TAB_GRID)
-                        .with(CARD_TYPE, ARCHIVED_TAB_GROUP)
-                        .build();
-        mModelList.add(new ListItem(TabProperties.UiType.TAB, archivedModel));
-
-        // Add a regular tab model card at index 1.
-        createAndAddPropertyModel(TAB1_ID);
-
-        when(mTabModel.getIndividualTabAndGroupCount()).thenReturn(1);
-        setupRepresentativeTab(mTab1, mTab1, 0);
-
-        int insertionIndex = mDelegate.getInsertionIndexOfTab(mTab1);
-
-        // Insertion index should be offset by 1 (due to archived card) and return 1.
-        assertEquals(1, insertionIndex);
-    }
-
-    @Test
-    public void testGetInsertionIndexOfTab_NullTab() {
-        int insertionIndex = mDelegate.getInsertionIndexOfTab(null);
-        assertEquals(TabModel.INVALID_TAB_INDEX, insertionIndex);
     }
 
     private PropertyModel createAndAddPropertyModel(int tabId) {

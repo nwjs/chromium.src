@@ -36,11 +36,7 @@
 namespace blink {
 
 LayoutSVGContainer::LayoutSVGContainer(SVGElement* node)
-    : LayoutSVGModelObject(node),
-      needs_transform_update_(true),
-      transform_uses_reference_box_(false),
-      has_non_isolated_blending_descendants_(false),
-      has_non_isolated_blending_descendants_dirty_(false) {}
+    : LayoutSVGModelObject(node) {}
 
 LayoutSVGContainer::~LayoutSVGContainer() = default;
 
@@ -161,9 +157,11 @@ void LayoutSVGContainer::RemoveChild(LayoutObject* child) {
 void LayoutSVGContainer::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutSVGModelObject::StyleDidChange(diff, old_style, style_change_context);
+  LayoutSVGModelObject::StyleDidChange(diff, old_style, new_style,
+                                       style_change_context);
 
   if (IsSVGHiddenContainer()) {
     return;
@@ -173,7 +171,7 @@ void LayoutSVGContainer::StyleDidChange(
       old_style &&
       SVGLayoutSupport::WillIsolateBlendingDescendantsForStyle(*old_style);
   const bool will_isolate_blending_descendants =
-      SVGLayoutSupport::WillIsolateBlendingDescendantsForStyle(StyleRef());
+      SVGLayoutSupport::WillIsolateBlendingDescendantsForStyle(new_style);
   const bool isolation_changed =
       had_isolation != will_isolate_blending_descendants;
 

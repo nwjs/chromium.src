@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "base/containers/flat_set.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/webid/delegation/email_verification_request.h"
 #include "content/browser/webid/flags.h"
@@ -70,21 +71,25 @@ RequestTokenStatus FederatedRequestResultToRequestTokenStatus(
     case FederatedRequestResult::kDisabledInFlags:
     case FederatedRequestResult::kWellKnownHttpNotFound:
     case FederatedRequestResult::kWellKnownNoResponse:
+    case FederatedRequestResult::kWellKnownBlockedByConnectionAllowlist:
     case FederatedRequestResult::kWellKnownInvalidResponse:
     case FederatedRequestResult::kWellKnownListEmpty:
     case FederatedRequestResult::kWellKnownInvalidContentType:
     case FederatedRequestResult::kConfigNotInWellKnown:
     case FederatedRequestResult::kWellKnownTooBig:
     case FederatedRequestResult::kConfigHttpNotFound:
+    case FederatedRequestResult::kConfigBlockedByConnectionAllowlist:
     case FederatedRequestResult::kConfigNoResponse:
     case FederatedRequestResult::kConfigInvalidResponse:
     case FederatedRequestResult::kConfigInvalidContentType:
     case FederatedRequestResult::kAccountsHttpNotFound:
+    case FederatedRequestResult::kAccountsBlockedByConnectionAllowlist:
     case FederatedRequestResult::kAccountsNoResponse:
     case FederatedRequestResult::kAccountsInvalidResponse:
     case FederatedRequestResult::kAccountsListEmpty:
     case FederatedRequestResult::kAccountsInvalidContentType:
     case FederatedRequestResult::kIdTokenHttpNotFound:
+    case FederatedRequestResult::kIdTokenBlockedByConnectionAllowlist:
     case FederatedRequestResult::kIdTokenNoResponse:
     case FederatedRequestResult::kIdTokenInvalidResponse:
     case FederatedRequestResult::kIdTokenIdpErrorResponse:
@@ -141,11 +146,15 @@ MetricsEndpointErrorCode FederatedRequestResultToMetricsEndpointErrorCode(
     }
     case FederatedRequestResult::kWellKnownHttpNotFound:
     case FederatedRequestResult::kWellKnownNoResponse:
+    case FederatedRequestResult::kWellKnownBlockedByConnectionAllowlist:
     case FederatedRequestResult::kConfigHttpNotFound:
+    case FederatedRequestResult::kConfigBlockedByConnectionAllowlist:
     case FederatedRequestResult::kConfigNoResponse:
     case FederatedRequestResult::kAccountsHttpNotFound:
+    case FederatedRequestResult::kAccountsBlockedByConnectionAllowlist:
     case FederatedRequestResult::kAccountsNoResponse:
     case FederatedRequestResult::kIdTokenHttpNotFound:
+    case FederatedRequestResult::kIdTokenBlockedByConnectionAllowlist:
     case FederatedRequestResult::kIdTokenNoResponse: {
       return MetricsEndpointErrorCode::kIdpServerUnavailable;
     }
@@ -176,6 +185,9 @@ AccountParseStatusToRequestResultAndTokenStatus(ParseStatus parse_status) {
     case ParseStatus::kHttpNotFoundError:
       return {FederatedRequestResult::kAccountsHttpNotFound,
               RequestIdTokenStatus::kAccountsHttpNotFound};
+    case ParseStatus::kBlockedByConnectionAllowlist:
+      return {FederatedRequestResult::kAccountsBlockedByConnectionAllowlist,
+              RequestIdTokenStatus::kAccountsBlockedByConnectionAllowlist};
     case ParseStatus::kNoResponseError:
       return {FederatedRequestResult::kAccountsNoResponse,
               RequestIdTokenStatus::kAccountsNoResponse};
@@ -260,6 +272,9 @@ IdAssertionFetchStatusToRequestResultAndTokenStatus(FetchStatus status) {
     case ParseStatus::kHttpNotFoundError:
       return {FederatedRequestResult::kIdTokenHttpNotFound,
               RequestIdTokenStatus::kIdTokenHttpNotFound};
+    case ParseStatus::kBlockedByConnectionAllowlist:
+      return {FederatedRequestResult::kIdTokenBlockedByConnectionAllowlist,
+              RequestIdTokenStatus::kIdTokenBlockedByConnectionAllowlist};
     case ParseStatus::kNoResponseError: {
       if (status.cors_error) {
         return {FederatedRequestResult::kCorsError,
@@ -286,6 +301,11 @@ EmailVerificationRequestResult WellKnownParseStatusToEvpRequestStatus(
   switch (parse_status) {
     case ParseStatus::kHttpNotFoundError:
       return EmailVerificationRequestResult::kWellKnownHttpNotFound;
+    // TODO(crbug.com/535664990): Map
+    // `ParseStatus::kBlockedByConnectionAllowlist` to a new
+    // `EmailVerificationRequestResult` enum specific to request blocked by
+    // connection allowlist.
+    case ParseStatus::kBlockedByConnectionAllowlist:
     case ParseStatus::kNoResponseError:
       return EmailVerificationRequestResult::kWellKnownNoResponse;
     case ParseStatus::kInvalidResponseError:
@@ -306,6 +326,11 @@ EmailVerificationWellKnownParseStatusToEvpRequestStatus(
     case ParseStatus::kHttpNotFoundError:
       return EmailVerificationRequestResult::
           kEmailVerificationWellKnownHttpNotFound;
+    // TODO(crbug.com/535664990): Map
+    // `ParseStatus::kBlockedByConnectionAllowlist` to a new
+    // `EmailVerificationRequestResult` enum specific to request blocked
+    // by connection allowlist.
+    case ParseStatus::kBlockedByConnectionAllowlist:
     case ParseStatus::kNoResponseError:
       return EmailVerificationRequestResult::
           kEmailVerificationWellKnownNoResponse;
@@ -327,6 +352,11 @@ EmailVerificationRequestResult AccountsListParseStatusToEvpRequestStatus(
   switch (parse_status) {
     case ParseStatus::kHttpNotFoundError:
       return EmailVerificationRequestResult::kAccountsHttpNotFound;
+      // TODO(crbug.com/535664990): Map
+    // `ParseStatus::kBlockedByConnectionAllowlist` to a new
+    // `EmailVerificationRequestResult` enum specific to request blocked
+    // by connection allowlist.
+    case ParseStatus::kBlockedByConnectionAllowlist:
     case ParseStatus::kNoResponseError:
       return EmailVerificationRequestResult::kAccountsNoResponse;
     case ParseStatus::kInvalidResponseError:
@@ -345,6 +375,11 @@ EmailVerificationRequestResult TokenParseStatusToEvpRequestStatus(
   switch (parse_status) {
     case ParseStatus::kHttpNotFoundError:
       return EmailVerificationRequestResult::kTokenHttpNotFound;
+      // TODO(crbug.com/535664990): Map
+    // `ParseStatus::kBlockedByConnectionAllowlist` to a new
+    // `EmailVerificationRequestResult` enum specific to request blocked
+    // by connection allowlist.
+    case ParseStatus::kBlockedByConnectionAllowlist:
     case ParseStatus::kNoResponseError:
       return EmailVerificationRequestResult::kTokenNoResponse;
     case ParseStatus::kInvalidResponseError:
@@ -352,6 +387,28 @@ EmailVerificationRequestResult TokenParseStatusToEvpRequestStatus(
     case ParseStatus::kInvalidContentTypeError:
       return EmailVerificationRequestResult::kTokenInvalidContentType;
     case ParseStatus::kEmptyListError:
+    case ParseStatus::kSuccess:
+      NOTREACHED();
+  }
+}
+
+EmailVerificationRequestResult JwksParseStatusToEvpRequestStatus(
+    ParseStatus parse_status) {
+  switch (parse_status) {
+    case ParseStatus::kHttpNotFoundError:
+      return EmailVerificationRequestResult::kJwksHttpNotFound;
+    // TODO(crbug.com/535664990): Map
+    // `ParseStatus::kBlockedByConnectionAllowlist` to a new
+    // `EmailVerificationRequestResult` enum specific to request blocked
+    // by connection allowlist.
+    case ParseStatus::kBlockedByConnectionAllowlist:
+    case ParseStatus::kNoResponseError:
+      return EmailVerificationRequestResult::kJwksHttpNotFound;
+    case ParseStatus::kInvalidResponseError:
+      return EmailVerificationRequestResult::kJwksInvalidResponse;
+    case ParseStatus::kEmptyListError:
+    case ParseStatus::kInvalidContentTypeError:
+      return EmailVerificationRequestResult::kJwksInvalidResponse;
     case ParseStatus::kSuccess:
       NOTREACHED();
   }
@@ -445,21 +502,23 @@ std::vector<IdentityRequestDialogDisclosureField> GetDisclosureFields(
     return {};
   }
 
-  std::vector<IdentityRequestDialogDisclosureField> list;
+  base::flat_set<IdentityRequestDialogDisclosureField> set;
   for (const auto& field : *fields) {
     if (field == kDefaultFieldName) {
-      list.push_back(IdentityRequestDialogDisclosureField::kName);
+      set.insert(IdentityRequestDialogDisclosureField::kName);
     } else if (field == kDefaultFieldEmail) {
-      list.push_back(IdentityRequestDialogDisclosureField::kEmail);
+      set.insert(IdentityRequestDialogDisclosureField::kEmail);
     } else if (field == kDefaultFieldPicture) {
-      list.push_back(IdentityRequestDialogDisclosureField::kPicture);
+      set.insert(IdentityRequestDialogDisclosureField::kPicture);
     } else if (field == kFieldPhoneNumber) {
-      list.push_back(IdentityRequestDialogDisclosureField::kPhoneNumber);
+      set.insert(IdentityRequestDialogDisclosureField::kPhoneNumber);
     } else if (field == kFieldUsername) {
-      list.push_back(IdentityRequestDialogDisclosureField::kUsername);
+      set.insert(IdentityRequestDialogDisclosureField::kUsername);
     }
   }
-  return list;
+  // the ordering will be determined by the value in the Enum definition.
+  return std::vector<IdentityRequestDialogDisclosureField>(set.begin(),
+                                                           set.end());
 }
 
 void ComputeAccountFields(
@@ -515,21 +574,29 @@ FederatedLoginResult FederatedRequestResultToFederatedLoginResult(
     case blink::mojom::FederatedRequestResult::kIdpNotPotentiallyTrustworthy:
     case blink::mojom::FederatedRequestResult::kWellKnownHttpNotFound:
     case blink::mojom::FederatedRequestResult::kWellKnownNoResponse:
+    case blink::mojom::FederatedRequestResult::
+        kWellKnownBlockedByConnectionAllowlist:
     case blink::mojom::FederatedRequestResult::kWellKnownInvalidResponse:
     case blink::mojom::FederatedRequestResult::kWellKnownListEmpty:
     case blink::mojom::FederatedRequestResult::kWellKnownInvalidContentType:
     case blink::mojom::FederatedRequestResult::kConfigNotInWellKnown:
     case blink::mojom::FederatedRequestResult::kWellKnownTooBig:
     case blink::mojom::FederatedRequestResult::kConfigHttpNotFound:
+    case blink::mojom::FederatedRequestResult::
+        kConfigBlockedByConnectionAllowlist:
     case blink::mojom::FederatedRequestResult::kConfigNoResponse:
     case blink::mojom::FederatedRequestResult::kConfigInvalidResponse:
     case blink::mojom::FederatedRequestResult::kConfigInvalidContentType:
     case blink::mojom::FederatedRequestResult::kAccountsHttpNotFound:
+    case blink::mojom::FederatedRequestResult::
+        kAccountsBlockedByConnectionAllowlist:
     case blink::mojom::FederatedRequestResult::kAccountsNoResponse:
     case blink::mojom::FederatedRequestResult::kAccountsInvalidResponse:
     case blink::mojom::FederatedRequestResult::kAccountsListEmpty:
     case blink::mojom::FederatedRequestResult::kAccountsInvalidContentType:
     case blink::mojom::FederatedRequestResult::kIdTokenHttpNotFound:
+    case blink::mojom::FederatedRequestResult::
+        kIdTokenBlockedByConnectionAllowlist:
     case blink::mojom::FederatedRequestResult::kIdTokenNoResponse:
     case blink::mojom::FederatedRequestResult::kIdTokenInvalidResponse:
     case blink::mojom::FederatedRequestResult::kIdTokenInvalidContentType:

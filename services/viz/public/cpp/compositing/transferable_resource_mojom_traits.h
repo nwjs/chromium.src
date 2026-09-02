@@ -7,12 +7,13 @@
 
 #include <optional>
 
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "components/viz/common/resources/resource_id.h"
 #include "components/viz/common/resources/transferable_resource.h"
+#include "mojo/public/cpp/bindings/deserialization_error.h"
 #include "services/viz/public/mojom/compositing/transferable_resource.mojom-shared.h"
 #include "skia/public/mojom/image_info_mojom_traits.h"
-#include "skia/public/mojom/surface_origin_mojom_traits.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "gpu/ipc/common/vulkan_ycbcr_info_mojom_traits.h"
@@ -34,18 +35,14 @@ struct StructTraits<viz::mojom::MetadataOverrideDataView,
     return input.color_space;
   }
 
-  static const std::optional<GrSurfaceOrigin>& origin(
-      const viz::TransferableResource::MetadataOverride& input) {
-    return input.origin;
-  }
-
   static const std::optional<SkAlphaType>& alpha_type(
       const viz::TransferableResource::MetadataOverride& input) {
     return input.alpha_type;
   }
 
-  static bool Read(viz::mojom::MetadataOverrideDataView data,
-                   viz::TransferableResource::MetadataOverride* out);
+  static base::expected<void, DeserializationError> Read(
+      viz::mojom::MetadataOverrideDataView data,
+      viz::TransferableResource::MetadataOverride* out);
 };
 
 template <>
@@ -129,8 +126,9 @@ struct StructTraits<viz::mojom::TransferableResourceDataView,
     return resource.metadata_override();
   }
 
-  static bool Read(viz::mojom::TransferableResourceDataView data,
-                   viz::TransferableResource* out);
+  static base::expected<void, DeserializationError> Read(
+      viz::mojom::TransferableResourceDataView data,
+      viz::TransferableResource* out);
 };
 
 }  // namespace mojo

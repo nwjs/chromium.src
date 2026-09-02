@@ -455,7 +455,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Translate.PageLoad.InitialState" enum="TranslateState"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>megjablon@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -594,7 +594,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Translate.PartialTranslateBubbleUiEvent"
-    enum="PartialTranslateBubbleUiEvent" expires_after="2026-03-24">
+    enum="PartialTranslateBubbleUiEvent" expires_after="2027-07-28">
   <owner>cuianthony@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>Tracks UI events related to the Partial Translate bubble.</summary>
@@ -632,7 +632,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Translate.PartialTranslation.SourceLanguage"
-    enum="LocaleCodeBCP47" expires_after="2026-11-29">
+    enum="LocaleCodeBCP47" expires_after="2027-02-07">
   <owner>cuianthony@google.com</owner>
   <owner>chrome-language@google.com</owner>
   <summary>
@@ -669,6 +669,26 @@ chromium-metrics-reviews@google.com.
   <summary>
     Logs the completion status of a Partial Translation. This is recorded when a
     Partial Translation is completed.
+  </summary>
+</histogram>
+
+<histogram name="Translate.PDF.SourceLanguage" enum="LocaleCodeBCP47"
+    expires_after="2027-01-03">
+  <owner>danft@google.com</owner>
+  <owner>chrome-language@google.com</owner>
+  <summary>
+    Records the hashcode of the source language used for a PDF translation. This
+    is recorded when a PDF translation is started.
+  </summary>
+</histogram>
+
+<histogram name="Translate.PDF.TargetLanguage" enum="LocaleCodeBCP47"
+    expires_after="2027-01-03">
+  <owner>danft@google.com</owner>
+  <owner>chrome-language@google.com</owner>
+  <summary>
+    Records the hashcode of the target language used for a PDF translation. This
+    is recorded when a PDF translation is started.
   </summary>
 </histogram>
 

@@ -7,13 +7,13 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "ash/constants/ash_features.h"
 #include "base/check_deref.h"
-#include "base/containers/adapters.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -222,7 +222,7 @@ base::FilePath GetFullPath(internal::ResourceMetadataStorage* metadata_storage,
     return {};
   }
   base::FilePath path("/");
-  for (const std::string& component : base::Reversed(path_components)) {
+  for (const std::string& component : std::views::reverse(path_components)) {
     path = path.Append(component);
   }
   return path;
@@ -474,6 +474,7 @@ class DriveIntegrationService::DriveFsHolder
   // `local_state` must be non-null and must outlive `this`.
   DriveFsHolder(PrefService* local_state,
                 Profile* profile,
+                signin::IdentityManager* identity_manager,
                 drivefs::DriveFsHost::MountObserver* mount_observer,
                 DriveFsMojoListenerFactory test_drivefs_mojo_listener_factory)
       : local_state_(CHECK_DEREF(local_state)),
@@ -482,6 +483,7 @@ class DriveIntegrationService::DriveFsHolder
         test_drivefs_mojo_listener_factory_(
             std::move(test_drivefs_mojo_listener_factory)),
         drivefs_host_(profile_->GetPath(),
+                      identity_manager,
                       this,
                       this,
                       content::GetNetworkConnectionTracker(),
@@ -499,10 +501,6 @@ class DriveIntegrationService::DriveFsHolder
   scoped_refptr<network::SharedURLLoaderFactory> GetURLLoaderFactory()
       override {
     return profile_->GetURLLoaderFactory();
-  }
-
-  signin::IdentityManager* GetIdentityManager() override {
-    return IdentityManagerFactory::GetForProfile(profile_);
   }
 
   const AccountId& GetAccountId() override {
@@ -649,6 +647,7 @@ class DriveIntegrationService::DriveFsHolder
 DriveIntegrationService::DriveIntegrationService(
     PrefService* local_state,
     Profile* const profile,
+    signin::IdentityManager* identity_manager,
     const std::string& test_mount_point_name,
     const base::FilePath& test_cache_root,
     DriveFsMojoListenerFactory test_drivefs_mojo_listener_factory)
@@ -660,6 +659,7 @@ DriveIntegrationService::DriveIntegrationService(
       drivefs_holder_(std::make_unique<DriveFsHolder>(
           local_state,
           profile,
+          identity_manager,
           this,
           std::move(test_drivefs_mojo_listener_factory))) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);

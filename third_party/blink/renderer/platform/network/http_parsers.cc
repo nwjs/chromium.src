@@ -34,12 +34,12 @@
 
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
 
 #include "base/compiler_specific.h"
-#include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
@@ -423,7 +423,7 @@ blink::ParsedHeadersPtr ConvertToBlink(const ParsedHeadersPtr& in) {
           ? std::make_optional(ConvertToBlink(in->content_language.value()))
           : std::nullopt,
       ConvertToBlink(in->no_vary_search_with_parse_error),
-      in->observe_browsing_topics, in->allow_cross_origin_event_reporting,
+      in->allow_cross_origin_event_reporting,
       /*declarative_performance_observer_policy=*/nullptr,
       in->prefetch_activation_beacon_endpoint.has_value()
           ? std::make_optional(
@@ -1042,15 +1042,6 @@ bool ParseMultipartFormHeadersFromBody(base::span<const uint8_t> bytes,
   return true;
 }
 
-bool ParseContentRangeHeaderFor206(const String& content_range,
-                                   int64_t* first_byte_position,
-                                   int64_t* last_byte_position,
-                                   int64_t* instance_length) {
-  return net::HttpUtil::ParseContentRangeHeaderFor206(
-      StringUtf8Adaptor(content_range).AsStringView(), first_byte_position,
-      last_byte_position, instance_length);
-}
-
 std::unique_ptr<ServerTimingHeaderVector> ParseServerTimingHeader(
     const String& headerValue) {
   std::unique_ptr<ServerTimingHeaderVector> headers =
@@ -1151,14 +1142,14 @@ ParseContentSecurityPolicyHeaders(
           network::mojom::blink::ContentSecurityPolicyType::kReport,
           network::mojom::blink::ContentSecurityPolicySource::kHTTP,
           headers.ResponseUrl());
-  parsed_csps.append_range(base::RangeAsRvalues(std::move(report_only_csps)));
+  parsed_csps.append_range(std::views::as_rvalue(report_only_csps));
   return parsed_csps;
 }
 
-network::mojom::blink::CSPSourceListPtr ParseAllowedOrigins(
+network::mojom::blink::CSPSourceListPtr ParseAllowOrigins(
     const String& raw_value) {
   std::vector<std::string> parsing_errors;
-  // `allowed-origins` uses the same syntax as CSP `frame-ancestors`.
+  // `allow-origins` uses the same syntax as CSP `frame-ancestors`.
   return network::mojom::ConvertToBlink(
       network::ParseSourceList(network::mojom::CSPDirectiveName::FrameAncestors,
                                raw_value.Utf8(), parsing_errors));

@@ -267,8 +267,10 @@ void FormStructureRationalizer::RationalizeAutocompleteAttributes(
                 features::kAutofillEnableExpirationDateImprovements)) {
           FieldType server_hint = field->server_type();
           FieldType forced_field_type =
-              field->server_type_prediction_is_override() ? field->server_type()
-                                                          : NO_SERVER_DATA;
+              field->PredictionSource() ==
+                      AutofillPredictionSource::kServerOverride
+                  ? field->server_type()
+                  : NO_SERVER_DATA;
           CreditCardFieldParser::ExpirationDateFormat format =
               CreditCardFieldParser::DetermineExpirationDateFormat(
                   *field, /*fallback_type=*/CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR,
@@ -295,8 +297,10 @@ void FormStructureRationalizer::RationalizeAutocompleteAttributes(
                 features::kAutofillEnableExpirationDateImprovements)) {
           FieldType server_hint = field->server_type();
           FieldType forced_field_type =
-              field->server_type_prediction_is_override() ? field->server_type()
-                                                          : NO_SERVER_DATA;
+              field->PredictionSource() ==
+                      AutofillPredictionSource::kServerOverride
+                  ? field->server_type()
+                  : NO_SERVER_DATA;
           // The default for select or list elements does not really matter
           // because it's practically always chosen from the select options.
           // The default for text elements was chosen base on statistics from
@@ -573,8 +577,10 @@ void FormStructureRationalizer::RationalizeCreditCardFieldPredictions(
           current_field_type == CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR) {
         FieldType server_hint = field->server_type();
         FieldType forced_field_type =
-            field->server_type_prediction_is_override() ? server_hint
-                                                        : NO_SERVER_DATA;
+            field->PredictionSource() ==
+                    AutofillPredictionSource::kServerOverride
+                ? server_hint
+                : NO_SERVER_DATA;
         CreditCardFieldParser::ExpirationDateFormat format =
             CreditCardFieldParser::DetermineExpirationDateFormat(
                 *field, /*fallback_type=*/CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR,
@@ -869,7 +875,8 @@ void FormStructureRationalizer::RationalizeStreetAddressAndAddressLine(
     if (previous_field.ComputedType().GetAddressType() !=
             ADDRESS_HOME_STREET_ADDRESS ||
         previous_field.section() != (*field)->section() ||
-        previous_field.server_type_prediction_is_override()) {
+        previous_field.PredictionSource() ==
+            AutofillPredictionSource::kServerOverride) {
       continue;
     }
     LOG_AF(log_manager)
@@ -1012,10 +1019,11 @@ void FormStructureRationalizer::RationalizeRepeatedZipCodeFields(
   auto has_zip_type = [](const std::unique_ptr<AutofillField>& field) {
     FieldType type = field->ComputedType().GetAddressType();
     return field->is_visible() &&
-           (type == ADDRESS_HOME_ZIP || type == ADDRESS_HOME_ZIP_SUFFIX);
+           (type == ADDRESS_HOME_ZIP || type == ADDRESS_HOME_ZIP_PREFIX ||
+            type == ADDRESS_HOME_ZIP_SUFFIX);
   };
-  // Invariant: All fields in [begin, end[ are ADDRESS_HOME_ZIP or
-  // ADDRESS_HOME_ZIP_SUFFIX.
+  // Invariant: All fields in [begin, end[ are ADDRESS_HOME_ZIP,
+  // ADDRESS_HOME_ZIP_PREFIX or ADDRESS_HOME_ZIP_SUFFIX.
   auto begin = fields_.begin();
   auto end = begin;
   while ((begin = std::find_if(end, fields_.end(), has_zip_type)) !=
@@ -1029,7 +1037,21 @@ void FormStructureRationalizer::RationalizeRepeatedZipCodeFields(
     const bool is_max_length_small =
         first_zip.max_length() <= kMaxZipCodePartLength &&
         second_zip.max_length() <= kMaxZipCodePartLength;
-    if (second_zip.Type().GetAddressType() == ADDRESS_HOME_ZIP_SUFFIX) {
+    const bool is_first_prefix =
+        first_zip.Type().GetAddressType() == ADDRESS_HOME_ZIP_PREFIX;
+    const bool is_second_suffix =
+        second_zip.Type().GetAddressType() == ADDRESS_HOME_ZIP_SUFFIX;
+    if (is_first_prefix && is_second_suffix) {
+      continue;
+    }
+    if (is_first_prefix) {
+      LOG_AF(log_manager)
+          << LoggingScope::kRationalization << LogMessage::kRationalization
+          << "Zip Code Rationalization: Converting sequence of (zip_prefix, "
+             "zip) to (zip_prefix, zip_suffix)";
+      second_zip.SetTypeTo(AutofillType(ADDRESS_HOME_ZIP_SUFFIX),
+                           AutofillPredictionSource::kRationalization);
+    } else if (is_second_suffix) {
       LOG_AF(log_manager)
           << LoggingScope::kRationalization << LogMessage::kRationalization
           << "Zip Code Rationalization: Converting sequence of (zip, "

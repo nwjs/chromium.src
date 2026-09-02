@@ -31,7 +31,6 @@
 #include "components/optimization_guide/core/model_execution/test/fake_model_assets.h"
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
 #include "components/optimization_guide/core/model_execution/test/test_on_device_model_component_state_manager.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
@@ -57,6 +56,7 @@ using model_execution::prefs::localstate::
     kLastTimeEligibleForOnDeviceModelDownload;
 using model_execution::prefs::localstate::kLastUsageByFeature;
 using model_execution::prefs::localstate::kOnDeviceAiUserSettingsEnabled;
+using model_execution::prefs::localstate::kOnDevicePerformanceClassGPUId;
 using model_execution::prefs::localstate::kOnDevicePerformanceClassVersion;
 using ::on_device_model::mojom::PerformanceClass;
 
@@ -545,6 +545,8 @@ TEST_F(OnDeviceModelComponentTest, KeepInstalledWhileNotAllowed) {
   SimulateShutdown();
 
   broker_.local_state().SetString(kOnDevicePerformanceClassVersion, "0.0.0.1");
+  broker_.local_state().SetString(kOnDevicePerformanceClassGPUId,
+                                  "abcd:5678:1.0.0");
   // This performance class is not supported with `hints`.
   broker_.service_settings().performance_class = PerformanceClass::kVeryLow;
   DoStartup();
@@ -572,6 +574,8 @@ TEST_F(OnDeviceModelComponentTest, NeedsPerformanceClassUpdateEveryStartup) {
 
   broker_.launcher().clear_did_launch_service();
   broker_.service_settings().performance_class = PerformanceClass::kLow;
+  broker_.local_state().SetString(kOnDevicePerformanceClassGPUId,
+                                  "abcd:5678:1.0.0");
   DoStartup();
   EXPECT_FALSE(classifier().IsPerformanceClassAvailable());
   base::RunLoop run_loop2;

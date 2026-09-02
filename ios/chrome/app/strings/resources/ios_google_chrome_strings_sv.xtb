@@ -17,6 +17,7 @@
 <translation id="1237769345474105984">Från Chrome</translation>
 <translation id="124228879633599436">Den här versionen av Chrome är inaktuell. Se till att du är skyddad genom att uppdatera.</translation>
 <translation id="1258531953614971819">Tips för Chrome! Flytta Chrome till startskärmen</translation>
+<translation id="1333577334443425318">Ange Chrome som standardwebbläsare om du vill slippa kopiera länkar från andra appar.</translation>
 <translation id="1333745675627230582">Spela Chrome Dino-spelet</translation>
 <translation id="1343830902827845050">Logga in i Chrome</translation>
 <translation id="1352919863522755794">Google Lösenordshantering kunde inte kontrollera dina lösenord. Testa att kontrollera internetanslutningen.</translation>
@@ -26,7 +27,6 @@
 <translation id="1493827051843127077">Ställ in Chrome som standardwebbläsare och synkronisera flikar, lösenord och betalningsuppgifter på alla enheter</translation>
 <translation id="1504372625950710826">Chrome kunde inte söka efter uppdateringar. Testa att kontrollera internetanslutningen.</translation>
 <translation id="1516692594929310090">Öppnar rutnätet med flikar i Chrome.</translation>
-<translation id="152319127067424683">Kom åt Chrome snabbare från dockan på iPhone.</translation>
 <translation id="1526327845902180576">När detta är aktiverat:
 <ph name="BEGIN_INDENT" /> • Du hjälper oss att göra Chrome bättre för den som använder programmet på samma sätt som du.<ph name="END_INDENT" />
 
@@ -39,6 +39,7 @@ Tänk på detta:
 <translation id="1554731936187952550">Du har den starkaste säkerheten i Chrome mot skadliga webbplatser</translation>
 <translation id="155816064895200734">Ställ in Chrome som standardwebbläsare</translation>
 <translation id="1580570086594302477">Öppnar en ny inkognitoflik i Chrome.</translation>
+<translation id="1605168141396675642">Slipp krånglet med att kopiera. Öppna länkar direkt i Chrome.</translation>
 <translation id="1646463005043273333">Öppnar Chrome-inställningen för att ställa in Chrome som standardwebbläsare.</translation>
 <translation id="1670609221633730681">Tips för Chrome: Välj adressfältets position</translation>
 <translation id="1683863426423719967">Om du vill få flikpåminnelser från Chrome aktiverar du aviseringar i iOS-inställningarna.</translation>
@@ -64,7 +65,6 @@ Tänk på detta:
 <translation id="2212318912894837281">Ange lösenfrasen om du vill spara det här lösenordet och få Chrome-data på alla dina enheter</translation>
 <translation id="2213327331203157297">Om du vill inaktivera låsningsläget i Chrome kan du stänga av det på din iPhone.</translation>
 <translation id="2242467532204595597">Använd Chrome varje gång du trycker på länkar i meddelanden, dokument och andra appar.</translation>
-<translation id="2256384876478573507">Öppna Chrome snabbare när du vill surfa på din iPhone.</translation>
 <translation id="2270691132923135296">Lär dig grunderna i Chrome för att komma igång</translation>
 <translation id="2311240109311056604">Öppnar spelet Chrome Dino.</translation>
 <translation id="2339201583852607431">Lösenordet sparas i Google-kontot (<ph name="EMAIL" />).</translation>
@@ -73,8 +73,8 @@ Tänk på detta:
 <translation id="2423077901494354337">Nu får du ut mesta möjliga av Chrome på din enhet.</translation>
 <translation id="2427791862912929107">I Chrome finns det funktioner som du kan använda för att hantera din internetdata och inläsningshastigheten för webbsidor.
 <ph name="BEGIN_LINK" />Läs mer<ph name="END_LINK" /></translation>
+<translation id="2450221499140985490">Öppna länkar i meddelanden och dokument direkt i Chrome.</translation>
 <translation id="2464852008153767546">{THRESHOLD,plural, =1{Detta händer när Chrome inte har använts på {THRESHOLD} minut. Detta kan innefatta historik och autofyll.}other{Detta händer när Chrome inte har använts på {THRESHOLD} minuter. Detta kan innefatta historik och autofyll.}}</translation>
-<translation id="2531823184391665648">Öppna Chrome snabbare när du är vill surfa på din iPad.</translation>
 <translation id="2561231791489583059">Använd Chrome som standardwebbläsare med skydd mot skadliga webbplatser och skydd av dina lösenord</translation>
 <translation id="2574249610672786438">Logga in på alla dina enheter om du vill ha samma flikar tillgängliga på alla enheter där du använder Chrome</translation>
 <translation id="2576431527583832481">Chrome har blivit ännu bättre! En ny version finns tillgänglig.</translation>
@@ -107,10 +107,10 @@ Nya bokmärken kan inte sparas i ditt konto förrän du har raderat några. Om d
 <translation id="3140589780564632473">Sök efter bilder i Chrome</translation>
 <translation id="314782365035065913">Kom åt Chrome snabbare från hemskärmens docka</translation>
 <translation id="3167189358072330585">Kontot fungerar inte på Google Chrome. Kontakta domänadministratören eller logga in med ett vanligt Google-konto.</translation>
-<translation id="320747600144551583">Tips för Chrome! Slipp sådant du inte vill se med Förbättrad säker webbsökning</translation>
 <translation id="322254490661677575">Ange lösenfrasen om du vill använda och spara Chrome-data i ditt Google-konto.</translation>
 <translation id="3303503998967553377">Använda Chrome-åtgärder på iOS</translation>
 <translation id="3348862487678490430">Lägg till ett objekt från läslistan i Chrome</translation>
+<translation id="3350281376951945723">Öppna länkar snabbare när du ställer in Chrome som standard</translation>
 <translation id="3357827134511189025">Logga in med dina sparade lösenord och nycklar från vilken app som helst med Chrome för autofyll</translation>
 <translation id="3360031466389132716">{THRESHOLD,plural, =1{Detta händer när Chrome inte har använts på {THRESHOLD} minut}other{Detta händer när Chrome inte används på {THRESHOLD} minuter}}</translation>
 <translation id="3367797402528056312">Slutför inställningen av Chrome</translation>
@@ -131,15 +131,17 @@ Nya bokmärken kan inte sparas i ditt konto förrän du har raderat några. Om d
 <translation id="3827545470516145620">Du har standardsäkerhetsskydd på den här enheten</translation>
 <translation id="384394811301901750">Google Chrome kan inte använda kameran just nu</translation>
 <translation id="3863841106411295595">Lägger till de angivna webbadresserna i din läslista i Chrome.</translation>
+<translation id="3878515067127964393">Slipp kopiera. Ange Chrome som standardwebbläsare i iOS.</translation>
 <translation id="3901001113120561395">Få ut mesta möjliga av Chrome.</translation>
 <translation id="3913386780052199712">Inloggad i Chrome</translation>
+<translation id="3913747277937572860">Använd Chrome som standardwebbläsare och öppna webbinnehåll automatiskt.</translation>
 <translation id="3984746313391923992">Organisationen kräver att du inte loggar in i Chrome.</translation>
 <translation id="3988789688219830639">Google Chrome har inte åtkomst till dina foton eller videor. Aktivera åtkomst i iOS-inställningar &gt; Integritet &gt; Foton.</translation>
 <translation id="4064699917955374540">Verifiera din identitet om du vill använda och spara Chrome-data i ditt Google-konto.</translation>
 <translation id="411154422556990518">Få uppdateringar om prisbevakningar och tips för Chrome.</translation>
-<translation id="4167555379306984168">Se nyheterna i Chrome</translation>
 <translation id="417201473131094001">Stöds inte på Chrome Canary</translation>
 <translation id="424864128008805179">Vill du logga ut från Chrome?</translation>
+<translation id="4314240881330431451">Med Google Lens i Chrome kan du söka efter allt du ser</translation>
 <translation id="4409545895715116037">Följande nycklar importerades inte till Google Lösenordshantering eftersom de inte uppfyller kraven.</translation>
 <translation id="4430797724889237570">Öppna länkar från Gmail, Maps, YouTube och andra appar i Chrome</translation>
 <translation id="447252321002412580">Bidra till att förbättra Chromes funktioner och prestanda</translation>
@@ -150,7 +152,6 @@ Nya bokmärken kan inte sparas i ditt konto förrän du har raderat några. Om d
 <translation id="4636900170638246267">Logga in på den här webbplatsen och i Chrome.</translation>
 <translation id="4647910807533196601">Öppna min senaste flik i Chrome.</translation>
 <translation id="4693084815234024320">Du använder Chromes inkognitoläge</translation>
-<translation id="4708857722625759026">Kom åt Chrome snabbare från dockan på iPad.</translation>
 <translation id="4713740144985377441">Återgå till Chrome för att ladda upp filen</translation>
 <translation id="4724297637870447613">Använd Chrome överallt</translation>
 <translation id="4738647308035481133">Google Chrome-sida</translation>
@@ -164,12 +165,12 @@ Nya bokmärken kan inte sparas i ditt konto förrän du har raderat några. Om d
 <translation id="4903674399067644695">Det här kortet visar förslag på hur du får ut mesta möjliga av Chrome.</translation>
 <translation id="49200511069271369">Din organisation, <ph name="DOMAIN" />, hanterar kontot du loggar in på och hur Chrome kan användas. Administratören kan konfigurera eller begränsa vissa funktioner.</translation>
 <translation id="4925322001044117929">Använd Chrome på iPad som standard</translation>
-<translation id="4934496192263958600">Logga in i Chrome för att komma åt dina grejer</translation>
 <translation id="496747131578053942">Tips för Chrome! Sök efter det du ser med Google Lens</translation>
 <translation id="498985224078955265">Om du vill skicka den här fliken till en annan enhet loggar du in i Chrome på båda enheterna.</translation>
 <translation id="5030102366287574140">Chrome kan skydda dig från dataintrång, osäkra webbplatser med mera.</translation>
 <translation id="5109169629909011627">Se bokmärken i Chrome</translation>
 <translation id="5112925986883715005">Se läslistan i Chrome</translation>
+<translation id="5116239826668864748">Du kan använda Chrome varje gång du trycker på länkar i meddelanden, dokument och andra appar</translation>
 <translation id="5119391094379141756">Välj Chrome</translation>
 <translation id="5123188916260706415">Sök med rösten i Chrome</translation>
 <translation id="5162467219239570114">Den här versionen av Chrome är inaktuell. Om det inte finns någon uppdatering i <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> kan det hända att enheten inte längre har stöd för nya versioner av Chrome.</translation>
@@ -242,6 +243,7 @@ Din data krypteras med lösenfrasen. Ange den om du vill använda och spara Chro
 <translation id="6533470733797826516">Logga in snabbare med autofyll i Chrome</translation>
 <translation id="6536544321553662809">Ställ in Chrome som standardwebbläsare för att enkelt dela och öppna länkar</translation>
 <translation id="6545449117344801102">Chrome identifierar adresser och använder Google Maps för att ge dig vägbeskrivningar och lokal information.</translation>
+<translation id="660537754475262202">Gör Chrome till din standardwebbläsare för att öppna länkar här direkt.</translation>
 <translation id="6611692150236062461">Välj Chrome för autofyll så att du enkelt får tillgång till dina sparade lösenord i andra appar.</translation>
 <translation id="6636941099779251629">Organisationen kräver att du loggar in för att använda Chrome. <ph name="BEGIN_LINK" />Läs mer<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">En obfuskerad del av webbadressen skickas till Google via en integritetsserver som döljer din IP-adress. Om du utsätts för försök att kapa ditt lösenord på en webbplats eller om du laddar ned en skadlig fil kan webbadresserna skickas från Chrome till Google tillsammans med delar av sidinnehållet.</translation>
@@ -249,7 +251,6 @@ Din data krypteras med lösenfrasen. Ange den om du vill använda och spara Chro
 <translation id="6684809838922667136">Gör Chrome bättre</translation>
 <translation id="6695698548122852044">{THRESHOLD,plural, =1{Detta händer när Chrome inte har använts på {THRESHOLD} minut. Data som endast har sparats på den här enheten medan du var inloggad kommer att raderas. Detta kan inkludera historik och lösenord.}other{Detta händer när Chrome inte har använts på {THRESHOLD} minuter. Data som endast har sparats på den här enheten medan du var inloggad kommer att raderas. Detta kan inkludera historik och lösenord.}}</translation>
 <translation id="6709398533399187136">Ditt lösenord har läckt ut vid ett dataintrång. Du rekommenderas av Google Lösenordshantering att byta lösenord nu.</translation>
-<translation id="6718973358446066955">Du är nästan klar med att ställa in Chrome.</translation>
 <translation id="6820553595690137150">Betalningsmetoder och adresser omfattas inte av lösenfraskryptering.
 
 Om du vill ändra den här inställningen <ph name="BEGIN_LINK" />raderar du Chrome-datan i kontot<ph name="END_LINK" />.</translation>
@@ -277,6 +278,7 @@ Du hittar fler inställningar som använder data för att förbättra Chrome-upp
 <translation id="722167379782941918">Chrome rekommenderar utökat skydd</translation>
 <translation id="723787869754590019">Använd Chrome för autofyll</translation>
 <translation id="7261678641327190792">Chrome kan inte kontrollera dina lösenord</translation>
+<translation id="7272091023280308138">Nästa gång kan du öppna en länk direkt i Chrome utan att kopiera webbadressen först.</translation>
 <translation id="7272930098487145294">Om du vill spara bilder trycker du på Inställningar och låter Chrome lägga till dina foton</translation>
 <translation id="7275945473750112644">Eftersom ditt konto hanteras av <ph name="HOSTED_DOMAIN" /> raderas din data i Chrome från enheten</translation>
 <translation id="7284245284340063465">Om du har glömt lösenfrasen eller vill ändra den här inställningen <ph name="BEGIN_LINK" />raderar du Chrome-datan i kontot<ph name="END_LINK" />.</translation>
@@ -292,6 +294,7 @@ Du hittar fler inställningar som använder data för att förbättra Chrome-upp
 <translation id="7466693328838535498">Skriv ”Chrome” i rutan Sökwidgetar</translation>
 <translation id="7477056987201678345">Raderar Chrome-data …</translation>
 <translation id="7492574581995589075">Din organisation har inaktiverat möjligheten att använda och spara Chrome-data i ditt Google-konto. Nya bokmärken, lösenord med mera sparas endast på den här enheten.</translation>
+<translation id="752120807649195785">Ange Chrome som standardwebbläsare för att öppna länkar med ett tryck i stället för att kopiera dem.</translation>
 <translation id="7540272326042438331">Dela Chrome</translation>
 <translation id="7575971113404272499">Tips för Chrome: Använd Chrome som standard</translation>
 <translation id="7581063337314642333">Öppna rutnätet med flikar i Chrome</translation>
@@ -331,13 +334,13 @@ Du hittar fler inställningar som använder data för att förbättra Chrome-upp
 <translation id="8245080522851805544">Håll webbinformationen privat med enhetsautentisering när du stänger Chrome</translation>
 <translation id="8248887045858762645">Tips för Chrome</translation>
 <translation id="8265730590513812063">Öppna Chrome-menyn</translation>
+<translation id="8276803169904409881">Ange Chrome som standardwebbläsare för att öppna länkar från andra appar direkt.</translation>
 <translation id="8284376267694582021">Om du vill få säkerhetsfunktioner för barn kan du antingen använda ett Google-konto som har konfigurerats för ett barn eller använda Chrome utan ett konto. <ph name="BEGIN_LINK" />Läs mer<ph name="END_LINK" />.</translation>
 <translation id="8317674518145175158">Betalningsmetoder och adresser krypteras inte. Webbhistorik från Chrome synkroniseras inte.
 
 Din krypterade data kan endast läsas av en person som har din lösenfras. Lösenfrasen varken skickas till eller lagras av Google. Om du glömmer lösenfrasen eller vill ändra den här inställningen <ph name="BEGIN_LINK" />raderar du Chrome-datan i kontot<ph name="END_LINK" />.</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Med ensamrätt.</translation>
 <translation id="8371138994040262994">Öppnar inställningarna i Chrome.</translation>
-<translation id="8375378038757507658">Använd enkelt Chrome varje gång du trycker på länkar i meddelanden eller andra appar.</translation>
 <translation id="8387459386171870978">Fortsätt att använda Chrome</translation>
 <translation id="8392023217086447677">Öppnades i Chromes inkognitoläge</translation>
 <translation id="840168496893712993">Några tillägg har fått Chrome att krascha. Testa att avinstallera dem.</translation>
@@ -369,6 +372,7 @@ Din data krypterades med lösenfrasen den <ph name="TIME" />. Ange den om du vil
 <translation id="8865415417596392024">Chrome-data i ditt konto</translation>
 <translation id="8874688701962049679">Tips om hur du får ut mesta möjliga av Chrome.</translation>
 <translation id="8897749957032330183">Lösenorden sparas med Google Lösenordshantering på den här enheten.</translation>
+<translation id="898288749595466683">Slipp kopiera webbadresser. Ange Chrome som standardwebbläsare för att läsa in sidor direkt.</translation>
 <translation id="9004772704776174843">Utloggad från Chrome</translation>
 <translation id="9068336935206019333">Öppna i Chromes inkognitoläge</translation>
 <translation id="9082304295862405388">Gemini kan använda din exakta plats beroende på vilken behörighet du redan har gett Chrome</translation>

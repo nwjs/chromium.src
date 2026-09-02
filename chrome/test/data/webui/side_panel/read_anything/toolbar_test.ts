@@ -545,21 +545,11 @@ suite('Toolbar', () => {
     let menuButton: CrIconButtonElement;
 
     async function getImageButton() {
-      chrome.readingMode.imagesFeatureEnabled = true;
       await createToolbar();
       const imageButton = getButton(IMAGES_TOGGLE_BUTTON_ID);
       assertTrue(!!imageButton);
       menuButton = imageButton;
     }
-
-    test('does not show with flag disabled', async () => {
-      chrome.readingMode.imagesFeatureEnabled = false;
-      await createToolbar();
-
-      const imageButton = getButton(IMAGES_TOGGLE_BUTTON_ID);
-
-      assertFalse(!!imageButton);
-    });
 
     test('by default images are off and button is enabled', async () => {
       await getImageButton();
@@ -680,6 +670,41 @@ suite('Toolbar', () => {
       await microtasksFinished();
 
       assertFalse(!!button);
+    });
+  });
+
+  suite('ai playback button', () => {
+    test('does not show with flag disabled', async () => {
+      chrome.readingMode.isReadAnythingReadAloudExperimentalPlaybackUiEnabled = false;
+      await createToolbar();
+      assertFalse(!!getButton('ai-playback-toggle'));
+    });
+
+    suite('with flag enabled', () => {
+      let aiPlaybackButton: CrIconButtonElement;
+
+      setup(async () => {
+        chrome.readingMode.isReadAnythingReadAloudExperimentalPlaybackUiEnabled = true;
+        await createToolbar();
+
+        const button = getButton('ai-playback-toggle');
+        assertTrue(!!button);
+        aiPlaybackButton = button;
+      });
+
+      test('click toggles active state and class', async () => {
+        assertFalse(aiPlaybackButton.classList.contains('active'));
+
+        aiPlaybackButton.click();
+        await microtasksFinished();
+
+        assertTrue(aiPlaybackButton.classList.contains('active'));
+
+        aiPlaybackButton.click();
+        await microtasksFinished();
+
+        assertFalse(aiPlaybackButton.classList.contains('active'));
+      });
     });
   });
 });

@@ -88,7 +88,7 @@ class DaemonProcessLinux : public DaemonProcess {
       const mojom::DesktopSessionOptions& options) override;
   void LaunchNetworkProcess() override;
   std::unique_ptr<WorkerProcessLauncher::Delegate>
-  CreatePeerConnectionProcessLauncherDelegate(int terminal_id) override;
+  CreatePeerConnectionProcessLauncherDelegate() override;
 
   void OnStartDesktopSessionFactoryResult(
       base::expected<void, Loggable> result);
@@ -147,11 +147,14 @@ void DaemonProcessLinux::LaunchNetworkProcess() {
 
   base::CommandLine command_line(this_exe);
   command_line.AppendSwitchASCII(kProcessTypeSwitchName, kProcessTypeNetwork);
+  command_line.CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
+                                kCopiedSwitchNames);
 
   LinuxWorkerProcessLauncherDelegate::LaunchOptions options(command_line);
   options.new_session = true;
   options.uid = user_info->uid;
   options.gid = user_info->gid;
+  options.supplementary_gids = user_info->supplementary_gids;
   // The home directory of the network user is /nonexistent, so we just change
   // the working directory to /tmp instead.
   base::FilePath temp_dir;
@@ -171,8 +174,7 @@ void DaemonProcessLinux::LaunchNetworkProcess() {
 }
 
 std::unique_ptr<WorkerProcessLauncher::Delegate>
-DaemonProcessLinux::CreatePeerConnectionProcessLauncherDelegate(
-    int terminal_id) {
+DaemonProcessLinux::CreatePeerConnectionProcessLauncherDelegate() {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
   base::FilePath this_exe;
@@ -190,11 +192,14 @@ DaemonProcessLinux::CreatePeerConnectionProcessLauncherDelegate(
   base::CommandLine command_line(this_exe);
   command_line.AppendSwitchASCII(kProcessTypeSwitchName,
                                  kProcessTypePeerConnection);
+  command_line.CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
+                                kCopiedSwitchNames);
 
   LinuxWorkerProcessLauncherDelegate::LaunchOptions options(command_line);
   options.new_session = true;
   options.uid = user_info->uid;
   options.gid = user_info->gid;
+  options.supplementary_gids = user_info->supplementary_gids;
 
   base::FilePath temp_dir;
   if (!base::PathService::Get(base::DIR_TEMP, &temp_dir)) {
@@ -265,9 +270,9 @@ void DaemonProcessLinux::BindSessionServices(
 
   uid_t uid = host_services_receivers().current_context()->credentials.uid;
   DesktopSession* session = desktop_session_factory_.GetSessionByUid(uid);
-  if (session) {
-    desktop_session_connection_events()->OnSessionServicesClientConnected(
-        session->id(), std::move(receiver));
+  if (session && session->events_remote()) {
+    session->events_remote()->OnSessionServicesClientConnected(
+        std::move(receiver));
   } else {
     LOG(WARNING) << "No desktop session found for UID " << uid;
   }

@@ -60,20 +60,24 @@ EnumTraits<viz::mojom::CompositorFrameTransitionDirectiveType,
 }
 
 // static
-bool StructTraits<
+base::expected<void, DeserializationError> StructTraits<
     viz::mojom::CompositorFrameTransitionDirectiveSharedElementDataView,
     viz::CompositorFrameTransitionDirective::SharedElement>::
     Read(viz::mojom::CompositorFrameTransitionDirectiveSharedElementDataView
              data,
          viz::CompositorFrameTransitionDirective::SharedElement* out) {
-  return data.ReadRenderPassId(&out->render_pass_id) &&
-         data.ReadViewTransitionElementResourceId(
-             &out->view_transition_element_resource_id);
+  if (!data.ReadRenderPassId(&out->render_pass_id) ||
+      !data.ReadViewTransitionElementResourceId(
+          &out->view_transition_element_resource_id)) {
+    return base::unexpected(DeserializationError());
+  }
+  return base::ok();
 }
 
 // static
-bool StructTraits<viz::mojom::CompositorFrameTransitionDirectiveDataView,
-                  viz::CompositorFrameTransitionDirective>::
+base::expected<void, DeserializationError>
+StructTraits<viz::mojom::CompositorFrameTransitionDirectiveDataView,
+             viz::CompositorFrameTransitionDirective>::
     Read(viz::mojom::CompositorFrameTransitionDirectiveDataView data,
          viz::CompositorFrameTransitionDirective* out) {
   uint32_t sequence_id = data.sequence_id();
@@ -87,14 +91,14 @@ bool StructTraits<viz::mojom::CompositorFrameTransitionDirectiveDataView,
   if (!data.ReadTransitionToken(&transition_token) || !data.ReadType(&type) ||
       !data.ReadSharedElements(&shared_elements) ||
       !data.ReadDisplayColorSpaces(&display_color_spaces)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
 
   // The renderer should never create a directive other than save with shared
   // elements.
   if (type != viz::CompositorFrameTransitionDirective::Type::kSave &&
       !shared_elements.empty()) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
 
   switch (type) {
@@ -115,7 +119,7 @@ bool StructTraits<viz::mojom::CompositorFrameTransitionDirectiveDataView,
           data.delay_layer_tree_view_deletion());
   }
 
-  return true;
+  return base::ok();
 }
 
 }  // namespace mojo

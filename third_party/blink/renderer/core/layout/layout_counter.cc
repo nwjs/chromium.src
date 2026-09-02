@@ -61,7 +61,7 @@ String CounterTextFromStyleAndValue(const CounterStyle* counter_style,
 LayoutCounter::LayoutCounter(Document& document,
                              const CounterContentData& counter)
     : LayoutText(nullptr, StringImpl::empty_), counter_(counter) {
-  SetDocumentForAnonymous(&document);
+  SetDocumentForAnonymous(document);
   View()->AddLayoutCounter();
 }
 
@@ -109,8 +109,7 @@ const CounterStyle* LayoutCounter::NullableCounterStyle() const {
   if (counter_->ListStyle() == keywords::kNone) {
     return nullptr;
   }
-  return &GetDocument().GetStyleEngine().FindCounterStyleAcrossScopes(
-      counter_->ListStyle(), counter_->GetTreeScope());
+  return &counter_->ResolveCounterStyle(GetDocument().GetStyleEngine());
 }
 
 bool LayoutCounter::IsDirectionalSymbolMarker() const {

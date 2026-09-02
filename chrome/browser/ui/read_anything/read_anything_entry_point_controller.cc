@@ -82,8 +82,7 @@ bool IsTriggeredByOmnibox(const actions::ActionInvocationContext& context) {
   std::underlying_type_t<page_actions::PageActionTrigger> page_action_trigger =
       context.GetProperty(page_actions::kPageActionTriggerKey);
   return (page_action_trigger != page_actions::kInvalidPageActionTrigger) &&
-         features::IsReadAnythingOmniboxChipEnabled() &&
-         base::FeatureList::IsEnabled(features::kPageActionsMigration);
+         features::IsReadAnythingOmniboxChipEnabled();
 }
 
 void LogDecision(ReadAnythingOmniboxChipDecision decision) {
@@ -141,7 +140,7 @@ void RunPdfDistillableHeuristic(
 }
 #endif
 
-pdf::PDFDocumentHelper* GetPdf(content::WebContents* contents) {
+pdf::PDFDocumentHelper* GetPdf(content::WebContents& contents) {
 #if BUILDFLAG(ENABLE_PDF)
   return pdf::PDFDocumentHelper::MaybeGetForWebContents(contents);
 #else
@@ -179,7 +178,7 @@ void OnOptimizationGuideDecision(
 
   // This check is already done in CheckIfShouldSuggestReadingMode but it's
   // possible that the page was not detected as a PDF yet so check again.
-  if (auto* pdf_helper = GetPdf(contents)) {
+  if (auto* pdf_helper = GetPdf(*contents)) {
     RunPdfDistillableHeuristic(pdf_helper, std::move(result_callback));
     return;
   }
@@ -339,8 +338,7 @@ void ReadAnythingEntryPointController::UpdatePageActionVisibility(
     tabs::TabInterface* tab,
     base::OnceCallback<void(user_education::FeaturePromoResult promo_result)>
         show_promo_callback) {
-  if (!base::FeatureList::IsEnabled(features::kPageActionsMigration) ||
-      !features::IsReadAnythingOmniboxChipEnabled() || !tab) {
+  if (!features::IsReadAnythingOmniboxChipEnabled() || !tab) {
     return;
   }
 
@@ -401,7 +399,9 @@ bool ReadAnythingEntryPointController::CheckIfShouldSuggestReadingModeNaive(
   // Disable the omnibox on app windows, as these windows don't usually have
   // omnibox support.
   Browser* browser = bwi->GetBrowserForMigrationOnly();
-  if (browser && (browser->is_type_app() || browser->is_type_app_popup())) {
+  if (browser &&
+      (browser->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+       browser->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP)) {
     LogDecision(ReadAnythingOmniboxChipDecision::kHideAppWindow);
     return false;
   }
@@ -453,7 +453,7 @@ void ReadAnythingEntryPointController::CheckIfShouldSuggestReadingMode(
   // But since PDFs are distilled via Screen2x, use a custom heuristic to
   // determine if the PDF will distill well with RM.
   content::WebContents* contents = bwi->GetActiveTabInterface()->GetContents();
-  if (auto* pdf_helper = GetPdf(contents)) {
+  if (auto* pdf_helper = GetPdf(*contents)) {
     RunPdfDistillableHeuristic(pdf_helper, std::move(result_callback));
     return;
   }
@@ -479,8 +479,7 @@ void ReadAnythingEntryPointController::CheckIfShouldSuggestReadingMode(
 // static
 void ReadAnythingEntryPointController::OnPageActionIgnored(
     BrowserWindowInterface* bwi) {
-  if (!base::FeatureList::IsEnabled(features::kPageActionsMigration) ||
-      !features::IsReadAnythingOmniboxChipEnabled() || !bwi) {
+  if (!features::IsReadAnythingOmniboxChipEnabled() || !bwi) {
     return;
   }
 

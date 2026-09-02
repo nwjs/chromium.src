@@ -248,8 +248,6 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceRequest {
       mojom::RequestDestination::kEmpty;
   scoped_refptr<ResourceRequestBody> request_body;
   bool keepalive = false;
-  bool browsing_topics = false;
-  bool shared_storage_writable_eligible = false;
   bool has_user_gesture = false;
   bool enable_load_timing = false;
   bool enable_upload_progress = false;
@@ -260,6 +258,8 @@ struct COMPONENT_EXPORT(NETWORK_CPP_BASE) ResourceRequest {
   int previews_state = 0;
   bool upgrade_if_insecure = false;
   bool is_revalidating = false;
+  std::optional<std::string> revalidation_etag;
+  std::optional<std::string> revalidation_last_modified;
   std::optional<base::UnguessableToken> throttling_profile_id;
   std::optional<base::UnguessableToken> fetch_window_id;
   std::optional<std::string> devtools_request_id;

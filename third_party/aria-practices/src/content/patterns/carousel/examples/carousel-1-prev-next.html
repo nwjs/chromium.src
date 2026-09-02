@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Auto-Rotating Image Carousel Example with Buttons for Slide Control</title>
+
+    <!-- JS and CSS for this example -->
+    <link rel="stylesheet" href="css/carousel-prev-next.css">
+    <script src="js/carousel-prev-next.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <section id="myCarousel" class="carousel" aria-roledescription="carousel" aria-label="Highlighted television shows">
+            <div class="carousel-inner">
+              <div class="controls">
+                <button type="button" class="rotation pause" aria-label="Stop automatic slide show">
+                  <svg width="42" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="background" x="2" y="2" rx="5" ry="5" width="38" height="24" />
+                    <rect class="border" x="4" y="4" rx="5" ry="5" width="34" height="20" />
+
+                    <polygon class="pause" points="17 8 17 20" />
+
+                    <polygon class="pause" points="24 8 24 20" />
+
+                    <polygon class="play" points="15 8 15 20 27 14" />
+                  </svg>
+                </button>
+
+                <button type="button" class="previous" aria-controls="myCarousel-items" aria-label="Previous Slide">
+                  <svg width="42" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="background" x="2" y="2" rx="5" ry="5" width="38" height="24" />
+                    <rect class="border" x="4" y="4" rx="5" ry="5" width="34" height="20" />
+                    <polygon points="9 14 21 8 21 11 33 11 33 17 21 17 21 20" />
+                  </svg>
+                </button>
+
+                <button type="button" class="next" aria-controls="myCarousel-items" aria-label="Next Slide">
+                  <svg width="42" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                    <rect class="background" x="2" y="2" rx="5" ry="5" width="38" height="24" />
+                    <rect class="border" x="4" y="4" rx="5" ry="5" width="34" height="20" />
+                    <polygon points="9 11 21 11 21 8 33 14 21 20 21 17 9 17" />
+                  </svg>
+                </button>
+              </div>
+
+              <div id="myCarousel-items" class="carousel-items" aria-live="off">
+                <div class="carousel-item active" role="group" aria-roledescription="slide" aria-label="1 of 6">
+                  <div class="carousel-image">
+                    <a href="#">
+                      <img src="images/amsterdamslide__800x600.jpg" alt="Walking Tour in Amsterdam">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#" id="carousel-label-1"> Dynamic Europe: Amsterdam, Prague, Berlin </a>
+                    </h3>
+
+                    <div class="hidden-xs hidden-sm">
+                      <p><span class="contrast">7 pm Tuesday, March 3, on TV</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" role="group" aria-roledescription="slide" aria-label="2 of 6">
+                  <div class="carousel-image">
+                    <a href="#">
+                      <img src="images/lands-endslide__800x600.jpg" alt="Land&#039;s End in Cornwall">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#" id="carousel-label-2"> Travel to Southwest England and Paris </a>
+                    </h3>
+
+                    <div>
+                      <p><span class="contrast">Sept. 14 to Sept. 24 or 27</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" role="group" aria-roledescription="slide" aria-label="3 of 6">
+                  <div class="carousel-image">
+                    <a href="#">
+                      <img src="images/trustslide-2__800x600.jpg" alt="Mom and daughter play Daniel Tiger game on notebook computer.">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#" id="carousel-label-3"> Great Children's Programming on Public TV </a>
+                    </h3>
+
+                    <div></div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" role="group" aria-roledescription="slide" aria-label="4 of 6">
+                  <div class="carousel-image">
+                    <a href="#">
+                      <img src="images/foyleswarslide__800x600.jpg" alt="A man in a suit and fedora and a woman with coiffed hair look sternly into the camera.">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#" id="carousel-label-4"> Foyle&#8217;s War Revisited </a>
+                    </h3>
+
+                    <div>
+                      <p><span class="contrast">8 pm Sunday, March 8, on TV: Sneak peek at the final season.</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" role="group" aria-roledescription="slide" aria-label="5 of 6">
+                  <div class="carousel-image">
+                    <a href="#">
+                      <img src="images/britcomdavidslide__800x600.jpg" alt="British flag with WILL-TV host David Thiel.">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#" id="carousel-label-5"> Great Britain Vote: 7 pm Sat. </a>
+                    </h3>
+
+                    <div></div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" role="group" aria-roledescription="slide" aria-label="6 of 6">
+                  <div class="carousel-image">
+                    <a href="#">
+                      <img src="images/mag800-2__800x600.jpg" alt="Mid-American Gardener panelists on the set">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#" id="carousel-label-6"> Mid-American Gardener: Thursdays at 7 pm </a>
+                    </h3>
+
+                    <div class="hidden-xs hidden-sm">
+                      <p><span class="contrast">Watch the latest episodes.</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+              </div>
+            </div>
+            <!-- carousel-inner -->
+          </section>
+          <!-- /.carousel -->
+
+          <div class="col-sm-1"></div>
+        </div>
+  </body>
+</html>

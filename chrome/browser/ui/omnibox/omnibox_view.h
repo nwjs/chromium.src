@@ -122,6 +122,12 @@ class OmniboxView {
   // current cursor position.
   virtual gfx::Range GetSelectionBounds() const = 0;
 
+  // Changes the selection (directly on the view).
+  virtual void SetSelectionBounds(gfx::Range selection) = 0;
+
+  // Returns whether the view has any selection at all.
+  virtual bool HasSelection() const = 0;
+
   // Selects all the text in the edit.  Use this in place of SetSelAll() to
   // avoid selecting the "phantom newline" at the end of the edit.
   virtual void SelectAll(bool reversed) = 0;
@@ -257,6 +263,16 @@ class OmniboxView {
   void UpdateTextStyle(const std::u16string& display_text,
                        const bool text_is_url,
                        const AutocompleteSchemeClassifier& classifier);
+
+  // Given display text and match info, computes text that provides more context
+  // about the completion, to be provided via accessibility API.
+  //
+  // suggestion_text_prefix_length will be set to number of added labelling
+  // characters before the original editable text.
+  std::u16string ComputeFriendlySuggestionTextForAccessibility(
+      const std::u16string& display_text,
+      const AutocompleteMatch& match,
+      int& suggestion_text_prefix_length);
 
   virtual OmniboxController* controller();
   virtual const OmniboxController* controller() const;

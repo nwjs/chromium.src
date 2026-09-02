@@ -12,12 +12,14 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.metrics.ChangeMetricsReportingStateCalledFrom;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.ui.accessibility.AccessibilityState;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 
 /** Provides first run related utility functions. */
 @NullMarked
@@ -40,6 +42,27 @@ public class FirstRunUtils {
     }
 
     private static final int DEFAULT_SKIP_TOS_EXIT_DELAY_MS = 1000;
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    static final List<SafetyPromoCard> ARM_1_CARDS =
+            List.of(
+                    SafetyPromoCard.PASSWORD_MANAGER,
+                    SafetyPromoCard.ENHANCED_SAFE_BROWSING,
+                    SafetyPromoCard.INCOGNITO);
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    static final List<SafetyPromoCard> ARM_2_CARDS =
+            List.of(
+                    SafetyPromoCard.HISTORY_QUICK_DELETE,
+                    SafetyPromoCard.ENHANCED_SAFE_BROWSING,
+                    SafetyPromoCard.INCOGNITO);
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    static final List<SafetyPromoCard> ARM_3_CARDS =
+            List.of(
+                    SafetyPromoCard.PASSWORD_MANAGER,
+                    SafetyPromoCard.HISTORY_QUICK_DELETE,
+                    SafetyPromoCard.ENHANCED_SAFE_BROWSING);
 
     private static boolean sDisableDelayOnExitFreForTest;
     private static @Nullable Boolean sCctTosDialogEnabledForTesting;
@@ -115,6 +138,32 @@ public class FirstRunUtils {
     public static void setDisableDelayOnExitFreForTest(boolean isDisable) {
         sDisableDelayOnExitFreForTest = isDisable;
         ResettersForTesting.register(() -> sDisableDelayOnExitFreForTest = false);
+    }
+
+    public static boolean shouldShowSafetyFrePromo() {
+        if (!ChromeFeatureList.sSafetyFrePromo.isEnabled()) {
+            return false;
+        }
+        @SafetyFrePromoArm int arm = ChromeFeatureList.sSafetyFrePromoArm.getValue();
+        return arm != SafetyFrePromoArm.UNDEFINED;
+    }
+
+    public static boolean isCardBasedPromoArm(@SafetyFrePromoArm int arm) {
+        return arm >= SafetyFrePromoArm.PASSWORD_MANAGER
+                && arm <= SafetyFrePromoArm.PASSWORD_MANAGER_AND_HISTORY_QUICK_DELETE;
+    }
+
+    public static List<SafetyPromoCard> getCardsForSafetyFrePromoArm(@SafetyFrePromoArm int arm) {
+        switch (arm) {
+            case SafetyFrePromoArm.PASSWORD_MANAGER:
+                return ARM_1_CARDS;
+            case SafetyFrePromoArm.HISTORY_QUICK_DELETE:
+                return ARM_2_CARDS;
+            case SafetyFrePromoArm.PASSWORD_MANAGER_AND_HISTORY_QUICK_DELETE:
+                return ARM_3_CARDS;
+            default:
+                return List.of();
+        }
     }
 
     @NativeMethods

@@ -13,7 +13,6 @@
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/views/bubble_anchor_util_views.h"
@@ -28,6 +27,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/webapps/isolated_web_apps/scheme.h"
+#include "ui/base/base_window.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -224,11 +224,10 @@ std::u16string PermissionPromptBaseView::GetAllowAlwaysText(
 }
 
 std::u16string PermissionPromptBaseView::GetAllowAlwaysText(
-    const std::vector<base::SafeRef<permissions::PermissionRequest>>&
-        visible_requests) {
+    const std::vector<permissions::PermissionRequest*>& visible_requests) {
   CHECK_GT(visible_requests.size(), 0u);
   return GetAllowAlwaysTextInternal(visible_requests.size(),
-                                    &*visible_requests[0]);
+                                    visible_requests[0]);
 }
 
 std::u16string PermissionPromptBaseView::GetBlockText(
@@ -240,10 +239,9 @@ std::u16string PermissionPromptBaseView::GetBlockText(
 }
 
 std::u16string PermissionPromptBaseView::GetBlockText(
-    const std::vector<base::SafeRef<permissions::PermissionRequest>>&
-        visible_requests) {
+    const std::vector<permissions::PermissionRequest*>& visible_requests) {
   CHECK_GT(visible_requests.size(), 0u);
-  return GetBlockTextInternal(visible_requests.size(), &*visible_requests[0]);
+  return GetBlockTextInternal(visible_requests.size(), visible_requests[0]);
 }
 
 void PermissionPromptBaseView::StartTrackingPictureInPictureOcclusion() {

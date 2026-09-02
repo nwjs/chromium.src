@@ -417,7 +417,7 @@ GLenum GLFormatCaps::GetFallbackFormatIfNotSupported(GLenum gl_format) const {
   // Fallback to GL_LUMINANCE16F for R16F format based on extensions and ES3
   // support.
   if (gl_format == GL_R16F_EXT &&
-      (!is_atleast_gles3_ || !enable_texture_half_float_linear_)) {
+      (!is_atleast_gles3_ && !enable_texture_half_float_linear_)) {
     return GL_LUMINANCE16F_EXT;
   }
   // No fallback for RG16F format without texture_rg extension.
@@ -666,19 +666,17 @@ wgpu::TextureAspect ToDawnTextureAspect(bool is_yuv_plane, int plane_index) {
 skgpu::graphite::TextureInfo GraphiteBackendTextureInfo(
     GrContextType gr_context_type,
     viz::SharedImageFormat format,
-    bool readonly,
     int plane_index,
     bool is_yuv_plane,
     bool mipmapped,
-    bool scanout_dcomp_surface,
-    bool supports_multiplanar_rendering,
-    bool supports_multiplanar_copy) {
+    bool scanout_dcomp_surface) {
 #if BUILDFLAG(SKIA_USE_DAWN)
   CHECK_EQ(gr_context_type, GrContextType::kGraphiteDawn);
   return skgpu::graphite::TextureInfos::MakeDawn(DawnBackendTextureInfo(
-      format, readonly, is_yuv_plane, plane_index,
+      format, /*readonly=*/false, is_yuv_plane, plane_index,
       /*array_slice=*/0, mipmapped, scanout_dcomp_surface,
-      supports_multiplanar_rendering, supports_multiplanar_copy));
+      /*supports_multiplanar_rendering=*/false,
+      /*support_multiplanar_copy=*/false));
 #else
   NOTREACHED();
 #endif

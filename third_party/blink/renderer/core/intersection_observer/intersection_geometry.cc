@@ -196,7 +196,7 @@ gfx::Transform ObjectToViewTransform(const LayoutObject& object) {
 
   // Fall back to MapLocalToAncestor.
   TransformState transform_state(TransformState::kApplyTransformDirection);
-  object.MapLocalToAncestor(nullptr, transform_state, 0);
+  object.MapLocalToAncestor(nullptr, transform_state, {});
   return transform_state.AccumulatedTransform();
 }
 
@@ -606,7 +606,8 @@ void IntersectionGeometry::ComputeGeometry(const RootGeometry& root_geometry,
           TransformState::kUnapplyInverseTransformDirection);
       target->View()->MapAncestorToLocal(
           nullptr, implicit_root_to_target_document_transform,
-          kTraverseDocumentBoundaries | kApplyRemoteMainFrameTransform);
+          {MapCoordinatesMode::kTraverseDocumentBoundaries,
+           MapCoordinatesMode::kApplyRemoteMainFrameTransform});
       gfx::Transform matrix =
           implicit_root_to_target_document_transform.AccumulatedTransform()
               .InverseOrIdentity();
@@ -769,16 +770,17 @@ bool IntersectionGeometry::ApplyClip(const LayoutObject* target,
                                      bool ignore_local_clip_path,
                                      bool root_scrolls_target,
                                      CachedRects* cached_rects) {
-  unsigned flags = kDefaultVisualRectFlags | kEdgeInclusive |
-                   kDontApplyMainFrameOverflowClip | kUsePreciseClipPath;
+  VisualRectFlags flags = {VisualRectFlag::kEdgeInclusive,
+                           VisualRectFlag::kDontApplyMainFrameOverflowClip,
+                           VisualRectFlag::kUsePreciseClipPath};
   if (!ShouldRespectFilters()) {
-    flags |= kIgnoreFilters;
+    flags.Put(VisualRectFlag::kIgnoreFilters);
   }
   if (CanUseGeometryMapper(*target)) {
-    flags |= kUseGeometryMapper;
+    flags.Put(VisualRectFlag::kUseGeometryMapper);
   }
   if (ignore_local_clip_path) {
-    flags |= kIgnoreLocalClipPath;
+    flags.Put(VisualRectFlag::kIgnoreLocalClipPath);
   }
 
   bool does_intersect = false;
@@ -787,8 +789,7 @@ bool IntersectionGeometry::ApplyClip(const LayoutObject* target,
     does_intersect = cached_rects->does_intersect;
   } else {
     does_intersect = target->MapToVisualRectInAncestorSpace(
-        local_ancestor, unclipped_intersection_rect,
-        static_cast<VisualRectFlags>(flags));
+        local_ancestor, unclipped_intersection_rect, flags);
     if (local_ancestor && local_ancestor->IsScrollContainer() &&
         !root_scrolls_target) {
       // Convert the rect from the scrolling contents space to the border box
@@ -859,7 +860,8 @@ bool IntersectionGeometry::ApplyClip(const LayoutObject* target,
         clip_rect = ToPixelSnappedRect(
             local_root_frame->ContentLayoutObject()->LocalToAncestorRect(
                 PhysicalRect(clip_rect), nullptr,
-                kTraverseDocumentBoundaries | kApplyRemoteMainFrameTransform));
+                {MapCoordinatesMode::kTraverseDocumentBoundaries,
+                 MapCoordinatesMode::kApplyRemoteMainFrameTransform}));
         intersection_rect = unclipped_intersection_rect;
         does_intersect &=
             intersection_rect.InclusiveIntersect(gfx::RectF(clip_rect));

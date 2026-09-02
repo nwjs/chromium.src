@@ -16,6 +16,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
+#include "build/config/linux/dbus/buildflags.h"
 #include "components/device_event_log/device_event_log.h"
 #include "services/device/geolocation/network_location_provider.h"
 #include "services/device/geolocation/wifi_polling_policy.h"
@@ -91,12 +92,13 @@ LocationProviderManager::LocationProviderManager(
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   // On Android and iOS, default to using the platform location provider.
   provider_manager_mode_ = kPlatformOnly;
-#elif BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-  // On Ash / Lacros / Linux, default to using the network location provider.
+#elif BUILDFLAG(IS_CHROMEOS)
+  // On Ash / Lacros, default to using the network location provider.
   provider_manager_mode_ = kNetworkOnly;
 #else
-  // On macOS / Windows platforms, use the mode specified by the feature flag.
-  provider_manager_mode_ = features::kLocationProviderManagerParam.Get();
+  // On macOS / Windows / Linux platforms, use the mode specified by the feature
+  // flag.
+  provider_manager_mode_ = features::GetLocationProviderManagerMode();
 #endif
   GEOLOCATION_LOG(DEBUG) << "LocationProviderManager::LocationProviderManager: "
                             "provider_manager_mode_ is initialized to "
@@ -127,6 +129,10 @@ void LocationProviderManager::OnPermissionGranted() {
   if (custom_location_provider_) {
     custom_location_provider_->OnPermissionGranted();
   }
+}
+
+void LocationProviderManager::OnPermissionManagerShuttingDown() {
+  geolocation_system_permission_manager_ = nullptr;
 }
 
 void LocationProviderManager::StartProvider(bool enable_high_accuracy) {
@@ -174,7 +180,7 @@ void LocationProviderManager::StopProvider() {
   // implemented only for macOS; add other platforms here if they support
   // fallback.
 #if BUILDFLAG(IS_MAC)
-  provider_manager_mode_ = features::kLocationProviderManagerParam.Get();
+  provider_manager_mode_ = features::GetLocationProviderManagerMode();
   GEOLOCATION_LOG(DEBUG) << "LocationProviderManager::StopProvider: Resetting "
                             "provider_manager_mode_ to "
                          << LocationProviderManagerModeAsString(
@@ -385,7 +391,8 @@ LocationProviderManager::NewSystemLocationProvider() {
   CHECK(geolocation_system_permission_manager_);
   return device::NewSystemLocationProvider(
       geolocation_system_permission_manager_->GetSystemGeolocationSource());
-#elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#elif BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID) || \
+    (BUILDFLAG(IS_LINUX) && BUILDFLAG(USE_DBUS))
   return device::NewSystemLocationProvider();
 #else
   return nullptr;

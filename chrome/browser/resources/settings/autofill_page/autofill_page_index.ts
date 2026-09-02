@@ -4,12 +4,13 @@
 
 /**
  * @fileoverview
- * 'settings-autofill-page-index' is the settings page containing settings for
- * passwords, payment methods and addresses.
+ * 'settings-autofill-page-index' is the settings page containing
+ * settings for passwords, payment methods, addresses and more.
  */
 import 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
 import '/shared/settings/prefs/prefs.js';
 import './autofill_page.js';
+import '../settings_shared.css.js';
 
 import type {CrViewManagerElement} from 'chrome://resources/cr_elements/cr_view_manager/cr_view_manager.js';
 import {assert} from 'chrome://resources/js/assert.js';
@@ -23,6 +24,7 @@ import type {SettingsPlugin} from '../settings_main/settings_plugin.js';
 import {SearchableViewContainerMixin} from '../settings_page/searchable_view_container_mixin.js';
 
 import {getTemplate} from './autofill_page_index.html.js';
+import {DataManagementSurvey, SavedInfoHandlerImpl} from './saved_info_handler_proxy.js';
 
 
 export interface SettingsAutofillPageIndexElement {
@@ -48,21 +50,30 @@ export class SettingsAutofillPageIndexElement extends
     return {
       prefs: Object,
 
-      autofillAiAvailable_: {
+      isShoppingEnabled_: {
         type: Boolean,
         value() {
-          return loadTimeData.getBoolean('showAutofillAiControl');
+          return loadTimeData.getBoolean('shoppingIntegrationEnabled');
+        },
+      },
+
+      showSuggestionsFromGeminiSettings_: {
+        type: Boolean,
+        value() {
+          return loadTimeData.getBoolean('showSuggestionsFromGeminiSettings');
         },
       },
     };
   }
 
   declare prefs: Record<string, unknown>;
-  declare private autofillAiAvailable_: boolean;
+  declare private isShoppingEnabled_: boolean;
+  declare private showSuggestionsFromGeminiSettings_: boolean;
 
   override currentRouteChanged(newRoute: Route, oldRoute?: Route) {
     super.currentRouteChanged(newRoute, oldRoute);
 
+    const isFromHomePage = oldRoute?.path === routes.AUTOFILL.path;
     // Need to wait for currentRouteChanged observers on child views to run
     // first, before switching views.
     queueMicrotask(() => {
@@ -70,19 +81,26 @@ export class SettingsAutofillPageIndexElement extends
         case routes.AUTOFILL:
           this.$.viewManager.switchView(
               'parent', 'no-animation', 'no-animation');
+          SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+              DataManagementSurvey.YOUR_SAVED_INFO, isFromHomePage);
           break;
-        case routes.PAYMENTS:
+        case routes.BASIC:
+          // Switch back to the default views in case they are part of search
+          // results.
           this.$.viewManager.switchView(
-              'payments', 'no-animation', 'no-animation');
+              'parent', 'no-animation', 'no-animation');
           break;
-        case routes.ADDRESSES:
+        case routes.CONTACT_INFO:
           this.$.viewManager.switchView(
-              'addresses', 'no-animation', 'no-animation');
+              'contactInfo', 'no-animation', 'no-animation');
+          SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+              DataManagementSurvey.CONTACT_INFO, isFromHomePage);
           break;
-        case routes.AUTOFILL_AI:
-          assert(this.autofillAiAvailable_);
+        case routes.IDENTITY_DOCS:
           this.$.viewManager.switchView(
-              'autofillAi', 'no-animation', 'no-animation');
+              'identityDocs', 'no-animation', 'no-animation');
+          SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+              DataManagementSurvey.IDENTITY_DOCS, isFromHomePage);
           break;
         // <if expr="is_win or is_macosx">
         case routes.PASSKEYS:
@@ -90,11 +108,27 @@ export class SettingsAutofillPageIndexElement extends
               'passkeys', 'no-animation', 'no-animation');
           break;
         // </if>
-        case routes.BASIC:
-          // Switch back to the default view in case they are part of search
-          // results.
+        case routes.PAYMENTS:
           this.$.viewManager.switchView(
-              'parent', 'no-animation', 'no-animation');
+              'payments', 'no-animation', 'no-animation');
+          SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+              DataManagementSurvey.PAYMENTS, isFromHomePage);
+          break;
+        case routes.TRAVEL:
+          this.$.viewManager.switchView(
+              'travel', 'no-animation', 'no-animation');
+          SavedInfoHandlerImpl.getInstance().requestDataManagementSurvey(
+              DataManagementSurvey.TRAVEL, isFromHomePage);
+          break;
+        case routes.SHOPPING:
+          assert(this.isShoppingEnabled_);
+          this.$.viewManager.switchView(
+              'shopping', 'no-animation', 'no-animation');
+          break;
+        case routes.SUGGESTIONS_FROM_GEMINI:
+          assert(this.showSuggestionsFromGeminiSettings_);
+          this.$.viewManager.switchView(
+              'suggestionsFromGemini', 'no-animation', 'no-animation');
           break;
         default:
           // Nothing to do. Other parent elements are responsible for updating
@@ -107,9 +141,11 @@ export class SettingsAutofillPageIndexElement extends
 
 declare global {
   interface HTMLElementTagNameMap {
-    'settings-autofill-page-index': SettingsAutofillPageIndexElement;
+    'settings-autofill-page-index':
+        SettingsAutofillPageIndexElement;
   }
 }
 
 customElements.define(
-    SettingsAutofillPageIndexElement.is, SettingsAutofillPageIndexElement);
+    SettingsAutofillPageIndexElement.is,
+    SettingsAutofillPageIndexElement);

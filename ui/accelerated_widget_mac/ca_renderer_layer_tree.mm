@@ -10,6 +10,7 @@
 #include <CoreVideo/CoreVideo.h>
 #include <GLES2/gl2extchromium.h>
 
+#include <array>
 #include <utility>
 
 #include "base/apple/foundation_util.h"
@@ -27,6 +28,7 @@
 #include "ui/base/cocoa/animation_utils.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/gfx/geometry/dip_util.h"
+#include "ui/gfx/geometry/rrect_f.h"
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gfx/hdr_metadata_mac.h"
 #include "ui/gl/ca_renderer_layer_params.h"
@@ -38,6 +40,8 @@ namespace ui {
 // https://crbug.com/1441762
 BASE_FEATURE(kFullscreenLowPowerBackdropMac, base::FEATURE_DISABLED_BY_DEFAULT);
 
+namespace {
+
 #if BUILDFLAG(IS_MAC)
 // Show borders around RenderPassDrawQuad CALayers. which is the output of a
 // non-root render pass.
@@ -45,7 +49,78 @@ BASE_FEATURE(kShowMacRenderPassDrawQuadBorders,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 
-namespace {
+// Use the CALayer contentsHeadroom attribute, if available.
+BASE_FEATURE(kUseCALayerContentsHeadroom, base::FEATURE_ENABLED_BY_DEFAULT);
+
+bool UseCALayerContentsHeadroom() {
+  if (@available(macOS 26, iOS 26, *)) {
+    static bool feature_enabled =
+        base::FeatureList::IsEnabled(kUseCALayerContentsHeadroom);
+    return feature_enabled;
+  }
+  return false;
+}
+
+// Clips CALayer `layer`'s to `rrect` using `scale_factor`. Sets all clipping,
+// transform, and corner properties necessary to ensure a correct clip.
+//
+// Fails on any `rrect` which is not compatible with CALayer's rendering
+// capabilities (this should have been detected earlier and sent through a
+// different rendering pathway).
+void ClipCALayerToRRectF(CALayer* layer,
+                         const gfx::RRectF& rrect,
+                         float scale_factor) {
+  // Do common configuration regardless of RRectF type.
+  gfx::RectF dip_rounded_corner_bounds = gfx::RectF(rrect.rect());
+  dip_rounded_corner_bounds.Scale(1 / scale_factor);
+  layer.masksToBounds = true;
+  layer.position =
+      CGPointMake(dip_rounded_corner_bounds.x(), dip_rounded_corner_bounds.y());
+  layer.bounds = CGRectMake(0, 0, dip_rounded_corner_bounds.width(),
+                            dip_rounded_corner_bounds.height());
+  layer.sublayerTransform = CATransform3DMakeTranslation(
+      -dip_rounded_corner_bounds.x(), -dip_rounded_corner_bounds.y(), 0);
+
+  // With all one radius no further computation is necessary.
+  if (rrect.GetType() <= gfx::RRectF::Type::kSingle) {
+    static constexpr CACornerMask kAllCorners =
+        kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner |
+        kCALayerMaxXMaxYCorner | kCALayerMinXMaxYCorner;
+    layer.cornerRadius = rrect.GetSimpleRadius() / scale_factor;
+    layer.maskedCorners |= kAllCorners;
+    return;
+  }
+
+  // This RRectF may have some corners with a radius and some without. As long
+  // as the radius is the same for all corners which have one, a CALayer can be
+  // used. Compute and set the appropriate CALayer properties.
+  using Corner = gfx::RRectF::Corner;
+  using CornerInfo = std::tuple<Corner, CACornerMask, std::string_view>;
+  // Note that corners are already flipped for Apple "Y = 0 is the bottom of the
+  // screen" coordinate system. This makes the RRect corner names misleading.
+  static constexpr auto corners = std::to_array(
+      {CornerInfo(Corner::kUpperLeft, kCALayerMinXMinYCorner, "min x min y"),
+       CornerInfo(Corner::kUpperRight, kCALayerMaxXMinYCorner, "max x min y"),
+       CornerInfo(Corner::kLowerRight, kCALayerMaxXMaxYCorner, "max x max y"),
+       CornerInfo(Corner::kLowerLeft, kCALayerMinXMaxYCorner, "min x max y")});
+  layer.cornerRadius = 0.0f;
+  layer.maskedCorners = 0;
+  for (const auto& corner : corners) {
+    const auto radii = rrect.GetCornerRadii(std::get<Corner>(corner));
+    const float radius = radii.x();
+    CHECK_EQ(radius, radii.y())
+        << "Corner " << std::get<std::string_view>(corner)
+        << " (screen coords) is not symmetric.";
+    if (radius > 0.0f) {
+      CHECK(layer.cornerRadius == radius || layer.cornerRadius == 0.0f)
+          << "Not all corner radii match (" << layer.cornerRadius << " vs. "
+          << radius << ")";
+      layer.cornerRadius = radius;
+      layer.maskedCorners |= std::get<CACornerMask>(corner);
+    }
+  }
+  layer.cornerRadius /= scale_factor;
+}
 
 class ComparatorSkColor4f {
  public:
@@ -768,7 +843,8 @@ CARendererLayerTree::ContentLayer::ContentLayer(
   }
 
   // Determine which type of CALayer subclass we should use.
-  if (metal::ShouldUseHDRCopier(io_surface.get(), hdr_metadata_,
+  if (!UseCALayerContentsHeadroom() &&
+      metal::ShouldUseHDRCopier(io_surface.get(), hdr_metadata_,
                                 io_surface_color_space)) {
     type_ = CALayerType::kHDRCopier;
   } else if (io_surface) {
@@ -988,32 +1064,18 @@ void CARendererLayerTree::ClipAndSortingLayer::CommitToCA(
     }
   }
 
-  if (!rounded_corner_bounds_.IsEmpty()) {
-    if (!old_layer_ ||
-        old_layer_->rounded_corner_bounds_ != rounded_corner_bounds_) {
-      gfx::RectF dip_rounded_corner_bounds =
-          gfx::RectF(rounded_corner_bounds_.rect());
-      dip_rounded_corner_bounds.Scale(1 / tree()->scale_factor_);
-
-      rounded_corner_ca_layer_.masksToBounds = true;
-
-      rounded_corner_ca_layer_.position = CGPointMake(
-          dip_rounded_corner_bounds.x(), dip_rounded_corner_bounds.y());
-      rounded_corner_ca_layer_.bounds =
-          CGRectMake(0, 0, dip_rounded_corner_bounds.width(),
-                     dip_rounded_corner_bounds.height());
-      rounded_corner_ca_layer_.sublayerTransform = CATransform3DMakeTranslation(
-          -dip_rounded_corner_bounds.x(), -dip_rounded_corner_bounds.y(), 0);
-
-      rounded_corner_ca_layer_.cornerRadius =
-          rounded_corner_bounds_.GetSimpleRadius() / tree()->scale_factor_;
+  if (!old_layer_ ||
+      old_layer_->rounded_corner_bounds_ != rounded_corner_bounds_) {
+    if (!rounded_corner_bounds_.IsEmpty()) {
+      ClipCALayerToRRectF(rounded_corner_ca_layer_, rounded_corner_bounds_,
+                          tree()->scale_factor_);
+    } else {
+      rounded_corner_ca_layer_.masksToBounds = false;
+      rounded_corner_ca_layer_.position = CGPointZero;
+      rounded_corner_ca_layer_.bounds = CGRectZero;
+      rounded_corner_ca_layer_.sublayerTransform = CATransform3DIdentity;
+      rounded_corner_ca_layer_.cornerRadius = 0;
     }
-  } else {
-    rounded_corner_ca_layer_.masksToBounds = false;
-    rounded_corner_ca_layer_.position = CGPointZero;
-    rounded_corner_ca_layer_.bounds = CGRectZero;
-    rounded_corner_ca_layer_.sublayerTransform = CATransform3DIdentity;
-    rounded_corner_ca_layer_.cornerRadius = 0;
   }
 
   DCHECK_EQ(clipping_ca_layer_.superlayer, superlayer)
@@ -1110,6 +1172,7 @@ void CARendererLayerTree::ContentLayer::CommitToCA(
     std::swap(av_layer_, old_layer_->av_layer_);
     update_contents =
         old_layer_->io_surface_ != io_surface_ ||
+        old_layer_->io_surface_color_space_ != io_surface_color_space_ ||
         old_layer_->cv_pixel_buffer_ != cv_pixel_buffer_ ||
         old_layer_->solid_color_contents_ != solid_color_contents_ ||
         old_layer_->hdr_metadata_ != hdr_metadata_;
@@ -1221,6 +1284,22 @@ void CARendererLayerTree::ContentLayer::CommitToCA(
         ca_layer_.contentsScale = tree()->scale_factor_;
       }
       break;
+  }
+
+  if (UseCALayerContentsHeadroom() && update_contents) {
+    if (@available(macOS 26, iOS 26, *)) {
+      if (io_surface_color_space_.IsHDR()) {
+        // Assume that all HDR content uses the full 4 stops (16x linear)
+        // headroom that an XDR display supports. Replace this when an accurate
+        // TODO(https://crbug.com/540031280): Accurately track content HDR
+        // headroom.
+        ca_layer_.contentsHeadroom = 16.f;
+        ca_layer_.preferredDynamicRange = CADynamicRangeHigh;
+      } else {
+        ca_layer_.contentsHeadroom = 0.f;
+        ca_layer_.preferredDynamicRange = CADynamicRangeStandard;
+      }
+    }
   }
 
   if (update_contents_rect) {

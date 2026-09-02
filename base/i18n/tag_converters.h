@@ -9,9 +9,9 @@
 #include <optional>
 #include <string_view>
 
+#include "base/component_export.h"
 #include "base/containers/fixed_flat_set.h"
 #include "base/containers/flat_map.h"
-#include "base/i18n/base_i18n_export.h"
 #include "base/i18n/language_tag.h"
 #include "third_party/icu/source/common/unicode/locid.h"
 
@@ -20,9 +20,9 @@ template <typename T>
 class NoDestructor;
 }
 
-namespace base::i18n_internal {
-struct Icu4xLocale;
-}  // namespace base::i18n_internal
+namespace icu4x {
+class Locale;
+}
 
 namespace base::i18n {
 
@@ -41,7 +41,7 @@ namespace base::i18n {
 //
 // Examples of valid language tags:
 // Valid: "en-US", "en-GB", "en-US-POSIX", "zh-Hans-CN", "und"
-class BASE_I18N_EXPORT LanguageTagConverter {
+class COMPONENT_EXPORT(LANGUAGE_TAG_WITH_ICU) LanguageTagConverter {
  public:
   LanguageTagConverter();
   ~LanguageTagConverter();
@@ -60,8 +60,7 @@ class BASE_I18N_EXPORT LanguageTagConverter {
   //  - Normalize separator (e.g. "en_US" -> "en-US").
   std::optional<LanguageTag> FromString(std::string_view tag) const;
   // Internal usage.
-  LanguageTag FromIcu4xLocale(
-      const i18n_internal::Icu4xLocale& icu_locale) const;
+  LanguageTag FromIcu4xCapiLocale(const icu4x::Locale& locale) const;
   LanguageTag FromIcuLocale(const icu::Locale& icu_locale) const;
 
  private:
@@ -72,6 +71,7 @@ class BASE_I18N_EXPORT LanguageTagConverter {
 // Helper function to obtain a `LanguageTag` from a string. It is just a
 // convenient function to avoid people having to call the `LanguageTagConverter`
 // singleton as it is quite verbose to do it.
+COMPONENT_EXPORT(LANGUAGE_TAG_WITH_ICU)
 std::optional<LanguageTag> GetLanguageTagFromString(std::string_view tag);
 
 // Helper class for converting type-safe BCP 47 `LanguageTag`s to legacy
@@ -80,7 +80,7 @@ std::optional<LanguageTag> GetLanguageTagFromString(std::string_view tag);
 // Example usage:
 //   const IcuLocaleConverter& converter = IcuLocaleConverter::GetInstance();
 //   icu::Locale locale = converter.FromLanguageTag(language_tag);
-class BASE_I18N_EXPORT IcuLocaleConverter {
+class COMPONENT_EXPORT(LANGUAGE_TAG_WITH_ICU) IcuLocaleConverter {
  public:
   IcuLocaleConverter(const IcuLocaleConverter&) = delete;
   IcuLocaleConverter& operator=(const IcuLocaleConverter&) = delete;

@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/tabs/split_tab_menu_model.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/test/split_view_interactive_test_mixin.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/webui_url_constants.h"
@@ -71,7 +72,7 @@ views::View* GetOverlayView(content::WebContents* tab_contents) {
   return controller->GetOverlayViewForTesting();
 }
 
-views::View* GetOverlayView(Browser* browser, int index) {
+views::View* GetOverlayView(BrowserWindowInterface* browser, int index) {
   auto* tab_contents = browser->tab_strip_model()->GetWebContentsAt(index);
   if (!tab_contents) {
     return nullptr;
@@ -140,6 +141,21 @@ class SelectionOverlayInteractiveTest : public test::InteractiveGlicTest {
                                       contents_view->GetBoundsInScreen();
         }),
         true);
+  }
+
+  auto CheckOverlayRoundedCorners(int index,
+                                  const gfx::RoundedCornersF& expected_radii) {
+    return CheckResult(
+        base::BindLambdaForTesting([this, index]() {
+          auto* tab_contents =
+              browser()->tab_strip_model()->GetWebContentsAt(index);
+          auto* overlay_view = GetOverlayView(tab_contents);
+          if (!overlay_view || !overlay_view->layer()) {
+            return gfx::RoundedCornersF();
+          }
+          return overlay_view->layer()->rounded_corner_radii();
+        }),
+        expected_radii);
   }
 
   GURL GetEmptyDocURL() const {
@@ -1041,7 +1057,30 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
       Do([this]() { chrome::AddTabAt(browser(), GetEmptyDocURL(), -1, true); }),
       EnterSplitView(/*active_tab=*/0, /*other_tab=*/1),
       CheckResult(GetOverlayVisibilityAt(0), true),
-      CheckOverlayBoundsMatchContents(0));
+      CheckOverlayBoundsMatchContents(0),
+      CheckOverlayRoundedCorners(
+          0, MultiContentsView::kSplitViewContentRoundedCorners));
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
+                       OverlayRespectsSplitViewRoundedCorners) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+
+  RunTestSequence(
+      Do([this]() { chrome::AddTabAt(browser(), GetEmptyDocURL(), -1, true); }),
+      EnterSplitView(/*active_tab=*/0, /*other_tab=*/1), Do([this]() {
+        browser()->tab_strip_model()->ActivateTabAt(0);
+        TrackGlicInstanceWithTabIndex(0);
+      }),
+      OpenGlic(), ClickMockGlicElement({"#captureRegionBtn"}),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
+                        "el => el.screenshot_ !== null"),
+      CheckResult(GetOverlayVisibilityAt(0), true),
+      CheckOverlayRoundedCorners(
+          0, MultiContentsView::kSplitViewContentRoundedCorners));
 }
 
 IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
@@ -1159,6 +1198,50 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTestWithSplitView,
       SelectMenuItem(SplitTabMenuModel::kCloseEndTabMenuItem),
       WaitForHide(SplitTabMenuModel::kCloseEndTabMenuItem),
       CheckOverlayBoundsMatchContents(0));
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
+                       CloseFloatingWindowClearsOverlay) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+
+  TrackFloatingGlicInstance();
+  RunTestSequence(
+      SetOnIncompatibleAction(OnIncompatibleAction::kSkipTest,
+                              "Wayland unsupported"),
+      OpenGlicFloatingWindow(GlicInstrumentMode::kHostAndContents,
+                             /*conversation_id=*/std::nullopt),
+      ClickMockGlicElement({"#pinFocusedTab"}),
+      ActivateSurface(kBrowserViewElementId),
+      WaitForJsResultAt(kGlicContentsElementId, {"body"},
+                        "el => window.client.getFocusedTabId() !== ''"),
+      ClickMockGlicElement({"#captureRegionBtn"}),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
+                        "el => el.screenshot_ !== null"),
+      WaitForElementVisible(kOverlayWebContentsId, {"selection-overlay-app",
+                                                    "glic-selection-overlay"}),
+      ActivateSurface(kBrowserViewElementId), CloseGlicWindow(),
+      WaitForHide(OverlayBaseController::kOverlayId));
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayInteractiveTest,
+                       CloseSidePanelClearsOverlay) {
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayWebContentsId);
+
+  RunTestSequence(
+      OpenGlic(), ClickMockGlicElement({"#captureRegionBtn"}),
+      WaitForShow(OverlayBaseController::kOverlayId),
+      InstrumentNonTabWebView(kOverlayWebContentsId,
+                              OverlayBaseController::kOverlayId),
+      WaitForJsResultAt(kOverlayWebContentsId, {"selection-overlay-app"},
+                        "el => el.screenshot_ !== null"),
+      WaitForElementVisible(kOverlayWebContentsId, {"selection-overlay-app",
+                                                    "glic-selection-overlay"}),
+      ToggleGlicWindow(GlicWindowMode::kAttached),
+      InAnyContext(WaitForHide(kGlicHostElementId)),
+      WaitForHide(OverlayBaseController::kOverlayId));
 }
 
 }  // namespace glic

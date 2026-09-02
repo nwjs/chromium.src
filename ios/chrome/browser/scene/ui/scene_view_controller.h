@@ -16,7 +16,7 @@
 @class AssistantContainerViewController;
 @protocol GeminiCommands;
 @class LayoutGuideCenter;
-@class LayoutState;
+@class SceneLayoutState;
 @protocol SceneMutator;
 @protocol SceneViewControllerDelegate;
 
@@ -28,10 +28,8 @@
                                           SceneConsumer>
 
 // The layout state to observe.
-@property(nonatomic, weak) LayoutState* layoutState;
+@property(nonatomic, weak) SceneLayoutState* layoutState;
 
-// A view to contain the TabGrid and BVC.
-@property(nonatomic, readonly) UIView* appContainer;
 // This view controller's LayoutGuideCenter.
 @property(nonatomic, strong) LayoutGuideCenter* layoutGuideCenter;
 // Delegate for this view controller.
@@ -47,6 +45,9 @@
 
 // Sets the app bar.
 - (void)setAppBar:(UIViewController*)appBar;
+
+// Sets the TabGrid view controller.
+- (void)setTabGrid:(UIViewController*)tabGridViewController;
 
 @end
 

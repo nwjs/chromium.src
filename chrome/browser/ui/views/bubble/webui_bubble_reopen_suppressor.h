@@ -23,8 +23,9 @@
 //
 // Attach this to the bubble's Widget by calling `Observe(widget)` when
 // spawning the bubble.
-// Check `ShouldSuppress()` in your button's click handler before opening a new
-// bubble.
+// Call `OnMousePressed()` on pointer-down events to record the state, and check
+// `ShouldSuppressBubbleShow()` in your button's click handler before opening a
+// new bubble.
 class WebUIBubbleReopenSuppressor : public views::WidgetObserver {
  public:
   WebUIBubbleReopenSuppressor();
@@ -46,10 +47,24 @@ class WebUIBubbleReopenSuppressor : public views::WidgetObserver {
   void Close(views::Widget::ClosedReason reason =
                  views::Widget::ClosedReason::kUnspecified);
 
-  // Checks if a new bubble should currently be suppressed due to a recent
-  // closure on blur. Note that this also returns true if the bubble is
-  // currently showing.
-  bool ShouldSuppress() const;
+  // Called when a mouse press occurs over the invoking UI element. Calling this
+  // primes the suppressor so that the associated asynchronous mouse click will
+  // not inadvertently reopen a bubble that was just closed.
+  // `extra_suppress_condition`: If true, the subsequent mouse click will be
+  // forcefully suppressed regardless of the bubble's timing state.
+  void OnMousePressed(bool extra_suppress_condition = false);
+
+  // Uses the internal state locked in during `OnMousePressed()` to
+  // definitively check whether the bubble show attempt should be suppressed
+  // (returning true) or permitted (returning false). Call this within your UI
+  // element's activation (click) handler. Evaluating this resets the internal
+  // state.
+  // `is_pointer_interaction` differentiates between pointer and keyboard
+  // clicks, as keyboard interactions do not suffer from focus-loss race
+  // conditions and should rarely be suppressed.
+  // TODO(crbug.com/532609175): Native views implementation only considers
+  // mouse, but WebUI considers mouse/touch/pen.
+  bool ShouldSuppressBubbleShow(bool is_pointer_interaction);
 
   // views::WidgetObserver:
   void OnWidgetDestroying(views::Widget* widget) override;
@@ -59,9 +74,27 @@ class WebUIBubbleReopenSuppressor : public views::WidgetObserver {
   // Uses views::kMinimumTimeBetweenButtonClicks by default.
   void SetSuppressionThresholdForTesting(base::TimeDelta threshold);
 
+  bool is_suppress_next_show_for_testing() const {
+    return suppress_next_bubble_show_;
+  }
+
  private:
+  // Returns true if the time elapsed since the widget was closed is less than
+  // the suppression threshold, or if the widget is currently showing.
+  bool IsTimeWithinSuppressionWindow() const;
+
+  // Flag armed by `OnMousePressed()` indicating that the subsequent bubble show
+  // attempt triggered by the same physical click should be suppressed.
+  bool suppress_next_bubble_show_ = false;
+
+  // The timestamp when the associated bubble widget was last closed.
   std::optional<base::TimeTicks> last_close_time_;
-  std::optional<base::TimeDelta> suppression_threshold_;
+
+  // The maximum time elapsed since the bubble closed where a new show attempt
+  // will be suppressed. This duration covers the window where asynchronous
+  // WebUI clicks continue arriving after the bubble has already lost focus and
+  // closed.
+  base::TimeDelta suppression_threshold_;
   base::ScopedObservation<views::Widget, views::WidgetObserver> observation_{
       this};
 };

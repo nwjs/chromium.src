@@ -137,6 +137,7 @@ bool IsFillable(FocusedFieldType focused_field_type) {
     case FocusedFieldType::kFillableUsernameField:
     case FocusedFieldType::kFillablePasswordField:
     case FocusedFieldType::kFillableWebauthnTaggedField:
+    case FocusedFieldType::kContenteditableField:
       return true;
     case FocusedFieldType::kUnfillableElement:
     case FocusedFieldType::kUnknown:
@@ -210,7 +211,6 @@ bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kComposeDialogLostFocus:
     case AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
-    case AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
     case AutofillSuggestionTriggerSource::kGlic:
     case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:

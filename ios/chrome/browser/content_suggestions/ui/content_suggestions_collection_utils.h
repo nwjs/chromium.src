@@ -16,17 +16,57 @@ extern const CGFloat kHintTextScale;
 // Bottom margin for the Return to Recent Tab tile.
 extern const CGFloat kReturnToRecentTabSectionBottomMargin;
 
+// Constants for the `kNewTabPageUICleanup` feature arms.
+// Tight Padding Arm.
+extern const CGFloat kLogoTopPaddingTight;
+extern const CGFloat kLogoToFakeboxPaddingTight;
+extern const CGFloat kDoodleTopPaddingTight;
+extern const CGFloat kDoodleToFakeboxPaddingTight;
+extern const CGFloat kQuickActionsTopPaddingTight;
+extern const CGFloat kMostVisitedTopPaddingTight;
+
+// Medium Padding Arm.
+extern const CGFloat kLogoTopPaddingMedium;
+extern const CGFloat kLogoToFakeboxPaddingMedium;
+extern const CGFloat kDoodleTopPaddingMedium;
+extern const CGFloat kDoodleToFakeboxPaddingMedium;
+extern const CGFloat kQuickActionsTopPaddingMedium;
+extern const CGFloat kMostVisitedTopPaddingMedium;
+
+// Preferred Padding Arm.
+extern const CGFloat kLogoTopPaddingPreferred;
+extern const CGFloat kLogoToFakeboxPaddingPreferred;
+extern const CGFloat kDoodleTopPaddingPreferred;
+extern const CGFloat kDoodleToFakeboxPaddingPreferred;
+extern const CGFloat kQuickActionsTopPaddingPreferred;
+extern const CGFloat kMostVisitedTopPaddingPreferred;
+
+// Control Padding.
+extern const CGFloat kQuickActionsTopPaddingControl;
+extern const CGFloat kMostVisitedTopPaddingControl;
+extern const CGFloat kReducedModuleSpacingControl;
+
+// Shared spacing constants.
+extern const CGFloat kReducedModuleSpacing;
+extern const CGFloat kReducedModuleSpacingRegularXRegular;
+
 // Returns the proper height for the doodle, based on `logo_state`. The
 // SizeClass of the `trait_collection` of the view displaying the doodle is used
 // in the computation.
 CGFloat DoodleHeight(SearchEngineLogoState logo_state,
                      UITraitCollection* trait_collection);
-// Returns the proper margin to the top of the header for the doodle.
+// Legacy helper. Use `LogoTopPadding` instead. Returns the proper margin to the
+// top of the header for the doodle.
+// TODO(crbug.com/542594099): Remove legacy helpers once
+// `kNewTabPageUICleanup` is launched.
 CGFloat DoodleTopMargin(SearchEngineLogoState logo_state,
                         UITraitCollection* trait_collection);
 // Returns the height of the separator line below the omnibox.
 CGFloat HeaderSeparatorHeight();
-// Returns the proper margin to the bottom of the doodle for the search field.
+// Legacy helper. Use `LogoToFakeboxPadding` instead. Returns the proper margin
+// to the bottom of the doodle for the search field.
+// TODO(crbug.com/542594099): Remove legacy helpers once
+// `kNewTabPageUICleanup` is launched.
 CGFloat SearchFieldTopMargin(SearchEngineLogoState logo_state);
 // Returns the height of the Fake Omnibox on Home when it is not scrolled.
 CGFloat FakeOmniboxHeight();
@@ -44,6 +84,24 @@ CGFloat HeightForLogoHeader(SearchEngineLogoState logo_state,
 // Returns the bottom padding for the header. This represents the spacing
 // between the fake omnibox and the content suggestions tiles.
 CGFloat HeaderBottomPadding(UITraitCollection* trait_collection);
+
+// Spacing helper methods for kNewTabPageUICleanup experiment arms.
+// Returns padding above the Google logo/doodle based on the enabled arm and
+// size class.
+CGFloat LogoTopPadding(SearchEngineLogoState logo_state,
+                       UITraitCollection* trait_collection);
+// Returns padding between the Google logo/doodle and fakebox based on the
+// enabled arm.
+CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state);
+// Returns top padding for Quick Actions based on the enabled arm.
+CGFloat QuickActionsTopPadding();
+// Returns top padding for Most Visited Tiles based on the
+// enabled arm.
+CGFloat MostVisitedTopPadding();
+// Returns reduced spacing used between the MVT, Magic Stack, and Discover Feed.
+// Padding is based on the size class.
+CGFloat ReducedModuleSpacing(UITraitCollection* trait_collection = nil);
+
 // Configure the `search_hint_label` for the fake omnibox.  `hintLabelContainer`
 // is added to the `search_tab_target` with autolayout and `search_hint_label`
 // is added to `hintLabelContainer` with autoresizing.  This is done due to the

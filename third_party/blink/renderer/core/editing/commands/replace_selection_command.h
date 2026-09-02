@@ -47,7 +47,7 @@ class CORE_EXPORT ReplaceSelectionCommand final : public CompositeEditCommand {
     kSanitizeFragment = 1 << 5
   };
 
-  using CommandOptions = unsigned;
+  using CommandOptions = uint8_t;
 
   ReplaceSelectionCommand(Document&,
                           DocumentFragment*,
@@ -157,7 +157,7 @@ class CORE_EXPORT ReplaceSelectionCommand final : public CompositeEditCommand {
   PasswordEchoBehavior password_echo_behavior_;
   InputEvent::InputType input_type_;
   const bool sanitize_fragment_;
-  bool should_merge_end_;
+  bool should_merge_end_ = false;
   String input_event_data_;
 
   Position start_of_inserted_range_;

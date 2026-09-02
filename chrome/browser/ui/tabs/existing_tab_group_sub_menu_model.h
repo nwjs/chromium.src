@@ -35,7 +35,7 @@ class ExistingTabGroupSubMenuModel : public ExistingBaseSubMenuModel {
 
   // Whether the submenu should be shown in the provided context. True iff
   // the submenu would show at least one group. Does not assume ownership of
-  // |model|; |model| must outlive this instance.
+  // `model`; `model` must outlive this instance.
   static bool ShouldShowSubmenu(TabStripModel* model,
                                 int context_index,
                                 TabMenuModelDelegate* tab_menu_model_delegate);
@@ -58,24 +58,13 @@ class ExistingTabGroupSubMenuModel : public ExistingBaseSubMenuModel {
   const std::vector<MenuItemInfo> GetMenuItemsFromModel(
       TabStripModel* current_model);
 
-  // Returns a list of closed saved tab groups, provided that
-  // |tab_menu_model_delegate| is valid and has access to an instance of
-  // |TabGroupSyncService|.
-  static std::vector<base::Uuid> GetClosedSavedTabGroups(
-      TabMenuModelDelegate* tab_menu_model_delegate);
-
-  // Helper function to make a |MenuItemInfo| corresponding to the fields
+  // Helper function to make a `MenuItemInfo` corresponding to the fields
   // of a group. Intended to be used for both saved tab groups and local groups.
   MenuItemInfo CreateMenuItemInfo(const std::u16string& displayed_title,
                                   const tab_groups::TabGroupColorId&);
 
-  // Creates a |MenuItemInfo| for each closed saved tab group and appends
-  // it to the end of |existing_menu_item_infos|.
-  void AppendMenuItemInfosFromSavedTabGroups(
-      std::vector<MenuItemInfo>& existing_menu_item_infos);
-
-  // Whether the submenu should contain the group |group|. True iff at least
-  // one tab that would be affected by the command is not in |group|.
+  // Whether the submenu should contain the group `group`. True iff at least
+  // one tab that would be affected by the command is not in `group`.
   static bool ShouldShowGroup(TabStripModel* model,
                               int context_index,
                               tab_groups::TabGroupId group);
@@ -85,9 +74,6 @@ class ExistingTabGroupSubMenuModel : public ExistingBaseSubMenuModel {
   // content index is not selected.
   std::vector<int> GetSelectedIndices();
 
-  // Takes the tabs at indices specified by |GetSelectedIndices()| and
-  // adds them to the saved tab group with the given id.
-  void AddSelectedTabsToSavedGroup(const base::Uuid&);
 
   // Takes the tabs at indices specified by |GetSelectedIndices()| and
   // adds them to the open tab group with the given local tab group id.

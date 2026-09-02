@@ -44,6 +44,7 @@
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/lens/lens_url_utils.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/optimization_guide/content/browser/page_context_eligibility.h"
 #include "components/prefs/pref_service.h"
 #include "skia/ext/codec_utils.h"
@@ -103,6 +104,8 @@ bool UseNonBlockingPrivacyNotice(
           invocation_source == lens::LensOverlayInvocationSource::kOmnibox ||
           invocation_source ==
               lens::LensOverlayInvocationSource::kOmniboxPageAction ||
+          invocation_source ==
+              lens::LensOverlayInvocationSource::kOmniboxPopupButton ||
           invocation_source ==
               lens::LensOverlayInvocationSource::kHomeworkActionChip ||
           invocation_source ==
@@ -846,6 +849,15 @@ bool LensSearchController::RunLensEligibilityChecks(
   // have already added the active tab context to the page.
   if (invocation_source ==
       lens::LensOverlayInvocationSource::kOmniboxContextualQuery) {
+    return true;
+  }
+
+  // If the Ask Google flag and param are enabled, omnibox contextual
+  // suggestions should bypass the permission bubble.
+  if (invocation_source ==
+          lens::LensOverlayInvocationSource::kOmniboxContextualSuggestion &&
+      base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxAskGAboutThisPage) &&
+      omnibox::kAskGBypassPrivacyNotice.Get()) {
     return true;
   }
 

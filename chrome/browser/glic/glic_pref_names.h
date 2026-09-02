@@ -40,6 +40,10 @@ inline constexpr char kGlicLauncherHotkey[] = "glic.launcher_hotkey";
 inline constexpr char kGlicHotkeyGlobalScopeEnabled[] =
     "glic.hotkey_global_scope_enabled";
 
+// Boolean pref that tracks if the hotkey scope has been migrated.
+inline constexpr char kGlicHotkeyGlobalScopeMigrated[] =
+    "glic.hotkey_global_scope_migrated";
+
 // String pref that keeps track of the non-localized version of the registered
 // selection hotkey for Glic.
 inline constexpr char kGlicSelectionHotkey[] = "glic.selection_hotkey";
@@ -149,6 +153,9 @@ inline constexpr char kGlicShowErrorAllowed[] = "glic.show_error_allowed";
 // Bool pref for the daisy chain new tabs setting.
 inline constexpr char kGlicKeepSidepanelOpenOnNewTabsEnabled[] =
     "glic.keep_sidepanel_open_on_new_tabs_enabled";
+
+// Bool pref for enabling the shake trigger to capture region.
+inline constexpr char kGlicShakeTriggerEnabled[] = "glic.shake_trigger_enabled";
 // Integer pref that determines if Glic actuation is enabled. This is
 // controlled from the enterprise policy. Only applicable to enterprise
 // accounts.
@@ -173,9 +180,19 @@ inline constexpr char kGlicGeminiEnterpriseSettings[] =
 inline constexpr char kGlicPartitionNeedsCookieSync[] =
     "glic.partition_needs_cookie_sync";
 
+// Boolean pref that tracks if the Glic local storage keys have been copied from
+// the Glic partition to the main partition.
+inline constexpr char kGlicLocalStorageCopiedToMainPartition[] =
+    "glic.local_storage_copied_to_main_partition";
+
 // Boolean pref that tracks if the Glic profile was previously ineligible.
 inline constexpr char kGlicPreviouslyNotAllowed[] =
     "glic.previously_not_allowed";
+
+// Integer pref that tracks the number of times the marketing promotion has
+// auto-opened.
+inline constexpr char kGlicMarketingAutoOpenCount[] =
+    "glic.marketing_auto_open_count";
 
 #if BUILDFLAG(IS_MAC)
 inline constexpr char kGlicUseAltOSIcon[] = "glic.use_alt_os_icon";

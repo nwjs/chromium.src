@@ -6,22 +6,28 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_AT_MEMORY_AT_MEMORY_MANAGER_H_
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/types/expected.h"
 #include "base/types/optional_ref.h"
-#include "components/autofill/core/browser/at_memory/at_memory_data_type.h"
 #include "components/autofill/core/browser/at_memory/at_memory_metrics_recorder.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/filling/autofill_ai/autofill_ai_access_manager.h"
 #include "components/autofill/core/browser/integrators/at_memory/at_memory_query_service.h"
+#include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/ui/autofill_suggestion_delegate.h"
 #include "components/autofill/core/common/aliases.h"
@@ -32,23 +38,24 @@
 namespace autofill {
 
 struct MemorySearchResults;
+class AutofillClient;
 class BrowserAutofillManager;
 
 // Manager for the AtMemory feature. It handles queries to the
 // `AtMemoryQueryService` and manages session-based metrics. Owned by
-// `BrowserAutofillManager`, its lifetime is tied to it.
-class AtMemoryManager {
+// `AutofillClient`, its lifetime is tied to it.
+class AtMemoryManager : public CreditCardAccessManager::Observer {
  public:
   using UpdateSuggestionsCallback =
       base::RepeatingCallback<void(std::vector<Suggestion>,
                                    AutofillSuggestionTriggerSource)>;
 
-  explicit AtMemoryManager(BrowserAutofillManager* manager);
+  explicit AtMemoryManager(AutofillClient* client);
 
   AtMemoryManager(const AtMemoryManager&) = delete;
   AtMemoryManager& operator=(const AtMemoryManager&) = delete;
 
-  ~AtMemoryManager();
+  ~AtMemoryManager() override;
 
   // Called when suggestions are shown. The manager initiates an @memory
   // session if the `trigger_source` is an @memory one.
@@ -59,7 +66,6 @@ class AtMemoryManager {
       AutofillSuggestionTriggerSource trigger_source,
       base::optional_ref<const AutofillSuggestionDelegate::SuggestionMetadata>
           parent_suggestion_metadata,
-      bool is_context_secure,
       UpdateSuggestionsCallback update_callback,
       ukm::SourceId ukm_source_id);
 
@@ -110,9 +116,41 @@ class AtMemoryManager {
   // Returns true if a search is currently in progress.
   bool IsSearching() const;
 
+  // Returns the list of suggestions to show when the query is empty.
+  // These suggestions will be in order:
+  // * kPersonalContextNotice (optional)
+  // * kTitle (optional)
+  // * kAtMemorySearchResult (repeated)
+  std::vector<Suggestion> GetEmptyQuerySuggestions() const;
+
   // Appends the personal context notice to the suggestions if necessary.
   void MaybeAppendPersonalContextNotice(
       std::vector<Suggestion>& suggestions) const;
+
+  // Appends the AI disclosure to the suggestions if necessary.
+  static void MaybeAppendAiDisclosure(std::vector<Suggestion>& suggestions);
+
+  // Creates the fetching / loading throbber suggestion. `index` determines
+  // which string from the fetching cycle is used.
+  static Suggestion CreateFetchingSuggestion(size_t index = 0);
+
+  // Creates a catch-all suggestion to display when AtMemory search fails due to
+  // an unexpected or generic error.
+  static Suggestion CreateGenericErrorSuggestion();
+
+  // Creates a suggestion to display when AtMemory search fails to connect to
+  // the server.
+  static Suggestion CreateNoConnectionSuggestion(std::u16string query);
+
+  // Creates the search affordance suggestion.
+  static Suggestion CreateSearchAffordanceSuggestion(std::u16string query);
+
+  void set_target_field_origin(const url::Origin& origin) {
+    target_field_origin_ = origin;
+  }
+
+  // Creates a source attribution suggestion ("Suggested by Gemini").
+  static Suggestion CreateSourceAttributionSuggestion();
 
  private:
   friend class AtMemoryManagerTestApi;
@@ -128,20 +166,50 @@ class AtMemoryManager {
   // Creates a suggestion to display when the query is not supported.
   Suggestion CreateUnsupportedQuerySuggestion(const std::u16string& query);
 
-  // Creates the search affordance suggestion.
-  Suggestion CreateSearchAffordanceSuggestion(std::u16string query);
-
-  // Creates the AI disclosure suggestion.
-  Suggestion CreateAiDisclosureSuggestion() const;
-
   // Cancels any pending search queries and resets searching states.
   void CancelPendingQueries();
 
   // Sends the given suggestions to the UI.
   void SendSuggestions(std::vector<Suggestion> suggestions);
 
-  // Clears all currently shown suggestions in the UI.
-  void ClearSuggestions();
+  // Advances to the next fetching suggestion message and updates the UI.
+  void AdvanceFetchingSuggestion();
+
+  // Appends previously filled suggestions to the list of suggestions.
+  static void MaybeAppendPreviouslyFilledSuggestions(
+      std::vector<Suggestion>& suggestions);
+
+  // Shows all the suggestions in the empty state.
+  // These suggestions will be in order:
+  // * kPersonalContextNotice (optional)
+  // * kTitle (optional)
+  // * kAtMemorySearchResult (repeated)
+  void ShowEmptyQuerySuggestions();
+
+  // Shows all the suggestions in the query typing state.
+  // These suggestions will be in order:
+  // * kAtMemorySearchAffordance | kAtMemoryNoConnection
+  // * kAtMemoryAiDisclosure | kPersonalContextNotice
+  void ShowQueryTypingSuggestions(const std::u16string& query);
+
+  // Shows all the suggestions in the fetching state.
+  // These suggestions will be in order:
+  // * kAtMemoryFetching
+  // * kPersonalContextNotice (optional)
+  void ShowFetchingStateSuggestions();
+
+  // Shows all the suggestions in the results retrieved state.
+  // These suggestions will be in order:
+  // * kPersonalContextNotice (optional)
+  // * kAtMemorySearchResult (repeated)
+  void ShowResultsRetrievedStateSuggestions(const MemorySearchResults& result);
+
+  // Shows all the suggestions in the no results retrieved state.
+  // These suggestions will be in order:
+  // * kPersonalContextNotice (optional)
+  // * suggestion describing the error
+  void ShowNoResultsStateSuggestions(const std::u16string& query,
+                                     const MemorySearchResults& result);
 
   // Fills the unmasked IBAN value after fetching it. Returns `IsAsync(true)` if
   // the operation involves reauthentication or server communication.
@@ -152,12 +220,24 @@ class AtMemoryManager {
       const Suggestion& suggestion,
       std::unique_ptr<AtMemoryMetricsRecorder> metrics);
 
-  // Fills the unmasked credit card value after fetching it.
-  void FillCreditCard(const std::string& credit_card_guid,
-                      const FormGlobalId& form_id,
-                      const FieldGlobalId& field_id,
-                      const Suggestion& suggestion,
-                      std::unique_ptr<AtMemoryMetricsRecorder> metrics);
+  // Fills the unmasked credit card value after fetching it. Returns
+  // `IsAsync(true)` if the operation involves reauthentication or server
+  // communication.
+  IsAsync FillCreditCard(const std::string& credit_card_guid,
+                         const FormGlobalId& form_id,
+                         const FieldGlobalId& field_id,
+                         const Suggestion& suggestion,
+                         std::unique_ptr<AtMemoryMetricsRecorder> metrics);
+
+  // CreditCardAccessManager::Observer:
+  void OnCreditCardFetchStarted(CreditCardAccessManager& manager,
+                                const CreditCard& credit_card) override;
+  void OnCreditCardFetchSucceeded(CreditCardAccessManager& manager,
+                                  const CreditCard& credit_card) override;
+  void OnCreditCardFetchFailed(CreditCardAccessManager& manager,
+                               const CreditCard* credit_card) override;
+  void OnCreditCardAccessManagerDestroyed(
+      CreditCardAccessManager& manager) override;
 
   // Triggers reauthentication and fetching of the unmasked Personal Context
   // value, which fills the field upon completion. Returns `IsAsync(true)` if
@@ -194,7 +274,7 @@ class AtMemoryManager {
       const FormGlobalId& form_id,
       const FieldGlobalId& field_id,
       const Suggestion& suggestion,
-      const AtMemoryDataType& data_type,
+      AttributeType data_type,
       std::unique_ptr<AtMemoryMetricsRecorder> metrics);
 
   // Callback handler when the unmasked AutofillAI entity has been fetched.
@@ -202,26 +282,43 @@ class AtMemoryManager {
       const FormGlobalId& form_id,
       const FieldGlobalId& field_id,
       const Suggestion& suggestion,
-      const AtMemoryDataType& data_type,
+      AttributeType data_type,
       std::unique_ptr<AtMemoryMetricsRecorder> metrics,
       base::expected<EntityInstance, AutofillAiAccessManager::FailureReason>
           result,
-      bool reauth_attempted);
+      bool reauth_attempted,
+      bool did_fetch_from_server);
 
-  const raw_ptr<BrowserAutofillManager> owner_;
+  BrowserAutofillManager* GetBrowserAutofillManager(
+      const FormGlobalId& form_id,
+      const FieldGlobalId& field_id);
 
-  AutofillSuggestionTriggerSource trigger_source_ =
-      AutofillSuggestionTriggerSource::kUnspecified;
+  // Encapsulates active session state for an AtMemory UI interaction.
+  struct SessionState {
+    AutofillSuggestionTriggerSource trigger_source =
+        AutofillSuggestionTriggerSource::kUnspecified;
+    UpdateSuggestionsCallback update_callback;
+    std::unique_ptr<AtMemoryMetricsRecorder> metrics_recorder;
+    // Flag indicating that a search query is in progress.
+    bool is_searching = false;
+  };
 
-  UpdateSuggestionsCallback update_callback_;
+  const raw_ref<AutofillClient> client_;
 
-  std::unique_ptr<AtMemoryMetricsRecorder> at_memory_metrics_recorder_;
+  std::optional<SessionState> session_state_;
 
-  // Indicates whether the current tab and the form uses a secure connection.
-  bool is_context_secure_ = false;
-  // Flag indicating that a search query is in progress.
-  bool is_searching_ = false;
+  base::ScopedObservation<CreditCardAccessManager,
+                          CreditCardAccessManager::Observer>
+      ccam_observation_{this};
 
+  bool credit_card_fetch_in_progress_ = false;
+
+  // Origin of the target field for the active search session.
+  url::Origin target_field_origin_;
+  // Timer used to rotate the fetching suggestions.
+  base::RepeatingTimer fetching_timer_;
+  // Index of the current fetching message to display.
+  size_t fetching_string_index_ = 0;
   // Factory for search queries, used to identify currently active query and
   // discard the old ones.
   base::WeakPtrFactory<AtMemoryManager> query_weak_ptr_factory_{this};

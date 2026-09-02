@@ -4,6 +4,7 @@
 
 module omnibox_popup.mojom;
 
+import "components/omnibox/browser/searchbox.mojom";
 import "ui/gfx/geometry/mojom/geometry.mojom";
 import "ui/gfx/range/mojom/range.mojom";
 
@@ -30,6 +31,8 @@ struct OmniboxInputState {
   bool show_full_url;
   // Whether searchbox should query for ZPS.
   bool query_zps;
+  // The keyword model associated with the input, if in keyword mode.
+  searchbox.mojom.InputKeywordModel? keyword_model;
 };
 
 // Browser-side handler for the Omnibox Popup.
@@ -74,12 +77,22 @@ interface PageHandler {
   // Discards the call if `sequence_number` is stale.
   OnPaste(string text, gfx.mojom.Range selection, uint32 sequence_number);
 
+  // Notifies the browser that the user has cut or copied text from the Omnibox.
+  // Discards the call if `sequence_number` is stale.
+  OnCutOrCopy(uint32 sequence_number,
+              bool is_cut,
+              string full_text,
+              gfx.mojom.Range selection);
+
   // Requests the current native input state (text, selection, focus) from C++.
   RequestInputState();
 
   // Opens the AIM (AI Mode) popup. `via_keyboard` is true if triggered via
   // keyboard.
   OpenAimPopup(bool via_keyboard);
+
+  // Updates the client-side edit history undo/redo availability state.
+  SetEditHistoryState(bool can_undo, bool can_redo);
 };
 
 // The WebUI page for the Omnibox Popup.
@@ -96,4 +109,11 @@ interface Page {
 
   // Called by the browser when focus changes within the active tab.
   SetFocus(bool is_focused);
+
+  // Clears autocomplete results and resets active query ID in WebUI.
+  ClearAutocompleteMatches();
+
+  // Called when the popup is hidden. The page is expected to perform any
+  // necessary cleanup and complete the callback.
+  ClearPopup() => ();
 };

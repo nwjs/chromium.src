@@ -33,6 +33,7 @@
 #include "chrome/browser/ui/views/toolbar/toolbar_divider.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "ui/actions/action_id.h"
@@ -465,7 +466,7 @@ actions::ActionItem* PinnedToolbarActionsContainer::GetActionItemFor(
     return nullptr;
   }
   return actions::ActionManager::Get().FindAction(
-      id, browser_view_->browser()->browser_actions()->root_action_item());
+      id, BrowserActions::From(browser_view_->browser())->root_action_item());
 }
 
 PinnedActionToolbarButton* PinnedToolbarActionsContainer::AddPoppedOutButtonFor(
@@ -526,9 +527,10 @@ void PinnedToolbarActionsContainer::AddPinnedActionButtonFor(
   // Pinned buttons shouldn't appear in web apps or browsers without a tabstrip
   // (like popups).
   if (auto* browser = browser_view_->browser();
-      browser && (web_app::AppBrowserController::From(browser) ||
-                  !browser->SupportsWindowFeature(
-                      Browser::WindowFeature::kFeatureTabStrip))) {
+      browser &&
+      (web_app::AppBrowserController::From(browser) ||
+       !WindowFeatureController::From(browser)->SupportsWindowFeature(
+           WindowFeatureController::WindowFeature::kFeatureTabStrip))) {
     return;
   }
 

@@ -77,6 +77,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="1857749206890802997">Yolda olarkən yeni tab qrupları açmaq və ya yaratmaq üçün telefonunuza Chromium endirin.</translation>
 <translation id="185970820835152459">Daxil olunmuş Google Hesablarını idarə edə bilərsiniz. Google Hesablarınız Chromium brauzeri, Play Market, Gmail və digər xidmətlər üçün istifadə olunur. Ailə üzvü kimi başqası üçün bir hesab əlavə etmək istəyirsinizsə, əvəzində <ph name="DEVICE_TYPE" /> cihazınıza yeni bir şəxs əlavə edin. <ph name="LINK_BEGIN" />Ətraflı məlumat<ph name="LINK_END" /></translation>
 <translation id="1862852878885210965">Şəkil Axtarışı ilə axtarın</translation>
+<translation id="1863837059069884561"><ph name="EXISTING_USER" /> artıq daxil olub. Baxışı ayrı saxlamaq üçün öz profilinizdə Chromium-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. <ph name="DEVICE" /> cihazından əlfəcinlərinizi və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="1880677175115548835">Mətn seçin</translation>
 <translation id="1881322772814446296">Nəzarət olunan hesabla daxil olursunuz və hesabın administratoruna Chromium profiliniz üzərində nəzarət etmək imkanı verirsiniz. Tətbiqləriniz, əlfəcinləriniz, tarixçəniz, parollarınız və digər ayarlarınız <ph name="USER_NAME" /> adına həmişəlik bağlı qalacaq. Bu datanı Google Hesab İdarə Paneli vasitəsilə silə biləcəksiniz, lakin bu datanı digər hesabla əlaqələndirə bilməyəcəksiniz. Mövcud Chromium datanızı ayrı saxlamaq üçün yeni profil yarada bilərsiniz. <ph name="LEARN_MORE" /></translation>
 <translation id="1896836275755235458">Chromium arxa fon fəaliyyətini, habelə rahat sürüşdürmə və video çərçivə səviyyəsi kimi vizual effektləri məhdudlaşdırmaqla batareya enerjisinə qənaət edir. <ph name="BEGIN_LINK" />Enerjiyə Qənaət haqqında ətraflı məlumat<ph name="END_LINK" /></translation>
@@ -135,6 +136,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2418322681019544463">İstənilən tətbiqdəki keçidləri Chromium-da açın və brauzeri tapşırıqlar panelində əlçatan saxlayın</translation>
 <translation id="2425157128016763890">Sürətli icmal əldə etmək və əlavə suallar vermək məqsədilə bu sənədi Chromium-da Gemini ilə paylaşmaq üçün İcmallaşdırın düyməsinə klikləyin</translation>
 <translation id="2440750600860946460"><ph name="BEGIN_LINK" />Chromium alətləri ilə<ph name="END_LINK" /> təhlükəsiz nəzər sala və nəzarət edə bilərsiniz</translation>
+<translation id="2449487342837813167"><ph name="EXISTING_USER" /> artıq daxil olub. Baxışı ayrı saxlamaq üçün öz profilinizdə Chromium-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. Bütün cihazlarınızda parollarınızı və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="2451727308784734061">Qısayol ilə Parol menecerinə tez daxil olun. Qısayolu kompüterin əsas ekranına və ya tətbiq işəsalanına köçürə bilərsiniz.</translation>
 <translation id="2478295928299953161">Chromium tezliklə bağlanacaq</translation>
 <translation id="2483889755041906834">Chromium'da</translation>
@@ -154,6 +156,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="2635452620547538388">Chromium datasını hesabınızda (<ph name="ACCOUNT_EMAIL" />) istifadə etmək və yadda saxlamaq üçün kimliyinizi doğrulayın</translation>
 <translation id="2636783171884046627">Chromium-da Gemini-dan çıxmaq və ya oraya qayıtmaq üçün klaviatura qısayolundan istifadə edin.</translation>
 <translation id="2637732208198500597">{COUNT,plural, =0{Qabaqcıl Qoruma güncəllənməni tətbiq etmək üçün Chromium-u yenidən başlatmağınızı tələb edir}=1{Qabaqcıl Qoruma güncəllənməni tətbiq etmək üçün Chromium-u yenidən başlatmağınızı tələb edir. Anonim pəncərəniz yenidən açılmayacaq.}other{Qabaqcıl Qoruma güncəllənməni tətbiq etmək üçün Chromium-u yenidən başlatmağınızı tələb edir. # Anonim pəncərəniz yenidən açılmayacaq.}}</translation>
+<translation id="263863604136125912">Chromium-u başladın</translation>
 <translation id="2648074677641340862">Quraşdırma zamanı əməliyyat sistemi xətası baş verdi. Chromium'u yenidən endirin.</translation>
 <translation id="2661879430930417727">Cihaz paylaşsanız, dostlarınız və ailəniz ayrıca baxış keçirə bilər və Chromium'u istədikləri kimi ayarlaya bilər.</translation>
 <translation id="2676569452213089702">Chromium-un ölçüsü minimuma endirilmiş olsa belə, cihazınızda Chromium-da Gemini-dan istifadə üçün asan giriş.</translation>
@@ -305,7 +308,6 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="4304713468139749426">Parol Meneceri</translation>
 <translation id="4334241893986177674">Bu skrinşotu axtarın</translation>
 <translation id="4384331407722351213">Windows işə düşdükdə Chromium-u işə salın</translation>
-<translation id="4384993550046411228">Chromium-u defolt brauzeriniz kimi ayarlamaqla bildiyiniz, sevdiyiniz və etibar etdiyiniz funksiyalara asanlıqla daxil olun. Sürətli giriş üçün Chromium tapşırıqlar panelinə bərkidiləcək.</translation>
 <translation id="4400772909124543403">Güncəllənmə əlçatan deyil</translation>
 <translation id="4407044323746248786">Chromium'dan istənilən halda çıxılsın?</translation>
 <translation id="4413205837991854510">Şəkil Axtarışı qısayolunu həmişə göstərin</translation>
@@ -405,6 +407,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 
 Bu səhifə gözlənildiyi kimi işləmirsə, optimallaşdırmaya icazə verməyə cəhd edin.</translation>
 <translation id="5575874067957905201">Mac menyu panelində Chromium-da Gemini göstərilsin və klaviatura qısayolunu aktivləşdirin</translation>
+<translation id="5576587363991567745"><ph name="EXISTING_USER" /> artıq daxil olub. Baxışı ayrı saxlamaq üçün öz profilinizdə Chromium-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. <ph name="DEVICE" /> cihazından yadda saxlanılmış məlumatları və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="5579324208890605088">Başlatma xətası: quraşdırıcını administrator kimi deyil, adi istifadəçi kimi işə salın.</translation>
 <translation id="5580770360767802657">Defolt olaraq Chromium-dan istifadə edin və onu bərkidin</translation>
 <translation id="5596627076506792578">Əlavə seçimlər</translation>
@@ -579,12 +582,12 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="7213407614656404070">Mesaj, sənəd və digər tətbiqlərdə keçidlərə kliklədikdə Chromium istifadə edin</translation>
 <translation id="7216228761061470870">Masaüstündə Şəkil axtarışından istifadə etdikdə səhifə başlığı, URL və kontent, o cümlədən PDF-lər serverə göndərilir</translation>
 <translation id="7223968959479464213">Tapşırıq Meneceri - Chromium</translation>
+<translation id="7227958669698166857"><ph name="EXISTING_USER" /> artıq daxil olub. Baxışı ayrı saxlamaq üçün öz profilinizdə Chromium-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. Bütün cihazlarınızda yadda saxladığınız məlumatları və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="7252276985725323153">Dərhal nəzər salmağa başlayın: Chromium artıq Windows işə düşdükdə işə salına bilər.</translation>
 <translation id="7274695763216404502">Bərkidildi! Alətlər panelində yenidən Şəkil Axtarışından istifadə edin</translation>
 <translation id="7288567540154601580">Tab və artırmalar</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium onu silməyinizi tövsiyə edir}other{Chromium onları silməyinizi tövsiyə edir}}</translation>
 <translation id="7296334833518879294">Sistem audiosunu paylaşmaq üçün Sistem Ayarlarını açın və Chromium-da "Yalnız Sistem Audiosunun Qeydə Alınması"na icazə verin. Sonra Chromium-u yenidən başlatmalı olacaqsınız.</translation>
-<translation id="7309928523159922338">Reklamın ölçülməsi ziyarət etdiyiniz saytlara Chromium'dan sayta reklamlarının performansını ölçməyə kömək edən məlumat tələb etməyə imkan verir. Reklamın ölçülməsi saytlar arasında mümkün qədər az məlumat ötürməklə saytlararası izləməni məhdudlaşdırır.</translation>
 <translation id="731795002583552498">Chromium güncəlləşir</translation>
 <translation id="7318036098707714271">Tərcih faylınız zədələnib və ya yanlışdır.  Chromium ayarlarınızı bərpa edə bilmir.</translation>
 <translation id="734373864078049451">Veb, əlfəcinlər və Chromium'a aid hər şeyiniz buradadır.</translation>
@@ -647,6 +650,7 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="7888981273428720788">Chromium-u defolt kimi ayarlayın</translation>
 <translation id="7934340546140346950">Chromium mümkün olduqda güvənsiz bağlantıları avtomatik olaraq HTTPS-ə təkmilləşdirir</translation>
 <translation id="7937630085815544518">Chromium'a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olmuşdunuz. Lütfən, yenidən daxil olmaq üçün eyni hesabdan istifadə edin.</translation>
+<translation id="7944602660083060118"><ph name="EXISTING_USER" /> artıq daxil olub. Baxışı ayrı saxlamaq üçün öz profilinizdə Chromium-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. Bütün cihazlarınızda əlfəcinlərinizi və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="7975919845073681630">Bu Chromium'un ikinci quraşdırmasıdır və defolt brauzer kimi ayarlana bilmir.</translation>
 <translation id="7997934263947464652">Naməlum mənbələrdən olan artırmalar, tətbiqlər və temalar cihazınıza zərər verə bilər. Chromium onları yalnız buradan quraşdırmağı tövsiyə edir: <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /></translation>
 <translation id="8000759043835159571"><ph name="DEVICE_TYPE" /> cihazında Chromium tətbiqi ilə Google-dan daha çox yararlanın</translation>
@@ -678,10 +682,12 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="8232193495299001329">Chromium bu artırmanın mənbəyini yoxlaya bilmir və artırma güvənsiz ola bilər. Onu Chromium-dan silin ki, daxil olduğunuz saytlardakı dataya, o cümlədən şəxsi məlumatlara baxa və onları dəyişə bilməsin.</translation>
 <translation id="8248265253516264921">Şəklin təsviri faydalı deyilsə, Chromium Sizin üçün təsviri təmin etməyə çalışacaq. Təsvir yaratmaq üçün şəkillər Google'a göndərilir. Bunu istənilən vaxt ayarlardan deaktiv edə bilərsiniz.</translation>
 <translation id="8254601181414348851">Yeni profildə Chromium-a daxil olursunuz?</translation>
+<translation id="8262224117913639129"><ph name="EXISTING_USER" /> artıq daxil olub. Baxışı ayrı saxlamaq üçün öz profilinizdə Chromium-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. <ph name="DEVICE" /> hesabından parolları və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="8277334259226003205">Chromium-da Gemini bildiriş sahəsində göstərilsin və klaviatura qısayolunu aktivləşdirin</translation>
 <translation id="8286943863733751221">Chromium təhlükəli sayt və endirmələr haqqında <ph name="BEGIN_LINK" />xəbərdarlıq edir<ph name="END_LINK" /></translation>
 <translation id="8295827201165805317">Bu yaxınlarda daxil olmamısınız. Chromium sildi: <ph name="PERMISSION" />.</translation>
 <translation id="8296236834352487533">Chromium iOS tətbiqində kamera ilə alış-veriş edin, tərcümə edin və gördüklərinizi müəyyənləşdirin</translation>
+<translation id="8310603974518734211">Chromium-a <ph name="USER_NAME" /> kimi daxil olmaq üçün QR kodu</translation>
 <translation id="8313851650939857356">Başlatma xətası: <ph name="STARTUP_ERROR" />.</translation>
 <translation id="8318772038038596122">Chromium <ph name="TIMEOUT_DURATION" /> istifadə edilməsə, təşkilat onu bağlayır.</translation>
 <translation id="8321888067342493336">Şəkil kimi saxlayın</translation>

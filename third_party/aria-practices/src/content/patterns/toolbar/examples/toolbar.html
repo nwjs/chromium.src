@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Toolbar Example</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/toolbar.css" rel="stylesheet">
+    <link href="css/menuButton.css" rel="stylesheet">
+    <script src="js/FormatToolbarItem.js"></script>
+    <script src="js/FormatToolbar.js"></script>
+    <script src="js/FontMenuItem.js"></script>
+    <script src="js/FontMenu.js"></script>
+    <script src="js/FontMenuButton.js"></script>
+    <script src="js/SpinButton.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <div class="format" role="toolbar" aria-label="Text Formatting" aria-controls="textarea1">
+            <div class="group characteristics">
+              <button type="button" class="item bold popup" aria-pressed="false" value="bold" tabindex="0">
+                <span class="fas fa-bold" aria-hidden="true"></span>
+                <span class="popup-label">Bold</span>
+              </button>
+              <button type="button" class="item italic popup" aria-pressed="false" value="italic" tabindex="-1">
+                <span class="fas fa-italic" aria-hidden="true"></span>
+                <span class="popup-label">Italic</span>
+              </button>
+              <button type="button" class="item underline popup" aria-pressed="false" value="underline" tabindex="-1">
+                <span class="fas fa-underline" aria-hidden="true"></span>
+                <span class="popup-label">Underline</span>
+              </button>
+            </div>
+            <div class="group" role="radiogroup" aria-label="Text Alignment">
+              <button type="button" role="radio" class="item align-left popup" aria-checked="true" tabindex="-1">
+                <span class="fas fa-align-left" aria-hidden="true"></span>
+                <span class="popup-label">Text Align Left</span>
+              </button>
+              <button type="button" role="radio" class="item align-center popup" aria-checked="false" tabindex="-1">
+                <span class="fas fa-align-center" aria-hidden="true"></span>
+                <span class="popup-label">Text Align Center</span>
+              </button>
+              <button type="button" role="radio" class="item align-right popup" aria-checked="false" tabindex="-1">
+                <span class="fas fa-align-right" aria-hidden="true"></span>
+                <span class="popup-label">Text Align Right</span>
+              </button>
+            </div>
+            <div class="group">
+              <button type="button" class="item copy" aria-disabled="true" tabindex="-1">Copy</button>
+              <button type="button" class="item paste" aria-disabled="true" tabindex="-1">Paste</button>
+              <button type="button" class="item cut" aria-disabled="true" tabindex="-1">Cut</button>
+            </div>
+            <div class="menu-popup group">
+              <button type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu1" class="item menu-button" tabindex="-1" aria-label="Font: Sans-serif" style="text-align: left; width: 140px; font-family: sans-serif">
+                SANS-SERIF
+                <span></span>
+              </button>
+              <ul role="menu" id="menu1" aria-label="Font Family">
+                <li role="menuitemradio" aria-checked="true" style="font-family: sans-serif">Sans-serif</li>
+                <li role="menuitemradio" aria-checked="false" style="font-family: serif">Serif</li>
+                <li role="menuitemradio" aria-checked="false" style="font-family: monospace">Monospace</li>
+                <li role="menuitemradio" aria-checked="false" style="font-family: fantasy">Fantasy</li>
+                <li role="menuitemradio" aria-checked="false" style="font-family: cursive">Cursive</li>
+              </ul>
+            </div>
+
+            <div class="group">
+              <div class="item spinbutton" role="spinbutton" tabindex="-1" aria-valuenow="14" aria-valuetext="14pt" aria-valuemin="8" aria-valuemax="40" aria-label="Font size in points">
+                <span class="value">14pt</span>
+                <span class="increase">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12">
+                    <polygon class="increase" fill="#333" points="0,12 11,12 6,2"></polygon>
+                  </svg>
+                </span>
+                <span class="decrease">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12">
+                    <polygon class="decrease" fill="#333" points="0,2 11,2 6,12"></polygon>
+                  </svg>
+                </span>
+              </div>
+            </div>
+
+            <div class="group">
+              <label class="input"><input id="checkbox" class="item nightmode" type="checkbox" tabindex="-1"> Night Mode</label>
+              <a id="link" class="item link" href="help.html" tabindex="-1">Help</a>
+            </div>
+          </div>
+          <label for="textarea1" class="hidden">Text Sample</label><br>
+          <textarea id="textarea1" rows="20" cols="80" style="font-family: sans-serif">
+Abraham Lincoln's Gettysburg Address
+
+Four score and seven years ago our fathers brought forth on this continent a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal.
+
+Now we are engaged in a great civil war, testing whether that nation, or any nation, so conceived and so dedicated, can long endure. We are met on a great battle-field of that war. We have come to dedicate a portion of that field, as a final resting place for those who here gave their lives that that nation might live. It is altogether fitting and proper that we should do this.
+
+But, in a larger sense, we can not dedicate, we can not consecrate, we can not hallow, this ground. The brave men, living and dead, who struggled here, have consecrated it, far above our poor power to add or detract. The world will little note, nor long remember what we say here, but it can never forget what they did here. It is for us the living, rather, to be dedicated here to the unfinished work which they who fought here have thus far so nobly advanced. It is rather for us to be here dedicated to the great task remaining before us, that from these honored dead we take increased devotion to that cause for which they gave the last full measure of devotion, that we here highly resolve that these dead shall not have died in vain, that this nation, under God, shall have a new birth of freedom, and that government of the people, by the people, for the people, shall not perish from the earth.
+</textarea>
+        </div>
+  </body>
+</html>

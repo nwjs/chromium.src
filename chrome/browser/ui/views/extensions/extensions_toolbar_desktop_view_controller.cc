@@ -4,13 +4,11 @@
 
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop_view_controller.h"
 
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 
 ExtensionsToolbarDesktopViewController::ExtensionsToolbarDesktopViewController(
-    Browser* browser,
     ExtensionsToolbarDesktop* extensions_container)
-    : browser_(browser), extensions_container_(extensions_container) {}
+    : extensions_container_(extensions_container) {}
 
 ExtensionsToolbarDesktopViewController::
     ~ExtensionsToolbarDesktopViewController() {

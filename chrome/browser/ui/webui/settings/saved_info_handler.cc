@@ -156,7 +156,7 @@ enum class DataManagementSurvey {
   kIdentityDocs = 4,
   kTravel = 5,
 };
-// LINT.ThenChange(/chrome/browser/resources/settings/your_saved_info_page/saved_info_handler_proxy.ts:DataManagementSurvey)
+// LINT.ThenChange(/chrome/browser/resources/settings/autofill_page/saved_info_handler_proxy.ts:DataManagementSurvey)
 
 const std::string GetManagementSurveyTrigger(DataManagementSurvey survey) {
   switch (survey) {
@@ -202,9 +202,7 @@ void SavedInfoHandler::HandleRequestDataManagementSurvey(
   bool is_from_home_page = args[1].GetBool();
 
   auto& feature = GetManagementSurveyFeature(survey);
-  if (!base::FeatureList::IsEnabled(feature) ||
-      !base::FeatureList::IsEnabled(
-          autofill::features::kYourSavedInfoSettingsPage)) {
+  if (!base::FeatureList::IsEnabled(feature)) {
     return;
   }
 

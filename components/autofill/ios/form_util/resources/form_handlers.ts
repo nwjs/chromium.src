@@ -75,6 +75,20 @@ let formControlCollections: Array<HTMLCollectionOf<Element>> = [];
 const FORM_TAGS = new Set(['FORM', 'INPUT', 'SELECT', 'OPTION', 'TEXTAREA']);
 
 /**
+ * Tag names used to compute live HTMLCollection form control counts.
+ *
+ * Unlike `FORM_TAGS`, 'OPTION' can be safely excluded because:
+ * 1. <option> elements are only child items of <select> controls and are not
+ *    independent autofillable form controls themselves. Any addition or
+ *    removal of a select control is already captured by tracking <select>.
+ * 2. Forms (e.g., country or date-of-birth dropdowns) can contain hundreds or
+ *    thousands of <option> elements. Excluding them avoids expensive DOM
+ *    subtree scanning and live HTMLCollection maintenance for large option
+ *    lists.
+ */
+const FORM_CONTROL_TAGS = ['FORM', 'INPUT', 'SELECT', 'TEXTAREA'];
+
+/**
  * A message scheduled to be sent to host on the next runloop.
  */
 let messageToSend: object|null = null;
@@ -145,7 +159,8 @@ function isAutofillTrackFormMutationsOptimizationEnabled(): boolean {
  * Returns true if the password fields tracking feature is enabled.
  */
 function isTrackPasswordFieldsEnabled(): boolean {
-  return (window as any).gCrWebPlaceholderAutofillTrackPasswordFieldsIos;
+  return autofillFormFeaturesApi.getFunction(
+      'isAutofillTrackPasswordFieldsEnabled')();
 }
 
 /**
@@ -368,17 +383,6 @@ function attachListeners(): void {
   window.addEventListener('message', processInboundMessage);
 }
 
-/**
- * Scan the page for password fields and set the HAS_BEEN_PASSWORD_SYMBOL on
- * them.
- */
-function markPasswordFields(): void {
-  const passwordFields = document.querySelectorAll('input[type="password"]');
-  for (const passwordField of passwordFields) {
-    (passwordField as PasswordTrackedElement)[HAS_BEEN_PASSWORD_SYMBOL] = true;
-  }
-}
-
 // Attach the listeners immediately to try to catch early actions of the user.
 attachListeners();
 
@@ -470,18 +474,6 @@ function processFormMutationsStandard(
     // Process mutations to the tree of nodes.
     if (mutation.type === 'childList') {
       const addedFormElements = findAllFormElementsInNodes(mutation.addedNodes);
-
-      // For all password field in the added nodes, set
-      // HAS_BEEN_PASSWORD_SYMBOL.
-      if (isTrackPasswordFieldsEnabled()) {
-        for (const element of addedFormElements) {
-          if (element.tagName === 'INPUT' &&
-              (element as HTMLInputElement).type === 'password') {
-            (element as PasswordTrackedElement)[HAS_BEEN_PASSWORD_SYMBOL] =
-                true;
-          }
-        }
-      }
 
       // Handle added nodes.
       const formWasAdded = addedFormElements.length > 0;
@@ -596,7 +588,7 @@ function processFormMutationsStandard(
 function initializeFormControlCollections(): void {
   if (formControlCollections.length === 0) {
     formControlCollections =
-        [...FORM_TAGS].map(tag => document.getElementsByTagName(tag));
+        FORM_CONTROL_TAGS.map(tag => document.getElementsByTagName(tag));
   }
 }
 
@@ -666,7 +658,7 @@ function processFormMutationsOptimized(): void {
     }
 
     // Mathematically align removedFormControlCount with getFormControlCount()
-    if (FORM_TAGS.has(element.tagName)) {
+    if (FORM_CONTROL_TAGS.includes(element.tagName)) {
       removedFormControlCount++;
     }
 
@@ -706,9 +698,6 @@ function processFormMutationsOptimized(): void {
   if (addedFormControlCount > 0 ||
       removedFormControlCount >
           (removedFormIDs.length + removedFieldIDs.length)) {
-    if (addedFormControlCount > 0 && isTrackPasswordFieldsEnabled()) {
-      markPasswordFields();
-    }
     addedFormMessage = {
       'command': 'form.activity',
       'frameID': gCrWeb.getFrameId(),
@@ -810,7 +799,6 @@ function trackFormMutations(delay: number): void {
 
   // Track password field mutations.
   if (isTrackPasswordFieldsEnabled()) {
-    markPasswordFields();
     initializePasswordFieldTypeObserver();
   }
 

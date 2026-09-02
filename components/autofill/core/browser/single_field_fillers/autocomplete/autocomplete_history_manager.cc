@@ -23,6 +23,7 @@
 #include "base/time/time.h"
 #include "base/version_info/version_info.h"
 #include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
+#include "components/autofill/core/browser/data_model/payments/iban.h"
 #include "components/autofill/core/browser/data_quality/validation.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
@@ -282,8 +283,8 @@ bool IsFieldValueSaveable(const FormFieldData& field,
 
   // Do not save sensitive values like credit card numbers, IBANs, or Social
   // Security Numbers.
-  if (IsValidCreditCardNumber(field.value()) ||
-      IsInternationalBankAccountNumber(field.value()) || IsSSN(field.value())) {
+  if (IsValidCreditCardNumber(field.value()) || Iban::IsValid(field.value()) ||
+      IsSSN(field.value())) {
     return false;
   }
 
@@ -300,7 +301,46 @@ bool IsFieldValueSaveable(const FormFieldData& field,
 
 }  // namespace
 
-AutocompleteHistoryManager::AutocompleteHistoryManager() = default;
+AutocompleteHistoryManager::AutocompleteHistoryManager(
+    scoped_refptr<AutofillWebDataService> profile_database,
+    PrefService* pref_service)
+    : profile_database_(std::move(profile_database)),
+      pref_service_(pref_service) {
+  if (!profile_database_ || !pref_service_) {
+    // In some tests, there is no database or pref service.
+    return;
+  }
+
+  // Upon successful cleanup, the last cleaned-up major version is being
+  // stored in this pref.
+  int last_cleaned_version =
+      pref_service_->GetInteger(prefs::kAutocompleteLastVersionRetentionPolicy);
+  if (version_info::GetMajorVersionNumberAsInt() > last_cleaned_version) {
+    // Trigger the cleanup.
+    profile_database_->RemoveExpiredAutocompleteEntries(
+        base::BindOnce(&AutocompleteHistoryManager::OnAutofillCleanupReturned,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+
+  // TODO(crbug.com/346507576): After full launch, migrate unconditionally from
+  // the legacy `autofill` table and remove generation checks. Keep that logic
+  // for `kAutocompleteRetentionPolicyPeriod` days, then remove migration logic
+  // completely.
+  if (base::FeatureList::IsEnabled(
+          features::kAutofillLabelSensitiveAutocomplete)) {
+    int current_migration_generation = pref_service_->GetInteger(
+        prefs::kAutofillAutocompleteLabelSensitiveMigrationGeneration);
+    int expected_migration_generation =
+        features::kAutofillLabelSensitiveAutocompleteMigrationGeneration.Get();
+
+    if (current_migration_generation < expected_migration_generation) {
+      profile_database_->MigrateDataFromLegacyTable(base::BindOnce(
+          &AutocompleteHistoryManager::OnLegacyTableDataMigrationReturned,
+          weak_ptr_factory_.GetWeakPtr(),
+          /*new_migration_generation=*/expected_migration_generation));
+    }
+  }
+}
 
 AutocompleteHistoryManager::~AutocompleteHistoryManager() = default;
 
@@ -337,9 +377,8 @@ void AutocompleteHistoryManager::OnGetSingleFieldSuggestions(
 
 void AutocompleteHistoryManager::OnWillSubmitFormWithFields(
     const std::vector<FormFieldData>& fields,
-    const FormStructure* form,
-    bool is_autocomplete_enabled) {
-  if (!is_autocomplete_enabled || is_off_the_record_) {
+    const FormStructure* form) {
+  if (!pref_service_ || !prefs::IsAutocompleteEnabled(pref_service_)) {
     return;
   }
   std::vector<FormFieldData> autocomplete_saveable_fields;
@@ -393,34 +432,6 @@ void AutocompleteHistoryManager::OnSingleFieldSuggestionSelected(
   }
 }
 
-void AutocompleteHistoryManager::Init(
-    scoped_refptr<AutofillWebDataService> profile_database,
-    PrefService* pref_service,
-    bool is_off_the_record) {
-  profile_database_ = profile_database;
-  pref_service_ = pref_service;
-  is_off_the_record_ = is_off_the_record;
-
-  if (!profile_database_) {
-    // In some tests, there are no dbs.
-    return;
-  }
-
-  // No need to run the retention policy in OTR.
-  if (!is_off_the_record_) {
-    // Upon successful cleanup, the last cleaned-up major version is being
-    // stored in this pref.
-    int last_cleaned_version = pref_service_->GetInteger(
-        prefs::kAutocompleteLastVersionRetentionPolicy);
-    if (version_info::GetMajorVersionNumberAsInt() > last_cleaned_version) {
-      // Trigger the cleanup.
-      profile_database_->RemoveExpiredAutocompleteEntries(
-          base::BindOnce(&AutocompleteHistoryManager::OnAutofillCleanupReturned,
-                         weak_ptr_factory_.GetWeakPtr()));
-    }
-  }
-}
-
 bool AutocompleteHistoryManager::IsFieldNameMeaningfulForAutocomplete(
     const std::u16string& name) {
   static constexpr char16_t kRegex[] =
@@ -450,6 +461,21 @@ void AutocompleteHistoryManager::OnAutofillCleanupReturned(
   // Cleanup was successful, update the latest run milestone.
   pref_service_->SetInteger(prefs::kAutocompleteLastVersionRetentionPolicy,
                             version_info::GetMajorVersionNumberAsInt());
+}
+
+void AutocompleteHistoryManager::OnLegacyTableDataMigrationReturned(
+    int new_migration_generation,
+    WebDataServiceBase::Handle current_handle,
+    std::unique_ptr<WDTypedResult> migration_result) {
+  DCHECK(migration_result);
+  DCHECK_EQ(BOOL_RESULT, migration_result->GetType());
+  const WDResult<bool>* bool_result =
+      static_cast<const WDResult<bool>*>(migration_result.get());
+  if (bool_result->GetValue()) {
+    pref_service_->SetInteger(
+        prefs::kAutofillAutocompleteLabelSensitiveMigrationGeneration,
+        new_migration_generation);
+  }
 }
 
 }  // namespace autofill

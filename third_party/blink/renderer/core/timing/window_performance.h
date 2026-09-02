@@ -31,6 +31,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_TIMING_WINDOW_PERFORMANCE_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_TIMING_WINDOW_PERFORMANCE_H_
 
+#include <optional>
+
 #include "base/feature_list.h"
 #include "base/time/time.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
@@ -191,6 +193,10 @@ class CORE_EXPORT WindowPerformance final : public Performance,
                       bool has_multiple_contexts) override;
 
   void markConditional(ScriptState*, const AtomicString& mark_name) override;
+  void measureConditional(ScriptState*,
+                          const AtomicString& measure_name,
+                          const AtomicString& start_mark,
+                          const AtomicString& end_mark) override;
 
   void AddLayoutShiftEntry(LayoutShift*);
   void AddVisibilityStateEntry(bool is_visible, base::TimeTicks start_time);
@@ -204,12 +210,11 @@ class CORE_EXPORT WindowPerformance final : public Performance,
   // https://w3c.github.io/performance-timeline/.
   void IncrementNavigationId() { navigation_id_generator_.IncrementId(); }
 
-  // Returns the navigation ID, as specified in
-  // https://w3c.github.io/performance-timeline/; this appears as navigationId
-  // in https://developer.mozilla.org/en-US/docs/Web/API/PerformanceEntry
-  // instances.
-  uint64_t NavigationId() const override {
-    return navigation_id_generator_.GetValue().id;
+  // Returns the navigation ID info, containing the web-exposed navigationId
+  // (https://w3c.github.io/performance-timeline/) and the monotonic ordinal
+  // offset.
+  PerformanceTimelineEntryIdInfo NavigationId() const override {
+    return navigation_id_generator_.GetValue();
   }
 
   // PageVisibilityObserver

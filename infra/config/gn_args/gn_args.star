@@ -666,13 +666,6 @@ gn_args.config(
 )
 
 gn_args.config(
-    name = "enterprise_companion",
-    args = {
-        "enable_enterprise_companion": True,
-    },
-)
-
-gn_args.config(
     name = "extended_tracing",
     args = {
         "extended_tracing_enabled": True,
@@ -911,6 +904,20 @@ gn_args.config(
     name = "linux",
     args = {
         "target_os": "linux",
+    },
+)
+
+gn_args.config(
+    name = "linux_native_wayland",
+    configs = [
+        "linux",
+    ],
+    args = {
+        "ozone_auto_platforms": False,
+        "ozone_platform_wayland": True,
+        "ozone_platform": "wayland",
+        "use_bundled_weston": False,
+        "use_bundled_mutter": False,
     },
 )
 
@@ -1188,9 +1195,6 @@ gn_args.config(
     args = {
         "chrome_pgo_phase": 1,
     },
-    configs = [
-        "v8_release_branch",
-    ],
 )
 
 gn_args.config(
@@ -1336,6 +1340,14 @@ gn_args.config(
     name = "thin_lto",
     args = {
         "use_thin_lto": True,
+    },
+)
+
+gn_args.config(
+    name = "tint_mesa_fuzz",
+    args = {
+        "tint_build_mesa": True,
+        "tint_build_fuzzer_vulkan_support": True,
     },
 )
 
@@ -1488,14 +1500,6 @@ gn_args.config(
     ],
 )
 
-# V8 flag that disables v8_enable_runtime_call_stats on release branches.
-gn_args.config(
-    name = "v8_release_branch",
-    args = {
-        "v8_is_on_release_branch": True,
-    },
-)
-
 gn_args.config(
     name = "v8_sandbox_testing",
     args = {
@@ -1634,5 +1638,12 @@ gn_args.config(
     name = "use_typescript_go",
     args = {
         "use_typescript_go": True,
+    },
+)
+
+gn_args.config(
+    name = "separate_renderer",
+    args = {
+        "enable_separate_renderer_binary": True,
     },
 )

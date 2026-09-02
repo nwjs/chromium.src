@@ -30,106 +30,40 @@
 #include "third_party/skia/include/core/SkAlphaType.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
 
-namespace cc {
-class PaintCanvas;
-}  // namespace cc
-
 namespace gfx {
 class ColorSpace;
-struct HDRMetadata;
 class Size;
 }  // namespace gfx
 
-namespace gpu {
-namespace raster {
-class RasterInterface;
-}  // namespace raster
-}  // namespace gpu
-
 namespace blink {
 
-class PLATFORM_EXPORT WebGpuSharedImageWrapper final
-    : public CanvasMemoryDumpClient {
+class PLATFORM_EXPORT WebGpuSharedImageWrapper final {
  public:
-  static std::unique_ptr<WebGpuSharedImageWrapper> Create(
-      gfx::Size size,
-      viz::SharedImageFormat format,
-      SkAlphaType alpha_type,
-      const gfx::ColorSpace& color_space,
-      const gfx::HDRMetadata& hdr_metadata);
+  WebGpuSharedImageWrapper(gfx::Size size,
+                           viz::SharedImageFormat format,
+                           SkAlphaType alpha_type,
+                           const gfx::ColorSpace& color_space,
+                           base::WeakPtr<WebGraphicsContext3DProviderWrapper>
+                               context_provider_wrapper);
   ~WebGpuSharedImageWrapper();
 
-  scoped_refptr<gpu::ClientSharedImage> GetSharedImage() const;
-  gpu::SyncToken GetSyncToken() const;
-
-  bool UploadToBackingSharedImage(const SkPixmap& pixmap,
-                                  uint32_t src_x,
-                                  uint32_t src_y);
-
-  void DoExternalOverdraw(
-      base::FunctionRef<void(cc::PaintCanvas&)> draw_callback);
-
-  const gpu::SyncToken& acquire_sync_token() const {
-    return acquire_sync_token_;
+  gfx::Size Size() const { return shared_image_->size(); }
+  viz::SharedImageFormat GetSharedImageFormat() const {
+    return shared_image_->format();
   }
-  void set_release_sync_token(const gpu::SyncToken& token) {
-    release_sync_token_ = token;
+  const gfx::ColorSpace& GetColorSpace() const {
+    return shared_image_->color_space();
   }
+  SkAlphaType GetAlphaType() const { return shared_image_->alpha_type(); }
 
-  // Returns the ClientSharedImage backing this WebGpuSharedImageWrapper, if one
-  // exists, after flushing the resource and signaling that an external write
-  // will occur on it. The caller should wait on `internal_access_sync_token`
-  // before writing the contents. When the external write is complete, the
-  // caller should call `EndExternalWrite()`.
-  scoped_refptr<gpu::ClientSharedImage> BeginExternalOverwrite(
-      gpu::SyncToken& internal_access_sync_token);
-
-  // Copies the contents of the passed-in SharedImage at `copy_rect` into this
-  // instance's SharedImage. Waits on `ready_sync_token` before copying; pass
-  // SyncToken() if no sync is required. Synthesizes a new sync token in
-  // `completion_sync_token` which will satisfy after the image copy completes.
-  // NOTE: Can only be used if this instance is accelerated.
-  bool CopyToBackingSharedImage(
-      const scoped_refptr<gpu::ClientSharedImage>& shared_image,
-      uint32_t src_x,
-      uint32_t src_y,
-      const gpu::SyncToken& ready_sync_token,
-      gpu::SyncToken& completion_sync_token);
-
-  // Signals that an external write has completed, passing the token that should
-  // be waited on to ensure that the service-side operations of the external
-  // write have completed. Ensures that the next read of this resource (whether
-  // via raster or the compositor) waits on this token.
-  void EndExternalWrite(const gpu::SyncToken& external_write_sync_token);
   void WaitSyncToken(const gpu::SyncToken& sync_token);
 
- private:
-  WebGpuSharedImageWrapper(gfx::Size,
-                           viz::SharedImageFormat,
-                           SkAlphaType,
-                           const gfx::ColorSpace&,
-                           const gfx::HDRMetadata&,
-                           base::WeakPtr<WebGraphicsContext3DProviderWrapper>);
-
-  bool IsGpuContextLost() const;
-
-  // CanvasMemoryDumpClient implementation.
-  base::ByteSize EstimatedSizeInBytes() const;
-  void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd) override;
-  size_t GetSize() const override;
-
-  gpu::raster::RasterInterface* RasterInterface() const;
-
-  const gfx::HDRMetadata hdr_metadata_;
-
+  // Temporarily public for WebGpuSharedImageWrapperLease migration.
   std::unique_ptr<MemoryManagedPaintRecorder> recorder_for_external_draws_;
-
   const scoped_refptr<gpu::ClientSharedImage> shared_image_;
   gpu::SyncToken acquire_sync_token_;
   gpu::SyncToken release_sync_token_;
-
   bool is_cleared_ = false;
-
   base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider_wrapper_;
 };
 

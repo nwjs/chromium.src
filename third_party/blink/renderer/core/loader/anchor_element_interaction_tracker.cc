@@ -413,36 +413,33 @@ void AnchorElementInteractionTracker::OnPointerEvent(
     sender->MaybeReportAnchorElementPointerEvent(*anchor, pointer_event);
   }
 
+  // Android's low-memory detector can destroy the execution context while
+  // keeping the frame alive, which unbinds this remote.
+  // TODO(crbug.com/538633734): Consider rebinding `interaction_host_` after an
+  // OOM purge so speculative loads and browser-side warmups can resume.
+  if (!interaction_host_.is_bound()) {
+    return;
+  }
+
   if (event_type == event_type_names::kPointerdown) {
     if (!pointer_event.IsLinkClickButton()) {
       return;
     }
     // With renderer-side heuristics on, the renderer owns speculation candidate
     // selection and enactment.
+    bool renderer_enacted = false;
     if (base::FeatureList::IsEnabled(
             features::kSpeculationRulesRendererSideHeuristics)) {
       if (auto* rules =
               DocumentSpeculationRules::FromIfExists(*GetDocument())) {
-        rules->OnPointerDownHeuristic(url);
+        renderer_enacted = rules->OnPointerDownHeuristic(url);
       }
     }
     // Notify the browser regardless: it still owns the generic pointerdown side
     // effects (HTTP disk cache and service worker prewarm) that don't depend on
-    // speculation-rule candidate selection.
-    //
-    // interaction_host_ can be unbound: Android's low-memory detector calls
-    // NotifyContextDestroyed, unbinding pipes for pages that can still
-    // navigate.
-    if (interaction_host_.is_bound()) {
-      interaction_host_->OnPointerDown(url);
-    }
-    return;
-  }
-
-  // interaction_host_ might become unbound: Android's low memory detector
-  // sometimes call NotifyContextDestroyed to save memory. This unbinds mojo
-  // pipes using that ExecutionContext even if those pages can still navigate.
-  if (!interaction_host_.is_bound()) {
+    // speculation-rule candidate selection, and the preloading prediction when
+    // the renderer didn't enact anything.
+    interaction_host_->OnPointerDown(url, renderer_enacted);
     return;
   }
 
@@ -532,8 +529,20 @@ void AnchorElementInteractionTracker::OnClickEvent(
 }
 
 void AnchorElementInteractionTracker::HoverTimerFired(TimerBase*) {
+  // With renderer-side heuristics enabled, the renderer selects and enacts the
+  // matching candidate via DocumentSpeculationRules. The browser is still
+  // notified so it can perform generic hover side effects such as HTTP disk
+  // cache and service worker warmups.
   if (!interaction_host_.is_bound()) {
     return;
+  }
+  const bool renderer_side_heuristics = base::FeatureList::IsEnabled(
+      features::kSpeculationRulesRendererSideHeuristics);
+  DocumentSpeculationRules* speculation_rules = nullptr;
+  if (renderer_side_heuristics) {
+    if (Document* document = GetDocument()) {
+      speculation_rules = DocumentSpeculationRules::FromIfExists(*document);
+    }
   }
   const base::TimeTicks now = clock_->NowTicks();
   auto next_fire_time = base::TimeTicks::Max();
@@ -557,16 +566,24 @@ void AnchorElementInteractionTracker::HoverTimerFired(TimerBase*) {
         }
       }
 
+      bool renderer_enacted = false;
+      if (renderer_side_heuristics && speculation_rules) {
+        renderer_enacted = speculation_rules->OnHoverHeuristic(
+            hover_event_candidate.key.first, hover_event_candidate.key.second);
+      }
+
       if (hover_event_candidate.key.second ==
-          blink::mojom::SpeculationEagerness::kEager) {
+          mojom::blink::SpeculationEagerness::kEager) {
         CHECK(base::FeatureList::IsEnabled(
             blink::features::kPreloadingEagerHoverHeuristics));
         interaction_host_->OnPointerHoverEager(hover_event_candidate.key.first,
-                                               std::move(pointer_data));
+                                               std::move(pointer_data),
+                                               renderer_enacted);
       } else if (hover_event_candidate.key.second ==
-                 blink::mojom::SpeculationEagerness::kModerate) {
+                 mojom::blink::SpeculationEagerness::kModerate) {
         interaction_host_->OnPointerHoverModerate(
-            hover_event_candidate.key.first, std::move(pointer_data));
+            hover_event_candidate.key.first, std::move(pointer_data),
+            renderer_enacted);
       } else {
         // `hover_event_candidates_` must be registered only for `eager` or
         // `moderate` eagerness.
@@ -779,16 +796,33 @@ void AnchorElementInteractionTracker::ModerateViewportHeuristicTimerFired(
     return;
   }
 
-  // interaction_host_ might become unbound: Android's low memory detector
-  // sometimes call NotifyContextDestroyed to save memory. This unbinds mojo
-  // pipes using that ExecutionContext even if those pages can still navigate.
-  if (!interaction_host_.is_bound()) {
+  if (!IsPreloadingEligible()) {
     return;
   }
 
-  if (IsPreloadingEligible()) {
-    interaction_host_->OnModerateViewportHeuristicTriggered(
-        largest_anchor_element_in_viewport_->Url());
+  const KURL& url = largest_anchor_element_in_viewport_->Url();
+  // With renderer-driven enactment (SpeculationRulesRendererSideHeuristics) the
+  // matching moderate candidate is enacted via DocumentSpeculationRules rather
+  // than the browser's PreloadingDecider, and only when configured to enact
+  // (mirrors PreloadingDecider::OnModerateViewportHeuristicTriggered).
+  bool renderer_enacted = false;
+  if (base::FeatureList::IsEnabled(
+          features::kSpeculationRulesRendererSideHeuristics) &&
+      features::kPreloadingModerateViewportHeuristicsEnactCandidates.Get()) {
+    if (auto* rules = DocumentSpeculationRules::FromIfExists(*GetDocument())) {
+      renderer_enacted = rules->OnViewportHeuristic(
+          url, mojom::blink::SpeculationEagerness::kModerate);
+    }
+  }
+
+  // Notify the browser regardless: it records the preloading prediction for
+  // this heuristic (and enacts the candidate on the legacy path).
+  // interaction_host_ might become unbound: Android's low memory detector
+  // sometimes call NotifyContextDestroyed to save memory. This unbinds mojo
+  // pipes using that ExecutionContext even if those pages can still navigate.
+  if (interaction_host_.is_bound()) {
+    interaction_host_->OnModerateViewportHeuristicTriggered(url,
+                                                            renderer_enacted);
   }
 }
 
@@ -812,12 +846,33 @@ void AnchorElementInteractionTracker::EagerViewportHeuristicTimerFired(
     next_fire_time = std::min(next_fire_time, candidate.timestamp);
   }
 
-  if (!interaction_host_.is_bound()) {
-    return;
-  }
-
   if (!fired_candidates.empty() && IsPreloadingEligible()) {
-    interaction_host_->OnEagerViewportHeuristicTriggered(fired_candidates);
+    // With renderer-driven enactment (SpeculationRulesRendererSideHeuristics)
+    // the candidates are enacted via DocumentSpeculationRules rather than the
+    // browser's PreloadingDecider.
+    DocumentSpeculationRules* rules = nullptr;
+    if (base::FeatureList::IsEnabled(
+            features::kSpeculationRulesRendererSideHeuristics)) {
+      if (Document* document = GetDocument()) {
+        rules = DocumentSpeculationRules::FromIfExists(*document);
+      }
+    }
+
+    Vector<mojom::blink::AnchorElementInteractionTargetPtr> targets;
+    targets.reserve(fired_candidates.size());
+    for (const KURL& url : fired_candidates) {
+      const bool renderer_enacted =
+          rules && rules->OnViewportHeuristic(
+                       url, mojom::blink::SpeculationEagerness::kEager);
+      targets.push_back(mojom::blink::AnchorElementInteractionTarget::New(
+          url, renderer_enacted));
+    }
+
+    // Notify the browser regardless: it records the preloading predictions for
+    // this heuristic (and enacts the candidates on the legacy path).
+    if (interaction_host_.is_bound()) {
+      interaction_host_->OnEagerViewportHeuristicTriggered(std::move(targets));
+    }
   }
   RemoveAll(eager_viewport_heuristics_candidates_, fired_candidates);
   if (!next_fire_time.is_max()) {

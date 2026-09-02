@@ -68,7 +68,7 @@ class SelfCompactionState final
                       base::TimeTicks triggered_at)
       : SelfCompactionState(std::move(task_runner),
                             triggered_at,
-                            base::MiBU(100)) {}
+                            base::MiB(100)) {}
 
   SelfCompactionState(scoped_refptr<SequencedTaskRunner> task_runner,
                       base::TimeTicks triggered_at,
@@ -97,7 +97,7 @@ class RunningCompactionState final
                          base::TimeTicks triggered_at)
       : RunningCompactionState(std::move(task_runner),
                                triggered_at,
-                               base::MiBU(100)) {}
+                               base::MiB(100)) {}
 
   RunningCompactionState(scoped_refptr<SequencedTaskRunner> task_runner,
                          base::TimeTicks triggered_at,
@@ -598,7 +598,7 @@ void SelfCompactionManager::ResetCompactionForTesting() {
 std::unique_ptr<SelfCompactionManager::CompactionState>
 SelfCompactionManager::GetSelfCompactionStateForTesting(
     scoped_refptr<SequencedTaskRunner> task_runner,
-    const TimeTicks& triggered_at) {
+    TimeTicks triggered_at) {
   return std::make_unique<SelfCompactionState>(std::move(task_runner),
                                                triggered_at, base::ByteSize(1));
 }
@@ -606,7 +606,7 @@ SelfCompactionManager::GetSelfCompactionStateForTesting(
 std::unique_ptr<SelfCompactionManager::CompactionState>
 SelfCompactionManager::GetRunningCompactionStateForTesting(
     scoped_refptr<SequencedTaskRunner> task_runner,
-    const TimeTicks& triggered_at) {
+    TimeTicks triggered_at) {
   return std::make_unique<RunningCompactionState>(
       std::move(task_runner), triggered_at, base::ByteSize(1));
 }

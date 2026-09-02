@@ -402,34 +402,28 @@ ExternalTexture CreateExternalTexture(
 
   std::unique_ptr<WebGpuSharedImageWrapperLease> wrapper_lease =
       device->GetDawnControlClient()->LeaseWebGpuSharedImageWrapper(
-          format, natural_size, resource_color_space,
-          media_video_frame->hdr_metadata(), kPremul_SkAlphaType);
+          format, natural_size, resource_color_space, kPremul_SkAlphaType);
   if (!wrapper_lease) {
     return external_texture;
   }
-
-  WebGpuSharedImageWrapper* shared_image_wrapper =
-      wrapper_lease->shared_image_wrapper();
-  DCHECK(shared_image_wrapper);
 
   viz::RasterContextProvider* raster_context_provider =
       context_provider_wrapper->ContextProvider().RasterContextProvider();
 
   if (use_copy_to_shared_image) {
-    gpu::SyncToken sync_token;
-
     // The size of the shared image wrapper here is the VideoFrame's natural
     // size, which is guaranteed to be the same size as its visible rect since
     // `use_copy_to_shared_image` is true. Below we are going to copy the
     // contents of that visible rect into the shared image wrapper's
     // SharedImage, completely overwriting the SharedImage.
-    auto client_si = shared_image_wrapper->BeginExternalOverwrite(sync_token);
-
-    // The returned sync token is from the SharedGpuContext.
-    sync_token = video_renderer->CopyVideoFrameToSharedImage(
-        raster_context_provider, std::move(media_video_frame), client_si,
-        sync_token, /*use_visible_rect=*/true);
-    shared_image_wrapper->EndExternalWrite(sync_token);
+    wrapper_lease->WriteToBackingSharedImage(
+        [&](const scoped_refptr<gpu::ClientSharedImage>& client_si,
+            const gpu::SyncToken& begin_sync_token) {
+          // The returned sync token is from the SharedGpuContext.
+          return video_renderer->CopyVideoFrameToSharedImage(
+              raster_context_provider, std::move(media_video_frame), client_si,
+              begin_sync_token, /*use_visible_rect=*/true);
+        });
   } else {
     // Delegate video transformation to Dawn.
     if (media_video_frame->HasSharedImage()) {
@@ -446,25 +440,26 @@ ExternalTexture CreateExternalTexture(
     media_flags.setBlendMode(SkBlendMode::kSrc);
 
     media::PaintCanvasVideoRenderer::PaintParams params;
-    params.dest_rect =
-        gfx::RectF(shared_image_wrapper->GetSharedImage()->size());
-    shared_image_wrapper->DoExternalOverdraw([&](cc::PaintCanvas& canvas) {
+    params.dest_rect = gfx::RectF(wrapper_lease->GetSharedImage()->size());
+    wrapper_lease->DrawToBackingSharedImage([&](cc::PaintCanvas& canvas) {
       video_renderer->Paint(media_video_frame.get(), &canvas, media_flags,
                             params, raster_context_provider);
     });
   }
 
   scoped_refptr<gpu::ClientSharedImage> shared_image =
-      shared_image_wrapper->GetSharedImage();
+      wrapper_lease->GetSharedImage();
   if (!shared_image) {
     return {};
   }
+
+  gpu::SyncToken sync_token = wrapper_lease->GetSyncToken();
 
   scoped_refptr<WebGPUMailboxTexture> mailbox_texture =
       WebGPUMailboxTexture::FromCanvasResource(
           device->GetDawnControlClient(), device->GetHandle(),
           wgpu::TextureUsage::TextureBinding, std::move(shared_image),
-          shared_image_wrapper->GetSyncToken(), std::move(wrapper_lease));
+          sync_token, std::move(wrapper_lease));
 
   wgpu::TextureViewDescriptor view_desc = {};
   wgpu::TextureView plane0 =

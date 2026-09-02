@@ -34,7 +34,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/e2e_tests/live_test.h"
 #include "chrome/browser/signin/e2e_tests/signin_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
@@ -245,6 +244,9 @@ void GlicE2ETest::SetUpInProcessBrowserTestFixture() {
 }
 
 void GlicE2ETest::TearDownOnMainThread() {
+  host_observation_.Reset();
+  active_instance_subscription_ = base::CallbackListSubscription();
+
   if (HasFailure()) {
     base::FilePath snapshot_path = SaveDesktopSnapshot();
     if (!snapshot_path.empty()) {
@@ -399,10 +401,6 @@ static_assert(static_cast<int>(GlicActorTaskState::State::kPausedByUser) >= 0);
 static_assert(static_cast<int>(GlicActorTaskState::State::kReflecting) >= 0);
 
 // Validate features and switches used by internal tests:
-const base::Feature& GetGlicActionAllowlistFeature() {
-  return actor::kGlicActionAllowlist;
-}
-
 const char* GetDisableActorSafetyChecksSwitch() {
   return actor::switches::kDisableActorSafetyChecks;
 }

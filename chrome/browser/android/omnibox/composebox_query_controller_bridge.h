@@ -25,10 +25,6 @@ namespace content {
 class WebContents;
 }  //  namespace content
 
-namespace contextual_tasks {
-class ContextualTasksUIInterface;
-}  // namespace contextual_tasks
-
 namespace optimization_guide::proto {
 class PageContext;
 }  // namespace optimization_guide::proto
@@ -44,11 +40,9 @@ class ComposeboxQueryControllerBridge
   explicit ComposeboxQueryControllerBridge(
       const base::android::JavaRef<jobject>& java_obj,
       Profile* profile,
-      content::WebContents* web_contents,
-      bool is_task_scoped);
+      content::WebContents* web_contents);
   ~ComposeboxQueryControllerBridge() override;
   void Destroy(JNIEnv* env);
-  void OnWebUIDestroyed(JNIEnv* env);
   void NotifySessionStarted(JNIEnv* env);
   void NotifySessionAbandoned(JNIEnv* env);
   base::android::ScopedJavaLocalRef<jobject> AddFile(
@@ -85,7 +79,6 @@ class ComposeboxQueryControllerBridge
   bool IsCreateImagesEligible(JNIEnv* env);
   void SetActiveTool(JNIEnv* env, omnibox::ToolMode tool_mode);
   void SetActiveModel(JNIEnv* env, omnibox::ModelMode model_mode);
-  void SubmitQueryToAimPage(JNIEnv* env, const std::string& query);
 
   std::unique_ptr<lens::proto::LensOverlaySuggestInputs>
   CreateLensOverlaySuggestInputs() const;
@@ -139,6 +132,7 @@ class ComposeboxQueryControllerBridge
   void StartTabContextUploadFlow(
       JNIEnv* env,
       const base::UnguessableToken& context_token,
+      std::optional<SessionID> tab_session_id,
       bool was_cached,
       base::TimeTicks start_time,
       std::unique_ptr<lens::ContextualInputData> page_content_data);
@@ -146,6 +140,9 @@ class ComposeboxQueryControllerBridge
 
   std::unique_ptr<ComposeboxQueryController::CreateSearchUrlRequestInfo>
   CreateSearchUrlRequestInfoFromUrl(GURL url);
+  void OnSearchUrlCreated(
+      base::android::ScopedJavaGlobalRef<jobject> j_callback,
+      GURL url);
   void ContextualizeAndCreateSearchUrl(
       std::unique_ptr<ComposeboxQueryController::CreateSearchUrlRequestInfo>
           search_url_request_info,
@@ -156,9 +153,8 @@ class ComposeboxQueryControllerBridge
   }
 
   raw_ptr<Profile> profile_;
-  raw_ptr<contextual_tasks::ContextualTasksUIInterface>
-      contextual_tasks_web_ui_interface_ = nullptr;
-  bool is_task_scoped_ = false;
+  // The WebContents of the active tab where the search query was initiated.
+  base::WeakPtr<content::WebContents> web_contents_;
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
       session_handle_;
   std::unique_ptr<contextual_search::InputStateModel> input_state_model_;

@@ -23,6 +23,7 @@ nw_100_percent.pak: %(ChromeDir)s\
 nw_child.dll: %(ChromeDir)s\
 nw_elf.dll: %(ChromeDir)s\
 chrome_pwa_launcher.exe: %(ChromeDir)s\
+nw_renderer.dll: %(ChromeDir)s\
 chrome_wer.dll: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
@@ -86,6 +87,7 @@ elevated_tracing_service.exe: %(VersionDir)s\
 elevation_service.exe: %(VersionDir)s\
 os_update_handler.exe: %(VersionDir)s\
 chromecompaneros.dll: %(VersionDir)s\
+sapisid.dll: %(VersionDir)s\
 
 #
 # VisualElements sub-dir.

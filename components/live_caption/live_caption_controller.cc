@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
@@ -127,14 +128,16 @@ void LiveCaptionController::OnFirstListenerAdded() {
   // SODAInstaller calls OnSodaInstalled on its observers.
   if (!speech::SodaInstaller::GetInstance()->IsSodaInstalled(
           speech::GetLanguageCode(GetLanguageCode()))) {
-    speech::SodaInstaller::GetInstance()->AddObserver(this);
+    if (!soda_installer_observation_.IsObserving()) {
+      soda_installer_observation_.Observe(speech::SodaInstaller::GetInstance());
+    }
     speech::SodaInstaller::GetInstance()->Init(profile_prefs(), global_prefs_);
   }
 }
 
 void LiveCaptionController::OnLastListenerRemoved() {
   // We might not have installed a listener, but that's okay.
-  speech::SodaInstaller::GetInstance()->RemoveObserver(this);
+  soda_installer_observation_.Reset();
   speech::SodaInstaller::GetInstance()->SetUninstallTimer(global_prefs_,
                                                           GetLanguageCode());
 }
@@ -178,15 +181,22 @@ void LiveCaptionController::OnSodaInstalled(
       prefs::IsLanguageCodeForLiveCaption(language_code, profile_prefs());
 
   if (is_language_code_for_live_caption) {
-    speech::SodaInstaller::GetInstance()->RemoveObserver(this);
+    soda_installer_observation_.Reset();
   }
 }
 
-// SODA install errors are observed and handled in the Settings WebUI:
+// UI strings for SODA install errors are handled in the Settings WebUI:
 // chrome/browser/ui/webui/settings/captions_handler.cc
 void LiveCaptionController::OnSodaInstallError(
     speech::LanguageCode language_code,
-    speech::SodaInstaller::ErrorCode error_code) {}
+    speech::SodaInstaller::ErrorCode error_code) {
+  bool is_language_code_for_live_caption =
+      prefs::IsLanguageCodeForLiveCaption(language_code, profile_prefs());
+
+  if (is_language_code_for_live_caption) {
+    soda_installer_observation_.Reset();
+  }
+}
 
 const std::string LiveCaptionController::GetLanguageCode() const {
   return prefs::GetLiveCaptionLanguageCode(profile_prefs());
@@ -234,11 +244,12 @@ void LiveCaptionController::MaybeSetLiveCaptionLanguage() {
         speech::kUsEnglishLocale, global_prefs_);
     speech::SodaInstaller::GetInstance()->RegisterLanguage(
         speech::GetDefaultLiveCaptionLanguage(application_locale(),
-                                              profile_prefs()),
+                                              CHECK_DEREF(profile_prefs())),
         global_prefs_);
-    profile_prefs()->SetString(prefs::kLiveCaptionLanguageCode,
-                               speech::GetDefaultLiveCaptionLanguage(
-                                   application_locale(), profile_prefs()));
+    profile_prefs()->SetString(
+        prefs::kLiveCaptionLanguageCode,
+        speech::GetDefaultLiveCaptionLanguage(application_locale(),
+                                              CHECK_DEREF(profile_prefs())));
   }
 }
 

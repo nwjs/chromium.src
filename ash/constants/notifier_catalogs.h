@@ -73,7 +73,7 @@ enum class NotificationCatalogName {
   kSessionLengthTimeout = 53,
   kLocaleUpdate = 54,
   kTracing = 55,
-  kPcieBillboardDevice = 56,
+  // [Deprecated] kPcieBillboardDevice = 56,
   kPcieLimitedPerformance = 57,
   kPcieGuestMode = 58,
   kPciePeripheralBlocked = 59,
@@ -97,7 +97,7 @@ enum class NotificationCatalogName {
   kPhoneHubTetherFailed = 77,
   kCapsLock = 78,
   kNightLight = 79,
-  kPluginVMUninstaller = 80,
+  // [Deprecated] kPluginVMUninstaller = 80,
   // [Deprecated] kTPMAutoUpdate = 81,
   kIt2MeConfirmation = 82,
   kHPSNotify = 83,
@@ -223,7 +223,8 @@ enum class NotificationCatalogName {
   kFrozenUpdateNotification = 203,
   kDeviceCommandGeolocation = 204,
   kLocalAuthFactorsComplexity = 205,
-  kMaxValue = kLocalAuthFactorsComplexity
+  kIsolatedWebAppUpdate = 206,
+  kMaxValue = kIsolatedWebAppUpdate
 };
 // LINT.ThenChange(//tools/metrics/histograms/enums.xml:NotificationCatalogName)
 

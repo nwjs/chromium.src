@@ -53,7 +53,7 @@ android_library("chrome_java_test_pagecontroller") {
   public_deps = [ ":pagecontroller_utils_java" ]
 }
 
-generate_jni_registration("baseline_profile_test_apk_dummy_jni_registration") {
+generate_final_jni("baseline_profile_test_apk_dummy_jni_registration") {
   testonly = true
   java_targets = [ ":baseline_profile_test_apk" ]
 
@@ -572,6 +572,7 @@ android_library("chrome_java_test_support_common") {
     "//components/signin/public/android:java",
     "//components/signin/public/android:signin_java_test_support",
     "//components/signin/public/android:signin_test_resources",
+    "//components/tabs/public/android:java",
     "//components/webapps/browser/android:java",
     "//content/public/android:content_java",
     "//content/public/test/android:content_java_test_support",

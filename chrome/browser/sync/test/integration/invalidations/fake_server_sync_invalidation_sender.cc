@@ -4,6 +4,7 @@
 
 #include "chrome/browser/sync/test/integration/invalidations/fake_server_sync_invalidation_sender.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "base/logging.h"
@@ -16,22 +17,26 @@ namespace fake_server {
 FakeServerSyncInvalidationSender::FakeServerSyncInvalidationSender(
     FakeServer* fake_server)
     : fake_server_(fake_server) {
-  DCHECK(fake_server_);
+  CHECK(fake_server_);
   fake_server_->AddObserver(this);
 }
 
 FakeServerSyncInvalidationSender::~FakeServerSyncInvalidationSender() {
   fake_server_->RemoveObserver(this);
-  for (instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver :
-       fake_gcm_drivers_) {
+  for (const base::WeakPtr<instance_id::FakeGCMDriverForInstanceID>&
+           fake_gcm_driver : fake_gcm_drivers_) {
     fake_gcm_driver->RemoveConnectionObserver(this);
   }
 }
 
 void FakeServerSyncInvalidationSender::AddFakeGCMDriver(
     instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver) {
+  CHECK(!std::ranges::contains(
+      fake_gcm_drivers_, fake_gcm_driver,
+      &base::WeakPtr<instance_id::FakeGCMDriverForInstanceID>::get))
+      << "AddFakeGCMDriver called for already registered FakeGCMDriver!";
   // It's safe to cast since SyncTest uses FakeGCMProfileService.
-  fake_gcm_drivers_.push_back(fake_gcm_driver);
+  fake_gcm_drivers_.push_back(fake_gcm_driver->GetWeakPtr());
   fake_gcm_driver->AddConnectionObserver(this);
 
   DVLOG(1) << "Added FakeGCMDriver";
@@ -42,8 +47,22 @@ void FakeServerSyncInvalidationSender::AddFakeGCMDriver(
 
 void FakeServerSyncInvalidationSender::RemoveFakeGCMDriver(
     instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver) {
-  fake_gcm_driver->RemoveConnectionObserver(this);
-  std::erase(fake_gcm_drivers_, fake_gcm_driver);
+  auto it = std::ranges::find_if(
+      fake_gcm_drivers_,
+      [fake_gcm_driver](
+          const base::WeakPtr<instance_id::FakeGCMDriverForInstanceID>&
+              weak_driver) {
+        CHECK(weak_driver);
+        return weak_driver.get() == fake_gcm_driver;
+      });
+
+  if (it != fake_gcm_drivers_.end()) {
+    (*it)->RemoveConnectionObserver(this);
+  }
+
+  std::erase_if(fake_gcm_drivers_, [fake_gcm_driver](const auto& weak_driver) {
+    return !weak_driver || weak_driver.get() == fake_gcm_driver;
+  });
 }
 
 void FakeServerSyncInvalidationSender::OnWillCommit() {
@@ -133,8 +152,7 @@ void FakeServerSyncInvalidationSender::DeliverInvalidationsToHandlers() {
 instance_id::FakeGCMDriverForInstanceID*
 FakeServerSyncInvalidationSender::GetFakeGCMDriverByToken(
     const std::string& fcm_registration_token) const {
-  for (instance_id::FakeGCMDriverForInstanceID* fake_gcm_driver :
-       fake_gcm_drivers_) {
+  for (const auto& fake_gcm_driver : fake_gcm_drivers_) {
 #if !BUILDFLAG(IS_ANDROID)
     // On Android platform FCM registration token is returned from Java
     // implementation, so HasTokenForAppId() does not contain these tokens.
@@ -149,7 +167,7 @@ FakeServerSyncInvalidationSender::GetFakeGCMDriverByToken(
     // AppHandler may not be registered while SyncSetup() is not called yet, the
     // server should keep invalidations to deliver them later.
     if (fake_gcm_driver->GetAppHandler(kSyncInvalidationsAppId)) {
-      return fake_gcm_driver;
+      return fake_gcm_driver.get();
     }
   }
   return nullptr;
@@ -183,7 +201,7 @@ void FakeServerSyncInvalidationSender::UpdateTokenToInterestedDataTypesMap() {
          invalidation_fields.interested_data_type_ids()) {
       const syncer::DataType data_type =
           syncer::GetDataTypeFromSpecificsFieldNumber(field_number);
-      DCHECK(syncer::IsRealDataType(data_type));
+      CHECK(syncer::IsRealDataType(data_type));
       token_to_interested_data_types_[token].Put(data_type);
     }
   }

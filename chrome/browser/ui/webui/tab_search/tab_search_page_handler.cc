@@ -27,7 +27,6 @@
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -68,6 +67,7 @@
 #include "components/tabs/public/tab_interface.h"
 #include "components/user_education/common/tutorial/tutorial_identifier.h"
 #include "components/user_education/common/tutorial/tutorial_service.h"
+#include "content/public/browser/navigation_controller.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -171,7 +171,8 @@ TabSearchPageHandler::TabSearchPageHandler(
     content::WebUI* web_ui,
     TopChromeWebUIController* webui_controller,
     MetricsReporter* metrics_reporter)
-    : receiver_(this, std::move(receiver)),
+    : content::WebContentsObserver(web_ui->GetWebContents()),
+      receiver_(this, std::move(receiver)),
       page_(std::move(page)),
       web_ui_(web_ui),
       profile_(Profile::FromWebUI(web_ui_)),
@@ -194,16 +195,16 @@ TabSearchPageHandler::TabSearchPageHandler(
               base::BindRepeating(&ShouldTrackBrowser, profile_)),
           base::BindRepeating(&TabSearchPageHandler::OnTabEvents,
                               base::Unretained(this)))) {
+  if (IsWebContentsVisible()) {
+    bubble_showing_ = true;
+  }
   BrowserWindowInterfaceChanged();
 }
 
 TabSearchPageHandler::~TabSearchPageHandler() {
-  base::UmaHistogramCounts1000("Tabs.TabSearch.NumTabsClosedPerInstance",
-                               num_tabs_closed_);
-  base::UmaHistogramEnumeration("Tabs.TabSearch.CloseAction",
-                                called_switch_to_tab_
-                                    ? TabSearchCloseAction::kTabSwitch
-                                    : TabSearchCloseAction::kNoAction);
+  if (bubble_showing_) {
+    LogCloseMetrics();
+  }
   pref_change_registrar_.Reset();
 }
 
@@ -211,6 +212,13 @@ void TabSearchPageHandler::CloseTab(int32_t tab_id) {
   tabs::TabInterface* const tab = GetTabInterface(tab_id);
   if (!tab) {
     return;
+  }
+
+  // Since tab search closes if a recent tab or open tab action takes place,
+  // this should always be the case, but keeping this check in case that
+  // assumption changes.
+  if (action_ == TabSearchCloseAction::kNoAction) {
+    action_ = TabSearchCloseAction::kCloseTab;
   }
 
   ++num_tabs_closed_;
@@ -258,6 +266,10 @@ void TabSearchPageHandler::CloseTabs(const std::vector<int32_t>& tab_ids) {
     return;
   }
 
+  if (action_ == TabSearchCloseAction::kNoAction) {
+    action_ = TabSearchCloseAction::kCloseTab;
+  }
+
   num_tabs_closed_ += nodes.size();
   profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
 
@@ -289,11 +301,7 @@ void TabSearchPageHandler::CloseWebUiTab() {
 // Tab Search UI can also hosted inside a tab and so we still need to
 // be able to handle browser window changes.
 void TabSearchPageHandler::BrowserWindowInterfaceChanged() {
-  auto* browser_window_interface =
-      webui::GetBrowserWindowInterface(web_ui_->GetWebContents());
-  browser_ = browser_window_interface
-                 ? browser_window_interface->GetBrowserForMigrationOnly()
-                 : nullptr;
+  browser_ = webui::GetBrowserWindowInterface(web_ui_->GetWebContents());
   page_->HostWindowChanged();
 }
 
@@ -353,7 +361,9 @@ void TabSearchPageHandler::SwitchToTab(
     return;
   }
 
-  called_switch_to_tab_ = true;
+  action_ = action_ == TabSearchCloseAction::kCloseTab
+                ? TabSearchCloseAction::kSwitchTabAndCloseTab
+                : TabSearchCloseAction::kSwitchTab;
 
   profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
 
@@ -384,6 +394,10 @@ void TabSearchPageHandler::OpenRecentlyClosedEntry(int32_t session_id) {
   if (!tab_restore_service) {
     return;
   }
+
+  action_ = action_ == TabSearchCloseAction::kCloseTab
+                ? TabSearchCloseAction::kOpenRecentTabAndCloseTab
+                : TabSearchCloseAction::kOpenRecentTab;
 
   profile_->GetPrefs()->SetBoolean(tab_search_prefs::kTabSearchUsed, true);
 
@@ -1029,6 +1043,12 @@ void TabSearchPageHandler::NotifyTabsChanged() {
   debounce_timer_->Stop();
 }
 
+void TabSearchPageHandler::OnVisibilityChanged(content::Visibility visibility) {
+  if (bubble_showing_ && visibility == content::Visibility::HIDDEN) {
+    LogCloseMetrics();
+  }
+}
+
 bool TabSearchPageHandler::IsWebContentsVisible() {
   auto visibility = web_ui_->GetWebContents()->GetVisibility();
   return visibility == content::Visibility::VISIBLE ||
@@ -1037,6 +1057,16 @@ bool TabSearchPageHandler::IsWebContentsVisible() {
 
 void TabSearchPageHandler::BeforeBubbleWidgetShowed() {
   NotifyTabsChanged();
+  bubble_showing_ = true;
+  action_ = TabSearchCloseAction::kNoAction;
+  num_tabs_closed_ = 0;
+}
+
+void TabSearchPageHandler::LogCloseMetrics() {
+  base::UmaHistogramCounts1000("Tabs.TabSearch.NumTabsClosedPerInstance",
+                               num_tabs_closed_);
+  base::UmaHistogramEnumeration("Tabs.TabSearch.CloseAction2", action_);
+  bubble_showing_ = false;
 }
 
 void TabSearchPageHandler::SetTimerForTesting(

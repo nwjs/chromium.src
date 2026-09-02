@@ -9,7 +9,10 @@ chromium::import! {
 use num_traits::ToBytes;
 use rust_gtest_interop::prelude::*;
 use symphonia::core::audio::{layouts, AudioBuffer, AudioMut, AudioSpec, GenericAudioBufferRef};
-use symphonia_glue::{create_audio_buffer, ffi, init_symphonia_decoder, SymphoniaRawSampleBuffer};
+use symphonia_glue::{
+    create_audio_buffer, detect_mpeg_audio_codec_id, ffi, init_symphonia_decoder,
+    SymphoniaRawSampleBuffer,
+};
 
 fn test_conversion<S, E, F>(
     samples: &[S],
@@ -420,9 +423,7 @@ fn test_packet_conversion() {
 #[gtest(SymphoniaGlueTest, ZeroFrames)]
 fn test_zero_frames() {
     const SAMPLE_RATE: u32 = 44100;
-    // We use 5.1 channels (6 channels) to explicitly test the 3+ channels
-    // interleaving path in Symphonia, which had a bug where it panicked
-    // if num_frames == 0.
+    // Test 5.1 channels (6 channels) zero-length frame handling in Symphonia 0.6.
     let spec = AudioSpec::new(SAMPLE_RATE, layouts::CHANNEL_LAYOUT_MPEG_5P1_D);
     let audio_buf = AudioBuffer::<f32>::new(spec, 0);
 
@@ -436,42 +437,59 @@ fn test_zero_frames() {
     expect_true!(result.data.is_empty());
 }
 
-#[gtest(SymphoniaGlueTest, UnpackXiphVorbisExtradata)]
-fn test_unpack_xiph_vorbis_extradata() {
-    use symphonia_glue::unpack_xiph_vorbis_extradata;
+#[gtest(SymphoniaGlueTest, DetectMpegAudioCodecId)]
+fn test_detect_mpeg_audio_codec_id() {
+    use symphonia::core::codecs::audio::well_known::*;
 
-    // A valid Xiph-packed buffer with 3 headers.
-    // [0]: number of headers - 1 (2)
-    // [1]: length of first header (3)
-    // [2]: length of second header (4)
-    // [3..6]: Header 1
-    // [6..10]: Header 2
-    // [10..]: Header 3
-    let valid_xiph: Vec<u8> = vec![
-        2, 3, 4, // Header information
-        1, 1, 1, // Header 1 (Identification)
-        2, 2, 2, 2, // Header 2 (Comment)
-        3, 3, 3, 3, 3, // Header 3 (Setup)
-    ];
+    // MPEG-1 Layer 1 header: sync (11 bits) = 0x7FF, version = 11 (MPEG-1), layer =
+    // 11 (Layer 1) 0xFF, 0xFE, ...
+    let mp1_header = [0xFF, 0xFE, 0x90, 0x00];
+    expect_eq!(detect_mpeg_audio_codec_id(&mp1_header), Some(CODEC_ID_MP1));
 
-    let unpacked = unpack_xiph_vorbis_extradata(&valid_xiph).expect("Should successfully unpack");
-    // We expect Header 1 (Ident) and Header 3 (Setup) concatenated sequentially.
-    let expected: Vec<u8> = vec![1, 1, 1, 3, 3, 3, 3, 3];
-    expect_eq!(unpacked, expected);
+    // MPEG-1 Layer 2 header: sync (11 bits) = 0x7FF, version = 11 (MPEG-1), layer =
+    // 10 (Layer 2) 0xFF, 0xFD, ...
+    let mp2_header = [0xFF, 0xFD, 0x90, 0x00];
+    expect_eq!(detect_mpeg_audio_codec_id(&mp2_header), Some(CODEC_ID_MP2));
 
-    // Empty extradata should return None.
-    expect_true!(unpack_xiph_vorbis_extradata(&[]).is_err());
+    // MPEG-1 Layer 3 header: sync (11 bits) = 0x7FF, version = 11 (MPEG-1), layer =
+    // 01 (Layer 3) 0xFF, 0xFB, ...
+    let mp3_header = [0xFF, 0xFB, 0x90, 0x00];
+    expect_eq!(detect_mpeg_audio_codec_id(&mp3_header), Some(CODEC_ID_MP3));
 
-    // Not Xiph-lacing (first byte != 2) should return None.
-    let non_xiph: Vec<u8> = vec![1, 2, 3, 4, 5];
-    expect_true!(unpack_xiph_vorbis_extradata(&non_xiph).is_err());
+    // MPEG-2 Layer 2 header: sync (11 bits) = 0x7FF, version = 10 (MPEG-2), layer =
+    // 10 (Layer 2) 0xFF, 0xF5, ...
+    let mpeg2_layer2_header = [0xFF, 0xF5, 0x90, 0x00];
+    expect_eq!(detect_mpeg_audio_codec_id(&mpeg2_layer2_header), Some(CODEC_ID_MP2));
 
-    // Truncated lengths (expecting more bytes than available) should return None.
-    let truncated_lengths: Vec<u8> = vec![2, 255, 255]; // Needs more bytes to finish length parsing
-    expect_true!(unpack_xiph_vorbis_extradata(&truncated_lengths).is_err());
+    // Invalid / Non-MPEG headers:
+    expect_eq!(detect_mpeg_audio_codec_id(&[]), None);
+    expect_eq!(detect_mpeg_audio_codec_id(&[0xFF, 0xFB]), None); // Too short
+    expect_eq!(detect_mpeg_audio_codec_id(&[0x00, 0x00, 0x00, 0x00]), None); // No sync
+    expect_eq!(detect_mpeg_audio_codec_id(&[0xFF, 0xE9, 0x00, 0x00]), None); // Reserved version
+    expect_eq!(detect_mpeg_audio_codec_id(&[0xFF, 0xF9, 0x00, 0x00]), None); // Reserved layer (00)
+}
 
-    // Truncated payload (lengths read fine, but payload is missing) should return
-    // None.
-    let truncated_payload: Vec<u8> = vec![2, 3, 4, 1, 1]; // Misses payload bytes
-    expect_true!(unpack_xiph_vorbis_extradata(&truncated_payload).is_err());
+// Verify that an MP3-configured decoder dynamically updates to MP2 when
+// an MP2 packet is encountered.
+#[gtest(SymphoniaGlueTest, Mp2LayerSwitching)]
+fn test_mp2_layer_switching() {
+    let config = ffi::SymphoniaDecoderConfig {
+        codec: ffi::SymphoniaAudioCodec::Mp3,
+        extra_data: &[],
+        bytes_per_sample: 4,
+        channel_mask: 3, // Stereo
+        max_frames_per_packet: 0,
+        sample_rate: 44100,
+    };
+    let mut result = init_symphonia_decoder(&config);
+    expect_eq!(result.status, ffi::SymphoniaInitStatus::Ok);
+
+    // MPEG-1 Layer 2 frame header (0xFF, 0xFD, 0xBF, 0x0F, ...).
+    let mp2_packet_data = [0xFF, 0xFD, 0xBF, 0x0F, 0xD7, 0x3F, 0xFC, 0xE3, 0xD9, 0x79, 0x00, 0x00];
+    let packet =
+        ffi::SymphoniaPacket { timestamp_us: 0, duration_us: 26122, data: &mp2_packet_data };
+
+    // Calling decode should trigger maybe_update_mpeg_decoder and update to MP2.
+    let decode_result = result.decoder.decode(&packet);
+    expect_ne!(decode_result.status, ffi::SymphoniaDecodeStatus::InvalidDecoderState);
 }

@@ -161,7 +161,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.Android.WarningBypassDialog.Events"
-    enum="AndroidDownloadWarningBypassDialogEvent" expires_after="2026-11-30">
+    enum="AndroidDownloadWarningBypassDialogEvent" expires_after="2027-02-07">
   <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -172,13 +172,15 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.ApiFunctions" enum="DownloadFunctions"
-    expires_after="2026-07-05">
+    expires_after="2027-01-05">
   <owner>dtrainor@chromium.org</owner>
   <owner>xinghuilu@chromium.org</owner>
+  <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     Downloads extension API function calls. Warning: this histogram was expired
-    from 2020-03-08 to 2022-08-02; data may be missing.
+    from 2020-03-08 to 2022-08-02 and 2026-07-05 to 2026-08-04; data may be
+    missing.
   </summary>
 </histogram>
 
@@ -196,7 +198,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.BandwidthOverallBytesPerSecond2" units="bytes/second"
-    expires_after="2026-11-22">
+    expires_after="2027-01-24">
   <owner>qinmin@chromium.org</owner>
   <summary>
     Overall bandwidth seen for a completed download. This includes all file
@@ -721,7 +723,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.Memory.UrlChainLength.{Location}" units="count"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -732,7 +734,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.Memory.UrlChainSizeKb.{Location}" units="KB"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -751,7 +753,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.NonDangerousDialog.Events"
-    enum="DangerousDownloadDialogEvent" expires_after="2026-12-05">
+    enum="DangerousDownloadDialogEvent" expires_after="2027-02-07">
   <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
@@ -845,7 +847,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.Progress.InfoBar.Shown"
-    enum="DownloadInfoBar.ShownState" expires_after="2026-12-05">
+    enum="DownloadInfoBar.ShownState" expires_after="2027-02-07">
   <owner>yawfrempong@google.com</owner>
   <owner>clank-downloads@google.com</owner>
   <summary>
@@ -1225,8 +1227,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Download.UserValidatedDangerousDownload.DownloadsPage"
-    enum="DownloadItem.DangerType" expires_after="2026-08-30">
-  <owner>chlily@chromium.org</owner>
+    enum="DownloadItem.DangerType" expires_after="2027-03-02">
+  <owner>yawfrempong@google.com</owner>
   <owner>chrome-counter-abuse-alerts@google.com</owner>
   <summary>
     User chose to save a download which was marked dangerous or suspicious from

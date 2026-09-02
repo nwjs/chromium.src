@@ -99,7 +99,7 @@ class FetchDataLoaderAsBlobHandle final : public FetchDataLoader,
 
   void DidFetchDataLoadFailed() override { client_->DidFetchDataLoadFailed(); }
 
-  void Abort() override { client_->Abort(); }
+  void Abort(ScriptValue reason) override { client_->Abort(reason); }
 
   void Trace(Visitor* visitor) const override {
     visitor->Trace(consumer_);
@@ -161,10 +161,9 @@ class FetchDataLoaderAsArrayBuffer final : public FetchDataLoader,
         return;
       if (result == BytesConsumer::Result::kOk) {
         if (!buffer.empty()) {
-          bool ok = Append(buffer);
-          if (!ok) {
-            [[maybe_unused]] auto unused = consumer_->EndRead(0);
-            consumer_->Cancel();
+          if (!Append(buffer)) {
+            std::ignore = consumer_->EndRead(0);
+            Cancel();
             client_->DidFetchDataLoadFailed();
             return;
           }
@@ -203,7 +202,7 @@ class FetchDataLoaderAsArrayBuffer final : public FetchDataLoader,
 
  private:
   // Appending empty data is not allowed. Returns false upon buffer overflow.
-  bool Append(base::span<const char> data) {
+  [[nodiscard]] bool Append(base::span<const char> data) {
     DCHECK(!data.empty());
     buffer_->Append(data);
     if (buffer_->size() >
@@ -482,7 +481,12 @@ class FetchDataLoaderAsString final : public FetchDataLoader,
         return;
       if (result == BytesConsumer::Result::kOk) {
         if (!buffer.empty()) {
-          builder_.Append(decoder_->Decode(base::as_bytes(buffer)));
+          if (!Append(decoder_->Decode(base::as_bytes(buffer)))) {
+            std::ignore = consumer_->EndRead(buffer.size());
+            Cancel();
+            client_->DidFetchDataLoadFailed();
+            return;
+          }
         }
         result = consumer_->EndRead(buffer.size());
       }
@@ -492,7 +496,11 @@ class FetchDataLoaderAsString final : public FetchDataLoader,
         case BytesConsumer::Result::kShouldWait:
           NOTREACHED();
         case BytesConsumer::Result::kDone:
-          builder_.Append(decoder_->Flush());
+          if (!Append(decoder_->Flush())) {
+            Cancel();
+            client_->DidFetchDataLoadFailed();
+            return;
+          }
           client_->DidFetchDataLoadedString(builder_.ToString());
           return;
         case BytesConsumer::Result::kError:
@@ -514,6 +522,16 @@ class FetchDataLoaderAsString final : public FetchDataLoader,
   }
 
  private:
+  // Returns false if appending would overflow. Otherwise appends and returns
+  // true.
+  [[nodiscard]] bool Append(const String& string) {
+    if (builder_.DoesAppendCauseOverflow(string.length())) {
+      return false;
+    }
+    builder_.Append(string);
+    return true;
+  }
+
   Member<BytesConsumer> consumer_;
   Member<FetchDataLoader::Client> client_;
 
@@ -597,7 +615,7 @@ class FetchDataLoaderAsDataPipe final : public FetchDataLoader,
       OnStateChange();
   }
 
-  void OnPeerClosed(MojoResult result, const mojo::HandleSignalsState& state) {
+  void OnPeerClosed(MojoResult, const mojo::HandleSignalsState&) {
     StopInternal();
     client_->DidFetchDataLoadFailed();
   }
@@ -700,8 +718,8 @@ FetchDataLoader* FetchDataLoader::CreateLoaderAsFailure() {
 }
 
 FetchDataLoader* FetchDataLoader::CreateLoaderAsFormData(
-    const String& multipartBoundary) {
-  return MakeGarbageCollected<FetchDataLoaderAsFormData>(multipartBoundary);
+    const String& multipart_boundary) {
+  return MakeGarbageCollected<FetchDataLoaderAsFormData>(multipart_boundary);
 }
 
 FetchDataLoader* FetchDataLoader::CreateLoaderAsString(

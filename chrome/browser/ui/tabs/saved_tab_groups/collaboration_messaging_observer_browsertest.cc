@@ -158,7 +158,9 @@ class CollaborationMessagingObserverBrowserTest
   TabIcon* GetTabIcon(Browser* target_browser, int index) {
     return views::AsViewClass<TabIcon>(
         GetTabStripView(target_browser)
-            ->GetTabAnchorViewAt(index)
+            ->GetTabAnchorView(target_browser->tab_strip_model()
+                                   ->GetTabAtIndex(index)
+                                   ->GetHandle())
             ->GetViewByElementId(kTabIconElementId));
   }
 
@@ -455,8 +457,7 @@ IN_PROC_BROWSER_TEST_F(CollaborationMessagingObserverBrowserTest,
   EXPECT_CALL(cb, Run(true));
   observer()->DisplayInstantaneousMessage(message, cb.Get());
 
-  auto* toast_controller =
-      browser()->browser_window_features()->toast_controller();
+  auto* toast_controller = browser()->GetFeatures().toast_controller();
   EXPECT_TRUE(toast_controller->IsShowingToast());
 
   toast_controller->GetToastViewForTesting()
@@ -491,8 +492,7 @@ IN_PROC_BROWSER_TEST_F(CollaborationMessagingObserverBrowserTest,
   EXPECT_CALL(cb, Run(true));
   observer()->DisplayInstantaneousMessage(message, cb.Get());
 
-  auto* toast_controller =
-      browser()->browser_window_features()->toast_controller();
+  auto* toast_controller = browser()->GetFeatures().toast_controller();
   EXPECT_TRUE(toast_controller->IsShowingToast());
 }
 
@@ -527,8 +527,7 @@ IN_PROC_BROWSER_TEST_F(CollaborationMessagingObserverBrowserTest,
   EXPECT_CALL(cb, Run(true));
   observer()->DisplayInstantaneousMessage(message, cb.Get());
 
-  auto* toast_controller =
-      browser()->browser_window_features()->toast_controller();
+  auto* toast_controller = browser()->GetFeatures().toast_controller();
   EXPECT_TRUE(toast_controller->IsShowingToast());
 
   // Ensure tab group is closed.
@@ -566,8 +565,7 @@ IN_PROC_BROWSER_TEST_F(CollaborationMessagingObserverBrowserTest,
   EXPECT_CALL(cb, Run(true));
   observer()->DisplayInstantaneousMessage(message, cb.Get());
 
-  auto* toast_controller =
-      browser()->browser_window_features()->toast_controller();
+  auto* toast_controller = browser()->GetFeatures().toast_controller();
   EXPECT_TRUE(toast_controller->IsShowingToast());
 }
 

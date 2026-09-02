@@ -146,7 +146,7 @@ TEST_F(EnterpriseNetworkAuthServiceTest,
   // 2nd request: Failure (Transient network error)
   AccessTokenResult result2 = FetchAccessTokenAsyncFailure(
       auth_service, AuthScope::kCloudSecureGateway,
-      GoogleServiceAuthError(GoogleServiceAuthError::CONNECTION_FAILED));
+      GoogleServiceAuthError::FromConnectionError(net::ERR_FAILED));
   ASSERT_FALSE(result2.has_value());
   EXPECT_EQ(TokenFetchError::kTransientError, result2.error());
   EXPECT_EQ(0u, auth_service.GetPendingTokenFetchCountForTesting());
@@ -193,24 +193,24 @@ TEST_F(EnterpriseNetworkAuthServiceTest, MapsGoogleServiceAuthErrors) {
       &profile_id_service_);
 
   const struct {
-    GoogleServiceAuthError::State gaia_state;
+    GoogleServiceAuthError auth_error;
     TokenFetchError expected_error;
   } kTestCases[] = {
-      {GoogleServiceAuthError::CONNECTION_FAILED,
+      {GoogleServiceAuthError::FromConnectionError(net::ERR_FAILED),
        TokenFetchError::kTransientError},
-      {GoogleServiceAuthError::SERVICE_UNAVAILABLE,
+      {GoogleServiceAuthError::FromServiceUnavailable(""),
        TokenFetchError::kTransientError},
-      {GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS,
+      {GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+           GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN),
        TokenFetchError::kInvalidCredentials},
-      {GoogleServiceAuthError::ACCOUNT_NOT_FOUND,
+      {GoogleServiceAuthError::CreateAccountNotFound(),
        TokenFetchError::kNoPrimaryAccount},
   };
 
   for (const auto& test_case : kTestCases) {
     base::HistogramTester histogram_tester;
     AccessTokenResult result = FetchAccessTokenAsyncFailure(
-        auth_service, AuthScope::kCloudSecureGateway,
-        GoogleServiceAuthError(test_case.gaia_state));
+        auth_service, AuthScope::kCloudSecureGateway, test_case.auth_error);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(test_case.expected_error, result.error());
     histogram_tester.ExpectBucketCount(kTestHistogramName,
@@ -280,7 +280,8 @@ TEST_F(EnterpriseNetworkAuthServiceTest,
           signin::ConsentLevel::kSignin);
   identity_test_env_.UpdatePersistentErrorOfRefreshTokenForAccount(
       primary_account.account_id,
-      GoogleServiceAuthError(GoogleServiceAuthError::INVALID_GAIA_CREDENTIALS));
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::UNKNOWN));
 
   EnterpriseNetworkAuthService auth_service(
       identity_test_env_.identity_manager(), &pref_service_,
@@ -371,6 +372,51 @@ TEST_F(EnterpriseNetworkAuthServiceTest,
   EXPECT_EQ("en-US,ja", *val4);
 
   EXPECT_FALSE(resolved.HasHeader("X-Variable-Unsupported"));
+}
+
+class MockNetworkAuthObserver : public EnterpriseNetworkAuthService::Observer {
+ public:
+  MOCK_METHOD(void, OnAccountStateChanged, (), (override));
+};
+
+TEST_F(EnterpriseNetworkAuthServiceTest, ObserverNotifiedOnAccountChanges) {
+  EnterpriseNetworkAuthService auth_service(
+      identity_test_env_.identity_manager(), &pref_service_,
+      &profile_id_service_);
+
+  MockNetworkAuthObserver observer;
+  auth_service.AddObserver(&observer);
+
+  // Primary account set and refresh token issued.
+  EXPECT_CALL(observer, OnAccountStateChanged()).Times(testing::AtLeast(1));
+  AccountInfo account_info = identity_test_env_.MakePrimaryAccountAvailable(
+      "user@managed.com", signin::ConsentLevel::kSignin);
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  // Set persistent auth error on primary account.
+  identity_test_env_.UpdatePersistentErrorOfRefreshTokenForAccount(
+      account_info.account_id,
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::
+              CREDENTIALS_REJECTED_BY_SERVER));
+
+  // Error state resolved for primary account should notify.
+  EXPECT_CALL(observer, OnAccountStateChanged()).Times(1);
+  identity_test_env_.UpdatePersistentErrorOfRefreshTokenForAccount(
+      account_info.account_id, GoogleServiceAuthError::AuthErrorNone());
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  // Secondary account actions should NOT notify.
+  EXPECT_CALL(observer, OnAccountStateChanged()).Times(0);
+  AccountInfo secondary_account =
+      identity_test_env_.MakeAccountAvailable("other@managed.com");
+  testing::Mock::VerifyAndClearExpectations(&observer);
+
+  auth_service.RemoveObserver(&observer);
+
+  // After removing observer, subsequent token updates should NOT notify.
+  EXPECT_CALL(observer, OnAccountStateChanged()).Times(0);
+  identity_test_env_.SetRefreshTokenForAccount(account_info.account_id);
 }
 
 }  // namespace

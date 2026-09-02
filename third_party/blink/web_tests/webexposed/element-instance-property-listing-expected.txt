@@ -122,6 +122,9 @@ namespace http://www.w3.org/1999/xhtml
     property containerTimingIgnore
     property contains
     property contentEditable
+    property convertPointFromNode
+    property convertQuadFromNode
+    property convertRectFromNode
     property currentCSSZoom
     property customElementRegistry
     property dataset
@@ -143,6 +146,8 @@ namespace http://www.w3.org/1999/xhtml
     property getAttributeNode
     property getAttributeNodeNS
     property getBoundingClientRect
+    property getBoxQuads
+    property getCanvasTransform
     property getClientRects
     property getElementsByClassName
     property getElementsByTagName
@@ -361,6 +366,7 @@ namespace http://www.w3.org/1999/xhtml
     property setAttributeNS
     property setAttributeNode
     property setAttributeNodeNS
+    property setCanvasTransform
     property setHTML
     property setHTMLUnsafe
     property setPointerCapture
@@ -574,6 +580,11 @@ html element button
     property validity
     property value
     property willValidate
+html element camera
+    property error
+    property ontrack
+    property setConstraints
+    property track
 html element canvas
     property captureElementImage
     property captureStream
@@ -775,7 +786,6 @@ html element iframe
     property allow
     property allowFullscreen
     property allowPaymentRequest
-    property browsingTopics
     property connectionAllowlist
     property contentDocument
     property contentWindow
@@ -803,7 +813,6 @@ html element img
     property align
     property alt
     property border
-    property browsingTopics
     property complete
     property crossOrigin
     property currentSrc
@@ -987,6 +996,11 @@ html element meter
     property min
     property optimum
     property value
+html element microphone
+    property error
+    property ontrack
+    property setConstraints
+    property track
 html element nav
 html element nobr
 html element noembed
@@ -1201,6 +1215,7 @@ html element template
     property buffer
     property content
     property htmlFor
+    property sanitize
     property shadowRootAdoptedStyleSheets
     property shadowRootClonable
     property shadowRootCustomElementRegistry
@@ -1307,17 +1322,9 @@ html element ul
     property type
 html element usermedia
     property error
-    property initialPermissionStatus
-    property invalidReason
-    property isValid
-    property onpromptaction
-    property onpromptdismiss
     property onstream
-    property onvalidationstatuschange
-    property permissionStatus
     property setConstraints
     property stream
-    property type
 html element var
 html element video
     property HAVE_CURRENT_DATA
@@ -1507,6 +1514,9 @@ namespace http://www.w3.org/2000/svg
     property containerTiming
     property containerTimingIgnore
     property contains
+    property convertPointFromNode
+    property convertQuadFromNode
+    property convertRectFromNode
     property currentCSSZoom
     property customElementRegistry
     property dataset
@@ -1524,6 +1534,8 @@ namespace http://www.w3.org/2000/svg
     property getAttributeNode
     property getAttributeNodeNS
     property getBoundingClientRect
+    property getBoxQuads
+    property getCanvasTransform
     property getClientRects
     property getElementsByClassName
     property getElementsByTagName
@@ -1726,6 +1738,7 @@ namespace http://www.w3.org/2000/svg
     property setAttributeNS
     property setAttributeNode
     property setAttributeNodeNS
+    property setCanvasTransform
     property setHTML
     property setHTMLUnsafe
     property setPointerCapture

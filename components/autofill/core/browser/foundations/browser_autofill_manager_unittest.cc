@@ -34,6 +34,8 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/to_string.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/bind_post_task.h"
+#include "base/task/thread_pool.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/gmock_move_support.h"
@@ -43,6 +45,7 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/autofill/core/browser/at_memory/at_memory_manager.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/crowdsourcing/mock_autofill_crowdsourcing_manager.h"
@@ -132,6 +135,7 @@
 #include "components/autofill/core/browser/ui/test_autofill_external_delegate.h"
 #include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
 #include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
+#include "components/autofill/core/browser/webdata/mock_autofill_webdata_service.h"
 #include "components/autofill/core/common/autocomplete_parsing_util.h"
 #include "components/autofill/core/common/autofill_debug_features.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -635,6 +639,7 @@ class MockAutofillClient : public TestAutofillClient {
   MOCK_METHOD(void, HideAutofillFieldIph, (), (override));
   MOCK_METHOD(bool, IsTabInActorMode, (), (const override));
   MOCK_METHOD(AutofillAiManager*, GetAutofillAiManager, (), (override));
+  MOCK_METHOD(void, ShowAutofillAiPrivateInferenceNotice, (), (override));
 };
 
 class MockTouchToFillPaymentMethodDelegate
@@ -685,6 +690,7 @@ class MockTouchToFillPaymentMethodDelegate
               BnplSuggestionSelected,
               (std::optional<int64_t> extracted_amount),
               (override));
+  MOCK_METHOD(void, OnUserDecisionToUseSavedCards, (), (override));
   MOCK_METHOD(void,
               IbanSuggestionSelected,
               ((std::variant<Iban::Guid, Iban::InstrumentId>)),
@@ -748,7 +754,6 @@ class MockTouchToFillAutofillDelegate : public TouchToFillAutofillDelegate {
               (override));
   MOCK_METHOD(bool, IsShowingTouchToFill, (), (override));
   MOCK_METHOD(void, HideTouchToFill, (), (override));
-  MOCK_METHOD(void, OnShow, (), (override));
   MOCK_METHOD(void, OnNoticeAcknowledged, (), (override));
   MOCK_METHOD(void, OnSettingsLinkClicked, (), (override));
   MOCK_METHOD(void, OnDismissed, (), (override));
@@ -769,8 +774,7 @@ class MockAutofillDriver : public TestAutofillDriver {
                const FillId& fill_id,
                bool supports_refill,
                const url::Origin& triggered_origin,
-               (const absl::flat_hash_map<FieldGlobalId, FieldType>&),
-               (const Section&)),
+               (const absl::flat_hash_map<FieldGlobalId, FieldType>&)),
               (override));
   MOCK_METHOD(void,
               ApplyFieldAction,
@@ -1107,8 +1111,7 @@ class BrowserAutofillManagerTest
                       base::span<const FormFieldData> data,
                       const FillId& fill_id, bool supports_refill,
                       const url::Origin& triggered_origin,
-                      const absl::flat_hash_map<FieldGlobalId, FieldType>&,
-                      const Section&) {
+                      const absl::flat_hash_map<FieldGlobalId, FieldType>&) {
           filled_fields = std::vector<FormFieldData>(data.begin(), data.end());
           return base::MakeFlatSet<FieldGlobalId>(data, {},
                                                   &FormFieldData::global_id);
@@ -3830,6 +3833,14 @@ TEST_F(BrowserAutofillManagerTest, NoSaveToAutocompleteWhenActorIsActive) {
   FormSubmitted(form);
 }
 
+// Tests that single field form fillers are not notified about OTR submissions.
+TEST_F(BrowserAutofillManagerTest, SingleFieldFormFillerOffTheRecord) {
+  autofill_client().set_is_off_the_record(true);
+  FormData form = CreateTestAddressFormData();
+  EXPECT_CALL(single_field_fill_router(), OnWillSubmitForm).Times(0);
+  FormSubmitted(form);
+}
+
 // Tests that form import (saving to Autofill) is suppressed when there is an
 // active actor task.
 TEST_F(BrowserAutofillManagerTest, FormSubmittedActorActive) {
@@ -3850,19 +3861,6 @@ TEST_F(BrowserAutofillManagerTest, FormSubmittedActorActive) {
   FormSubmitted(response_data);
 
   EXPECT_THAT(adm.GetProfiles(), IsEmpty());
-}
-
-// Test that when Autocomplete is enabled and Autofill is disabled, form
-// submissions are still received by the SingleFieldFillRouter.
-TEST_F(BrowserAutofillManagerTest, FormSubmittedAutocompleteEnabled) {
-  autofill_client().SetAutofillProfileEnabled(false);
-  payments_autofill_client().SetAutofillPaymentMethodsEnabled(false);
-
-  // Set up our form data.
-  FormData form = CreateTestAddressFormData();
-
-  EXPECT_CALL(single_field_fill_router(), OnWillSubmitForm(_, _, true));
-  FormSubmitted(form);
 }
 
 // Test that the value patterns metric is reported.
@@ -5442,6 +5440,8 @@ TEST_F(BrowserAutofillManagerTest,
 // Tests that if the context is insecure, the suggestions are filtered out
 // to not contain SPII.
 TEST_F(BrowserAutofillManagerTest, DidShowSuggestions_FormNonSecureContext) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAtMemory};
   // Ensure that the client context is insecure.
   autofill_client().set_last_committed_primary_main_frame_url(
       GURL("http://example.com"));
@@ -5480,7 +5480,7 @@ TEST_F(BrowserAutofillManagerTest, DidShowSuggestions_FormNonSecureContext) {
   EXPECT_CALL(*mock_query_service_ptr,
               Query(std::u16string_view(u"query"), _, _, _))
       .WillOnce(testing::SaveArg<3>(&search_callback));
-  autofill_manager().GetAtMemoryManager().OnSearchSubmitted(u"query");
+  autofill_client().GetAtMemoryManager()->OnSearchSubmitted(u"query");
   ASSERT_FALSE(search_callback.is_null());
 
   // Prepare search results containing a SPII entry.
@@ -5828,6 +5828,96 @@ TEST_F(BrowserAutofillManagerTest, ShowNothingIfTouchToFillAlreadyShown) {
   EXPECT_CALL(touch_to_fill_delegate(), TryToShowTouchToFill).Times(0);
   TryToShowTouchToFill(form, field, /*form_element_was_clicked=*/true);
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
+}
+
+// Tests that OnAfterAskForValuesToFill is notified strictly after
+// TryToShowTouchToFill is executed during suggestion generation.
+TEST_F(BrowserAutofillManagerTest,
+       TouchToFill_OnAfterAskForValuesToFillCalledAfterTryToShowTouchToFill) {
+  FormData form = CreateTestCreditCardFormData(/*is_https=*/true,
+                                               /*use_month_type=*/false);
+  FormsSeen({form});
+
+  MockAutofillManagerObserver observer;
+  autofill_manager().AddObserver(&observer);
+
+  bool try_to_show_ttf_called = false;
+  bool on_after_called = false;
+
+  base::RunLoop run_loop;
+  {
+    testing::InSequence s;
+    EXPECT_CALL(observer, OnBeforeAskForValuesToFill);
+    EXPECT_CALL(touch_to_fill_delegate(), TryToShowTouchToFill).WillOnce([&]() {
+      try_to_show_ttf_called = true;
+      EXPECT_FALSE(on_after_called);
+      return true;
+    });
+    EXPECT_CALL(observer, OnAfterAskForValuesToFill).WillOnce([&]() {
+      on_after_called = true;
+      EXPECT_TRUE(try_to_show_ttf_called);
+      run_loop.Quit();
+    });
+  }
+
+  TryToShowTouchToFill(form, form.fields().front(),
+                       /*form_element_was_clicked=*/true);
+  run_loop.Run();
+
+  EXPECT_TRUE(try_to_show_ttf_called);
+  EXPECT_TRUE(on_after_called);
+
+  autofill_manager().RemoveObserver(&observer);
+}
+
+// Tests that if an asynchronous suggestion generator query (e.g. Autocomplete)
+// is in flight and is cancelled/destroyed on a background ThreadPool sequence,
+// `OnAfterAskForValuesToFill` is safely notified on the main thread sequence
+// without crashing or violating sequence checker assertions.
+TEST_F(BrowserAutofillManagerTest,
+       OnAskForValuesToFill_CancelledDatabaseQueryDoesNotCrash) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kAutofillNewSuggestionGeneration);
+
+  auto mock_web_data_service =
+      base::MakeRefCounted<testing::NiceMock<MockAutofillWebDataService>>();
+  autofill_client().set_autocomplete_history_manager(
+      std::make_unique<MockAutocompleteHistoryManager>(mock_web_data_service));
+
+  FormData form =
+      test::GetFormData({.fields = {{.label = u"label", .name = u"name"}}});
+  FormsSeen({form});
+
+  using DbCallback = base::OnceCallback<void(WebDataServiceBase::Handle,
+                                             std::unique_ptr<WDTypedResult>)>;
+
+  EXPECT_CALL(*mock_web_data_service, GetFormValuesForElementName)
+      .WillOnce([&](const std::u16string&, const std::u16string&, int,
+                    DbCallback callback) {
+        constexpr int kDbQueryId = 100;
+        // Simulate a slow DB query running on a background worker thread:
+        // transfer the DB callback to ThreadPool and drop it there without
+        // running. This ensures that `callback` is destroyed on the ThreadPool
+        // worker thread without running.
+        base::ThreadPool::PostTask(
+            FROM_HERE,
+            base::BindOnce([](DbCallback cb) {}, std::move(callback)));
+        return kDbQueryId;
+      });
+
+  testing::NiceMock<MockAutofillManagerObserver> observer;
+  autofill_manager().AddObserver(&observer);
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer, OnAfterAskForValuesToFill).WillOnce([&]() {
+    run_loop.Quit();
+  });
+
+  // Trigger suggestion generation and the DB query.
+  OnAskForValuesToFill(form, form.fields().front());
+
+  run_loop.Run();
+  autofill_manager().RemoveObserver(&observer);
 }
 
 // Tests that compose suggestions are not queried if Autofill has suggestions
@@ -6249,6 +6339,49 @@ TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
   EXPECT_CALL(mock_ai_manager(), OnFormSubmitted).WillOnce(Return(false));
   FormSubmitted(response_data);
   EXPECT_FALSE(adm.GetProfiles().empty());
+}
+
+// Tests that Autofill suggestions are not shown if TouchToFillAutofill is
+// eligible. The private inference notice should not be shown
+TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
+       TouchToFillAutofillSuggestion_ShowsIfEligible) {
+  SeeForm(/*may_run_model=*/false);
+
+  EXPECT_CALL(mock_ai_manager(), GetSuggestions).Times(0);
+  // The private inference notice should not be shown when touch to fill bottom
+  // sheet is shown.
+  EXPECT_CALL(autofill_client(), ShowAutofillAiPrivateInferenceNotice).Times(0);
+
+  EXPECT_CALL(touch_to_fill_autofill_delegate(), TryToShowTouchToFill)
+      .WillOnce(testing::Return(true));
+  TryToShowTouchToFill(passport_form(), passport_form().fields().front(),
+                       /*form_element_was_clicked=*/true);
+  EXPECT_THAT(external_delegate()->suggestions(), IsEmpty());
+  EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
+}
+
+// Tests that Autofill suggestions are shown if TouchToFillAutofill is not
+// eligible.
+TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
+       TouchToFillAutofillSuggestion_DoesNotShowIfNotEligible) {
+  SeeForm(/*may_run_model=*/false);
+
+  std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kAutofillAiPrivateInferenceNotice)};
+  EXPECT_CALL(mock_ai_manager(), GetSuggestions).WillOnce(Return(suggestions));
+
+  EXPECT_CALL(touch_to_fill_autofill_delegate(), TryToShowTouchToFill)
+      .WillOnce(testing::Return(false));
+  // The private inference notice should be shown when touch to fill bottom
+  // sheet is shown.
+  EXPECT_CALL(autofill_client(), ShowAutofillAiPrivateInferenceNotice);
+  TryToShowTouchToFill(passport_form(), passport_form().fields().front(),
+                       /*form_element_was_clicked=*/true);
+  EXPECT_THAT(external_delegate()->suggestions(),
+              ElementsAre(Field(
+                  &Suggestion::type,
+                  Eq(SuggestionType::kAutofillAiPrivateInferenceNotice))));
+  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
@@ -7076,8 +7209,8 @@ TEST_F(BrowserAutofillManagerOtpSuggestionsTest, OtpSuggestions) {
   // Check that suggestions are offered for the first field if the OTP delegate
   // suggests that.
   const std::vector<std::string> otp_values = {"123456"};
-  EXPECT_CALL(otp_manager(), GetOtpSuggestions(_))
-      .WillOnce(RunOnceCallback<0>(otp_values));
+  EXPECT_CALL(otp_manager(), GetOtpSuggestions)
+      .WillOnce(RunOnceCallback<2>(otp_values));
   OnAskForValuesToFill(form, form.fields()[0]);
   EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
 
@@ -7108,7 +7241,7 @@ TEST_F(BrowserAutofillManagerOtpSuggestionsTest, OtpFilling) {
   EXPECT_CALL(autofill_driver(),
               ApplyFormAction(mojom::FormActionType::kFill,
                               mojom::ActionPersistence::kFill, _, _, _, _,
-                              expected_types, _))
+                              expected_types))
       .WillOnce(DoAll(SaveArgElementsTo<2>(&filled_fields),
                       Return(base::flat_set<FieldGlobalId>{})));
 
@@ -7122,6 +7255,44 @@ TEST_F(BrowserAutofillManagerOtpSuggestionsTest, OtpFilling) {
   ASSERT_EQ(1u, filled_fields.size());
   EXPECT_EQ(form.fields()[0].global_id(), filled_fields[0].global_id());
   EXPECT_EQ(otp_value, filled_fields[0].value());
+}
+
+// Test that OTP suggestions are silently suppressed on insecure contexts.
+TEST_F(BrowserAutofillManagerOtpSuggestionsTest,
+       OtpSuggestions_InsecureContext) {
+  autofill_client().set_last_committed_primary_main_frame_url(
+      GURL("http://example.com"));
+
+  FormData form =
+      test::GetFormData({.fields = {
+                             {.label = u"Enter one time code",
+                              .form_control_type = FormControlType::kInputText},
+                         }});
+
+  // Simulate form parsing results.
+  auto form_structure = std::make_unique<FormStructure>(form);
+  form_structure->field(0)->set_heuristic_type(
+      HeuristicSource::kPasswordManagerMachineLearning,
+      FieldType::ONE_TIME_CODE);
+  test_api(autofill_manager()).AddSeenFormStructure(std::move(form_structure));
+
+  // We should NOT call GetOtpSuggestions on the manager.
+  EXPECT_CALL(otp_manager(), GetOtpSuggestions).Times(0);
+
+  ON_CALL(autocomplete_history_manager(), OnGetSingleFieldSuggestions)
+      .WillByDefault(
+          [](const FormData& form, const FormStructure* form_structure,
+             const FormFieldData& field, const AutofillField* autofill_field,
+             const AutofillClient& client,
+             SingleFieldFillRouter::OnSuggestionsReturnedCallback
+                 on_suggestions_returned) {
+            std::move(on_suggestions_returned).Run(field.global_id(), {});
+          });
+
+  OnAskForValuesToFill(form, form.fields()[0]);
+
+  // We expect no suggestions.
+  external_delegate()->CheckNoSuggestions(form.fields()[0].global_id());
 }
 
 // Tests that FillOrPreviewForm correctly passes the blocked_fields to the
@@ -7150,7 +7321,7 @@ TEST_F(BrowserAutofillManagerTest, FillOrPreviewForm_BlockedFields) {
   EXPECT_CALL(autofill_driver(),
               ApplyFormAction(mojom::FormActionType::kFill,
                               mojom::ActionPersistence::kFill, _, _, _, _,
-                              expected_types, _));
+                              expected_types));
 
   autofill_manager().FillOrPreviewForm(
       mojom::ActionPersistence::kFill, form.global_id(),
@@ -7184,7 +7355,7 @@ TEST_F(BrowserAutofillManagerTest,
   EXPECT_CALL(autofill_driver(),
               ApplyFormAction(mojom::FormActionType::kFill,
                               mojom::ActionPersistence::kFill, _, _, _, _,
-                              expected_types, _));
+                              expected_types));
 
   autofill_manager().FillOrPreviewForm(
       mojom::ActionPersistence::kFill, form.global_id(),
@@ -7456,34 +7627,6 @@ TEST_F(
       AutofillManagerTestApi::pass_key());
 
   EXPECT_FALSE(form_structure->field(0)->did_trigger_javascript_autofill());
-}
-
-// Tests that Autofill suggestions are not shown if TouchToFillAutofill is
-// eligible.
-TEST_F(BrowserAutofillManagerTest,
-       TouchToFillAutofillSuggestion_ShowsIfEligible) {
-  FormData form = CreateTestAddressFormData();
-  FormsSeen({form});
-
-  EXPECT_CALL(touch_to_fill_autofill_delegate(), TryToShowTouchToFill)
-      .WillOnce(testing::Return(true));
-  TryToShowTouchToFill(form, form.fields()[0],
-                       /*form_element_was_clicked=*/true);
-  EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
-}
-
-// Tests that Autofill suggestions are shown if TouchToFillAutofill is not
-// eligible.
-TEST_F(BrowserAutofillManagerTest,
-       TouchToFillAutofillSuggestion_DoesNotShowIfNotEligible) {
-  FormData form = CreateTestAddressFormData();
-  FormsSeen({form});
-
-  EXPECT_CALL(touch_to_fill_autofill_delegate(), TryToShowTouchToFill)
-      .WillOnce(testing::Return(false));
-  TryToShowTouchToFill(form, form.fields()[0],
-                       /*form_element_was_clicked=*/true);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
 }
 
 }  // namespace

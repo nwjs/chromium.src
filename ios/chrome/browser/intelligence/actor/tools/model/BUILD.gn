@@ -5,6 +5,17 @@
 import("//ios/web/public/js_messaging/compile_ts.gni")
 import("//ios/web/public/js_messaging/optimize_ts.gni")
 
+source_set("action_target") {
+  sources = [
+    "action_target.h",
+    "action_target.mm",
+  ]
+  deps = [
+    "//base",
+    "//components/optimization_guide/proto:optimization_guide_proto",
+  ]
+}
+
 source_set("actor_tool_factory") {
   sources = [
     "actor_tool_factory.h",
@@ -35,6 +46,10 @@ source_set("actor_tool_factory") {
 
 source_set("actor_tool_interface") {
   sources = [
+    "actor_form_suggestion.h",
+    "actor_form_suggestion.mm",
+    "actor_task_form_filling_handler.h",
+    "actor_task_form_filling_handler.mm",
     "actor_tool.h",
     "actor_tool.mm",
     "actor_tool_java_script_feature_util.h",
@@ -45,14 +60,20 @@ source_set("actor_tool_interface") {
   ]
 
   deps = [
+    ":action_target",
     "//base",
+    "//components/actor/core:journal",
+    "//components/autofill/core/browser",
+    "//components/autofill/core/browser/actor",
+    "//components/autofill/ios/browser",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
     "//components/password_manager/core/browser/actor_login:common",
+    "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:actor_browser_utils",
     "//ios/chrome/browser/intelligence/actor/tools/utils:actor_tool_utils",
-    "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
     "//ios/chrome/browser/url_loading/model",
@@ -66,9 +87,11 @@ source_set("web_actor_tool_interface") {
     "web_actor_tool.mm",
   ]
   deps = [
+    ":action_target",
     ":actor_tool_interface",
     ":java_script_features",
     "//base",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/web/public",
   ]
@@ -160,13 +183,29 @@ source_set("attempt_form_filling_tool") {
     "attempt_form_filling_tool.mm",
   ]
 
+  public_deps = [
+    ":web_actor_tool_interface",
+    "//components/autofill/core/browser/actor",
+    "//components/autofill/core/browser/integrators/actor:actor_form_filling_types",
+  ]
+
   deps = [
+    ":action_target",
     ":actor_tool_interface",
+    ":java_script_features",
     "//base",
+    "//components/autofill/core/browser",
+    "//components/autofill/core/browser/actor",
+    "//components/autofill/core/browser/integrators/actor:actor_form_filling_types",
+    "//components/autofill/core/common",
+    "//components/autofill/ios/browser",
+    "//components/autofill/ios/browser:util",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/web/public",
+    "//ios/web/public/js_messaging",
   ]
 }
 
@@ -234,6 +273,18 @@ optimize_ts("select_tool_ts") {
   ]
 }
 
+optimize_ts("attempt_form_filling_tool_ts") {
+  sources = [ "resources/attempt_form_filling_tool.ts" ]
+  output_name = "attempt_form_filling_tool"
+
+  deps = [
+    ":actor_tool_utils_ts",
+    "//components/autofill/ios/form_util:fill_js_dependencies",
+    "//ios/chrome/browser/intelligence/proto_wrappers:dom_node_ids_ts",
+    "//ios/web/public/js_messaging:gcrweb",
+  ]
+}
+
 optimize_ts("type_tool_ts") {
   sources = [ "resources/type_tool.ts" ]
   output_name = "type_tool"
@@ -264,14 +315,15 @@ source_set("click_tool") {
   ]
 
   deps = [
+    ":action_target",
     ":actor_tool_interface",
     ":java_script_features",
     ":web_actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
-    "//ios/chrome/browser/shared/model/browser",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list:utils",
     "//ios/web/public",
@@ -286,11 +338,13 @@ source_set("select_tool") {
   ]
 
   deps = [
+    ":action_target",
     ":actor_tool_interface",
     ":java_script_features",
     ":web_actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
@@ -306,11 +360,13 @@ source_set("type_tool") {
   ]
 
   deps = [
+    ":action_target",
     ":actor_tool_interface",
     ":java_script_features",
     ":web_actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
@@ -326,12 +382,14 @@ source_set("scroll_tool") {
   ]
 
   deps = [
+    ":action_target",
     ":actor_tool_constants",
     ":actor_tool_interface",
     ":java_script_features",
     ":web_actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
@@ -347,11 +405,13 @@ source_set("scroll_to_tool") {
   ]
 
   deps = [
+    ":action_target",
     ":actor_tool_interface",
     ":java_script_features",
     ":web_actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/shared/model/profile",
@@ -364,6 +424,8 @@ source_set("java_script_features") {
   sources = [
     "action_target_java_script_feature.h",
     "action_target_java_script_feature.mm",
+    "attempt_form_filling_tool_java_script_feature.h",
+    "attempt_form_filling_tool_java_script_feature.mm",
     "click_tool_java_script_feature.h",
     "click_tool_java_script_feature.mm",
     "page_stability_java_script_feature.h",
@@ -377,8 +439,10 @@ source_set("java_script_features") {
   ]
 
   deps = [
+    ":action_target",
     ":action_target_ts",
     ":actor_tool_interface",
+    ":attempt_form_filling_tool_ts",
     ":click_tool_ts",
     ":page_stability_ts",
     ":scroll_tool_ts",
@@ -386,9 +450,12 @@ source_set("java_script_features") {
     ":type_tool_ts",
     "//base",
     "//components/autofill/core/common",
+    "//components/autofill/ios/browser",
     "//components/autofill/ios/browser:util",
+    "//components/autofill/ios/form_util:autofill_form_features",
     "//components/autofill/ios/form_util:child_frame_registrar",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/features",
     "//ios/web/public",
@@ -459,8 +526,12 @@ source_set("unit_tests") {
   sources = [
     "action_target_java_script_feature_unittest.mm",
     "action_target_js_unittest.mm",
+    "action_target_unittest.mm",
     "actor_tool_factory_unittest.mm",
     "actor_tool_request_unittest.mm",
+    "attempt_form_filling_tool_java_script_feature_unittest.mm",
+    "attempt_form_filling_tool_js_unittest.mm",
+    "attempt_form_filling_tool_unittest.mm",
     "attempt_login_tool_unittest.mm",
     "click_tool_java_script_feature_unittest.mm",
     "click_tool_js_unittest.mm",
@@ -470,6 +541,7 @@ source_set("unit_tests") {
     "history_tool_unittest.mm",
     "navigate_tool_unittest.mm",
     "observation_delay_controller_unittest.mm",
+    "page_stability_java_script_feature_unittest.mm",
     "page_stability_js_unittest.mm",
     "page_stability_monitor_unittest.mm",
     "scroll_to_tool_unittest.mm",
@@ -487,11 +559,14 @@ source_set("unit_tests") {
     "wait_tool_unittest.mm",
   ]
   deps = [
+    ":action_target",
     ":action_target_ts",
     ":actor_tool_constants",
     ":actor_tool_factory",
     ":actor_tool_interface",
     ":actor_tool_java_script_feature_test_base",
+    ":attempt_form_filling_tool",
+    ":attempt_form_filling_tool_ts",
     ":attempt_login_tool",
     ":click_tool",
     ":click_tool_ts",
@@ -510,15 +585,22 @@ source_set("unit_tests") {
     ":type_tool_ts",
     ":wait_tool",
     "//base/test:test_support",
+    "//components/autofill/core/browser/actor",
+    "//components/autofill/core/browser/actor:test_support",
+    "//components/autofill/core/common:features",
+    "//components/autofill/ios/browser:test_support",
     "//components/autofill/ios/browser:util",
     "//components/autofill/ios/common",
     "//components/autofill/ios/form_util",
     "//components/autofill/ios/form_util:autofill_form_features",
     "//components/autofill/ios/form_util:autofill_form_features_ts_bundling",
     "//components/autofill/ios/form_util:child_frame_registrar",
+    "//components/autofill/ios/form_util:renderer_id_test",
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
     "//components/password_manager/core/browser/actor_login:common",
+    "//components/tab_groups",
+    "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:actor_browser_utils",

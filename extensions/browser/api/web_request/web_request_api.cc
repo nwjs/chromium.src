@@ -480,14 +480,10 @@ void WebRequestAPI::OnListenerAdded(const EventListenerInfo& details) {
 
   auto registration = ParseListenerRegistration(details);
   if (!registration.has_value()) {
-    if (per_context_dispatch) {
-      // Per-context registrations are validated in the renderer before they
-      // are sent, so an unparsable one indicates a misbehaving renderer.
-      bad_message::ReceivedBadMessage(
-          details.render_process_id.GetUnsafeValue(),
-          bad_message::WRA_INVALID_LISTENER_REGISTRATION);
-      return;
-    }
+    // TODO(crbug.com/494684626): the renderer does not validate URL patterns,
+    // so a parse failure can come from a legitimate extension. Report an error,
+    // not a bad message. Validate URL patterns at addListener time once the
+    // legacy path is gone.
     // TODO(crbug.com/477654111): this validation should happen at the
     // EventRouter layer. Currently, it's possible for an invalid listener to be
     // added at the EventRouter layer, and for the validation to then fail here.
@@ -667,11 +663,10 @@ void WebRequestAPI::OnListenerRemoved(const EventListenerInfo& details) {
   if (per_context_dispatch) {
     auto registration = ParseListenerRegistration(details);
     if (!registration.has_value()) {
-      // Per-context registrations are validated in the renderer before they are
-      // sent, so a renderer sending this is misbehaving.
-      bad_message::ReceivedBadMessage(
-          details.render_process_id.GetUnsafeValue(),
-          bad_message::WRA_INVALID_LISTENER_REGISTRATION);
+      // TODO(crbug.com/494684626): the addition was rejected the same way (see
+      // `OnListenerAdded()`), so there is no listener to remove. Once URL
+      // patterns are validated at addListener time, a parse failure here can
+      // only come from a misbehaving renderer; treat it as a bad message.
       return;
     }
     filter = std::move(registration->filter);
@@ -1064,7 +1059,8 @@ bool WebRequestAPI::IsAvailableToWebViewEmbedderWebUIFrame(
       render_frame_host->GetBrowserContext();
   content::RenderFrameHost* embedder_frame =
       render_frame_host->GetOutermostMainFrameOrEmbedder();
-  const auto& embedder_url = embedder_frame->GetLastCommittedURL();
+  const GURL& embedder_url =
+      util::GetURLForExtensionPermissionCheck(embedder_frame);
   // TODO(crbug.com/40288053): Remove the scheme check once we're sure
   // that WebUIs with WebView run in real WebUI processes and check the
   // context type using |IsAvailableToWebViewEmbedderWebPageFrame()| below.
@@ -1125,7 +1121,8 @@ bool WebRequestAPI::IsAvailableToWebViewEmbedderWebPageFrame(
   Feature::Availability availability =
       ExtensionAPI::GetSharedInstance()->IsAvailable(
           "webRequestInternal", /*extension=*/nullptr,
-          mojom::ContextType::kWebPage, embedder_frame->GetLastCommittedURL(),
+          mojom::ContextType::kWebPage,
+          util::GetURLForExtensionPermissionCheck(embedder_frame),
           CheckAliasStatus::ALLOWED, util::GetBrowserContextId(browser_context),
           BrowserFrameContextData(embedder_frame));
   return availability.is_available();
@@ -1451,8 +1448,8 @@ void WebRequestInternalEventHandledFunction::RouteEventResponse(
           extensions_features::kWebRequestPerContextEventDispatch)) {
     // Per-context dispatch: the renderer sends the parent event name.
     // Append this listener's response to the pending dispatch target without
-    // resolving it; the target is resolved by a separate `eventHandlingDone`
-    // signal.
+    // resolving it; the target is resolved by a separate completion signal
+    // (`WebRequestHost.EventHandlingDone`).
     // TODO(crbug.com/379869738): Remove FromUnsafeValue.
     router->OnEventHandledForTarget(
         browser_context(), extension_id_safe(), event_name, request_id,
@@ -1633,37 +1630,6 @@ WebRequestInternalEventHandledFunction::Run() {
   RouteEventResponse(event_name, sub_event_name, request_id, render_process_id,
                      web_view_instance_id, extra_info_spec,
                      std::move(response));
-  return RespondNow(NoArguments());
-}
-
-ExtensionFunction::ResponseAction
-WebRequestInternalEventHandlingDoneFunction::Run() {
-  // Per-context dispatch completion signal: all of this renderer context's
-  // matching listeners have finished handling the blocking event. Carries no
-  // response (each listener's response arrived via `eventHandled`).
-  EXTENSION_FUNCTION_VALIDATE(base::FeatureList::IsEnabled(
-      extensions_features::kWebRequestPerContextEventDispatch));
-  EXTENSION_FUNCTION_VALIDATE(args().size() >= 3);
-  EXTENSION_FUNCTION_VALIDATE(args()[0].is_string());
-  EXTENSION_FUNCTION_VALIDATE(args()[1].is_string());
-  EXTENSION_FUNCTION_VALIDATE(args()[2].is_int());
-  std::string event_name = args()[0].GetString();
-  std::string request_id_str = args()[1].GetString();
-  int web_view_instance_id = args()[2].GetInt();
-  EXTENSION_FUNCTION_VALIDATE(!EventRouter::IsSubEventName(event_name));
-
-  uint64_t request_id;
-  EXTENSION_FUNCTION_VALIDATE(
-      base::StringToUint64(request_id_str, &request_id));
-
-  // TODO(crbug.com/379869738): Remove FromUnsafeValue.
-  WebRequestEventRouter::Get(browser_context())
-      ->OnEventHandlingDone(
-          browser_context(), extension_id_safe(), event_name, request_id,
-          content::ChildProcessId::FromUnsafeValue(source_process_id()),
-          web_view_instance_id, worker_thread_id(),
-          service_worker_version_id());
-
   return RespondNow(NoArguments());
 }
 

@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,6 +28,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
@@ -36,10 +36,12 @@ import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.GroupSeparatorType;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.PositionalMode;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.AutocompleteInput;
@@ -62,10 +64,11 @@ import java.util.List;
 public class DropdownItemViewInfoListBuilderUnitTest {
     private final Context mContext = ContextUtils.getApplicationContext();
 
-    public @Rule MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
 
-    private @Mock SuggestionProcessor mMockSuggestionProcessor;
-    private @Mock AutocompleteInput mInput;
+    @Mock private SuggestionProcessor mMockSuggestionProcessor;
+    @Mock private AutocompleteInput mInput;
+    @Captor private ArgumentCaptor<PropertyModel> mPropertyModelCaptor;
 
     DropdownItemViewInfoListBuilder mBuilder;
 
@@ -79,7 +82,7 @@ public class DropdownItemViewInfoListBuilderUnitTest {
                 new OmniboxResourceProvider(mContext, BrandedColorScheme.LIGHT_BRANDED_THEME);
         mBuilder =
                 new DropdownItemViewInfoListBuilder(
-                        () -> null,
+                        SupplierUtils.ofNull(),
                         (url) -> false,
                         ObservableSuppliers.createNonNull(ControlsPosition.TOP),
                         resourceProvider);
@@ -296,7 +299,9 @@ public class DropdownItemViewInfoListBuilderUnitTest {
         assertNull(model.get(0).model.get(SuggestionCommonProperties.HEADER_TITLE));
 
         assertEquals(OmniboxSuggestionUiType.DEFAULT, model.get(1).type);
-        assertTrue(model.get(1).model.get(SuggestionCommonProperties.SHOW_GROUP_SEPARATOR));
+        assertEquals(
+                GroupSeparatorType.GAP,
+                model.get(1).model.get(SuggestionCommonProperties.GROUP_SEPARATOR_TYPE));
         assertEquals(model.get(1).groupConfig, SECTION_1_NO_HEADER);
         assertNull(model.get(1).model.get(SuggestionCommonProperties.HEADER_TITLE));
 
@@ -419,7 +424,9 @@ public class DropdownItemViewInfoListBuilderUnitTest {
         assertEquals(/* 2 suggestions = */ 2, result.size());
         assertEquals(OmniboxSuggestionUiType.DEFAULT, result.get(0).type);
         assertEquals(OmniboxSuggestionUiType.DEFAULT, result.get(1).type);
-        assertTrue(result.get(0).model.get(SuggestionCommonProperties.SHOW_GROUP_SEPARATOR));
+        assertEquals(
+                GroupSeparatorType.GAP,
+                result.get(0).model.get(SuggestionCommonProperties.GROUP_SEPARATOR_TYPE));
     }
 
     @Test
@@ -470,20 +477,21 @@ public class DropdownItemViewInfoListBuilderUnitTest {
                 mBuilder.buildHorizontalSuggestionsGroup(
                         mInput, SECTION_1_NO_HEADER, matches, /* position= */ 5);
 
-        var captor = ArgumentCaptor.forClass(PropertyModel.class);
         verify(mMockSuggestionProcessor).getViewTypeId();
         verify(mMockSuggestionProcessor).createModel();
         verify(mMockSuggestionProcessor, atLeastOnce()).doesProcessSuggestion(match, 5);
         verify(mMockSuggestionProcessor, times(2))
-                .populateModel(eq(mInput), eq(match), captor.capture(), eq(5));
+                .populateModel(eq(mInput), eq(match), mPropertyModelCaptor.capture(), eq(5));
         verifyNoMoreInteractions(mMockSuggestionProcessor);
 
         assertEquals(/* 1 suggestion row = */ 1, result.size());
 
         // Verify that the same PropertyModel was used to build UI element, and it's the one that
         // was returned.
-        assertEquals(captor.getAllValues().get(0), captor.getAllValues().get(1));
-        assertEquals(captor.getValue(), result.get(0).model);
+        assertEquals(
+                mPropertyModelCaptor.getAllValues().get(0),
+                mPropertyModelCaptor.getAllValues().get(1));
+        assertEquals(mPropertyModelCaptor.getValue(), result.get(0).model);
     }
 
     @Test
@@ -499,12 +507,11 @@ public class DropdownItemViewInfoListBuilderUnitTest {
                 mBuilder.buildHorizontalSuggestionsGroup(
                         mInput, SECTION_2_WITH_HEADER, matches, /* position= */ 7);
 
-        var captor = ArgumentCaptor.forClass(PropertyModel.class);
         verify(mMockSuggestionProcessor).getViewTypeId();
         verify(mMockSuggestionProcessor).createModel();
         verify(mMockSuggestionProcessor, atLeastOnce()).doesProcessSuggestion(match, 7);
         verify(mMockSuggestionProcessor, times(2))
-                .populateModel(eq(mInput), eq(match), captor.capture(), eq(7));
+                .populateModel(eq(mInput), eq(match), mPropertyModelCaptor.capture(), eq(7));
 
         verifyNoMoreInteractions(mMockSuggestionProcessor);
 
@@ -512,8 +519,10 @@ public class DropdownItemViewInfoListBuilderUnitTest {
 
         // Verify that the same PropertyModel was used to build UI element, and it's the one that
         // was returned.
-        assertEquals(captor.getAllValues().get(0), captor.getAllValues().get(1));
-        assertEquals(captor.getValue(), result.get(0).model);
+        assertEquals(
+                mPropertyModelCaptor.getAllValues().get(0),
+                mPropertyModelCaptor.getAllValues().get(1));
+        assertEquals(mPropertyModelCaptor.getValue(), result.get(0).model);
         assertEquals(
                 SECTION_2_WITH_HEADER.getHeaderText(),
                 result.get(0).model.get(SuggestionCommonProperties.HEADER_TITLE));

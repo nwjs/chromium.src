@@ -138,6 +138,8 @@ ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
       return ComposeboxMenuItemType::kModelThinking;
     case ComposeboxModelOption::kThinkingNoGenUI:
       return ComposeboxMenuItemType::kModelThinkingNoGenUI;
+    case ComposeboxModelOption::kFlash:
+      return ComposeboxMenuItemType::kModelFlash;
     case ComposeboxModelOption::kNone:
       return ComposeboxMenuItemType::kUnknown;
   }
@@ -147,13 +149,15 @@ ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
 UIImage* IconForModel(ComposeboxModelOption option) {
   switch (option) {
     case ComposeboxModelOption::kRegular:
-      return SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize);
+      return SymbolWithPointSize(SymbolAcute, kSymbolActionPointSize);
     case ComposeboxModelOption::kAuto:
       return SymbolWithPointSize(SymbolArrowTrianglehead2ClockwiseRotate90,
                                  kSymbolActionPointSize);
     case ComposeboxModelOption::kThinking:
     case ComposeboxModelOption::kThinkingNoGenUI:
       return SymbolWithPointSize(SymbolClock, kSymbolActionPointSize);
+    case ComposeboxModelOption::kFlash:
+      return SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize);
     case ComposeboxModelOption::kNone:
       return nil;
   }
@@ -393,7 +397,7 @@ UIImage* IconForModel(ComposeboxModelOption option) {
                              kAttachmentSectionInsets.trailing;
     CGFloat totalSpacing = (itemsCount - 1) * kAttachmentItemSpacing;
     CGFloat itemWidth =
-        AlignValueToPixel((availableWidth - totalSpacing) / itemsCount);
+        AlignValueToLowerPixel((availableWidth - totalSpacing) / itemsCount);
 
     NSCollectionLayoutSize* itemSize = [NSCollectionLayoutSize
         sizeWithWidthDimension:[NSCollectionLayoutDimension

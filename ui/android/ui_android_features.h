@@ -37,6 +37,9 @@ UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidWindowOcclusion);
 // Guard changes to block mouse events on views.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kBlockMouseEventsOnView);
 
+// Kill switch for redundant remeasuring in BottomSheetListViewBase.
+UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kBottomSheetRemeasureFix);
+
 // Guard the caching of WindowMetrics for gesture navigation detection.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kCachedGestureNavMetrics);
 
@@ -67,15 +70,6 @@ UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kReportBottomOverscrolls);
 // Kill switch to turn off validation in TextViewWithLeading that requires a
 // leading value to be configured.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kRequireLeadingInTextViewWithLeading);
-
-// Use ACTION_OPEN_DOCUMENT rather than ACTION_GET_CONTENT when selecting a
-// file.
-UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kSelectFileOpenDocument);
-
-// TODO(crbug.com/328601354): Cleanup flag after investigating nothing is broken
-// after changing the default behavior for EventForwarder observers.
-UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(
-    kSendTouchMovesToEventForwarderObservers);
 
 // Update display for context on configuration changed and activity resumed.
 UI_ANDROID_EXPORT BASE_DECLARE_FEATURE(kAndroidUpdateDisplayForContext);

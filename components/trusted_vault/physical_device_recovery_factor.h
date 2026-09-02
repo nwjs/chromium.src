@@ -22,8 +22,6 @@ namespace trusted_vault {
 // This class represents the local physical device as recovery factor.
 // It stores required (private) keys on disk through the per-user
 // StandaloneTrustedVaultStorage instance.
-// TODO(crbug.com/405381481): Add unittests for this class (by moving tests from
-// StandaloneTrustedVaultBackendTest).
 class PhysicalDeviceRecoveryFactor : public LocalRecoveryFactor {
  public:
   // `storage` and `connection` must not be null and must outlive this object.
@@ -51,7 +49,7 @@ class PhysicalDeviceRecoveryFactor : public LocalRecoveryFactor {
       RegisterCallback cb) override;
 
  private:
-  trusted_vault_pb::LocalTrustedVaultPerUser* GetPrimaryAccountVault();
+  const UserVault& GetPrimaryAccountVault();
 
   void OnKeysDownloaded(AttemptRecoveryCallback cb,
                         TrustedVaultDownloadKeysStatus status,
@@ -61,10 +59,11 @@ class PhysicalDeviceRecoveryFactor : public LocalRecoveryFactor {
       TrustedVaultDownloadKeysStatusForUMA status_for_uma,
       AttemptRecoveryCallback cb);
 
-  void OnRegistered(RegisterCallback cb,
-                    bool had_local_keys,
+  void OnRegistered(bool had_local_keys,
                     TrustedVaultRegistrationStatus status,
                     int key_version);
+  void FulfillRegistrationWithFailure(TrustedVaultRegistrationStatus status,
+                                      RegisterCallback cb);
 
   const SecurityDomainId security_domain_id_;
   const raw_ptr<StandaloneTrustedVaultStorage> storage_;
@@ -76,6 +75,7 @@ class PhysicalDeviceRecoveryFactor : public LocalRecoveryFactor {
   // Destroying this will cancel the ongoing request.
   std::unique_ptr<TrustedVaultConnection::Request>
       ongoing_registration_request_;
+  RegisterCallback ongoing_registration_callback_;
 };
 
 }  // namespace trusted_vault

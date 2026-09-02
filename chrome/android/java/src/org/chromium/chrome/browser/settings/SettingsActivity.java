@@ -124,7 +124,8 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
                 AppHeaderObserver,
                 PreferenceUpdateObserver,
                 SettingsMenuHelper.Delegate,
-                SettingsContainmentHelper.Delegate {
+                SettingsContainmentHelper.Delegate,
+                SettingsActivityInterface {
     private static final String TAG = "SettingsActivity";
 
     // Key used to store activity start time in the Bundle to have it survive activity re-creation.
@@ -380,7 +381,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     public void onAppHeaderStateChanged(AppHeaderState newState) {
         setCaptionBarHeight(newState.getAppHeaderHeight());
         assumeNonNull(mAppHeaderCoordinator)
-                .updateForegroundColor(SemanticColorUtils.getSettingsBackgroundColor(this));
+                .onBackgroundColorChanged(SemanticColorUtils.getSettingsBackgroundColor(this));
     }
 
     private void setCaptionBarHeight(int height) {
@@ -400,13 +401,7 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         if (mMultiColumnSettings != null) {
-            for (Fragment fragment :
-                    mMultiColumnSettings.getChildFragmentManager().getFragments()) {
-                if (fragment.isAdded()
-                        && fragment instanceof PreferenceFragmentCompat preferenceFragmentCompat) {
-                    mContainmentHelper.postUpdateContainmentOnLayout(preferenceFragmentCompat);
-                }
-            }
+            mContainmentHelper.updateContainmentForAttachedFragments(getSupportFragmentManager());
         }
         if (mSearchCoordinator != null) mSearchCoordinator.onConfigurationChanged(newConfig);
     }

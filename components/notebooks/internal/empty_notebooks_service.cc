@@ -16,20 +16,22 @@ void EmptyNotebooksService::AddObserver(Observer* observer) {}
 
 void EmptyNotebooksService::RemoveObserver(Observer* observer) {}
 
+std::optional<Notebook> EmptyNotebooksService::GetNotebook(
+    const NotebookId& id) const {
+  return std::nullopt;
+}
+
+std::vector<Notebook> EmptyNotebooksService::GetAllNotebooks() const {
+  return {};
+}
+
 bool EmptyNotebooksService::IsEmptyForTesting() const {
   return true;
-}
-
-bool EmptyNotebooksService::IsUserEligible() const {
-  return false;
-}
-
-bool EmptyNotebooksService::IsEligibilityLoading() const {
-  return false;
 }
 
 base::WeakPtr<syncer::DataTypeControllerDelegate>
 EmptyNotebooksService::GetSyncControllerDelegate() {
   NOTREACHED();
 }
+
 }  // namespace notebooks

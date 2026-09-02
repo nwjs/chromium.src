@@ -12,9 +12,11 @@
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/fullscreen/public/fullscreen_metrics.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/scoped_fullscreen_disabler.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/browser_layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/web/model/web_view_proxy/web_view_proxy_tab_helper.h"
 #import "ios/chrome/browser/web/model/web_view_proxy/web_view_proxy_tab_helper_observer_bridge.h"
@@ -39,14 +41,19 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
   return FullscreenMediatorPassKeyFactory::passkey();
 }
 
-// The threshold for direction-based snapping.
-const CGFloat kFullscreenSnapThreshold = 10.0;
+// The scroll distance threshold for snapping to a fullscreen state.
+static constexpr CGFloat kFullscreenSnapThreshold = 10.0;
+
+// The progress thresholds for automatically animating into or out of
+// fullscreen.
+static constexpr CGFloat kEnterFullscreenProgressThreshold = 0.75;
+static constexpr CGFloat kExitFullscreenProgressThreshold = 0.25;
 }  // namespace
 
-@interface FullscreenMediator () <CRWWebStateObserver,
+@interface FullscreenMediator () <BrowserLayoutStateObserver,
+                                  CRWWebStateObserver,
                                   CRWWebViewScrollViewProxyObserver,
                                   FullscreenBrowserAgentObserving,
-                                  LayoutStateObserver,
                                   WebStateListObserving,
                                   WebViewProxyTabHelperObserving>
 
@@ -65,7 +72,7 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
   std::unique_ptr<web::WebStateObserverBridge> _webStateObserver;
   std::unique_ptr<WebViewProxyTabHelperObserverBridge> _webViewProxyObserver;
   std::unique_ptr<FullscreenBrowserAgentObserverBridge> _browserAgentObserver;
-  __weak LayoutState* _layoutState;
+  __weak BrowserLayoutState* _browserLayoutState;
   std::unique_ptr<ScopedFullscreenDisabler> _voiceOverDisabler;
   CGFloat _lastContentOffset;
   BOOL _isBottomOmnibox;
@@ -82,15 +89,17 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
 
 - (instancetype)initWithBrowserAgent:(FullscreenBrowserAgent*)browserAgent
                         webStateList:(WebStateList*)webStateList
-                         layoutState:(LayoutState*)layoutState {
+                  browserLayoutState:(BrowserLayoutState*)browserLayoutState {
   if ((self = [super init])) {
     CHECK(browserAgent);
     CHECK(webStateList);
-    CHECK(layoutState);
+    CHECK(browserLayoutState);
     _browserAgent = browserAgent;
     _webStateList = webStateList;
-    _layoutState = layoutState;
-    [_layoutState addObserver:self];
+    _browserLayoutState = browserLayoutState;
+    [_browserLayoutState addObserver:self];
+    _isBottomOmnibox =
+        _browserLayoutState.toolbarPosition == ToolbarPosition::kBottom;
     _webStateListObserver = std::make_unique<WebStateListObserverBridge>(self);
     _webStateList->AddObserver(_webStateListObserver.get());
     _webStateObserver = std::make_unique<web::WebStateObserverBridge>(self);
@@ -99,7 +108,6 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
     _browserAgentObserver =
         std::make_unique<FullscreenBrowserAgentObserverBridge>(self,
                                                                browserAgent);
-    _isBottomOmnibox = _layoutState.toolbarPosition == ToolbarPosition::kBottom;
     self.webState = _webStateList->GetActiveWebState();
 
     NSNotificationCenter* defaultCenter = [NSNotificationCenter defaultCenter];
@@ -143,8 +151,8 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
   _webStateObserver = nullptr;
   _browserAgentObserver = nullptr;
   _webViewProxyObserver = nullptr;
-  [_layoutState removeObserver:self];
-  _layoutState = nil;
+  [_browserLayoutState removeObserver:self];
+  _browserLayoutState = nil;
   [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
@@ -193,9 +201,9 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
   }
 }
 
-#pragma mark - LayoutStateObserver
+#pragma mark - BrowserLayoutStateObserver
 
-- (void)layoutState:(LayoutState*)layoutState
+- (void)browserLayoutState:(BrowserLayoutState*)layoutState
     didChangeToolbarPosition:(ToolbarPosition)toolbarPosition {
   BOOL isCurrentLayoutBottomOmnibox =
       toolbarPosition == ToolbarPosition::kBottom;
@@ -259,6 +267,10 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
   CGFloat delta = contentOffset - _lastContentOffset;
   _lastContentOffset = contentOffset;
 
+  if (IsFullscreenEasedTransitionsEnabled() && _browserAgent->is_animating()) {
+    return;
+  }
+
   // Ignore programmatic scrolls (e.g. from inset updates). Only process scroll
   // events that are actively driven by the user's touch or residual momentum.
   if (!scrollView.isDragging && !scrollView.isDecelerating) {
@@ -293,8 +305,31 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
     }
   }
 
-  _browserAgent->IncrementalScroll(delta,
-                                   FullscreenMediatorPassKeyFactory::passkey());
+  _browserAgent->IncrementalScroll(delta, PassKey());
+
+  if (IsFullscreenEasedTransitionsEnabled()) {
+    CGFloat progress = _browserAgent->top_progress();
+    switch (_browserAgent->settled_state()) {
+      case FullscreenState::kUIExpanded:
+        if (progress <= kEnterFullscreenProgressThreshold) {
+          _browserAgent->EnterFullscreen(
+              PassKey(),
+              FullscreenModeTransitionTrigger::kUserInitiatedFinishedByCode,
+              /*animated=*/true);
+        }
+        break;
+      case FullscreenState::kUICollapsed:
+        if (progress >= kExitFullscreenProgressThreshold) {
+          _browserAgent->ExitFullscreen(
+              PassKey(),
+              FullscreenModeTransitionTrigger::kUserInitiatedFinishedByCode,
+              /*animated=*/true);
+        }
+        break;
+      case FullscreenState::kInProgress:
+        break;
+    }
+  }
 
   _handlingScroll = NO;
 }
@@ -347,6 +382,14 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
 
 - (void)reenableFullscreen {
   _browserAgent->DecrementDisabledCounter(PassKey());
+}
+
+- (void)forceFullscreen:(BOOL)enable feature:(ForceFullscreenFeature)feature {
+  _browserAgent->ForceFullscreen(PassKey(), enable, feature);
+}
+
+- (void)exitForceFullscreen {
+  _browserAgent->ExitForceFullscreen(PassKey());
 }
 
 #pragma mark - System Notifications
@@ -405,6 +448,11 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
   [self setViewportInsetRange];
 }
 
+- (void)fullscreen:(FullscreenBrowserAgent*)agent
+     didTransition:(FullscreenTransition)transition {
+  _scrollTotal = 0;
+}
+
 #pragma mark - Private
 
 // Sets the min/max viewport insets for the current WebView.
@@ -457,6 +505,25 @@ const CGFloat kFullscreenSnapThreshold = 10.0;
   CGFloat bottomProgress = _browserAgent->bottom_progress();
   if ((topProgress == 0.0 && bottomProgress == 0.0) ||
       (topProgress == 1.0 && bottomProgress == 1.0)) {
+    return;
+  }
+
+  if (IsFullscreenEasedTransitionsEnabled()) {
+    switch (_browserAgent->settled_state()) {
+      case FullscreenState::kUICollapsed:
+        _browserAgent->EnterFullscreen(
+            PassKey(),
+            FullscreenModeTransitionTrigger::kUserInitiatedFinishedByCode,
+            /*animated=*/true);
+        break;
+      case FullscreenState::kUIExpanded:
+      case FullscreenState::kInProgress:
+        _browserAgent->ExitFullscreen(
+            PassKey(),
+            FullscreenModeTransitionTrigger::kUserInitiatedFinishedByCode,
+            /*animated=*/true);
+        break;
+    }
     return;
   }
 

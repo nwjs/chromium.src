@@ -16,6 +16,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/aligned_memory.h"
 #include "base/memory/raw_ptr_exclusion.h"
+#include "base/memory/raw_span.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
 #include "media/base/media_export.h"
@@ -72,6 +73,11 @@ class MEDIA_EXPORT AudioBus {
   // Checks if buffer is properly aligned to be used in `SetChannelData()`
   static bool IsAligned(void* ptr);
   static bool IsAligned(base::span<float> span);
+
+  ~AudioBus();
+
+  AudioBus(const AudioBus&) = delete;
+  AudioBus& operator=(const AudioBus&) = delete;
 
   // Methods that are expected to be called after AudioBus::CreateWrapper() in
   // order to wrap externally allocated memory.
@@ -222,24 +228,16 @@ class MEDIA_EXPORT AudioBus {
   // the channels are valid.
   void SwapChannels(int a, int b);
 
-  AudioBus(const AudioBus&) = delete;
-  AudioBus& operator=(const AudioBus&) = delete;
-
-  virtual ~AudioBus();
-
- protected:
+ private:
   AudioBus(int channels, int frames);
   AudioBus(int channels, int frames, base::span<float> data);
   explicit AudioBus(int channels);
 
- private:
   void ZeroBitstream();
 
   // Helper method for building |channel_data_| from a block of memory.  |data|
   // must be at least CalculateMemorySize(...) bytes in size.
   void BuildChannelData(int channels, base::span<float> data);
-
-  static void CheckOverflow(int start_frame, int frames, int total_frames);
 
   template <class SourceSampleTypeTraits>
   static void CopyConvertFromInterleavedSourceToAudioBus(
@@ -264,13 +262,12 @@ class MEDIA_EXPORT AudioBus {
 
   // Chunk of binary data for bitstream formats.
   // This might point towards external memory, or `data_`.
-  // TODO(crbug.com/385028986): Convert to `base::raw_span`
-  RAW_PTR_EXCLUSION base::span<uint8_t> reserved_memory_;
+  base::raw_span<uint8_t> reserved_memory_;
 
   // View over `reserved_memory_`, which represents the chunk of memory which
   // is actively reserved to hold bitstream data. The size of this memory can
   // be adjusted using SetBitstreamDataSize().
-  RAW_PTR_EXCLUSION BitstreamData bitstream_data_;
+  base::raw_span<uint8_t> bitstream_data_;
 
   // Whether the data is compressed bitstream or not.
   bool is_bitstream_format_ = false;

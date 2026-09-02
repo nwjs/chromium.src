@@ -338,7 +338,8 @@ class ContextualTasksComposeboxHandlerTest
     omnibox::SearchboxConfig config;
     auto model = std::make_unique<contextual_search::InputStateModel>(
         *session_handle_, config, GURL(), /*is_off_the_record=*/false,
-        /*is_signed_in=*/false);
+        /*is_signed_in=*/false,
+        /*browser_identity_matches_aim_identity=*/false);
     model->setActiveModel(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
     return model;
   }
@@ -1141,7 +1142,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
       std::make_unique<contextual_search::MockContextualSearchSessionHandle>();
   auto input_state_model = std::make_unique<contextual_search::InputStateModel>(
       *session_handle, config, GURL(), /*is_off_the_record=*/false,
-      /*is_signed_in=*/false);
+      /*is_signed_in=*/false,
+      /*browser_identity_matches_aim_identity=*/false);
 
   EXPECT_CALL(*mock_ui_, TakeInputStateModel())
       .WillOnce(testing::Return(testing::ByMove(std::move(input_state_model))));
@@ -1464,7 +1466,8 @@ IN_PROC_BROWSER_TEST_P(ContextualTasksComposeboxHandlerToolModeTest,
       });
   EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_)).Times(1);
 
-  handler_->SetActiveToolMode(param.tool_mode);
+  // No server-added tool means `exitTool` is sent.
+  handler_->SetActiveToolMode(param.tool_mode, /*is_set_by_server=*/false);
   handler_->RecordToolSelectionAction(param.tool_mode);
 
   EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
@@ -1505,7 +1508,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
       });
   EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_)).Times(1);
 
-  handler_->SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
+  handler_->SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH,
+                              /*is_set_by_server=*/false);
 
   // Clearing active tool should also send `exit_tool_info`.
   EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_))
@@ -1521,7 +1525,20 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
       });
   EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_)).Times(1);
 
-  handler_->SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_UNSPECIFIED);
+  handler_->SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_UNSPECIFIED,
+                              /*is_set_by_server=*/false);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTest,
+    SetActiveToolMode_SetByServer_DoesNotSendExitToolMessage) {
+  // When `is_set_by_server` is true, `exit_tool_info` message should NOT be
+  // sent.
+  EXPECT_CALL(*mock_controller_, CreateClientToAimRequest(testing::_)).Times(0);
+  EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_)).Times(0);
+
+  handler_->SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH,
+                              /*is_set_by_server=*/true);
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
@@ -1571,7 +1588,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     token_opt = result.value();
   });
 
-  handler_->AddTabContext(tab_id, /*delay_upload=*/true, callback.Get());
+  handler_->AddTabContext(tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
   std::vector<int32_t> selected_tab_ids = handler_->GetSelectedTabIds();
   EXPECT_THAT(selected_tab_ids, testing::Contains(tab_id));
   ASSERT_TRUE(token_opt.has_value());
@@ -1597,7 +1616,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     ASSERT_TRUE(result.has_value());
     active_token_opt = result.value();
   });
-  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true, callback.Get());
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
   ASSERT_TRUE(active_token_opt.has_value());
   base::UnguessableToken active_token = active_token_opt.value();
   ASSERT_FALSE(active_token.is_empty());
@@ -1685,7 +1706,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     token_opt = result.value();
   });
 
-  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true, callback.Get());
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
   ASSERT_TRUE(token_opt.has_value());
   base::UnguessableToken token = token_opt.value();
   ASSERT_FALSE(token.is_empty());
@@ -1737,7 +1760,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   int32_t tab_id = 15;
   base::MockCallback<ContextualSearchboxHandler::AddTabContextCallback>
       callback;
-  handler_->AddTabContext(tab_id, /*delay_upload=*/true, callback.Get());
+  handler_->AddTabContext(tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
 
   std::vector<int32_t> selected_tab_ids = handler_->GetSelectedTabIds();
   EXPECT_THAT(selected_tab_ids, testing::Contains(tab_id));
@@ -1800,6 +1825,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   });
 
   handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
                           callback.Get());
   run_loop.Run();
 
@@ -2041,6 +2067,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   });
 
   handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
                           callback.Get());
   run_loop.Run();
 
@@ -2137,6 +2164,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   });
 
   handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
                           callback.Get());
   run_loop.Run();
 
@@ -2257,7 +2285,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   });
   EXPECT_CALL(*mock_ui_, PostAimMessage(testing::_)).Times(0);
 
-  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true, callback.Get());
+  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
   run_loop.Run();
 
   ASSERT_TRUE(token_opt.has_value())
@@ -2459,6 +2489,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
   });
 
   handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
                           normal_tab_cb.Get());
 
   run_loop_2.Run();
@@ -2472,6 +2503,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
         // not critical for the logic tested here, but we acknowledge the call.
       });
   handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
                           delayed_tab_cb.Get());
 
   ASSERT_TRUE(normal_tab_token_opt.has_value());
@@ -2606,7 +2638,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
 
   ASSERT_EQ(handler_->GetNumTabsDelayed(), 0);
 
-  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true, cb_d1.Get());
+  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          cb_d1.Get());
   run_loop_d1.Run();
 
   ASSERT_TRUE(token_d1_opt.has_value());
@@ -2630,7 +2664,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     run_loop_d2.Quit();
   });
 
-  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true, cb_d2.Get());
+  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          cb_d2.Get());
   run_loop_d2.Run();
 
   ASSERT_TRUE(token_d2_opt.has_value());
@@ -2650,7 +2686,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     run_loop_rA.Quit();
   });
 
-  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false, cb_rA.Get());
+  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          cb_rA.Get());
   run_loop_rA.Run();
 
   ASSERT_TRUE(token_rA_opt.has_value());
@@ -2675,7 +2713,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     run_loop_rB.Quit();
   });
 
-  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false, cb_rB.Get());
+  handler_->AddTabContext(tab_handle_id, /*delay_upload=*/false,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          cb_rB.Get());
   run_loop_rB.Run();
 
   ASSERT_TRUE(token_rB_opt.has_value());
@@ -3019,7 +3059,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
     token_opt = result.value();
   });
 
-  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true, callback.Get());
+  handler_->AddTabContext(active_tab_id, /*delay_upload=*/true,
+                          searchbox::mojom::TabAttachmentSource::kContextMenu,
+                          callback.Get());
   ASSERT_TRUE(token_opt.has_value());
   base::UnguessableToken token = token_opt.value();
   ASSERT_FALSE(token.is_empty());
@@ -3219,6 +3261,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
         TabListInterface::From(browser())->GetActiveTab();
     int32_t active_tab_id = active_tab->GetHandle().raw_value();
     handler_->AddTabContext(active_tab_id, /*delay_upload=*/false,
+                            searchbox::mojom::TabAttachmentSource::kContextMenu,
                             base::DoNothing());
     histogram_tester.ExpectTotalCount(
         "ContextualTasks.Composebox.UserAction."
@@ -3767,6 +3810,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerTest,
          const omnibox::SearchboxConfig config) {
         return std::make_unique<contextual_search::InputStateModel>(
             *session_handle, config, GURL(), /*is_off_the_record=*/false,
+            /*is_signed_in=*/false,
             /*browser_identity_matches_aim_identity=*/false);
       },
       session_handle_.get(), config);
@@ -3826,6 +3870,78 @@ IN_PROC_BROWSER_TEST_F(
       });
 
   handler_->SetAimThreadRestoredTabs(std::move(restored_tabs));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
+    SetAimThreadRestoredTabs_ClearsAutoSuggestedTabWhenRestored) {
+  SetUpHandler();
+  ASSERT_NE(handler_, nullptr);
+
+  const GURL url("https://example.com");
+  auto suggestion = std::make_unique<contextual_tasks::SuggestedTabInfo>();
+  suggestion->url = url;
+  suggestion->title = u"Example Site";
+  suggestion->tab_id = 42;
+  auto_suggestion_manager_.SetCurrentSuggestion(std::move(suggestion));
+
+  std::vector<searchbox::mojom::TabInfoPtr> restored_tabs;
+  auto tab_info = searchbox::mojom::TabInfo::New();
+  tab_info->url = url;
+  tab_info->title = "Example Site";
+  tab_info->tab_id = 42;
+  restored_tabs.push_back(std::move(tab_info));
+
+  // Verify that UpdateAutoSuggestedTabContext(nullptr) is dispatched to WebUI
+  // to clear the uncommitted suggestion chip.
+  EXPECT_CALL(mock_searchbox_page_,
+              UpdateAutoSuggestedTabContext(testing::_, testing::_))
+      .WillOnce([&](const searchbox::mojom::TabInfoPtr& received_info,
+                    const std::optional<std::string>& invocation_source) {
+        EXPECT_TRUE(received_info.is_null());
+        EXPECT_EQ(invocation_source, std::nullopt);
+      });
+
+  EXPECT_CALL(mock_searchbox_page_, SetAimThreadRestoredTabs(testing::_))
+      .WillOnce([url](const std::vector<searchbox::mojom::TabInfoPtr>& tabs) {
+        ASSERT_EQ(tabs.size(), 1u);
+        EXPECT_EQ(tabs[0]->tab_id, 42);
+        EXPECT_EQ(tabs[0]->url, url);
+      });
+
+  handler_->SetAimThreadRestoredTabs(std::move(restored_tabs));
+  searchbox_page_receiver_.FlushForTesting();
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerTestWithContextManagementEnabled,
+    UpdateSuggestedTabContext_SuppressedIfTabAlreadyRestored) {
+  SetUpHandler();
+  ASSERT_NE(handler_, nullptr);
+
+  const GURL url("https://example.com");
+  auto suggestion = std::make_unique<contextual_tasks::SuggestedTabInfo>();
+  suggestion->url = url;
+  suggestion->title = u"Example Site";
+  suggestion->tab_id = 42;
+  auto_suggestion_manager_.SetCurrentSuggestion(std::move(suggestion));
+
+  // Mock UI indicates tab_id 42 is already restored in the task.
+  EXPECT_CALL(*mock_ui_, GetRestoredTabIds())
+      .WillRepeatedly(testing::Return(std::vector<int32_t>{42}));
+
+  // Expect that auto-suggestion is suppressed (sent as nullptr) because the tab
+  // is already restored.
+  EXPECT_CALL(mock_searchbox_page_,
+              UpdateAutoSuggestedTabContext(testing::_, testing::_))
+      .WillOnce([&](const searchbox::mojom::TabInfoPtr& received_info,
+                    const std::optional<std::string>& invocation_source) {
+        EXPECT_TRUE(received_info.is_null());
+      });
+
+  handler_->UpdateSuggestedTabContext(
+      auto_suggestion_manager_.GetCurrentSuggestion());
+  searchbox_page_receiver_.FlushForTesting();
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -4015,4 +4131,33 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksComposeboxHandlerSmartTabSharingTest,
 
   // Verify STS is disabled.
   EXPECT_FALSE(handler_->IsSmartTabSharingActive());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    ContextualTasksComposeboxHandlerSmartTabSharingTest,
+    InitializeInputStateModelPreservesSmartTabSharingFromInputStateModel) {
+  auto mock_session = std::make_unique<
+      testing::NiceMock<contextual_search::MockContextualSearchSessionHandle>>();
+  auto input_state_model = std::make_unique<contextual_search::InputStateModel>(
+      *mock_session, omnibox::SearchboxConfig(), GURL(), false, false, false);
+  input_state_model->SetSmartTabSharingActive(true);
+
+  searchbox_page_receiver_.reset();
+  auto custom_handler = std::make_unique<TestContextualTasksComposeboxHandler>(
+      mock_ui_.get(), profile(), web_contents(),
+      mojo::PendingReceiver<composebox::mojom::PageHandler>(),
+      mojo::PendingReceiver<searchbox::mojom::PageHandler>(),
+      searchbox_page_receiver_.BindNewPipeAndPassRemote(),
+      base::BindRepeating(
+          &ContextualTasksUI::GetOrCreateContextualSessionHandle,
+          base::Unretained(mock_ui_.get())),
+      base::BindRepeating(&ContextualTasksUI::ClearContextualSessionHandle,
+                          base::Unretained(mock_ui_.get())),
+      base::BindRepeating(
+          [](std::unique_ptr<contextual_search::InputStateModel>* model) {
+            return std::move(*model);
+          },
+          base::Unretained(&input_state_model)));
+
+  EXPECT_TRUE(custom_handler->IsSmartTabSharingActive());
 }

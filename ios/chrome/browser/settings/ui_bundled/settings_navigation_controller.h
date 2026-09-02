@@ -28,6 +28,10 @@ namespace autofill {
 class CreditCard;
 }  // namespace autofill
 
+namespace autofill::autofill_metrics {
+enum class AutofillSettingsReferrer;
+}  // namespace autofill::autofill_metrics
+
 // The accessibility identifier for the settings' "Done" button.
 extern NSString* const kSettingsDoneButtonId;
 
@@ -58,6 +62,13 @@ extern NSString* const kSettingsDoneButtonId;
                             delegate:(id<SettingsNavigationControllerDelegate>)
                                          delegate
             hasDefaultBrowserBlueDot:(BOOL)hasDefaultBrowserBlueDot;
+
++ (instancetype)
+    mainSettingsControllerForBrowser:(Browser*)browser
+                            delegate:(id<SettingsNavigationControllerDelegate>)
+                                         delegate
+            hasDefaultBrowserBlueDot:(BOOL)hasDefaultBrowserBlueDot
+     shouldShowLevelUpWalkthroughIPH:(BOOL)shouldShowLevelUpWalkthroughIPH;
 
 // Creates a new ManageAccountsTableViewController and the chrome around it.
 // `browser` is the browser where settings are being displayed and should not be
@@ -137,9 +148,43 @@ extern NSString* const kSettingsDoneButtonId;
 // displayed and should not be nil. `delegate` may be nil.
 + (instancetype)
     autofillAndPasswordsControllerForBrowser:(Browser*)browser
+                                    referrer:
+                                        (autofill::autofill_metrics::
+                                             AutofillSettingsReferrer)referrer
                                     delegate:
                                         (id<SettingsNavigationControllerDelegate>)
                                             delegate;
+
+// Creates a new view controller presenting the Identity Docs settings.
+// `browser` is the browser where settings are being displayed and should not be
+// nil. `delegate` may be nil.
++ (instancetype)
+    identityDocsControllerForBrowser:(Browser*)browser
+                            referrer:(autofill::autofill_metrics::
+                                          AutofillSettingsReferrer)referrer
+                            delegate:(id<SettingsNavigationControllerDelegate>)
+                                         delegate;
+
+// Creates a new view controller presenting the Travel settings. `browser`
+// is the browser where settings are being displayed and should not be nil.
+// `delegate` may be nil.
++ (instancetype)
+    travelControllerForBrowser:(Browser*)browser
+                      referrer:
+                          (autofill::autofill_metrics::AutofillSettingsReferrer)
+                              referrer
+                      delegate:
+                          (id<SettingsNavigationControllerDelegate>)delegate;
+
+// Creates a new view controller presenting the Shopping settings. `browser` is
+// the browser where settings are being displayed and should not be nil.
+// `delegate` may be nil.
++ (instancetype)
+    shoppingControllerForBrowser:(Browser*)browser
+                        referrer:(autofill::autofill_metrics::
+                                      AutofillSettingsReferrer)referrer
+                        delegate:
+                            (id<SettingsNavigationControllerDelegate>)delegate;
 
 // Creates a new PasswordManagerViewController in search mode and the chrome
 // around it. `browser` is the browser where settings are being displayed and

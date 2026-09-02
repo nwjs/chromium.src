@@ -174,10 +174,13 @@ constexpr CGFloat kDefaultSectionFooterHeightPointSize = 10.;
                                     avatarImage:avatarImage
                                 showsAITierRing:AITierRing
                                  aiTierFullName:nil
+                           subscriptionChipView:nil
                                            name:name
                                           email:email
                           managementDescription:managementDescription
                                 useLargeMargins:YES];
+  // The delegate is not set, as the subscription chip should not be displayed,
+  // and so it can’t be tapped.
   self.tableView.tableHeaderView = identityAccountItem;
   [self.tableView reloadData];
 }

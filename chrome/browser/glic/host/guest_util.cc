@@ -7,10 +7,13 @@
 #include <algorithm>
 
 #include "base/command_line.h"
+#include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/supports_user_data.h"
 #include "base/version_info/version_info.h"
 #include "build/build_config.h"
@@ -19,6 +22,9 @@
 #include "chrome/browser/glic/glic_hotkey.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic_features.mojom.h"
+#include "chrome/browser/glic/host/glic_guest_observer.h"
+#include "chrome/browser/glic/host/glic_page_handler.h"
+#include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -29,6 +35,7 @@
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/permissions/system/system_permission_settings.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -46,6 +53,7 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
@@ -110,7 +118,6 @@ enum class GlicPasteFailedEligibilityReason {
   kMaxValue = kCrossProfile,
 };
 #endif
-BASE_FEATURE(kGlicGuestUrlMultiInstanceParam, base::FEATURE_ENABLED_BY_DEFAULT);
 
 namespace {
 
@@ -260,13 +267,96 @@ GURL GetGuestURL() {
     return GURL();
   }
 
-  url = MaybeAddMultiInstanceParameter(url);
-
   return GetLocalizedGuestURL(url);
 }
 
 url::Origin GetGuestOrigin() {
   return url::Origin::Create(GetGuestURL());
+}
+
+std::string GetGlicAllowedOrigins(bool is_internal_google_account) {
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  std::string allowed_origins =
+      command_line->GetSwitchValueASCII(::switches::kGlicAllowedOrigins);
+  if (allowed_origins.empty()) {
+    allowed_origins = features::kGlicAllowedOriginsOverride.Get();
+  }
+
+  // Allow corp origins for @google accounts.
+  if (is_internal_google_account) {
+    allowed_origins += " https://*.corp.google.com";
+  }
+  return allowed_origins;
+}
+
+bool IsOriginAllowedGlicApi(const url::Origin& origin) {
+  if (origin.opaque()) {
+    return false;
+  }
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kGlicDev)) {
+    return true;
+  }
+  if (GetGuestOrigin().IsSameOriginWith(origin)) {
+    return true;
+  }
+  std::string api_allowed_origins = features::kGlicApiAllowedOrigins.Get();
+  if (!api_allowed_origins.empty()) {
+    for (const std::string& allowed :
+         base::SplitString(api_allowed_origins, " ", base::TRIM_WHITESPACE,
+                           base::SPLIT_WANT_NONEMPTY)) {
+      url::Origin allowed_origin = url::Origin::Create(GURL(allowed));
+      if (!allowed_origin.opaque() && allowed_origin.IsSameOriginWith(origin)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool IsFrameAllowedGlicApi(content::RenderFrameHost& frame_host) {
+  if (!base::FeatureList::IsEnabled(features::kGlicEnableMojoJs)) {
+    return false;
+  }
+  content::WebContents* guest_contents =
+      content::WebContents::FromRenderFrameHost(&frame_host);
+  if (!guest_contents || !IsGlicGuest(guest_contents)) {
+    return false;
+  }
+  return IsOriginAllowedGlicApi(frame_host.GetLastCommittedOrigin());
+}
+
+void BindGlicWebClientHandler(
+    content::RenderFrameHost* rfh,
+    mojo::PendingReceiver<glic::mojom::WebClientHandler> receiver) {
+  if (!base::FeatureList::IsEnabled(features::kGlicEnableMojoJs)) {
+    return;
+  }
+  if (!IsFrameAllowedGlicApi(*rfh)) {
+    return;
+  }
+  content::WebContents* guest_contents =
+      content::WebContents::FromRenderFrameHost(rfh);
+  if (!guest_contents) {
+    return;
+  }
+  content::WebContents* top =
+      guest_view::GuestViewBase::GetTopLevelWebContents(guest_contents);
+  if (!top) {
+    return;
+  }
+  auto* glic_ui = GlicUI::From(top);
+  if (!glic_ui || !glic_ui->host()) {
+    return;
+  }
+  glic_ui->host()->CreateWebClient(std::move(receiver));
+}
+
+content::StoragePartitionConfig GetGlicStoragePartitionConfig(
+    content::BrowserContext* browser_context) {
+  return content::StoragePartitionConfig::Create(browser_context,
+                                                 chrome::kChromeUIGlicHost,
+                                                 /*partition_name=*/"glicpart",
+                                                 /*in_memory=*/false);
 }
 
 GURL MaybeApplyPresetGuestUrl(GURL guest_url) {
@@ -314,13 +404,6 @@ GURL GetLocalizedGuestURL(const GURL& guest_url) {
   return net::AppendQueryParameter(guest_url, "hl", google_locale);
 }
 
-GURL MaybeAddMultiInstanceParameter(const GURL& guest_url) {
-  if (base::FeatureList::IsEnabled(kGlicGuestUrlMultiInstanceParam)) {
-    return net::AppendOrReplaceQueryParameter(guest_url, "mode", "mi");
-  }
-  return guest_url;
-}
-
 bool IsGlicWebUI(const content::WebContents* web_contents) {
   return web_contents &&
          GlicWebUiData::FromWebContents(web_contents) != nullptr;
@@ -358,6 +441,9 @@ bool OnGuestAdded(content::WebContents* guest_contents) {
     return false;
   }
 #endif
+  if (guest_contents->HasLiveOriginalOpenerChain()) {
+    return false;
+  }
 
   content::WebContents* top =
       guest_view::GuestViewBase::GetTopLevelWebContents(guest_contents);
@@ -408,6 +494,9 @@ bool OnGuestAdded(content::WebContents* guest_contents) {
   guest_contents->SetUserData(
       "glic::WebviewWebContentsObserver",
       std::make_unique<WebviewWebContentsObserver>(guest_contents));
+  if (base::FeatureList::IsEnabled(features::kGlicEnableMojoJs)) {
+    glic::GlicGuestObserver::CreateForWebContents(guest_contents);
+  }
   VLOG(1) << "Registered glic::WebviewWebContentsObserver for guest "
              "WebContents with url=\""
           << guest_contents->GetVisibleURL() << "\"";
@@ -578,7 +667,8 @@ void PopulateGlobalClientInitialState(mojom::WebClientInitialState* state,
   state->enable_trust_first_onboarding =
       !GlicEnabling::HasConsentedForProfile(profile);
   state->onboarding_completed = GlicEnabling::HasConsentedForProfile(profile);
-  state->enable_skills = base::FeatureList::IsEnabled(features::kSkillsEnabled);
+  state->enable_skills =
+      skills::SkillsServiceFactory::IsSkillsEnabledForProfile(profile);
   state->enable_get_tab_favicon_by_id =
       base::FeatureList::IsEnabled(features::kGlicGetTabFaviconById);
   state->enable_process_counter_abuse_verdict =

@@ -79,7 +79,7 @@
 #include "chrome/browser/download/download_browsertest_utils.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -307,12 +307,15 @@ class WebNavigationApiTest : public ExtensionApiTest {
   WebNavigationApiTest& operator=(const WebNavigationApiTest&) = delete;
 
  protected:
+  void SetUpOnMainThread() override {
+    ExtensionApiTest::SetUpOnMainThread();
+    host_resolver()->AddRule("*", "127.0.0.1");
+  }
+
   void SetUpInProcessBrowserTestFixture() override {
     ExtensionApiTest::SetUpInProcessBrowserTestFixture();
 
     FrameNavigationState::set_allow_extension_scheme(true);
-
-    host_resolver()->AddRule("*", "127.0.0.1");
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -335,7 +338,7 @@ class WebNavigationApiBackForwardCacheTest : public WebNavigationApiTest {
  public:
   WebNavigationApiBackForwardCacheTest() {
     feature_list_.InitWithFeaturesAndParameters(
-        content::GetBasicBackForwardCacheFeatureForTesting(
+        content::GetDefaultEnabledBackForwardCacheFeaturesForTesting(
             {{features::kBackForwardCache, {}}}),
         content::GetDefaultDisabledBackForwardCacheFeaturesForTesting());
   }
@@ -573,9 +576,7 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, ForwardBack) {
   ASSERT_TRUE(RunTest("webnavigation/forwardBack")) << message_;
 }
 
-// TODO(crbug.com/40221198): Flaky on several platforms.
-IN_PROC_BROWSER_TEST_F(WebNavigationApiBackForwardCacheTest,
-                       DISABLED_ForwardBack) {
+IN_PROC_BROWSER_TEST_F(WebNavigationApiBackForwardCacheTest, ForwardBack) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionTest("webnavigation/backForwardCache")) << message_;
 }
@@ -758,8 +759,8 @@ IN_PROC_BROWSER_TEST_F(WebNavigationApiTest, TargetBlankIncognito) {
   GURL url = embedded_test_server()->GetURL(
       "/extensions/api_test/webnavigation/targetBlank/a.html");
 
-  Browser* otr_browser = OpenURLOffTheRecord(profile(), url);
-  WebContents* tab = otr_browser->tab_strip_model()->GetActiveWebContents();
+  BrowserWindowInterface* otr_browser = OpenURLOffTheRecord(profile(), url);
+  WebContents* tab = otr_browser->GetTabStripModel()->GetActiveWebContents();
   content::SimulateEndOfPaintHoldingOnPrimaryMainFrame(tab);
 
   // There's a link with target=_blank on a.html. Click on it to open it in a

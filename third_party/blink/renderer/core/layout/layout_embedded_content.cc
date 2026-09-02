@@ -309,10 +309,11 @@ bool LayoutEmbeddedContent::NodeAtPoint(
 void LayoutEmbeddedContent::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutReplaced::StyleDidChange(diff, old_style, style_change_context);
-  const ComputedStyle& new_style = StyleRef();
+  LayoutReplaced::StyleDidChange(diff, old_style, new_style,
+                                 style_change_context);
 
   if (Frame* frame = GetFrameOwnerElement()->ContentFrame())
     frame->UpdateInertIfPossible();
@@ -401,20 +402,16 @@ PhysicalRect LayoutEmbeddedContent::ReplacedContentRectFrom(
 
 void LayoutEmbeddedContent::UpdateOnEmbeddedContentViewChange() {
   NOT_DESTROYED();
-  if (!Style())
-    return;
 
   if (EmbeddedContentView* embedded_content_view = GetEmbeddedContentView()) {
     if (!NeedsLayout()) {
       UpdateGeometry(*embedded_content_view);
     }
-    if (Style()) {
-      PropagateZoomFactor(StyleRef().EffectiveZoom());
-      if (StyleRef().Visibility() != EVisibility::kVisible) {
-        embedded_content_view->Hide();
-      } else {
-        embedded_content_view->Show();
-      }
+    PropagateZoomFactor(StyleRef().EffectiveZoom());
+    if (StyleRef().Visibility() != EVisibility::kVisible) {
+      embedded_content_view->Hide();
+    } else {
+      embedded_content_view->Show();
     }
   }
 
@@ -438,7 +435,7 @@ void LayoutEmbeddedContent::UpdateGeometry(
   TransformState transform_state(TransformState::kApplyTransformDirection,
                                  gfx::PointF(),
                                  gfx::QuadF(gfx::RectF(replaced_rect)));
-  MapLocalToAncestor(nullptr, transform_state, 0);
+  MapLocalToAncestor(nullptr, transform_state, {});
   transform_state.Flatten();
   PhysicalOffset absolute_location =
       PhysicalOffset::FromPointFRound(transform_state.LastPlanarPoint());

@@ -379,6 +379,7 @@ interface BaseAudioContext : EventTarget
     getter destination
     getter listener
     getter onstatechange
+    getter renderQuantumSize
     getter sampleRate
     getter state
     method constructor
@@ -3532,6 +3533,18 @@ interface HTMLButtonElement : HTMLElement
     setter popoverTargetElement
     setter type
     setter value
+interface HTMLCameraElement : HTMLElement
+    attribute @@toStringTag
+    getter error
+    getter oncancel
+    getter onerror
+    getter ontrack
+    getter track
+    method constructor
+    method setConstraints
+    setter oncancel
+    setter onerror
+    setter ontrack
 interface HTMLCanvasElement : HTMLElement
     attribute @@toStringTag
     getter height
@@ -3603,6 +3616,7 @@ interface HTMLElement : Element
     getter accessKey
     getter attributeStyleMap
     getter autocapitalize
+    getter autocorrect
     getter autofocus
     getter contentEditable
     getter dataset
@@ -3749,6 +3763,7 @@ interface HTMLElement : Element
     method togglePopover
     setter accessKey
     setter autocapitalize
+    setter autocorrect
     setter autofocus
     setter contentEditable
     setter dir
@@ -3895,7 +3910,6 @@ interface HTMLEmbedElement : HTMLElement
     setter type
     setter width
 interface HTMLFencedFrameElement : HTMLElement
-    static method canLoadOpaqueURL
     attribute @@toStringTag
     getter allow
     getter config
@@ -4120,7 +4134,6 @@ interface HTMLIFrameElement : HTMLElement
     getter referrerPolicy
     getter sandbox
     getter scrolling
-    getter sharedStorageWritable
     getter src
     getter srcdoc
     getter width
@@ -4145,7 +4158,6 @@ interface HTMLIFrameElement : HTMLElement
     setter referrerPolicy
     setter sandbox
     setter scrolling
-    setter sharedStorageWritable
     setter src
     setter srcdoc
     setter width
@@ -4171,7 +4183,6 @@ interface HTMLImageElement : HTMLElement
     getter naturalHeight
     getter naturalWidth
     getter referrerPolicy
-    getter sharedStorageWritable
     getter sizes
     getter src
     getter srcset
@@ -4198,7 +4209,6 @@ interface HTMLImageElement : HTMLElement
     setter lowsrc
     setter name
     setter referrerPolicy
-    setter sharedStorageWritable
     setter sizes
     setter src
     setter srcset
@@ -4515,6 +4525,18 @@ interface HTMLMeterElement : HTMLElement
     setter min
     setter optimum
     setter value
+interface HTMLMicrophoneElement : HTMLElement
+    attribute @@toStringTag
+    getter error
+    getter oncancel
+    getter onerror
+    getter ontrack
+    getter track
+    method constructor
+    method setConstraints
+    setter oncancel
+    setter onerror
+    setter ontrack
 interface HTMLModElement : HTMLElement
     attribute @@toStringTag
     getter cite
@@ -5324,7 +5346,6 @@ interface Image
     getter naturalHeight
     getter naturalWidth
     getter referrerPolicy
-    getter sharedStorageWritable
     getter sizes
     getter src
     getter srcset
@@ -5351,7 +5372,6 @@ interface Image
     setter lowsrc
     setter name
     setter referrerPolicy
-    setter sharedStorageWritable
     setter sizes
     setter src
     setter srcset
@@ -9262,39 +9282,6 @@ interface ShadowRoot : DocumentFragment
     setter innerHTML
     setter onslotchange
     setter referenceTarget
-interface SharedStorage
-    attribute @@toStringTag
-    getter worklet
-    method append
-    method batchUpdate
-    method clear
-    method constructor
-    method createWorklet
-    method delete
-    method run
-    method selectURL
-    method set
-interface SharedStorageAppendMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageClearMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageDeleteMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageSetMethod : SharedStorageModifierMethod
-    attribute @@toStringTag
-    method constructor
-interface SharedStorageWorklet
-    attribute @@toStringTag
-    method addModule
-    method constructor
-    method run
-    method selectURL
 interface SharedWorker : EventTarget
     attribute @@toStringTag
     getter onerror
@@ -12825,7 +12812,6 @@ namespace console
     getter scrollbars
     getter self
     getter sessionStorage
-    getter sharedStorage
     getter speechSynthesis
     getter status
     getter statusbar

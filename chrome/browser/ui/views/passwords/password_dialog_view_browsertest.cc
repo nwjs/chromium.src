@@ -131,9 +131,10 @@ class TestManagePasswordsUIController : public ManagePasswordsUIController {
       const TestManagePasswordsUIController&) = delete;
 
   void OnDialogHidden() override;
+
   std::unique_ptr<AccountChooserPrompt> CreateAccountChooser(
       CredentialManagerDialogController* controller) override;
-  AutoSigninFirstRunPrompt* CreateAutoSigninPrompt(
+  std::unique_ptr<AutoSigninFirstRunPrompt> CreateAutoSigninPrompt(
       CredentialManagerDialogController* controller) override;
   std::unique_ptr<CredentialLeakPrompt> CreateCredentialLeakPrompt(
       CredentialLeakDialogController* controller) override;
@@ -189,21 +190,21 @@ TestManagePasswordsUIController::CreateAccountChooser(
   return chooser;
 }
 
-AutoSigninFirstRunPrompt*
+std::unique_ptr<AutoSigninFirstRunPrompt>
 TestManagePasswordsUIController::CreateAutoSigninPrompt(
     CredentialManagerDialogController* controller) {
-  current_autosignin_prompt_ =
-      ManagePasswordsUIController::CreateAutoSigninPrompt(controller);
-  return current_autosignin_prompt_;
+  auto prompt = ManagePasswordsUIController::CreateAutoSigninPrompt(controller);
+  current_autosignin_prompt_ = prompt.get();
+  return prompt;
 }
 
 std::unique_ptr<CredentialLeakPrompt>
 TestManagePasswordsUIController::CreateCredentialLeakPrompt(
     CredentialLeakDialogController* controller) {
-  auto current_credential_leak_prompt =
+  auto prompt =
       ManagePasswordsUIController::CreateCredentialLeakPrompt(controller);
-  current_credential_leak_prompt_ = current_credential_leak_prompt.get();
-  return current_credential_leak_prompt;
+  current_credential_leak_prompt_ = prompt.get();
+  return prompt;
 }
 
 std::unique_ptr<password_manager::PasswordFormManagerForUI> WrapFormInManager(
@@ -212,6 +213,7 @@ std::unique_ptr<password_manager::PasswordFormManagerForUI> WrapFormInManager(
       std::make_unique<password_manager::MockPasswordFormManagerForUI>();
   ON_CALL(*submitted_manager, GetPendingCredentials)
       .WillByDefault(ReturnRef(*form));
+  ON_CALL(*submitted_manager, IsFetchCompleted).WillByDefault(Return(true));
   return submitted_manager;
 }
 
@@ -234,7 +236,18 @@ class PasswordDialogViewTest : public base::test::WithFeatureOverride,
 
   content::WebContents* SetupTabWithTestController(Browser* browser);
 
-  TestManagePasswordsUIController* controller() const { return controller_; }
+  TestManagePasswordsUIController* controller(
+      Browser* target_browser = nullptr) const {
+    if (!target_browser) {
+      target_browser = browser();
+    }
+    content::WebContents* web_contents =
+        target_browser->tab_strip_model()->GetActiveWebContents();
+    return web_contents ? static_cast<TestManagePasswordsUIController*>(
+                              ManagePasswordsUIController::FromWebContents(
+                                  web_contents))
+                        : nullptr;
+  }
 
   ChromePasswordManagerClient* client() const {
     return ChromePasswordManagerClient::FromWebContents(
@@ -257,8 +270,6 @@ class PasswordDialogViewTest : public base::test::WithFeatureOverride,
   }
 
  private:
-  raw_ptr<TestManagePasswordsUIController, AcrossTasksDanglingUntriaged>
-      controller_;
   std::unique_ptr<CredentialManagerDialogControllerMock>
       remote_actor_mock_controller_;
   std::unique_ptr<PasswordCombinedSelectorView> remote_actor_view_;
@@ -310,14 +321,13 @@ content::WebContents* PasswordDialogViewTest::SetupTabWithTestController(
   autofill::ChromeAutofillClient::CreateForWebContents(raw_new_tab);
   ChromePasswordManagerClient::CreateForWebContents(raw_new_tab);
   EXPECT_TRUE(ChromePasswordManagerClient::FromWebContents(raw_new_tab));
-  controller_ = new TestManagePasswordsUIController(raw_new_tab);
+  new TestManagePasswordsUIController(raw_new_tab);
   browser->tab_strip_model()->AppendWebContents(std::move(new_tab), true);
 
   // Navigate to a Web URL.
   EXPECT_NO_FATAL_FAILURE(EXPECT_TRUE(
       ui_test_utils::NavigateToURL(browser, GURL("http://www.google.com"))));
-  EXPECT_EQ(controller_,
-            ManagePasswordsUIController::FromWebContents(raw_new_tab));
+  EXPECT_TRUE(ManagePasswordsUIController::FromWebContents(raw_new_tab));
   return raw_new_tab;
 }
 
@@ -556,15 +566,15 @@ IN_PROC_BROWSER_TEST_P(PasswordDialogViewTest, PopupAccountChooserInIncognito) {
       base::BindOnce(&PasswordDialogViewTest::OnChooseCredential,
                      base::Unretained(this)));
   EXPECT_EQ(password_manager::ui::CREDENTIAL_REQUEST_STATE,
-            controller()->GetState());
-  EXPECT_TRUE(controller()->current_account_chooser());
+            controller(incognito)->GetState());
+  EXPECT_TRUE(controller(incognito)->current_account_chooser());
 
   EXPECT_CALL(*this, OnChooseCredential(Pointee(form)));
-  controller()->ChooseCredential(
+  controller(incognito)->ChooseCredential(
       form, password_manager::CredentialType::CREDENTIAL_TYPE_PASSWORD);
 
   // The first run experience isn't shown because of Incognito.
-  EXPECT_FALSE(controller()->current_autosignin_prompt());
+  EXPECT_FALSE(controller(incognito)->current_autosignin_prompt());
 }
 
 IN_PROC_BROWSER_TEST_P(PasswordDialogViewTest, EscCancelsAutoSigninPrompt) {
@@ -676,14 +686,18 @@ void PasswordDialogViewTest::ShowUi(const std::string& name) {
 
     remote_actor_forms_.clear();
     auto form1 = std::make_unique<password_manager::PasswordForm>();
+    form1->url = GURL("https://terracottaand.co");
     form1->username_value = u"peter@pan.test";
     form1->password_value = u"I can fly!";
+    form1->match_type = password_manager::PasswordForm::MatchType::kExact;
     remote_actor_forms_.push_back(std::move(form1));
 
     if (name == "RemoteActorMultiple") {
       auto form2 = std::make_unique<password_manager::PasswordForm>();
+      form2->url = GURL("https://terracottaand.co");
       form2->username_value = u"notpeter@pan.test";
       form2->password_value = u"I cannot fly!";
+      form2->match_type = password_manager::PasswordForm::MatchType::kExact;
       remote_actor_forms_.push_back(std::move(form2));
     }
 
@@ -1001,6 +1015,7 @@ IN_PROC_BROWSER_TEST_P(PasswordDialogViewTest,
   auto form = std::make_unique<password_manager::PasswordForm>();
   form->username_value = u"peter@pan.test";
   form->password_value = u"I can fly!";
+  form->match_type = password_manager::PasswordForm::MatchType::kExact;
   forms.push_back(std::move(form));
 
   EXPECT_CALL(mock_controller, GetLocalForms())
@@ -1087,11 +1102,13 @@ IN_PROC_BROWSER_TEST_P(PasswordDialogViewTest,
   auto form1 = std::make_unique<password_manager::PasswordForm>();
   form1->username_value = u"peter@pan.test";
   form1->password_value = u"I can fly!";
+  form1->match_type = password_manager::PasswordForm::MatchType::kExact;
   forms.push_back(std::move(form1));
 
   auto form2 = std::make_unique<password_manager::PasswordForm>();
   form2->username_value = u"notpeter@pan.test";
   form2->password_value = u"I cannot fly!";
+  form2->match_type = password_manager::PasswordForm::MatchType::kExact;
   forms.push_back(std::move(form2));
 
   EXPECT_CALL(mock_controller, GetLocalForms())
@@ -1154,6 +1171,79 @@ IN_PROC_BROWSER_TEST_P(PasswordDialogViewTest,
       GetViewsByID(PasswordCombinedSelectorView::kRowDetailLabelId, rows[1]);
   ASSERT_GE(details2.size(), 1u);
   EXPECT_EQ(static_cast<views::Label*>(details2[0])->GetText(), u"••••••••");
+
+  views::test::WidgetDestroyedWaiter waiter(widget);
+  widget->Close();
+  waiter.Wait();
+}
+
+IN_PROC_BROWSER_TEST_P(PasswordDialogViewTest,
+                       PopupAccountChooserWithRemoteActorNonExactMatch) {
+  if (!IsParamFeatureEnabled()) {
+    return;
+  }
+  CredentialManagerDialogControllerMock mock_controller;
+
+  // 1. Setup mock expectations
+  EXPECT_CALL(mock_controller, GetDisplayType())
+      .WillRepeatedly(Return(
+          PasswordCombinedSelectorController::DisplayType::kRemoteActor));
+  EXPECT_CALL(mock_controller, ShouldShowTopIllustration())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_controller, OnCloseDialog());
+
+  std::u16string expected_title =
+      u"Allow Gemini Spark to sign in to terracottaand.co for you?";
+  std::u16string expected_subtitle =
+      u"Spark can use Google Password Manager to sign in for you. Because "
+      u"Spark is experimental, this carries security risks.";
+  std::u16string expected_ok_button = u"Allow this time";
+
+  EXPECT_CALL(mock_controller, GetTitle())
+      .WillRepeatedly(Return(expected_title));
+  EXPECT_CALL(mock_controller, GetSubtitle())
+      .WillRepeatedly(Return(expected_subtitle));
+  EXPECT_CALL(mock_controller, GetOkButtonLabel())
+      .WillRepeatedly(Return(expected_ok_button));
+
+  std::vector<std::unique_ptr<password_manager::PasswordForm>> forms;
+  auto form = std::make_unique<password_manager::PasswordForm>();
+  form->url = GURL("https://m.terracottaand.co");
+  form->username_value = u"peter@pan.test";
+  form->password_value = u"I can fly!";
+  form->match_type = password_manager::PasswordForm::MatchType::kPSL;
+  forms.push_back(std::move(form));
+
+  EXPECT_CALL(mock_controller, GetLocalForms())
+      .WillRepeatedly(ReturnRef(forms));
+
+  // 2. Instantiate and show the view
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  auto view = std::make_unique<PasswordCombinedSelectorView>(&mock_controller,
+                                                             web_contents);
+  // ShowAccountChooser internally creates the widget and maps it.
+  view->ShowAccountChooser();
+  views::Widget* widget = view->GetWidget();
+  ASSERT_TRUE(widget);
+
+  // 3. Verify row labels (should use raw username, 8 password dots, and origin)
+  std::vector<views::View*> rows =
+      GetViewsByID(PasswordCombinedSelectorView::kCredentialRowId,
+                   widget->GetContentsView());
+  ASSERT_EQ(rows.size(), 1u);
+
+  views::Label* username_label =
+      GetLabelByID(rows[0], PasswordCombinedSelectorView::kRowUsernameLabelId);
+  ASSERT_TRUE(username_label);
+  EXPECT_EQ(username_label->GetText(), u"peter@pan.test");
+
+  std::vector<views::View*> details =
+      GetViewsByID(PasswordCombinedSelectorView::kRowDetailLabelId, rows[0]);
+  ASSERT_EQ(details.size(), 2u);
+  EXPECT_EQ(static_cast<views::Label*>(details[0])->GetText(), u"••••••••");
+  EXPECT_EQ(static_cast<views::Label*>(details[1])->GetText(),
+            u"m.terracottaand.co");
 
   views::test::WidgetDestroyedWaiter waiter(widget);
   widget->Close();

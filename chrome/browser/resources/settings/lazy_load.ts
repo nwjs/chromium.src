@@ -5,17 +5,21 @@
 // Subpages
 import './ai_page/ai_mode_search_page.js';
 import './ai_page/ai_suggestions_page.js';
+import './ai_page/dictation_page.js';
 import './ai_page/history_search_page.js';
 import './ai_page/offer_writing_help_page.js';
 import './ai_page/skills_page.js';
 import './appearance_page/appearance_fonts_page.js';
-import './autofill_page/autofill_ai_section.js';
-import './autofill_page/autofill_section.js';
-import './autofill_page/walletable_pass_detection_toggle.js';
+import './autofill_page/contact_info/contact_info_page.js';
+import './autofill_page/identity_docs_page.js';
 // <if expr="is_win or is_macosx">
 import './autofill_page/passkeys_subpage.js';
 // </if>
-import './autofill_page/payments_section.js';
+import './autofill_page/payments/payments_page.js';
+import './autofill_page/shopping_page.js';
+import './autofill_page/suggestions_from_gemini_subpage.js';
+import './autofill_page/travel_page.js';
+import './autofill_page/walletable_pass_detection_toggle.js';
 // <if expr="not is_chromeos">
 import './clear_browsing_data_dialog/clear_browsing_data_account_indicator.js';
 // </if>
@@ -55,7 +59,7 @@ import './site_settings/hand_tracking_page.js';
 import './site_settings/hid_devices_page.js';
 import './site_settings/idle_detection_page.js';
 import './site_settings/images_page.js';
-import './site_settings/inline_cue_menu_page.js';
+import './ai_page/inline_cue_menu_page.js';
 import './site_settings/insecure_content_page.js';
 import './site_settings/javascript_page.js';
 import './site_settings/keyboard_lock_page.js';
@@ -112,11 +116,8 @@ import './languages_page/languages_page_index.js';
 import './reset_page/reset_page.js';
 // <if expr="not is_chromeos">
 import './system_page/system_page.js';
+
 // </if>
-import './your_saved_info_page/identity_docs_page.js';
-import './your_saved_info_page/shopping_page.js';
-import './your_saved_info_page/suggestions_from_gemini_subpage.js';
-import './your_saved_info_page/travel_page.js';
 
 // <if expr="not is_chromeos">
 export {AxAnnotationsBrowserProxyImpl, ScreenAiInstallStatus} from '/shared/settings/a11y_page/ax_annotations_browser_proxy.js';
@@ -161,7 +162,11 @@ export {SettingsAiModeSearchPageElement} from './ai_page/ai_mode_search_page.js'
 export {isFeatureDisabledByPolicy, SettingsAiPolicyIndicator} from './ai_page/ai_policy_indicator.js';
 export {SettingsAiSuggestionsPageElement} from './ai_page/ai_suggestions_page.js';
 export {AiEnterpriseFeaturePrefName, AiPageActions, FeatureOptInState, SettingsAiPageFeaturePrefName} from './ai_page/constants.js';
+export type {DictationBrowserProxy} from './ai_page/dictation_browser_proxy.js';
+export {DictationBrowserProxyImpl} from './ai_page/dictation_browser_proxy.js';
+export {SettingsDictationPageElement} from './ai_page/dictation_page.js';
 export {SettingsHistorySearchPageElement} from './ai_page/history_search_page.js';
+export {InlineCueMenuPageElement} from './ai_page/inline_cue_menu_page.js';
 export {COMPOSE_PROACTIVE_NUDGE_DISABLED_SITES_PREF, COMPOSE_PROACTIVE_NUDGE_PREF, SettingsOfferWritingHelpPageElement} from './ai_page/offer_writing_help_page.js';
 // <if expr="_google_chrome">
 export type {OnDeviceAiBrowserProxy, OnDeviceAiEnabled} from './ai_page/on_device_ai_browser_proxy.js';
@@ -169,33 +174,36 @@ export {OnDeviceAiBrowserProxyImpl} from './ai_page/on_device_ai_browser_proxy.j
 // </if>
 export {SettingsSkillsPageElement} from './ai_page/skills_page.js';
 export {SettingsAppearanceFontsPageElement} from './appearance_page/appearance_fonts_page.js';
-export {SettingsAddressEditDialogElement} from './autofill_page/address_edit_dialog.js';
-export {SettingsAddressRemoveConfirmationDialogElement} from './autofill_page/address_remove_confirmation_dialog.js';
 export {SettingsAutofillAiAddOrEditDialogElement} from './autofill_page/autofill_ai_add_or_edit_dialog.js';
 export {SettingsAutofillAiEntriesListElement} from './autofill_page/autofill_ai_entries_list.js';
-export {SettingsAutofillAiSectionElement} from './autofill_page/autofill_ai_section.js';
 export {AutofillManagerImpl} from './autofill_page/autofill_manager_proxy.js';
 export type {AutofillManagerProxy, PersonalDataChangedListener} from './autofill_page/autofill_manager_proxy.js';
-export {AutofillAddressOptInChange, SettingsAutofillSectionElement} from './autofill_page/autofill_section.js';
+export {SettingsAddressEditDialogElement} from './autofill_page/contact_info/address_edit_dialog.js';
+export {SettingsAddressRemoveConfirmationDialogElement} from './autofill_page/contact_info/address_remove_confirmation_dialog.js';
+export {AutofillAddressOptInChange, SettingsContactInfoPageElement} from './autofill_page/contact_info/contact_info_page.js';
 export {CountryDetailManagerProxyImpl} from './autofill_page/country_detail_manager_proxy.js';
 export type {CountryDetailManagerProxy} from './autofill_page/country_detail_manager_proxy.js';
-export {SettingsCreditCardEditDialogElement} from './autofill_page/credit_card_edit_dialog.js';
-export {SettingsCreditCardListEntryElement} from './autofill_page/credit_card_list_entry.js';
 export {EntityDataManagerProxyImpl} from './autofill_page/entity_data_manager_proxy.js';
 export type {EntityDataManagerProxy, EntityInstancesChangedListener} from './autofill_page/entity_data_manager_proxy.js';
-export {SettingsIbanEditDialogElement} from './autofill_page/iban_edit_dialog.js';
-export {SettingsIbanListEntryElement} from './autofill_page/iban_list_entry.js';
+export {SettingsIdentityDocsPageElement} from './autofill_page/identity_docs_page.js';
 // <if expr="is_win or is_macosx">
 export {PasskeysBrowserProxyImpl} from './autofill_page/passkeys_browser_proxy.js';
 export type {Passkey, PasskeysBrowserProxy} from './autofill_page/passkeys_browser_proxy.js';
 export {SettingsPasskeysSubpageElement} from './autofill_page/passkeys_subpage.js';
 // </if>
-export {SettingsPayOverTimeIssuerListEntryElement} from './autofill_page/pay_over_time_issuer_list_entry.js';
-export {SettingsPaymentsListElement} from './autofill_page/payments_list.js';
-export {PaymentsManagerImpl} from './autofill_page/payments_manager_proxy.js';
-export type {PaymentsManagerProxy} from './autofill_page/payments_manager_proxy.js';
-export {SettingsPaymentsSectionElement} from './autofill_page/payments_section.js';
-export {SettingsVirtualCardUnenrollDialogElement} from './autofill_page/virtual_card_unenroll_dialog.js';
+export {SettingsCreditCardEditDialogElement} from './autofill_page/payments/credit_card_edit_dialog.js';
+export {SettingsCreditCardListEntryElement} from './autofill_page/payments/credit_card_list_entry.js';
+export {SettingsIbanEditDialogElement} from './autofill_page/payments/iban_edit_dialog.js';
+export {SettingsIbanListEntryElement} from './autofill_page/payments/iban_list_entry.js';
+export {SettingsPayOverTimeIssuerListEntryElement} from './autofill_page/payments/pay_over_time_issuer_list_entry.js';
+export {SettingsPaymentsListElement} from './autofill_page/payments/payments_list.js';
+export {PaymentsManagerImpl} from './autofill_page/payments/payments_manager_proxy.js';
+export type {PaymentsManagerProxy} from './autofill_page/payments/payments_manager_proxy.js';
+export {SettingsPaymentsPageElement} from './autofill_page/payments/payments_page.js';
+export {SettingsVirtualCardUnenrollDialogElement} from './autofill_page/payments/virtual_card_unenroll_dialog.js';
+export {SettingsShoppingPageElement} from './autofill_page/shopping_page.js';
+export {SettingsSuggestionsFromGeminiSubpageElement} from './autofill_page/suggestions_from_gemini_subpage.js';
+export {SettingsTravelPageElement} from './autofill_page/travel_page.js';
 export {SettingsWalletablePassDetectionToggleElement} from './autofill_page/walletable_pass_detection_toggle.js';
 // <if expr="not is_chromeos">
 export {SettingsClearBrowsingDataAccountIndicator} from './clear_browsing_data_dialog/clear_browsing_data_account_indicator.js';
@@ -306,7 +314,6 @@ export {FileSystemSiteEntryElement} from './site_settings/file_system_site_entry
 export {FileSystemSiteEntryItemElement} from './site_settings/file_system_site_entry_item.js';
 export {FileSystemSiteListElement} from './site_settings/file_system_site_list.js';
 export {GeolocationPageElement} from './site_settings/geolocation_page.js';
-export {InlineCueMenuPageElement} from './site_settings/inline_cue_menu_page.js';
 export {NotificationsPageElement} from './site_settings/notifications_page.js';
 export {PdfDocumentsPageElement} from './site_settings/pdf_documents_page.js';
 export {ProtectedContentPageElement} from './site_settings/protected_content_page.js';
@@ -342,8 +349,5 @@ export {ZoomLevelsElement} from './site_settings/zoom_levels.js';
 export {SettingsSystemPageElement} from './system_page/system_page.js';
 export {SystemPageBrowserProxyImpl} from './system_page/system_page_browser_proxy.js';
 export type {SystemPageBrowserProxy} from './system_page/system_page_browser_proxy.js';
+
 // </if>
-export {SettingsIdentityDocsPageElement} from './your_saved_info_page/identity_docs_page.js';
-export {SettingsShoppingPageElement} from './your_saved_info_page/shopping_page.js';
-export {SettingsSuggestionsFromGeminiSubpageElement} from './your_saved_info_page/suggestions_from_gemini_subpage.js';
-export {SettingsTravelPageElement} from './your_saved_info_page/travel_page.js';

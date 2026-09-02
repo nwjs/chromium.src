@@ -18,8 +18,8 @@
 class BrowserViewAppLayoutImpl : public BrowserViewLayoutImpl {
  public:
   BrowserViewAppLayoutImpl(std::unique_ptr<BrowserViewLayoutDelegate> delegate,
-                           Browser* browser,
-                           BrowserViewLayoutViews views);
+                           BrowserViewLayoutViews views,
+                           bool is_web_app);
   ~BrowserViewAppLayoutImpl() override;
 
  protected:
@@ -39,6 +39,7 @@ class BrowserViewAppLayoutImpl : public BrowserViewLayoutImpl {
                                BrowserLayoutParams& params) const;
 
   mutable std::optional<gfx::Rect> overlay_rect_;
+  const bool is_web_app_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_LAYOUT_BROWSER_VIEW_APP_LAYOUT_IMPL_H_

@@ -18,7 +18,13 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_configuration.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_consent_view_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_first_run_page_view_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_first_run_step.h"
 #import "ios/chrome/browser/intelligence/bwg/ui/gemini_first_run_wrapper_view_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_lightweight_view_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_promo_view_controller.h"
+#import "ios/chrome/browser/intelligence/bwg/ui/gemini_visual_rich_view_controller.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -45,8 +51,8 @@
   // Mediator for handling all logic related to Gemini first run promo.
   GeminiFirstRunMediator* _mediator;
 
-  // Wrapper view controller for the First Run Experience UI.
-  GeminiFirstRunWrapperViewController* _viewController;
+  // View controller for the First Run Experience UI.
+  UIViewController* _viewController;
 
   // Handler for sending Gemini commands.
   id<GeminiCommands> _geminiHandler;
@@ -89,6 +95,7 @@
     _entryPoint = entryPoint;
     _firstRunType = firstRunType;
     _completion = completion;
+    _animatedPresentation = YES;
   }
   return self;
 }
@@ -131,23 +138,24 @@
 
   GeminiConsentConfiguration* consentConfig =
       [_mediator consentConfigurationForFirstRunType:_firstRunType];
-  BOOL showPromo =
-      _mediator.shouldShowPromo && (_firstRunType != GeminiFirstRunType::kLive);
-  _viewController =
-      [[GeminiFirstRunWrapperViewController alloc] initWithPromo:showPromo
-                                                    firstRunType:_firstRunType
-                                            consentConfiguration:consentConfig];
+  if (IsGeminiFRERefactorEnabled()) {
+    _viewController = [self
+        createRefactoredViewControllerWithConsentConfiguration:consentConfig];
+  } else {
+    _viewController =
+        [self createLegacyViewControllerWithConsentConfiguration:consentConfig];
+  }
   _viewController.sheetPresentationController.delegate = self;
-  _viewController.mutator = _mediator;
 
   if (_firstRunType == GeminiFirstRunType::kLive) {
     _liveFREOutcome = IOSGeminiLiveFREOutcome::kDismissedOnConsent;
     _outcomeLogged = NO;
   }
+
   __weak __typeof(self) weakSelf = self;
   [self.baseViewController
       presentViewController:_viewController
-                   animated:YES
+                   animated:self.animatedPresentation
                  completion:^{
                    __strong __typeof(weakSelf) strongSelf = weakSelf;
                    if (!strongSelf) {
@@ -252,6 +260,73 @@
 }
 
 #pragma mark - Private
+
+// Creates the refactored page view controller for the First Run Experience UI.
+- (UIViewController*)createRefactoredViewControllerWithConsentConfiguration:
+    (GeminiConsentConfiguration*)consentConfig {
+  std::vector<GeminiFirstRunStepIdentifier> stepTypes =
+      [_mediator stepsForFirstRunType:_firstRunType];
+  NSMutableArray* steps = [[NSMutableArray alloc] init];
+
+  for (GeminiFirstRunStepIdentifier stepType : stepTypes) {
+    [steps addObject:[self viewControllerForStepType:stepType
+                                consentConfiguration:consentConfig]];
+  }
+
+  BOOL showBrandingHeader =
+      [_mediator shouldShowBrandingHeaderForFirstRunType:_firstRunType];
+  return [[GeminiFirstRunPageViewController alloc]
+           initWithSteps:steps
+      showBrandingHeader:showBrandingHeader];
+}
+
+// Creates the legacy wrapper view controller for the First Run Experience UI.
+- (UIViewController*)createLegacyViewControllerWithConsentConfiguration:
+    (GeminiConsentConfiguration*)consentConfig {
+  BOOL showPromo = [_mediator shouldShowPromoForFirstRunType:_firstRunType];
+  GeminiFirstRunWrapperViewController* wrapperVC =
+      [[GeminiFirstRunWrapperViewController alloc] initWithPromo:showPromo
+                                                    firstRunType:_firstRunType
+                                            consentConfiguration:consentConfig];
+  wrapperVC.mutator = _mediator;
+  return wrapperVC;
+}
+
+// Creates the corresponding step view controller for `stepType`.
+- (UIViewController<GeminiFirstRunStep>*)
+    viewControllerForStepType:(GeminiFirstRunStepIdentifier)stepType
+         consentConfiguration:(GeminiConsentConfiguration*)consentConfig {
+  switch (stepType) {
+    case GeminiFirstRunStepIdentifier::kPromo: {
+      GeminiPromoViewController* promoVC =
+          [[GeminiPromoViewController alloc] init];
+      promoVC.mutator = _mediator;
+      return promoVC;
+    }
+    case GeminiFirstRunStepIdentifier::kConsent: {
+      GeminiConsentViewController* consentVC =
+          [[GeminiConsentViewController alloc]
+              initWithConfiguration:consentConfig];
+      consentVC.mutator = _mediator;
+      consentVC.firstRunType = _firstRunType;
+      return consentVC;
+    }
+    case GeminiFirstRunStepIdentifier::kVisualRich: {
+      GeminiVisualRichViewController* visualRichVC =
+          [[GeminiVisualRichViewController alloc]
+              initWithConfiguration:consentConfig];
+      visualRichVC.mutator = _mediator;
+      return visualRichVC;
+    }
+    case GeminiFirstRunStepIdentifier::kLightweight: {
+      GeminiLightweightViewController* lightweightVC =
+          [[GeminiLightweightViewController alloc]
+              initWithConfiguration:consentConfig];
+      lightweightVC.mutator = _mediator;
+      return lightweightVC;
+    }
+  }
+}
 
 // Checks the current microphone permission status and prompts the user if
 // needed.

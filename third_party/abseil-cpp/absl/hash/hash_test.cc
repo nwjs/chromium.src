@@ -916,8 +916,8 @@ struct CustomHashType {
 
 template <InvokeTag allowed, InvokeTag... tags>
 struct EnableIfContained
-    : std::enable_if<std::disjunction_v<
-          std::integral_constant<bool, allowed == tags>...>> {};
+    : std::enable_if<
+          std::disjunction_v<std::bool_constant<allowed == tags>...>> {};
 
 template <
     typename H, InvokeTag... Tags,
@@ -1263,6 +1263,9 @@ TEST(HashOf, DoubleSignCollision) {
 TEST(PrecombineLengthMix, ShortStringCollision) {
 #if defined(__wasm__)
   GTEST_SKIP() << "Fails flakily on wasm due to no ASLR and 32-bit size_t.";
+#endif
+#if defined(__ANDROID__) && defined(__arm__)
+  GTEST_SKIP() << "Fails on 32-bit Android due to layout changes.";
 #endif
   std::string s1 = "00";
   std::string s2 = "000";

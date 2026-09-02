@@ -58,6 +58,7 @@ import org.chromium.base.test.params.ParameterAnnotations.UseRunnerDelegate;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisableLeakChecks;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
@@ -104,6 +105,7 @@ import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.ActivityWindowAndroid;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.IntentRequestTracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
@@ -118,7 +120,11 @@ import java.io.IOException;
 @RunWith(ParameterizedRunner.class)
 @UseRunnerDelegate(ChromeJUnit4RunnerDelegate.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DisableFeatures({SigninFeatures.SIGNIN_LEVEL_UP_BUTTON, ChromeFeatureList.ANDROID_BOTTOM_BAR})
+@DisableFeatures({
+    SigninFeatures.SIGNIN_LEVEL_UP_BUTTON,
+    ChromeFeatureList.ANDROID_BOTTOM_BAR,
+    ChromeFeatureList.SETTINGS_IN_TAB // crbug.com/521895796
+})
 @DisableLeakChecks("crbug.com/527131198")
 public class IdentityDiscControllerTest {
 
@@ -504,6 +510,7 @@ public class IdentityDiscControllerTest {
     @Test
     @MediumTest
     @SuppressWarnings("CheckReturnValue")
+    @DisableIf.Device(DeviceFormFactor.DESKTOP) // https://crbug.com/544662841
     public void testIdentityDiscWithSwitchToIncognito() {
         mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
         ViewUtils.waitForVisibleView(withId(R.id.optional_toolbar_button));

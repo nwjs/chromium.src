@@ -45,14 +45,11 @@ struct CONTENT_EXPORT NavigationRequestInfo {
       const base::UnguessableToken& devtools_navigation_token,
       const base::UnguessableToken& devtools_throttling_token,
       network::mojom::ClientSecurityStatePtr client_security_state,
-      const std::optional<std::vector<net::SourceStreamType>>&
-          devtools_accepted_stream_types,
       bool is_pdf,
       ChildProcessId initiator_process_id,
       std::optional<blink::DocumentToken> initiator_document_token,
       bool allow_cookies_from_browser,
       int64_t navigation_id,
-      bool shared_storage_writable,
       bool is_ad_tagged,
       bool force_no_https_upgrade,
       bool nw_trust = false);
@@ -129,12 +126,6 @@ struct CONTENT_EXPORT NavigationRequestInfo {
   // too once the UX story is sorted out.
   const network::mojom::ClientSecurityStatePtr client_security_state;
 
-  // If not null, the network service will not advertise any stream types
-  // (via Accept-Encoding) that are not listed. Also, it will not attempt
-  // decoding any non-listed stream types.
-  std::optional<std::vector<net::SourceStreamType>>
-      devtools_accepted_stream_types;
-
   // Indicates that this navigation is for PDF content in a renderer.
   const bool is_pdf;
 
@@ -148,11 +139,6 @@ struct CONTENT_EXPORT NavigationRequestInfo {
 
   // Unique id that identifies the navigation.
   const int64_t navigation_id;
-
-  // Whether or not the request is eligible to write to shared storage from
-  // response headers. See
-  // https://github.com/WICG/shared-storage#from-response-headers.
-  bool shared_storage_writable_eligible;
 
   // Whether the embedder indicated this navigation is being used for
   // advertising purposes.

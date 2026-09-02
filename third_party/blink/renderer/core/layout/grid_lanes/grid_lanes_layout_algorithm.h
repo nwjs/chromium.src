@@ -30,6 +30,7 @@ enum class GridItemContributionType;
 struct BoxStrut;
 struct GridItemData;
 struct GridLaneData;
+struct GridLanesGapGeometryState;
 struct GridPlacementData;
 using GridLanesDataVector = HeapVector<Member<GridLaneData>, 1>;
 
@@ -99,12 +100,15 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // Builds the grid-lanes sizing tree, runs track sizing (including any
   // intrinsic repeat passes), and baseline alignment. Grid items are moved out
   // via the `grid_items` parameter. `opt_oof_children` is an optional vector of
-  // out-of-flow direct children of the grid-lanes container.
+  // out-of-flow direct children of the grid-lanes container. If provided,
+  // `out_total_intrinsic_block_size` receives the intrinsic block size for row
+  // containers.
   GridSizingTree ComputeGridLanesSizingTree(
       SizingConstraint sizing_constraint,
       bool should_apply_inline_size_containment,
       GridItems** grid_items,
-      HeapVector<Member<LayoutBox>>* opt_oof_children = nullptr);
+      HeapVector<Member<LayoutBox>>* opt_oof_children,
+      LayoutUnit* out_total_intrinsic_block_size = nullptr);
 
   // Computes the grid-lanes geometry by running track sizing (including any
   // intrinsic repeat passes), baseline alignment, and finalization. Returns
@@ -117,23 +121,31 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       GridItems** grid_items,
       HeapVector<Member<LayoutBox>>* opt_oof_children = nullptr);
 
-  // This places all the items in the sizing tree and adjusts
-  // `intrinsic_block_size_` based on the placement of the items. Each item's
-  // resolved position is translated based on the cached start offset.
-  // Placement of the items is finalized within this method. `running_positions`
-  // is an output parameter that can be used to find the intrinsic inline size
-  // when the stacking axis is the inline axis. `sizing_subtree` represents the
-  // grid-lanes container's sizing subtree; its children are finalized on
-  // demand so subgridded tracks are observed against the resolved placement in
-  // the case of auto placed subgrids. If provided, `out_grid_lanes` is
-  // populated with the final item placement data for each track.
+  // This places all the items in the sizing tree. Each item's resolved position
+  // is translated based on the cached start offset. Placement of the items is
+  // finalized within this method. `running_positions` is an output parameter
+  // that can be used to find the intrinsic inline size when the stacking axis
+  // is the inline axis. `sizing_subtree` represents the grid-lanes container's
+  // sizing subtree; its children are finalized on demand so subgridded tracks
+  // are observed against the resolved placement in the case of auto placed
+  // subgrids. `out_total_intrinsic_block_size` is set to the intrinsic content
+  // block size of the complete, unfragmented container. If provided,
+  // `out_grid_lanes` is populated with the final item placement data for each
+  // track, used as a break-token snapshot for fragmentation and as the source
+  // for gap decoration placement. `out_gap_geometry_state` receives the
+  // placement-derived inputs needed to finalize gap geometry.
   void PlaceGridLanesItems(
       GridItems& grid_items,
       const GridSizingSubtree& sizing_subtree,
       GridLayoutData& layout_data,
       GridLanesRunningPositions& running_positions,
+      LayoutUnit* out_total_intrinsic_block_size,
       std::optional<SizingConstraint> sizing_constraint = std::nullopt,
-      GridLanesDataVector* out_grid_lanes = nullptr);
+      GridLanesDataVector* out_grid_lanes = nullptr,
+      GridLanesGapGeometryState* out_gap_geometry_state = nullptr);
+  void PlaceGridLanesItemsForFragmentation(
+      const GridLanesDataVector& grid_lanes,
+      const GridLayoutSubtree& layout_subtree);
 
   // Iterates through and lays out each item in `grid_lanes_items`. If
   // `placement_phase` is kCalculateBaselines, this method measures items and
@@ -148,8 +160,9 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // baselines from the items. `sizing_subtree` represents the grid-lanes
   // container's sizing subtree; its children are finalized on demand so
   // subgridded tracks are observed against the resolved placement in the case
-  // of auto placed subgrids. If provided, `out_grid_lanes` is populated with
-  // the final item placement data for each track.
+  // of auto placed subgrids. When non-null, `out_grid_lanes` is the lane graph
+  // built during final layout placement; combined with block fragmentation it
+  // selects fragmentation collection over gap-decoration placement.
   void RunGridLanesPlacementPhase(
       GridItems& grid_items,
       const GridSizingSubtree& sizing_subtree,
@@ -162,31 +175,40 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       GridLanesDataVector* out_grid_lanes = nullptr);
 
   // Creates a constraint space for relaying out a stretch-aligned item with
-  // its stretched stacking-axis size.
+  // its stretched stacking-axis size. `builder_child_index` indexes the item's
+  // fragment in the container builder.
   ConstraintSpace CreateConstraintSpaceForStretch(
-      const GridLanesRunningPositions::AlignmentCandidate& candidate);
+      const GridLanesRunningPositions::AlignmentCandidate& candidate,
+      wtf_size_t builder_child_index);
 
   // Re-lays out a single item with stretch alignment in the stacking axis to
-  // fill the track opening after it.
+  // fill the track opening after it. `builder_child_index` indexes the item's
+  // fragment in the container builder.
   void RelayoutStackingAxisStretchItem(
       const GridLanesRunningPositions::AlignmentCandidate& candidate,
+      wtf_size_t builder_child_index,
       GridLanesRunningPositions& running_positions);
 
   // Finalizes track opening sizes, computes and applies stacking axis alignment
   // offsets, and relayouts items that are stretch aligned with their stretched
   // size. `effective_stacking_axis_size` is the size of the container's
   // stacking axis, and `stacking_axis_gap` is the size of the gap between items
-  // in the container specified by the `gap` property.
+  // in the container specified by the `gap` property. If provided, `grid_lanes`
+  // contains the persisted item placement data to update during fragmentation
+  // collection. It is also used for building gap decorations.
   void ApplyStackingAxisAlignment(GridLanesRunningPositions& running_positions,
                                   LayoutUnit effective_stacking_axis_size,
-                                  LayoutUnit stacking_axis_gap);
+                                  LayoutUnit stacking_axis_gap,
+                                  GridLanesDataVector* grid_lanes = nullptr);
 
   // Places all out-of-flow (OOF) grid-lanes items. For each item, this method
   // computes the size and location of the containing block rectangle within the
   // grid-lanes container, calculates alignment offsets using item alignment
   // properties, and adds the item as an out-of-flow candidate via
   // `AddOutOfFlowChildCandidate`. `oof_children` is a required input vector
-  // containing the layout boxes of OOF grid-lanes items.
+  // containing the layout boxes of OOF grid-lanes items. If 'fill-reverse' is
+  // enabled, this method will also apply the necessary reverse offsets to the
+  // OOF items so that they are positioned correctly along the stacking axis.
   void PlaceOutOfFlowItems(const GridLayoutData& layout_data,
                            LayoutUnit block_size,
                            HeapVector<Member<LayoutBox>>& oof_children);
@@ -333,7 +355,9 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       const LogicalSize& containing_size,
       const LogicalSize& fixed_available_size,
       LayoutResultCacheSlot result_cache_slot,
-      const GridLayoutSubtree* opt_layout_subtree = nullptr) const;
+      const GridLayoutSubtree* opt_layout_subtree = nullptr,
+      bool min_block_size_should_encompass_intrinsic_size = false,
+      std::optional<LayoutUnit> opt_child_block_offset = std::nullopt) const;
 
   // Return the inline contribution of `grid_lanes_item` calculated to either
   // the min-width or the max-width based on `sizing_constraint`.
@@ -394,11 +418,21 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
 
   LayoutUnit ComputeIntrinsicBlockSizeIgnoringChildren();
 
+  // For a `track-reverse` scroll container whose track area overflows, bake the
+  // reversed shift into the grid-axis track offsets, so the tracks land in
+  // negative coordinates and scrollable overflow originates from the end edge.
+  void ApplyTrackReverseOverflowShift(GridLayoutData* layout_data,
+                                      LayoutUnit total_intrinsic_block_size);
+
+  GridLanesGapGeometryState ComputeGapGeometryState(
+      LayoutUnit stacking_axis_gap,
+      LayoutUnit effective_stacking_axis_size,
+      LayoutUnit content_alignment_translation,
+      bool is_fill_reverse) const;
+
   std::optional<LayoutUnit> contain_intrinsic_block_size_;
   LayoutUnit intrinsic_block_size_;
   LayoutUnit stacking_axis_size_;
-
-  const GapGeometry* gap_geometry_ = nullptr;
 
   LogicalSize grid_lanes_available_size_;
   LogicalSize grid_lanes_min_available_size_;

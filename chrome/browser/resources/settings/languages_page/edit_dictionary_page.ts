@@ -11,12 +11,11 @@ import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import 'chrome://resources/cr_elements/icons.html.js';
-import 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
-import '/shared/settings/prefs/prefs.js';
 import '../settings_page/settings_subpage.js';
 import '../settings_shared.css.js';
 import '../settings_vars.css.js';
 
+import {PrefServiceObserverMixin} from '/shared/settings/prefs2/pref_service_observer_mixin.js';
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import type {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import {flush, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -42,8 +41,8 @@ export interface SettingsEditDictionaryPageElement {
   };
 }
 
-const SettingsEditDictionaryPageElementBase =
-    SettingsViewMixin(GlobalScrollTargetMixin(PolymerElement));
+const SettingsEditDictionaryPageElementBase = PrefServiceObserverMixin(
+    SettingsViewMixin(GlobalScrollTargetMixin(PolymerElement)));
 
 export class SettingsEditDictionaryPageElement extends
     SettingsEditDictionaryPageElementBase {
@@ -57,8 +56,6 @@ export class SettingsEditDictionaryPageElement extends
 
   static get properties() {
     return {
-      prefs: Object,
-
       newWordValue_: {
         type: String,
         value: '',
@@ -83,16 +80,35 @@ export class SettingsEditDictionaryPageElement extends
         type: Boolean,
         value: false,
       },
+
+      enableSpellcheckingPref_: Object,
     };
   }
 
-  declare prefs: Record<string, unknown>;
+  declare protected enableSpellcheckingPref_:
+      chrome.settingsPrivate.PrefObject<boolean>|undefined;
   declare private newWordValue_: string;
   declare subpageRoute: Route;
   declare private words_: string[];
   declare private hasWords_: boolean;
   private languageSettingsPrivate_:
       (typeof chrome.languageSettingsPrivate)|null = null;
+
+  override connectedCallback() {
+    super.connectedCallback();
+
+    this.mirrorPrefs({
+      'browser.enable_spellchecking': 'enableSpellcheckingPref_',
+    });
+
+    // TODO(crbug.com/540914692): Workaround for Blink bug, by resetting
+    // focusgroup attribute restores FocusgroupData that was wiped out during
+    // detachment/attachment. Can probably remove this after migrating to Lit.
+    const list = this.shadowRoot!.querySelector('#list');
+    if (list) {
+      list.setAttribute('focusgroup', list.getAttribute('focusgroup')!);
+    }
+  }
 
   override ready() {
     super.ready();
@@ -197,14 +213,14 @@ export class SettingsEditDictionaryPageElement extends
       }
     }
 
-    // When adding a word to an _empty_ list, the template is expanded. This
-    // is a workaround to resize the iron-list as well.
-    // TODO(dschuyler): Remove this hack after iron-list no longer needs
-    // this workaround to update the list at the same time the template
-    // wrapping the list is expanded.
-    if (wasEmpty && this.words_.length > 0) {
+    if (removed.length > 0) {
       flush();
-      this.shadowRoot!.querySelector('iron-list')!.notifyResize();
+      const focused = this.shadowRoot!.querySelector('.list-item:focus-within');
+      if (!focused) {
+        const toFocus = this.shadowRoot!.querySelector<HTMLElement>(
+            '.list-item:last-of-type cr-icon-button');
+        toFocus?.focus();
+      }
     }
   }
 

@@ -10,6 +10,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Log;
 import org.chromium.base.ObserverList;
+import org.chromium.base.TriStateUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.Initializer;
@@ -90,6 +91,13 @@ public class TabStateStore implements TabPersistentStore {
                 public void willCloseAllTabs(boolean incognito) {
                     cancelLoadingTabs(incognito);
                 }
+
+                @Override
+                public void willCloseTabs(
+                        List<Tab> tabs, boolean isAllTabs, boolean allowUndo) {
+                    if (!isAllTabs) return;
+                    cancelLoadingTabs(tabs.get(0).isOffTheRecord());
+                }
             };
 
     private class InnerRegistrationObserver
@@ -152,7 +160,7 @@ public class TabStateStore implements TabPersistentStore {
                                 url,
                                 isStandardActiveIndex,
                                 isIncognitoActiveIndex,
-                                isIncognito,
+                                TriStateUtils.from(isIncognito),
                                 fromMerge);
                     }
                 }
@@ -509,12 +517,6 @@ public class TabStateStore implements TabPersistentStore {
     @Override
     public @StoreType int getStoreType() {
         return StoreType.TAB_STATE_STORE;
-    }
-
-    @Override
-    public int getRegularFallbackTabCount() {
-        // TabStateStore doesn't create fallback tabs without a TabState.
-        return 0;
     }
 
     /** Called when the authoritative store has finished loading state for the window. */

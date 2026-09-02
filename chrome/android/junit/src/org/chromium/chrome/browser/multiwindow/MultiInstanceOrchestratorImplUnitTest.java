@@ -25,7 +25,9 @@ import static org.mockito.Mockito.when;
 import static org.chromium.chrome.browser.tabwindow.TabWindowManager.INVALID_WINDOW_ID;
 
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.ActivityManager.AppTask;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 
@@ -41,10 +43,13 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.FeatureOverrides;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.Token;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -57,6 +62,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingTabsTask;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
+import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.LastSessionExitType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
@@ -101,6 +107,7 @@ public class MultiInstanceOrchestratorImplUnitTest {
     @Mock private MultiInstanceManagerApi31 mMultiInstanceManager2;
     @Mock private TabReparentingDelegate mTabReparentingDelegate;
     @Mock private TabbedCrashRecoveryDelegate mTabbedCrashRecoveryDelegate;
+    @Mock private TabbedStartupWindowPolicyDelegate mTabbedStartupWindowPolicyDelegate;
     @Mock private Tab mTab1;
     @Mock private Tab mTab2;
     @Mock private TabModel mTabModel;
@@ -120,6 +127,7 @@ public class MultiInstanceOrchestratorImplUnitTest {
         MultiWindowUtils.setInstanceForTesting(mMultiWindowUtils);
         MultiInstanceOrchestratorImpl.setTabReparentingDelegateForTesting(mTabReparentingDelegate);
         TabbedCrashRecoveryDelegate.setInstanceForTesting(mTabbedCrashRecoveryDelegate);
+        TabbedStartupWindowPolicyDelegate.setInstanceForTesting(mTabbedStartupWindowPolicyDelegate);
         mModalDialogManagerSupplier = ObservableSuppliers.createMonotonic();
         mMultiInstanceOrchestrator = MultiInstanceOrchestratorImpl.getInstance();
         mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
@@ -888,6 +896,117 @@ public class MultiInstanceOrchestratorImplUnitTest {
     }
 
     @Test
+    public void testOpenUrlsInOtherWindow_withAdditionalUrls() {
+        // Setup.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        configureInstancesForOtherWindowTests(
+                /* isIncognito= */ false,
+                /* atInstanceLimit= */ false,
+                /* numOtherEligibleWindows= */ 1);
+        MultiWindowUtils.setLastAccessedWindowIdForTesting(DEST_WINDOW_ID);
+        List<String> additionalUrls = List.of("https://url1.com", "https://url2.com");
+
+        // Act.
+        mMultiInstanceOrchestrator.openUrlsInOtherWindow(
+                mTabbedActivity1,
+                mUrlParams,
+                additionalUrls,
+                PARENT_TAB_ID_1,
+                /* preferNew= */ false,
+                /* isIncognito= */ false,
+                /* openInTabGroup= */ true);
+
+        // Verify.
+        var intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mTabbedActivity2).onNewIntent(intentCaptor.capture());
+        Intent intent = intentCaptor.getValue();
+        assertEquals("Uri data is incorrect.", mUrlParams.getUrl(), intent.getData().toString());
+        List<String> extraUrls =
+                IntentUtils.safeGetSerializableExtra(intent, IntentHandler.EXTRA_ADDITIONAL_URLS);
+        assertNotNull("Additional URLs extra should not be null", extraUrls);
+        assertEquals(2, extraUrls.size());
+        assertEquals("https://url1.com", extraUrls.get(0));
+        assertEquals("https://url2.com", extraUrls.get(1));
+        assertTrue(
+                "Tab group extra should be true",
+                IntentUtils.safeGetBooleanExtra(
+                        intent, IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, false));
+    }
+
+    @Test
+    public void testOpenUrlsInOtherWindow_withAdditionalUrls_withoutTabGroup() {
+        // Setup.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        configureInstancesForOtherWindowTests(
+                /* isIncognito= */ false,
+                /* atInstanceLimit= */ false,
+                /* numOtherEligibleWindows= */ 1);
+        MultiWindowUtils.setLastAccessedWindowIdForTesting(DEST_WINDOW_ID);
+        List<String> additionalUrls = List.of("https://url1.com", "https://url2.com");
+
+        // Act.
+        mMultiInstanceOrchestrator.openUrlsInOtherWindow(
+                mTabbedActivity1,
+                mUrlParams,
+                additionalUrls,
+                PARENT_TAB_ID_1,
+                /* preferNew= */ false,
+                /* isIncognito= */ false,
+                /* openInTabGroup= */ false);
+
+        // Verify.
+        var intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mTabbedActivity2).onNewIntent(intentCaptor.capture());
+        Intent intent = intentCaptor.getValue();
+        assertEquals("Uri data is incorrect.", mUrlParams.getUrl(), intent.getData().toString());
+        List<String> extraUrls =
+                IntentUtils.safeGetSerializableExtra(intent, IntentHandler.EXTRA_ADDITIONAL_URLS);
+        assertNotNull("Additional URLs extra should not be null", extraUrls);
+        assertEquals(2, extraUrls.size());
+        assertFalse(
+                "Tab group extra should be false",
+                IntentUtils.safeGetBooleanExtra(
+                        intent, IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, false));
+    }
+
+    @Test
+    public void testOpenUrlsInOtherWindow_incognito__withAdditionalUrls() {
+        // Setup.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        IncognitoUtils.setShouldOpenIncognitoAsWindowForTesting(true);
+        configureInstancesForOtherWindowTests(
+                /* isIncognito= */ true,
+                /* atInstanceLimit= */ false,
+                /* numOtherEligibleWindows= */ 1);
+        MultiWindowUtils.setLastAccessedWindowIdForTesting(DEST_WINDOW_ID);
+        List<String> additionalUrls = List.of("https://url1.com", "https://url2.com");
+
+        // Act.
+        mMultiInstanceOrchestrator.openUrlsInOtherWindow(
+                mTabbedActivity1,
+                mUrlParams,
+                additionalUrls,
+                PARENT_TAB_ID_1,
+                /* preferNew= */ false,
+                /* isIncognito= */ true,
+                /* openInTabGroup= */ false);
+
+        // Verify.
+        var intentCaptor = ArgumentCaptor.forClass(Intent.class);
+        verify(mTabbedActivity2).onNewIntent(intentCaptor.capture());
+        Intent intent = intentCaptor.getValue();
+        assertEquals("Uri data is incorrect.", mUrlParams.getUrl(), intent.getData().toString());
+        assertTrue(
+                "Incognito extra should be true",
+                IntentUtils.safeGetBooleanExtra(
+                        intent, IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, false));
+        assertFalse(
+                "Tab group extra should be false",
+                IntentUtils.safeGetBooleanExtra(
+                        intent, IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, false));
+    }
+
+    @Test
     public void testOpenUrlInOtherWindow_regularTab_destActivityDestroyed_createsNewTask() {
         // Setup.
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
@@ -1003,6 +1122,67 @@ public class MultiInstanceOrchestratorImplUnitTest {
     }
 
     @Test
+    @EnableFeatures(ChromeFeatureList.ON_STARTUP_WINDOW_POLICY)
+    public void testOnInitialize_quit_restoresWindows() {
+        // Setup.
+        ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
+        TabbedStartupWindowPolicyDelegate.setInstanceForTesting(null);
+        DeviceInfo.setIsDesktopForTesting(true);
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 0, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 0);
+        MultiWindowTestUtils.createInstance(
+                /* instanceId= */ 1, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 1);
+        ChromeMultiInstancePersistentStore.writeLastSessionExitType(LastSessionExitType.QUIT);
+
+        ActivityManager activityManager = mock(ActivityManager.class);
+        doReturn(activityManager).when(mTabbedActivity1).getSystemService(Context.ACTIVITY_SERVICE);
+        doReturn(0).when(mTabbedActivity1).getWindowId();
+
+        // Act.
+        mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
+
+        // Verify.
+        verify(mTabbedActivity1).startActivity(any());
+        assertEquals(
+                LastSessionExitType.DEFAULT,
+                ChromeMultiInstancePersistentStore.readLastSessionExitType());
+        assertFalse(
+                "isRecoverable should be cleared when restoring window on launch after quit.",
+                ChromeMultiInstancePersistentStore.readIsRecoverable(1));
+    }
+
+    @Test
+    public void testOnInitialize_firstTabbedActivity_callsApplyPolicy() {
+        // Setup.
+        ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: Initialize the first ChromeTabbedActivity.
+        mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
+
+        // Verify: Policy application is triggered.
+        verify(mTabbedStartupWindowPolicyDelegate).applyPolicy(mTabbedActivity1);
+    }
+
+    @Test
+    public void testOnInitialize_subsequentTabbedActivity_doesNotCallApplyPolicy() {
+        // Setup.
+        ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: Initialize the first activity.
+        mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
+        verify(mTabbedStartupWindowPolicyDelegate).applyPolicy(mTabbedActivity1);
+
+        // Act: Initialize a second activity.
+        mMultiInstanceOrchestrator.onInitialize(mTabbedActivity2, mMultiInstanceManager2);
+
+        // Verify: Not called a second time.
+        verify(mTabbedStartupWindowPolicyDelegate, times(1)).applyPolicy(mTabbedActivity1);
+    }
+
+    @Test
     @Config(sdk = 30)
     public void testOnForegroundBrowserProcessInitialized_withTabbedActivity_noOp() {
         // Setup.
@@ -1028,6 +1208,49 @@ public class MultiInstanceOrchestratorImplUnitTest {
 
         // Verify: maybeDeferCrashRecovery is called.
         verify(mTabbedCrashRecoveryDelegate).maybeDeferCrashRecovery();
+    }
+
+    @Test
+    public void testOnActivityStateChange_destroyed_lastTabbedActivity_resetsStartupPolicy() {
+        // Setup: Activity 1 is the only registered activity.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
+        ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
+        mMultiInstanceOrchestrator.onInitialize(mTabbedActivity1, mMultiInstanceManager1);
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: Destroy Activity 1.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
+
+        // Verify: Last activity destruction triggers delegate reset.
+        verify(mTabbedStartupWindowPolicyDelegate).resetPolicy();
+    }
+
+    @Test
+    public void testOnActivityStateChange_destroyed_uninitializedActivity_resetsStartupPolicy() {
+        // Setup: No activity is registered in the orchestrator.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
+        ((MultiInstanceOrchestratorImpl) mMultiInstanceOrchestrator).clearAssignmentsForTesting();
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: An uninitialized ChromeTabbedActivity is destroyed.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
+
+        // Verify: Reset is triggered because no living tabbed activities exist.
+        verify(mTabbedStartupWindowPolicyDelegate).resetPolicy();
+    }
+
+    @Test
+    public void testOnActivityStateChange_destroyed_withOtherLivingTabbedActivity_doesNotReset() {
+        // Setup: Two initialized activities.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.CREATED);
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity2, ActivityState.CREATED);
+        reset(mTabbedStartupWindowPolicyDelegate);
+
+        // Act: Destroy Activity 1 while Activity 2 is still alive.
+        ApplicationStatus.onStateChangeForTesting(mTabbedActivity1, ActivityState.DESTROYED);
+
+        // Verify: Reset is not triggered because Activity 2 is still living.
+        verify(mTabbedStartupWindowPolicyDelegate, never()).resetPolicy();
     }
 
     private void doTestOpenUrlInOtherWindowWithIncognitoWindowingEnabled(

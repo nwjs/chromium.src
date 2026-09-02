@@ -14,6 +14,10 @@ namespace bookmarks {
 class BookmarkModel;
 }
 
+namespace send_tab_to_self {
+class SendTabToSelfSyncService;
+}
+
 @protocol BookmarksCommands;
 @protocol BrowserCoordinatorCommands;
 @class ChromeActivityImageSource;
@@ -23,6 +27,7 @@ class BookmarkModel;
 @class NonModalDefaultBrowserPromoSchedulerSceneAgent;
 @protocol FindInPageCommands;
 @protocol HelpCommands;
+@protocol SendTabToSelfCommands;
 class PrefService;
 class ReadingListBrowserAgent;
 @protocol QRGenerationCommands;
@@ -34,23 +39,27 @@ class WebNavigationBrowserAgent;
 // Mediator used to generate activities.
 @interface ActivityServiceMediator : NSObject
 
-// Initializes a mediator instance with a `helpHandler` used to execute action,
-// a `bookmarksHandler` to execute Bookmarks actions, a `qrGenerationHandler` to
-// execute QR generation actions, a `prefService` to read settings and policies,
-// and a `bookmarkModel` to retrieve bookmark states. `baseViewController` can
-// be passed to activities which need to present VCs.
-- (instancetype)initWithHandler:
-                    (id<BrowserCoordinatorCommands, FindInPageCommands>)handler
-               bookmarksHandler:(id<BookmarksCommands>)bookmarksHandler
-                    helpHandler:(id<HelpCommands>)helpHandler
-            qrGenerationHandler:(id<QRGenerationCommands>)qrGenerationHandler
-                    prefService:(PrefService*)prefService
-                  bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
-             baseViewController:(UIViewController*)baseViewController
-                navigationAgent:(WebNavigationBrowserAgent*)agent
-        readingListBrowserAgent:
-            (ReadingListBrowserAgent*)readingListBrowserAgent
-    NS_DESIGNATED_INITIALIZER;
+// Initializes a mediator instance with `browserHandler`, `findInPageHandler`,
+// `sendTabToSelfHandler`, `bookmarksHandler`, `helpHandler`,
+// `qrGenerationHandler` to execute respective action commands, a `prefService`
+// to read settings and policies, and a `bookmarkModel` to retrieve bookmark
+// states. `baseViewController` can be passed to activities which need to
+// present VCs.
+- (instancetype)
+      initWithBrowserHandler:(id<BrowserCoordinatorCommands>)browserHandler
+           findInPageHandler:(id<FindInPageCommands>)findInPageHandler
+        sendTabToSelfHandler:(id<SendTabToSelfCommands>)sendTabToSelfHandler
+            bookmarksHandler:(id<BookmarksCommands>)bookmarksHandler
+                 helpHandler:(id<HelpCommands>)helpHandler
+         qrGenerationHandler:(id<QRGenerationCommands>)qrGenerationHandler
+                 prefService:(PrefService*)prefService
+               bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+          baseViewController:(UIViewController*)baseViewController
+             navigationAgent:(WebNavigationBrowserAgent*)agent
+     readingListBrowserAgent:(ReadingListBrowserAgent*)readingListBrowserAgent
+    sendTabToSelfSyncService:
+        (send_tab_to_self::SendTabToSelfSyncService*)sendTabToSelfSyncService
+               userGivenName:(NSString*)userGivenName NS_DESIGNATED_INITIALIZER;
 - (instancetype)init NS_UNAVAILABLE;
 
 // Scheduler to notify about events happening in this activity.

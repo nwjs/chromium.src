@@ -149,9 +149,7 @@ enum class SuggestionType {
   // Other suggestions.
   kTitle = 45,
   kSeparator = 46,
-  // TODO(crbug.com/40266549): Rename to Undo once iOS implements it - it still
-  // works as clear form there.
-  kUndoOrClear = 47,
+  kUndo = 47,
   kMixedFormMessage = 48,
 
   // Top level suggestion rendered when test addresses are available. Shown only
@@ -237,9 +235,16 @@ enum class SuggestionType {
   // Suggestion displaying source attribution for AtMemory search results.
   kAtMemorySourceAttribution = 96,
 
-  // Next ID: 97
+  // Suggestion shown in the fetching state of AtMemory.
+  kAtMemoryFetching = 97,
 
-  kMaxValue = kAtMemorySourceAttribution
+  // Option in the child submenu of an Autofill AI suggestion to remove this
+  // info.
+  kRemoveAutofillAi = 98,
+
+  // Next ID: 99
+
+  kMaxValue = kRemoveAutofillAi
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:SuggestionType)
 

@@ -367,6 +367,17 @@ void ContentAutofillDriver::TriggerFormExtractionInAllFrames(
   }
 }
 
+void ContentAutofillDriver::ClearFormCacheInAllFrames() {
+  render_frame_host()->GetMainFrame()->ForEachRenderFrameHost(
+      [](content::RenderFrameHost* rfh) {
+        if (rfh->IsActive()) {
+          if (auto* driver = GetForRenderFrameHost(rfh)) {
+            driver->GetAutofillAgent()->ClearFormCache();
+          }
+        }
+      });
+}
+
 void ContentAutofillDriver::ObserveFieldVisibility(
     const FieldGlobalId& field_id,
     mojo::PendingRemote<mojom::AutofillVisibilityObserver> observer) {
@@ -518,8 +529,7 @@ base::flat_set<FieldGlobalId> ContentAutofillDriver::ApplyFormAction(
     const FillId& fill_id,
     bool supports_refill,
     const url::Origin& triggered_origin,
-    const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map,
-    const Section& section_for_clear_form_on_ios) {
+    const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map) {
   // If this driver is active, then its main frame is identical to the main
   // frame at the time the form was received from a renderer and their origins
   // are the same.
@@ -615,14 +625,21 @@ void ContentAutofillDriver::RendererShouldSetSuggestionAvailability(
                suggestion_availability);
 }
 
+void ContentAutofillDriver::GetNonceForEmailVerification(
+    FieldGlobalId email_field_id,
+    base::OnceCallback<void(const std::optional<std::string>&)> callback) {
+  RouteToAgent(router(), &AutofillDriverRouter::GetNonceForEmailVerification,
+               &mojom::AutofillAgent::GetNonceForEmailVerification,
+               email_field_id, std::move(callback));
+}
+
 void ContentAutofillDriver::SendEmailVerificationToken(
     FieldGlobalId email_field_id,
     const std::string& email,
-    FieldGlobalId token_field_id,
     const std::string& token) {
   RouteToAgent(router(), &AutofillDriverRouter::SendEmailVerificationToken,
                &mojom::AutofillAgent::SendEmailVerificationToken,
-               email_field_id, email, token_field_id, token);
+               email_field_id, email, token);
 }
 
 void ContentAutofillDriver::UpdateEmailVerificationState(
@@ -752,11 +769,11 @@ void ContentAutofillDriver::JavaScriptChangedAutofilledValue(
 
 void ContentAutofillDriver::FormWithEmailVerificationTokenSubmitted(
     const FormData& form,
-    FieldRendererId field_id) {
+    FieldRendererId email_field_id) {
   RouteToManager(*this, router(),
                  &AutofillDriverRouter::FormWithEmailVerificationTokenSubmitted,
                  &AutofillManager::OnFormWithEmailVerificationTokenSubmitted,
-                 form, field_id);
+                 form, email_field_id);
 }
 
 void ContentAutofillDriver::DidDetectJavaScriptAutofill(

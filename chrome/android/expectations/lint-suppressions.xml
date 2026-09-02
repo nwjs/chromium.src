@@ -15,6 +15,18 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
     <!-- See https://crbug.com/41379786 and comment in the file for context. -->
     <ignore regexp="chrome/android/java/res_base/xml/network_security_config.xml"/>
   </issue>
+  <!-- Triggered by ChromeImageView removal. -->
+  <issue id="ContentDescription">
+    <ignore regexp="chrome/android/java/res/layout/history_item_view.xml"/>
+    <ignore regexp="chrome/browser/commerce/price_change/android/java/res/layout/price_change_module_layout.xml"/>
+    <ignore regexp="chrome/browser/data_sharing/android/java/res/layout/recent_activity_log_item.xml"/>
+    <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_auto_browse.xml"/>
+    <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_default_tab_access.xml"/>
+    <ignore regexp="chrome/browser/safety_hub/android/java/res/layout/safety_hub_expandable_preference.xml"/>
+    <ignore regexp="chrome/browser/ui/android/omnibox/java/res/layout/fusebox_layout.xml"/>
+    <ignore regexp="components/browser_ui/settings/android/java/res/layout/chrome_expandable_switch_preference.xml"/>
+    <ignore regexp="components/browser_ui/widget/android/java/res/layout/rich_radio_button.xml"/>
+  </issue>
   <issue id="ExifInterface">
       <!-- TODO(crbug.com/40559214): Update to androidx ExifInterface. -->
       <ignore regexp="components/browser_ui/photo_picker/android/java/src/org/chromium/components/browser_ui/photo_picker/BitmapUtils.java"/>
@@ -144,9 +156,33 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
   <issue id="UnusedQuantity" severity="ignore"/>
   <issue id="UnusedResources">
     <!-- Do not add new suppressions without rationale. -->
+    <!-- TODO(crbug.com/543028748): Remove temporarily suppress Safety FRE carousel screen strings. -->
+    <ignore regexp="The resource `R\..*safety_promo_.*` appears to be unused"/>
+    <ignore regexp="The resource `R\..*safety_fre_.*` appears to be unused"/>
+    <ignore regexp="The resource `R\..*fre_promo_.*_illustration` appears to be unused"/>
+
+    <!-- TODO(crbug.com/540948781): Remove these exceptions after strings are used in code. -->
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_on_all_devices_saved_info` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_on_all_devices_bookmarks` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_on_all_devices_passwords` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_device_type_saved_info` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_device_type_bookmarks` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_device_type_passwords` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_web_signin_on_all_devices_saved_info` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_web_signin_on_all_devices_bookmarks` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_web_signin_on_all_devices_passwords` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_web_signin_device_type_saved_info` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_web_signin_device_type_bookmarks` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_account_picker_bottom_sheet_subtitle_for_web_signin_device_type_passwords` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_device_type_phone` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_device_type_laptop` appears to be unused"/>
+    <ignore regexp="The resource `R.string.signin_device_type_tablet` appears to be unused"/>
+
     <!-- TODO(crbug.com/517591009): Remove temporarily suppress bottom bar strings. -->
     <ignore regexp="The resource `R.string.settings_show_gemini_in_bottom_bar_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.settings_show_gemini_in_bottom_bar_summary` appears to be unused"/>
+    <!-- TODO(crbug.com/545727652): Remove after string is used in code. -->
+    <ignore regexp="The resource `R.string.glic_mic_disabled_snackbar` appears to be unused"/>
     <!-- Strings used by Desktop Android extensions, which are not built in all configurations. -->
     <ignore regexp="The resource `R.string.extensions_menu_.*` appears to be unused"/>
     <ignore regexp="The resource `R.string.extensions_request_access_button` appears to be unused"/>
@@ -224,8 +260,6 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
     <ignore regexp="The resource `R.string.accessibility_omnibox_most_visited_tile` appears to be unused"/>
     <!-- 1: Some strings in components_strings_grd are not used in other targets. -->
     <ignore regexp="webview_.*__lint.*components_strings_grd"/>
-    <!-- TODO(crbug.com/371923550): Remove this suppression once plus address strings are migrated to the public repository. -->
-    <ignore regexp="components/plus_addresses/core/browser/resources/strings/"/>
     <!-- 2: resource is used in C++ components/error_page. -->
     <ignore regexp="The resource `R.string.show_content` appears to be unused"/>
     <ignore regexp="The resource `R.string.hide_content` appears to be unused"/>
@@ -383,6 +417,13 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
   <issue id="VectorPath" severity="ignore"/>
   <!-- These constructors are useful for layout editors which we currently do not support. -->
   <issue id="ViewConstructor" severity="ignore"/>
+  <!-- Triggered by ChromeImageView removal. -->
+  <issue id="UseCompoundDrawables">
+    <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_auto_browse.xml"/>
+    <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_default_tab_access.xml"/>
+    <ignore regexp="chrome/browser/ui/android/appmenu/internal/java/res/layout/submenu_header.xml"/>
+    <ignore regexp="chrome/browser/ui/android/toolbar/java/res/layout/sheet_tab_toolbar.xml"/>
+  </issue>
   <issue id="WrongConstant">
     <!-- Discussed in crbug.com/40125815, ignoring this class of errors since these are Q+ constants. -->
     <ignore regexp="Must be one of: LineBreaker.BREAK_STRATEGY_SIMPLE, LineBreaker.BREAK_STRATEGY_HIGH_QUALITY, LineBreaker.BREAK_STRATEGY_BALANCED"/>

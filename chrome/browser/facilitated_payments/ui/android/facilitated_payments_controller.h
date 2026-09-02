@@ -89,6 +89,7 @@ class FacilitatedPaymentsController {
   // linking.
   virtual void ShowPixAccountLinkingPrompt(
       int strike_count,
+      const std::string& account_email,
       base::OnceCallback<void()> on_accepted,
       base::OnceCallback<void()> on_declined);
 
@@ -103,13 +104,17 @@ class FacilitatedPaymentsController {
   // - `on_dismissed`: Invoked upon dismissal/teardown only if no other action
   // (accept/decline) was taken. Note: Only one prompt can be shown at a time.
   // If another prompt is already showing, the call is gracefully dropped and
-  // incoming callbacks are ignored (not run) to avoid tearing down the active
-  // UI and causing race conditions.
+  // the `on_dismissed` callback is discarded.
   virtual void ShowAccountLinkingPrompt(
       const payments::facilitated::AccountLinkingParams& params,
       base::OnceCallback<void()> on_accepted,
       base::OnceCallback<void()> on_declined,
       base::OnceCallback<void()> on_dismissed);
+
+  // Asks the `view_` to show the account linking failure notification. Virtual
+  // for overriding in tests.
+  virtual void ShowAccountLinkingFailureNotification(
+      payments::facilitated::FacilitatedPaymentsType fop_type);
 
   // Called by the Java view to communicate acceptance of Pix account linking
   // prompt.

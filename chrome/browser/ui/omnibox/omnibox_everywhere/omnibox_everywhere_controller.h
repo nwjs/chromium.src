@@ -9,6 +9,11 @@
 #include <string>
 
 #include "base/memory/raw_ptr.h"
+#include "base/scoped_observation.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/profiles/profile_manager_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_ui_manager.h"
 #include "components/prefs/pref_member.h"
 #include "ui/base/accelerators/global_accelerator_listener/global_accelerator_listener.h"
@@ -33,7 +38,9 @@ enum class InvocationSource {
 // Coordinator class that manages the Omnibox Everywhere desktop feature.
 // Exists as a process-global singleton owned by GlobalFeatures.
 class OmniboxEverywhereController
-    : public ui::GlobalAcceleratorListener::Observer {
+    : public ui::GlobalAcceleratorListener::Observer,
+      public ProfileManagerObserver,
+      public BrowserCollectionObserver {
  public:
   explicit OmniboxEverywhereController(
       OmniboxEverywhereUIManager::ContentsWrapperFactory
@@ -67,6 +74,23 @@ class OmniboxEverywhereController
   // Called during profile teardown to synchronously close the widget.
   void ShutdownForProfile(Profile* profile);
 
+  // Stops the background mode.
+  void ExitBackgroundMode();
+
+  // Sets the current target profile for Omnibox Everywhere and notifies the
+  // background mode manager.
+  void SetTargetProfile(Profile* profile);
+
+  // Returns the current target profile.
+  Profile* target_profile() const { return target_profile_; }
+
+  // ProfileManagerObserver:
+  void OnProfileAdded(Profile* profile) override;
+  void OnProfileManagerDestroying() override;
+
+  // BrowserCollectionObserver:
+  void OnBrowserActivated(BrowserWindowInterface* browser) override;
+
   // ui::GlobalAcceleratorListener::Observer:
   void OnKeyPressed(const ui::Accelerator& accelerator) override;
   void ExecuteCommand(const std::string& accelerator_group_id,
@@ -77,9 +101,17 @@ class OmniboxEverywhereController
   void OnProfilePicked(Profile* new_profile);
   void InvokeForActiveBrowserProfile(InvocationSource source);
 
-  // Resolves the target profile for the Omnibox Everywhere invocation.
-  // TODO(crbug.com/527183107): Implement a better profile selection heuristic.
-  Profile* GetTargetProfile();
+  // Returns the current target profile for Omnibox Everywhere.
+  Profile* GetTargetProfile() const;
+
+  // Returns true if `profile` is eligible to be set as the target profile.
+  bool IsProfileEligible(Profile* profile) const;
+
+  // Reads the persisted profile path from Local State preferences.
+  base::FilePath GetPersistedTargetProfilePath() const;
+
+  // Persists or clears the target profile path in Local State preferences.
+  void PersistTargetProfilePath(const base::FilePath& path);
 
   // Registers or unregisters the global hotkey accelerator according to feature
   // flag and preference settings.
@@ -89,6 +121,11 @@ class OmniboxEverywhereController
   std::unique_ptr<OmniboxEverywhereUIManager> ui_manager_;
   std::unique_ptr<OmniboxEverywhereBackgroundModeManager>
       background_mode_manager_;
+  raw_ptr<Profile> target_profile_ = nullptr;
+  base::ScopedObservation<ProfileManager, ProfileManagerObserver>
+      profile_manager_observation_{this};
+  base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
+      browser_collection_observation_{this};
   raw_ptr<ui::GlobalAcceleratorListener> listener_ = nullptr;
   base::WeakPtrFactory<OmniboxEverywhereController> weak_factory_{this};
 };

@@ -23,6 +23,8 @@
 #include "chrome/browser/keyboard_accessory/android/accessory_sheet_enums.h"
 #include "chrome/browser/keyboard_accessory/android/manual_filling_controller.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
 #include "components/password_manager/core/browser/credential_cache.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_manager.h"
@@ -221,13 +223,13 @@ void ManualFillingViewAndroid::SwapSheetWithKeyboard() {
 
 void ManualFillingViewAndroid::Show(
     WaitForKeyboard wait_for_keyboard,
-    IsCredentialFieldOrHasAutofillSuggestions
-        is_credential_field_or_has_autofill_suggestions) {
+    ShouldShowOnLargeFormFactor should_show_on_large_form_factor,
+    IsContentEditable is_content_editable) {
   TRACE_EVENT0("passwords", "ManualFillingViewAndroid::Show");
   if (auto obj = GetOrCreateJavaObject()) {
     Java_ManualFillingComponentBridge_show(
         base::android::AttachCurrentThread(), obj, wait_for_keyboard.value(),
-        is_credential_field_or_has_autofill_suggestions.value());
+        should_show_on_large_form_factor.value(), is_content_editable.value());
   }
 }
 
@@ -409,6 +411,39 @@ std::unique_ptr<ManualFillingViewInterface> ManualFillingViewInterface::Create(
     ManualFillingController* controller,
     content::WebContents* web_contents) {
   return std::make_unique<ManualFillingViewAndroid>(controller, web_contents);
+}
+
+static bool JNI_ManualFillingComponentBridge_IsAtMemoryEnabled(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_web_contents) {
+  content::WebContents* web_contents =
+      content::WebContents::FromJavaWebContents(j_web_contents);
+
+  autofill::ContentAutofillClient* autofill_client =
+      autofill::ContentAutofillClient::FromWebContents(web_contents);
+  // Not every `WebContents` has a `ContentAutofillClient`.
+  if (!autofill_client) {
+    return false;
+  }
+
+  const GURL& page_url = web_contents->GetLastCommittedURL();
+  return autofill::MayPerformAtMemoryAction(
+      autofill::AtMemoryAction::kTriggerSearchUI, *autofill_client, page_url);
+}
+
+static void JNI_ManualFillingComponentBridge_HideAtMemoryBottomSheet(
+    JNIEnv* env,
+    const base::android::JavaRef<jobject>& j_web_contents) {
+  content::WebContents* web_contents =
+      content::WebContents::FromJavaWebContents(j_web_contents);
+
+  autofill::ContentAutofillClient* autofill_client =
+      autofill::ContentAutofillClient::FromWebContents(web_contents);
+  if (autofill_client) {
+    autofill_client->HideSuggestions(
+        autofill::SuggestionHidingReason::kHiddenByCaller,
+        autofill::FillingProduct::kAtMemory);
+  }
 }
 
 DEFINE_JNI(ManualFillingComponentBridge)

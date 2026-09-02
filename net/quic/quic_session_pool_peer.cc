@@ -117,6 +117,10 @@ bool QuicSessionPoolPeer::IsLiveSession(QuicSessionPool* pool,
   return pool->all_sessions_.contains(session);
 }
 
+size_t QuicSessionPoolPeer::GetNumLiveSessions(QuicSessionPool* pool) {
+  return pool->all_sessions_.size();
+}
+
 void QuicSessionPoolPeer::SetTaskRunner(
     QuicSessionPool* pool,
     base::SequencedTaskRunner* task_runner) {
@@ -166,6 +170,13 @@ bool QuicSessionPoolPeer::CryptoConfigSessionCacheIsEmpty(
 
 size_t QuicSessionPoolPeer::GetNumDegradingSessions(QuicSessionPool* pool) {
   return pool->connectivity_monitor_.GetNumDegradingSessions();
+}
+
+QuicSessionEstablishmentReason
+QuicSessionPoolPeer::DetermineQuicSessionEstablishmentReasonForTesting(
+    QuicSessionPool* pool,
+    const QuicSessionKey& session_key) {
+  return pool->DetermineQuicSessionEstablishmentReason(session_key);
 }
 
 void QuicSessionPoolPeer::SetAlarmFactory(

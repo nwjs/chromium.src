@@ -10,6 +10,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -23,9 +24,9 @@ import androidx.fragment.app.FragmentManager;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 
-import org.chromium.base.supplier.ObservableSuppliers;
+import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplierImpl;
-import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -72,8 +73,24 @@ public class SettingsHostFragment extends Fragment
         }
         mDependencyProvider = dependencyProvider;
         if (isAdded()) {
+            // Register callbacks to add the dependency provider to future child fragments.
             getChildFragmentManager()
                     .registerFragmentLifecycleCallbacks(mDependencyProvider, /* recursive= */ true);
+
+            // Ensure existing child fragments have dependencies attached. This is necessary when
+            // the activity restarts, for example after a theme change.
+            attachDependenciesRecursively(getChildFragmentManager());
+        }
+    }
+
+    /** Attaches the {@link #mDependencyProvider} to child fragments recursively. */
+    private void attachDependenciesRecursively(FragmentManager fragmentManager) {
+        assert mDependencyProvider != null;
+        for (Fragment fragment : fragmentManager.getFragments()) {
+            if (fragment != null && fragment.isAdded()) {
+                mDependencyProvider.attachDependencies(fragmentManager, fragment);
+                attachDependenciesRecursively(fragment.getChildFragmentManager());
+            }
         }
     }
 
@@ -166,6 +183,7 @@ public class SettingsHostFragment extends Fragment
         if (mDependencyProvider != null) {
             getChildFragmentManager()
                     .registerFragmentLifecycleCallbacks(mDependencyProvider, /* recursive= */ true);
+            attachDependenciesRecursively(getChildFragmentManager());
         }
     }
 
@@ -186,8 +204,9 @@ public class SettingsHostFragment extends Fragment
     /**
      * Creates a temporary {@link FragmentDependencyProvider} for the current activity.
      *
-     * <p>This is only called when the fragment is attached to an activity and the dependency
-     * provider has not been set yet.
+     * <p>This is called when the fragment is attached to an activity during state restoration (e.g.
+     * theme change) before {@link #setDependencyProvider} is called by {@link
+     * SettingsPageFragmentDelegateImpl}.
      */
     private FragmentDependencyProvider createOnAttachDependencyProvider() {
         assert ProfileManager.isInitialized();
@@ -196,12 +215,12 @@ public class SettingsHostFragment extends Fragment
         OneshotSupplierImpl<SnackbarManager> snackbarSupplier = new OneshotSupplierImpl<>();
         OneshotSupplierImpl<BottomSheetController> bottomSheetSupplier =
                 new OneshotSupplierImpl<>();
-        SettableMonotonicObservableSupplier<ModalDialogManager> modalDialogSupplier =
-                ObservableSuppliers.createMonotonic();
         Activity activity = requireActivity();
         assert activity instanceof ChromeBaseAppCompatActivity;
         ChromeBaseAppCompatActivity chromeActivity = (ChromeBaseAppCompatActivity) activity;
         ActivityResultTracker activityResultTracker = chromeActivity.getActivityResultTracker();
+        MonotonicObservableSupplier<ModalDialogManager> modalDialogSupplier =
+                chromeActivity.getModalDialogManagerSupplier();
 
         return new FragmentDependencyProvider(
                 activity,
@@ -211,7 +230,7 @@ public class SettingsHostFragment extends Fragment
                 snackbarSupplier,
                 bottomSheetSupplier,
                 modalDialogSupplier,
-                () -> null);
+                SupplierUtils.ofNull());
     }
 
     @Override
@@ -286,6 +305,16 @@ public class SettingsHostFragment extends Fragment
     /** Returns the currently active fragment hosted by this fragment. */
     public @Nullable Fragment getActiveFragment() {
         return getChildFragmentManager().findFragmentById(CONTAINER_ID);
+    }
+
+    /** Returns whether the given fragment is a direct child of this host fragment. */
+    public boolean containsChild(Fragment fragment) {
+        if (!isAdded()) return false;
+
+        for (Fragment f : getChildFragmentManager().getFragments()) {
+            if (f == fragment) return true;
+        }
+        return false;
     }
 
     /**
@@ -406,5 +435,37 @@ public class SettingsHostFragment extends Fragment
         if (activeFragment instanceof MultiColumnSettings multiColumnSettings) {
             multiColumnSettings.getChildFragmentManager().executePendingTransactions();
         }
+    }
+
+    /** Updates containment styling for all attached child fragments recursively. */
+    public void updateContainmentForAttachedFragments() {
+        if (isAttachedToActivity() && mContainmentHelper != null) {
+            mContainmentHelper.updateContainmentForAttachedFragments(getChildFragmentManager());
+        }
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        updateContainmentForAttachedFragments();
+    }
+
+    /** Returns the number of entries in the child fragment manager back stack. */
+    public int getBackStackEntryCount() {
+        return isAdded() ? getChildFragmentManager().getBackStackEntryCount() : 0;
+    }
+
+    /** Pops the top entry from the child fragment manager back stack. */
+    public void popBackStack() {
+        assert isAdded();
+        getChildFragmentManager().popBackStack();
+    }
+
+    void setContainmentHelperForTesting(SettingsContainmentHelper containmentHelper) {
+        mContainmentHelper = containmentHelper;
+    }
+
+    public @Nullable FragmentDependencyProvider getDependencyProviderForTesting() {
+        return mDependencyProvider;
     }
 }

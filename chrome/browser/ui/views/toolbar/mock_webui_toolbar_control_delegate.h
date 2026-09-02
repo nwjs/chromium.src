@@ -37,6 +37,7 @@ class MockWebUIToolbarControlDelegate
               (),
               (override));
   MOCK_METHOD(views::View*, GetView, (), (override));
+  MOCK_METHOD(views::View*, GetInternalWebView, (), (override));
   MOCK_METHOD(content::WebContents*, GetWebContents, (), (override));
   MOCK_METHOD(void, AnnounceAlert, (const std::u16string&), (override));
   MOCK_METHOD(void, OnPreferredSizeChanged, (), (override));
@@ -53,6 +54,11 @@ class MockWebUIToolbarControlDelegate
               OnHomeControlStateChanged,
               (toolbar_ui_api::mojom::HomeControlStatePtr state),
               (override));
+  MOCK_METHOD(
+      void,
+      OnPerformanceInterventionControlStateChanged,
+      (toolbar_ui_api::mojom::PerformanceInterventionControlStatePtr state),
+      (override));
   MOCK_METHOD(void,
               OnAppMenuControlStateChanged,
               (toolbar_ui_api::mojom::AppMenuControlStatePtr state),

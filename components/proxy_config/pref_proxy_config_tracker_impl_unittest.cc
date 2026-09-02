@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "build/buildflag.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "components/policy/core/common/mock_policy_service.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_service.h"
@@ -35,8 +36,17 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
 
+#if BUILDFLAG(ENTERPRISE_PROXY)
+#include "components/enterprise/net/core/enterprise_proxy_service.h"
+#include "components/enterprise/net/core/mock_enterprise_proxy_service.h"
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+
 using testing::_;
 using testing::Mock;
+
+#if BUILDFLAG(ENTERPRISE_PROXY)
+using enterprise_net::MockEnterpriseProxyService;
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
 
 namespace {
 
@@ -108,7 +118,12 @@ class PrefProxyConfigTrackerImplTest : public testing::Test {
         .WillByDefault(testing::ReturnRef(empty_policy_map_));
     proxy_config_tracker_ = std::make_unique<PrefProxyConfigTrackerImpl>(
         pref_service_.get(), base::SingleThreadTaskRunner::GetCurrentDefault(),
-        policy_service_);
+        policy_service_
+#if BUILDFLAG(ENTERPRISE_PROXY)
+        ,
+        enterprise_proxy_service_
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+    );
     proxy_config_service_ =
         proxy_config_tracker_->CreateTrackingProxyConfigService(
             std::unique_ptr<net::ProxyConfigService>(delegate_service_));
@@ -127,6 +142,21 @@ class PrefProxyConfigTrackerImplTest : public testing::Test {
   std::unique_ptr<net::ProxyConfigService> proxy_config_service_;
   net::ProxyConfigWithAnnotation fixed_config_;
   std::unique_ptr<PrefProxyConfigTrackerImpl> proxy_config_tracker_;
+#if BUILDFLAG(ENTERPRISE_PROXY)
+  testing::NiceMock<MockEnterpriseProxyService> mock_enterprise_proxy_service_;
+  raw_ptr<enterprise_net::EnterpriseProxyService> enterprise_proxy_service_ =
+      &mock_enterprise_proxy_service_;
+  void SetActiveDynamicRoutingConfig(
+      const net::ProxyConfig::DynamicRoutingConfig& config) {
+    EXPECT_CALL(mock_enterprise_proxy_service_, GetDynamicRoutingConfig())
+        .WillRepeatedly(testing::Return(config));
+    mock_enterprise_proxy_service_.NotifyObservers();
+  }
+#else
+  void SetActiveDynamicRoutingConfig(
+      const net::ProxyConfig::DynamicRoutingConfig& config) {}
+#endif  // BUILDFLAG(ENTERPRISE_PROXY)
+
   policy::PolicyMap empty_policy_map_;
   testing::NiceMock<policy::MockPolicyService> mock_policy_service_;
   raw_ptr<policy::PolicyService> policy_service_ = &mock_policy_service_;
@@ -502,12 +532,46 @@ TEST_F(PrefProxyConfigTrackerImplTest, DelegateConfigServiceGetsConfigLate) {
 
 class PrefProxyConfigOverrideRulesTest : public PrefProxyConfigTrackerImplTest {
  public:
-  void SetOverrideRules(const std::string& pref) {
-    pref_service_->SetManagedPref(
-        proxy_config::prefs::kProxyOverrideRules,
-        std::make_unique<base::Value>(
-            *base::JSONReader::Read(pref, base::JSON_ALLOW_TRAILING_COMMAS)));
-    base::RunLoop().RunUntilIdle();
+  void SetOverrideRulesInternal(const std::string& pref,
+                                bool is_extension = false,
+                                bool is_valid = true) {
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+    pref_service_->SetInteger(
+        proxy_config::prefs::kEnableProxyOverrideRulesForAllUsers, 1);
+#endif
+    auto set_pref = [&] {
+      auto val = std::make_unique<base::Value>(
+          *base::JSONReader::Read(pref, base::JSON_ALLOW_TRAILING_COMMAS));
+      if (is_extension) {
+        pref_service_->SetExtensionPref(
+            proxy_config::prefs::kProxyOverrideRules, std::move(val));
+      } else {
+        pref_service_->SetManagedPref(proxy_config::prefs::kProxyOverrideRules,
+                                      std::move(val));
+      }
+    };
+
+    if (is_valid) {
+      base::RunLoop run_loop;
+      MockObserver observer;
+      EXPECT_CALL(observer, OnProxyConfigChanged(testing::_, testing::_))
+          .WillOnce(testing::InvokeWithoutArgs([&] { run_loop.Quit(); }));
+      proxy_config_service_->AddObserver(&observer);
+      set_pref();
+      run_loop.Run();
+      proxy_config_service_->RemoveObserver(&observer);
+    } else {
+      set_pref();
+    }
+  }
+
+  void SetOverrideRules(const std::string& pref, bool is_valid = true) {
+    SetOverrideRulesInternal(pref, /*is_extension=*/false, is_valid);
+  }
+
+  void SetExtensionOverrideRules(const std::string& pref,
+                                 bool is_valid = true) {
+    SetOverrideRulesInternal(pref, /*is_extension=*/true, is_valid);
   }
 
  private:
@@ -908,7 +972,7 @@ TEST_F(PrefProxyConfigOverrideRulesTest, DNSProbeHostValues) {
 TEST_F(PrefProxyConfigOverrideRulesTest, NonListValues) {
   InitConfigService(net::ProxyConfigService::CONFIG_VALID);
   for (const char* value : {"1234", "false", "null", "\"abce\""}) {
-    SetOverrideRules(value);
+    SetOverrideRules(value, /*is_valid=*/false);
 
     net::ProxyConfigWithAnnotation actual_config;
     EXPECT_EQ(net::ProxyConfigService::CONFIG_VALID,
@@ -925,7 +989,8 @@ TEST_F(PrefProxyConfigOverrideRulesTest, InvalidTypesInList) {
              "abcd",
              false,
              null,
-         ])");
+         ])",
+      /*is_valid=*/false);
 
   net::ProxyConfigWithAnnotation actual_config;
   EXPECT_EQ(net::ProxyConfigService::CONFIG_VALID,
@@ -1210,5 +1275,231 @@ TEST_F(PrefProxyConfigOverrideRulesTest, InvalidDictsInList) {
   EXPECT_EQ(rule.dns_conditions.at(0).result,
             net::ProxyConfig::ProxyOverrideRule::DnsProbeCondition::kResolved);
 }
+
+TEST_F(PrefProxyConfigOverrideRulesTest,
+       PolicyOverrideRulesWhenSystemProxyUnset) {
+  InitConfigService(net::ProxyConfigService::CONFIG_UNSET);
+
+  SetOverrideRules(
+      R"([
+             {
+                 "DestinationMatchers": [
+                     "https://managed.example.com",
+                 ],
+                 "ProxyList": [
+                     "HTTPS managed-proxy.example.com:443",
+                 ]
+             }
+         ])");
+
+  net::ProxyConfigWithAnnotation actual_config;
+  EXPECT_EQ(net::ProxyConfigService::CONFIG_VALID,
+            proxy_config_service_->GetLatestProxyConfig(&actual_config));
+
+  // When system proxy is unset, baseline has no main proxy settings with
+  // override rules attached.
+  EXPECT_FALSE(actual_config.value().has_pac_url());
+  EXPECT_TRUE(actual_config.value().proxy_rules().empty());
+  EXPECT_EQ(actual_config.value().proxy_override_rules().size(), 1u);
+  const auto& rule = actual_config.value().proxy_override_rules().at(0);
+  // Destination matchers contains 2 rules: the URL pattern and an implicit rule
+  // ("<-loopback>") automatically added by AddRulesToSubtractImplicit().
+  EXPECT_EQ(rule.destination_matchers.rules().size(), 2u);
+  EXPECT_EQ(rule.destination_matchers.rules().at(0)->ToString(),
+            "https://managed.example.com");
+  EXPECT_EQ(rule.destination_matchers.rules().at(1)->ToString(), "<-loopback>");
+  EXPECT_EQ(rule.proxy_list.size(), 1u);
+  EXPECT_EQ(
+      rule.proxy_list.AllChains().at(0),
+      net::PacResultElementToProxyChain("HTTPS managed-proxy.example.com:443"));
+}
+
+TEST_F(PrefProxyConfigOverrideRulesTest,
+       PolicyOverrideRulesWhenSystemProxyValid) {
+  InitConfigService(net::ProxyConfigService::CONFIG_VALID);
+
+  SetOverrideRules(
+      R"([
+             {
+                 "DestinationMatchers": [
+                     "https://managed.example.com",
+                 ],
+                 "ProxyList": [
+                     "HTTPS managed-proxy.example.com:443",
+                 ]
+             }
+         ])");
+
+  net::ProxyConfigWithAnnotation actual_config;
+  EXPECT_EQ(net::ProxyConfigService::CONFIG_VALID,
+            proxy_config_service_->GetLatestProxyConfig(&actual_config));
+
+  // System proxy settings (PAC URL) must be preserved alongside override rules.
+  EXPECT_EQ(actual_config.value().pac_url(), GURL(kFixedPacUrl));
+  EXPECT_EQ(actual_config.value().proxy_override_rules().size(), 1u);
+  const auto& rule = actual_config.value().proxy_override_rules().at(0);
+  EXPECT_EQ(rule.destination_matchers.rules().size(), 2u);
+  EXPECT_EQ(rule.destination_matchers.rules().at(0)->ToString(),
+            "https://managed.example.com");
+  EXPECT_EQ(rule.destination_matchers.rules().at(1)->ToString(), "<-loopback>");
+  EXPECT_EQ(rule.proxy_list.size(), 1u);
+  EXPECT_EQ(
+      rule.proxy_list.AllChains().at(0),
+      net::PacResultElementToProxyChain("HTTPS managed-proxy.example.com:443"));
+}
+
+TEST_F(PrefProxyConfigOverrideRulesTest,
+       ExtensionOverrideRulesWhenSystemProxyUnset) {
+  InitConfigService(net::ProxyConfigService::CONFIG_UNSET);
+
+  SetExtensionOverrideRules(
+      R"([
+             {
+                 "DestinationMatchers": [
+                     "https://extension.example.com",
+                 ],
+                 "ProxyList": [
+                     "HTTPS ext-proxy.example.com:443",
+                 ]
+             }
+         ])");
+
+  net::ProxyConfigWithAnnotation actual_config;
+  EXPECT_EQ(net::ProxyConfigService::CONFIG_VALID,
+            proxy_config_service_->GetLatestProxyConfig(&actual_config));
+
+  // When system proxy is unset, baseline has no main proxy settings with
+  // override rules attached.
+  EXPECT_FALSE(actual_config.value().has_pac_url());
+  EXPECT_TRUE(actual_config.value().proxy_rules().empty());
+  EXPECT_EQ(actual_config.value().proxy_override_rules().size(), 1u);
+  const auto& rule = actual_config.value().proxy_override_rules().at(0);
+  EXPECT_EQ(rule.destination_matchers.rules().size(), 2u);
+  EXPECT_EQ(rule.destination_matchers.rules().at(0)->ToString(),
+            "https://extension.example.com");
+  EXPECT_EQ(rule.destination_matchers.rules().at(1)->ToString(), "<-loopback>");
+  EXPECT_EQ(rule.proxy_list.size(), 1u);
+  EXPECT_EQ(
+      rule.proxy_list.AllChains().at(0),
+      net::PacResultElementToProxyChain("HTTPS ext-proxy.example.com:443"));
+}
+
+TEST_F(PrefProxyConfigOverrideRulesTest,
+       ExtensionOverrideRulesWhenSystemProxyValid) {
+  InitConfigService(net::ProxyConfigService::CONFIG_VALID);
+
+  SetExtensionOverrideRules(
+      R"([
+             {
+                 "DestinationMatchers": [
+                     "https://extension.example.com",
+                 ],
+                 "ProxyList": [
+                     "HTTPS ext-proxy.example.com:443",
+                 ]
+             }
+         ])");
+
+  net::ProxyConfigWithAnnotation actual_config;
+  EXPECT_EQ(net::ProxyConfigService::CONFIG_VALID,
+            proxy_config_service_->GetLatestProxyConfig(&actual_config));
+
+  // System proxy settings (PAC URL) must be preserved alongside override rules.
+  EXPECT_EQ(actual_config.value().pac_url(), GURL(kFixedPacUrl));
+  EXPECT_EQ(actual_config.value().proxy_override_rules().size(), 1u);
+  const auto& rule = actual_config.value().proxy_override_rules().at(0);
+  EXPECT_EQ(rule.destination_matchers.rules().size(), 2u);
+  EXPECT_EQ(rule.destination_matchers.rules().at(0)->ToString(),
+            "https://extension.example.com");
+  EXPECT_EQ(rule.destination_matchers.rules().at(1)->ToString(), "<-loopback>");
+  EXPECT_EQ(rule.proxy_list.size(), 1u);
+  EXPECT_EQ(
+      rule.proxy_list.AllChains().at(0),
+      net::PacResultElementToProxyChain("HTTPS ext-proxy.example.com:443"));
+}
+
+#if BUILDFLAG(ENTERPRISE_PROXY)
+TEST_F(PrefProxyConfigTrackerImplTest, DynamicRoutingConfigStatusChanged) {
+  InitConfigService(net::ProxyConfigService::CONFIG_UNSET);
+
+  MockObserver observer;
+  proxy_config_service_->AddObserver(&observer);
+
+  auto update_and_capture =
+      [&](const net::ProxyConfig::DynamicRoutingConfig& config) {
+        base::RunLoop run_loop;
+        net::ProxyConfigWithAnnotation captured_config;
+        EXPECT_CALL(observer,
+                    OnProxyConfigChanged(testing::_,
+                                         net::ProxyConfigService::CONFIG_VALID))
+            .WillOnce(
+                [&](const net::ProxyConfigWithAnnotation& cfg,
+                    net::ProxyConfigService::ConfigAvailability availability) {
+                  captured_config = cfg;
+                  run_loop.Quit();
+                });
+
+        SetActiveDynamicRoutingConfig(config);
+        run_loop.Run();
+        return captured_config;
+      };
+
+  // Dynamic routing update with in_progress = true.
+  net::ProxyConfig::DynamicRoutingConfig in_progress_config;
+  in_progress_config.is_update_in_progress = true;
+  net::ProxyConfigWithAnnotation captured_in_progress =
+      update_and_capture(in_progress_config);
+  EXPECT_TRUE(captured_in_progress.value()
+                  .dynamic_routing_config()
+                  .is_update_in_progress);
+  EXPECT_TRUE(captured_in_progress.value()
+                  .dynamic_routing_config()
+                  .routing_rules.empty());
+
+  // Another dynamic routing update but with in_progress = false.
+  net::ProxyConfig::DynamicRoutingConfig resolved_config;
+  resolved_config.is_update_in_progress = false;
+  net::ProxyConfig::DynamicRoutingRule rule;
+  rule.proxy_list.AddProxyChain(net::ProxyUriToProxyChain(
+      "https://proxy.example.com:443", net::ProxyServer::SCHEME_HTTPS));
+  resolved_config.routing_rules.push_back(rule);
+  net::ProxyConfigWithAnnotation captured_resolved =
+      update_and_capture(resolved_config);
+  EXPECT_FALSE(
+      captured_resolved.value().dynamic_routing_config().is_update_in_progress);
+  EXPECT_EQ(
+      1u,
+      captured_resolved.value().dynamic_routing_config().routing_rules.size());
+
+  // Policy pref change combined with active dynamic routing rules.
+  {
+    base::RunLoop run_loop;
+    net::ProxyConfigWithAnnotation captured_config;
+    EXPECT_CALL(
+        observer,
+        OnProxyConfigChanged(testing::_, net::ProxyConfigService::CONFIG_VALID))
+        .WillOnce(
+            [&](const net::ProxyConfigWithAnnotation& config,
+                net::ProxyConfigService::ConfigAvailability availability) {
+              captured_config = config;
+              run_loop.Quit();
+            });
+
+    pref_service_->SetManagedPref(
+        proxy_config::prefs::kProxy,
+        std::make_unique<base::Value>(ProxyConfigDictionary::CreateFixedServers(
+            "http://policy-proxy.example.com:8080", std::string())));
+    run_loop.Run();
+
+    EXPECT_EQ(net::ProxyConfig::ProxyRules::Type::PROXY_LIST,
+              captured_config.value().proxy_rules().type);
+    EXPECT_EQ(
+        1u,
+        captured_config.value().dynamic_routing_config().routing_rules.size());
+  }
+
+  proxy_config_service_->RemoveObserver(&observer);
+}
+#endif
 
 }  // namespace

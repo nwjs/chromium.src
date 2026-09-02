@@ -59,6 +59,14 @@ class CORE_EXPORT ClipboardCommands {
   FRIEND_TEST_ALL_PREFIXES(ClipboardTest,
                            PasteEventInterruptedReadTextRejected);
   FRIEND_TEST_ALL_PREFIXES(ClipboardTest, PasteEventInterruptedReadRejected);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardTest,
+                           PasteEventReadTextPausedAfterCallRejected);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardTest,
+                           PasteEventReadPausedAfterCallRejected);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardTest,
+                           GlobalSelectionPasteEventReadTextRequiresPermission);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardTest,
+                           GlobalSelectionPasteEventGrantedReadTextResolves);
 
  public:
   static bool EnabledCopy(LocalFrame&, Event*, EditorCommandSource);
@@ -133,7 +141,7 @@ class CORE_EXPORT ClipboardCommands {
   static void PasteAsPlainTextFromClipboard(LocalFrame&, EditorCommandSource);
   static void PasteFromClipboard(LocalFrame&,
                                  EditorCommandSource,
-                                 DataTransfer* = nullptr);
+                                 DataTransfer*);
   static void PasteFromImageUrl(LocalFrame&, EditorCommandSource, String);
 
   using FragmentAndPlainText = std::pair<DocumentFragment*, const bool>;

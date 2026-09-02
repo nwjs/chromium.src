@@ -23,6 +23,7 @@
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/common/webui_url_constants.h"
@@ -141,6 +142,43 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithEmptyConversationId) {
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithValidConversationIdSmokeTest) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(
+      glic::Target(*tab, glic::ConversationId("test-conversation-id")),
+      mojom::InvocationSource::kOsButton);
+  options.on_success = success_future.GetCallback();
+
+  EXPECT_FALSE(GetInstanceForTab(tab));
+
+  coordinator().Invoke(std::move(options));
+
+  EXPECT_TRUE(success_future.Wait());
+  EXPECT_TRUE(GetInstanceForTab(tab));
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithNewConversationSpawnsNewInstance) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  ASSERT_OK_AND_ASSIGN(auto* instance1, OpenGlicForActiveTab());
+  EXPECT_EQ(GetInstanceForTab(tab), instance1);
+
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(glic::Target(*tab, glic::NewConversation{}),
+                            mojom::InvocationSource::kOsButton);
+  options.on_success = success_future.GetCallback();
+
+  coordinator().Invoke(std::move(options));
+
+  EXPECT_TRUE(success_future.Wait());
+
+  auto* instance2 = GetInstanceForTab(tab);
+  ASSERT_TRUE(instance2);
+  EXPECT_NE(instance1, instance2);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
                        InvokeFailsWhenProfileNotEnabled) {
   ScopedGlicCapability scoped_glic_capability(GetProfile(), false);
 
@@ -240,6 +278,39 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeCallsOnClientConnected) {
   EXPECT_EQ(instance.get(), GetInstanceForTab(tab));
 
   // The success callback should be called after full completion.
+  EXPECT_TRUE(success_future.Wait());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithoutActionableOptionsSucceeds) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(glic::Target(*tab),
+                            mojom::InvocationSource::kOsButton);
+  options.on_success = success_future.GetCallback();
+
+  // Call invoke without any actionable fields (empty prompts, empty payload,
+  // etc.).
+  coordinator().Invoke(std::move(options));
+
+  // The success callback should be called immediately after panel creation.
+  EXPECT_TRUE(success_future.Wait());
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithActionableOptionsSucceeds) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(glic::Target(*tab),
+                            mojom::InvocationSource::kOsButton);
+  options.prompts.push_back("Actionable prompt");
+  options.on_success = success_future.GetCallback();
+
+  // Call invoke with an actionable field to ensure the IPC triggers correctly.
+  coordinator().Invoke(std::move(options));
+
+  // The success callback should be called after the web client acks the mojo
+  // call.
   EXPECT_TRUE(success_future.Wait());
 }
 
@@ -397,6 +468,33 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWhileInvokeInProgress) {
 
   // The second invoke should fail synchronously.
   EXPECT_EQ(error_future2.Get(), GlicInvokeError::kInvokeInProgress);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeSupersedesInProgress) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+
+  base::test::TestFuture<GlicInvokeError> error_future1;
+  GlicInvokeOptions options1(glic::Target(*tab),
+                             mojom::InvocationSource::kOsButton);
+  options1.on_error = error_future1.GetCallback();
+
+  coordinator().Invoke(std::move(options1));
+
+  base::test::TestFuture<void> success_future2;
+  GlicInvokeOptions options2(glic::Target(*tab),
+                             mojom::InvocationSource::kOsButton);
+  options2.supersede_if_in_progress = true;
+  options2.on_success = success_future2.GetCallback();
+
+  // Try to invoke again while the first one is still in progress for the same
+  // instance, but this time specify that it should supersede the first.
+  coordinator().Invoke(std::move(options2));
+
+  // The first invoke should fail synchronously.
+  EXPECT_EQ(error_future1.Get(), GlicInvokeError::kSuperseded);
+
+  // The second invoke should succeed.
+  EXPECT_TRUE(success_future2.Wait());
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeTimeoutBehaviors) {
@@ -575,6 +673,55 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithSkillIdSmokeTest) {
                             mojom::InvocationSource::kOsButton);
   options.on_success = success_future.GetCallback();
   options.skill_id = "test_skill_id";
+
+  coordinator().Invoke(std::move(options));
+
+  EXPECT_TRUE(success_future.Wait());
+
+  GlicInstanceImpl* instance = GetInstanceForTab(tab);
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK(WaitForGlicClient(instance));
+}
+
+// Verifies that invoking with an InvocationPayloadPtr doesn't cause crashes or
+// failures during the mapping of source_or_payload.
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithUniversalCartPayloadSmokeTest) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+
+  base::test::TestFuture<void> success_future;
+  // Construct options via payload branch instead of just InvocationSource enum.
+  GlicInvokeOptions options(glic::Target(*tab),
+                            mojom::InvocationPayload::NewUniversalCart(
+                                mojom::UniversalCartPayload::New()));
+  options.on_success = success_future.GetCallback();
+
+  EXPECT_FALSE(GetInstanceForTab(tab));
+
+  coordinator().Invoke(std::move(options));
+
+  EXPECT_TRUE(success_future.Wait());
+
+  GlicInstanceImpl* instance = GetInstanceForTab(tab);
+  ASSERT_TRUE(instance);
+
+  ASSERT_OK(WaitForGlicClient(instance));
+}
+
+// Verifies that invoking with an explicit TargetSurface actuation target
+// successfully configures and pipes through.
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       InvokeWithTargetSurfaceActuationTargetSmokeTest) {
+  tabs::TabInterface* tab = GetTabListInterface()->GetActiveTab();
+
+  base::test::TestFuture<void> success_future;
+  GlicInvokeOptions options(glic::Target(*tab),
+                            mojom::InvocationSource::kOsButton);
+  options.target.actuation_target = mojom::ActuationTarget::kTargetSurface;
+  options.on_success = success_future.GetCallback();
+
+  EXPECT_FALSE(GetInstanceForTab(tab));
 
   coordinator().Invoke(std::move(options));
 
@@ -789,11 +936,8 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTestWithoutActor,
   EXPECT_EQ(error_future.Get(), GlicInvokeError::kInvalidConfiguration);
 }
 
-// TODO(crbug.com/529441715): Re-enable this test on Android once flakiness is
-// fixed.
-#if !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithInvalidContextData) {
-  tabs::TabInterface* tab = CreateAndActivateTab(GURL("about:blank"));
+  tabs::TabInterface* tab = CreateUserInitiatedTab(GURL("about:blank"));
   ASSERT_TRUE(content::NavigateToURL(tab->GetContents(), GURL("about:blank")));
 
   // Create mock AdditionalContext with an invalid mime_type.
@@ -823,7 +967,7 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithInvalidContextData) {
 
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
                        InvokeHiddenClientRevertsVisibilityOnFailure) {
-  tabs::TabInterface* tab = CreateAndActivateTab(GURL("about:blank"));
+  tabs::TabInterface* tab = CreateUserInitiatedTab(GURL("about:blank"));
   ASSERT_TRUE(content::NavigateToURL(tab->GetContents(), GURL("about:blank")));
 
   // Set up invocation that we know will fail (PastePolicyCheck).
@@ -861,7 +1005,7 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
                        InvokeWithInvalidContextMultipleFormats) {
-  tabs::TabInterface* tab = CreateAndActivateTab(GURL("about:blank"));
+  tabs::TabInterface* tab = CreateUserInitiatedTab(GURL("about:blank"));
   ASSERT_TRUE(content::NavigateToURL(tab->GetContents(), GURL("about:blank")));
 
   // Create mock AdditionalContext with both image/png and text formats.
@@ -893,7 +1037,6 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
   EXPECT_EQ(error_future.Get(), GlicInvokeError::kInvalidConfiguration);
   EXPECT_FALSE(GetInstanceForTab(tab));
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, InvokeWithTabsToPin) {
   tabs::TabInterface* tab1 = GetTabListInterface()->GetActiveTab();
   tabs::TabInterface* tab2 = CreateUserInitiatedTab(GURL("about:blank"));
@@ -956,6 +1099,51 @@ IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
 
   // Clean up the new window.
   CloseBrowserSynchronously(new_browser);
+}
+
+IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest,
+                       ResolveTargetSurfaceSkipsAppWindow) {
+  BrowserWindowInterface* app_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
+          "test_app", /*trusted_source=*/true, gfx::Rect(), GetProfile(),
+          /*user_gesture=*/true));
+  app_browser->GetWindow()->Show();
+
+  // 1. DefaultSurface targeting app_browser falls back to a normal browser.
+  {
+    BrowserWindowInterface* fallback_browser = nullptr;
+    {
+      Target target;
+      target.surface = DefaultSurface{app_browser};
+      auto resolved =
+          GlicInvokeHandler::ResolveTargetSurface(GetProfile(), target);
+      ASSERT_TRUE(
+          std::holds_alternative<GlicInvokeHandler::TabSurface>(resolved));
+      auto tab_surface = std::get<GlicInvokeHandler::TabSurface>(resolved);
+      fallback_browser = tab_surface.tab->GetBrowserWindowInterface();
+      EXPECT_NE(fallback_browser, app_browser);
+    }
+    CloseBrowserSynchronously(fallback_browser);
+  }
+
+  // 2. NewTab targeting app_browser falls back to a normal browser.
+  {
+    BrowserWindowInterface* fallback_browser = nullptr;
+    {
+      Target target;
+      target.surface = NewTab{app_browser};
+      auto resolved =
+          GlicInvokeHandler::ResolveTargetSurface(GetProfile(), target);
+      ASSERT_TRUE(
+          std::holds_alternative<GlicInvokeHandler::TabSurface>(resolved));
+      auto tab_surface = std::get<GlicInvokeHandler::TabSurface>(resolved);
+      fallback_browser = tab_surface.tab->GetBrowserWindowInterface();
+      EXPECT_NE(fallback_browser, app_browser);
+    }
+    CloseBrowserSynchronously(fallback_browser);
+  }
+
+  CloseBrowserSynchronously(app_browser);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicInvokeBrowserTest, ResolveTargetSurfaceFloating) {

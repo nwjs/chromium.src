@@ -193,8 +193,9 @@ gfx::Rect RemoteFrameView::ComputeCompositingRect() const {
       TransformState::kApplyTransformDirection);
   local_root_transform_state.Move(
       owner_layout_object->PhysicalContentBoxRect().offset);
-  owner_layout_object->MapLocalToAncestor(nullptr, local_root_transform_state,
-                                          kTraverseDocumentBoundaries);
+  owner_layout_object->MapLocalToAncestor(
+      nullptr, local_root_transform_state,
+      {MapCoordinatesMode::kTraverseDocumentBoundaries});
   gfx::Transform matrix =
       local_root_transform_state.AccumulatedTransform().InverseOrIdentity();
   PhysicalRect local_viewport_rect = PhysicalRect::EnclosingRect(
@@ -267,8 +268,9 @@ void RemoteFrameView::UpdateCompositingScaleFactor() {
       TransformState::kApplyTransformDirection);
   local_root_transform_state.Move(
       owner_layout_object->PhysicalContentBoxRect().offset);
-  owner_layout_object->MapLocalToAncestor(nullptr, local_root_transform_state,
-                                          kTraverseDocumentBoundaries);
+  owner_layout_object->MapLocalToAncestor(
+      nullptr, local_root_transform_state,
+      {MapCoordinatesMode::kTraverseDocumentBoundaries});
 
   float frame_to_local_root_scale_factor = 1.0f;
   gfx::Transform local_root_transform =
@@ -316,7 +318,7 @@ void RemoteFrameView::Dispose() {
 void RemoteFrameView::SetFrameRect(const gfx::Rect& rect) {
   const std::optional<gfx::Size> old_frozen_size = frozen_size_;
   UpdateFrozenSize();
-  const bool frame_rect_changed = FrameRect() != rect;
+  const bool frame_rect_changed = DeprecatedFrameRect() != rect;
   EmbeddedContentView::SetFrameRect(rect);
   if (frame_rect_changed || old_frozen_size != frozen_size_) {
     UpdateCompositingRect();
@@ -348,7 +350,7 @@ void RemoteFrameView::PropagateFrameRects() {
   // containing local frame root. The position of the local root within
   // any remote frames, if any, is accounted for by the embedder.
   needs_frame_rect_propagation_ = false;
-  gfx::Rect frame_rect(FrameRect());
+  gfx::Rect frame_rect(DeprecatedFrameRect());
   gfx::Rect rect_in_local_root = frame_rect;
 
   if (LocalFrameView* parent = ParentFrameView()) {
@@ -360,10 +362,12 @@ void RemoteFrameView::PropagateFrameRects() {
 }
 
 void RemoteFrameView::Paint(const PaintInfo& paint_info,
-                            const CullRect& rect,
+                            const CullRect& cull_rect,
                             const gfx::Vector2d& paint_offset) const {
-  if (!rect.Intersects(FrameRect()))
+  if (!RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled() &&
+      !cull_rect.Rect().Intersects(DeprecatedFrameRect())) {
     return;
+  }
 
   GraphicsContext& context = paint_info.context;
 
@@ -376,14 +380,18 @@ void RemoteFrameView::Paint(const PaintInfo& paint_info,
     DCHECK(context.Canvas());
 
     uint32_t content_id = 0;
+    gfx::Rect rect(Size());
+    if (!RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+      rect.set_origin(DeprecatedLocation());
+    }
     if (owner_layout_object.GetDocument().Printing()) {
       // Inform the remote frame to print.
-      content_id = Print(FrameRect(), context.Canvas());
+      content_id = Print(rect, context.Canvas());
     } else {
       DCHECK_NE(Document::kNotPaintingPreview,
                 owner_layout_object.GetDocument().GetPaintPreviewState());
       // Inform the remote frame to capture a paint preview.
-      content_id = CapturePaintPreview(FrameRect(), context.Canvas());
+      content_id = CapturePaintPreview(rect, context.Canvas());
     }
     // Record the place holder id on canvas.
     context.Canvas()->recordCustomData(content_id);
@@ -391,9 +399,13 @@ void RemoteFrameView::Paint(const PaintInfo& paint_info,
   }
 
   if (GetFrame().GetCcLayer() && !paint_info.IsPrivacyPreserving()) {
-    RecordForeignLayer(
-        context, owner_layout_object, DisplayItem::kForeignLayerRemoteFrame,
-        GetFrame().GetCcLayer(), FrameRect().origin() + paint_offset);
+    gfx::Point origin = gfx::PointAtOffsetFromOrigin(paint_offset);
+    if (!RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+      origin += DeprecatedLocation().OffsetFromOrigin();
+    }
+    RecordForeignLayer(context, owner_layout_object,
+                       DisplayItem::kForeignLayerRemoteFrame,
+                       GetFrame().GetCcLayer(), origin);
   }
 }
 

@@ -21,11 +21,11 @@
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_source.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/features.h"
@@ -99,24 +99,6 @@ using base::UserMetricsAction;
 using content::WebContents;
 
 namespace {
-
-void DialogTimingToSource(
-    base::OnceCallback<void(CloseTabSource)> callback,
-    CloseTabSource source,
-    tab_groups::DeletionDialogController::DeletionDialogTiming timing) {
-  switch (timing) {
-    case tab_groups::DeletionDialogController::DeletionDialogTiming::
-        Synchronous: {
-      std::move(callback).Run(source);
-      return;
-    }
-    case tab_groups::DeletionDialogController::DeletionDialogTiming::
-        Asynchronous: {
-      std::move(callback).Run(CloseTabSource::kFromNonUIEvent);
-      return;
-    }
-  }
-}
 
 TabStripUserGestureDetails GetGestureDetail(const ui::Event& event) {
   TabStripUserGestureDetails gesture_detail(
@@ -217,6 +199,8 @@ void BrowserTabStripController::InitFromModel(TabStrip* tabstrip) {
     OnGlassFrameEligibilityChanged(
         service->IsBrowserWindowEligible(browser_view_->browser()));
   }
+
+  UpdateAllTabsFocusFreezing();
 }
 
 void BrowserTabStripController::Reset() {
@@ -343,87 +327,11 @@ void BrowserTabStripController::OnCloseTab(
     int model_index,
     CloseTabSource source,
     base::OnceCallback<void(CloseTabSource)> callback) {
-  if (!web_app::IsTabClosable(model_, model_index)) {
+  tabs::TabInterface* tab = model_->GetTabAtIndex(model_index);
+  if (!tab) {
     return;
   }
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // Tabs cannot be closed when the app is in locked fullscreen, which is
-  // available only on ChromeOS.
-  if (browser_view_->IsLockedFullscreen()) {
-    return;
-  }
-#endif
-
-  // Only consider pausing the close operation if this is the last remaining
-  // tab (since otherwise closing it won't close the browser window).
-  if (GetCount() <= 1) {
-    // Closing this tab will close the current window. See if the browser wants
-    // to prompt the user before the browser is allowed to close.
-    const UnloadController::WarnBeforeClosingResult result =
-        UnloadController::From(browser_view_->browser())
-            ->MaybeWarnBeforeClosing(base::BindOnce(
-                [](TabStrip* tab_strip, int model_index,
-                   UnloadController::WarnBeforeClosingResult result) {
-                  if (result ==
-                      UnloadController::WarnBeforeClosingResult::kOkToClose) {
-                    tab_strip->CloseTab(tab_strip->tab_at(model_index),
-                                        CloseTabSource::kFromNonUIEvent);
-                  }
-                },
-                base::Unretained(tabstrip_), model_index));
-
-    if (result != UnloadController::WarnBeforeClosingResult::kOkToClose) {
-      return;
-    }
-  }
-
-  // Check to make sure the tab is not the last in it's group.
-  std::vector<tab_groups::TabGroupId> groups_to_delete =
-      model_->GetGroupsDestroyedFromRemovingIndices({model_index});
-
-  if (groups_to_delete.empty()) {
-    std::move(callback).Run(source);
-    return;
-  }
-
-  auto timing_mapped_callback =
-      base::BindOnce(&DialogTimingToSource, std::move(callback), source);
-
-  // If the user is destroying the last tab in a saved or shared group via the
-  // tabstrip, a dialog is shown that will decide whether to destroy the tab or
-  // not. It will first ungroup the tab, then close the tab.
-  tab_groups::SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
-      browser_view_->browser(), tab_groups::GroupDeletionReason::ClosedLastTab,
-      groups_to_delete, std::move(timing_mapped_callback));
-}
-
-void BrowserTabStripController::CloseTab(int model_index) {
-  // Cancel any pending tab transition.
-  hover_tab_selector_.CancelTabTransition();
-
-  if (base::FeatureList::IsEnabled(
-          contextual_tasks::kContextualTasksCloseTabExpandsSidePanel)) {
-    tabs::TabInterface* closing_tab = model_->GetTabAtIndex(model_index);
-    ContextualTasksCloseButtonController* const close_button_controller =
-        ContextualTasksCloseButtonController::From(GetBrowserWindowInterface());
-    if (closing_tab && closing_tab->IsActivated() && close_button_controller &&
-        close_button_controller->ShouldShowCloseButton()) {
-      close_button_controller->MaybeCloseTabExpandSidePanel();
-      return;
-    }
-  }
-
-  model_->CloseWebContentsAt(model_index,
-                             TabCloseTypes::CLOSE_USER_GESTURE |
-                                 TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
-
-  // Try to show reading list IPH if needed.
-  if (tabstrip_->GetTabCount() >= 7) {
-    BrowserUserEducationInterface::From(GetBrowserWindowInterface())
-        ->MaybeShowFeaturePromo(
-            feature_engagement::kIPHReadingListEntryPointFeature);
-  }
+  model_->delegate()->CloseTab(tab, source, std::move(callback));
 }
 
 void BrowserTabStripController::ToggleTabAudioMute(int model_index) {
@@ -498,7 +406,7 @@ void BrowserTabStripController::ToggleTabGroupCollapsedState(
         tab_groups::TabGroupVisualData(GetGroupTitle(group),
                                        GetGroupColorId(group),
                                        !is_currently_collapsed),
-        true);
+        GetTabGroup(group)->IsCustomized());
   }
 
   const bool is_implicit_action =
@@ -589,8 +497,8 @@ void BrowserTabStripController::TabKeyboardFocusChangedTo(
   if (tab) {
     index = model_->GetIndexOfTab(tab);
   }
-  browser_view_->browser()->command_controller()->TabKeyboardFocusChangedTo(
-      index);
+  chrome::BrowserCommandController::From(browser_view_->browser())
+      ->TabKeyboardFocusChangedTo(index);
 }
 
 std::u16string BrowserTabStripController::GetGroupTitle(
@@ -687,6 +595,9 @@ void BrowserTabStripController::OnTabStripModelChanged(
                                .is_pinned = tab_interface->IsPinned()});
       }
       AddTabs(tabs_to_add);
+      for (const auto& contents : change.GetInsert()->contents) {
+        UpdateTabFocusFreezing(contents.index);
+      }
       break;
     }
     case TabStripModelChange::kRemoved: {
@@ -783,19 +694,24 @@ void BrowserTabStripController::OnTabGroupChanged(
         gfx::Range tabs_in_group = ListTabsInGroup(change.group);
         for (auto i = tabs_in_group.start(); i < tabs_in_group.end(); ++i) {
           tabstrip_->tab_at(i)->SetVisible(!new_visuals->is_collapsed());
-          if (base::FeatureList::IsEnabled(
-                  features::kTabGroupsCollapseFreezing)) {
-            if (new_visuals->is_collapsed()) {
-              tabstrip_->tab_at(i)->CreateFreezingVote(
-                  model_->GetWebContentsAt(i));
-            } else {
-              tabstrip_->tab_at(i)->ReleaseFreezingVote();
-            }
+          if (new_visuals->is_collapsed()) {
+            tabstrip_->tab_at(i)->CreateFreezingVote(
+                FreezingVoteReason::kCollapsedGroup,
+                model_->GetWebContentsAt(i));
+          } else {
+            tabstrip_->tab_at(i)->ReleaseFreezingVote(
+                FreezingVoteReason::kCollapsedGroup);
           }
         }
       }
 
       tabstrip_->OnGroupVisualsChanged(change.group, old_visuals, new_visuals);
+
+      // If the group whose visual data (e.g., color) changed is currently
+      // focused, update the focus mode theme color.
+      if (model_->GetFocusedGroup() == change.group) {
+        UpdateFocusModeTheme(change.group);
+      }
       break;
     }
     case TabGroupChange::kMoved: {
@@ -812,6 +728,7 @@ void BrowserTabStripController::OnTabGroupChanged(
 void BrowserTabStripController::OnTabPinnedStateChanged(tabs::TabInterface* tab,
                                                         int model_index) {
   tabstrip_->OnTabPinnedStateChanged(model_index, tab->IsPinned());
+  UpdateTabFocusFreezing(model_index);
 }
 
 void BrowserTabStripController::TabGroupedStateChanged(
@@ -829,6 +746,8 @@ void BrowserTabStripController::TabGroupedStateChanged(
   if (new_group.has_value()) {
     tabstrip_->OnGroupContentsChanged(new_group.value());
   }
+
+  UpdateTabFocusFreezing(index);
 }
 
 void BrowserTabStripController::OnSplitTabChanged(
@@ -881,19 +800,61 @@ void BrowserTabStripController::OnTabGroupFocusChanged(
   browser_view_->tab_strip_view()->OnTabGroupFocusChanged(new_group_id,
                                                           old_group_id);
 
-  std::optional<SkColor> color;
-  if (new_group_id.has_value()) {
-    const TabGroup* group =
-        model_->group_model()->GetTabGroup(new_group_id.value());
-    const tab_groups::TabGroupVisualData* visual_data = group->visual_data();
-    const auto* color_provider = tabstrip_->GetColorProvider();
-    color = color_provider->GetColor(
-        GetTabGroupDialogColorId(visual_data->color()));
-  }
-
-  browser_view_->browser_widget()->SetUserColorOverride(color);
+  UpdateFocusModeTheme(new_group_id);
   browser_view_->browser_widget()->ThemeChanged();
   browser_view_->GetWidget()->non_client_view()->frame_view()->SchedulePaint();
+
+  UpdateAllTabsFocusFreezing();
+}
+
+void BrowserTabStripController::UpdateFocusModeTheme(
+    std::optional<tab_groups::TabGroupId> group_id) {
+  std::optional<SkColor> color;
+  if (group_id.has_value() && model_ && model_->group_model() &&
+      model_->group_model()->ContainsTabGroup(group_id.value())) {
+    const TabGroup* group =
+        model_->group_model()->GetTabGroup(group_id.value());
+    if (group && group->visual_data()) {
+      const auto* color_provider =
+          tabstrip_ ? tabstrip_->GetColorProvider() : nullptr;
+      if (color_provider) {
+        color = color_provider->GetColor(
+            GetTabGroupDialogColorId(group->visual_data()->color()));
+      }
+    }
+  }
+
+  if (browser_view_ && browser_view_->browser_widget()) {
+    browser_view_->browser_widget()->SetUserColorOverride(color);
+  }
+}
+
+void BrowserTabStripController::UpdateTabFocusFreezing(int model_index) {
+  if (!features::IsTabGroupsFocusFreezingEnabled()) {
+    return;
+  }
+  if (!model_->ContainsIndex(model_index)) {
+    return;
+  }
+  Tab* tab = tabstrip_->tab_at(model_index);
+  const std::optional<tab_groups::TabGroupId> focused_group =
+      model_->GetFocusedGroup();
+  if (focused_group.has_value() && !tab->data().pinned &&
+      tab->group() != focused_group.value()) {
+    tab->CreateFreezingVote(FreezingVoteReason::kFocusedGroup,
+                            model_->GetWebContentsAt(model_index));
+  } else {
+    tab->ReleaseFreezingVote(FreezingVoteReason::kFocusedGroup);
+  }
+}
+
+void BrowserTabStripController::UpdateAllTabsFocusFreezing() {
+  if (!features::IsTabGroupsFocusFreezingEnabled()) {
+    return;
+  }
+  for (int i = 0; i < tabstrip_->GetTabCount(); ++i) {
+    UpdateTabFocusFreezing(i);
+  }
 }
 
 BrowserFrameView* BrowserTabStripController::GetFrameView() {

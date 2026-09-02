@@ -2,9 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/feature_list.h"
+#include "base/test/scoped_feature_list.h"
 #include "mojo/public/cpp/system/data_pipe_utils.h"
+#include "net/cert/cert_status_flags.h"
 #include "net/cookies/site_for_cookies.h"
+#include "net/http/http_response_headers.h"
 #include "services/network/cors/cors_url_loader.h"
 #include "services/network/cors/cors_url_loader_test_util.h"
 #include "services/network/network_context.h"
@@ -194,6 +196,31 @@ TEST_F(CorsURLLoaderSharedDictionaryTest, SameOriginUrlSameOriginModeRequest) {
   // The response of SameOrigin request should be stored to the
   // dictionary storage.
   CheckDictionaryInStorage(/*expect_exists=*/true);
+}
+
+TEST_F(CorsURLLoaderSharedDictionaryTest, CertStatusErrorPreventStorage) {
+  ResetFactory();
+  ResourceRequest request = CreateResourceRequest();
+  request.mode = mojom::RequestMode::kSameOrigin;
+  CreateLoaderAndStart(request);
+  RunUntilCreateLoaderAndStartCalled();
+
+  CreateDataPipeAndWriteTestData();
+  auto response_head = mojom::URLResponseHead::New();
+  response_head->headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+      "HTTP/1.1 200 OK\n"
+      "Use-As-Dictionary: match=\"/path*\"\n"
+      "Cache-Control: max-age=2592000\n");
+  response_head->cert_status = net::CERT_STATUS_AUTHORITY_INVALID;
+  NotifyLoaderClientOnReceiveResponse(std::move(response_head),
+                                      std::move(consumer_handle_));
+  NotifyLoaderClientOnComplete(net::OK);
+  producer_handle_.reset();
+
+  RunUntilComplete();
+  EXPECT_EQ(net::OK, client().completion_status().error_code);
+
+  CheckDictionaryInStorage(/*expect_exists=*/false);
 }
 
 TEST_F(CorsURLLoaderSharedDictionaryTest, SameOriginUrlNoCorsModeRequest) {
@@ -662,6 +689,77 @@ TEST_F(CorsURLLoaderSharedDictionaryTest, CrossOriginRedirect) {
           *isolation_key_b);
   EXPECT_EQ(1u, GetDictionaryCount(storage_b.get()));
   CheckDictionaryInStorage(/*expect_exists=*/true, kUrlB);
+}
+
+class CorsURLLoaderSharedDictionaryPervasiveTest
+    : public CorsURLLoaderSharedDictionaryTest {
+ public:
+  CorsURLLoaderSharedDictionaryPervasiveTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {features::kPervasiveSharedDictionaries,
+         features::kCacheSharingForPervasiveResources},
+        {});
+  }
+
+  void CallOnReceiveResponseWithSharedResource(bool is_shared_resource) {
+    auto response = mojom::URLResponseHead::New();
+    response->headers = net::HttpResponseHeaders::TryToCreate(
+        "HTTP/1.1 200 OK\n"
+        "cache-control: max-age=2592000\n"
+        "use-as-dictionary: match=\"/path*\"\n\n");
+    response->is_shared_resource = is_shared_resource;
+    NotifyLoaderClientOnReceiveResponse(std::move(response),
+                                        std::move(consumer_handle_));
+    NotifyLoaderClientOnComplete(net::OK);
+    producer_handle_.reset();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(CorsURLLoaderSharedDictionaryPervasiveTest,
+       RegistrationTargetsPervasiveStorageWhenSharedResourceTrue) {
+  ResetFactory();
+  const GURL kUrl("https://origin.test/pervasive_item");
+  ResourceRequest request = CreateResourceRequest();
+  request.url = kUrl;
+
+  CreateLoaderAndStart(request);
+  RunUntilCreateLoaderAndStartCalled();
+  CreateDataPipeAndWriteTestData();
+  CallOnReceiveResponseWithSharedResource(/*is_shared_resource=*/true);
+
+  RunUntilComplete();
+  EXPECT_EQ(net::OK, client().completion_status().error_code);
+
+  scoped_refptr<SharedDictionaryStorage> pervasive_storage =
+      network_context()->GetSharedDictionaryManager()->GetPervasiveStorage();
+  ASSERT_TRUE(pervasive_storage);
+  EXPECT_EQ(1u, GetDictionaryCount(pervasive_storage.get()));
+  CheckDictionaryInStorage(/*expect_exists=*/false, kUrl);
+}
+
+TEST_F(CorsURLLoaderSharedDictionaryPervasiveTest,
+       RegistrationTargetsPartitionedStorageWhenSharedResourceFalse) {
+  ResetFactory();
+  const GURL kUrl("https://origin.test/partitioned_item");
+  ResourceRequest request = CreateResourceRequest();
+  request.url = kUrl;
+
+  CreateLoaderAndStart(request);
+  RunUntilCreateLoaderAndStartCalled();
+  CreateDataPipeAndWriteTestData();
+  CallOnReceiveResponseWithSharedResource(/*is_shared_resource=*/false);
+
+  RunUntilComplete();
+  EXPECT_EQ(net::OK, client().completion_status().error_code);
+
+  scoped_refptr<SharedDictionaryStorage> pervasive_storage =
+      network_context()->GetSharedDictionaryManager()->GetPervasiveStorage();
+  ASSERT_TRUE(pervasive_storage);
+  EXPECT_EQ(0u, GetDictionaryCount(pervasive_storage.get()));
+  CheckDictionaryInStorage(/*expect_exists=*/true, kUrl);
 }
 
 }  // namespace network::cors

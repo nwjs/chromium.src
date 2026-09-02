@@ -51,9 +51,16 @@ class InstallerDownloaderModel {
   // Set a flag to prevent any future infobar display.
   virtual void PreventFutureDisplay() = 0;
 
+  // Records that an installer download was completed successfully, permanently
+  // suppressing any future infobar displays across all re-engagement cycles.
+  virtual void RecordDownloadCompleted() = 0;
+
   // Returns true if eligibility check should be overridden for manual testing
   // purpose.
   virtual bool ShouldByPassEligibilityCheck() const = 0;
+
+  // Returns the current re-engagement campaign cycle (1-indexed).
+  virtual int GetCurrentCycle() const = 0;
 };
 
 }  // namespace installer_downloader

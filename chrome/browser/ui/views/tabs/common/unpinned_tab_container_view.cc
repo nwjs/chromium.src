@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view_layout.h"
+#include "components/tabs/public/tab_group.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/scroll_view.h"
@@ -210,6 +211,16 @@ bool UnpinnedTabContainerView::ShouldSnapToTarget(
   return views::IsViewClass<SplitTabView>(&child_view);
 }
 
+std::optional<views::SizeBound>
+UnpinnedTabContainerView::GetAvailableMainAxisSpaceOverride() const {
+  return available_space_.is_bounded() ? std::make_optional(available_space_)
+                                       : std::nullopt;
+}
+
+gfx::Size UnpinnedTabContainerView::GetTargetPreferredSize() const {
+  return layout_manager_->GetTargetPreferredSize();
+}
+
 void UnpinnedTabContainerView::ResetCollectionNode() {
   collection_node_ = nullptr;
 }
@@ -255,6 +266,10 @@ DraggedTabsContainer& UnpinnedTabContainerView::GetTabDragTarget(
       continue;
     }
 
+    if (group_view->IsGroupFocused()) {
+      return *group_view;
+    }
+
     if (group_view->IsHandlingDrag()) {
       if (ShouldDragRemainInGroup(*group_view, layout.bounds,
                                   point_in_screen)) {
@@ -296,6 +311,11 @@ bool UnpinnedTabContainerView::ShouldDragRemainInGroup(
     const TabGroupView& group_view,
     const gfx::Rect& proposed_group_bounds,
     const gfx::Point& point_in_screen) const {
+  // If in focused mode, then the group should always handle the drag.
+  if (group_view.IsGroupFocused()) {
+    return true;
+  }
+
   gfx::Point point_in_group =
       views::View::ConvertPointFromScreen(&group_view, point_in_screen);
   auto dragging_view_bounds_in_group =

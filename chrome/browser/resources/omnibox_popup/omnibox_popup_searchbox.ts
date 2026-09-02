@@ -5,6 +5,7 @@
 import '//resources/cr_components/searchbox/searchbox_dropdown.js';
 import '//resources/cr_components/searchbox/searchbox_input.js';
 import '//resources/cr_components/searchbox/searchbox_compose_button.js';
+import './omnibox_popup_contextual_entrypoint.js';
 
 import {SearchboxBrowserProxy} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import type {ComposeClickEventDetail, SearchboxComposeButtonElement} from '//resources/cr_components/searchbox/searchbox_compose_button.js';
@@ -13,21 +14,26 @@ import type {SearchboxInputElement} from '//resources/cr_components/searchbox/se
 import {kDefaultSelection} from '//resources/cr_components/searchbox/searchbox_match.js';
 import type {SearchboxMixinInterface} from '//resources/cr_components/searchbox/searchbox_mixin.js';
 import {SearchboxMixin} from '//resources/cr_components/searchbox/searchbox_mixin.js';
+import {sanitizeTextForPaste} from '//resources/cr_components/searchbox/utils.js';
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
+import {isMac} from '//resources/js/platform.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {SelectionLineState} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerInterface as SearchboxPageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerInterface as SearchboxPageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {browserProxyFactory, OmniboxEscapeAction} from './omnibox_popup.mojom-webui.js';
 import type {OmniboxInputState, PageCallbackRouter as PopupPageCallbackRouter, PageHandlerInterface as PopupPageHandlerInterface} from './omnibox_popup.mojom-webui.js';
+import type {OmniboxPopupContextualEntrypointElement} from './omnibox_popup_contextual_entrypoint.js';
+import type {OmniboxPopupContextualEntrypointButtonElement} from './omnibox_popup_contextual_entrypoint_button.js';
 import {getCss} from './omnibox_popup_searchbox.css.js';
 import {getHtml} from './omnibox_popup_searchbox.html.js';
-import {sanitizeTextForPaste} from './utils.js';
+import {TextfieldModel} from './textfield_model.js';
+import type {SelectionRange} from './textfield_model.js';
 
 /**
  * Focus actions deferred when `document.visibilityState` is hidden.
@@ -46,6 +52,15 @@ enum DeferredFocusAction {
  */
 const canShowSecondarySideMediaQueryList =
     window.matchMedia('(min-width: 675px)');
+
+function isNtpUrl(url: string): boolean {
+  if (!url) {
+    return true;
+  }
+  return url.startsWith('chrome://newtab') ||
+      url.startsWith('chrome://new-tab-page') ||
+      url.startsWith('chrome-search://local-ntp') || url === 'about:blank';
+}
 
 export interface AimButtonConfig {
   text: string;
@@ -149,12 +164,43 @@ export class OmniboxPopupSearchboxElement extends
         type: Boolean,
         reflect: true,
       },
+      /**
+       * Whether the input has selection or not. Used when the widget loses
+       * activation but should still show the selection,
+       */
+      hasInputSelection_: {
+        type: Boolean,
+        reflect: true,
+      },
+      /**
+       * Whether the input has focus or not. Used when the widget loses
+       * activation but should still show the focus ring.
+       */
+      isLogicallyFocused_: {
+        type: Boolean,
+        reflect: true,
+      },
+      userInputInProgress_: {
+        type: Boolean,
+      },
+      fullUrl_: {
+        type: String,
+      },
+      permanentDisplayText_: {
+        type: String,
+      },
+      aimButtonIconOnly_: {
+        type: Boolean,
+        reflect: true,
+      },
     };
   }
 
   accessor canShowSecondarySide: boolean =
       canShowSecondarySideMediaQueryList.matches;
   accessor hasSecondarySide: boolean = false;
+  accessor isLogicallyFocused_: boolean = false;
+  accessor hasInputSelection_: boolean = false;
   accessor searchboxChromeRefreshTheming: boolean =
       loadTimeData.getBoolean('searchboxCr23Theming');
   accessor searchboxSteadyStateShadow: boolean =
@@ -186,6 +232,14 @@ export class OmniboxPopupSearchboxElement extends
     icon: '',
   };
 
+  get showContextEntrypoint(): boolean {
+    return this.shadowRoot
+               ?.querySelector<OmniboxPopupContextualEntrypointElement>(
+                   'omnibox-popup-contextual-entrypoint')
+               ?.showContextEntrypoint ??
+        false;
+  }
+
   private eventTracker_ = new EventTracker();
   private searchboxPageHandler_: SearchboxPageHandlerInterface;
   private searchboxCallbackRouter_: SearchboxPageCallbackRouter;
@@ -197,12 +251,13 @@ export class OmniboxPopupSearchboxElement extends
   private currentSequenceNum_: number = 0;
   // True if the user has modified the text in the input field (e.g., typed or
   // deleted characters), as opposed to displaying permanent text set from C++.
-  private userInputInProgress_: boolean = false;
+  protected accessor userInputInProgress_: boolean = false;
+  protected accessor fullUrl_: string = '';
+  protected accessor permanentDisplayText_: string = '';
+  protected accessor aimButtonIconOnly_: boolean = false;
   // True during an active IME (Input Method Editor) text composition session.
   // Used to suppress intermediate selection updates until composition finishes.
   private isComposing_: boolean = false;
-  private fullUrl_: string = '';
-  private permanentDisplayText_: string = '';
   private fullUrlShown_: boolean = false;
   // TODO(b/504669677): Replace `deferredFocusAction_` with
   // an actual handshake, to give more control of when focusing happens, instead
@@ -212,6 +267,31 @@ export class OmniboxPopupSearchboxElement extends
   // Used to signify that on mouseup, the default action of `unselect()`
   // should be ignored.
   private selectAllOnMouseRelease_: boolean = false;
+  private textfieldModel_: TextfieldModel = new TextfieldModel();
+  // Stores the input text prior to the latest edit or selection change event.
+  // Paired with `lastInputSelection_` to compute character diffs and offsets
+  // for `textfieldModel_`.
+  private lastInputText_: string = '';
+  // Stores the selection range prior to the latest edit or selection change
+  // event. Paired with `lastInputText_` to determine cursor placement and
+  // selection replacements for `textfieldModel_`.
+  private lastInputSelection_: SelectionRange = {start: 0, end: 0};
+  // True while an undo or redo operation (`undo_()` / `redo_()`) is actively
+  // executing. Used to suppress recording spurious history edits when input
+  // text updates programmatically during undo/redo execution.
+  private isUndoRedo_: boolean = false;
+  // Observes resize events on `#inputWrapper` to evaluate AIM button
+  // expanded/collapsed state.
+  private inputResizeObserver_: ResizeObserver|null = null;
+  // Cached width of the AIM button in its expanded state (when rendered as
+  // on-screen pixels).
+  private expandedAimButtonWidth_: number = 0;
+  // Cached Canvas 2D context used to measure text width.
+  private canvasContext_: CanvasRenderingContext2D|null = null;
+  // Cached font style string of input element for text width measurement.
+  // NOTE: This is used to avoid repeated calls to `window.getComputedStyle()`
+  // which normally triggers layout flushes.
+  private inputFontStyle_: string = '';
 
   constructor() {
     super();
@@ -233,6 +313,7 @@ export class OmniboxPopupSearchboxElement extends
       this.searchboxCallbackRouter_.setAimButtonVisible.addListener(
           (visible: boolean) => {
             this.aimButtonVisible_ = visible;
+            this.updateAimButtonCollapse_();
           }),
       this.searchboxCallbackRouter_.setAimButtonConfig.addListener(
           (text: string, tooltip: string, a11yLabel: string, iconUrl: Url) => {
@@ -249,11 +330,17 @@ export class OmniboxPopupSearchboxElement extends
           this.onSetInputState_.bind(this)),
       this.popupCallbackRouter_.setFocus.addListener(
           this.onSetFocus_.bind(this)),
+      this.popupCallbackRouter_.clearAutocompleteMatches.addListener(
+          this.clearAutocompleteMatches.bind(this)),
+      this.popupCallbackRouter_.clearPopup.addListener(
+          this.onClearPopup_.bind(this)),
     ];
     this.eventTracker_.add(
         document, 'selectionchange', this.onSelectionChanged_.bind(this));
     this.eventTracker_.add(
         document, 'visibilitychange', this.onVisibilityChange_.bind(this));
+    this.eventTracker_.add(
+        this.$.input, 'beforeinput', this.onBeforeInput_.bind(this));
     // TODO(b/522957982): Establish closer IME parity with the native Views
     // Omnibox (e.g., render inline autocompletion in a separate overlaid span
     // rather than modifying input value during active composition).
@@ -264,6 +351,11 @@ export class OmniboxPopupSearchboxElement extends
       this.isComposing_ = false;
       this.onSelectionChanged_();
     });
+
+    this.inputResizeObserver_ = new ResizeObserver(() => {
+      this.updateAimButtonCollapse_();
+    });
+    this.inputResizeObserver_.observe(this.$.inputWrapper);
 
     // When `selectAllOnMouseRelease_` is true (set during `onInputMousedown_`
     // when the input is focused and the selection is collapsed), prevent the
@@ -289,6 +381,7 @@ export class OmniboxPopupSearchboxElement extends
 
   override disconnectedCallback() {
     super.disconnectedCallback();
+    this.inputResizeObserver_?.disconnect();
     this.listenerIds_.forEach(
         id => this.searchboxCallbackRouter_.removeListener(id));
     this.listenerIds_ = [];
@@ -304,6 +397,15 @@ export class OmniboxPopupSearchboxElement extends
     if (changedProperties.has('searchboxChromeRefreshTheming')) {
       this.useWebkitSearchIcons_ = this.searchboxChromeRefreshTheming;
     }
+  }
+
+  getContextualEntrypointButton(): OmniboxPopupContextualEntrypointButtonElement
+      |null {
+    return this.shadowRoot
+               ?.querySelector<OmniboxPopupContextualEntrypointElement>(
+                   'omnibox-popup-contextual-entrypoint')
+               ?.getContextEntrypointElement() ??
+        null;
   }
 
   override firstUpdated(changedProperties: PropertyValues<this>) {
@@ -416,10 +518,6 @@ export class OmniboxPopupSearchboxElement extends
     return true;
   }
 
-  override isAutocompleteResultStale(result: AutocompleteResult): boolean {
-    return super.isAutocompleteResultStale(result) || !result.matches.length;
-  }
-
   //========================================================================
   // Event handlers
   //========================================================================
@@ -457,19 +555,50 @@ export class OmniboxPopupSearchboxElement extends
     }
   }
 
-  protected onInputKeydown_(e: CustomEvent<{key: string}>) {
-    if (e.detail.key === 'ArrowLeft' || e.detail.key === 'ArrowRight') {
+  override async onInputWrapperKeydown(e: KeyboardEvent) {
+    const modifier = isMac ? e.metaKey && !e.ctrlKey : e.ctrlKey && !e.metaKey;
+
+    if (modifier) {
+      const key = e.key.toLowerCase();
+      if (key === 'z') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.shiftKey) {
+          // Cmd/Ctrl + Shift + Z -> Redo
+          this.redo_();
+        } else {
+          // Cmd/Ctrl + Z -> Undo
+          this.undo_();
+        }
+        return;
+      }
+      if (!isMac && key === 'y') {
+        // Ctrl + Y -> Redo (Windows / Linux)
+        e.preventDefault();
+        e.stopPropagation();
+        this.redo_();
+        return;
+      }
+    }
+
+    // If the input is already selected, 'ArrowLeft', 'ArrowRight', 'Home',
+    // 'End' should collapse the selection. If `Shift` is held, skip this
+    // behavior and let Blink handle it.
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key) &&
+        !e.shiftKey) {
       const input = this.getInputElement().inputElement;
       if (input.selectionStart === 0 &&
           input.selectionEnd === input.value.length) {
         this.showFullUrlOnDeselect_();
-        if (e.detail.key === 'ArrowLeft') {
+        if (e.key === 'ArrowLeft' || e.key === 'Home') {
           input.setSelectionRange(0, 0);
         } else {
           input.setSelectionRange(input.value.length, input.value.length);
         }
       }
     }
+
+    await super.onInputWrapperKeydown(e);
   }
 
   protected onInputPaste_(e: ClipboardEvent) {
@@ -494,14 +623,31 @@ export class OmniboxPopupSearchboxElement extends
     const input = this.getInputElement().inputElement;
     const start = input.selectionStart || 0;
     const end = input.selectionEnd || 0;
+    const oldSelection = {start, end};
     const newValue = input.value.substring(0, start) + sanitizedText +
         input.value.substring(end);
+
+    this.textfieldModel_.selectRange(oldSelection);
+    this.textfieldModel_.paste(sanitizedText);
+    this.lastInputText_ = newValue;
+    this.lastInputSelection_ = this.textfieldModel_.selection;
+    this.updateEditHistoryState_();
+
+    const cursorPos = this.lastInputSelection_.end;
 
     this.userInputInProgress_ = true;
     this.hasUserInput_ = !!newValue.trim();
     this.getInputElement().setInput({text: newValue, inline: ''});
-    const cursorPos = start + sanitizedText.length;
     this.getInputElement().setSelectionRange(cursorPos, cursorPos);
+
+    // Programmatic selection changes do not automatically scroll the input
+    // element. Explicitly adjust scroll position so the trailing caret/pasted
+    // text is visible.
+    if (this.multiLineEnabled) {
+      input.scrollTop = input.scrollHeight;
+    } else if (cursorPos === newValue.length) {
+      input.scrollLeft = input.scrollWidth;
+    }
 
     const selectionRange = {start: cursorPos, end: cursorPos};
     this.popupPageHandler_.onPaste(
@@ -513,6 +659,44 @@ export class OmniboxPopupSearchboxElement extends
     } else {
       this.clearAutocompleteMatches();
     }
+  }
+
+  protected onInputCutOrCopy_(e: ClipboardEvent, isCut: boolean) {
+    const input = this.getInputElement().inputElement;
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+    if (start === end) {
+      return;
+    }
+
+    e.preventDefault();
+    const oldValue = input.value;
+    this.popupPageHandler_.onCutOrCopy(
+        this.currentSequenceNum_, isCut, oldValue, {start, end});
+
+    if (isCut) {
+      const newValue = oldValue.substring(0, start) + oldValue.substring(end);
+      this.userInputInProgress_ = true;
+      this.hasUserInput_ = !!newValue.trim();
+      this.getInputElement().setInput({text: newValue, inline: ''});
+      this.getInputElement().setSelectionRange(start, start);
+
+      if (newValue.trim()) {
+        this.queryAutocomplete(
+            newValue, /*preventInlineAutocomplete=*/ true,
+            /*isOnFocus=*/ false);
+      } else {
+        this.clearAutocompleteMatches();
+      }
+    }
+  }
+
+  protected onInputCopy_(e: ClipboardEvent) {
+    this.onInputCutOrCopy_(e, /*isCut=*/ false);
+  }
+
+  protected onInputCut_(e: ClipboardEvent) {
+    this.onInputCutOrCopy_(e, /*isCut=*/ true);
   }
 
   protected showFullUrlOnDeselect_() {
@@ -539,18 +723,53 @@ export class OmniboxPopupSearchboxElement extends
   }
 
   /**
+   * Returns the unedited webpage URL to display its favicon in the searchbox
+   * icon when the user is focused on a page before typing. Returns an empty
+   * string while user input is in progress (to show the default search provider
+   * icon, e.g. Super G, instead of the webpage favicon) or when on the NTP.
+   */
+  protected computeCurrentPageUrl_(): string {
+    if (this.userInputInProgress_) {
+      return '';
+    }
+    const pageUrl = this.fullUrl_ || this.permanentDisplayText_;
+    return isNtpUrl(pageUrl) ? '' : pageUrl;
+  }
+
+  /**
    * Reports selection changes back to C++.
    */
   private onSelectionChanged_() {
     const input = this.$.input.inputElement;
+    this.hasInputSelection_ = input.selectionStart !== input.selectionEnd;
     // Suppress selection updates during active IME text composition.
     if (this.shadowRoot.activeElement !== this.$.input || this.isComposing_) {
       return;
     }
 
+    const start = input.selectionStart || 0;
+    const end = input.selectionEnd || 0;
+
+    // When inline autocomplete is active and the user moves the caret or
+    // changes selection away from the default inline selection range, accept
+    // the inline autocomplete as user input and commit the current edit.
+    const lastInput = this.getInputElement().lastInput();
+    if (lastInput && lastInput.inline && !this.isUndoRedo_) {
+      const fullText = lastInput.text + lastInput.inline;
+      const isInlineSelection =
+          start === lastInput.text.length && end === fullText.length;
+      if (!isInlineSelection) {
+        this.getInputElement().setInput({text: fullText, inline: ''});
+        this.getInputElement().setSelectionRange(start, end);
+        this.lastInputText_ = fullText;
+      }
+      this.textfieldModel_.commitCurrentEdit();
+    }
+
+    this.lastInputSelection_ = {start, end};
+
     this.popupPageHandler_.onSelectionChanged(
-        {start: input.selectionStart || 0, end: input.selectionEnd || 0},
-        this.currentSequenceNum_, this.fullUrlShown_);
+        {start, end}, this.currentSequenceNum_, this.fullUrlShown_);
   }
 
   /**
@@ -566,13 +785,22 @@ export class OmniboxPopupSearchboxElement extends
     this.lastQueriedInput = state.text;
     this.permanentDisplayText_ = state.permanentDisplayText;
     this.isComposing_ = false;
+    this.inputKeywordModel = state.keywordModel;
+    this.lastInputText_ = state.text;
+    this.lastInputSelection_ = state.selection;
+    // Clear edit history and set baseline text on hard state resets (e.g. tab
+    // switch, revert), but preserve active edit history if the user is in the
+    // middle of typing when state handoff IPC arrives.
+    if (!state.userInputInProgress || !this.userInputInProgress_) {
+      this.textfieldModel_.setInitialText(state.text, state.selection);
+    }
+    this.updateEditHistoryState_();
 
     // Clear any stale results and close the dropdown on a hard state reset.
     // Clear results here since focusout event may not fire.
-    if (this.result && this.isAutocompleteResultStale(this.result)) {
-      this.result = null;
-      this.dropdownIsVisible = false;
-    }
+    this.clearAutocompleteMatches();
+
+    this.isLogicallyFocused_ = state.isFocused;
 
     if (state.isFocused) {
       if (document.visibilityState === 'visible') {
@@ -591,17 +819,18 @@ export class OmniboxPopupSearchboxElement extends
       this.fullUrlShown_ = false;
     }
 
+    this.hasInputSelection_ = state.selection.start !== state.selection.end;
+
     this.selectRange(state.selection);
     this.getDropdownElement().unselect();
     // If zero-prefix suggestions are requested by the new state, initiate
-    // an on-focus autocomplete query. Otherwise, clear any existing matches
-    // so the suggestion dropdown is closed on state resets and tab switches.
+    // an on-focus autocomplete query.
     if (state.queryZps) {
       this.queryAutocomplete(
           state.text, /*preventInlineAutocomplete=*/ false,
           /*isOnFocus=*/ true);
     } else {
-      this.clearAutocompleteMatches();
+      // Prevent stale tracking of queried input across state updates.
       this.lastQueriedInput = state.text;
     }
   }
@@ -613,11 +842,11 @@ export class OmniboxPopupSearchboxElement extends
    * If hidden, defers the action until `visibilitychange`.
    */
   private onSetFocus_(isFocused: boolean) {
+    this.isLogicallyFocused_ = isFocused;
     if (isFocused) {
       if (document.visibilityState === 'visible') {
         this.deferredFocusAction_ = null;
         this.$.input.focus();
-        this.getInputElement().select();
       } else {
         // Defer focusing and selecting text if the document is currently
         // hidden, as DOM focus calls on hidden documents may be ignored.
@@ -629,6 +858,17 @@ export class OmniboxPopupSearchboxElement extends
     }
   }
 
+  /**
+   * Called by C++ via `ClearPopup` Mojo IPC when the popup is being hidden.
+   * Clears input text, selection range, and matches before resolving the Mojo
+   * callback to complete the hide handshake.
+   */
+  private async onClearPopup_(): Promise<void> {
+    this.$.input.setInputText('');
+    this.getInputElement().blur();
+    this.clearAutocompleteMatches();
+    await this.updateComplete;
+  }
   /**
    * Resets selection range, blurs input, and clears autocomplete matches when
    * focus is lost to external targets or when clicking outside.
@@ -660,7 +900,8 @@ export class OmniboxPopupSearchboxElement extends
       this.maybeShowFullUrl_();
     }
 
-    if (isFullSelection) {
+    const isLogicallyFocused = this.shadowRoot?.activeElement === this.$.input;
+    if (isFullSelection && isLogicallyFocused) {
       this.getInputElement().select();
     } else {
       this.$.input.setSelectionRange(
@@ -669,11 +910,16 @@ export class OmniboxPopupSearchboxElement extends
   }
 
   private maybeShowFullUrl_() {
-    this.fullUrlShown_ = true;
-    if (this.userInputInProgress_) {
+    if (this.fullUrlShown_ || this.userInputInProgress_) {
       return;
     }
+    this.fullUrlShown_ = true;
     this.$.input.setInputText(this.fullUrl_);
+    this.lastInputText_ = this.fullUrl_;
+    const len = this.fullUrl_.length;
+    this.lastInputSelection_ = {start: len, end: len};
+    this.textfieldModel_.setInitialText(this.fullUrl_, {start: len, end: len});
+    this.updateEditHistoryState_();
   }
 
   protected onInputFocusin_() {
@@ -697,10 +943,99 @@ export class OmniboxPopupSearchboxElement extends
     }
   }
 
+  /**
+   * Updates `textfieldModel_` with text modifications (insertion, deletion,
+   * replacement) for undo/redo history tracking.
+   */
+  private updateTextfieldModel_(newValue: string, isComposing: boolean) {
+    if (isComposing || this.isUndoRedo_) {
+      return;
+    }
+
+    const lastInput = this.getInputElement().lastInput();
+    const hasInline = !!lastInput?.inline;
+    const oldText = this.lastInputText_;
+    const oldSelection = hasInline ?
+        {start: oldText.length, end: oldText.length} :
+        this.lastInputSelection_;
+
+    const start = oldSelection.start;
+    const end = oldSelection.end;
+    const oldLen = oldText.length;
+    const newLen = newValue.length;
+
+    this.textfieldModel_.selectRange(oldSelection);
+
+    if (start !== end) {
+      // User selected a non-empty span of text...
+      const insertedLength = newLen - (oldLen - (end - start));
+      const insertedText = insertedLength > 0 ?
+          newValue.substring(start, start + insertedLength) :
+          '';
+
+      if (insertedText) {
+        // ...then replaced it with a new non-empty string.
+        const mergeable = insertedText.length === 1;
+        this.textfieldModel_.insertText(insertedText, mergeable);
+        if (hasInline) {
+          this.textfieldModel_.commitCurrentEdit();
+        }
+      } else {
+        // ...then deleted the selected text.
+        this.textfieldModel_.backspace();
+      }
+    } else {
+      // User had an empty selection range (i.e. only the caret was present at
+      // a specific index)...
+      if (newLen > oldLen) {
+        // ...then inserted some text.
+        const insertedLength = newLen - oldLen;
+        const insertedText = newValue.substring(start, start + insertedLength);
+        if (insertedText) {
+          const mergeable = insertedText.length === 1;
+          this.textfieldModel_.insertText(insertedText, mergeable);
+          if (hasInline) {
+            this.textfieldModel_.commitCurrentEdit();
+          }
+        }
+      } else if (newLen < oldLen) {
+        // ...then deleted some text.
+        const inputEl = this.getInputElement().inputElement;
+        const currentCursorPos = inputEl.selectionStart || 0;
+        const isBackward = currentCursorPos < start;
+        if (isBackward) {
+          const delStart = currentCursorPos;
+          const delEnd = start;
+          if (delEnd - delStart > 1) {
+            // Word or multi-character backspace (e.g. Alt/Ctrl + Backspace).
+            this.textfieldModel_.selectRange({start: delStart, end: delEnd});
+          }
+          this.textfieldModel_.backspace();
+        } else {
+          const delStart = start;
+          const delEnd = start + (oldLen - newLen);
+          if (delEnd - delStart > 1) {
+            // Word or multi-character delete (e.g. Alt/Ctrl + Delete).
+            this.textfieldModel_.selectRange({start: delStart, end: delEnd});
+          }
+          this.textfieldModel_.delete();
+        }
+      }
+    }
+    this.lastInputSelection_ = this.textfieldModel_.selection;
+    this.updateEditHistoryState_();
+  }
+
   protected onSearchboxInputTextUpdated_(
       e: CustomEvent<{value: string, isComposing: boolean}>) {
     this.userInputInProgress_ = true;
     this.hasUserInput_ = !!e.detail.value.trim();
+
+    this.updateTextfieldModel_(e.detail.value, e.detail.isComposing);
+    this.lastInputText_ = e.detail.value;
+
+    this.updateAimButtonCollapse_();
+
     if (!e.detail.value.trim()) {
       // Notify the backend when the user clears all input (`onInputCleared`) so
       // it knows the draft was manually cleared and can revert empty drafts on
@@ -730,6 +1065,7 @@ export class OmniboxPopupSearchboxElement extends
 
     const isOutside = !this.getWrapperElement().contains(newlyFocusedEl);
     if (isOutside) {
+      this.textfieldModel_.commitCurrentEdit();
       this.handleFocusLost_();
     }
   }
@@ -756,6 +1092,62 @@ export class OmniboxPopupSearchboxElement extends
     this.canShowSecondarySide = e.matches;
   }
 
+  private onBeforeInput_(e: InputEvent) {
+    if (e.inputType === 'historyUndo') {
+      e.preventDefault();
+      this.undo_();
+    } else if (e.inputType === 'historyRedo') {
+      e.preventDefault();
+      this.redo_();
+    }
+  }
+
+  protected undo_(): boolean {
+    return this.undoRedoInternal_(/*isRedo=*/ false);
+  }
+
+  protected redo_(): boolean {
+    return this.undoRedoInternal_(/*isRedo=*/ true);
+  }
+
+  private undoRedoInternal_(isRedo: boolean): boolean {
+    const result =
+        isRedo ? this.textfieldModel_.redo() : this.textfieldModel_.undo();
+    if (!result) {
+      return false;
+    }
+
+    this.isUndoRedo_ = true;
+    try {
+      this.userInputInProgress_ = true;
+      this.hasUserInput_ = !!result.text.trim();
+      this.lastInputText_ = result.text;
+      this.lastInputSelection_ = result.selection;
+
+      const inputEl = this.getInputElement();
+      inputEl.setInput({text: result.text, inline: '', isDeletingInput: false});
+      inputEl.setSelectionRange(result.selection.start, result.selection.end);
+
+      if (!result.text.trim()) {
+        this.clearAutocompleteMatches();
+        this.popupPageHandler_.onInputCleared(this.currentSequenceNum_);
+      } else {
+        this.queryAutocomplete(
+            result.text, /*preventInlineAutocomplete=*/ false,
+            /*isOnFocus=*/ false);
+      }
+      this.updateEditHistoryState_();
+    } finally {
+      this.isUndoRedo_ = false;
+    }
+    return true;
+  }
+
+  private updateEditHistoryState_() {
+    this.popupPageHandler_.setEditHistoryState(
+        this.textfieldModel_.canUndo(), this.textfieldModel_.canRedo());
+  }
+
   override handleKeyNavigation(e: KeyboardEvent) {
     // Ignore key navigation (including ESC) during active IME text composition
     // (e.g. Japanese/Chinese/Korean) so the OS IME engine handles the key
@@ -767,9 +1159,39 @@ export class OmniboxPopupSearchboxElement extends
     if (e.key === 'Escape') {
       e.preventDefault();
       this.handleEscapeKey_();
-    } else {
-      super.handleKeyNavigation(e);
+      return;
     }
+
+    if (e.key === 'Enter' && this.selectedMatchIndex === -1) {
+      // On an open page where no suggestion match is highlighted, submit the
+      // verbatim input text (or reload the permanent URL).
+      e.preventDefault();
+      this.pageHandler().openAutocompleteMatch(
+          /*line=*/ -1,
+          /*url=*/ '',
+          /*areMatchesShowing=*/ this.dropdownIsVisible,
+          /*mouseButton=*/ 0, {
+            altKey: e.altKey,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            shiftKey: e.shiftKey,
+          },
+          /*viaKeyboard=*/ true);
+      return;
+    }
+
+    if (e.key === 'Tab' && this.$.input === this.shadowRoot?.activeElement) {
+      if (!e.shiftKey &&
+          this.keywordModeManager.acceptTab(
+              this.selectedMatch, this.selectedMatchIndex)) {
+        e.preventDefault();
+        return;
+      }
+      this.acceptInlineAutocomplete(e);
+      return;
+    }
+
+    super.handleKeyNavigation(e);
   }
 
   private handleEscapeKey_() {
@@ -845,7 +1267,79 @@ export class OmniboxPopupSearchboxElement extends
     this.popupPageHandler_.logEscapeAction(OmniboxEscapeAction.kBlur);
     return;
   }
+
+  /**
+   * Helper function to measure the rendered pixel width of a text string,
+   * using a cached off-screen Canvas 2D context to avoid layout flushes during
+   * resize.
+   */
+  private getTextWidth_(text: string, element: HTMLElement): number {
+    if (!text) {
+      return 0;
+    }
+
+    if (!this.canvasContext_) {
+      const canvas = document.createElement('canvas');
+      this.canvasContext_ = canvas.getContext('2d');
+    }
+
+    if (!this.inputFontStyle_) {
+      const computedStyle = window.getComputedStyle(element);
+      this.inputFontStyle_ = `${computedStyle.fontWeight} ${
+          computedStyle.fontSize} ${computedStyle.fontFamily}`;
+    }
+
+    this.canvasContext_!.font = this.inputFontStyle_;
+    return this.canvasContext_!.measureText(text).width;
   }
+
+  private updateAimButtonCollapse_() {
+    if (!this.aimButtonVisible_) {
+      this.aimButtonIconOnly_ = false;
+      return;
+    }
+
+    const composeButton =
+        this.shadowRoot?.querySelector<HTMLElement>('#composeButton');
+    if (!composeButton) {
+      return;
+    }
+
+    // Capture the latest "expanded" AIM button width.
+    if (!this.aimButtonIconOnly_) {
+      this.expandedAimButtonWidth_ = composeButton.offsetWidth;
+    }
+
+    const input = this.$.input.inputElement;
+
+    // Collapse AIM button to icon-only variant when input text overflows
+    // visible bounds.
+    if (input.scrollWidth > input.clientWidth) {
+      this.aimButtonIconOnly_ = true;
+      return;
+    }
+
+    if (this.aimButtonIconOnly_) {
+      const text = input.value;
+      // If input text is empty, always render the "expanded" variant.
+      if (!text) {
+        this.aimButtonIconOnly_ = false;
+        return;
+      }
+      const textWidth = this.getTextWidth_(text, input);
+      const expandedWidth = this.expandedAimButtonWidth_ || 104;
+      const collapsedWidth = composeButton.offsetWidth || 24;
+      // If non-empty input text can fit comfortably alongside the "expanded"
+      // AIM button, then render the "expanded" variant.
+      // NOTE: `threshold` uses a 4px safety margin in order to limit any
+      // potential layout thrashing (i.e. infinite expand/collapse loop).
+      const threshold = (expandedWidth - collapsedWidth) + 4;
+      if (textWidth < input.clientWidth - threshold) {
+        this.aimButtonIconOnly_ = false;
+      }
+    }
+  }
+}
 
 declare global {
   interface HTMLElementTagNameMap {

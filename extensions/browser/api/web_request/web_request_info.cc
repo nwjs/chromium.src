@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <string_view>
 
@@ -16,10 +17,10 @@
 #include "base/functional/bind.h"
 #include "base/notimplemented.h"
 #include "base/notreached.h"
-#include "base/types/zip.h"
 #include "base/values.h"
 #include "components/guest_view/buildflags/buildflags.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/websocket_handshake_request_info.h"
 #include "extensions/browser/api/web_request/upload_data_presenter.h"
 #include "extensions/browser/api/web_request/web_request_api_constants.h"
@@ -153,7 +154,7 @@ std::optional<base::DictValue> CreateRequestBodyData(
   });
   bool some_succeeded = false;
   if (!data_sources.empty()) {
-    for (auto [presenter, key] : base::zip(presenters, kKeys)) {
+    for (auto [presenter, key] : std::views::zip(presenters, kKeys)) {
       for (auto& source : data_sources) {
         source->FeedToPresenter(presenter);
       }
@@ -218,7 +219,6 @@ WebRequestResourceType ToWebRequestResourceType(
     case network::mojom::RequestDestination::kWorker:
     case network::mojom::RequestDestination::kSharedWorker:
     case network::mojom::RequestDestination::kServiceWorker:
-    case network::mojom::RequestDestination::kSharedStorageWorklet:
       return WebRequestResourceType::SCRIPT;
     case network::mojom::RequestDestination::kReport:
       return WebRequestResourceType::CSP_REPORT;
@@ -272,6 +272,21 @@ WebRequestInfoInitParams::WebRequestInfoInitParams(
   DCHECK_EQ(is_navigation_request, this->navigation_id.has_value());
 
   InitializeWebViewAndFrameData(navigation_ui_data.get());
+
+  // Determine whether this request is for privileged content (see //chrome's
+  // PrivilegedWebContents), so that it can be hidden from the webRequest and
+  // Declarative Net Request APIs. For a navigation there may be no renderer
+  // process to consult yet -- e.g. the initial main-frame navigation of a
+  // newly-created, still-empty WebContents is evaluated before a process is
+  // chosen -- so the destination WebContents' privileged state is carried on
+  // the navigation UI data. For other requests, the initiating process is live
+  // and is consulted directly.
+  if (navigation_ui_data) {
+    is_privileged = navigation_ui_data->is_privileged();
+  } else if (content::RenderProcessHost* process =
+                 content::RenderProcessHost::FromID(global_id.child_id)) {
+    is_privileged = process->IsPrivileged();
+  }
 
   std::vector<std::unique_ptr<UploadDataSource>> data_sources;
   if (CreateUploadDataSourcesFromResourceRequest(request, &data_sources)) {
@@ -341,7 +356,8 @@ WebRequestInfo::WebRequestInfo(WebRequestInfoInitParams params)
       web_view_embedder_process_id(params.web_view_embedder_process_id),
       is_service_worker_script(params.is_service_worker_script),
       navigation_id(std::move(params.navigation_id)),
-      parent_routing_id(params.parent_routing_id) {}
+      parent_routing_id(params.parent_routing_id),
+      is_privileged(params.is_privileged) {}
 
 WebRequestInfo::~WebRequestInfo() = default;
 

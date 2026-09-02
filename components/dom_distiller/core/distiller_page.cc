@@ -49,10 +49,9 @@ DistillerPage::DistillerPage()
 
 DistillerPage::~DistillerPage() = default;
 
-void DistillerPage::DistillPage(
-    const GURL& gurl,
-    const dom_distiller::proto::DomDistillerOptions options,
-    DistillerPageCallback callback) {
+void DistillerPage::DistillPage(const GURL& gurl,
+                                const DistillerOptions& options,
+                                DistillerPageCallback callback) {
   CHECK(ready_);
   CHECK(callback);
   CHECK(!distiller_page_callback_);
@@ -64,10 +63,10 @@ void DistillerPage::DistillPage(
   std::string script;
   switch (GetDistillerType()) {
     case DistillerType::kReadability:
-      script = GetReadabilityDistillerScript();
+      script = GetReadabilityDistillerScript(options.readability);
       break;
     case DistillerType::kDOMDistiller:
-      script = GetDistillerScriptWithOptions(options);
+      script = GetDistillerScriptWithOptions(options.dom_distiller);
       break;
   }
 

@@ -40,21 +40,24 @@
   margin-top: var(--omnibox-context-menu-container-margin-top);
 }
 
-:host([searchbox-layout-mode='TallBottomContext']) .context-menu-container:has(*),
-:host([searchbox-layout-mode='Compact']) .context-menu-container:has(*) {
+:host([searchbox-layout-mode_='TallBottomContext']) .context-menu-container:has(*),
+:host([searchbox-layout-mode_='Compact']) .context-menu-container:has(*) {
   height: 40px;
 }
 
-:host([searchbox-layout-mode='Compact']) .context-menu-container,
-:host([searchbox-layout-mode^='Tall']) .context-menu-container:not(:has(#context)) {
+:host([searchbox-layout-mode_='Compact']) .context-menu-container,
+:host([searchbox-layout-mode_^='Tall']) .context-menu-container:not(:has(#context)) {
   --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 12px;
 }
 
-:host([searchbox-layout-mode^='Tall']) #context {
+:host([searchbox-layout-mode_^='Tall']) #context {
   padding-inline: 8px;
 }
 
 #lensSearchIcon {
+  --color-composebox-font-light: var(--color-omnibox-text);
+  --color-composebox-voice-button-hover-background:
+      var(--color-omnibox-action-icon-hover);
   margin-inline-start: auto;
   margin-inline-end: 16px;
 }

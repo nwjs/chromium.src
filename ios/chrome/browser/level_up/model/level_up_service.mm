@@ -88,11 +88,19 @@ class LevelUpService::LevelUpTabGroupObserver
   // BrowserListObserver implementation.
   void OnBrowserAdded(const BrowserList* browser_list,
                       Browser* browser) override {
+    if (browser->type() != Browser::Type::kRegular &&
+        browser->type() != Browser::Type::kInactive) {
+      return;
+    }
     web_state_list_observation_.AddObservation(browser->GetWebStateList());
   }
 
   void OnBrowserRemoved(const BrowserList* browser_list,
                         Browser* browser) override {
+    if (browser->type() != Browser::Type::kRegular &&
+        browser->type() != Browser::Type::kInactive) {
+      return;
+    }
     web_state_list_observation_.RemoveObservation(browser->GetWebStateList());
   }
 
@@ -264,6 +272,11 @@ const std::map<TaskType, std::unique_ptr<TaskInfo>>& LevelUpService::GetTasks()
   return tasks_;
 }
 
+const std::map<std::string, LevelUpTaskStatType>&
+LevelUpService::GetStatTriggerUserActions() const {
+  return stat_trigger_user_actions_;
+}
+
 void LevelUpService::PopulateTasks() {
   tasks_[TaskType::kTabGroups] = CreateTabGroupsTaskInfo();
   tasks_[TaskType::kAutofill] = CreateAutofillTaskInfo();
@@ -277,6 +290,9 @@ void LevelUpService::PopulateTasks() {
   tasks_[TaskType::kLensSearch] = CreateLensSearchTaskInfo();
   tasks_[TaskType::kAISearch] = CreateAISearchTaskInfo();
   tasks_[TaskType::kCameraSearch] = CreateCameraSearchTaskInfo();
+
+  stat_trigger_user_actions_["Mobile.LensOverlay.CameraSearch.Performed"] =
+      LevelUpTaskStatType::kPhotoSearchesPerformed;
 }
 
 void LevelUpService::LoadPrefs() {

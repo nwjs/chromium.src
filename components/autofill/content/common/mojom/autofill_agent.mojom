@@ -26,6 +26,10 @@ interface AutofillAgent {
   // while another TriggerFormExtractionWithResponse() was ongoing.
   TriggerFormExtractionWithResponse() => (bool success);
 
+  // Clears the form cache in the renderer. Use this before
+  // `TriggerFormExtraction` to get a full new extraction of forms.
+  ClearFormCache();
+
   // Fills or previews the form identified by `form` with the data of its
   // fields. `action_type` denotes if the action is a Fill or Undo.
   // `action_persistence` denotes if the operation is a Fill or Preview.
@@ -67,9 +71,9 @@ interface AutofillAgent {
   // was found.
   // See `form_util::ExtractFinalCheckoutAmountFromDom()` for details.
   ExtractLabeledTextNodeValue(mojo_base.mojom.String16 value_regex,
-                        mojo_base.mojom.String16 label_regex,
-                        uint32 number_of_ancestor_levels_to_search) =>
-      (string value);
+                              mojo_base.mojom.String16 label_regex,
+                              uint32 number_of_ancestor_levels_to_search)
+      => (string value);
 
   // Sends the heuristic and server field type predictions to the renderer.
   FieldTypePredictionsAvailable(array<FormDataPredictions> forms);
@@ -121,19 +125,32 @@ interface AutofillAgent {
   GetPotentialLastFourCombinationsForStandaloneCvc()
       => (array<string> potential_matches);
 
+  // Part of the Email Verification Protocol (EVP).
+  // The website can include an email field and a hidden token field with a
+  // `nonce` attribute in the same form.
+  // When the user autofills the email, the browser detects this and tries to
+  // verify the email.
+  // This method queries the renderer if it has an email-verification-token
+  // field in the form owning the `email_field_id`. If so, returns its nonce.
+  // Otherwise, returns a nullopt.
+  // The browser will then send this nonce (challenge) to the verifier (issuer)
+  // to get a token.
+  GetNonceForEmailVerification(FieldRendererId email_field_id)
+      => (string? nonce);
+
   // Sends an email verification token along with the corresponding email
-  // address and field ID to the renderer. At form submission time, the
-  // renderer will verify that the email field's value still matches the verified
-  // email address before injecting the token.
+  // address and the email field's ID to the renderer. At form submission
+  // time, the renderer will verify that the email field's value still
+  // matches the verified email address, find the associated token field,
+  // and inject the token.
   SendEmailVerificationToken(FieldRendererId email_field_id,
                              string email,
-                             FieldRendererId token_field_id,
                              string token);
 
   // Notifies the renderer of a change in the email verification state for the
   // given email field.
-  UpdateEmailVerificationState(FieldRendererId email_field_id,
-                               EmailVerificationState state);
+  UpdateEmailVerificationState(
+      FieldRendererId email_field_id, EmailVerificationState state);
 
   // Starts observing the visibility of the field identified by `field_id`.
   // The `observer` will be notified when the field becomes visible (e.g.,
@@ -165,18 +182,19 @@ interface PasswordAutofillAgent {
   // Fills the username and password with with given values.
   FillPasswordSuggestion(
       mojo_base.mojom.String16 username, mojo_base.mojom.String16 password)
-         => (bool success);
+      => (bool success);
 
   // Similar to FillPasswordSuggestion, but is also provided the
   // FieldRendererIds of the elements to be filled.
   // `suggestion_source` specified how the user has interacted with
   // PWM suggestions, such as manual fallback. Used to update the
   // `FieldPropertiesMask` of the filled fields.
-  FillPasswordSuggestionById(FieldRendererId username_element_id,
-                             FieldRendererId password_element_id,
-                             mojo_base.mojom.String16 username,
-                             mojo_base.mojom.String16 password,
-                             AutofillSuggestionTriggerSource suggestion_source);
+  FillPasswordSuggestionById(
+      FieldRendererId username_element_id,
+      FieldRendererId password_element_id,
+      mojo_base.mojom.String16 username,
+      mojo_base.mojom.String16 password,
+      AutofillSuggestionTriggerSource suggestion_source);
 
   // Previews the username and password, determined from the given
   // FieldRendererIds, with the given values.
@@ -189,7 +207,7 @@ interface PasswordAutofillAgent {
   // This is the "no results" equivalent of ApplyFillDataOnParsingCompletion. In
   // certain cases the password manager shows popups (e.g. promo UIs) even if
   // there are no saved credentials.
- InformNoSavedCredentials(bool should_show_popup_without_passwords);
+  InformNoSavedCredentials(bool should_show_popup_without_passwords);
 
   // Fills the given `credential` into the last focused text input.
   FillIntoFocusedField(
@@ -202,8 +220,9 @@ interface PasswordAutofillAgent {
   // `field_properties` will be used to update the field data map with
   // metadata about filling. See `FieldPropertiesFlags` for potential
   // values.
-  FillField(FieldRendererId field_id, mojo_base.mojom.String16 value,
-    uint32 field_properties) => (bool success);
+  FillField(FieldRendererId field_id,
+            mojo_base.mojom.String16 value,
+            uint32 field_properties) => (bool success);
 
   // Fills a given change password form, specifically `password_element_id` with
   // `old_password` and `new_password_element_id`, `confirm_password_element_id`

@@ -69,9 +69,10 @@ void SidePanelRegistry::ResetActiveEntry() {
   active_entry_.reset();
 }
 
-void SidePanelRegistry::ClearCachedEntryViews() {
+void SidePanelRegistry::ClearCachedEntryViews(bool include_active_entry) {
   for (auto const& entry : entries_) {
-    if (!active_entry_.has_value() || entry.get() != active_entry_.value()) {
+    if (include_active_entry || !active_entry_.has_value() ||
+        entry.get() != active_entry_.value()) {
       entry.get()->ClearCachedView();
     }
   }
@@ -149,13 +150,13 @@ void SidePanelRegistry::OnEntryShown(SidePanelEntry* entry) {
 
 const tabs::TabInterface& SidePanelRegistry::GetTabInterface() const {
   CHECK_EQ(SidePanelEntryScope::ScopeType::kTab, get_scope_type());
-  return *std::get<tabs::TabInterface*>(owner_);
+  return *std::get<raw_ptr<tabs::TabInterface>>(owner_);
 }
 
 const BrowserWindowInterface& SidePanelRegistry::GetBrowserWindowInterface()
     const {
   return get_scope_type() == SidePanelEntryScope::ScopeType::kTab
-             ? *std::get<tabs::TabInterface*>(owner_)
+             ? *std::get<raw_ptr<tabs::TabInterface>>(owner_)
                     ->GetBrowserWindowInterface()
-             : *std::get<BrowserWindowInterface*>(owner_);
+             : *std::get<raw_ptr<BrowserWindowInterface>>(owner_);
 }

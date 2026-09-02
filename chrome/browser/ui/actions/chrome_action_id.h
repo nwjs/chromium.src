@@ -87,6 +87,7 @@
   E(kActionShowMemorySaverChip) \
   E(kActionShowJsOptimizationsIcon) \
   E(kActionShowCookieControls) \
+  E(kActionShowZoomBubble) \
   E(kActionUnfocusTabGroup, IDC_UNFOCUS_TAB_GROUP) \
   E(kActionAddNewTabToGroup, IDC_ADD_NEW_TAB_TO_GROUP) \
   E(kActionCreateNewTabGroup, IDC_CREATE_NEW_TAB_GROUP) \
@@ -225,6 +226,8 @@
     IDC_CONTENT_CONTEXT_OPENLINKNEWWINDOW) \
   E(kActionContentContextOpenLinkOffTheRecord, \
     IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD) \
+  E(kActionContentContextOpenLinkIsolated, \
+    IDC_CONTENT_CONTEXT_OPENLINK_ISOLATED) \
   E(kActionContentContextSaveLinkAs, IDC_CONTENT_CONTEXT_SAVELINKAS) \
   E(kActionContentContextCopyLinkLocation, \
     IDC_CONTENT_CONTEXT_COPYLINKLOCATION) \
@@ -431,6 +434,13 @@
   E(kActionOmniboxContextSetModelAuto, IDC_OMNIBOX_CONTEXT_SET_MODEL_AUTO)  \
   E(kActionOmniboxContextSetModelThinking, IDC_OMNIBOX_CONTEXT_SET_MODEL_THINKING)  \
   E(kActionOmniboxContextSetModelRegular, IDC_OMNIBOX_CONTEXT_SET_MODEL_REGULAR)  \
+  /*Omnibox Everywhere Status Icon Menu*/ \
+  E(kActionOmniboxEverywhereStatusIconMenuToggle, \
+    IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_TOGGLE) \
+  E(kActionOmniboxEverywhereStatusIconMenuCustomizeKeyboardShortcut, \
+    IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_CUSTOMIZE_KEYBOARD_SHORTCUT) \
+  E(kActionOmniboxEverywhereStatusIconMenuSettings, \
+    IDC_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_SETTINGS) \
   E(kActionShowPaymentsChurnedUsersBubble) \
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -476,13 +486,15 @@
   E(kActionSidePanelShowCustomizeChromeToolbar, \
     IDC_SHOW_CUSTOMIZE_CHROME_TOOLBAR) \
   E(kActionSidePanelShowFeed) \
+  E(kActionSidePanelShowGeic) \
   E(kActionSidePanelShowGlic) \
   E(kActionSidePanelShowContextualTasks) \
   E(kActionSidePanelShowHistoryCluster, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL) \
   E(kActionSidePanelShowHistory, IDC_SHOW_HISTORY_SIDE_PANEL) \
   E(kActionSidePanelShowLens) \
   E(kActionSidePanelShowLensOverlayResults) \
-  E(kActionSidePanelShowReadAnything, IDC_SHOW_READING_MODE_SIDE_PANEL) \
+  E(kActionSidePanelShowReadAnything) \
+  E(kActionShowReadingModeSidePanel, IDC_SHOW_READING_MODE_SIDE_PANEL) \
   E(kActionShowReadingModeKeyboard, IDC_SHOW_READING_MODE_KEYBOARD) \
   E(kActionSidePanelShowReadingList, IDC_READING_LIST_MENU_SHOW_UI) \
   E(kActionSidePanelShowSearchCompanion) \
@@ -496,6 +508,7 @@
   E(kActionHome, IDC_HOME) \
   E(kActionForward, IDC_FORWARD) \
   E(kActionNewIncognitoWindow, IDC_NEW_INCOGNITO_WINDOW) \
+  E(kActionNewIsolatedWindow, IDC_NEW_ISOLATED_WINDOW) \
   E(kActionSendSharedTabGroupFeedback, IDC_SEND_SHARED_TAB_GROUP_FEEDBACK) \
   E(kActionShowPasswordManager, IDC_SHOW_PASSWORD_MANAGER) \
   E(kActionShowPaymentMethods, IDC_SHOW_PAYMENT_METHODS) \
@@ -531,8 +544,10 @@
   E(kActionShowAiOverlayDialog) \
   E(kActionWebAuthnAmbientSignin) \
   E(kActionAutofillPayment) \
+  E(kActionWalletReminderNotice) \
 
 #define SUBMENU_ACTION_IDS                                                     \
+  E(kActionAppMenuRoot)                                                        \
   E(kActionMenuBookmarksSubmenu, kBookmarksMenuId)                             \
   E(kActionMenuPasswordsAndAutofillSubmenu, kPasswordsAndAutofillMenuId)       \
   E(kActionMenuReadingListSubmenu, kReadingListMenuId)                         \

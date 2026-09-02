@@ -26,7 +26,7 @@ class ColorProvider;
 class TabStyle {
  public:
   // The different types of path GetPath() can return. Different paths are used
-  // in different situations, but most (excluding |kClip|) are roughly the same
+  // in different situations, but most (excluding `kClip`) are roughly the same
   // shape.
   enum class PathType {
     // File-folder tab outline. Extends halfway into the border so there are no
@@ -187,13 +187,6 @@ class TabStyle {
   // hover state `hovered`. If `hovered`, this blends the hovered and unhovered
   // background colors according to the `hover_animation_value`.
   // `frame_active` is whether the tab's widget is painted as active or not.
-  SkColor GetCurrentTabBackgroundColor(
-      const TabSelectionState state,
-      const bool hovered,
-      float hover_animation_value,
-      const bool frame_active,
-      const ui::ColorProvider* color_provider) const;
-
   SkColor GetCurrentTabBackgroundColor(
       const TabSelectionState state,
       const bool hovered,

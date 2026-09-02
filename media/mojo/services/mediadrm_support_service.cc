@@ -27,18 +27,19 @@ void MediaDrmSupportService::IsKeySystemSupported(
   DCHECK(!key_system.empty());
   DVLOG(1) << __func__ << " key_system: " << key_system;
 
-  if (!MediaDrmBridge::IsKeySystemSupported(key_system)) {
+  auto supported_containers =
+      MediaDrmBridge::GetSupportedContainers(key_system);
+
+  if (supported_containers.empty()) {
     std::move(callback).Run(nullptr);
     return;
   }
 
   auto result = mojom::MediaDrmSupportResult::New();
-  auto security_level = media::MediaDrmBridge::SECURITY_LEVEL_DEFAULT;
-  if (base::FeatureList::IsEnabled(
-          media::kUseSecurityLevelWhenCheckingMediaDrmVersion)) {
-    security_level = is_secure ? media::MediaDrmBridge::SECURITY_LEVEL_1
-                               : media::MediaDrmBridge::SECURITY_LEVEL_3;
-  }
+  auto security_level =
+      is_secure ? media::MediaDrmBridge::SECURITY_LEVEL_HW_SECURE_ALL
+                : media::MediaDrmBridge::SECURITY_LEVEL_SW_SECURE_CRYPTO;
+
   auto version = MediaDrmBridge::MaybeGetVersion(key_system, security_level);
   if (!version.has_value() &&
       version.error() ==
@@ -49,9 +50,9 @@ void MediaDrmSupportService::IsKeySystemSupported(
   }
 
   result->key_system_supports_video_webm =
-      MediaDrmBridge::IsKeySystemSupportedWithType(key_system, "video/webm");
+      supported_containers.contains("video/webm");
   result->key_system_supports_video_mp4 =
-      MediaDrmBridge::IsKeySystemSupportedWithType(key_system, "video/mp4");
+      supported_containers.contains("video/mp4");
   result->key_system_version = version.value_or(base::Version());
 
   std::move(callback).Run(std::move(result));

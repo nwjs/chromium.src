@@ -28,6 +28,7 @@ enum class SnapAxis : unsigned {
   kY,
   kBlock,
   kInline,
+  kPair,
 };
 
 // A helper enum to specify the the axis when doing calculations.
@@ -447,7 +448,7 @@ class CC_EXPORT SnapContainerData {
       const SnapSearchResult& cross_axis_snap_result) const;
 
   bool FindSnapPositionForMutualSnap(const SnapSelectionStrategy& strategy,
-                                     gfx::PointF* snap_position) const;
+                                     SnapPositionData& result) const;
 
   // Finds the snap area associated with the target snap area element id for the
   // given axis.

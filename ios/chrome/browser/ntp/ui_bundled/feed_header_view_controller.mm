@@ -33,6 +33,9 @@ const CGFloat kCustomSearchEngineLabelFontSize = 13;
 const CGFloat kCustomSearchEngineLabelHeight = 18;
 // The height of the header container.
 const CGFloat kDiscoverFeedHeaderHeight = 30;
+// Height of the Discover header when the Discover title is hidden. This is used
+// to ensure sufficient top padding.
+const CGFloat kDiscoverFeedHeaderHeightUICleanup = 6;
 // Max size that the Title and Segmented Control fonts will scale to.
 const CGFloat kMaxFontSize = 24;
 
@@ -86,6 +89,9 @@ const CGFloat kMaxFontSize = 24;
 #pragma mark - Public
 
 - (CGFloat)feedHeaderHeight {
+  if (![self shouldShowTitleLabel]) {
+    return kDiscoverFeedHeaderHeightUICleanup;
+  }
   return kDiscoverFeedHeaderHeight;
 }
 
@@ -94,8 +100,11 @@ const CGFloat kMaxFontSize = 24;
     return;
   }
   [self.titleLabel removeFromSuperview];
-  self.titleLabel = [self createTitleLabel];
-  [self.container addSubview:self.titleLabel];
+  self.titleLabel = nil;
+  if ([self shouldShowTitleLabel]) {
+    self.titleLabel = [self createTitleLabel];
+    [self.container addSubview:self.titleLabel];
+  }
   if ([self.NTPDelegate isGoogleDefaultSearchEngine]) {
     [self removeCustomSearchEngineView];
   } else {
@@ -107,11 +116,22 @@ const CGFloat kMaxFontSize = 24;
 #pragma mark - Private
 
 - (void)configureHeaderViews {
-  self.titleLabel = [self createTitleLabel];
-  [self.container addSubview:self.titleLabel];
+  if ([self shouldShowTitleLabel]) {
+    self.titleLabel = [self createTitleLabel];
+    [self.container addSubview:self.titleLabel];
+  }
   if (![self.NTPDelegate isGoogleDefaultSearchEngine]) {
     [self addCustomSearchEngineView];
   }
+}
+
+// Returns whether the Discover feed header title label should be shown.
+- (BOOL)shouldShowTitleLabel {
+  if (IsNewTabPageUICleanupEnabled() &&
+      [self.NTPDelegate isGoogleDefaultSearchEngine]) {
+    return NO;
+  }
+  return YES;
 }
 
 // Configures and returns the feed header's title label.
@@ -158,7 +178,9 @@ const CGFloat kMaxFontSize = 24;
   self.feedHeaderConstraints = [[NSMutableArray alloc] init];
 
   [self anchorContainer];
-  [self anchorTitleLabel];
+  if (self.titleLabel) {
+    [self anchorTitleLabel];
+  }
   if (![self.NTPDelegate isGoogleDefaultSearchEngine]) {
     [self anchorCustomSearchEngineView];
   }

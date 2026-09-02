@@ -30,6 +30,7 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.browser_ui.display_cutout.DisplayCutoutController;
 import org.chromium.components.browser_ui.display_cutout.DisplayCutoutController.SafeAreaInsetsTracker;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.content_public.browser.WebContentsObserver;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.display.DisplayUtil;
@@ -133,6 +134,11 @@ public class EdgeToEdgeUtils {
         return !DeviceInfo.isAutomotive() && !hasTappableNavigationBar(activity.getWindow());
     }
 
+    /** Whether the edge-to-edge feature is enabled on automotive. */
+    public static boolean isEdgeToEdgeAutomotiveEnabled() {
+        return ChromeFeatureList.sEdgeToEdgeAutomotive.isEnabled();
+    }
+
     /**
      * This is a sensitive check for whether all insets indicate or imply that the device is in
      * gesture navigation mode, and not tappable (3-button) navigation mode.
@@ -188,7 +194,7 @@ public class EdgeToEdgeUtils {
             return false;
         }
 
-        if (DeviceInfo.isAutomotive()) {
+        if (DeviceInfo.isAutomotive() && !isEdgeToEdgeAutomotiveEnabled()) {
             return false;
         }
 
@@ -260,7 +266,7 @@ public class EdgeToEdgeUtils {
                     ineligibleName, IneligibilityReason.OS_VERSION, IneligibilityReason.NUM_TYPES);
         }
 
-        if (DeviceInfo.isAutomotive()) {
+        if (DeviceInfo.isAutomotive() && !isEdgeToEdgeAutomotiveEnabled()) {
             eligible = false;
             RecordHistogram.recordEnumeratedHistogram(
                     ineligibleName, IneligibilityReason.DEVICE_TYPE, IneligibilityReason.NUM_TYPES);
@@ -464,5 +470,46 @@ public class EdgeToEdgeUtils {
         // the display cutout / camera will not show a gesture inset (the other side will still show
         // an inset).
         return nonMandatorySystemGestures.left > 0 || nonMandatorySystemGestures.right > 0;
+    }
+
+    /** Returns whether the EdgelessTopInset feature flag is enabled. */
+    public static boolean isEdgelessTopInsetEnabled() {
+        if (Build.VERSION.SDK_INT < VERSION_CODES.R) {
+            return false;
+        }
+        return ChromeFeatureList.sEdgelessTopInset.isEnabled();
+    }
+
+    /**
+     * Returns whether the given Tab supports drawing top edge to edge.
+     *
+     * @param tab The Tab to check.
+     * @return True if the tab is a native page that supports top edge to edge, false otherwise.
+     */
+    public static boolean supportsEnableTopEdgeToEdge(@Nullable Tab tab) {
+        // TODO(crbug.com/498302496): Currently top edge-to-edge is only supported on native pages.
+        // Support for web pages will be added in future iterations.
+        if (!isEdgelessTopInsetEnabled() || tab == null || !tab.isNativePage()) {
+            return false;
+        }
+
+        NativePage nativePage = tab.getNativePage();
+        return nativePage != null && nativePage.supportsEdgeToEdgeOnTop();
+    }
+
+    /**
+     * Returns whether the given tab is a regular (non-incognito) New Tab Page.
+     *
+     * @param tab The Tab to check.
+     * @return True if the tab is non-incognito and has an NTP URL.
+     */
+    public static boolean isRegularNtp(@Nullable Tab tab) {
+        // TODO(crbug.com/498302496): Temporary check ported from TopInsetCoordinator to avoid
+        // retriggering window insets unnecessarily. This will be replaced by general top-edge
+        // state change detection in follow-ups.
+        return tab != null
+                && !tab.isIncognito()
+                && tab.getUrl() != null
+                && UrlUtilities.isNtpUrl(tab.getUrl());
     }
 }

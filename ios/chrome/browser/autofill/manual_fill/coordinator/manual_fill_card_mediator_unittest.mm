@@ -84,7 +84,9 @@ class TestChromeAutofillClient : public autofill::ChromeAutofillClientIOS {
 }
 - (void)userDidPickContent:(NSString*)content
              passwordField:(BOOL)passwordField
-             requiresHTTPS:(BOOL)requiresHTTPS {
+             requiresHTTPS:(BOOL)requiresHTTPS
+           jumpToNextField:(BOOL)jumpToNextField
+                actionType:(autofill::mojom::FieldActionType)actionType {
 }
 - (void)autofillFormWithCredential:(ManualFillCredential*)credential
                       shouldReauth:(BOOL)shouldReauth {

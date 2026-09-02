@@ -4,10 +4,13 @@
 
 #include "ui/compositor_extra/shadow.h"
 
+#include "base/check.h"
+#include "base/check_op.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/geometry/insets.h"
+#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/shadow_util.h"
 
 namespace ui {
@@ -16,6 +19,11 @@ namespace {
 
 // Duration for opacity animation in milliseconds.
 constexpr int kShadowAnimationDurationMs = 100;
+
+bool IsValidRoundedCorners(const gfx::RoundedCornersF& radii) {
+  return radii.upper_left() >= 0.0f && radii.upper_right() >= 0.0f &&
+         radii.lower_right() >= 0.0f && radii.lower_left() >= 0.0f;
+}
 
 }  // namespace
 
@@ -80,11 +88,16 @@ void Shadow::SetElevation(int elevation) {
 }
 
 void Shadow::SetRoundedCornerRadius(int rounded_corner_radius) {
-  DCHECK_GE(rounded_corner_radius, 0);
-  if (rounded_corner_radius_ == rounded_corner_radius)
-    return;
+  SetRoundedCorners(gfx::RoundedCornersF(rounded_corner_radius));
+}
 
-  rounded_corner_radius_ = rounded_corner_radius;
+void Shadow::SetRoundedCorners(const gfx::RoundedCornersF& radii) {
+  CHECK(IsValidRoundedCorners(radii));
+  if (rounded_corners_ == radii) {
+    return;
+  }
+
+  rounded_corners_ = radii;
   UpdateShadowAppearance();
 }
 
@@ -121,7 +134,7 @@ std::unique_ptr<Layer> Shadow::ShadowLayerOwner::RecreateLayer() {
   auto result = ui::LayerOwner::RecreateLayer();
   // Now update the newly recreated shadow layer with the correct nine patch
   // image details.
-  owner_shadow_->details_ = nullptr;
+  owner_shadow_->details_ = std::nullopt;
   owner_shadow_->UpdateShadowAppearance();
   return result;
 }
@@ -136,7 +149,7 @@ void Shadow::RecreateShadowLayer() {
   shadow_layer()->SetFillsBoundsOpaquely(false);
   layer()->Add(shadow_layer());
 
-  details_ = nullptr;
+  details_ = std::nullopt;
   UpdateShadowAppearance();
 }
 
@@ -144,39 +157,66 @@ void Shadow::UpdateShadowAppearance() {
   if (content_bounds_.IsEmpty())
     return;
 
+  const int smaller_dimension =
+      std::min(content_bounds_.width(), content_bounds_.height());
+
+  // Corner radii cannot exceed half of the smaller dimension of the content
+  // bounds. Clamp each corner radius to avoid invalid ninebox geometry.
+  const float max_radius = std::floor(smaller_dimension / 2.0f);
+  const gfx::RoundedCornersF size_adjusted_rounded_corners(
+      std::min(rounded_corners_.upper_left(), max_radius),
+      std::min(rounded_corners_.upper_right(), max_radius),
+      std::min(rounded_corners_.lower_right(), max_radius),
+      std::min(rounded_corners_.lower_left(), max_radius));
+
   // The ninebox assumption breaks down when the window is too small for the
   // desired elevation. The height/width of |blur_region| will be 4 * elevation
   // (see ShadowDetails::Get), so cap elevation at the most we can handle.
-  const int smaller_dimension =
-      std::min(content_bounds_.width(), content_bounds_.height());
+  const bool is_pill_shaped =
+      (max_radius == size_adjusted_rounded_corners.upper_left() ||
+       max_radius == size_adjusted_rounded_corners.upper_right() ||
+       max_radius == size_adjusted_rounded_corners.lower_right() ||
+       max_radius == size_adjusted_rounded_corners.lower_left());
+  const int max_safe_elevation =
+      is_pill_shaped
+          ? smaller_dimension / 4
+          : (smaller_dimension -
+             2 * std::max({size_adjusted_rounded_corners.upper_left(),
+                           size_adjusted_rounded_corners.upper_right(),
+                           size_adjusted_rounded_corners.lower_right(),
+                           size_adjusted_rounded_corners.lower_left()})) /
+                4;
   const int size_adjusted_elevation =
-      std::min((smaller_dimension - 2 * rounded_corner_radius_) / 4,
-               static_cast<int>(desired_elevation_));
+      std::min(max_safe_elevation, static_cast<int>(desired_elevation_));
+  CHECK_GE(size_adjusted_elevation, 0);
 
   auto iter = color_map_.find(desired_elevation_);
   const auto& details =
       (iter == color_map_.end())
           ? gfx::ShadowDetails::Get(size_adjusted_elevation,
-                                    rounded_corner_radius_, style_)
+                                    size_adjusted_rounded_corners,
+                                    is_pill_shaped, style_)
           : gfx::ShadowDetails::Get(
-                size_adjusted_elevation, rounded_corner_radius_,
+                size_adjusted_elevation, size_adjusted_rounded_corners,
                 /*key_color=*/iter->second.first,
-                /*ambient_color=*/iter->second.second, style_);
+                /*ambient_color=*/iter->second.second, is_pill_shaped, style_);
 
-  gfx::Insets blur_region = gfx::ShadowValue::GetBlurRegion(details.values) +
-                            gfx::Insets(rounded_corner_radius_);
+  const gfx::Insets aperture_insets =
+      gfx::ShadowDetails::GetNineboxApertureInsets(
+          details.values, size_adjusted_rounded_corners);
+
   // Update |shadow_layer()| if details changed and it has been updated in
   // the past (|details_| is set), or elevation is non-zero.
-  if ((&details != details_) && (details_ || size_adjusted_elevation)) {
+  if (details != details_ && (details_ || size_adjusted_elevation)) {
     shadow_layer()->UpdateNinePatchLayerImage(details.nine_patch_image);
     // The ninebox grid is defined in terms of the image size. The shadow blurs
-    // in both inward and outward directions from the edge of the contents, so
-    // the aperture goes further inside the image than the shadow margins (which
-    // represent exterior blur).
+    // in both inward and outward directions from the edge of the contents (and
+    // rounded corners if any), so the aperture goes further inside the image
+    // than the shadow margins (which represent exterior blur).
     gfx::Rect aperture(details.nine_patch_image.size());
-    aperture.Inset(blur_region);
+    aperture.Inset(aperture_insets);
     shadow_layer()->UpdateNinePatchLayerAperture(aperture);
-    details_ = &details;
+    details_ = details;
   }
 
   // Shadow margins are negative, so this expands outwards from
@@ -215,13 +255,15 @@ void Shadow::UpdateShadowAppearance() {
   // Occlude the region inside the bounding box. Occlusion uses shadow layer
   // space. See nine_patch_layer.h for more context on what's going on here.
   gfx::Rect occlusion_bounds(shadow_layer_bounds.size());
-  occlusion_bounds.Inset(-margins + gfx::Insets(rounded_corner_radius_));
+  gfx::Insets corner_insets = gfx::ShadowDetails::GetInsetsForRoundedCorners(
+      size_adjusted_rounded_corners);
+  occlusion_bounds.Inset(-margins + corner_insets);
   shadow_layer()->UpdateNinePatchOcclusion(occlusion_bounds);
 
   // The border is the same inset as the aperture.
   shadow_layer()->UpdateNinePatchLayerBorder(
-      gfx::Rect(blur_region.left(), blur_region.top(), blur_region.width(),
-                blur_region.height()));
+      gfx::Rect(aperture_insets.left(), aperture_insets.top(),
+                aperture_insets.width(), aperture_insets.height()));
 }
 
 }  // namespace ui

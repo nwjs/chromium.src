@@ -28,7 +28,7 @@
 #include "components/optimization_guide/core/delivery/prediction_manager.h"
 #include "components/optimization_guide/core/delivery/prediction_model_fetch_timer.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
-#include "components/optimization_guide/core/optimization_guide_switches.h"
+#include "components/optimization_guide/core/optimization_guide_permissions_util.h"
 #include "components/optimization_guide/proto/models.pb.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -112,9 +112,9 @@ class PredictionModelStoreBrowserTestBase : public InProcessBrowserTest {
   }
 
   void SetUpCommandLine(base::CommandLine* cmd) override {
-    cmd->AppendSwitch(switches::kGoogleApiKeyConfigurationCheckOverride);
+    cmd->AppendSwitch(kGoogleApiKeyConfigurationCheckOverrideSwitch);
     cmd->AppendSwitchASCII(
-        switches::kOptimizationGuideServiceGetModelsURL,
+        features::kOptimizationGuideServiceGetModelsURLSwitch,
         models_server_
             ->GetURL(
                 features::GetOptimizationGuideServiceGetModelsURL().GetHost(),

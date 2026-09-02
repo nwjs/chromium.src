@@ -160,6 +160,12 @@ bool UseCompositorClockVSyncInterval() {
 BASE_FEATURE(kDCompOnD3D12, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
+#if BUILDFLAG(IS_ANDROID)
+// Enables 2-pixel even boundary alignment for YUV SurfaceControl overlays.
+BASE_FEATURE(kAndroidYuvOverlayEvenAlignment,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 bool UseGpuVsync() {
   return !base::CommandLine::ForCurrentProcess()->HasSwitch(
              switches::kDisableGpuVsync) &&
@@ -268,17 +274,11 @@ void GetANGLEFeaturesFromCommandLineAndFinch(
 }
 
 bool ShouldFallbackToSWIfGLES3NotSupported() {
-#if BUILDFLAG(IS_CHROMEOS)
-  static bool is_enabled =
-      !base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ash::switches::kRevenBranding) &&
-      base::FeatureList::IsEnabled(kFallbackToSWIfGLES3NotSupported);
-  return is_enabled;
-#elif BUILDFLAG(IS_WIN)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   return base::FeatureList::IsEnabled(kFallbackToSWIfGLES3NotSupported);
-#else   // BUILDFLAG(IS_CHROMEOS)
+#else   // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
   return true;
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
 }
 
 #if BUILDFLAG(ENABLE_SWIFTSHADER)
@@ -378,6 +378,9 @@ bool IsSoftwareGLFallbackDueToCrashesAllowed(
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kAndroidLimitRgb565DisplayToApi32,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kAndroidSurfaceControlPartialDamage,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool PreferRGB565ResourcesForDisplay() {
   return base::SysInfo::AmountOfTotalPhysicalMemory().InMiB() <= 512 &&

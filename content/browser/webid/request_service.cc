@@ -197,6 +197,24 @@ void RequestService::StartTokenRequest(
     return;
   }
 
+  for (auto& provider : idp_get_params[0]->providers) {
+    if (provider->config->from_idp_registration_api) {
+      if (!IsIdPRegistrationEnabled()) {
+        // In layout and web platform tests, features with "status: test" (like
+        // FedCmIdPRegistration) are enabled by default on the renderer-side,
+        // but the corresponding browser-side base::Feature may be disabled.
+        // To prevent mismatches in benign test configurations from terminating
+        // the renderer, we sanitize/reset from_idp_registration_api to false
+        // instead of reporting a bad message.
+        provider->config->from_idp_registration_api = false;
+      } else if (!provider->config->config_url.is_empty()) {
+        receivers_.ReportBadMessage(
+            "config_url must be empty for registered providers.");
+        return;
+      }
+    }
+  }
+
   RenderFrameHost& rfh = render_frame_host();
   auto new_request = std::make_unique<Request>(&rfh, *this);
   new_request->BindReceiver(std::move(request_receiver));
@@ -487,21 +505,6 @@ void RequestService::CloseModalDialogView() {
 }
 void RequestService::PreventSilentAccess(PreventSilentAccessCallback callback) {
   SetRequiresUserMediation(true, std::move(callback));
-
-  if (permission_delegate_->HasSharingPermission(
-          render_frame_host().GetMainFrame()->GetLastCommittedOrigin())) {
-    // Ensure the lifecycle state as GetPageUkmSourceId doesn't support the
-    // prerendering page. As Request runs behind the
-    // BrowserInterfaceBinders, the service doesn't receive any request while
-    // prerendering, and the CHECK should always meet the condition.
-    CHECK(!render_frame_host().IsInLifecycleState(
-        RenderFrameHost::LifecycleState::kPrerendering));
-    RecordPreventSilentAccess(
-        ComputeRequesterFrameType(
-            render_frame_host(), render_frame_host().GetLastCommittedOrigin(),
-            render_frame_host().GetMainFrame()->GetLastCommittedOrigin()),
-        render_frame_host().GetPageUkmSourceId());
-  }
 }
 
 void RequestService::SetRequiresUserMediation(bool requires_user_mediation,
@@ -604,6 +607,13 @@ void RequestService::CompleteUserInfoRequest(
 void RequestService::Disconnect(
     blink::mojom::IdentityCredentialDisconnectOptionsPtr options,
     DisconnectCallback callback) {
+  if (render_frame_host().GetLastCommittedOrigin().opaque() ||
+      render_frame_host().IsNestedWithinFencedFrame() ||
+      !render_frame_host().GetPage().IsPrimary()) {
+    std::move(callback).Run(blink::mojom::DisconnectStatus::kError);
+    return;
+  }
+
   // Enforce identity-credentials-get Permissions Policy browser-side.
   // The renderer checks this, but a compromised renderer can bypass it.
   if (!render_frame_host().IsFeatureEnabled(
@@ -750,8 +760,6 @@ void RequestService::SetIdpSigninStatus(
   auto scoped_closure = base::ScopedClosureRunner(std::move(callback));
 
   if (render_frame_host().IsNestedWithinFencedFrame()) {
-    RecordSetLoginStatusIgnoredReason(
-        SetLoginStatusIgnoredReason::kInFencedFrame);
     return;
   }
   // We only allow setting the IDP signin status when the subresource is loaded
@@ -760,8 +768,6 @@ void RequestService::SetIdpSigninStatus(
   // that would set this signin status for the tracker, enabling the FedCM
   // request.
   if (!IsSameSiteWithAncestors(idp_origin, &render_frame_host())) {
-    RecordSetLoginStatusIgnoredReason(
-        SetLoginStatusIgnoredReason::kCrossOrigin);
     return;
   }
 

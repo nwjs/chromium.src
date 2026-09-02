@@ -1,6 +1,5 @@
 ci/ios-simulator
 ci/ios-simulator-full-configs
-ci/linux-official
 try/android-arm64-rel
 try/android-arm64-rel-compilator
 try/android-binary-size
@@ -23,7 +22,6 @@ try/linux-chromeos-dbg
 try/linux-chromeos-rel
 try/linux-chromeos-rel-compilator
 try/linux-libfuzzer-asan-rel
-try/linux-official
 try/linux-rel
 try/linux-rel-compilator
 try/linux_chromium_asan_rel_ng

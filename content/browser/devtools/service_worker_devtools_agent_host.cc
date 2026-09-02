@@ -254,8 +254,7 @@ bool ServiceWorkerDevToolsAgentHost::AttachSession(DevToolsSession* session) {
   session->CreateAndAddHandler<protocol::InspectorHandler>();
   session->CreateAndAddHandler<protocol::NetworkHandler>(
       GetId(), devtools_worker_token_, GetIOContext(), session,
-      context_wrapper()->storage_partition(), base::DoNothing(),
-      session->GetClient());
+      context_wrapper()->storage_partition(), session->GetClient());
 
   session->CreateAndAddHandler<protocol::FetchHandler>(
       GetIOContext(), session->GetRootSession()->GetClient(),
@@ -472,7 +471,7 @@ ServiceWorkerDevToolsAgentHost::CreateNetworkFactoryParamsForDevTools() {
       /*dip_reporter=*/mojo::NullRemote(),
       static_cast<StoragePartitionImpl*>(rph->GetStoragePartition())
           ->CreateURLLoaderNetworkObserverForServiceOrSharedWorker(
-              ToOriginatingProcessId(rph->GetID()), origin),
+              ToOriginatingProcessId(rph->GetID()), origin, version->key()),
       NetworkServiceDevToolsObserver::MakeSelfOwned(GetId()),
       /*client_security_state=*/nullptr,
       /*network_restrictions_id=*/version->network_restrictions_id(),

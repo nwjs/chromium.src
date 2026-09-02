@@ -335,8 +335,8 @@ class CredentialSuggestionBottomSheetMediatorTest : public PlatformTest {
     params_.form_renderer_id = kFormRendererId;
     params_.field_renderer_id = kUsernameFieldRendererId;
     params_.field_identifier = "field_id";
-    params_.field_type = "select-one";
-    params_.type = "type";
+    params_.field_type = autofill::FormActivityParams::FieldType::kSelectOne;
+    params_.type = autofill::FormActivityParams::ActivityType::kFocus;
     // Set the value to be empty so all the suggestions can be offered without
     // doing any filtering based on prefix matching.
     params_.value = "";

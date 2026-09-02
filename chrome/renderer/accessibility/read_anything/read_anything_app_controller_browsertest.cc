@@ -15,6 +15,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/gtest_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -71,6 +72,10 @@ class MockReadAnythingUntrustedPageHandler
   MOCK_METHOD(void,
               GetDependencyParserModel,
               (GetDependencyParserModelCallback mojo_callback),
+              (override));
+  MOCK_METHOD(void,
+              ShouldShowLineFocusNewBadge,
+              (ShouldShowLineFocusNewBadgeCallback mojo_callback),
               (override));
   MOCK_METHOD(void,
               GetVoicePackInfo,
@@ -134,6 +139,7 @@ class MockReadAnythingUntrustedPageHandler
               (read_anything::mojom::LineFocus current_line_focus,
                read_anything::mojom::LineFocus last_non_disabled_line_focus),
               (override));
+  MOCK_METHOD(void, OnLineFocusFeatureUsed, (), (override));
   MOCK_METHOD(void,
               OnImageDataRequested,
               (const ::ui::AXTreeID& target_tree_id, int32_t target_node_id),
@@ -1668,6 +1674,55 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_EQ(u"", controller().GetTextContent(3));
 }
 
+// Verifies that when Google Docs is opened, the controller falls back from
+// Readability to Screen2x distillation and does not recompute display nodes
+// during draw.
+TEST_F(ReadAnythingAppControllerTest,
+       Draw_DoNotRecomputeDisplayNodesForDocs_Screen2xFallback) {
+  ui::AXTreeUpdate update;
+  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
+  test::SetUpdateTreeID(&update, id_1);
+  ui::AXNodeData node;
+  node.id = 2;
+
+  ui::AXNodeData root = test::LinkNode(/* id= */ 1, DOCS_URL);
+  root.child_ids = {node.id};
+  update.root_id = root.id;
+  update.nodes = {std::move(root), std::move(node)};
+
+  EXPECT_CALL(*distiller_, Distill).Times(1);
+  ui::AXEvent load_complete(0, ax::mojom::Event::kLoadComplete);
+  AccessibilityEventReceived({std::move(update)}, {std::move(load_complete)});
+
+  // Populate display_node_ids_ for tree_id_.
+  model().Reset({3});
+  model().ComputeDisplayNodeIdsForDistilledTree();
+
+  controller().OnActiveAXTreeIDChanged(id_1, ukm::kInvalidSourceId, false);
+  EXPECT_TRUE(controller().IsGoogleDocs());
+  EXPECT_TRUE(model().display_node_ids().contains(1));
+  EXPECT_FALSE(model().display_node_ids().contains(2));
+  EXPECT_TRUE(model().display_node_ids().contains(3));
+  Mock::VerifyAndClearExpectations(distiller_);
+
+  ui::AXNodeData node1;
+  node1.id = 4;
+
+  // This update changes the structure of the tree. When the controller receives
+  // it in AccessibilityEventReceived, it will re-distill the tree.
+  ui::AXTreeUpdate update2;
+  test::SetUpdateTreeID(&update2, id_1);
+  update2.nodes = {std::move(node1)};
+  AccessibilityEventReceived({std::move(update2)});
+
+  model().Reset({3, 4});
+  controller().Draw(/* recompute_display_nodes= */ true);
+  EXPECT_FALSE(model().display_node_ids().contains(1));
+  EXPECT_FALSE(model().display_node_ids().contains(2));
+  EXPECT_FALSE(model().display_node_ids().contains(3));
+  EXPECT_FALSE(model().display_node_ids().contains(4));
+}
+
 TEST_F(ReadAnythingAppControllerTest,
        GetTextContent_UseNameAttributeTextIfGoogleDocs) {
   std::u16string text_content = u"Hello";
@@ -1837,6 +1892,22 @@ TEST_F(ReadAnythingAppControllerTest, ShouldBold) {
   EXPECT_EQ(false, controller().ShouldBold(2));
   EXPECT_EQ(true, controller().ShouldBold(3));
   EXPECT_EQ(true, controller().ShouldBold(4));
+}
+
+TEST_F(ReadAnythingAppControllerTest, ShouldBold_PDFFontWeight) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kPdfAccessibilityHeuristicEnhancements);
+  model().set_is_pdf(true);
+
+  ui::AXNodeData semibold_node;
+  semibold_node.id = 3;
+  semibold_node.AddFloatAttribute(ax::mojom::FloatAttribute::kFontWeight, 600);
+
+  SendUpdateWithNodes({std::move(semibold_node)});
+  OnAXTreeDistilled(tree_id_, {});
+
+  EXPECT_TRUE(controller().ShouldBold(3));
 }
 
 TEST_F(ReadAnythingAppControllerTest, IsOverline) {
@@ -2087,7 +2158,7 @@ TEST_F(ReadAnythingAppControllerTest, IsGoogleDocs) {
       model().tree_infos_for_testing().at(id_1)->is_url_information_set);
   OnAXTreeDistilled(tree_id_, {1});
 
-  ExpectDistill(1);
+  EXPECT_CALL(*distiller_, Distill).Times(0);
   controller().OnActiveAXTreeIDChanged(id_1, ukm::kInvalidSourceId, false);
   EXPECT_FALSE(controller().IsGoogleDocs());
   Mock::VerifyAndClearExpectations(distiller_);
@@ -2102,7 +2173,7 @@ TEST_F(ReadAnythingAppControllerTest, IsGoogleDocs) {
       model().tree_infos_for_testing().at(tree_id_)->is_url_information_set);
   OnAXTreeDistilled(tree_id_, {1});
 
-  ExpectDistill(1);
+  EXPECT_CALL(*distiller_, Distill).Times(1);
   controller().OnActiveAXTreeIDChanged(tree_id_, ukm::kInvalidSourceId, false);
   EXPECT_TRUE(controller().IsGoogleDocs());
   Mock::VerifyAndClearExpectations(distiller_);
@@ -2293,9 +2364,6 @@ TEST_F(ReadAnythingAppControllerTest, GetImageBitmap_ValidNode) {
 }
 
 TEST_F(ReadAnythingAppControllerTest, RequestImageData) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {features::kReadAnythingImagesViaAlgorithm}, {});
   ui::AXNodeID ax_node_id = 2;
   EXPECT_CALL(page_handler_, OnImageDataRequested(tree_id_, ax_node_id))
       .Times(1);
@@ -2814,11 +2882,49 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_FALSE(future.Get());
 }
 
+TEST_F(
+    ReadAnythingAppControllerTest,
+    OnDependencyParserModelAvailabilityChecked_Unavailable_RequestsModelWithoutChangingDistillationState) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kReadAnythingReadAloudPhraseHighlighting);
+
+  // Set distillation state to an active state.
+  model().set_distillation_state(
+      read_anything::mojom::ReadAnythingDistillationState::
+          kDistillationWithContent);
+
+  EXPECT_CALL(page_handler_, GetDependencyParserModel(testing::_))
+      .Times(1)
+      .WillOnce(base::test::RunOnceCallback<0>(base::File()));
+  EXPECT_CALL(page_handler_, OnDistillationStateChanged(testing::_)).Times(0);
+
+  controller().OnDependencyParserModelAvailabilityChecked(
+      /*is_available=*/false);
+  page_handler_.FlushForTesting();
+
+  // Distillation state should remain unchanged.
+  EXPECT_EQ(model().distillation_state(),
+            read_anything::mojom::ReadAnythingDistillationState::
+                kDistillationWithContent);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       OnDependencyParserModelAvailabilityChecked_FeatureDisabled_DoesNothing) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kReadAnythingReadAloudPhraseHighlighting);
+
+  EXPECT_CALL(page_handler_, GetDependencyParserModel(testing::_)).Times(0);
+  EXPECT_CALL(page_handler_, OnDistillationStateChanged(testing::_)).Times(0);
+
+  controller().OnDependencyParserModelAvailabilityChecked(
+      /*is_available=*/false);
+  page_handler_.FlushForTesting();
+}
+
 TEST_F(ReadAnythingAppControllerTest,
        OnStringAttributeChanged_NonImageNode_DoesNothing) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kReadAnythingImagesViaAlgorithm);
-
   static constexpr ui::AXNodeID kLinkNodeId = 2;
   std::string placeholder_url = "data:image/svg+xml,...";
   ui::AXNodeData link_node = test::LinkNode(kLinkNodeId, placeholder_url);
@@ -2832,24 +2938,7 @@ TEST_F(ReadAnythingAppControllerTest,
 }
 
 TEST_F(ReadAnythingAppControllerTest,
-       OnStringAttributeChanged_ImageFlagDisabled_DoesNothing) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(features::kReadAnythingImagesViaAlgorithm);
-  static constexpr ui::AXNodeID kImageNodeId = 2;
-  std::string placeholder_src = "data:image/svg+xml,...";
-  ui::AXNodeData image_node = test::ImageNode(kImageNodeId, placeholder_src);
-  SendUpdateAndDistillNodes({std::move(image_node)});
-  std::string final_src = "https://example.com/real_image.png";
-  ui::AXNodeData updated_image_node = test::ImageNode(kImageNodeId, final_src);
-  SendUpdateAndDistillNodes({std::move(updated_image_node)});
-
-  EXPECT_CALL(page_handler_, OnImageDataRequested).Times(0);
-}
-
-TEST_F(ReadAnythingAppControllerTest,
        OnStringAttributeChanged_ReadabilityDistillation_DoesNothing) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kReadAnythingImagesViaAlgorithm);
   model().set_current_content_distillation_method(
       ReadAnythingAppModel::DistillationMethod::kReadability);
   model().set_next_distillation_method(
@@ -2962,6 +3051,8 @@ TEST_F(ReadAnythingAppControllerTest,
   controller().OnAXTreeDestroyed(tree_id_);
   ASSERT_FALSE(model().ContainsActiveTree());
 
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
   model().set_reset_draw_timer(true);
   model().set_requires_distillation(false);
 
@@ -2976,6 +3067,8 @@ TEST_F(ReadAnythingAppControllerTest,
   // There's already an Active tree from Setup() so we don't need to create it.
   ASSERT_TRUE(model().ContainsActiveTree());
 
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
   model().set_reset_draw_timer(true);
   model().set_requires_distillation(false);
 
@@ -5377,9 +5470,6 @@ TEST_F(ReadAnythingAppControllerScreen2xTest, DisplayNodes_WithMultipleTrees) {
 
 TEST_F(ReadAnythingAppControllerScreen2xTest,
        OnStringAttributeChanged_ImageSrcChange_RequestsImageData) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(features::kReadAnythingImagesViaAlgorithm);
-
   // Create an image node with a placeholder "data:" URL, mimicking a
   // lazy-loaded image.
   static constexpr ui::AXNodeID kImageNodeId = 2;
@@ -5448,46 +5538,6 @@ TEST_F(ReadAnythingAppControllerScreen2xTest, Draw_RecomputeDisplayNodes) {
   EXPECT_FALSE(model().display_node_ids().contains(2));
   EXPECT_TRUE(model().display_node_ids().contains(3));
   EXPECT_TRUE(model().display_node_ids().contains(4));
-}
-
-TEST_F(ReadAnythingAppControllerScreen2xTest,
-       Draw_DoNotRecomputeDisplayNodesForDocs) {
-  model().set_current_content_distillation_method(
-      ReadAnythingAppModel::DistillationMethod::kScreen2x);
-  ui::AXTreeUpdate update;
-  ui::AXTreeID id_1 = ui::AXTreeID::CreateNewAXTreeID();
-  test::SetUpdateTreeID(&update, id_1);
-  ui::AXNodeData node;
-  node.id = 2;
-
-  ui::AXNodeData root = test::LinkNode(/* id= */ 1, DOCS_URL);
-  root.child_ids = {node.id};
-  update.root_id = root.id;
-  update.nodes = {std::move(root), std::move(node)};
-
-  ExpectDistill(1);
-  ui::AXEvent load_complete(0, ax::mojom::Event::kLoadComplete);
-  AccessibilityEventReceived({std::move(update)}, {std::move(load_complete)});
-  OnAXTreeDistilled(tree_id_, {3});
-  controller().OnActiveAXTreeIDChanged(id_1, ukm::kInvalidSourceId, false);
-  EXPECT_TRUE(controller().IsGoogleDocs());
-  EXPECT_TRUE(model().display_node_ids().contains(1));
-  EXPECT_FALSE(model().display_node_ids().contains(2));
-  EXPECT_TRUE(model().display_node_ids().contains(3));
-  Mock::VerifyAndClearExpectations(distiller_);
-
-  ui::AXNodeData node1;
-  node1.id = 4;
-
-  // This update changes the structure of the tree. When the controller receives
-  // it in AccessibilityEventReceived, it will re-distill the tree.
-  SendUpdateWithNodes({std::move(node1)});
-  model().Reset({3, 4});
-  controller().Draw(/* recompute_display_nodes= */ true);
-  EXPECT_FALSE(model().display_node_ids().contains(1));
-  EXPECT_FALSE(model().display_node_ids().contains(2));
-  EXPECT_FALSE(model().display_node_ids().contains(3));
-  EXPECT_FALSE(model().display_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppControllerScreen2xTest,
@@ -6248,6 +6298,8 @@ TEST_F(ReadAnythingAppControllerTest,
 
 TEST_F(ReadAnythingAppControllerTest,
        OnNodeWillBeDeleted_InactiveTree_Ignored) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
   // Create an inactive tree.
   ui::AXTreeID inactive_tree_id = ui::AXTreeID::CreateNewAXTreeID();
 
@@ -6293,6 +6345,8 @@ TEST_F(ReadAnythingAppControllerTest,
 
 TEST_F(ReadAnythingAppControllerTest,
        OnNodeWillBeDeleted_ActiveTree_Processed) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
   // Create a node with ID 2 in the active tree, and mark it as visible.
   ui::AXTreeUpdate update;
   test::SetUpdateTreeID(&update, tree_id_);

@@ -28,7 +28,7 @@ namespace {
 // Define a DialogModelDelegate to handle button actions.
 class SharedTabGroupVersionDialogDelegate : public ui::DialogModelDelegate {
  public:
-  explicit SharedTabGroupVersionDialogDelegate(Browser* browser)
+  explicit SharedTabGroupVersionDialogDelegate(BrowserWindowInterface* browser)
       : browser_(browser) {}
 
   // Called when the "Update Chrome" button is clicked.
@@ -40,11 +40,11 @@ class SharedTabGroupVersionDialogDelegate : public ui::DialogModelDelegate {
   }
 
  private:
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
 };
 
 void ShowSharedTabGroupVersionOutOfDateModal(
-    base::WeakPtr<Browser> browser,
+    base::WeakPtr<BrowserWindowInterface> browser,
     tab_groups::VersioningMessageController* versioning_message_controller,
     bool should_show) {
   if (!browser || !versioning_message_controller || !should_show) {
@@ -81,15 +81,14 @@ void ShowSharedTabGroupVersionOutOfDateModal(
 }
 
 void ShowSharedTabGroupVersionUpToDateToast(
-    base::WeakPtr<Browser> browser,
+    base::WeakPtr<BrowserWindowInterface> browser,
     tab_groups::VersioningMessageController* versioning_message_controller,
     bool should_show) {
   if (!browser || !versioning_message_controller || !should_show) {
     return;
   }
 
-  ToastController* toast_controller =
-      browser->browser_window_features()->toast_controller();
+  ToastController* toast_controller = browser->GetFeatures().toast_controller();
   if (!toast_controller) {
     return;
   }
@@ -104,9 +103,11 @@ void ShowSharedTabGroupVersionUpToDateToast(
 
 }  // anonymous namespace
 
-void MaybeShowSharedTabGroupVersionOutOfDateModal(Browser* browser) {
+void MaybeShowSharedTabGroupVersionOutOfDateModal(
+    BrowserWindowInterface* browser) {
   // Only show on normal browser.
-  if (!browser || !browser->is_type_normal()) {
+  if (!browser ||
+      browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
     return;
   }
 
@@ -127,12 +128,14 @@ void MaybeShowSharedTabGroupVersionOutOfDateModal(Browser* browser) {
       tab_groups::VersioningMessageController::MessageType::
           VERSION_OUT_OF_DATE_INSTANT_MESSAGE,
       base::BindOnce(&ShowSharedTabGroupVersionOutOfDateModal,
-                     browser->AsWeakPtr(), versioning_message_controller));
+                     browser->GetWeakPtr(), versioning_message_controller));
 }
 
-void MaybeShowSharedTabGroupVersionUpToDateToast(Browser* browser) {
+void MaybeShowSharedTabGroupVersionUpToDateToast(
+    BrowserWindowInterface* browser) {
   // Only show on normal browser.
-  if (!browser || !browser->is_type_normal()) {
+  if (!browser ||
+      browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
     return;
   }
 
@@ -153,7 +156,7 @@ void MaybeShowSharedTabGroupVersionUpToDateToast(Browser* browser) {
       tab_groups::VersioningMessageController::MessageType::
           VERSION_UPDATED_MESSAGE,
       base::BindOnce(&ShowSharedTabGroupVersionUpToDateToast,
-                     browser->AsWeakPtr(), versioning_message_controller));
+                     browser->GetWeakPtr(), versioning_message_controller));
 }
 
 }  // namespace tab_groups

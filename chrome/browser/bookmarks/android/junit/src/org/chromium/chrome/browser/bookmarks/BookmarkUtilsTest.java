@@ -38,7 +38,6 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.Callback;
 import org.chromium.base.DeviceInfo;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -76,10 +75,12 @@ import java.util.Collections;
 import java.util.List;
 
 /** Unit tests for {@link BookmarkUtils}. */
-@Batch(Batch.UNIT_TESTS)
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
-@DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_POPUP)
+@DisableFeatures({
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT,
+    ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_POPUP
+})
 public class BookmarkUtilsTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -666,28 +667,28 @@ public class BookmarkUtilsTest {
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.BOOKMARKS_DESKTOP_LAYOUT)
+    @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
     public void testIsDesktopBookmarksLayoutEnabled_featureEnabled_deviceDesktop() {
         DeviceInfo.setIsDesktopForTesting(true);
         assertTrue(BookmarkUtils.isDesktopBookmarksLayoutEnabled());
     }
 
     @Test
-    @EnableFeatures(ChromeFeatureList.BOOKMARKS_DESKTOP_LAYOUT)
+    @EnableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
     public void testIsDesktopBookmarksLayoutEnabled_featureEnabled_deviceNotDesktop() {
         DeviceInfo.setIsDesktopForTesting(false);
         assertFalse(BookmarkUtils.isDesktopBookmarksLayoutEnabled());
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.BOOKMARKS_DESKTOP_LAYOUT)
+    @DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
     public void testIsDesktopBookmarksLayoutEnabled_featureDisabled_deviceDesktop() {
         DeviceInfo.setIsDesktopForTesting(true);
         assertFalse(BookmarkUtils.isDesktopBookmarksLayoutEnabled());
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.BOOKMARKS_DESKTOP_LAYOUT)
+    @DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
     public void testIsDesktopBookmarksLayoutEnabled_featureDisabled_deviceNotDesktop() {
         DeviceInfo.setIsDesktopForTesting(false);
         assertFalse(BookmarkUtils.isDesktopBookmarksLayoutEnabled());

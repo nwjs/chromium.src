@@ -258,6 +258,10 @@ class ThemeService : public KeyedService,
 
   const ThemeHelper& theme_helper_for_testing() const { return *theme_helper_; }
 
+  // Returns a baseline ThemeProvider where custom theme assets (such as
+  // extension images) are suppressed.
+  const ui::ThemeProvider& GetDefaultThemeProvider() const;
+
   // Don't create "Cached Theme.pak" in the extension directory, for testing.
   static void DisableThemePackForTesting();
 
@@ -313,7 +317,7 @@ class ThemeService : public KeyedService,
     int GetDisplayProperty(int id) const override;
     bool ShouldUseNativeFrame() const override;
     bool HasCustomImage(int id) const override;
-    base::RefCountedMemory* GetRawData(
+    scoped_refptr<base::RefCountedMemory> GetRawData(
         int id,
         ui::ResourceScaleFactor scale_factor) const override;
 
@@ -330,6 +334,8 @@ class ThemeService : public KeyedService,
   friend class InitialWebUIProfileService;
   friend class ThemeColorsSourceManager;
   friend class theme_service_internal::ThemeServiceTest;
+  friend class ThemeServiceBrowserTest;
+  friend class BrowserWidgetColorProviderTest;
   friend class waap::PrewarmHelper;
 
   // Returns a ColorProviderKey configured with Profile-scoped state. The
@@ -417,6 +423,7 @@ class ThemeService : public KeyedService,
 
   BrowserThemeProvider original_theme_provider_;
   BrowserThemeProvider incognito_theme_provider_;
+  BrowserThemeProvider default_theme_provider_;
 
   // Allows us to cancel building a theme pack from an extension.
   base::CancelableTaskTracker build_extension_task_tracker_;

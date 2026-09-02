@@ -129,14 +129,12 @@ class FakeSessionControllerClient : public SessionControllerClient {
 
   // SessionControllerClient:
   void RequestLockScreen() override {}
-  void RequestHideLockScreen() override {}
   void RequestSignOut() override {}
   void RequestRestartForUpdate() override {}
   void AttemptRestartChrome() override {}
   void SwitchActiveUser(const AccountId& account_id) override {}
   void CycleActiveUser(CycleUserDirection direction) override {}
   void ShowMultiProfileLogin() override {}
-  void EmitAshInitialized() override {}
   PrefService* GetSigninScreenPrefService() override { return nullptr; }
   PrefService* GetUserPrefService(const AccountId& account_id) override {
     return &pref_service_;

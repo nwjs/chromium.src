@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/editing/state_machines/backspace_state_machine.h"
 
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
@@ -1036,10 +1037,10 @@ TEST(BackspaceStateMachineTest, EmojiUnicode17) {
       "\U0001FAEF"             // Unicode 17 Emoji
       "\u200D"                 // ZWJ
       "\U0001F468\U0001F3FB";  // Man with EMOJI MODIFIER FITZPATRICK TYPE-1-2
-  for (unsigned i = text.length(); i;) {
+  for (wtf_size_t i = text.length(); i;) {
     const UChar code_unit = text[--i];
     EXPECT_EQ(kNeedMoreCodeUnit, machine.FeedPrecedingCodeUnit(code_unit))
-        << String::Format("%u: %04X", i, code_unit);
+        << Format("{}: {:04X}", i, code_unit);
   }
   EXPECT_EQ(-text.length(), machine.FinalizeAndGetBoundaryOffset());
 }

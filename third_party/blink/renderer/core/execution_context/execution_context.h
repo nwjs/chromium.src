@@ -173,8 +173,6 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
 
   virtual bool IsContextThread() const { return true; }
 
-  virtual bool ShouldInstallV8Extensions() const { return false; }
-
   virtual void MaybeRecordNetworkRequestUrlForPushEvents(const KURL& url) {}
   virtual void MaybeRecordFetchError(int net_error_code,
                                      const FetchRequestData* request_data) {}
@@ -261,7 +259,6 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   void CountDeprecation(WebFeature feature) override;
 
   bool IsContextPaused() const;
-  bool IsContextFrozen() const;
   LoaderFreezeMode GetLoaderFreezeMode() const;
   mojom::FrameLifecycleState ContextPauseState() const {
     return lifecycle_state_;
@@ -316,6 +313,16 @@ class CORE_EXPORT ExecutionContext : public Supplementable<ExecutionContext>,
   }
   void SetPolicyContainer(std::unique_ptr<PolicyContainer> container);
   std::unique_ptr<PolicyContainer> TakePolicyContainer();
+
+  // Called when the `policy_container_`'s PolicyContainerPolicies change. The
+  // `initiator_state_token` passed to this function is the same passed to the
+  // `policy_container_` policy update functions (which will send it to the
+  // browser process). Execution contexts that may start navigations (i.e.
+  // LocalFrameWindow) should update their `initiator_state_token` to the
+  // updated version, so that navigations they start afterwards are associated
+  // with the right state of PolicyContainerPolicies.
+  virtual void SetInitiatorStateToken(
+      const base::UnguessableToken& initiator_state_token) {}
 
   virtual CoreProbeSink* GetProbeSink() { return nullptr; }
 

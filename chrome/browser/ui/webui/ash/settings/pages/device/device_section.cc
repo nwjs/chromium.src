@@ -644,9 +644,6 @@ void AddDeviceKeyboardStrings(content::WebUIDataSource* html_source) {
   html_source->AddLocalizedString("perDeviceKeyboardKeyQuickInsert",
                                   IDS_KEYBOARD_QUICK_INSERT_LABEL);
 
-  html_source->AddBoolean("enableModifierSplit",
-                          features::IsModifierSplitEnabled());
-
   if (Shell::Get()->keyboard_capability()->HasLauncherButtonOnAnyKeyboard()) {
     html_source->AddLocalizedString(
         "keyboardBlockMetaFunctionKeyRewrites",

@@ -540,91 +540,6 @@ TEST_F(NavigationRequestTest, WillFailRequestSetsSSLInfo) {
             navigation->GetNavigationHandle()->GetSSLInfo()->connection_status);
 }
 
-TEST_F(NavigationRequestTest, SharedStorageWritable) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitWithFeatures(
-      /*enabled_features=*/{network::features::kSharedStorageAPI,
-                            blink::features::kFencedFrames},
-      /*disabled_features=*/{});
-
-  // Create and start a simulated `NavigationRequest` for the main frame.
-  GURL main_url = GURL("https://main.com");
-  auto main_navigation =
-      NavigationSimulatorImpl::CreateBrowserInitiated(main_url, contents());
-  main_navigation->Start();
-  main_navigation->ReadyToCommit();
-
-  // Verify that the main frame's `NavigationRequest` will not be
-  // SharedStorageWritable.
-  ASSERT_TRUE(main_navigation->GetNavigationHandle());
-  EXPECT_FALSE(main_navigation->GetNavigationHandle()
-                   ->shared_storage_writable_eligible());
-
-  // Commit the navigation.
-  main_navigation->Commit();
-
-  // Append a child frame and set its `shared_storage_writable` attribute to
-  // true.
-  TestRenderFrameHost* child_frame = static_cast<TestRenderFrameHost*>(
-      content::RenderFrameHostTester::For(main_rfh())->AppendChild("child"));
-  blink::mojom::IframeAttributesPtr child_attributes =
-      blink::mojom::IframeAttributes::New();
-  child_attributes->shared_storage_writable_opted_in = true;
-  child_frame->frame_tree_node()->SetAttributes(std::move(child_attributes));
-
-  // Create and start a simulated `NavigationRequest` for the child frame.
-  GURL a_url = GURL("https://a.com");
-  auto child_navigation =
-      NavigationSimulatorImpl::CreateRendererInitiated(a_url, child_frame);
-  child_navigation->Start();
-
-  // Verify that the `NavigationRequest` will be SharedStorageWritable.
-  ASSERT_TRUE(child_navigation->GetNavigationHandle());
-  EXPECT_TRUE(child_navigation->GetNavigationHandle()
-                  ->shared_storage_writable_eligible());
-
-  // Commit the navigation.
-  child_navigation->Commit();
-
-  // Append a fenced frame and give it permission to access Shared Storage.
-  TestRenderFrameHost* fenced_frame_root = static_cast<TestRenderFrameHost*>(
-      content::RenderFrameHostTester::For(main_rfh())->AppendFencedFrame());
-  FrameTreeNode* fenced_frame_node =
-      static_cast<RenderFrameHostImpl*>(fenced_frame_root)->frame_tree_node();
-  FencedFrameConfig new_config = FencedFrameConfig(GURL("about:blank"));
-  new_config.AddEffectiveEnabledPermissionForTesting(
-      network::mojom::PermissionsPolicyFeature::kSharedStorage);
-  FencedFrameProperties new_props = FencedFrameProperties(new_config);
-  fenced_frame_node->set_fenced_frame_properties(new_props);
-  fenced_frame_root->ResetPermissionsPolicy({});
-
-  // Append a child frame to the fenced frame root and set its
-  // `shared_storage_writable` attribute to true.
-  TestRenderFrameHost* child_of_fenced_frame =
-      static_cast<TestRenderFrameHost*>(
-          fenced_frame_root->AppendChild("child_of_fenced"));
-  blink::mojom::IframeAttributesPtr child_of_fenced_frame_attributes =
-      blink::mojom::IframeAttributes::New();
-  child_of_fenced_frame_attributes->shared_storage_writable_opted_in = true;
-  child_of_fenced_frame->frame_tree_node()->SetAttributes(
-      std::move(child_of_fenced_frame_attributes));
-
-  // Create and start a simulated `NavigationRequest` for the child frame.
-  GURL b_url = GURL("https://b.com");
-  auto child_of_fenced_frame_navigation =
-      NavigationSimulatorImpl::CreateRendererInitiated(b_url,
-                                                       child_of_fenced_frame);
-  child_of_fenced_frame_navigation->Start();
-
-  // Verify that the `NavigationRequest` will be SharedStorageWritable.
-  ASSERT_TRUE(child_of_fenced_frame_navigation->GetNavigationHandle());
-  EXPECT_TRUE(child_of_fenced_frame_navigation->GetNavigationHandle()
-                  ->shared_storage_writable_eligible());
-
-  // Commit the navigation.
-  child_of_fenced_frame_navigation->Commit();
-}
-
 namespace {
 
 // Helper throttle which checks that it can access NavigationHandle's
@@ -727,12 +642,14 @@ TEST_F(NavigationRequestTest, PolicyContainerInheritance) {
         NavigationSimulatorImpl::CreateRendererInitiated(kUrl, child_frame);
     static_cast<blink::mojom::PolicyContainerHost*>(
         child_frame->policy_container_host())
-        ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kAlways);
+        ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kAlways,
+                            base::UnguessableToken::Create());
     navigation->SetInitiatorFrame(child_frame);
     navigation->Start();
     static_cast<blink::mojom::PolicyContainerHost*>(
         child_frame->policy_container_host())
-        ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever);
+        ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever,
+                            base::UnguessableToken::Create());
     navigation->Commit();
     EXPECT_EQ(
         test.expect_inherit ? network::mojom::ReferrerPolicy::kAlways
@@ -894,8 +811,9 @@ TEST_F(NavigationRequestTest, SanitizeRedirectsForCommit) {
 
   NavigationRequest* request =
       NavigationRequest::From(navigation->GetNavigationHandle());
+  auto common_params = request->common_params().Clone();
   auto commit_params = request->commit_params().Clone();
-  request->SanitizeRedirectsForCommit(commit_params);
+  request->SanitizeRedirectsForCommit(common_params, commit_params);
 
   // redirect_params contains entries for B, C, and D, but not the starting URL.
   // Ensure that the full URL for D is preserved.
@@ -960,9 +878,10 @@ TEST_F(NavigationRequestTest, SanitizeRedirectsForCommitRelativeLocation) {
 
   NavigationRequest* request =
       NavigationRequest::From(navigation->GetNavigationHandle());
+  auto common_params = request->common_params().Clone();
   auto commit_params = request->commit_params().Clone();
 
-  request->SanitizeRedirectsForCommit(commit_params);
+  request->SanitizeRedirectsForCommit(common_params, commit_params);
 
   EXPECT_EQ(4u, commit_params->redirect_params.size());
 
@@ -1038,9 +957,10 @@ TEST_F(NavigationRequestTest, SanitizeRedirectsForCommitNonStandardRelative) {
 
   NavigationRequest* request =
       NavigationRequest::From(navigation->GetNavigationHandle());
+  auto common_params = request->common_params().Clone();
   auto commit_params = request->commit_params().Clone();
 
-  request->SanitizeRedirectsForCommit(commit_params);
+  request->SanitizeRedirectsForCommit(common_params, commit_params);
 
   EXPECT_EQ(3u, commit_params->redirect_params.size());
 
@@ -1097,9 +1017,10 @@ TEST_F(NavigationRequestTest, SanitizeRedirectsForCommitHostlessNonStandard) {
 
   NavigationRequest* request =
       NavigationRequest::From(navigation->GetNavigationHandle());
+  auto common_params = request->common_params().Clone();
   auto commit_params = request->commit_params().Clone();
 
-  request->SanitizeRedirectsForCommit(commit_params);
+  request->SanitizeRedirectsForCommit(common_params, commit_params);
 
   EXPECT_EQ(2u, commit_params->redirect_params.size());
 
@@ -1162,6 +1083,251 @@ TEST_F(NavigationRequestTest, SanitizeRedirectsForCommitErrorPage) {
   // kSanitizeOriginalUrlDuringNavigation is enabled.
   EXPECT_EQ(GURL("https://a.com/"), commit_params.original_url);
   EXPECT_EQ(start_url, request->original_url());
+}
+
+// Test that when a redirected subframe navigation is blocked and the resulting
+// error page commits in the initiator's process, the final URL is reduced to
+// its origin in the parameters sent to the renderer. See crbug.com/517156678.
+TEST_F(NavigationRequestTest,
+       SanitizeRedirectsForCommitErrorPageInCurrentProcess) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kSanitizeFailedSubframeNavigationUrls,
+                            features::kSanitizeLocationHeadersDuringNavigation},
+      /*disabled_features=*/{});
+
+  // Commit an initial page so the subframe has a parent document.
+  NavigationSimulator::NavigateAndCommitFromDocument(GURL("https://a.com/"),
+                                                     main_test_rfh());
+  auto* child_frame = static_cast<TestRenderFrameHost*>(
+      content::RenderFrameHostTester::For(main_rfh())->AppendChild("child"));
+
+  const GURL start_url("https://b.com/start?param=1");
+  const GURL final_url("https://c.com/path?param=2");
+  std::unique_ptr<NavigationSimulator> navigation =
+      NavigationSimulator::CreateRendererInitiated(start_url, child_frame);
+  navigation->Start();
+
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 302 Found");
+  headers->SetHeader("Location", "https://c.com/path?param=2");
+  navigation->SetRedirectHeaders(headers);
+
+  navigation->Redirect(final_url);
+  navigation->Fail(net::ERR_BLOCKED_BY_CLIENT);
+
+  NavigationRequest* request =
+      NavigationRequest::From(navigation->GetNavigationHandle());
+  ASSERT_EQ(NavigationRequest::ErrorPageProcess::kCurrentProcess,
+            request->ComputeErrorPageProcess());
+
+  // The error page commits in the initiator's process, so the final URL (which
+  // is the post-redirect target) should be reduced to its origin in both the
+  // common and commit params.
+  EXPECT_EQ(GURL("https://c.com/"), request->common_params().url);
+  ASSERT_EQ(1u, request->commit_params().redirect_params.size());
+  EXPECT_EQ(GURL("https://c.com/"),
+            request->commit_params().redirect_params[0]->redirect_info.new_url);
+  ASSERT_EQ(1u, request->commit_params().redirects.size());
+  EXPECT_EQ(GURL("https://b.com/"), request->commit_params().redirects[0]);
+
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeLocationHeadersDuringNavigation)) {
+    size_t iter = 0;
+    std::optional<std::string_view> location =
+        request->commit_params()
+            .redirect_params[0]
+            ->response_head->headers->EnumerateHeader(&iter, "Location");
+    ASSERT_TRUE(location.has_value());
+    EXPECT_EQ("https://c.com/", location.value());
+  }
+}
+
+TEST_F(
+    NavigationRequestTest,
+    SanitizeRedirectsForCommitErrorPageInCurrentProcess_FinalURLFeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kSanitizeLocationHeadersDuringNavigation},
+      /*disabled_features=*/{features::kSanitizeFailedSubframeNavigationUrls});
+
+  // Commit an initial page so the subframe has a parent document.
+  NavigationSimulator::NavigateAndCommitFromDocument(GURL("https://a.com/"),
+                                                     main_test_rfh());
+  auto* child_frame = static_cast<TestRenderFrameHost*>(
+      content::RenderFrameHostTester::For(main_rfh())->AppendChild("child"));
+
+  const GURL start_url("https://b.com/start?param=1");
+  const GURL final_url("https://c.com/path?param=2");
+  std::unique_ptr<NavigationSimulator> navigation =
+      NavigationSimulator::CreateRendererInitiated(start_url, child_frame);
+  navigation->Start();
+
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 302 Found");
+  headers->SetHeader("Location", "https://c.com/path?param=2");
+  navigation->SetRedirectHeaders(headers);
+
+  navigation->Redirect(final_url);
+  navigation->Fail(net::ERR_BLOCKED_BY_CLIENT);
+
+  NavigationRequest* request =
+      NavigationRequest::From(navigation->GetNavigationHandle());
+  ASSERT_EQ(NavigationRequest::ErrorPageProcess::kCurrentProcess,
+            request->ComputeErrorPageProcess());
+
+  // The feature is disabled, so the final URL should NOT be reduced to its
+  // origin.
+  EXPECT_EQ(final_url, request->common_params().url);
+  ASSERT_EQ(1u, request->commit_params().redirect_params.size());
+  EXPECT_EQ(final_url,
+            request->commit_params().redirect_params[0]->redirect_info.new_url);
+  ASSERT_EQ(1u, request->commit_params().redirects.size());
+  EXPECT_EQ(GURL("https://b.com/"), request->commit_params().redirects[0]);
+
+  // Even if kSanitizeLocationHeadersDuringNavigation is enabled, it should not
+  // sanitize the Location header because sanitize_final_url is false (due to
+  // the disabled feature flag), which makes it use the final URL's origin
+  // (c.com) as target_commit_origin, which is same-origin with the redirect
+  // target (c.com).
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeLocationHeadersDuringNavigation)) {
+    size_t iter = 0;
+    std::optional<std::string_view> location =
+        request->commit_params()
+            .redirect_params[0]
+            ->response_head->headers->EnumerateHeader(&iter, "Location");
+    ASSERT_TRUE(location.has_value());
+    EXPECT_EQ("https://c.com/path?param=2", location.value());
+  }
+}
+
+TEST_F(NavigationRequestTest,
+       DontSanitizeRedirectsForCommitErrorPageInCurrentProcessSameOrigin) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kSanitizeFailedSubframeNavigationUrls,
+                            features::kSanitizeLocationHeadersDuringNavigation},
+      /*disabled_features=*/{});
+
+  // Commit an initial page so the subframe has a parent document.
+  NavigationSimulator::NavigateAndCommitFromDocument(GURL("https://c.com/"),
+                                                     main_test_rfh());
+  auto* child_frame = static_cast<TestRenderFrameHost*>(
+      content::RenderFrameHostTester::For(main_rfh())->AppendChild("child"));
+
+  const GURL start_url("https://b.com/start?param=1");
+  const GURL final_url("https://c.com/path?param=2");
+  std::unique_ptr<NavigationSimulator> navigation =
+      NavigationSimulator::CreateRendererInitiated(start_url, child_frame);
+  navigation->Start();
+
+  auto headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 302 Found");
+  headers->SetHeader("Location", "https://c.com/path?param=2");
+  navigation->SetRedirectHeaders(headers);
+
+  navigation->Redirect(final_url);
+  navigation->Fail(net::ERR_BLOCKED_BY_CLIENT);
+
+  NavigationRequest* request =
+      NavigationRequest::From(navigation->GetNavigationHandle());
+  ASSERT_EQ(NavigationRequest::ErrorPageProcess::kCurrentProcess,
+            request->ComputeErrorPageProcess());
+
+  // The final URL is same-origin with the receiving process (c.com), so it
+  // should NOT be reduced to its origin.
+  EXPECT_EQ(final_url, request->common_params().url);
+  ASSERT_EQ(1u, request->commit_params().redirect_params.size());
+  EXPECT_EQ(final_url,
+            request->commit_params().redirect_params[0]->redirect_info.new_url);
+  ASSERT_EQ(1u, request->commit_params().redirects.size());
+  EXPECT_EQ(GURL("https://b.com/"), request->commit_params().redirects[0]);
+
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeLocationHeadersDuringNavigation)) {
+    size_t iter = 0;
+    std::optional<std::string_view> location =
+        request->commit_params()
+            .redirect_params[0]
+            ->response_head->headers->EnumerateHeader(&iter, "Location");
+    ASSERT_TRUE(location.has_value());
+    EXPECT_EQ("https://c.com/path?param=2", location.value());
+  }
+}
+
+// Test that when a subframe navigation with multiple redirects (same-origin to
+// each other, but cross-origin to the main page) is blocked and commits an
+// error page in the initiator's process, all redirect URLs are reduced to
+// origin.
+TEST_F(
+    NavigationRequestTest,
+    SanitizeRedirectsForCommitErrorPageInCurrentProcessMultipleRedirectsSameOriginWithEachOther) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kSanitizeFailedSubframeNavigationUrls,
+                            features::kSanitizeLocationHeadersDuringNavigation},
+      /*disabled_features=*/{});
+
+  // Commit an initial page so the subframe has a parent document (origin A).
+  NavigationSimulator::NavigateAndCommitFromDocument(GURL("https://a.com/"),
+                                                     main_test_rfh());
+  auto* child_frame = static_cast<TestRenderFrameHost*>(
+      content::RenderFrameHostTester::For(main_rfh())->AppendChild("child"));
+
+  const GURL start_url("https://b.com/start?param=1");
+  const GURL url_2("https://b.com/path1?param=2");
+  const GURL final_url("https://b.com/path2?param=3");
+  std::unique_ptr<NavigationSimulator> navigation =
+      NavigationSimulator::CreateRendererInitiated(start_url, child_frame);
+  navigation->Start();
+
+  auto headers1 =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 302 Found");
+  headers1->SetHeader("Location", "https://b.com/path1?param=2");
+  navigation->SetRedirectHeaders(headers1);
+  navigation->Redirect(url_2);
+
+  auto headers2 =
+      base::MakeRefCounted<net::HttpResponseHeaders>("HTTP/1.1 302 Found");
+  headers2->SetHeader("Location", "https://b.com/path2?param=3");
+  navigation->SetRedirectHeaders(headers2);
+  navigation->Redirect(final_url);
+
+  navigation->Fail(net::ERR_BLOCKED_BY_CLIENT);
+
+  NavigationRequest* request =
+      NavigationRequest::From(navigation->GetNavigationHandle());
+  ASSERT_EQ(NavigationRequest::ErrorPageProcess::kCurrentProcess,
+            request->ComputeErrorPageProcess());
+
+  // The error page commits in process A (initiator). Both redirect URLs and
+  // their Location headers pointing to origin B should be sanitized to origin.
+  EXPECT_EQ(GURL("https://b.com/"), request->common_params().url);
+  ASSERT_EQ(2u, request->commit_params().redirect_params.size());
+  EXPECT_EQ(GURL("https://b.com/"),
+            request->commit_params().redirect_params[0]->redirect_info.new_url);
+  EXPECT_EQ(GURL("https://b.com/"),
+            request->commit_params().redirect_params[1]->redirect_info.new_url);
+
+  if (base::FeatureList::IsEnabled(
+          features::kSanitizeLocationHeadersDuringNavigation)) {
+    size_t iter = 0;
+    std::optional<std::string_view> location1 =
+        request->commit_params()
+            .redirect_params[0]
+            ->response_head->headers->EnumerateHeader(&iter, "Location");
+    ASSERT_TRUE(location1.has_value());
+    EXPECT_EQ("https://b.com/", location1.value());
+
+    iter = 0;
+    std::optional<std::string_view> location2 =
+        request->commit_params()
+            .redirect_params[1]
+            ->response_head->headers->EnumerateHeader(&iter, "Location");
+    ASSERT_TRUE(location2.has_value());
+    EXPECT_EQ("https://b.com/", location2.value());
+  }
 }
 
 TEST_F(NavigationRequestTest, AbortsDeletedNavigationInProgress) {

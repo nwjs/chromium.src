@@ -191,7 +191,13 @@ class CONTENT_EXPORT IdentityRequestDialogController {
       base::OnceCallback<void(const GURL& idp_config_url,
                               const std::string& /*account_id*/,
                               bool /*is_sign_in*/)>;
-  using TokenCallback = base::OnceCallback<void(const std::string& /*token*/)>;
+  struct CONTENT_EXPORT NativeAppResult {
+    enum class Type { kToken, kLoginFinished };
+    Type type;
+    std::string token;
+  };
+
+  using NativeAppResultCallback = base::OnceCallback<void(NativeAppResult)>;
 
   using DismissCallback =
       base::OnceCallback<void(DismissReason dismiss_reason)>;
@@ -314,10 +320,16 @@ class CONTENT_EXPORT IdentityRequestDialogController {
   virtual void ShowUrl(LinkType type, const GURL& url);
 
   // Show a modal dialog that loads content from the IdP.
-  virtual WebContents* ShowModalDialog(const GURL& url,
-                                       blink::mojom::RpMode rp_mode,
-                                       DismissCallback dismiss_callback,
-                                       ShownModalAsyncCallback on_shown_async);
+  // `dismiss_callback` is called when the dialog is dismissed or closed without
+  // completing. `on_shown_async` is called when the modal WebContents surface
+  // is created asynchronously. `native_result_callback` is called when a native
+  // application completes a continuation flow (with a token) or a login flow.
+  virtual WebContents* ShowModalDialog(
+      const GURL& url,
+      blink::mojom::RpMode rp_mode,
+      DismissCallback dismiss_callback,
+      ShownModalAsyncCallback on_shown_async,
+      NativeAppResultCallback native_result_callback);
 
   // Closes the modal dialog.
   virtual void CloseModalDialog();

@@ -7,12 +7,12 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/notreached.h"
-#include "ui/webui/buildflags.h"
 #include "components/sync/model/data_type_local_change_processor.h"
 #include "components/sync/model/metadata_batch.h"
 #include "components/sync/model/model_error.h"
 #include "components/sync/model/mutable_data_batch.h"
 #include "components/sync/protocol/entity_data.h"
+#include "ui/webui/buildflags.h"
 
 namespace ntp_customization {
 
@@ -71,8 +71,11 @@ void NtpAndroidThemeSyncBridge::UpdateTheme(
   write_batch->WriteData(kAndroidThemeStorageKey,
                          specifics.SerializeAsString());
 
-  change_processor()->Put(kAndroidThemeStorageKey, CreateEntityData(specifics),
-                          write_batch->GetMetadataChangeList());
+  if (change_processor()->IsTrackingMetadata()) {
+    change_processor()->Put(kAndroidThemeStorageKey,
+                            CreateEntityData(specifics),
+                            write_batch->GetMetadataChangeList());
+  }
 
   store_->CommitWriteBatch(
       std::move(write_batch),

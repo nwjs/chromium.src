@@ -62,18 +62,6 @@ class CONTENT_EXPORT EmailVerificationRequest {
   using WellKnownOrError = base::RefCountedData<
       base::expected<EmailVerifierNetworkRequestManager::WellKnown,
                      blink::mojom::EmailVerificationRequestResult>>;
-  class Observer : public base::CheckedObserver {
-   public:
-    ~Observer() override = default;
-    virtual void OnIsVerifiableStart() {}
-    virtual void OnIsVerifiableComplete(
-        blink::mojom::EmailVerificationRequestResult status) = 0;
-    virtual void OnVerifyStart() {}
-    virtual void OnVerifyComplete(
-        blink::mojom::EmailVerificationRequestResult status) = 0;
-    virtual void OnRequestDestroyed() {}
-  };
-
   explicit EmailVerificationRequest(RenderFrameHostImpl& render_frame_host);
   EmailVerificationRequest(
       std::unique_ptr<EmailVerifierNetworkRequestManager> network_manager,
@@ -85,12 +73,12 @@ class CONTENT_EXPORT EmailVerificationRequest {
   EmailVerificationRequest(const EmailVerificationRequest&) = delete;
   EmailVerificationRequest& operator=(const EmailVerificationRequest&) = delete;
 
-  virtual void AddObserver(Observer* observer);
-  virtual void RemoveObserver(Observer* observer);
-
   // Checks if the given `email` is verifiable. This also checks if the user is
-  // logged in to the issuer.
+  // logged in to the issuer. `on_dns_resolved_callback` is invoked immediately
+  // after DNS TXT record lookup confirms the domain supports EVP, before
+  // well-known and account metadata fetches begin.
   virtual void CheckIfVerifiable(const std::string& email,
+                                 base::OnceClosure on_dns_resolved_callback,
                                  EmailVerifier::IsVerifiableCallback callback);
 
   // Issues the verification token.
@@ -99,11 +87,9 @@ class CONTENT_EXPORT EmailVerificationRequest {
                       EmailVerifier::OnEmailVerifiedCallback callback);
 
  private:
-  sdjwt::Jwt CreateRequestToken(const std::string& email,
-                                const sdjwt::Jwk& public_key,
-                                const url::Origin& issuer);
   void OnDnsRequestComplete(
       const std::string& email,
+      base::OnceClosure on_dns_resolved_callback,
       EmailVerifier::IsVerifiableCallback callback,
       const std::optional<std::vector<std::string>>& text_records);
 
@@ -157,7 +143,9 @@ class CONTENT_EXPORT EmailVerificationRequest {
   std::unique_ptr<EmailVerifierNetworkRequestManager> network_manager_;
   std::unique_ptr<IdpNetworkRequestManager> idp_network_manager_;
   base::WeakPtr<RenderFrameHostImpl> render_frame_host_;
-  base::ObserverList<Observer> observers_;
+
+  base::TimeTicks is_verifiable_start_time_;
+  base::TimeTicks verify_start_time_;
 
   base::WeakPtrFactory<EmailVerificationRequest> weak_ptr_factory_{this};
 };

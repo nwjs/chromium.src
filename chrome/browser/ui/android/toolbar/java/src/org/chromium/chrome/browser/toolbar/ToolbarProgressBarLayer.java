@@ -194,15 +194,9 @@ public class ToolbarProgressBarLayer implements TopControlLayer {
                                 - hairlineHeight;
             }
         }
-        int xOffset = Math.round(mProgressBarContainer.getX());
-        if (xOffset == 0
-                && mProgressBarContainer.getLayoutParams()
-                        instanceof ViewGroup.MarginLayoutParams marginLayoutParams) {
-            xOffset = marginLayoutParams.leftMargin;
-        }
-        drawingInfo.progressBarRect.offset(xOffset, yOffset);
-        drawingInfo.progressBarBackgroundRect.offset(xOffset, yOffset);
-        drawingInfo.progressBarStaticBackgroundRect.offset(xOffset, yOffset);
+        drawingInfo.progressBarRect.offset(0, yOffset);
+        drawingInfo.progressBarBackgroundRect.offset(0, yOffset);
+        drawingInfo.progressBarStaticBackgroundRect.offset(0, yOffset);
     }
 
     // Progress bar should anchor at the bottom of the top controls.
@@ -219,7 +213,13 @@ public class ToolbarProgressBarLayer implements TopControlLayer {
                     CoordinatorLayout.LayoutParams lp =
                             (CoordinatorLayout.LayoutParams)
                                     mProgressBarContainer.getLayoutParams();
-                    if (mTopControlsStacker.isLayerAtBottom(TopControlType.BOOKMARK_BAR)
+                    // When simultaneous sessions (multiple toolbars) are supported, containers
+                    // must be differentiated per session and this anchor lookup revisited.
+                    // TODO(crbug.com/487666920): Support multiple simultaneous tab-sharing
+                    // toolbars.
+                    if (mTopControlsStacker.isLayerAtBottom(TopControlType.TAB_SHARING_TOOLBAR)) {
+                        lp.setAnchorId(R.id.tab_sharing_toolbar_container);
+                    } else if (mTopControlsStacker.isLayerAtBottom(TopControlType.BOOKMARK_BAR)
                             && mBookmarkBarIdSupplier.get() != 0) {
                         int bookmarkBarId = mBookmarkBarIdSupplier.get();
                         lp.setAnchorId(bookmarkBarId);

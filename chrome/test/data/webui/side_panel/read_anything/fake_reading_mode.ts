@@ -95,7 +95,6 @@ export class FakeReadingMode {
   // method.
   distillationTypeReadability: number = 1;
 
-  imagesFeatureEnabled: boolean = false;
   documentUrl: string = 'https://www.google.com';
   htmlIds: Map<number, string> = new Map();
 
@@ -108,8 +107,8 @@ export class FakeReadingMode {
   // Whether the line focus feature flag is enabled.
   isLineFocusEnabled: boolean = false;
 
-  // Whether the Improved Read Aloud feature flag is enabled.
-  isImprovedReadAloudEnabled: boolean = false;
+  // Whether the Read Anything Improved UI feature flag is enabled.
+  isReadAnythingImprovedUiEnabled: boolean = false;
 
   // Whether the readability feature flag is enabled.
   isReadabilityEnabled: boolean = false;
@@ -170,12 +169,6 @@ export class FakeReadingMode {
   // contained within the selection.
   getChildren(nodeId: number): number[] {
     return (nodeId > this.maxNodeId) ? [] : [nodeId + 1];
-  }
-
-  // Returns content of "data-font-css" html attribute. This is needed for
-  // rendering content from annotated canvas in Google Docs.
-  getDataFontCss(_nodeId: number): string {
-    return '400 14.6667px "Courier New"';
   }
 
   // Returns the HTML tag of the AXNode for the provided AXNodeID. For testing,
@@ -468,12 +461,6 @@ export class FakeReadingMode {
   // the processing of the AX Tree Anchors.
   setAnchorsForTesting(_snapshotLite: Object, _contentNodeIds: number[]) {}
 
-  // Set the theme. Used by tests only.
-  setThemeForTesting(
-      _fontName: string, _fontSize: number, _linksEnabled: boolean,
-      _foregroundColor: number, _backgroundColor: number, _lineSpacing: number,
-      _letterSpacing: number) {}
-
   // Sets the language. Used by tests only.
   setLanguageForTesting(_code: string) {}
 
@@ -631,4 +618,8 @@ export class FakeReadingMode {
       Array<{axNodeId: number, start: number, end: number}> {
     return [];
   }
+
+  requestShouldShowLineFocusNewBadge() {}
+  onShouldShowLineFocusNewBadgeResponse() {}
+  onLineFocusFeatureUsed() {}
 }

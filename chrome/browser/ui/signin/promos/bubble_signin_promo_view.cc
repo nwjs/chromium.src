@@ -16,6 +16,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
+#include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_pref_names.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_hats_util.h"
@@ -153,6 +154,20 @@ int GetSubtitleID(bool is_signin_promo,
             break;
         }
       } break;
+      case signin::SignInPromoType::kComposeboxDriveContextMenuOption: {
+        switch (signed_in_state) {
+          case SignedInState::kSignedOut:
+          case SignedInState::kWebOnlySignedIn:
+          case SignedInState::kSignInPending:
+            // TODO(crbug.com/545561312): Verify whether the pending state needs
+            // a different string.
+            return IDS_COMPOSEBOX_DRIVE_CONTEXT_MENU_OPTION_SIGNIN_PROMO_SUBTITLE;
+          case SignedInState::kSignedIn:
+          case SignedInState::kSyncing:
+          case SignedInState::kSyncPaused:
+            break;
+        }
+      } break;
     }
   }
 
@@ -264,6 +279,10 @@ void IncrementContextualPromoDismissCountPerSignedOutProfile(
               prefs::
                   kBookmarkSignInPromoDismissCountPerProfileForLimitsExperiment) +
               1);
+    case signin::SignInPromoType::kComposeboxDriveContextMenuOption:
+      // Composebox Drive signin promo does not track dismiss counts as it is
+      // explicitly triggered by the user from the context menu.
+      return;
     case signin::SignInPromoType::kExtension:
     case signin::SignInPromoType::kSendTabToSelf:
       NOTREACHED();
@@ -299,6 +318,10 @@ void IncrementContextualPromoDismissCountPerAccount(
     case signin::SignInPromoType::kSearchAIMode:
       SigninPrefs(*profile->GetPrefs())
           .IncrementSearchAIModeSigninPromoDismissCount(account.gaia);
+      break;
+    case signin::SignInPromoType::kComposeboxDriveContextMenuOption:
+      // Composebox Drive signin promo does not track dismiss counts as it is
+      // explicitly triggered by the user from the context menu.
       break;
     case signin::SignInPromoType::kExtension:
     case signin::SignInPromoType::kSendTabToSelf:
@@ -352,9 +375,10 @@ BubbleSignInPromoView::BubbleSignInPromoView(
 
   AccountInfo account;
   // Sync promos can be shown in incognito, they use an empty account list.
-  if (!Profile::FromBrowserContext(web_contents->GetBrowserContext())
-           ->IsOffTheRecord()) {
-    account = signin_ui_util::GetSingleAccountForPromos(identity_manager);
+  if (!profile->IsOffTheRecord()) {
+    account = signin_ui_util::GetSingleAccountForPromos(
+        identity_manager,
+        AccountPreviewDataServiceFactory::GetForProfile(profile));
   }
 
   // Set the layout.
@@ -531,7 +555,8 @@ void BubbleSignInPromoView::OnWidgetDestroying(views::Widget* widget) {
   Profile* profile = Profile::FromBrowserContext(
       delegate_->GetWebContents()->GetBrowserContext());
   AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
-      IdentityManagerFactory::GetForProfile(profile));
+      IdentityManagerFactory::GetForProfile(profile),
+      AccountPreviewDataServiceFactory::GetForProfile(profile));
 
   // Count the number of times the promo was dismissed in order to not show it
   // anymore after 2 dismissals.

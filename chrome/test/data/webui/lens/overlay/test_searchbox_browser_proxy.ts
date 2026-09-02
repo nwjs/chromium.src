@@ -34,10 +34,10 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'deleteContext',
       'deleteTabContext',
       'executeAction',
+      'getCyclingPlaceholderConfig',
       'getDriveDisclaimerStatus',
       'getInputState',
       'getPageClassification',
-      'getPlaceholderConfig',
       'getRecentTabs',
       'getSmartTabSharingActive',
       'getTabPreview',
@@ -56,12 +56,12 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       'recordToolSelectionAction',
       'setActiveModelMode',
       'setActiveToolMode',
-      'setInputMethod',
       'setPage',
       'setPopupSelection',
       'setSmartComposeStats',
       'setSmartTabSharingActive',
       'showContextMenu',
+      'startScreenshare',
       'stopAutocomplete',
       'submitQuery',
       'toggleSuggestionGroupIdVisibility',
@@ -130,10 +130,6 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('setSmartComposeStats', {smartComposeStats});
   }
 
-  setInputMethod(inputMethod: InputMethod) {
-    this.methodCalled('setInputMethod', {inputMethod});
-  }
-
   onNavigationLikely(
       line: number, url: Url, navigationPredictor: NavigationPredictor) {
     this.methodCalled('onNavigationLikely', {line, url, navigationPredictor});
@@ -146,7 +142,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
   queryAutocomplete(
       queryId: number, input: String16, preventInlineAutocomplete: boolean,
       cursorPosition: number, suggestInventory: SuggestInventory,
-      isOnFocus: boolean, keyword: string) {
+      isOnFocus: boolean, keyword: string, inputMethod: InputMethod) {
     this.methodCalled('queryAutocomplete', {
       queryId,
       input,
@@ -155,6 +151,7 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
       suggestInventory,
       isOnFocus,
       keyword,
+      inputMethod,
     });
   }
 
@@ -166,8 +163,8 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('toggleSuggestionGroupIdVisibility', {suggestionGroupId});
   }
 
-  getPlaceholderConfig(): Promise<{config: PlaceholderConfig}> {
-    this.methodCalled('getPlaceholderConfig');
+  getCyclingPlaceholderConfig(): Promise<{config: PlaceholderConfig}> {
+    this.methodCalled('getCyclingPlaceholderConfig');
     return Promise.resolve({
       config: {
         texts: [],
@@ -248,16 +245,16 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
     this.methodCalled('openProfilePicker');
   }
 
-  setActiveToolMode(tool: ToolMode) {
-    this.methodCalled('setActiveToolMode', tool);
+  setActiveToolMode(tool: ToolMode, isSetByServer: boolean) {
+    this.methodCalled('setActiveToolMode', tool, isSetByServer);
   }
 
   recordToolSelectionAction(tool: ToolMode) {
     this.methodCalled('recordToolSelectionAction', tool);
   }
 
-  setActiveModelMode(model: ModelMode) {
-    this.methodCalled('setActiveModelMode', model);
+  setActiveModelMode(model: ModelMode, isSetByAim: boolean) {
+    this.methodCalled('setActiveModelMode', model, isSetByAim);
   }
 
   recordModelSelectionAction(model: ModelMode) {
@@ -298,6 +295,11 @@ class FakePageHandler extends TestBrowserProxy implements PageHandlerInterface {
   getSmartTabSharingActive() {
     this.methodCalled('getSmartTabSharingActive');
     return Promise.resolve({active: false});
+  }
+
+  startScreenshare(preferEntireScreen: boolean) {
+    this.methodCalled('startScreenshare', {preferEntireScreen});
+    return Promise.resolve({token: null});
   }
 }
 

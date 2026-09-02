@@ -472,6 +472,135 @@ TEST_F(WindowOcclusionTrackerTest, LockStateWithScopedPause) {
   EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::OCCLUDED);
 }
 
+TEST_F(WindowOcclusionTrackerTest, UnlockWhilePausedAfterOcclusionChange) {
+  MockWindowDelegate* delegate_a = new MockWindowDelegate();
+  delegate_a->set_expectation(Window::OcclusionState::VISIBLE);
+  auto* window_a = CreateTrackedWindow(delegate_a, gfx::Rect(0, 0, 10, 10));
+  window_a->SetName("A");
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::VISIBLE);
+
+  // 1. Occlude window_a.
+  MockWindowDelegate* delegate_b = new MockWindowDelegate();
+  delegate_b->set_expectation(Window::OcclusionState::VISIBLE);
+  delegate_a->set_expectation(Window::OcclusionState::OCCLUDED);
+  auto* window_b = CreateTrackedWindow(delegate_b, gfx::Rect(0, 0, 10, 10));
+  window_b->SetName("B");
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_FALSE(delegate_b->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::OCCLUDED);
+
+  // 2. Lock window_a (locked to OCCLUDED).
+  std::unique_ptr<WindowOcclusionTracker::ScopedLockState> lock =
+      std::make_unique<WindowOcclusionTracker::ScopedLockState>(window_a);
+
+  // 3. Remove window_b (window_a is naturally VISIBLE again, but locked to
+  // OCCLUDED). This triggers computation and marks root dirty, but since it is
+  // not paused, the computation completes and clears the dirty flag. We don't
+  // expect delegate_a to be notified because it is locked.
+  delete window_b;
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::OCCLUDED);
+
+  // 4. Pause tracker.
+  std::unique_ptr<WindowOcclusionTracker::ScopedPause> pause =
+      std::make_unique<WindowOcclusionTracker::ScopedPause>();
+
+  // 5. Unlock window_a while paused.
+  // With fix: state -> UnlockPending.
+  // Without fix: state -> Unlocked, lock reset, but root NOT marked dirty.
+  lock.reset();
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::OCCLUDED);
+
+  // 6. Unpause tracker.
+  // With fix: UnlockPending triggers MarkRootWindowAsDirty, forcing
+  // computation. Without fix: No dirty root, computation skipped, window_a
+  // stays OCCLUDED.
+  delegate_a->set_expectation(Window::OcclusionState::VISIBLE);
+  pause.reset();
+
+  // Without fix, this will fail because delegate_a is still expecting call
+  // (it was never notified of VISIBLE) and window_a state is still OCCLUDED.
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::VISIBLE);
+}
+
+TEST_F(WindowOcclusionTrackerTest, LockStateWithScopedPauseAndForceCompute) {
+  MockWindowDelegate* delegate_a = new MockWindowDelegate();
+  delegate_a->set_expectation(Window::OcclusionState::VISIBLE);
+  auto* window_a = CreateTrackedWindow(delegate_a, gfx::Rect(0, 0, 10, 10));
+  window_a->SetName("A");
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::VISIBLE);
+
+  MockWindowDelegate* delegate_b = new MockWindowDelegate();
+  {
+    WindowOcclusionTracker::ScopedPause pause;
+    {
+      // Lock state.
+      WindowOcclusionTracker::ScopedLockState lock(window_a);
+      // Occlude `window_a`.
+      delegate_b->set_expectation(Window::OcclusionState::VISIBLE);
+      delegate_a->set_expectation(Window::OcclusionState::OCCLUDED);
+      auto* window_b = CreateTrackedWindow(delegate_b, gfx::Rect(0, 0, 10, 10));
+      window_b->SetName("B");
+
+      EXPECT_TRUE(delegate_a->is_expecting_call());
+      EXPECT_TRUE(delegate_b->is_expecting_call());
+
+      // Force compute. This is allowed while paused.
+      // It should NOT update window_a's property because it is locked.
+      Env::GetInstance()->GetWindowOcclusionTracker()->ForceComputeOcclusion();
+      EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::VISIBLE);
+    }
+    // Unlock happens here.
+
+    // Call ForceComputeOcclusion again while still paused.
+    // Without our fix, this crashes because tracked state (OCCLUDED) doesn't
+    // match actual property (VISIBLE). With our fix, it doesn't crash because
+    // the tracker still considers it locked to VISIBLE.
+    Env::GetInstance()->GetWindowOcclusionTracker()->ForceComputeOcclusion();
+    EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::VISIBLE);
+  }
+  // Unpause happens here.
+  // Pending unlock is processed, lock is reset, and occlusion is recomputed and
+  // notified.
+  EXPECT_FALSE(delegate_a->is_expecting_call());
+  EXPECT_FALSE(delegate_b->is_expecting_call());
+  EXPECT_EQ(window_a->GetOcclusionState(), Window::OcclusionState::OCCLUDED);
+}
+#if defined(GTEST_HAS_DEATH_TEST)
+using WindowOcclusionTrackerDeathTest = WindowOcclusionTrackerTest;
+
+TEST_F(WindowOcclusionTrackerDeathTest, LockStateTransitions) {
+  MockWindowDelegate* delegate_a = new MockWindowDelegate();
+  delegate_a->set_expectation(Window::OcclusionState::VISIBLE);
+  auto* window_a = CreateTrackedWindow(delegate_a, gfx::Rect(0, 0, 10, 10));
+  window_a->SetName("A");
+
+  test::WindowOcclusionTrackerTestApi test_api(
+      Env::GetInstance()->GetWindowOcclusionTracker());
+
+  // Initial state is Unlocked.
+  // Lock it -> Unlocked to Locked (Valid).
+  test_api.Lock(window_a, /*lock=*/true);
+
+  // Lock it again -> Locked to Locked (Banned).
+  EXPECT_CHECK_DEATH_WITH(
+      { test_api.Lock(window_a, /*lock=*/true); },
+      "Check failed: occlusion_data\\.lock_state != LockState::kLocked");
+
+  // Unlock it -> Locked to Unlocked (Valid).
+  test_api.Lock(window_a, /*lock=*/false);
+
+  // Unlock it again -> Unlocked to Unlocked (Banned).
+  EXPECT_CHECK_DEATH_WITH(
+      { test_api.Lock(window_a, /*lock=*/false); },
+      "Check failed: occlusion_data\\.lock_state == LockState::kLocked");
+}
+#endif  // defined(GTEST_HAS_DEATH_TEST)
+
 class WindowOcclusionTrackerOpacityTest
     : public WindowOcclusionTrackerTest,
       public testing::WithParamInterface<bool> {
@@ -568,6 +697,39 @@ TEST_P(WindowOcclusionTrackerOpacityTest,
   delegate_a->set_expectation(Window::OcclusionState::OCCLUDED, SkRegion());
   SetOpacity(window_b, 1.0f);
   EXPECT_FALSE(delegate_a->is_expecting_call());
+}
+
+TEST_F(WindowOcclusionTrackerTest, LockStateOnUnknownWindow) {
+  MockWindowDelegate* delegate = new MockWindowDelegate();
+
+  aura::Window* window = nullptr;
+
+  std::unique_ptr<WindowOcclusionTracker::ScopedPause> pause =
+      std::make_unique<WindowOcclusionTracker::ScopedPause>();
+  // Create and track a window while paused. Its occlusion state will be UNKNOWN
+  // because the tracker has not computed occlusion yet.
+  window = CreateTrackedWindow(delegate, gfx::Rect(0, 0, 10, 10));
+  EXPECT_EQ(window->GetOcclusionState(), Window::OcclusionState::UNKNOWN);
+
+  {
+    // Lock the UNKNOWN state.
+    WindowOcclusionTracker::ScopedLockState lock(window);
+
+    // Unpause, which forces MaybeComputeOcclusion -> NotifyOcclusionState.
+    // Because the window's locked state is UNKNOWN, the tracker must safely
+    // skip it and refrain from broadcasting UNKNOWN to SetOcclusionInfo()
+    // which would crash.
+    pause.reset();
+
+    // The window's notified state should remain UNKNOWN.
+    EXPECT_EQ(window->GetOcclusionState(), Window::OcclusionState::UNKNOWN);
+
+    // Expect the window to correctly update to VISIBLE when the lock releases.
+    delegate->set_expectation(Window::OcclusionState::VISIBLE, SkRegion());
+  }
+
+  EXPECT_FALSE(delegate->is_expecting_call());
+  EXPECT_EQ(window->GetOcclusionState(), Window::OcclusionState::VISIBLE);
 }
 
 // Verify that one window whose bounds are covered by a set of two opaque

@@ -22,6 +22,7 @@
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
 #include "base/feature_list.h"
+#include "base/notimplemented.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_ostream_operators.h"
@@ -32,7 +33,7 @@
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_utils.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
-#include "components/autofill/core/browser/data_model/addresses/contact_info.h"
+#include "components/autofill/core/browser/data_model/addresses/name_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/country_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/date_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
@@ -42,6 +43,7 @@
 #include "components/autofill/core/browser/proto/server.pb.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/dense_set.h"
+#include "components/personal_context/proto/features/at_memory.pb.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace autofill {
@@ -265,6 +267,29 @@ VerificationStatus AttributeInstance::GetVerificationStatus(
       info_);
 }
 
+personal_context::proto::TypedValue AttributeInstance::GetTypedValue() const {
+  personal_context::proto::TypedValue typed_value;
+  std::visit(
+      absl::Overload{[&typed_value](const CountryInfo& country) {
+                       std::string code = country.GetCountryCode();
+                       if (!code.empty()) {
+                         typed_value.set_country_code(std::move(code));
+                       }
+                     },
+                     [&typed_value](const DateInfo& date) {
+                       personal_context::proto::Date date_proto =
+                           date.GetDateProto();
+                       if (date_proto.year() != 0 || date_proto.month() != 0 ||
+                           date_proto.day() != 0) {
+                         *typed_value.mutable_date() = std::move(date_proto);
+                       }
+                     },
+                     [](const NameInfo&) {}, [](const StateInfo&) {},
+                     [](const std::u16string&) {}},
+      info_);
+  return typed_value;
+}
+
 void AttributeInstance::SetInfo(
     std::optional<FieldType> unnormalized_field_type,
     const std::u16string& value,
@@ -355,7 +380,7 @@ EntityInstance::EntityInstance(
     base::Time date_modified,
     int64_t use_count,
     base::Time use_date,
-    RecordType record_type,
+    RecordTypeData record_type_data,
     AreAttributesReadOnly are_attributes_read_only,
     std::string frecency_override)
     : type_(type),
@@ -365,7 +390,7 @@ EntityInstance::EntityInstance(
                 .date_modified = date_modified,
                 .use_count = use_count,
                 .use_date = use_date},
-      record_type_(record_type),
+      record_type_data_(std::move(record_type_data)),
       are_attributes_read_only_(are_attributes_read_only),
       frecency_override_(std::move(frecency_override)) {
   DCHECK(!attributes_.empty());
@@ -423,6 +448,31 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
+std::ostream& operator<<(
+    std::ostream& os,
+    const EntityInstance::PersonalContextRecordTypePayload::Source::Type& t) {
+  using Type = EntityInstance::PersonalContextRecordTypePayload::Source::Type;
+  switch (t) {
+    case Type::kUnspecified:
+      os << "kUnspecified";
+      break;
+    case Type::kGmail:
+      os << "kGmail";
+      break;
+    case Type::kPhotos:
+      os << "kPhotos";
+      break;
+  }
+  return os;
+}
+
+std::ostream& operator<<(
+    std::ostream& os,
+    const EntityInstance::PersonalContextRecordTypePayload::Source& s) {
+  os << "Source(type: " << s.type << ", url: \"" << s.url << "\")";
+  return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const EntityInstance& e) {
   os << "- name: " << '"' << e.type() << '"' << std::endl;
   os << "- nickname: " << '"' << e.nickname() << '"' << std::endl;
@@ -434,6 +484,17 @@ std::ostream& operator<<(std::ostream& os, const EntityInstance& e) {
   for (const AttributeInstance& a : e.attributes()) {
     os << "- attribute " << a << std::endl;
   }
+
+  std::visit(
+      absl::Overload{
+          [&](const EntityInstance::PersonalContextRecordTypePayload& p) {
+            for (const EntityInstance::PersonalContextRecordTypePayload::Source&
+                     s : p.sources) {
+              os << "- source " << s << std::endl;
+            }
+          },
+          [](const auto&) {}},
+      e.record_type_data());
   return os;
 }
 
@@ -609,7 +670,7 @@ EntityInstance::EntityMergeability EntityInstance::GetEntityMergeability(
 }
 
 bool EntityInstance::IsServerInstance() const {
-  switch (record_type_) {
+  switch (record_type()) {
     case RecordType::kLocal:
       return false;
     case RecordType::kServerWallet:
@@ -672,12 +733,12 @@ bool EntityInstance::IsSubsetOf(const EntityInstance& other) const {
 bool EntityInstance::IsMaskedEntity() const {
   const bool masked =
       std::ranges::any_of(attributes_, &AttributeInstance::masked);
-  CHECK(!masked || IsMaskableRecordType(record_type_));
+  CHECK(!masked || IsMaskableRecordType(record_type()));
   return masked;
 }
 
 bool EntityInstance::IsUnmaskedEntity() const {
-  return IsMaskableRecordType(record_type_) &&
+  return IsMaskableRecordType(record_type()) &&
          std::ranges::any_of(
              attributes_, [](const AttributeInstance& attribute) {
                return !attribute.masked() && attribute.type().is_obfuscated();
@@ -693,8 +754,33 @@ EntityInstance EntityInstance::CopyWithNewEntityId(EntityId id) const {
 EntityInstance EntityInstance::CopyWithNewRecordType(
     RecordType record_type) const {
   EntityInstance new_entity = *this;
-  new_entity.record_type_ = record_type;
+  switch (record_type) {
+    case RecordType::kLocal:
+      new_entity.record_type_data_ = LocalRecordTypePayload();
+      break;
+    case RecordType::kServerWallet:
+      new_entity.record_type_data_ = WalletRecordTypePayload();
+      break;
+    case RecordType::kPersonalContext:
+      // TODO(crbug.com/542083924): Converting to a pContext entity is currently
+      // not supported because no source can be specified. It is not needed at
+      // the moment since pContext entities don't support migrations.
+      NOTIMPLEMENTED();
+  }
   return new_entity;
+}
+
+EntityInstance::RecordType EntityInstance::record_type() const {
+  return std::visit(absl::Overload{[](const LocalRecordTypePayload&) {
+                                     return RecordType::kLocal;
+                                   },
+                                   [](const WalletRecordTypePayload&) {
+                                     return RecordType::kServerWallet;
+                                   },
+                                   [](const PersonalContextRecordTypePayload&) {
+                                     return RecordType::kPersonalContext;
+                                   }},
+                    record_type_data_);
 }
 
 EntityInstance EntityInstance::CopyWithUpdatedAttribute(

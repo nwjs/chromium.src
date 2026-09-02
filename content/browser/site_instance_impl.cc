@@ -542,6 +542,8 @@ void SiteInstanceImpl::ReuseExistingProcessIfPossible(
 
   // TODO(crbug.com/40676483): Don't try to reuse process if either of the
   // SiteInstances are cross-origin isolated (uses COOP/COEP).
+  set_process_assignment(
+      SiteInstanceProcessAssignment::REUSED_EXISTING_PROCESS);
   SetProcessInternal(existing_process);
 }
 
@@ -1149,6 +1151,10 @@ bool SiteInstanceImpl::AreV8OptimizationsDisabled() {
 
 bool SiteInstanceImpl::IsPdf() {
   return site_info_.is_pdf();
+}
+
+bool SiteInstanceImpl::IsPrivileged() {
+  return site_info_.embedder_isolation_info().is_privileged();
 }
 
 std::string SiteInstanceImpl::GetPartitionDomain(

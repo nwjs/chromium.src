@@ -14,6 +14,7 @@
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/proto/server.pb.h"
+#include "third_party/abseil-cpp/absl/functional/overload.h"
 
 namespace autofill::test {
 
@@ -29,7 +30,7 @@ EntityOptions ToEntityOptions(Options options) {
       .date_modified = options.date_modified,
       .use_date = options.use_date,
       .app_locale = options.app_locale,
-      .record_type = options.record_type,
+      .record_type = std::move(options.record_type),
       .are_attributes_read_only = options.are_attributes_read_only,
       .use_count = options.use_count,
   };
@@ -464,13 +465,34 @@ EntityInstance GetEntityInstance(std::vector<AttributeInstance> attributes,
                               return attribute.type().entity_type() == type;
                             }))
       << "All attribute types must belong to the same entity type";
+  auto record_type_data = std::visit(
+      absl::Overload{
+          [](EntityInstance::RecordType record_type)
+              -> EntityInstance::RecordTypeData {
+            switch (record_type) {
+              case EntityInstance::RecordType::kLocal:
+                return EntityInstance::LocalRecordTypePayload{};
+              case EntityInstance::RecordType::kServerWallet:
+                return EntityInstance::WalletRecordTypePayload{};
+              case EntityInstance::RecordType::kPersonalContext:
+                return EntityInstance::PersonalContextRecordTypePayload{
+                    .sources = {}};
+            }
+            NOTREACHED();
+          },
+          [](const EntityInstance::RecordTypeData& record_type_data) {
+            return record_type_data;
+          }},
+      options.record_type);
+
   return EntityInstance(
       type, std::move(attributes),
       EntityInstance::EntityId(base::Uuid::ParseLowercase(options.guid)),
       std::string(options.nickname),
       base::Time::FromTimeT(options.date_modified.ToTimeT()), options.use_count,
-      base::Time::FromTimeT(options.use_date.ToTimeT()), options.record_type,
-      options.are_attributes_read_only, std::string(options.frecency_override));
+      base::Time::FromTimeT(options.use_date.ToTimeT()),
+      std::move(record_type_data), options.are_attributes_read_only,
+      std::string(options.frecency_override));
 }
 
 EntityInstance MaskEntityInstance(const EntityInstance& entity_instance) {
@@ -498,12 +520,13 @@ EntityInstance MaskEntityInstance(const EntityInstance& entity_instance) {
         /*format_string=*/std::nullopt, VerificationStatus::kNoStatus);
     test_api(attribute).mark_as_masked();
   }
-  return EntityInstance(
-      entity_instance.type(), std::move(attributes), entity_instance.guid(),
-      entity_instance.nickname(), entity_instance.date_modified(),
-      entity_instance.use_count(), entity_instance.use_date(),
-      entity_instance.record_type(), entity_instance.are_attributes_read_only(),
-      test_api(entity_instance).frecency_override());
+  return EntityInstance(entity_instance.type(), std::move(attributes),
+                        entity_instance.guid(), entity_instance.nickname(),
+                        entity_instance.date_modified(),
+                        entity_instance.use_count(), entity_instance.use_date(),
+                        entity_instance.record_type_data(),
+                        entity_instance.are_attributes_read_only(),
+                        test_api(entity_instance).frecency_override());
 }
 
 }  // namespace autofill::test

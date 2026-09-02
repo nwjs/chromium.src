@@ -109,6 +109,38 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/bookmarks/BookmarkAllTabsHandler.java:BookmarkAllTabsResult) -->
 
+<!-- LINT.IfChange(AndroidBottomBarAimIneligibilityReason) -->
+
+<enum name="AndroidBottomBarAimIneligibilityReason">
+  <int value="0" label="FeatureFlagDisabled"/>
+  <int value="1" label="CountryGeofenced"/>
+  <int value="2" label="CountryInGlicSoonList"/>
+  <int value="3" label="PreemptedByGlic"/>
+  <int value="4" label="DefaultSearchEngineNotGoogle"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AimIneligibilityReason) -->
+
+<!-- LINT.IfChange(AndroidBottomBarAimLaunchResult) -->
+
+<enum name="AndroidBottomBarAimLaunchResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="TabNull"/>
+  <int value="2" label="MissingOrInvalidUrl"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:AimLaunchResult) -->
+
+<!-- LINT.IfChange(AndroidBottomBarCandidateAction) -->
+
+<enum name="AndroidBottomBarCandidateAction">
+  <int value="0" label="None"/>
+  <int value="1" label="Glic"/>
+  <int value="2" label="Aim"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:CandidateAction) -->
+
 <!-- LINT.IfChange(AndroidBottomBarGlicButtonState) -->
 
 <enum name="AndroidBottomBarGlicButtonState">
@@ -129,6 +161,16 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:GlicConvoResult) -->
+
+<!-- LINT.IfChange(AndroidBottomBarGlicIneligibilityReason) -->
+
+<enum name="AndroidBottomBarGlicIneligibilityReason">
+  <int value="0" label="ProfileIneligible"/>
+  <int value="1" label="CountryGeofenced"/>
+  <int value="2" label="UserDisabledInSettings"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/android/bottombar/java/src/org/chromium/chrome/browser/ui/bottombar/BottomBarMetrics.java:GlicIneligibilityReason) -->
 
 <!-- LINT.IfChange(AndroidBottomBarIphEvent) -->
 
@@ -208,6 +250,13 @@ chromium-metrics-reviews@google.com.
   <int value="14" label="DUPLICATE_DOWNLOAD_DIALOG"/>
   <int value="15" label="EXTERNAL_APP"/>
   <int value="16" label="NEW_DOWNLOAD_TAB_OPEN_BUTTON"/>
+</enum>
+
+<enum name="AndroidDownloadOpenTarget">
+  <int value="0" label="CHROME_DEFAULT"/>
+  <int value="1" label="CHROME_FALLBACK"/>
+  <int value="2" label="OTHER_APP_DEFAULT"/>
+  <int value="3" label="OS_CHOOSER"/>
 </enum>
 
 <!-- LINT.IfChange(AndroidDragTargetType) -->
@@ -305,8 +354,8 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="Other"/>
   <int value="1" label="Zoom In"/>
   <int value="2" label="Zoom Out"/>
-  <int value="3" label="Fit To Page Vertical"/>
-  <int value="4" label="Fit To Page Horizontal"/>
+  <int value="3" label="Fit To Page"/>
+  <int value="4" label="Fit To Width"/>
   <int value="5" label="Page Navigation"/>
   <int value="6" label="Print"/>
   <int value="7" label="Two-page view"/>
@@ -857,6 +906,8 @@ chromium-metrics-reviews@google.com.
   <int value="203" label="Profile.enqueuePreconnect"/>
   <int value="204" label="Profile.setCrossOriginIsolatedAllowList"/>
   <int value="205" label="Profile.getCrossOriginIsolatedAllowList"/>
+  <int value="206" label="Navigation.getResponseHeaders"/>
+  <int value="207" label="WebViewProviderFactory.buildWebContent"/>
 <!-- LINT.ThenChange(/android_webview/support_library/java/src/org/chromium/support_lib_glue/SupportLibWebViewChromiumFactory.java:ApiCall) -->
 
 </enum>
@@ -1060,6 +1111,8 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="No tabs in window"/>
   <int value="4" label="Recent Tabs page"/>
   <int value="5" label="Recently closed limit exceeded"/>
+  <int value="6" label="Keyboard shortcut"/>
+  <int value="7" label="Menu"/>
 </enum>
 
 <enum name="ContactsPickerDialogAction">
@@ -1082,22 +1135,6 @@ chromium-metrics-reviews@google.com.
   <int value="23" label="Icons, Names, Emails, and Telephone numbers"/>
   <int value="31"
       label="Icons, Addresses, Names, Emails, and Telephone numbers"/>
-</enum>
-
-<enum name="CookieManagerThreadingCondition">
-  <int value="0" label="Not called before UI thread is set"/>
-  <int value="1" label="Called on a non-looper thread"/>
-  <int value="2"
-      label="Called from background looper and UI thread is main looper"/>
-  <int value="3"
-      label="Called from background looper and UI thread is the same
-             background looper"/>
-  <int value="4"
-      label="Called from background looper and UI thread is a different
-             background looper"/>
-  <int value="5" label="Called from main looper and UI thread is main looper"/>
-  <int value="6"
-      label="Called from main looper and UI thread is a background looper"/>
 </enum>
 
 <enum name="CpuAbiBitnessSupport">
@@ -1259,17 +1296,23 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="ERROR_NO_PADDING_WITH_NEW_INSETS"/>
 </enum>
 
-<enum name="ExifOrientation">
-  <int value="0" label="Normal"/>
-  <int value="1" label="Rotate 90"/>
-  <int value="2" label="Rotate 190"/>
-  <int value="3" label="Rotate 270"/>
-  <int value="4" label="Transpose"/>
-  <int value="5" label="Transverse"/>
-  <int value="6" label="Flip Horizontally"/>
-  <int value="7" label="Flip Vertically"/>
-  <int value="8" label="Undefined"/>
+<!-- LINT.IfChange(FixupResult) -->
+
+<enum name="FixupResult">
+  <int value="0" label="Both fixups left the input unchanged"/>
+  <int value="1" label="Only the bare hostname fixup changed the input"/>
+  <int value="2" label="Both fixups changed the input with the same result"/>
+  <int value="3" label="Only WebAddressParser changed the input"/>
+  <int value="4" label="Both fixups changed the input, with different results"/>
+  <int value="5"
+      label="WebAddressParser threw an exception, the bare hostname fixup
+             left the input unchanged"/>
+  <int value="6"
+      label="WebAddressParser threw an exception, the bare hostname fixup
+             changed the input"/>
 </enum>
+
+<!-- LINT.ThenChange(//android_webview/java/src/org/chromium/android_webview/AwCookieManager.java:FixupResult) -->
 
 <enum name="GlicPromoBottomSheetDismissReason">
   <int value="0" label="Accept"/>
@@ -1507,7 +1550,7 @@ chromium-metrics-reviews@google.com.
   <int value="37" label="DEPRECATED: RestoreCustomTab"/>
   <int value="38" label="DEPRECATED: UndoCustomTabRestoration"/>
   <int value="39" label="CvcSave"/>
-  <int value="40" label="TrackingProtectionNotice"/>
+  <int value="40" label="DEPRECATED: TrackingProtectionNotice"/>
   <int value="41" label="DesktopSiteWindowSetting"/>
   <int value="42" label="PromptHatsLocationCustomInvitation"/>
   <int value="43" label="PromptHatsLocationGenericInvitation"/>
@@ -1531,7 +1574,7 @@ chromium-metrics-reviews@google.com.
   <int value="61"
       label="DEPRECATED: MultiInstanceRestorationOnDowngradedLimit"/>
   <int value="62" label="UpdateChromeForTabGroupShare"/>
-  <int value="63" label="ModeBRollbackMessage"/>
+  <int value="63" label="DEPRECATED: ModeBRollbackMessage"/>
   <int value="64" label="ReloadPage"/>
   <int value="65" label="MultiInstanceCreationLimit"/>
   <int value="66" label="PermissionPromptLoud"/>
@@ -1545,6 +1588,9 @@ chromium-metrics-reviews@google.com.
   <int value="74" label="PersonalContextFetchingFailure"/>
   <int value="75" label="PrivateInferenceNotice"/>
   <int value="76" label="ContextualTasksWindowResized"/>
+  <int value="77" label="ImmersivePlaybackConfirmation"/>
+  <int value="78" label="IntranetRedirect"/>
+  <int value="79" label="PasswordSavedConfirmation"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/messages/android/message_enums.h:MessageIdentifier) -->
@@ -1641,6 +1687,7 @@ chromium-metrics-reviews@google.com.
       label="Browser window creation from native feature (eg. extensions)"/>
   <int value="11" label="Upgrade to Android S multi-instance support"/>
   <int value="12" label="Crash recovery"/>
+  <int value="13" label="Relaunch"/>
 </enum>
 
 <enum name="NTPImpressionType">
@@ -2160,6 +2207,31 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="FAILED_SHARE_ALL_TABS_FILTERED"/>
 </enum>
 
+<!-- LINT.IfChange(TabSearchDismissalReason) -->
+
+<enum name="TabSearchDismissalReason">
+  <int value="0" label="Close Button"/>
+  <int value="1" label="Scrim"/>
+  <int value="2" label="Back Press / ESC"/>
+  <int value="3" label="Window Focus Lost"/>
+  <int value="4" label="Tab Selected"/>
+  <int value="5" label="Tab Group Selected"/>
+  <int value="6" label="URL Loaded / Query Submitted"/>
+  <int value="7" label="Window Resized"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/features/tab_ui/java/src/org/chromium/chrome/browser/tasks/tab_management/TabSearchOverlayCoordinator.java:TabSearchDismissalReason) -->
+
+<!-- LINT.IfChange(TabSearchEntryPoint) -->
+
+<enum name="TabSearchEntryPoint">
+  <int value="0" label="Horizontal Tab Strip"/>
+  <int value="1" label="Vertical Tabs"/>
+  <int value="2" label="Keyboard Shortcut"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/features/tab_ui/java/src/org/chromium/chrome/browser/tasks/tab_management/TabSearchOverlayCoordinator.java:TabSearchEntryPoint) -->
+
 <enum name="ToolbarCaptureType">
   <int value="0" label="UNKNOWN"/>
   <int value="1" label="TOP"/>
@@ -2653,7 +2725,7 @@ chromium-metrics-reviews@google.com.
   <int value="235" label="WebViewChromium constructor"/>
   <int value="236" label="WebViewChromium init"/>
   <int value="237" label="WebViewChromium initForReal"/>
-<!-- LINT.ThenChange(/android_webview/glue/java/src/com/android/webview/chromium/WebViewChromium.java:ApiCall) -->
+<!-- LINT.ThenChange(/android_webview/glue/java/src/com/android/webview/chromium/ApiCallLogger.java:ApiCall) -->
 
 </enum>
 
@@ -3037,7 +3109,7 @@ chromium-metrics-reviews@google.com.
   <int value="144" label="profileGetCrossOriginIsolatedAllowList"/>
 </enum>
 
-<!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup) -->
+<!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup,//android_webview/java/src/org/chromium/android_webview/StartupCallSite.java:StartupCallSite) -->
 
 <enum name="WebViewUrlScheme">
   <int value="0" label="Empty URL"/>

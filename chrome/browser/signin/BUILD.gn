@@ -230,6 +230,7 @@ source_set("impl") {
     "//components/profile_metrics",
     "//components/signin/core/browser",
     "//components/signin/public/webdata",
+    "//components/site_token_provider",
     "//components/skills:features",
     "//components/supervised_user/core/browser",
     "//components/sync_bookmarks",
@@ -306,6 +307,8 @@ source_set("impl") {
 
   if (is_android) {
     sources += [
+      "account_preview_data_service_android.cc",
+      "account_preview_data_service_android.h",
       "android/cross_device_signin_flow_navigation_throttle.cc",
       "android/signin_bridge.cc",
       "android/signin_bridge_factory.cc",
@@ -455,6 +458,32 @@ source_set("google_accounts_private_api") {
     "//mojo/public/cpp/bindings",
   ]
   deps = [ "//google_apis" ]
+}
+
+# SigninBrowserTestBase derives from InProcessBrowserTest, which is not
+# built on Android.
+if (!is_android) {
+  source_set("signin_browser_test_base") {
+    testonly = true
+
+    sources = [ "signin_browser_test_base.h" ]
+
+    public_deps = [
+      ":identity_test_support",
+      ":signin",
+      ":test_support",
+      "//base",
+      "//chrome/browser:browser_process",
+      "//chrome/browser/profiles:profile_manager",
+      "//chrome/browser/profiles:profile_test_util",
+      "//chrome/browser/ui",
+      "//chrome/test:test_support_ui",
+      "//components/signin/public/identity_manager",
+      "//components/signin/public/identity_manager:test_support",
+      "//components/trusted_vault",
+      "//services/network:test_support",
+    ]
+  }
 }
 
 source_set("test_support") {
@@ -652,6 +681,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/webui/signin:signin_ui_error",
       "//chrome/test:test_support",
       "//components/metrics",
+      "//components/signin/core/browser:test_support",
       "//components/signin/public/base",
       "//components/signin/public/identity_manager",
       "//components/signin/public/identity_manager:test_support",
@@ -728,6 +758,7 @@ if (!is_android) {
     deps = [
       ":signin",
       ":test_support",
+      "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/ui",
       "//chrome/test:test_support",
       "//chrome/test:test_support_ui",
@@ -779,6 +810,7 @@ if (!is_android) {
         "//chrome/test:test_support_ui",
         "//chrome/test/user_education",
         "//components/embedder_support:user_agent",
+        "//components/signin/core/browser:test_support",
         "//components/signin/public/base",
         "//components/signin/public/identity_manager",
         "//components/signin/public/identity_manager:test_support",
@@ -862,7 +894,7 @@ if (!is_android && !is_chromeos_device) {
     defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
     sources = []
-    deps = []
+    deps = [ "//chrome/browser/signin:signin_browser_test_base" ]
 
     if (enable_dice_support) {
       sources += [ "history_sync_optin_screen_interactive_uitest.cc" ]

@@ -45,11 +45,7 @@ class SingleFieldFillRouterTest : public testing::Test {
                                   &promo_code_manager()) {
     prefs_ = test::PrefServiceForTesting();
 
-    // Mock such that we don't trigger the cleanup.
-    prefs_->SetInteger(prefs::kAutocompleteLastVersionRetentionPolicy,
-                       version_info::GetMajorVersionNumberAsInt());
     web_data_service_ = base::MakeRefCounted<MockAutofillWebDataService>();
-    history_manager().Init(web_data_service_, prefs_.get(), false);
 
     FormData form;
     test_api(form).Append(
@@ -114,9 +110,8 @@ TEST_F(SingleFieldFillRouterTest, RouteToAllFillers_OnWillSubmitForm) {
 
   EXPECT_CALL(history_manager(),
               OnWillSubmitFormWithFields(SizeIs(form_data.fields().size()),
-                                         &form_structure, true));
-  router().OnWillSubmitForm(form_data, &form_structure,
-                            /*is_autocomplete_enabled=*/true);
+                                         &form_structure));
+  router().OnWillSubmitForm(form_data, &form_structure);
 }
 
 // Ensure that the router routes to fillers for this CancelPendingQueries call.

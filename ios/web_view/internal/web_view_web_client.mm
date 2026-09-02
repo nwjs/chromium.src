@@ -13,6 +13,7 @@
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
 #import "base/ios/ns_error_util.h"
+#import "base/memory/ref_counted_memory.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/ios/browser/autofill_java_script_feature.h"
 #import "components/autofill/ios/browser/suggestion_controller_java_script_feature.h"
@@ -48,6 +49,7 @@
 #import "ios/web_view/internal/web_view_message_handler_java_script_feature.h"
 #import "ios/web_view/internal/web_view_web_main_parts.h"
 #import "ios/web_view/public/cwv_navigation_delegate.h"
+#import "ios/web_view/public/cwv_ui_delegate.h"
 #import "ios/web_view/public/cwv_web_view.h"
 #import "net/base/apple/url_conversions.h"
 #import "net/cert/cert_status_flags.h"
@@ -90,7 +92,7 @@ std::string_view WebViewWebClient::GetDataResource(
       resource_id, scale_factor);
 }
 
-base::RefCountedMemory* WebViewWebClient::GetDataResourceBytes(
+scoped_refptr<base::RefCountedMemory> WebViewWebClient::GetDataResourceBytes(
     int resource_id) const {
   return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytes(
       resource_id);
@@ -195,6 +197,13 @@ bool WebViewWebClient::IsInsecureFormWarningEnabled(
 }
 
 void WebViewWebClient::BuildEditMenu(web::WebState* web_state,
-                                     id<UIMenuBuilder>) const {}
+                                     id<UIMenuBuilder> builder) const {
+  CWVWebView* web_view = [CWVWebView webViewForWebState:web_state];
+  id<CWVUIDelegate> ui_delegate = web_view.UIDelegate;
+  if ([ui_delegate
+          respondsToSelector:@selector(webView:buildMenuWithBuilder:)]) {
+    [ui_delegate webView:web_view buildMenuWithBuilder:builder];
+  }
+}
 
 }  // namespace ios_web_view

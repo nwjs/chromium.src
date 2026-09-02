@@ -27,6 +27,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_SELECTOR_LIST_H_
 
 #include "base/compiler_specific.h"
+#include "base/gtest_prod_util.h"
 #include "base/types/pass_key.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/css/css_selector.h"
@@ -69,8 +70,9 @@ namespace blink {
 // to provide a subset of its API.
 class CORE_EXPORT CSSSelectorList : public GarbageCollected<CSSSelectorList> {
  public:
-  // Constructs an empty selector list, for which IsValid() returns false.
-  // TODO(sesse): Consider making this a singleton.
+  // Returns an empty selector list, for which IsValid() returns false.
+  // This is a thread-local singleton shared by all callers; do not mutate
+  // the object it points to.
   static CSSSelectorList* Empty();
 
   // Do not call; for Empty() and AdoptSelectorVector() only.
@@ -95,10 +97,19 @@ class CORE_EXPORT CSSSelectorList : public GarbageCollected<CSSSelectorList> {
   }
   bool IsValid() const { return IsValid(*first_selector_); }
   const CSSSelector* First() const {
-    return IsValid() ? first_selector_ : nullptr;
+    if (IsInvalidWithoutUnparsed()) {
+      return nullptr;
+    }
+    return first_selector_->IsUnparsedInvalid() ? Next(*first_selector_)
+                                                : first_selector_;
+  }
+  const CSSSelector* FirstIncludingUnparsedInvalid() const {
+    return IsInvalidWithoutUnparsed() ? nullptr : first_selector_;
   }
   static const CSSSelector* Next(const CSSSelector&);
   static CSSSelector* Next(CSSSelector&);
+  static const CSSSelector* NextIncludingUnparsedInvalid(const CSSSelector&);
+  static CSSSelector* NextIncludingUnparsedInvalid(CSSSelector&);
 
   // Returns true when there is exactly one complex selector in the list,
   // and false otherwise.
@@ -109,12 +120,12 @@ class CORE_EXPORT CSSSelectorList : public GarbageCollected<CSSSelectorList> {
     return IsSingleComplexSelector(*first_selector_);
   }
   const CSSSelector& SelectorAt(wtf_size_t index) const {
-    DCHECK(IsValid());
+    DCHECK(!IsInvalidWithoutUnparsed());
     return UNSAFE_BUFFERS(first_selector_[index]);
   }
 
   wtf_size_t SelectorIndex(const CSSSelector& selector) const {
-    DCHECK(IsValid());
+    DCHECK(!IsInvalidWithoutUnparsed());
     return static_cast<wtf_size_t>(&selector - first_selector_);
   }
 
@@ -127,7 +138,9 @@ class CORE_EXPORT CSSSelectorList : public GarbageCollected<CSSSelectorList> {
     return SelectorIndex(*next);
   }
 
-  String SelectorsText() const { return SelectorsText(First()); }
+  String SelectorsText() const {
+    return SelectorsText(FirstIncludingUnparsedInvalid());
+  }
   static String SelectorsText(const CSSSelector* first);
 
   // Selector lists don't know their length, computing it is O(n) and should be
@@ -158,6 +171,15 @@ class CORE_EXPORT CSSSelectorList : public GarbageCollected<CSSSelectorList> {
   void Trace(Visitor* visitor) const;
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(CSSSelector, CopyUnparsedInvalidList);
+
+  static bool IsInvalidWithoutUnparsed(const CSSSelector& first) {
+    return !IsValid(first) && !first.IsUnparsedInvalid();
+  }
+  bool IsInvalidWithoutUnparsed() const {
+    return IsInvalidWithoutUnparsed(*first_selector_);
+  }
+
   // All of the remaining CSSSelector objects are allocated on
   // AdditionalBytes, and thus live immediately after this object. The length
   // is not stored explicitly anywhere: End of a multipart selector is
@@ -171,6 +193,22 @@ inline const CSSSelector* CSSSelectorList::Next(const CSSSelector& current) {
 }
 
 inline CSSSelector* CSSSelectorList::Next(CSSSelector& current) {
+  CSSSelector* next = &current;
+  while ((next = NextIncludingUnparsedInvalid(*next))) {
+    if (!next->IsUnparsedInvalid()) {
+      return next;
+    }
+  }
+  return nullptr;
+}
+
+inline const CSSSelector* CSSSelectorList::NextIncludingUnparsedInvalid(
+    const CSSSelector& current) {
+  return NextIncludingUnparsedInvalid(const_cast<CSSSelector&>(current));
+}
+
+inline CSSSelector* CSSSelectorList::NextIncludingUnparsedInvalid(
+    CSSSelector& current) {
   // Skip subparts of compound selectors.
   CSSSelector* last = &current;
   while (!last->IsLastInComplexSelector()) {

@@ -504,6 +504,15 @@ void AccountSelectionViewAndroid::OnAccountsDisplayed(JNIEnv* env) {
   delegate_->OnAccountsDisplayed();
 }
 
+void AccountSelectionViewAndroid::OnNativeAppResult(JNIEnv* env,
+                                                    const std::string& token) {
+  delegate_->OnNativeAppResult(token);
+}
+
+void AccountSelectionViewAndroid::OnNativeAppLoginFinished(JNIEnv* env) {
+  delegate_->OnNativeAppLoginFinished();
+}
+
 bool AccountSelectionViewAndroid::MaybeCreateJavaObject(
     std::optional<blink::mojom::RpMode> rp_mode) {
   if (!delegate_->GetNativeView()) {

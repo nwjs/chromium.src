@@ -10,11 +10,14 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.constraintlayout.widget.ConstraintLayout;
+
+import com.google.android.material.materialswitch.MaterialSwitch;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -22,6 +25,7 @@ import org.chromium.build.annotations.Nullable;
 /** View for the desktop android bookmark popup. */
 @NullMarked
 public class BookmarkPopupView extends ConstraintLayout {
+    private View mImageContainer;
     private ImageView mImageView;
     private TextView mHeaderTextView;
     private EditText mTitleView;
@@ -31,6 +35,9 @@ public class BookmarkPopupView extends ConstraintLayout {
     private View mDoneButton;
     private View mCloseButton;
 
+    private View mPriceTrackingContainer;
+    private MaterialSwitch mPriceTrackingSwitch;
+
     /** Constructor for xml inflation. */
     public BookmarkPopupView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -39,6 +46,7 @@ public class BookmarkPopupView extends ConstraintLayout {
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
+        mImageContainer = findViewById(R.id.bookmark_image_container);
         mImageView = findViewById(R.id.bookmark_image);
         mHeaderTextView = findViewById(R.id.popup_title);
         mTitleView = findViewById(R.id.bookmark_title);
@@ -47,6 +55,8 @@ public class BookmarkPopupView extends ConstraintLayout {
         mRemoveButton = findViewById(R.id.remove_button);
         mDoneButton = findViewById(R.id.done_button);
         mCloseButton = findViewById(R.id.close_button);
+        mPriceTrackingContainer = findViewById(R.id.price_tracking_container);
+        mPriceTrackingSwitch = findViewById(R.id.price_tracking_switch);
     }
 
     /** Sets the header text of the popup (e.g., "Bookmark added"). */
@@ -84,6 +94,11 @@ public class BookmarkPopupView extends ConstraintLayout {
         mImageView.setScaleType(scaleType);
     }
 
+    /** Sets the visibility of the bookmark thumbnail image container. */
+    public void setImageVisible(boolean visible) {
+        mImageContainer.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
     /** Sets the folder name displayed in the folder selector row. */
     public void setFolderName(String folderName) {
         mFolderTitle.setText(folderName);
@@ -111,6 +126,28 @@ public class BookmarkPopupView extends ConstraintLayout {
         mCloseButton.setOnClickListener(listener);
     }
 
+    /** Sets the visibility of the price tracking section. */
+    public void setPriceTrackingVisible(boolean visible) {
+        mPriceTrackingContainer.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    /** Sets if the price tracking section is enabled. */
+    public void setPriceTrackingEnabled(boolean enabled) {
+        mPriceTrackingContainer.setEnabled(enabled);
+        mPriceTrackingSwitch.setEnabled(enabled);
+    }
+
+    /** Sets if the price tracking switch is checked. */
+    public void setPriceTrackingSwitchChecked(boolean checked) {
+        mPriceTrackingSwitch.setChecked(checked);
+    }
+
+    /** Sets the change listener for the price tracking switch. */
+    public void setPriceTrackingSwitchListener(
+            CompoundButton.@Nullable OnCheckedChangeListener listener) {
+        mPriceTrackingSwitch.setOnCheckedChangeListener(listener);
+    }
+
     /** Cleans up listeners and observers to prevent leaks. */
     public void destroy() {
         setTitleTextWatcher(null);
@@ -118,5 +155,6 @@ public class BookmarkPopupView extends ConstraintLayout {
         mRemoveButton.setOnClickListener(null);
         mDoneButton.setOnClickListener(null);
         mCloseButton.setOnClickListener(null);
+        mPriceTrackingSwitch.setOnCheckedChangeListener(null);
     }
 }

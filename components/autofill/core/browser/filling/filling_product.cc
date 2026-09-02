@@ -118,7 +118,7 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
     case SuggestionType::kSeePromoCodeDetails:
     case SuggestionType::kSeparator:
     case SuggestionType::kTitle:
-    case SuggestionType::kUndoOrClear:
+    case SuggestionType::kUndo:
       return FillingProduct::kNone;
     case SuggestionType::kAutofillAiOtherOrders:
     case SuggestionType::kAutofillAiOtherShipments:
@@ -129,6 +129,7 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
     case SuggestionType::kManageAutofillAiIdentityDocs:
     case SuggestionType::kManageAutofillAiShopping:
     case SuggestionType::kManageAutofillAiTravel:
+    case SuggestionType::kRemoveAutofillAi:
       return FillingProduct::kAutofillAi;
     case SuggestionType::kAllLoyaltyCardsEntry:
     case SuggestionType::kLoyaltyCardEntry:
@@ -138,6 +139,7 @@ FillingProduct GetFillingProductFromSuggestionType(SuggestionType type) {
       return FillingProduct::kIdentityCredential;
     case SuggestionType::kOneTimePasswordEntry:
       return FillingProduct::kOneTimePassword;
+    case SuggestionType::kAtMemoryFetching:
     case SuggestionType::kAtMemorySearchResult:
     case SuggestionType::kAtMemorySourceAttribution:
     case SuggestionType::kManageEnhancedAutofill:

@@ -19,7 +19,6 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
 #include "components/supervised_user/core/browser/supervised_user_error_page.h"
-#include "components/supervised_user/core/browser/supervised_user_service_observer.h"
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "components/supervised_user/core/common/supervised_users.h"
 #include "content/public/browser/render_frame_host_receiver_set.h"
@@ -44,7 +43,6 @@ using OnInterstitialResultCallback = base::RepeatingCallback<
 class SupervisedUserNavigationObserver
     : public content::WebContentsUserData<SupervisedUserNavigationObserver>,
       public content::WebContentsObserver,
-      public SupervisedUserServiceObserver,
       public supervised_user::SupervisedUserUrlFilteringService::Observer,
       public supervised_user::mojom::SupervisedUserCommands {
  public:
@@ -79,8 +77,6 @@ class SupervisedUserNavigationObserver
   void DidFinishLoad(content::RenderFrameHost* render_frame_host,
                      const GURL& validated_url) override;
 
-  // SupervisedUserServiceObserver:
-  void OnURLFilterChanged() override;
   // SupervisedUserUrlFilteringService::Observer:
   void OnUrlFilteringServiceChanged() override;
 
@@ -159,9 +155,6 @@ class SupervisedUserNavigationObserver
   void OnForceGoogleSafeSearchChanged(std::string_view safe_search_pref_name);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-  base::ScopedObservation<supervised_user::SupervisedUserService,
-                          SupervisedUserServiceObserver>
-      supervised_user_service_observation_{this};
   base::ScopedObservation<
       supervised_user::SupervisedUserUrlFilteringService,
       supervised_user::SupervisedUserUrlFilteringService::Observer>

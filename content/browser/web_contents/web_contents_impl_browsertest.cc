@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <initializer_list>
 #include <optional>
 #include <tuple>
 #include <utility>
@@ -40,6 +41,7 @@
 #include "components/input/render_widget_host_input_event_router.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "components/url_formatter/url_formatter.h"
+#include "content/browser/embedder_isolation_info.h"
 #include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/browser/renderer_host/cross_process_frame_connector.h"
 #include "content/browser/renderer_host/frame_tree.h"
@@ -52,6 +54,8 @@
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
 #include "content/browser/renderer_host/render_widget_host_view_child_frame.h"
 #include "content/browser/renderer_host/text_input_manager.h"
+#include "content/browser/site_info.h"
+#include "content/browser/site_instance_impl.h"
 #include "content/browser/surface_embed/surface_embed_connector_impl.h"
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/common/content_navigation_policy.h"
@@ -68,8 +72,10 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/site_instance.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/unowned_inner_web_contents_client.h"
 #include "content/public/browser/web_contents.h"
@@ -122,6 +128,7 @@
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
+#include "ui/accessibility/ax_mode.h"
 #include "ui/base/clipboard/clipboard_format_type.h"
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/color/color_provider_manager.h"
@@ -2237,6 +2244,217 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
       web_contents->GetController().GetLastCommittedEntry();
   ASSERT_TRUE(entry);
   EXPECT_EQ(web_ui_url, entry->GetURL());
+}
+
+// A WebContents created with privileged params commits every navigation with
+// a privileged SiteInfo (keyed on the feature id), so it never shares a
+// renderer process with ordinary content of the same site.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       PrivilegedWebContentsGetsPrivilegedProcessIsolation) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL url = embedded_test_server()->GetURL("/title1.html");
+  BrowserContext* browser_context =
+      shell()->web_contents()->GetBrowserContext();
+
+  // A WebContents created with privileged params...
+  WebContents::CreateParams privileged_create_params(browser_context);
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  privileged_create_params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(
+      WebContents::Create(privileged_create_params));
+  ASSERT_TRUE(NavigateToURL(privileged.get(), url));
+
+  // ...commits its main frame with a privileged SiteInfo carrying the
+  // feature id.
+  const EmbedderIsolationInfo& privileged_isolation =
+      static_cast<SiteInstanceImpl*>(
+          privileged->GetPrimaryMainFrame()->GetSiteInstance())
+          ->GetSiteInfo()
+          .embedder_isolation_info();
+  EXPECT_TRUE(privileged_isolation.is_privileged());
+  EXPECT_EQ(privileged_isolation.privileged_feature_id(), 42);
+
+  // An ordinary WebContents at the same URL commits with no embedder
+  // isolation...
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  RenderFrameHost* ordinary_main_frame =
+      shell()->web_contents()->GetPrimaryMainFrame();
+  EXPECT_FALSE(
+      static_cast<SiteInstanceImpl*>(ordinary_main_frame->GetSiteInstance())
+          ->GetSiteInfo()
+          .embedder_isolation_info()
+          .is_privileged());
+
+  // ...and therefore never shares a renderer process with the privileged one.
+  EXPECT_NE(privileged->GetPrimaryMainFrame()->GetProcess(),
+            ordinary_main_frame->GetProcess());
+}
+
+// The privileged bit is reachable through the public
+// RenderProcessHost::IsPrivileged() helper; it is false for ordinary content.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       PrivilegedExposedViaPublicApis) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL url = embedded_test_server()->GetURL("/title1.html");
+  BrowserContext* browser_context =
+      shell()->web_contents()->GetBrowserContext();
+
+  WebContents::CreateParams privileged_create_params(browser_context);
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  privileged_create_params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(
+      WebContents::Create(privileged_create_params));
+  ASSERT_TRUE(NavigateToURL(privileged.get(), url));
+  EXPECT_TRUE(privileged->IsPrivileged());
+  EXPECT_TRUE(privileged->GetPrimaryMainFrame()->GetProcess()->IsPrivileged());
+
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  EXPECT_FALSE(shell()->web_contents()->IsPrivileged());
+  EXPECT_FALSE(shell()
+                   ->web_contents()
+                   ->GetPrimaryMainFrame()
+                   ->GetProcess()
+                   ->IsPrivileged());
+}
+
+// A WebContents created with PrivilegedParams marks every frame it hosts
+// as privileged, not just the main frame: a subframe (including a
+// cross-site one) also commits with a privileged SiteInfo.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       PrivilegedWebContentsPropagatesPrivilegeToSubframe) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL main_url = embedded_test_server()->GetURL("a.com", "/title1.html");
+  const GURL subframe_url =
+      embedded_test_server()->GetURL("b.com", "/title1.html");
+
+  WebContents::CreateParams privileged_create_params(
+      shell()->web_contents()->GetBrowserContext());
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  privileged_create_params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(
+      WebContents::Create(privileged_create_params));
+  ASSERT_TRUE(NavigateToURL(privileged.get(), main_url));
+
+  RenderFrameHost* main_frame = privileged->GetPrimaryMainFrame();
+  ASSERT_TRUE(ExecJs(main_frame, JsReplace(R"(
+      const f = document.createElement('iframe');
+      f.src = $1;
+      document.body.appendChild(f);
+  )",
+                                           subframe_url)));
+  ASSERT_TRUE(WaitForLoadStop(privileged.get()));
+  RenderFrameHost* subframe = ChildFrameAt(main_frame, 0);
+  ASSERT_TRUE(subframe);
+
+  auto is_privileged = [](RenderFrameHost* rfh) {
+    return static_cast<SiteInstanceImpl*>(rfh->GetSiteInstance())
+        ->GetSiteInfo()
+        .embedder_isolation_info()
+        .is_privileged();
+  };
+  EXPECT_TRUE(is_privileged(main_frame));
+  EXPECT_TRUE(is_privileged(subframe));
+}
+
+// A WebContents created with PrivilegedParams forces origin isolation on every
+// frame it hosts, so a same-site but cross-origin subframe lands in a different
+// process than the main frame. This keeps a compromise in such a subframe out
+// of the main frame's privileged process.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       PrivilegedWebContentsOriginIsolatesSameSiteSubframe) {
+  // Origin-Agent-Cluster opt-in (which is what forces the origin-keyed process)
+  // only applies to secure origins, so serve the pages over HTTPS with a cert
+  // that covers both same-site subdomains.
+  net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
+  https_server.SetCertHostnames({"a.com", "sub.a.com"});
+  https_server.ServeFilesFromSourceDirectory(GetTestDataFilePath());
+  ASSERT_TRUE(https_server.Start());
+  // `a.com` and `sub.a.com` share the site `a.com` but are cross-origin.
+  const GURL main_url = https_server.GetURL("a.com", "/title1.html");
+  const GURL subframe_url = https_server.GetURL("sub.a.com", "/title1.html");
+  BrowserContext* browser_context =
+      shell()->web_contents()->GetBrowserContext();
+
+  // Forcing origin isolation depends on OAC process isolation being available;
+  // where it is not (e.g. Android below the site-isolation memory threshold)
+  // privileged frames fall back to the site-keyed process.
+  const bool origin_isolation_available =
+      SiteIsolationPolicy::IsProcessIsolationForOriginAgentClusterEnabled();
+
+  WebContents::CreateParams privileged_create_params(browser_context);
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  privileged_create_params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(
+      WebContents::Create(privileged_create_params));
+  ASSERT_TRUE(NavigateToURL(privileged.get(), main_url));
+  RenderFrameHost* privileged_main = privileged->GetPrimaryMainFrame();
+  ASSERT_TRUE(ExecJs(privileged_main, JsReplace(R"(
+      const f = document.createElement('iframe');
+      f.src = $1;
+      document.body.appendChild(f);
+  )",
+                                                subframe_url)));
+  ASSERT_TRUE(WaitForLoadStop(privileged.get()));
+  RenderFrameHost* privileged_subframe = ChildFrameAt(privileged_main, 0);
+  ASSERT_TRUE(privileged_subframe);
+
+  auto is_privileged = [](RenderFrameHost* rfh) {
+    return static_cast<SiteInstanceImpl*>(rfh->GetSiteInstance())
+        ->GetSiteInfo()
+        .embedder_isolation_info()
+        .is_privileged();
+  };
+  EXPECT_TRUE(is_privileged(privileged_main));
+  EXPECT_TRUE(is_privileged(privileged_subframe));
+  if (origin_isolation_available) {
+    EXPECT_NE(privileged_main->GetProcess(), privileged_subframe->GetProcess());
+  } else {
+    EXPECT_EQ(privileged_main->GetProcess(), privileged_subframe->GetProcess());
+  }
+}
+
+// Two privileged WebContents of the same feature coalesce into a single shared
+// renderer process (process-per-site), while a privileged WebContents of a
+// different feature and an ordinary WebContents at the same URL each stay in
+// their own process.
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       PrivilegedWebContentsCoalesceIntoSharedProcess) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL url = embedded_test_server()->GetURL("/title1.html");
+  BrowserContext* browser_context =
+      shell()->web_contents()->GetBrowserContext();
+
+  auto make_privileged = [&](int32_t feature_id) {
+    WebContents::CreateParams params(browser_context);
+    WebContents::PrivilegedParams privileged_params;
+    privileged_params.feature_id = feature_id;
+    params.privileged_params = privileged_params;
+    std::unique_ptr<WebContents> web_contents = WebContents::Create(params);
+    EXPECT_TRUE(NavigateToURL(web_contents.get(), url));
+    return web_contents;
+  };
+
+  std::unique_ptr<WebContents> privileged1 = make_privileged(42);
+  std::unique_ptr<WebContents> privileged2 = make_privileged(42);
+  std::unique_ptr<WebContents> other_feature = make_privileged(99);
+
+  // Same feature -> shared process.
+  EXPECT_EQ(privileged1->GetPrimaryMainFrame()->GetProcess(),
+            privileged2->GetPrimaryMainFrame()->GetProcess());
+
+  // A different feature id produces a distinct SiteInfo, so it does not join
+  // the shared process.
+  EXPECT_NE(privileged1->GetPrimaryMainFrame()->GetProcess(),
+            other_feature->GetPrimaryMainFrame()->GetProcess());
+
+  // An ordinary WebContents at the same URL stays in its own process.
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+  EXPECT_NE(privileged1->GetPrimaryMainFrame()->GetProcess(),
+            shell()->web_contents()->GetPrimaryMainFrame()->GetProcess());
 }
 
 namespace {
@@ -5880,6 +6098,25 @@ class SurfaceEmbedConnectorWebContentsBrowserTest
         &surface_embed_connector_delegate_));
   }
 
+  void ExpectRegisteredViews(
+      input::RenderWidgetHostInputEventRouter* event_router,
+      TextInputManager* text_input_manager,
+      std::initializer_list<WebContentsImpl*> web_contents_list) {
+    ASSERT_TRUE(event_router);
+    ASSERT_TRUE(text_input_manager);
+    EXPECT_EQ(web_contents_list.size(),
+              event_router->RegisteredViewCountForTesting());
+    EXPECT_EQ(web_contents_list.size(),
+              text_input_manager->GetRegisteredViewsCountForTesting());
+    for (WebContentsImpl* web_contents : web_contents_list) {
+      auto* view = static_cast<RenderWidgetHostViewBase*>(
+          web_contents->GetRenderWidgetHostView());
+      ASSERT_TRUE(view);
+      EXPECT_TRUE(event_router->IsViewInMap(view));
+      EXPECT_TRUE(text_input_manager->IsRegistered(view));
+    }
+  }
+
  private:
   // Mock SurfaceEmbedConnector::Delegate that does nothing (no-op)
   class MockSurfaceEmbedConnectorDelegate
@@ -5896,7 +6133,8 @@ class SurfaceEmbedConnectorWebContentsBrowserTest
     void DetachedByHost() override {}
     bool IsAttachedForTesting() const override { return false; }
     void ChildProcessGone() override {}
-    void RequestFocus() override {}
+    void RequestFocusOnEmbedElement() override {}
+    void AdvanceFocusFromEmbedElement(bool reverse) override {}
   };
 
   content::test::PrerenderTestHelper prerender_helper_;
@@ -6084,6 +6322,89 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
     EXPECT_EQ(0U,
               inner_text_input_manager->GetRegisteredViewsCountForTesting());
   }
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
+                       NestedRegistrationAndUnregistration) {
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
+  auto* root = static_cast<WebContentsImpl*>(shell()->web_contents());
+  WebContents::CreateParams create_params(root->GetBrowserContext());
+  auto parent = WebContents::Create(create_params);
+  auto child = WebContents::Create(create_params);
+  auto* parent_impl = static_cast<WebContentsImpl*>(parent.get());
+  auto* child_impl = static_cast<WebContentsImpl*>(child.get());
+  ASSERT_TRUE(NavigateToURL(parent.get(), GURL("about:blank")));
+  ASSERT_TRUE(NavigateToURL(child.get(), GURL("about:blank")));
+
+  auto* root_event_router = root->GetInputEventRouter();
+  auto* root_text_input_manager = root->GetTextInputManager();
+  auto* parent_event_router = parent_impl->GetInputEventRouter();
+  auto* parent_text_input_manager = parent_impl->GetTextInputManager();
+  auto* child_event_router = child_impl->GetInputEventRouter();
+  auto* child_text_input_manager = child_impl->GetTextInputManager();
+  ExpectRegisteredViews(root_event_router, root_text_input_manager, {root});
+  ExpectRegisteredViews(parent_event_router, parent_text_input_manager,
+                        {parent_impl});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager,
+                        {child_impl});
+
+  child_impl->SetSurfaceEmbedConnector(
+      CreateConnector(child_impl, parent_impl));
+  ExpectRegisteredViews(root_event_router, root_text_input_manager, {root});
+  ExpectRegisteredViews(parent_event_router, parent_text_input_manager,
+                        {parent_impl, child_impl});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager, {});
+
+  parent_impl->SetSurfaceEmbedConnector(CreateConnector(parent_impl, root));
+  ExpectRegisteredViews(root_event_router, root_text_input_manager,
+                        {root, parent_impl, child_impl});
+  ExpectRegisteredViews(parent_event_router, parent_text_input_manager, {});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager, {});
+
+  parent_impl->ClearSurfaceEmbedConnector();
+  ExpectRegisteredViews(root_event_router, root_text_input_manager, {root});
+  ExpectRegisteredViews(parent_event_router, parent_text_input_manager,
+                        {parent_impl, child_impl});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager, {});
+
+  child_impl->ClearSurfaceEmbedConnector();
+  ExpectRegisteredViews(root_event_router, root_text_input_manager, {root});
+  ExpectRegisteredViews(parent_event_router, parent_text_input_manager,
+                        {parent_impl});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager,
+                        {child_impl});
+}
+
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
+                       DestructionWithNestedChildWebContents) {
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
+  auto* root = static_cast<WebContentsImpl*>(shell()->web_contents());
+  WebContents::CreateParams create_params(root->GetBrowserContext());
+  auto parent = WebContents::Create(create_params);
+  auto child = WebContents::Create(create_params);
+  auto* parent_impl = static_cast<WebContentsImpl*>(parent.get());
+  auto* child_impl = static_cast<WebContentsImpl*>(child.get());
+  ASSERT_TRUE(NavigateToURL(parent.get(), GURL("about:blank")));
+  ASSERT_TRUE(NavigateToURL(child.get(), GURL("about:blank")));
+
+  auto* root_event_router = root->GetInputEventRouter();
+  auto* root_text_input_manager = root->GetTextInputManager();
+  auto* child_event_router = child_impl->GetInputEventRouter();
+  auto* child_text_input_manager = child_impl->GetTextInputManager();
+
+  parent_impl->SetSurfaceEmbedConnector(CreateConnector(parent_impl, root));
+  child_impl->SetSurfaceEmbedConnector(
+      CreateConnector(child_impl, parent_impl));
+  ExpectRegisteredViews(root_event_router, root_text_input_manager,
+                        {root, parent_impl, child_impl});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager, {});
+
+  parent.reset();
+
+  EXPECT_EQ(nullptr, child_impl->GetSurfaceEmbedConnector());
+  ExpectRegisteredViews(root_event_router, root_text_input_manager, {root});
+  ExpectRegisteredViews(child_event_router, child_text_input_manager,
+                        {child_impl});
 }
 
 IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
@@ -6989,6 +7310,52 @@ IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
 
   // End the test, there should be no CHECK when everything is unregistered
   // properly.
+}
+
+// A subframe of a surface-embedded WebContents is not the accessibility root:
+// the per-WebContents SurfaceEmbedConnector only applies to the outermost
+// frame. Accessibility is enabled programmatically so this is covered without
+// --force-renderer-accessibility. See crbug.com/534306599.
+IN_PROC_BROWSER_TEST_F(SurfaceEmbedConnectorWebContentsBrowserTest,
+                       EmbeddedOOPIFSubframeIsNotAccessibilityRoot) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  const GURL outer_url(
+      embedded_test_server()->GetURL("a.com", "/simple_page.html"));
+  const GURL inner_url(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+
+  // Setup outer WebContents.
+  ASSERT_TRUE(NavigateToURL(shell(), outer_url));
+  WebContentsImpl* outer_wc =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  // Setup inner WebContents embedded via a SurfaceEmbedConnector.
+  WebContents::CreateParams inner_params(
+      shell()->web_contents()->GetBrowserContext());
+  std::unique_ptr<WebContents> inner_wc = WebContents::Create(inner_params);
+  WebContentsImpl* inner_wc_impl =
+      static_cast<WebContentsImpl*>(inner_wc.get());
+  inner_wc->SetDelegate(outer_wc->GetDelegate());
+
+  auto connector = CreateConnector(inner_wc_impl, outer_wc);
+  inner_wc_impl->SetSurfaceEmbedConnector(std::move(connector));
+
+  // Navigate to a page with an out-of-process iframe.
+  ASSERT_TRUE(NavigateToURL(inner_wc.get(), inner_url));
+  auto* rfh_a =
+      static_cast<RenderFrameHostImpl*>(inner_wc_impl->GetPrimaryMainFrame());
+  ASSERT_TRUE(rfh_a);
+  auto* rfh_b = static_cast<RenderFrameHostImpl*>(ChildFrameAt(rfh_a, 0));
+  ASSERT_TRUE(rfh_b);
+
+  // Enable accessibility so a BrowserAccessibilityManager is built per frame.
+  inner_wc_impl->SetAccessibilityMode(ui::kAXModeComplete);
+
+  // Both frames are embedded: the outermost frame is surface-embedded into the
+  // outer WebContents, and the out-of-process subframe has a frame-tree parent.
+  // Neither is the AX root.
+  EXPECT_FALSE(rfh_a->AccessibilityIsRootFrame());
+  EXPECT_FALSE(rfh_b->AccessibilityIsRootFrame());
 }
 
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,

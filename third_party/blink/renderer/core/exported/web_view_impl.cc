@@ -612,6 +612,7 @@ WebViewImpl::WebViewImpl(
       *chrome_client_, opener ? opener->GetPage() : nullptr,
       agent_group_scheduler.GetAgentGroupScheduler(),
       browsing_context_group_token, color_provider_colors);
+  page_->SetRendererPreferences(renderer_preferences_);
   CoreInitializer::GetInstance().ProvideModulesToPage(
       *page_, session_storage_namespace_id_);
 
@@ -2941,7 +2942,7 @@ void ValidatePausedStateConsistency() {
       }
       const bool microtasks_are_paused =
           window->GetAgent()->event_loop()->AreMicrotasksPaused();
-      CHECK(!microtasks_are_paused, base::NotFatalUntil::M153) << window->Url();
+      CHECK(!microtasks_are_paused, base::NotFatalUntil::M156) << window->Url();
     }
   }
 }
@@ -3767,6 +3768,10 @@ void WebViewImpl::UpdateRendererPreferences(
   std::string old_accept_languages = renderer_preferences_.accept_languages;
   renderer_preferences_ = preferences;
 
+  if (GetPage()) {
+    GetPage()->SetRendererPreferences(preferences);
+  }
+
   for (auto& watcher : renderer_preference_watchers_) {
     watcher->NotifyUpdate(renderer_preferences_);
   }
@@ -3825,9 +3830,20 @@ void WebViewImpl::UpdateRendererPreferences(
 
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_WIN)
   if (!ScrollbarTheme::MockScrollbarsEnabled()) {
-    WebRuntimeFeatures::EnableOverlayScrollbars(
-        renderer_preferences_.use_overlay_scrollbar);
-    UpdateUseOverlayScrollbar(renderer_preferences_.use_overlay_scrollbar);
+    // DevTools emulation can update Blink's overlay scrollbar setting,
+    // while OS theme updates can update NativeTheme before renderer preferences
+    // synchronize with Blink's. Avoid global scrollbar reconstruction only when
+    // both mirrors already match the requested preference.
+    const bool blink_changed = ScrollbarTheme::OverlayScrollbarsEnabled() !=
+                               renderer_preferences_.use_overlay_scrollbar;
+    const bool native_theme_changed =
+        ui::NativeTheme::GetInstanceForWeb()->use_overlay_scrollbar() !=
+        renderer_preferences_.use_overlay_scrollbar;
+    if (blink_changed || native_theme_changed) {
+      WebRuntimeFeatures::EnableOverlayScrollbars(
+          renderer_preferences_.use_overlay_scrollbar);
+      UpdateUseOverlayScrollbar(renderer_preferences_.use_overlay_scrollbar);
+    }
   }
 #endif
 

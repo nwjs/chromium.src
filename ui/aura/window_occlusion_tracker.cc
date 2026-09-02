@@ -319,6 +319,24 @@ void WindowOcclusionTracker::Untrack(Window* window) {
   builder->Add(window, Window::OcclusionState::UNKNOWN, {});
 }
 
+Window::OcclusionState WindowOcclusionTracker::GetComputedOcclusionState(
+    Window* window) const {
+  auto it = tracked_windows_.find(window);
+  if (it == tracked_windows_.end()) {
+    return Window::OcclusionState::UNKNOWN;
+  }
+  return it->second.occlusion_state;
+}
+
+bool WindowOcclusionTracker::IsTracking(Window* window) const {
+  return WindowIsTracked(window);
+}
+
+void WindowOcclusionTracker::ForceComputeOcclusion() {
+  base::AutoReset<int> auto_reset(&num_pause_occlusion_tracking_, 0);
+  MaybeComputeOcclusion();
+}
+
 WindowOcclusionTracker::OcclusionData
 WindowOcclusionTracker::ComputeTargetOcclusionForWindow(Window* window) {
   // Compute the occlusion with target state, just for this window.
@@ -449,13 +467,10 @@ void WindowOcclusionTracker::NotifyOcclusionState(
 
   for (auto& it : tracked_windows_) {
     Window* window = it.first;
-    if (it.second.occlusion_state == Window::OcclusionState::UNKNOWN) {
-      continue;
-    }
-
     // Fallback to VISIBLE/HIDDEN if the maximum number of times that
     // occlusion can be recomputed was exceeded.
-    if (exceeded_max_num_times_occlusion_recomputed.value_or(false)) {
+    if (exceeded_max_num_times_occlusion_recomputed.value_or(false) &&
+        it.second.occlusion_state != Window::OcclusionState::UNKNOWN) {
       if (WindowIsVisible(window)) {
         it.second.occlusion_state = Window::OcclusionState::VISIBLE;
       } else {
@@ -466,6 +481,10 @@ void WindowOcclusionTracker::NotifyOcclusionState(
 
     auto occlusion_state =
         it.second.locked_occlusion_state.value_or(it.second.occlusion_state);
+    if (occlusion_state == Window::OcclusionState::UNKNOWN) {
+      continue;
+    }
+
     auto occluded_region = it.second.locked_occlusion_state
                                ? it.second.locked_occluded_region
                                : it.second.occluded_region;
@@ -896,7 +915,19 @@ void WindowOcclusionTracker::Pause() {
 void WindowOcclusionTracker::Unpause() {
   --num_pause_occlusion_tracking_;
   DCHECK_GE(num_pause_occlusion_tracking_, 0);
-  MaybeComputeOcclusion();
+  if (num_pause_occlusion_tracking_ == 0) {
+    for (auto& it : tracked_windows_) {
+      if (it.second.lock_state == LockState::kUnlockPending) {
+        it.second.locked_occlusion_state.reset();
+        it.second.lock_state = LockState::kUnlocked;
+        Window* root_window = it.first->GetRootWindow();
+        if (root_window) {
+          MarkRootWindowAsDirty(root_window);
+        }
+      }
+    }
+    MaybeComputeOcclusion();
+  }
 }
 
 void WindowOcclusionTracker::Exclude(Window* window) {
@@ -945,11 +976,19 @@ void WindowOcclusionTracker::Lock(Window* window, bool lock) {
   auto& occlusion_data = tracked_window_iter->second;
 
   if (lock) {
-    occlusion_data.locked_occlusion_state = occlusion_data.occlusion_state;
-    occlusion_data.locked_occluded_region = occlusion_data.occluded_region;
+    CHECK_NE(occlusion_data.lock_state, LockState::kLocked);
+    if (occlusion_data.lock_state == LockState::kUnlocked) {
+      occlusion_data.locked_occlusion_state = occlusion_data.occlusion_state;
+      occlusion_data.locked_occluded_region = occlusion_data.occluded_region;
+    }
+    occlusion_data.lock_state = LockState::kLocked;
   } else {
-    occlusion_data.locked_occlusion_state.reset();
-    if (num_pause_occlusion_tracking_ == 0) {
+    CHECK_EQ(occlusion_data.lock_state, LockState::kLocked);
+    if (num_pause_occlusion_tracking_ > 0) {
+      occlusion_data.lock_state = LockState::kUnlockPending;
+    } else {
+      occlusion_data.locked_occlusion_state.reset();
+      occlusion_data.lock_state = LockState::kUnlocked;
       NotifyOcclusionState(
           /*exceeded_max_num_times_occlusion_recomputed=*/std::nullopt);
     }

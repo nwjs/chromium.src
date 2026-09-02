@@ -32,7 +32,9 @@ class TabsFromOtherDevicesSidePanelBrowserTest : public InProcessBrowserTest {
     return SidePanelCoordinator::From(browser());
   }
 
-  SidePanel* GetSidePanel() { return browser()->GetBrowserView().side_panel(); }
+  SidePanel* GetSidePanel() {
+    return BrowserView::GetBrowserViewForBrowser(browser())->side_panel();
+  }
 
  private:
   base::test::ScopedFeatureList features_;
@@ -51,7 +53,7 @@ IN_PROC_BROWSER_TEST_F(TabsFromOtherDevicesSidePanelBrowserTest,
 
   actions::ActionItem* action_item = actions::ActionManager::Get().FindAction(
       kActionSidePanelShowTabsFromOtherDevices,
-      browser()->browser_actions()->root_action_item());
+      BrowserActions::From(browser())->root_action_item());
   EXPECT_NE(action_item, nullptr);
   EXPECT_TRUE(action_item->GetVisible());
   EXPECT_EQ(action_item->GetProperty(actions::kActionItemPinnableKey),

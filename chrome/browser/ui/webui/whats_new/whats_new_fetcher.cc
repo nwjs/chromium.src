@@ -21,8 +21,9 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/net/system_network_context_manager.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/whats_new/whats_new_util.h"
 #include "chrome/common/chrome_version.h"
 #include "components/user_education/webui/whats_new_registry.h"
@@ -89,7 +90,8 @@ namespace {
 // it such that it is not self-owned.
 class WhatsNewFetcher {
  public:
-  explicit WhatsNewFetcher(Browser* browser) : browser_(browser) {
+  explicit WhatsNewFetcher(BrowserWindowInterface* browser)
+      : browser_(browser) {
     browser_did_close_subscription_ =
         browser_->RegisterBrowserDidClose(base::BindRepeating(
             &WhatsNewFetcher::OnBrowserClosed, base::Unretained(this)));
@@ -185,10 +187,10 @@ class WhatsNewFetcher {
   }
 
  private:
-  void AddWhatsNewTab(Browser* browser) {
+  void AddWhatsNewTab(BrowserWindowInterface* browser) {
     chrome::AddTabAt(browser, startup_url_, 0, true);
-    browser->tab_strip_model()->ActivateTabAt(
-        browser->tab_strip_model()->IndexOfFirstNonPinnedTab());
+    browser->GetTabStripModel()->ActivateTabAt(
+        browser->GetTabStripModel()->IndexOfFirstNonPinnedTab());
   }
 
   static void LogLoadEvent(LoadEvent event) {
@@ -244,14 +246,14 @@ class WhatsNewFetcher {
   }
 
   std::unique_ptr<network::SimpleURLLoader> simple_loader_;
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
   GURL startup_url_;
   base::CallbackListSubscription browser_did_close_subscription_;
 };
 
 }  // namespace
 
-void StartWhatsNewFetch(Browser* browser) {
+void StartWhatsNewFetch(BrowserWindowInterface* browser) {
   new WhatsNewFetcher(browser);
 }
 

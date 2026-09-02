@@ -195,6 +195,11 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
       {"forwardButtonTooltip", IDS_TOOLTIP_FORWARD},
       {"homeButtonAccName", IDS_ACCNAME_HOME},
       {"homeButtonTooltip", IDS_TOOLTIP_HOME},
+      {"locationAccName", IDS_ACCNAME_LOCATION},
+      {"performanceInterventionButtonAccName",
+       IDS_PERFORMANCE_INTERVENTION_BUTTON_ACCNAME},
+      {"performanceInterventionButtonTooltip",
+       IDS_PERFORMANCE_INTERVENTION_BUTTON_TOOLTIP},
       {"reloadButtonAccNameReload", IDS_ACCNAME_RELOAD},
       {"reloadButtonTooltipReload", IDS_TOOLTIP_RELOAD},
       {"reloadButtonTooltipReloadWithMenu", IDS_TOOLTIP_RELOAD_WITH_MENU},
@@ -218,6 +223,9 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
                      features::IsWebUILocationBarEnabled());
   source->AddBoolean("enableBackForwardButtons",
                      features::IsWebUIBackForwardButtonEnabled());
+  source->AddBoolean("enableReloadGlowUp",
+                     features::IsToolbarGlowUpReloadEnabled());
+  source->AddBoolean("enableGlowUp", features::IsToolbarGlowUpEnabled());
   source->AddBoolean("enablePinnedToolbarActions",
                      features::IsWebUIPinnedToolbarActionsEnabled());
   source->AddBoolean("enableAppMenuButton",
@@ -228,9 +236,16 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
           AvatarToolbarButtonInterface::CanShowForProfile(profile));
   source->AddBoolean("enableExtensionsContainer",
                      features::IsWebUIExtensionsContainerEnabled());
+  source->AddBoolean("enablePerformanceInterventionButton",
+                     features::IsWebUIPerformanceInterventionButtonEnabled());
   source->AddBoolean(
       "initialWebUISurfaceSyncEnabled",
       base::FeatureList::IsEnabled(blink::features::kInitialWebUISurfaceSync));
+  source->AddBoolean(
+      "omniboxResizingPrioritizationEnabled",
+      base::FeatureList::IsEnabled(features::kOmniboxResizingPrioritization));
+  source->AddBoolean("webUIToolbarFullyEnabled",
+                     features::IsWebUIToolbarFullyEnabled());
 
   BrowserWindowInterface* browser =
       webui::GetBrowserWindowInterface(web_ui->GetWebContents());
@@ -458,6 +473,7 @@ WebUIToolbarUI::GetKnownElementIdentifiers() {
        kPinnedToolbarActionShowSidePanelContextualTasksElementId,
        kPinnedToolbarActionSendTabToSelfElementId,
        kToolbarAvatarButtonElementId,
+       kToolbarPerformanceInterventionButtonElementId,
        PermissionChipView::kPermissionRequestChipElementId,
        PermissionChipView::kIndicatorChipElementId,
        kToolbarBatterySaverButtonElementId,

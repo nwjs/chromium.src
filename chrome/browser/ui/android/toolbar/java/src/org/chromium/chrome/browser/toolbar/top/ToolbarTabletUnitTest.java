@@ -121,6 +121,7 @@ import org.chromium.chrome.browser.user_education.UserEducationHelper;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.widget.ChromeImageButton;
 import org.chromium.ui.widget.ToastManager;
@@ -1357,7 +1358,8 @@ public final class ToolbarTabletUnitTest {
         assertNotNull(consumer);
 
         doReturn(1200).when(mToolbarTablet).getWidth();
-        mToolbarTablet.setGlicActionChipVisibility(true, v -> {}, v -> false);
+        mToolbarTablet.setGlicActionChipVisibility(
+                true, ViewUtils.emptyClickListener(), ViewUtils.emptyLongClickListener());
         View glicChip = mToolbarTablet.getGlicActionChipForTesting();
         assertNotNull(glicChip);
         assertEquals(View.VISIBLE, glicChip.getVisibility());
@@ -1383,7 +1385,8 @@ public final class ToolbarTabletUnitTest {
 
         // Re-triggering visibility update while no space is available must keep chip GONE.
         doReturn(300).when(mToolbarTablet).getWidth();
-        mToolbarTablet.setGlicActionChipVisibility(true, v -> {}, v -> false);
+        mToolbarTablet.setGlicActionChipVisibility(
+                true, ViewUtils.emptyClickListener(), ViewUtils.emptyLongClickListener());
         assertEquals(View.GONE, glicChip.getVisibility());
     }
 
@@ -1446,6 +1449,87 @@ public final class ToolbarTabletUnitTest {
         mToolbarTablet.setGlicActionChipVisibility(
                 /* visible= */ false, mockClickListener, mockLongClickListener);
         assertEquals("Glic action chip should be hidden.", View.GONE, actionChip.getVisibility());
+    }
+
+    @Test
+    public void testOnTintChanged_GlicActionChip() {
+        var focusedTint =
+                ThemeUtils.getThemedToolbarIconTintForActivityState(
+                        mToolbarTablet.getContext(),
+                        BrandedColorScheme.APP_DEFAULT,
+                        /* isActivityFocused= */ true);
+
+        var unfocusedTint =
+                ThemeUtils.getThemedToolbarIconTintForActivityState(
+                        mToolbarTablet.getContext(),
+                        BrandedColorScheme.APP_DEFAULT,
+                        /* isActivityFocused= */ false);
+
+        View.OnClickListener mockClickListener = mock(View.OnClickListener.class);
+        View.OnLongClickListener mockLongClickListener = mock(View.OnLongClickListener.class);
+
+        // 1. Show the Glic action chip and set initial focused tint.
+        mToolbarTablet.setGlicActionChipVisibility(
+                /* visible= */ true, mockClickListener, mockLongClickListener);
+        ImageView glicChip = (ImageView) mToolbarTablet.getGlicActionChipView();
+        assertNotNull("Glic action chip should be inflated and non-null.", glicChip);
+
+        // Apply focused activity tint first.
+        mToolbarTablet.onTintChanged(focusedTint, focusedTint, BrandedColorScheme.APP_DEFAULT);
+        assertEquals(
+                "Glic action chip should initially have the focused tint.",
+                focusedTint.getDefaultColor(),
+                glicChip.getImageTintList().getDefaultColor());
+
+        // 2. Simulate activity losing focus / tint update.
+        mToolbarTablet.onTintChanged(focusedTint, unfocusedTint, BrandedColorScheme.APP_DEFAULT);
+
+        // Verify the Glic action chip receives the unfocused activity tint.
+        assertEquals(
+                "Glic action chip tint is incorrect when activity is unfocused.",
+                unfocusedTint.getDefaultColor(),
+                glicChip.getImageTintList().getDefaultColor());
+    }
+
+    @Test
+    public void testSetGlicPanelIsOpen_updatesTooltipAndContentDescription() {
+        View.OnClickListener mockClickListener = mock(View.OnClickListener.class);
+        View.OnLongClickListener mockLongClickListener = mock(View.OnLongClickListener.class);
+
+        // Show the Glic action chip.
+        mToolbarTablet.setGlicActionChipVisibility(
+                /* visible= */ true, mockClickListener, mockLongClickListener);
+
+        View glicChip = mToolbarTablet.getGlicActionChipView();
+        assertNotNull("Glic action chip should be inflated and non-null.", glicChip);
+
+        // Verify initial closed state tooltip / content description.
+        assertEquals(
+                "Initial content description should be default tooltip.",
+                mActivity.getString(R.string.glic_tab_strip_button_tooltip),
+                glicChip.getContentDescription().toString());
+
+        // Open Glic UI Panel.
+        mToolbarTablet.setGlicPanelIsOpen(true);
+        assertEquals(
+                "Content description should update to close tooltip when panel is open.",
+                mActivity.getString(R.string.glic_tab_strip_button_tooltip_close),
+                glicChip.getContentDescription().toString());
+        assertEquals(
+                "Tooltip text should update to close tooltip when panel is open.",
+                mActivity.getString(R.string.glic_tab_strip_button_tooltip_close),
+                glicChip.getTooltipText());
+
+        // Close Glic UI Panel.
+        mToolbarTablet.setGlicPanelIsOpen(false);
+        assertEquals(
+                "Content description should restore to default tooltip when panel is closed.",
+                mActivity.getString(R.string.glic_tab_strip_button_tooltip),
+                glicChip.getContentDescription().toString());
+        assertEquals(
+                "Tooltip text should restore to default tooltip when panel is closed.",
+                mActivity.getString(R.string.glic_tab_strip_button_tooltip),
+                glicChip.getTooltipText());
     }
 
     @Test

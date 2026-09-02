@@ -69,6 +69,11 @@ std::vector<ToolRequestTestCase> GetTestCases() {
     action.mutable_scroll_to()->set_tab_id(kTabId);
     test_cases.push_back({action, ToolType::kScrollTo});
   }
+  {
+    optimization_guide::proto::Action action;
+    action.mutable_activate_tab()->set_tab_id(kTabId);
+    test_cases.push_back({action, ToolType::kActivateTab});
+  }
   return test_cases;
 }
 
@@ -97,6 +102,16 @@ TEST_F(ActorToolRequestSimpleTest, UnknownAction) {
   ActorToolRequest request(action);
 
   EXPECT_EQ(request.GetToolType(), ToolType::kUnknown);
+  EXPECT_FALSE(request.GetTargetWebStateId().valid());
+}
+
+// Tests the behavior of the create tab action.
+TEST_F(ActorToolRequestSimpleTest, CreateTabAction) {
+  optimization_guide::proto::Action action;
+  action.mutable_create_tab();
+  ActorToolRequest request(action);
+
+  EXPECT_EQ(request.GetToolType(), ToolType::kCreateTab);
   EXPECT_FALSE(request.GetTargetWebStateId().valid());
 }
 

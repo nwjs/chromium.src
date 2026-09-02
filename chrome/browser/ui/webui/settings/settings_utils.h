@@ -8,14 +8,9 @@
 #include <string>
 
 #include "build/build_config.h"
-#include "ui/base/resource/resource_scale_factor.h"
 
 class GURL;
 class PrefService;
-
-namespace base {
-class RefCountedMemory;
-}
 
 namespace content {
 class WebContents;
@@ -34,9 +29,6 @@ void ShowManageSSLCertificates(content::WebContents* web_contents);
 // the fixed up, valid URL if not null.
 bool FixupAndValidateStartupPage(const std::string& url_string,
                                  GURL* fixed_url);
-
-base::RefCountedMemory* GetFaviconResourceBytes(
-    ui::ResourceScaleFactor scale_factor);
 
 #if BUILDFLAG(IS_MAC)
 void ValidateSavedFonts(PrefService* prefs);

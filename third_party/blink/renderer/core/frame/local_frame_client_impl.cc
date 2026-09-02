@@ -317,10 +317,6 @@ void LocalFrameClientImpl::WillReleaseScriptContext(
   }
 }
 
-bool LocalFrameClientImpl::AllowScriptExtensions() {
-  return true;
-}
-
 void LocalFrameClientImpl::DidChangeScrollOffset() {
   if (web_frame_->Client()) {
     web_frame_->Client()->DidChangeScrollOffset();
@@ -639,6 +635,8 @@ void LocalFrameClientImpl::BeginNavigation(
     base::TimeTicks actual_navigation_start,
     const String& href_translate,
     const LocalFrameToken* initiator_frame_token,
+    const base::UnguessableToken& initiator_state_token,
+    const DocumentToken& initiator_document_token,
     SourceLocation* source_location,
     mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle>
         initiator_navigation_state_keep_alive_handle,
@@ -679,6 +677,9 @@ void LocalFrameClientImpl::BeginNavigation(
   navigation_info->blob_url_token = std::move(blob_url_token);
   navigation_info->input_start = input_start_time;
   navigation_info->actual_navigation_start = actual_navigation_start;
+  navigation_info->initiator_state_token = initiator_state_token;
+  CHECK(!navigation_info->initiator_state_token.is_empty());
+  navigation_info->initiator_document_token = initiator_document_token;
   navigation_info->initiator_frame_token =
       base::OptionalFromPtr(initiator_frame_token);
   navigation_info->initiator_navigation_state_keep_alive_handle =
@@ -869,10 +870,14 @@ void LocalFrameClientImpl::DidObserveUserInteraction(
     base::TimeTicks max_event_processing_start,
     base::TimeTicks max_event_commit_finish,
     base::TimeTicks max_event_end,
-    uint64_t interaction_offset) {
-  web_frame_->Client()->DidObserveUserInteraction(
-      max_event_start, max_event_queued_main_thread, max_event_processing_start,
-      max_event_commit_finish, max_event_end, interaction_offset);
+    PerformanceTimelineEntryIdInfo interaction_id,
+    PerformanceTimelineEntryIdInfo navigation_id) {
+  if (web_frame_->Client()) {
+    web_frame_->Client()->DidObserveUserInteraction(
+        max_event_start, max_event_queued_main_thread,
+        max_event_processing_start, max_event_commit_finish, max_event_end,
+        interaction_id.non_web_exposed_id, navigation_id.non_web_exposed_id);
+  }
 }
 
 void LocalFrameClientImpl::DidChangeCpuTiming(base::TimeDelta time) {
@@ -920,10 +925,13 @@ void LocalFrameClientImpl::DidObserveSoftLargestContentfulPaint(
   web_frame_->Client()->DidObserveSoftLargestContentfulPaint(lcp);
 }
 
-void LocalFrameClientImpl::DidObserveLayoutShift(double score,
-                                                 bool after_input_or_scroll) {
+void LocalFrameClientImpl::DidObserveLayoutShift(
+    double score,
+    bool after_input_or_scroll,
+    PerformanceTimelineEntryIdInfo navigation_id) {
   if (WebLocalFrameClient* client = web_frame_->Client()) {
-    client->DidObserveLayoutShift(score, after_input_or_scroll);
+    client->DidObserveLayoutShift(score, after_input_or_scroll,
+                                  navigation_id.non_web_exposed_id);
   }
 }
 

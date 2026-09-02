@@ -35,9 +35,10 @@ class MockSpeculationHost : public mojom::blink::SpeculationHost {
     last_candidates_ = std::move(candidates);
   }
   void OnLCPPredicted() override {}
-  void EnactCandidate(
-      mojom::blink::SpeculationCandidatePtr candidate) override {
+  void EnactCandidate(mojom::blink::SpeculationCandidatePtr candidate,
+                      mojom::blink::SpeculationHeuristic heuristic) override {
     last_enacted_candidates_.push_back(std::move(candidate));
+    last_enactment_heuristics_.push_back(heuristic);
   }
 
   void BindNewEndpointAndPassReceiver(mojo::ScopedMessagePipeHandle receiver) {
@@ -52,11 +53,16 @@ class MockSpeculationHost : public mojom::blink::SpeculationHost {
       const {
     return last_enacted_candidates_;
   }
+  const Vector<mojom::blink::SpeculationHeuristic>& last_enactment_heuristics()
+      const {
+    return last_enactment_heuristics_;
+  }
   void ClearCandidates() { last_candidates_.clear(); }
 
  private:
   Vector<mojom::blink::SpeculationCandidatePtr> last_candidates_;
   Vector<mojom::blink::SpeculationCandidatePtr> last_enacted_candidates_;
+  Vector<mojom::blink::SpeculationHeuristic> last_enactment_heuristics_;
   mojo::Receiver<mojom::blink::SpeculationHost> receiver_{this};
 };
 
@@ -200,13 +206,55 @@ TEST_F(DocumentSpeculationRulesTest, PointerDownHeuristicEnactsCandidate) {
   EXPECT_TRUE(mock_host().last_enacted_candidates().empty());
 
   // A pointerdown on the URL enacts the matching non-immediate candidate.
-  document_speculation_rules.OnPointerDownHeuristic(url);
+  EXPECT_TRUE(document_speculation_rules.OnPointerDownHeuristic(url));
   document_speculation_rules.FlushMojoMessageForTesting();
 
   const auto& enacted = mock_host().last_enacted_candidates();
   ASSERT_EQ(enacted.size(), 1u);
   EXPECT_EQ(enacted[0]->url, url);
   EXPECT_EQ(enacted[0]->action, mojom::blink::SpeculationAction::kPrefetch);
+  ASSERT_EQ(mock_host().last_enactment_heuristics().size(), 1u);
+  EXPECT_EQ(mock_host().last_enactment_heuristics()[0],
+            mojom::blink::SpeculationHeuristic::kPointerDown);
+}
+
+TEST_F(DocumentSpeculationRulesTest,
+       HoverHeuristicEnactsOnlyTriggeredEagerness) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kSpeculationRulesRendererSideHeuristics);
+
+  Document& document = GetDocument();
+  DocumentSpeculationRules& document_speculation_rules =
+      DocumentSpeculationRules::From(document);
+
+  const KURL url("https://example.com/prefetched.html");
+  auto* source = SpeculationRuleSet::Source::FromInlineScript(
+      R"({"prefetch": [{"urls": ["/prefetched.html"],
+                        "eagerness": "conservative"},
+                       {"urls": ["/prefetched.html"],
+                        "eagerness": "moderate"}]})",
+      document, static_cast<DOMNodeId>(1));
+  auto* rule_set =
+      SpeculationRuleSet::Parse(source, document.GetExecutionContext());
+  document_speculation_rules.AddRuleSet(rule_set);
+  ProcessAllRuleSets(document_speculation_rules);
+
+  ASSERT_EQ(document_speculation_rules.sent_candidates().size(), 2u);
+  EXPECT_TRUE(mock_host().last_enacted_candidates().empty());
+
+  EXPECT_TRUE(document_speculation_rules.OnHoverHeuristic(
+      url, mojom::blink::SpeculationEagerness::kModerate));
+  document_speculation_rules.FlushMojoMessageForTesting();
+
+  const auto& enacted = mock_host().last_enacted_candidates();
+  ASSERT_EQ(enacted.size(), 1u);
+  EXPECT_EQ(enacted[0]->url, url);
+  EXPECT_EQ(enacted[0]->eagerness,
+            mojom::blink::SpeculationEagerness::kModerate);
+  ASSERT_EQ(mock_host().last_enactment_heuristics().size(), 1u);
+  EXPECT_EQ(mock_host().last_enactment_heuristics()[0],
+            mojom::blink::SpeculationHeuristic::kPointerHover);
 }
 
 TEST_F(DocumentSpeculationRulesTest,
@@ -229,7 +277,77 @@ TEST_F(DocumentSpeculationRulesTest,
   document_speculation_rules.AddRuleSet(rule_set);
   ProcessAllRuleSets(document_speculation_rules);
 
-  document_speculation_rules.OnPointerDownHeuristic(url);
+  EXPECT_FALSE(document_speculation_rules.OnPointerDownHeuristic(url));
+  document_speculation_rules.FlushMojoMessageForTesting();
+
+  EXPECT_TRUE(mock_host().last_enacted_candidates().empty());
+}
+
+TEST_F(DocumentSpeculationRulesTest,
+       PointerDownHeuristicEnactsNoVarySearchMatch) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kSpeculationRulesRendererSideHeuristics);
+
+  Document& document = GetDocument();
+  DocumentSpeculationRules& document_speculation_rules =
+      DocumentSpeculationRules::From(document);
+
+  // Candidate for /p?a=1 whose No-Vary-Search hint declares that "a" does not
+  // vary the response.
+  auto* source = SpeculationRuleSet::Source::FromInlineScript(
+      R"json({"prefetch": [{
+        "urls": ["/p?a=1"],
+        "eagerness": "conservative",
+        "expects_no_vary_search": "params=(\"a\")"
+      }]})json",
+      document, static_cast<DOMNodeId>(1));
+  auto* rule_set =
+      SpeculationRuleSet::Parse(source, document.GetExecutionContext());
+  document_speculation_rules.AddRuleSet(rule_set);
+  ProcessAllRuleSets(document_speculation_rules);
+
+  ASSERT_EQ(document_speculation_rules.sent_candidates().size(), 1u);
+
+  // A pointerdown on /p?a=2 differs only in the non-varying "a" param, so it
+  // matches the candidate under No-Vary-Search and enacts it.
+  EXPECT_TRUE(document_speculation_rules.OnPointerDownHeuristic(
+      KURL("https://example.com/p?a=2")));
+  document_speculation_rules.FlushMojoMessageForTesting();
+
+  const auto& enacted = mock_host().last_enacted_candidates();
+  ASSERT_EQ(enacted.size(), 1u);
+  EXPECT_EQ(enacted[0]->url, KURL("https://example.com/p?a=1"));
+}
+
+TEST_F(DocumentSpeculationRulesTest,
+       PointerDownHeuristicSkipsNonMatchingQuery) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kSpeculationRulesRendererSideHeuristics);
+
+  Document& document = GetDocument();
+  DocumentSpeculationRules& document_speculation_rules =
+      DocumentSpeculationRules::From(document);
+
+  auto* source = SpeculationRuleSet::Source::FromInlineScript(
+      R"json({"prefetch": [{
+        "urls": ["/p?a=1"],
+        "eagerness": "conservative",
+        "expects_no_vary_search": "params=(\"a\")"
+      }]})json",
+      document, static_cast<DOMNodeId>(1));
+  auto* rule_set =
+      SpeculationRuleSet::Parse(source, document.GetExecutionContext());
+  document_speculation_rules.AddRuleSet(rule_set);
+  ProcessAllRuleSets(document_speculation_rules);
+
+  ASSERT_EQ(document_speculation_rules.sent_candidates().size(), 1u);
+
+  // A pointerdown on /p?b=2 differs in a param that the No-Vary-Search hint
+  // does not cover, so it does not match the candidate.
+  EXPECT_FALSE(document_speculation_rules.OnPointerDownHeuristic(
+      KURL("https://example.com/p?b=2")));
   document_speculation_rules.FlushMojoMessageForTesting();
 
   EXPECT_TRUE(mock_host().last_enacted_candidates().empty());

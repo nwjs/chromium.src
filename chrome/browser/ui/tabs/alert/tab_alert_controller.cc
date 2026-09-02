@@ -16,7 +16,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/notreached.h"
-#include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
+#include "chrome/browser/actor/ui/actor_ui_tab_controller_interface.h"
 #include "chrome/browser/glic/browser_ui/glic_tab_indicator_helper.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -103,7 +103,7 @@ TabAlertController::TabAlertController(TabInterface& tab)
               base::Unretained(this)));
 
   if (auto* actor_ui_tab_controller =
-          actor::ui::ActorUiTabController::From(&tab)) {
+          actor::ui::ActorUiTabControllerInterface::From(&tab)) {
     actor_tab_indicator_callback_runner_ =
         actor_ui_tab_controller->RegisterActorTabIndicatorStateChangedCallback(
             base::BindRepeating(

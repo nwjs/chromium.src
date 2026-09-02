@@ -1174,7 +1174,7 @@ message EventLatency {
         // The calculator has seen a GSE for the most recent scroll.
         END = 3;
       }
-      // LINT.ThenChange(//cc/metrics/scroll_jank_v4_frame_stage_calculator.cc:HasSeen)
+      // LINT.ThenChange(//cc/metrics/scroll_jank_v4_frame_stage_calculator.h:HasSeen)
       optional HasSeen has_seen_in_current_scroll = 2;
     }
     optional FrameStageCalculation frame_stage_calculation = 14;
@@ -2380,7 +2380,7 @@ message WebViewStartup {
     // Remember to update WebViewStartupCallSite in enums.xml when adding new
     // values here.
   }
-  // LINT.ThenChange(//android_webview/glue/java/src/com/android/webview/chromium/WebViewChromiumAwInit.java:CallSite)
+  // LINT.ThenChange(//android_webview/java/src/org/chromium/android_webview/StartupCallSite.java:StartupCallSite,//tools/metrics/histograms/metadata/android/enums.xml:WebViewStartupCallSite)
 
   // LINT.IfChange(WebViewChromiumStartupMode)
   enum StartupMode {

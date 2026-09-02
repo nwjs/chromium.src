@@ -10,6 +10,8 @@ static_library("lock") {
   sources = [
     "screen_locker.cc",
     "screen_locker.h",
+    "screen_locker_controller.cc",
+    "screen_locker_controller.h",
     "views_screen_locker.cc",
     "views_screen_locker.h",
   ]
@@ -34,9 +36,6 @@ static_library("lock") {
   deps = [
     "//ash/constants",
     "//base:i18n",
-    "//chrome/browser:browser_process",
-    "//chrome/browser:browser_process_platform_part",
-    "//chrome/browser:global_features",
     "//chrome/browser:resources",
     "//chrome/browser/ash/certificate_provider",
     "//chrome/browser/ash/child_accounts",
@@ -65,6 +64,7 @@ static_library("lock") {
     "//google_apis",
     "//services/device/public/mojom:mojom_shared",
     "//services/device/public/mojom:mojom_shared_cpp_sources",
+    "//services/network/public/cpp",
     "//ui/display",
     "//ui/gfx",
     "//url",
@@ -98,6 +98,7 @@ static_library("test_support") {
   deps = [
     ":lock",
     "//ash/public/cpp",
+    "//chrome/browser/ash/login/test:test_support",
     "//chromeos/ash/components/login/auth",
     "//chromeos/ash/components/login/auth/public:authpublic",
     "//components/session_manager:base",

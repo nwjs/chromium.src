@@ -135,12 +135,7 @@ ClipboardPromise::ClipboardPromise(ExecutionContext* context,
                                    ExceptionState& exception_state)
     : ExecutionContextLifecycleObserver(context),
       script_promise_resolver_(resolver),
-      permission_service_(context) {
-  if (context && ClipboardCommands::IsExecutingPaste(*context)) {
-    sequence_number_at_paste_start_ =
-        ClipboardCommands::GetSequenceNumberForExecutingPaste(*context);
-  }
-}
+      permission_service_(context) {}
 
 ClipboardPromise::~ClipboardPromise() = default;
 
@@ -311,26 +306,32 @@ void ClipboardPromise::HandleReadWithPermission(
     return;
   }
 
+  SystemClipboard* system_clipboard = GetSystemClipboardOrReject();
+  if (!system_clipboard) {
+    return;
+  }
+
+  if (RejectIfClipboardChangedSincePasteStart(*system_clipboard)) {
+    return;
+  }
+
   // Snapshot the sequence number before format enumeration so a clipboard
   // change during the async IPC will be detected by getType() (fail-closed).
   // See crbug.com/498411773.
   if (RuntimeEnabledFeatures::
           ReadClipboardDataOnClipboardItemGetTypeEnabled()) {
-    sequence_number_at_read_start_ = GetSystemClipboard()->SequenceNumber();
+    sequence_number_at_read_start_ = system_clipboard->SequenceNumber();
   }
 
 #if BUILDFLAG(IS_MAC)
-  // Check macOS platform permission state if the runtime flag is enabled
-  if (RuntimeEnabledFeatures::MacSystemClipboardPermissionCheckEnabled()) {
-    GetSystemClipboard()->GetPlatformPermissionState(
-        BindOnce(&ClipboardPromise::OnPlatformPermissionResultForRead,
-                 WrapPersistent(this)));
-    return;
-  }
-#endif
-  // Non-Mac platforms or when flag is disabled proceed directly
-  GetSystemClipboard()->ReadAvailableCustomAndStandardFormats(BindOnce(
+  // Check macOS platform permission state.
+  system_clipboard->GetPlatformPermissionState(
+      BindOnce(&ClipboardPromise::OnPlatformPermissionResultForRead,
+               WrapPersistent(this)));
+#else
+  system_clipboard->ReadAvailableCustomAndStandardFormats(BindOnce(
       &ClipboardPromise::OnReadAvailableFormatNames, WrapPersistent(this)));
+#endif  // BUILDFLAG(IS_MAC)
 }
 
 void ClipboardPromise::ResolveRead() {
@@ -468,21 +469,27 @@ void ClipboardPromise::HandleReadTextWithPermission(
     return;
   }
 
-#if BUILDFLAG(IS_MAC)
-  // Check macOS platform permission state if the runtime flag is enabled
-  if (RuntimeEnabledFeatures::MacSystemClipboardPermissionCheckEnabled()) {
-    GetSystemClipboard()->GetPlatformPermissionState(
-        BindOnce(&ClipboardPromise::OnPlatformPermissionResultForReadText,
-                 WrapPersistent(this)));
+  SystemClipboard* system_clipboard = GetSystemClipboardOrReject();
+  if (!system_clipboard) {
     return;
   }
-#endif
-  // Non-Mac platforms (or after the macOS platform permission check) proceed
-  // directly to an asynchronous OS clipboard read so the renderer main thread
-  // is not blocked. Tracks crbug.com/474131935.
-  GetSystemClipboard()->ReadPlainText(
+
+#if BUILDFLAG(IS_MAC)
+  // Check macOS platform permission state.
+  system_clipboard->GetPlatformPermissionState(
+      BindOnce(&ClipboardPromise::OnPlatformPermissionResultForReadText,
+               WrapPersistent(this)));
+#else
+  if (RejectIfClipboardChangedSincePasteStart(*system_clipboard)) {
+    return;
+  }
+
+  // Non-Mac platforms proceed directly to an asynchronous OS clipboard read so
+  // the renderer main thread is not blocked. Tracks crbug.com/474131935.
+  system_clipboard->ReadPlainText(
       mojom::blink::ClipboardBuffer::kStandard,
       BindOnce(&ClipboardPromise::OnReadPlainText, WrapPersistent(this)));
+#endif  // BUILDFLAG(IS_MAC)
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -501,7 +508,16 @@ void ClipboardPromise::OnPlatformPermissionResultForReadText(
     return;
   }
 
-  GetSystemClipboard()->ReadPlainText(
+  SystemClipboard* system_clipboard = GetSystemClipboardOrReject();
+  if (!system_clipboard) {
+    return;
+  }
+
+  if (RejectIfClipboardChangedSincePasteStart(*system_clipboard)) {
+    return;
+  }
+
+  system_clipboard->ReadPlainText(
       mojom::blink::ClipboardBuffer::kStandard,
       BindOnce(&ClipboardPromise::OnReadPlainText, WrapPersistent(this)));
 }
@@ -521,8 +537,16 @@ void ClipboardPromise::OnPlatformPermissionResultForRead(
     return;
   }
 
+  SystemClipboard* system_clipboard = GetSystemClipboardOrReject();
+  if (!system_clipboard) {
+    return;
+  }
+
+  if (RejectIfClipboardChangedSincePasteStart(*system_clipboard)) {
+    return;
+  }
+
   // For read operations, proceed to read available formats
-  SystemClipboard* system_clipboard = GetSystemClipboard();
   system_clipboard->ReadAvailableCustomAndStandardFormats(BindOnce(
       &ClipboardPromise::OnReadAvailableFormatNames, WrapPersistent(this)));
 }
@@ -702,23 +726,29 @@ void ClipboardPromise::ValidatePreconditions(
     return;
   }
 
+  // The implicit paste grant only applies to standard-buffer pastes:
+  // read()/readText() always read kStandard, but a middle-click selection
+  // paste (ExecutePasteGlobalSelection) dispatches the event with the
+  // selection buffer active, which is not consent to read kStandard.
+  SystemClipboard* system_clipboard = GetSystemClipboard();
   if ((permission == mojom::blink::PermissionName::CLIPBOARD_WRITE &&
        ClipboardCommands::IsExecutingCutOrCopy(*context)) ||
       (permission == mojom::blink::PermissionName::CLIPBOARD_READ &&
-       ClipboardCommands::IsExecutingPaste(*context))) {
-    // Validate the contents of the user's clipboard have not changed since the
-    // start of the paste event and fail if it has. This prevents an attacker
-    // from initiating a synchronous javascript command (e.g. alert) during the
-    // paste event and the user unknowingly copies something new before the
-    // paste event resolves.
-    if (permission == mojom::blink::PermissionName::CLIPBOARD_READ &&
-        sequence_number_at_paste_start_.has_value() &&
-        GetSystemClipboard()->SequenceNumber() !=
-            *sequence_number_at_paste_start_) {
-      script_promise_resolver_->RejectWithDOMException(
-          DOMExceptionCode::kDataError,
-          "Clipboard contents changed since paste event started.");
-      return;
+       ClipboardCommands::IsExecutingPaste(*context) && system_clipboard &&
+       !system_clipboard->IsSelectionMode())) {
+    if (permission == mojom::blink::PermissionName::CLIPBOARD_READ) {
+      // Pin this read to the clipboard contents the user consented to via the
+      // paste event's implicit grant.
+      sequence_number_at_paste_start_ =
+          ClipboardCommands::GetSequenceNumberForExecutingPaste(*context);
+      // Reject early if a handler earlier in this same paste event already
+      // changed the clipboard. It's not strictly necessary to check this here
+      // since we'll check it again when we're about to read the OS clipboard,
+      // but checking here avoids granting and scheduling a read that is already
+      // doomed.
+      if (RejectIfClipboardChangedSincePasteStart(*system_clipboard)) {
+        return;
+      }
     }
     GetClipboardTaskRunner()->PostTask(
         FROM_HERE,
@@ -747,6 +777,19 @@ void ClipboardPromise::ValidatePreconditions(
                                          std::move(callback));
 }
 
+bool ClipboardPromise::RejectIfClipboardChangedSincePasteStart(
+    SystemClipboard& clipboard) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!sequence_number_at_paste_start_.has_value() ||
+      clipboard.SequenceNumber() == *sequence_number_at_paste_start_) {
+    return false;
+  }
+  script_promise_resolver_->RejectWithDOMException(
+      DOMExceptionCode::kDataError,
+      "Clipboard contents changed since paste event started.");
+  return true;
+}
+
 LocalFrame* ClipboardPromise::GetLocalFrame() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   ExecutionContext* context = GetExecutionContext();
@@ -765,6 +808,16 @@ SystemClipboard* ClipboardPromise::GetSystemClipboard() const {
     return nullptr;
   }
   return local_frame->GetSystemClipboard();
+}
+
+SystemClipboard* ClipboardPromise::GetSystemClipboardOrReject() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  SystemClipboard* system_clipboard = GetSystemClipboard();
+  if (!system_clipboard) {
+    script_promise_resolver_->RejectWithDOMException(
+        DOMExceptionCode::kNotAllowedError, "Document detached.");
+  }
+  return system_clipboard;
 }
 
 ScriptState* ClipboardPromise::GetScriptState() const {

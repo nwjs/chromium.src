@@ -8,13 +8,16 @@ found in the LICENSE file.
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="@dimen/vertical_tab_item_height"
     android:paddingTop="@dimen/vertical_tab_item_padding_vertical"
     android:paddingBottom="@dimen/vertical_tab_item_padding_vertical"
     android:paddingStart="0dp"
     android:paddingEnd="@dimen/vertical_tab_item_padding_horizontal"
     android:layout_marginBottom="@dimen/vertical_tab_item_margin_bottom"
-    android:background="@drawable/vertical_tab_item_background">
+    android:background="@drawable/vertical_tab_item_background"
+    android:foreground="@drawable/vertical_tab_focus_ring"
+    android:clickable="true"
+    android:focusable="true">
 
     <!-- AI Indicator -->
     <View
@@ -24,8 +27,8 @@ found in the LICENSE file.
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginTop="@dimen/vertical_tab_item_ai_indicator_margin_vertical"
-        android:layout_marginBottom="@dimen/vertical_tab_item_ai_indicator_margin_vertical"
+        android:layout_marginTop="@dimen/vertical_tab_item_corner_radius"
+        android:layout_marginBottom="@dimen/vertical_tab_item_corner_radius"
         android:background="@drawable/vertical_tab_ai_indicator_background"
         android:importantForAccessibility="no"
         android:visibility="gone" />
@@ -119,7 +122,7 @@ found in the LICENSE file.
         android:importantForAccessibility="no" />
 
     <!-- Tab Close Button -->
-    <org.chromium.ui.widget.ChromeImageView
+    <ImageView
         android:id="@+id/action_button"
         android:layout_width="@dimen/vertical_tab_item_icon_size"
         android:layout_height="@dimen/vertical_tab_item_icon_size"

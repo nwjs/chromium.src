@@ -7,12 +7,17 @@
 
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/ui/webui/skills/skills.mojom.h"
+#include "components/skills/public/skills_service.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/bindings/remote.h"
 
 class Profile;
+class BrowserWindowInterface;
 
 namespace content {
 class WebContents;
@@ -30,9 +35,8 @@ namespace skills {
 
 class SkillsDialogDelegate;
 
-using ToastType = ::skills::mojom::ToastType;
-
-class SkillsPageHandlerV2 : public ::skills::mojom::SkillsPageHandler {
+class SkillsPageHandlerV2 : public ::skills::mojom::SkillsPageHandler,
+                            public SkillsService::Observer {
  public:
   SkillsPageHandlerV2(
       mojo::PendingReceiver<::skills::mojom::SkillsPageHandler> receiver,
@@ -45,17 +49,39 @@ class SkillsPageHandlerV2 : public ::skills::mojom::SkillsPageHandler {
   ~SkillsPageHandlerV2() override;
 
   // ::skills::mojom::SkillsPageHandler:
+  void SetPage(mojo::PendingRemote<skills::mojom::SkillsPageV2> page) override;
+  void GetProvidedSkill(const std::string& skill_id,
+                        GetProvidedSkillCallback callback) override;
+  void GetProvidedSkills(GetProvidedSkillsCallback callback) override;
   void SyncCookies(SyncCookiesCallback callback) override;
-  void ShowToast(ToastType toast_type) override;
-  void InvokeSkill(const std::string& skill_id) override;
-  void CloseDialog() override;
+  void ShowSaveToast() override;
+  void ShowSaveAndInvokeToast(const std::string& skill_id,
+                              const std::string& skill_name,
+                              const std::string& skill_icon) override;
+  void ShowDeleteToast(const std::string& skill_id,
+                       ShowDeleteToastCallback callback) override;
+  void InvokeSkill(const std::string& skill_id,
+                   const std::string& skill_name,
+                   const std::string& skill_icon) override;
+  void SendPrompt(const std::string& prompt) override;
+  void CloseDialog(::skills::mojom::PendingEditorDataPtr data) override;
+  void GetPendingEditorData(GetPendingEditorDataCallback callback) override;
+
+  // SkillsService::Observer:
+  void OnProvidedSkillsChanged(SkillsProvider* provider) override;
 
  private:
+  BrowserWindowInterface* GetBrowserWindow();
+
   mojo::Receiver<::skills::mojom::SkillsPageHandler> receiver_;
+  mojo::Remote<::skills::mojom::SkillsPageV2> page_;
   const base::raw_ref<Profile> profile_;
   const base::raw_ref<content::WebContents> web_contents_;
   std::unique_ptr<glic::GlicCookieSynchronizer> cookie_synchronizer_;
   base::WeakPtr<SkillsDialogDelegate> delegate_;
+  base::ScopedObservation<skills::SkillsService,
+                          skills::SkillsService::Observer>
+      service_observation_{this};
 };
 
 }  // namespace skills

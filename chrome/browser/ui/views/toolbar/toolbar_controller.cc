@@ -10,7 +10,6 @@
 #include <variant>
 #include <vector>
 
-#include "base/containers/adapters.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/no_destructor.h"
@@ -65,7 +64,7 @@ base::flat_map<ui::ElementIdentifier, int> CalculateFlexOrder(
 
   // Loop in reverse order to ensure the first element gets the largest flex
   // order and overflows the first.
-  for (auto it : base::Reversed(elements_in_overflow_order)) {
+  for (auto it : std::views::reverse(elements_in_overflow_order)) {
     id_to_order_map[it] = element_flex_order_start++;
   }
 
@@ -273,14 +272,15 @@ ToolbarController::GetDefaultResponsiveElements(Browser* browser) {
   };
 
   // Support actions items.
-  const auto* const browser_actions = browser->browser_actions();
+  const auto* const browser_actions = BrowserActions::From(browser);
   if (browser_actions) {
     auto* root_item = browser_actions->root_action_item();
     if (root_item) {
       PinnedToolbarActionsModel* const pinned_actions_model =
           PinnedToolbarActionsModel::Get(browser->GetProfile());
       for (const auto& item : root_item->GetChildren().children()) {
-        auto id = item->GetActionId();
+        auto* action_item = item->GetActionItem();
+        auto id = action_item->GetActionId();
         // Add an item if it is pinnable and/or pinned. The tab search item may
         // be pinned but not pinnable in the event of a race condition after
         // action item initialization but before the bubble host has been

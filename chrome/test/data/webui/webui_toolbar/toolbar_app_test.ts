@@ -132,7 +132,7 @@ function createMockNavigationState() {
           {enabled: false, shouldBeShown: true, isContextMenuVisible: false},
       forwardButtonState:
           {enabled: false, shouldBeShown: true, isContextMenuVisible: false},
-      backButtonLeadingMargin: 0,
+      windowIsMaximizedOrFullscreen: false,
     },
     homeControlState: {
       shouldBeShown: false,
@@ -142,6 +142,7 @@ function createMockNavigationState() {
       omniboxViewState: {
         textPieces: [],
         inlineAutocompletion: '',
+        a11yFriendlySuggestionText: '',
         selection: null,
         textIsUrl: false,
       },
@@ -156,6 +157,7 @@ function createMockNavigationState() {
           icon: {handleId: 0n},
           securityLevel: 0,
           text: '',
+          tooltip: '',
           isClickable: false,
           isTextDangerous: false,
           isVisible: true,
@@ -723,5 +725,13 @@ suite('ToolbarAppTest', () => {
 
     await checkLinearGradientRing(false);
     await checkLinearGradientRing(true);
+  });
+
+  test('GetAvailableWidth', async () => {
+    app = document.createElement('toolbar-app');
+    document.body.appendChild(app);
+    await microtasksFinished();
+
+    assertEquals(window.innerWidth - app.clientWidth, app.getAvailableWidth());
   });
 });

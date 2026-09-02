@@ -28,8 +28,10 @@
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/shell_integration_win.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/web_applications/extensions/launch.h"
 #include "chrome/browser/web_applications/os_integration/web_app_shortcut.h"
@@ -56,7 +58,7 @@ std::wstring AddIdToIconPath(const std::wstring& path) {
 // Checks that the relaunch name, relaunch command and app icon for the given
 // |browser| are correct.
 void ValidateBrowserWindowProperties(
-    const Browser* browser,
+    const BrowserWindowInterface* browser,
     const std::u16string& expected_profile_name) {
   // Let shortcut creation finish before we validate the results.
   content::RunAllTasksUntilIdle();
@@ -234,12 +236,15 @@ IN_PROC_BROWSER_TEST_F(BrowserWindowPropertyManagerTest, DISABLED_HostedApp) {
 IN_PROC_BROWSER_TEST_F(BrowserWindowPropertyManagerTest,
                        PictureInPictureWithAppName) {
   std::string app_name = "TestAppName";
-  Browser::CreateParams params =
-      Browser::CreateParams::CreateForPictureInPicture(
-          app_name, true, browser()->GetProfile(), true);
-  Browser* pip_browser = Browser::Create(params);
-  ASSERT_TRUE(pip_browser->is_type_picture_in_picture());
-  ASSERT_EQ(app_name, pip_browser->app_name());
+  BrowserWindowCreateParams params =
+      BrowserWindowCreateParams::CreateForPictureInPicture(
+          app_name, /*trusted_source=*/true, browser()->GetProfile(),
+          /*user_gesture=*/true);
+  BrowserWindowInterface* pip_browser = CreateBrowserWindow(std::move(params));
+  ASSERT_EQ(pip_browser->GetType(),
+            BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE);
+  ASSERT_EQ(app_name,
+            BrowserInitState::From(pip_browser)->create_params().app_name);
 
   content::RunAllTasksUntilIdle();
 
@@ -263,12 +268,15 @@ IN_PROC_BROWSER_TEST_F(BrowserWindowPropertyManagerTest,
 
 IN_PROC_BROWSER_TEST_F(BrowserWindowPropertyManagerTest,
                        PictureInPictureWithoutAppName) {
-  Browser::CreateParams params =
-      Browser::CreateParams::CreateForPictureInPicture(
-          "", true, browser()->GetProfile(), true);
-  Browser* pip_browser = Browser::Create(params);
-  ASSERT_TRUE(pip_browser->is_type_picture_in_picture());
-  ASSERT_TRUE(pip_browser->app_name().empty());
+  BrowserWindowCreateParams params =
+      BrowserWindowCreateParams::CreateForPictureInPicture(
+          "", /*trusted_source=*/true, browser()->GetProfile(),
+          /*user_gesture=*/true);
+  BrowserWindowInterface* pip_browser = CreateBrowserWindow(std::move(params));
+  ASSERT_EQ(pip_browser->GetType(),
+            BrowserWindowInterface::Type::TYPE_PICTURE_IN_PICTURE);
+  ASSERT_TRUE(
+      BrowserInitState::From(pip_browser)->create_params().app_name.empty());
 
   content::RunAllTasksUntilIdle();
 

@@ -21,6 +21,7 @@ BASE_DECLARE_FEATURE(kContextualTasksExtraOauthScopes);
 BASE_DECLARE_FEATURE(kEnableContextualTasksPinButtonInToolbar);
 BASE_DECLARE_FEATURE(kContextualTasksContext);
 BASE_DECLARE_FEATURE(kContextualTasksSearchQuery);
+BASE_DECLARE_FEATURE(kContextualTasksContextMultiTurnTabRelevance);
 BASE_DECLARE_FEATURE(
     kContextualTasksContextSmartTabSharingDefaultOnAvailability);
 BASE_DECLARE_FEATURE(kContextualTasksContextLibrary);
@@ -112,12 +113,7 @@ BASE_DECLARE_FEATURE(kContextualTasksCloseTabExpandsSidePanel);
 BASE_DECLARE_FEATURE(kContextualTasksLazyFetchClusterInfo);
 
 // Enables the use of APC comparison for webpages in the recontextualization
-// flow.
 BASE_DECLARE_FEATURE(kContextualTasksWebpageApcComparison);
-
-// Enables the Java implementation of the Contextual Tasks Fusebox. Android
-// only.
-BASE_DECLARE_FEATURE(kContextualTasksJavaFusebox);
 
 // Enables overriding side panel to show Bottom Sheet on demand.
 BASE_DECLARE_FEATURE(kContextualTasksOverrideShowBottomSheetOnLargeScreen);
@@ -201,6 +197,11 @@ extern const base::FeatureParam<bool> kDeduplicateRelevantTabsByUrl;
 extern const base::FeatureParam<double> kTabSelectionScoreThreshold;
 // Minimum score required for a tab to be considered visible.
 extern const base::FeatureParam<double> kContentVisibilityThreshold;
+
+// Maximum number of conversation turns to embed and pass to the model.
+extern const base::FeatureParam<int> kMaxConversationTurns;
+// Maximum number of shared tab titles from context library to embed and pass.
+extern const base::FeatureParam<int> kMaxTitlesPerThread;
 
 // Whether to use the immediately previous visited tab as the active tab signal
 // fallback.
@@ -324,6 +325,14 @@ extern int GetContextualTasksLensSearchTooltipDismissedCap();
 // in a single session before it no longer shows up.
 extern int GetContextualTasksLensSearchTooltipSessionImpressionCap();
 
+// The maximum number of times the AskG tooltip can be dismissed by the
+// user before it no longer shows up.
+extern int GetContextualTasksAskGTooltipDismissedCap();
+
+// The maximum number of times the AskG tooltip can be shown to the user
+// in a single session before it no longer shows up.
+extern int GetContextualTasksAskGTooltipSessionImpressionCap();
+
 // The delay in milliseconds before the onboarding tooltip is considered shown.
 extern int GetContextualTasksOnboardingTooltipImpressionDelay();
 
@@ -418,6 +427,9 @@ extern std::string GetContextualTasksHelpUrl();
 // Returns the help URL for the overflow menu help center article.
 extern std::string GetContextualTasksOverflowMenuHelpUrl();
 
+// Returns the help URL for the tab help center article.
+extern std::string GetContextualTasksTabHelpUrl();
+
 // Returns whether smart compose is enabled for Contextual Tasks.
 extern bool GetEnableContextualTasksSmartCompose();
 
@@ -487,8 +499,6 @@ extern const char kContextualTasksSearchQueryName[];
 extern const char kContextualTasksSearchQueryDescription[];
 extern const char kContextualTasksSuggestionsEnabledName[];
 extern const char kContextualTasksSuggestionsEnabledDescription[];
-extern const char kContextualTasksJavaFuseboxName[];
-extern const char kContextualTasksJavaFuseboxDescription[];
 extern const char kContextualTasksBackButtonExpandsSidePanelName[];
 extern const char kContextualTasksBackButtonExpandsSidePanelDescription[];
 extern const char kContextualTasksCloseTabExpandsSidePanelName[];

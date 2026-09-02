@@ -494,15 +494,12 @@ class CertBuilder {
 // TODO(crbug.com/469624806): for plants-05, an MTC CA can have multiple logs,
 // but this class only represents a single log. That's fine for most testing,
 // but it might be useful to have a higher level test class for representing a
-// CA with multiple logs? (The only place it really matters currently is the
-// FillMtcMetadataAnchorProto method, otherwise you could just create multiple
-// MtcLogBuilder objects to represent each log for a single CA.)
+// CA with multiple logs? (The only place it really matters currently are the
+// FillMtcMetadataAnchorProto and GetPerLogLandmarkSubtreeHashes methods,
+// otherwise you could just create multiple MtcLogBuilder objects to represent
+// each log for a single CA.)
 class MtcLogBuilder {
  public:
-  enum Spec {
-    kDavidBen08,
-    kPlants05,
-  };
   // Type aliases to make interfaces more obvious what the integer types mean.
   using LogNumber = uint16_t;
   using LandmarkNumber = uint64_t;
@@ -513,12 +510,6 @@ class MtcLogBuilder {
     crypto::keypair::PrivateKey key;
     bssl::SignatureAlgorithm signature_algorithm;
   };
-
-  // Create a log builder for draft-davidben-08 with the specified log id and
-  // base id. If `base_id` is empty, `log_id` will also be used as the
-  // `base_id`.
-  explicit MtcLogBuilder(base::span<const uint8_t> log_id,
-                         base::span<const uint8_t> base_id = {});
 
   // Create a log builder for draft-plants-05 with the specified `ca_id` and
   // `log_number`.
@@ -531,7 +522,6 @@ class MtcLogBuilder {
 
   base::span<const uint8_t> log_id() const { return log_id_; }
   base::span<const uint8_t> ca_id() const {
-    CHECK_EQ(spec_, kPlants05);
     return ca_id_;
   }
 
@@ -555,6 +545,10 @@ class MtcLogBuilder {
     return {0, landmarks_.size() - 1};
   }
 
+  // Returns the trust anchor group identifier that represents the CA and the
+  // current active landmark range.
+  std::vector<uint8_t> GetLandmarkTrustAnchorGroup() const;
+
   // Returns the currently active landmark subtrees.
   //
   // https://davidben.github.io/merkle-tree-certs/draft-davidben-tls-merkle-tree-certs.html#section-6.3.1-7
@@ -566,6 +560,14 @@ class MtcLogBuilder {
   //
   // https://davidben.github.io/merkle-tree-certs/draft-davidben-tls-merkle-tree-certs.html#trusted-subtrees
   std::vector<bssl::TrustedSubtree> GetLandmarkSubtreeHashes() const;
+
+  // Like `GetLandmarkSubtreeHashes`, but returns the result in a map that is
+  // indexed by the log number. Since MtcLogBuilder is a per-log object, the
+  // result will only have one entry in the map. This is a convenience helper
+  // that returns the data format the boringssl MTCAnchor constructor wants for
+  // a plants-05 MTC CA.
+  std::map<uint16_t, std::vector<bssl::TrustedSubtree>>
+  GetPerLogLandmarkSubtreeHashes() const;
 
   // Add entry to the log and return the index of the entry.
   // Once the index is included in a landmark subtree, the index can be used
@@ -601,6 +603,9 @@ class MtcLogBuilder {
   // `cosigners` should include the CA cosigner, and optionally additional
   // cosigners. The order of `cosigners` does not matter.
   std::optional<std::vector<uint8_t>> CreateStandaloneCertificate(
+      LogIndex index,
+      std::vector<Cosigner*> cosigners);
+  bssl::UniquePtr<CRYPTO_BUFFER> CreateStandaloneCertificateBuffer(
       LogIndex index,
       std::vector<Cosigner*> cosigners);
 
@@ -651,11 +656,8 @@ class MtcLogBuilder {
     MtcLogEntry(MtcLogEntry&&);
     MtcLogEntry& operator=(MtcLogEntry&& other);
 
-    static MtcLogEntry NullEntry();
-
     std::vector<uint8_t> BuildMerkleTreeCertEntryTbsCertEntry(
-        std::vector<uint8_t> issuer_tlv,
-        Spec spec);
+        std::vector<uint8_t> issuer_tlv);
     std::vector<uint8_t> BuildTBSCertificate(std::vector<uint8_t> issuer_tlv,
                                              uint64_t serial);
 
@@ -676,20 +678,12 @@ class MtcLogBuilder {
     std::vector<uint8_t> subject_public_key_info;
   };
 
-  Spec spec_;
-
   // The tree size at each landmark (the vector is a mapping from
   // LandmarkNumber to LogIndex). Landmark 0 is always the empty tree.
   std::vector<LogIndex> landmarks_;
 
-  // The meaning of log_id_ differs between davidben-08 and plants-05.
   std::vector<uint8_t> log_id_;
-  // Only used in davidben-08.
-  std::vector<uint8_t> base_id_;
-  // Only used in plants-05.
   std::vector<uint8_t> ca_id_;
-
-  // Not used in kDavidBen08.
   LogNumber log_number_;
 
   std::unique_ptr<Data> data_;

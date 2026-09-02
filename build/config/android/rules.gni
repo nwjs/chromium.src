@@ -74,6 +74,11 @@ template("create_native_executable_dist") {
   }
 
   copy_ex(target_name) {
+    metadata = {
+      # Prevents this executable's library dependencies and sanitizer runtimes
+      # from leaking into outer APKs or tests that depend on this dist.
+      shared_libraries_barrier = []
+    }
     inputs = [
       _libraries_list,
       invoker.binary,
@@ -1254,12 +1259,12 @@ if (!is_robolectric && enable_java_templates) {
           rebase = root_build_dir
         }
       } else {
-        # Needed for generate_jni_registration. Keeping this import guarded so
+        # Needed for generate_final_jni. Keeping this import guarded so
         # that projects who import //build but not //third_party/jni_zero don't
         # have issues.
         import("//third_party/jni_zero/jni_zero.gni")
         _jni_srcjar_target_name = "${target_name}__final_jni"
-        generate_jni_registration(_jni_srcjar_target_name) {
+        generate_final_jni(_jni_srcjar_target_name) {
           java_targets = [ ":$_java_binary_target_name" ]
           add_stubs_for_missing_jni = true
         }
@@ -2200,6 +2205,8 @@ if (!is_robolectric && enable_java_templates) {
   #   suffix_apk_assets_used_by: Prefixes android assets used by the given apk
   #     with $package_name. Adds the list of renamed packages to
   #     BuildConfig.java.
+  #   suffix_apk_assets_string: Optional string to use for suffixing assets
+  #     instead of $package_name.
   template("android_apk_or_module") {
     forward_variables_from(invoker, TESTONLY_AND_VISIBILITY)
     _template_name = target_name
@@ -2765,6 +2772,7 @@ if (!is_robolectric && enable_java_templates) {
                                "secondary_abi_loadable_modules",
                                "secondary_native_lib_placeholders",
                                "sources",
+                               "suffix_apk_assets_string",
                                "suffix_apk_assets_used_by",
                                "uses_split",
                              ])
@@ -3274,6 +3282,10 @@ if (!is_robolectric && enable_java_templates) {
           forward_variables_from(invoker.metadata, "*")
         }
 
+        # Prevents native libraries in this APK from leaking into targets that
+        # have a data_dep or dependency on this APK.
+        shared_libraries_barrier = []
+
         # Allows metadata collection via apk targets that traverse only java
         # deps.
         java_walk_keys = [ ":$_java_target_name" ]
@@ -3409,6 +3421,7 @@ if (!is_robolectric && enable_java_templates) {
             "static_library_provider",
             "static_library_provider_use_secondary_abi",
             "strip_unused_resources",
+            "suffix_apk_assets_string",
             "suffix_apk_assets_used_by",
             "target_sdk_version",
             "testonly",
@@ -3544,6 +3557,7 @@ if (!is_robolectric && enable_java_templates) {
             "static_library_provider",
             "static_library_provider_use_secondary_abi",
             "strip_unused_resources",
+            "suffix_apk_assets_string",
             "suffix_apk_assets_used_by",
             "target_sdk_version",
             "testonly",
@@ -4177,6 +4191,10 @@ if (!is_robolectric && enable_java_templates) {
           rebase_path(_path, root_build_dir),
         ]
       }
+
+      if (build_with_chromium) {
+        args += [ "--generate-intdefs" ]
+      }
     }
 
     android_library(target_name) {
@@ -4184,6 +4202,9 @@ if (!is_robolectric && enable_java_templates) {
       sources = []
       srcjar_deps = [ ":${_template_name}__protoc_java" ]
       deps = [ "//third_party/android_deps:protobuf_lite_runtime_java" ]
+      if (build_with_chromium) {
+        deps += [ "//third_party/androidx:androidx_annotation_annotation_java" ]
+      }
       if (defined(invoker.deps)) {
         deps += invoker.deps
       }

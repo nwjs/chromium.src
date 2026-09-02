@@ -110,6 +110,7 @@ import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
+import org.chromium.chrome.browser.compositor.CompositorViewHolderSupplier;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
@@ -660,6 +661,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         ShareDelegateSupplier.attach(host, mShareDelegateSupplier);
         TabModelSelectorSupplier.attach(host, mTabModelSelectorSupplier);
         EphemeralTabCoordinatorSupplier.attach(host, mEphemeralTabCoordinatorSupplier);
+        CompositorViewHolderSupplier.attach(host, mCompositorViewHolderSupplier);
         ManualFillingComponentSupplier.attach(host, mManualFillingComponentSupplier);
         BrowserControlsManagerSupplier.attach(host, mBrowserControlsManagerSupplier);
         // BrowserControlsManager is ready immediately.
@@ -676,15 +678,13 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @SuppressLint("NewApi")
     @Override
     public void performPostInflationStartup() {
-        try (TraceEvent te = TraceEvent.scoped("ChromeActivity.performPostInflationStartup")) {
+        try (TraceEvent _ = TraceEvent.scoped("ChromeActivity.performPostInflationStartup")) {
             super.performPostInflationStartup();
 
             Intent intent = getIntent();
             if (0 != (intent.getFlags() & Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY)) {
                 getLaunchCauseMetrics().onLaunchFromRecents();
-            } else if (getSavedInstanceState() != null
-                    && getSavedInstanceState()
-                            .getBoolean(ChromeActivity.IS_FROM_RECREATING, false)) {
+            } else if (isFromRecreating()) {
                 getLaunchCauseMetrics().onRecreated();
             } else {
                 getLaunchCauseMetrics().onReceivedIntent();
@@ -748,7 +748,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
             getBrowserControlsManager()
                     .initialize(
-                            (ControlContainer) findViewById(R.id.control_container),
+                            findViewById(R.id.control_container),
                             mActivityTabProvider,
                             getTabModelSelector(),
                             mRootUiCoordinator.getControlContainerHeightResource());
@@ -838,7 +838,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     protected final void triggerLayoutInflation() {
         mInflateInitialLayoutBeginMs = SystemClock.elapsedRealtime();
-        try (TraceEvent te = TraceEvent.scoped("ChromeActivity.triggerLayoutInflation")) {
+        try (TraceEvent _ = TraceEvent.scoped("ChromeActivity.triggerLayoutInflation")) {
             SelectionPopupController.setShouldGetReadbackViewFromWindowAndroid();
             SelectionPopupController.setAllowSurfaceControlMagnifier();
 
@@ -867,7 +867,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     // TODO(crbug.com/40229021): Remove the @SuppressLint.
     @SuppressLint("MissingInflatedId")
     protected void doLayoutInflation() {
-        try (TraceEvent te = TraceEvent.scoped("ChromeActivity.doLayoutInflation")) {
+        try (TraceEvent _ = TraceEvent.scoped("ChromeActivity.doLayoutInflation")) {
             // Allow disk access for the content view and toolbar container setup.
             // On certain android devices this setup sequence results in disk writes outside
             // of our control, so we have to disable StrictMode to work. See
@@ -890,8 +890,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
             // It cannot be assumed that the result of toolbarContainerStub.inflate() will
             // be the control container since it may be wrapped in another view.
-            ControlContainer controlContainer =
-                    (ControlContainer) findViewById(R.id.control_container);
+            ControlContainer controlContainer = findViewById(R.id.control_container);
 
             // Inflate the correct toolbar layout for the device.
             int toolbarLayoutId = getToolbarLayoutId();
@@ -1116,7 +1115,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             TabModelSelector tabModelSelector,
             @SupportedProfileType int supportedProfileType,
             @Nullable MultiInstanceManager multiInstanceManager) {
-        try (TraceEvent e = TraceEvent.scoped("ChromeActivity.initializeChromeAndroidTask")) {
+        try (TraceEvent _ = TraceEvent.scoped("ChromeActivity.initializeChromeAndroidTask")) {
             var chromeAndroidTaskTracker = ChromeAndroidTaskTrackerFactory.getInstance();
 
             // 1. Obtain ChromeAndroidTask dependencies.
@@ -1461,24 +1460,24 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     @VisibleForTesting
-    public @Nullable ActorPictureInPictureController maybeCreateActorPipController() {
+    public void maybeCreateActorPipController() {
         if (getProfileProviderSupplier().get() == null
                 || !GlicEnabling.isProfileEligible(
                         getProfileProviderSupplier().get().getOriginalProfile())
                 || DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)
-                || ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC_BACKGROUND_ACTUATION)) {
-            return null;
+                || ChromeFeatureList.sGlicBackgroundActuation.isEnabled()) {
+            return;
         }
 
         if (mActorPipController != null) {
-            return mActorPipController;
+            return;
         }
 
         try {
             mActorPipController =
                     new ActorPictureInPictureController(
                             this,
-                            () -> mTabModelProfileSupplier.get(),
+                            mTabModelProfileSupplier,
                             () -> findViewById(android.R.id.content),
                             getTabModelSelectorSupplier(),
                             this::exitOverviewModeOnActorPiPExpand,
@@ -1487,9 +1486,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                             this::onActorPictureInPictureChanged);
         } catch (RuntimeException e) {
             Log.w(TAG, "Activity does not support Picture-in-Picture", e);
-            return null;
         }
-        return mActorPipController;
     }
 
     // Gets the last normal size of the activity before entering Actor Picture-in-Picture mode. This
@@ -1635,6 +1632,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     public void onStopWithNative() {
         super.onStopWithNative();
+        if (mFullscreenVideoPictureInPictureController != null) {
+            mFullscreenVideoPictureInPictureController.onStop();
+        }
         endUmaSession();
     }
 
@@ -1743,10 +1743,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                         });
 
         DeferredStartupHandler.getInstance()
-                .addDeferredTask(
-                        () -> {
-                            MemoryPurgeManager.getInstance().start();
-                        });
+                .addDeferredTask(() -> MemoryPurgeManager.getInstance().start());
     }
 
     /**
@@ -1990,6 +1987,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             }
             compositorViewHolder.shutDown();
         }
+        CompositorViewHolderSupplier.destroy(mCompositorViewHolderSupplier);
         mCompositorViewHolderSupplier.destroy();
 
         // crbug.com/352365937: Let the pip controller clear up to prevent a leak.
@@ -2123,6 +2121,14 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     /**
+     * @return Whether the activity is being launched as a recreation from a previous instance.
+     */
+    protected boolean isFromRecreating() {
+        return getSavedInstanceState() != null
+                && getSavedInstanceState().getBoolean(IS_FROM_RECREATING, false);
+    }
+
+    /**
      * Helper method to explicitly process hardware accelerators (e.g. Alt+G) bypassing the standard
      * dispatchKeyEvent flow. This is necessary when focus is in an input field and the IME has
      * bypassed normal View dispatch, allowing the accelerator manager to still intercept shortcuts.
@@ -2171,11 +2177,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                         getFullscreenManager(),
                         /* menuOrKeyboardActionController= */ this,
                         /* context= */ this);
-        if (Boolean.TRUE.equals(dispatchResult)) {
-            return true;
-        }
-
-        return false;
+        return Boolean.TRUE.equals(dispatchResult);
     }
 
     @Override
@@ -2212,13 +2214,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @Override
     protected ModalDialogManager createModalDialogManager() {
-        var dialogManager =
-                new ModalDialogManager(
-                        new AppModalPresenter(this),
-                        ModalDialogManager.ModalDialogType.APP,
-                        getEdgeToEdgeStateProvider().getSupplier(),
-                        EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled());
-        return dialogManager;
+        return new ModalDialogManager(
+                new AppModalPresenter(this),
+                ModalDialogManager.ModalDialogType.APP,
+                getEdgeToEdgeStateProvider().getSupplier(),
+                EdgeToEdgeUtils.isEdgeToEdgeEverywhereEnabled());
     }
 
     /**
@@ -2426,11 +2426,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         @ActivityState int state = ApplicationStatus.getStateForActivity(this);
         boolean inMultiWindow = MultiWindowUtils.getInstance().isInMultiWindowMode(this);
-        if (state != ActivityState.RESUMED && (!inMultiWindow || state != ActivityState.PAUSED)) {
-            return false;
-        }
-
-        return true;
+        return state == ActivityState.RESUMED || (inMultiWindow && state == ActivityState.PAUSED);
     }
 
     /**
@@ -3081,7 +3077,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                             menuItemData.getString(
                                     AppMenuPropertiesDelegateImpl.BOOKMARK_ID_BUNDLE_KEY));
             BookmarkOpener opener =
-                    new BookmarkOpenerImpl(mBookmarkModelSupplier, this, getComponentName());
+                    new BookmarkOpenerImpl(
+                            mBookmarkModelSupplier,
+                            this,
+                            getComponentName(),
+                            /* multiInstanceManager= */ null);
             opener.openBookmarkInCurrentTab(bookmarkId, currentTab.isIncognito());
             RecordUserAction.record("MobileMenuOpenBookmark");
             return true;
@@ -3285,18 +3285,14 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     /**
      * Shows Help and Feedback and records the user action as well.
+     *
      * @param url The URL of the tab the user is currently on.
      * @param recordAction The user action to record.
      * @param profile The current {@link Profile}.
      */
     public void startHelpAndFeedback(String url, String recordAction, Profile profile) {
-        // Since reading back the compositor is asynchronous, we need to do the readback
-        // before starting the GoogleHelp.
-        String helpContextId =
-                HelpAndFeedbackLauncherImpl.getHelpContextIdFromUrl(
-                        this, url, getCurrentTabModel().isIncognito());
-        HelpAndFeedbackLauncherImpl.getForProfile(profile).show(this, helpContextId, url);
-        RecordUserAction.record(recordAction);
+        HelpAndFeedbackLauncherImpl.getForProfile(profile)
+                .showHelpAndFeedbackForUrl(this, url, recordAction);
     }
 
     protected void startUmaSession() {
@@ -3373,8 +3369,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @Override
     public boolean onActivityResultWithNative(
             int requestCode, int resultCode, @Nullable Intent intent) {
-        if (super.onActivityResultWithNative(requestCode, resultCode, intent)) return true;
-        return false;
+        return super.onActivityResultWithNative(requestCode, resultCode, intent);
     }
 
     /**
@@ -3402,7 +3397,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
             Log.e(TAG, "crbug.com/40783191", e);
             assert false
                     : "View "
-                            + v.toString()
+                            + v
                             + " inflated from layout ID #"
                             + v.getSourceLayoutResId()
                             + " was not a ControlContainer. "
@@ -3569,7 +3564,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @Override
     public boolean shouldAllocateChildConnection() {
-        if (!(getProfileProviderSupplier().get() != null)) return true;
+        if (getProfileProviderSupplier().get() == null) return true;
 
         // If a spare Tab exists, a child connection has already been allocated that will be
         // used by the next created tab.

@@ -87,9 +87,6 @@
 [submodule "third_party/anonymous_tokens/src"]
 	path = third_party/anonymous_tokens/src
 	url = https://chromium.googlesource.com/external/github.com/google/anonymous-tokens
-[submodule "third_party/aria-practices/src"]
-	path = third_party/aria-practices/src
-	url = https://chromium.googlesource.com/external/github.com/w3c/aria-practices
 [submodule "third_party/readability/src"]
 	path = third_party/readability/src
 	url = https://chromium.googlesource.com/external/github.com/mozilla/readability
@@ -178,6 +175,9 @@
 [submodule "third_party/dom_distiller_js/dist"]
 	path = third_party/dom_distiller_js/dist
 	url = https://chromium.googlesource.com/chromium/dom-distiller/dist
+[submodule "third_party/ds_store/src"]
+	path = third_party/ds_store/src
+	url = https://chromium.googlesource.com/external/github.com/dmgbuild/ds_store
 [submodule "third_party/dragonbox/src"]
 	path = third_party/dragonbox/src
 	url = https://chromium.googlesource.com/external/github.com/jk-jeon/dragonbox
@@ -422,6 +422,9 @@
 	path = third_party/lss
 	url = https://chromium.googlesource.com/linux-syscall-support
 	gclient-condition = checkout_android or checkout_linux
+[submodule "third_party/mac_alias/src"]
+	path = third_party/mac_alias/src
+	url = https://chromium.googlesource.com/external/github.com/dmgbuild/mac_alias
 [submodule "third_party/material_color_utilities/src"]
 	path = third_party/material_color_utilities/src
 	url = https://chromium.googlesource.com/external/github.com/material-foundation/material-color-utilities
@@ -697,6 +700,10 @@
 [submodule "chrome/browser/nearby_sharing/internal"]
 	path = chrome/browser/nearby_sharing/internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/nearby_sharing/internal
+	gclient-condition = checkout_src_internal
+[submodule "chrome/browser/payments/internal"]
+	path = chrome/browser/payments/internal
+	url = https://chrome-internal.googlesource.com/chrome/payments
 	gclient-condition = checkout_src_internal
 [submodule "chrome/browser/platform_experience/win"]
 	path = chrome/browser/platform_experience/win

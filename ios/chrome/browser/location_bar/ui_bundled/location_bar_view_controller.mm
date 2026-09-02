@@ -45,6 +45,7 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/custom_leading_view_type.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
@@ -181,6 +182,7 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 @implementation LocationBarViewController {
   BOOL _isNTP;
   BOOL _active;
+  BOOL _textOnly;
   // Stores a snapshot of the fakebox buttons that is overlaid on the Location
   // Bar and anchored to the trailing edge during focus transitions (when it is
   // faded out) and defocus transitions (when it is faded in).
@@ -197,16 +199,34 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 
   // The placeholder view that holds the DSE icon.
   UIImageView* _defaultSearchEngineIconView;
+
+  // The current fullscreen progress, ranging from 1.0 (toolbar fully visible)
+  // to 0.0 (toolbar fully collapsed / fullscreen).
+  CGFloat _fullscreenProgress;
+
+  // The type of custom leading view to display.
+  CustomLeadingViewType _customLeadingViewType;
 }
 
 #pragma mark - public
 
-- (instancetype)init {
-  self = [super init];
+- (instancetype)initWithTextOnly:(BOOL)textOnly {
+  self = [super initWithNibName:nil bundle:nil];
   if (self) {
-    _locationBarSteadyView = [[LocationBarSteadyView alloc] init];
+    _textOnly = textOnly;
+    _locationBarSteadyView =
+        [[LocationBarSteadyView alloc] initWithTextOnly:textOnly];
+    if (!_textOnly && IsGlassToolbarEnabled()) {
+      _steadyViewLayoutGuide = [[UILayoutGuide alloc] init];
+    }
+    _fullscreenProgress = 1.0;
+    _customLeadingViewType = CustomLeadingViewType::kNone;
   }
   return self;
+}
+
+- (instancetype)init {
+  return [self initWithTextOnly:NO];
 }
 
 - (void)setEditView:(UIView<TextFieldViewContaining>*)editView {
@@ -383,6 +403,11 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
   self.locationBarSteadyView.translatesAutoresizingMaskIntoConstraints = NO;
   AddSameConstraints(self.locationBarSteadyView, self.view);
 
+  if (self.steadyViewLayoutGuide) {
+    [self.view addLayoutGuide:self.steadyViewLayoutGuide];
+    AddSameConstraints(self.steadyViewLayoutGuide, self.locationBarSteadyView);
+  }
+
   if (IsGeminiLiveEnabled()) {
     // Use the Gemini Live symbol.
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
@@ -476,6 +501,7 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 #pragma mark - FullscreenUIElement
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
+  _fullscreenProgress = progress;
   CGFloat alphaValue = fmax((progress - 0.85) / 0.15, 0);
   CGFloat scaleValue =
       IsChromeNextIaEnabled()
@@ -493,6 +519,7 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
       setFullScreenCollapsedMode:badgeViewShouldCollapse];
   self.locationBarSteadyView.transform =
       CGAffineTransformMakeScale(scaleValue, scaleValue);
+  [self updateCustomLeadingViewVisibilityAnimated:YES];
 }
 
 - (void)updateForFullscreenEnabled:(BOOL)enabled {
@@ -869,13 +896,6 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 }
 
 - (void)setTrailingButtonState:(TrailingButtonState)state {
-  // This is dirty, but this is experiment-only and will be removed in one
-  // milestone.
-  if (base::FeatureList::IsEnabled(kDisableShareButton) &&
-      state == kShareButton) {
-    state = kNoButton;
-  }
-
   if (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible() &&
       state == kShareButton) {
     state = kNoButton;
@@ -992,8 +1012,7 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
   NSMutableArray<UIMenuElement*>* menuElements = [[NSMutableArray alloc] init];
   __weak __typeof__(self) weakSelf = self;
 
-  if ((base::FeatureList::IsEnabled(kShareInOmniboxLongPress) ||
-       (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible())) &&
+  if (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible() &&
       self.shareButtonEnabled) {
     base::UmaHistogramEnumeration("Mobile.ShareThisPage.Shown",
                                   ShareThisPageLocation::kOmniboxLongPress);
@@ -1362,9 +1381,12 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
   }
   if (IsDirectBWGEntryPoint()) {
     [self.geminiHandler
-        startGeminiFlowWithStartupState:
+        startGeminiEntryFlowWithStartupState:
             [[GeminiStartupState alloc]
-                initWithEntryPoint:gemini::EntryPoint::DirectOmniboxBadge]];
+                initWithEntryPoint:gemini::EntryPoint::DirectOmniboxBadge]
+                          baseViewController:self
+                    showSnackbarOnCompletion:YES
+                                  completion:nil];
   } else {
     RecordAIHubIconTapped();
     [self.pageActionMenuHandler showPageActionMenu];
@@ -1477,7 +1499,18 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
   return copyView;
 }
 
-- (void)setCustomLeadingViewVisible:(BOOL)visible animated:(BOOL)animated {
+- (void)setCustomLeadingViewType:(CustomLeadingViewType)type {
+  if (_customLeadingViewType == type) {
+    return;
+  }
+  _customLeadingViewType = type;
+  [self updateCustomLeadingViewVisibilityAnimated:YES];
+}
+
+- (void)updateCustomLeadingViewVisibilityAnimated:(BOOL)animated {
+  // Only show the custom leading view when the location bar is in fullscreen.
+  BOOL visible = (_customLeadingViewType != CustomLeadingViewType::kNone) &&
+                 (_fullscreenProgress < 0.1);
   [self.locationBarSteadyView updateCustomLeadingViewVisibility:visible
                                                        animated:animated];
 }

@@ -16,12 +16,13 @@
 #include "base/strings/escape.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/string_view_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
 #include "components/safe_browsing/core/common/features.h"
-#include "crypto/sha2.h"
+#include "crypto/hash.h"
 #include "google_apis/google_api_keys.h"
 #include "net/base/ip_address.h"
 #include "net/base/net_errors.h"
@@ -406,6 +407,50 @@ std::string GetV5ListName(const ListIdentifier& list_identifier) {
   }
 }
 
+// TODO(crbug.com/372395685): Delete this method with v4 deprecation.
+SBThreatType GetSBThreatTypeForList(const ListIdentifier& list_id) {
+  if (list_id.uses_v5_api()) {
+    return list_id.sb_threat_type();
+  }
+  if (list_id == GetUrlSocEngId()) {
+    return SBThreatType::SB_THREAT_TYPE_URL_PHISHING;
+  }
+  if (list_id == GetUrlMalwareId()) {
+    return SBThreatType::SB_THREAT_TYPE_URL_MALWARE;
+  }
+  if (list_id == GetUrlUwsId()) {
+    return SBThreatType::SB_THREAT_TYPE_URL_UNWANTED;
+  }
+  if (list_id == GetUrlMalBinId()) {
+    return SBThreatType::SB_THREAT_TYPE_URL_BINARY_MALWARE;
+  }
+  if (list_id == GetChromeExtMalwareId()) {
+    return SBThreatType::SB_THREAT_TYPE_EXTENSION;
+  }
+  if (list_id == GetUrlBillingId()) {
+    return SBThreatType::SB_THREAT_TYPE_BILLING;
+  }
+  if (list_id == GetUrlCsdDownloadAllowlistId()) {
+    return SBThreatType::SB_THREAT_TYPE_CSD_DOWNLOAD_ALLOWLIST;
+  }
+  if (list_id == GetUrlCsdAllowlistId()) {
+    return SBThreatType::SB_THREAT_TYPE_CSD_ALLOWLIST;
+  }
+  if (list_id == GetUrlSubresourceFilterId()) {
+    return SBThreatType::SB_THREAT_TYPE_SUBRESOURCE_FILTER;
+  }
+  if (list_id == GetUrlSuspiciousSiteId()) {
+    return SBThreatType::SB_THREAT_TYPE_SUSPICIOUS_SITE;
+  }
+  if (list_id == GetChromeUrlApiId()) {
+    return SBThreatType::SB_THREAT_TYPE_API_ABUSE;
+  }
+  if (list_id == GetUrlHighConfidenceAllowlistId()) {
+    return SBThreatType::SB_THREAT_TYPE_HIGH_CONFIDENCE_ALLOWLIST;
+  }
+  return SBThreatType::SB_THREAT_TYPE_UNUSED;
+}
+
 StoreAndHashPrefix::StoreAndHashPrefix(ListIdentifier list_id,
                                        const HashPrefixStr& hash_prefix)
     : list_id(list_id), hash_prefix(hash_prefix) {}
@@ -562,7 +607,8 @@ void SBProtocolManagerUtil::UrlToFullHashes(
   full_hashes->reserve(full_hashes->size() + hosts.size() * paths.size());
   for (const std::string& host : hosts) {
     for (const std::string& path : paths) {
-      full_hashes->push_back(crypto::SHA256HashString(host + path));
+      full_hashes->emplace_back(
+          base::as_string_view(crypto::hash::Sha256(host + path)));
     }
   }
 }
@@ -643,7 +689,7 @@ FullHashStr SBProtocolManagerUtil::GetFullHash(const GURL& url) {
   std::string path;
   CanonicalizeUrl(url, &host, &path, nullptr);
 
-  return crypto::SHA256HashString(host + path);
+  return std::string(base::as_string_view(crypto::hash::Sha256(host + path)));
 }
 
 // static

@@ -417,7 +417,19 @@ CreatePendingSharedURLLoaderFactory(StoragePartitionImpl* storage_partition,
         ukm::kInvalidSourceIdObj, factory_builder, /*header_client=*/nullptr,
         /*bypass_redirect_checks=*/nullptr, /*disable_secure_dns=*/nullptr,
         /*factory_override=*/nullptr,
-        /*navigation_response_task_runner=*/nullptr);
+        /*navigation_response_task_runner=*/nullptr,
+        /*is_for_network_service=*/true);
+  }
+
+  if (factory_builder.RequiresFreshFactory()) {
+    network::mojom::URLLoaderFactoryParamsPtr params =
+        storage_partition->CreateURLLoaderFactoryParams();
+    auto factory =
+        std::move(factory_builder)
+            .Finish<mojo::PendingRemote<network::mojom::URLLoaderFactory>>(
+                storage_partition->GetNetworkContext(), std::move(params));
+    return std::make_unique<network::WrapperPendingSharedURLLoaderFactory>(
+        std::move(factory));
   }
 
   return std::make_unique<network::PendingSharedURLLoaderFactoryWithBuilder>(
@@ -1216,11 +1228,21 @@ void DownloadManagerImpl::InterceptNavigation(
       mime_type, transition_type, std::move(on_download_checks_done));
 }
 
-int DownloadManagerImpl::RemoveDownloadsByURLAndTime(
+void DownloadManagerImpl::RemoveDownloadsByURLAndTime(
     const base::RepeatingCallback<bool(const GURL&)>& url_filter,
     base::Time remove_begin,
-    base::Time remove_end) {
-  int count = 0;
+    base::Time remove_end,
+    base::OnceClosure callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+
+  if (!IsManagerInitialized()) {
+    on_initialized_callbacks_.push_back(
+        base::BindOnce(&DownloadManagerImpl::RemoveDownloadsByURLAndTime,
+                       weak_factory_.GetWeakPtr(), url_filter, remove_begin,
+                       remove_end, std::move(callback)));
+    return;
+  }
+
   auto it = downloads_by_guid_.begin();
   while (it != downloads_by_guid_.end()) {
     download::DownloadItemImpl* download = it->second;
@@ -1233,10 +1255,12 @@ int DownloadManagerImpl::RemoveDownloadsByURLAndTime(
         download->GetStartTime() >= remove_begin &&
         (remove_end.is_null() || download->GetStartTime() < remove_end)) {
       download->Remove();
-      count++;
     }
   }
-  return count;
+
+  if (callback) {
+    std::move(callback).Run();
+  }
 }
 
 bool DownloadManagerImpl::CanDownload(
@@ -1452,6 +1476,12 @@ void DownloadManagerImpl::OnDownloadManagerInitialized() {
   in_progress_manager_->OnAllInprogressDownloadsLoaded();
   for (auto& observer : observers_)
     observer.OnManagerInitialized();
+
+  std::vector<base::OnceClosure> callbacks =
+      std::move(on_initialized_callbacks_);
+  for (auto& callback : callbacks) {
+    std::move(callback).Run();
+  }
 }
 
 bool DownloadManagerImpl::IsManagerInitialized() {
@@ -1621,7 +1651,9 @@ void DownloadManagerImpl::BeginResourceDownloadOnChecksComplete(
   DCHECK_EQ(params->url().SchemeIsBlob(), bool{blob_url_loader_factory});
   std::unique_ptr<network::PendingSharedURLLoaderFactory>
       pending_url_loader_factory;
-  if (blob_url_loader_factory) {
+  if (params->url_loader_factory()) {
+    pending_url_loader_factory = params->take_url_loader_factory();
+  } else if (blob_url_loader_factory) {
     DCHECK(params->url().SchemeIsBlob());
     pending_url_loader_factory = blob_url_loader_factory->Clone();
   } else if (params->url().SchemeIsFile()) {

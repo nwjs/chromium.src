@@ -399,7 +399,8 @@ void AutofillKeyboardAccessoryControllerImpl::AcceptSuggestion(
     AutofillMetrics::SuggestionAcceptedMethod accept_method) {
   // Ignore clicks immediately after the popup was shown. This is to prevent
   // users accidentally accepting suggestions (crbug.com/40058217).
-  if (!barrier_for_accepting_.value() && !disable_threshold_for_testing_) {
+  if ((!barrier_for_accepting_ || !barrier_for_accepting_->value()) &&
+      !disable_threshold_for_testing_) {
     return;
   }
 
@@ -581,7 +582,10 @@ void AutofillKeyboardAccessoryControllerImpl::Show(
     std::vector<Suggestion> suggestions,
     AutofillSuggestionTriggerSource trigger_source,
     AutoselectFirstSuggestion autoselect_first_suggestion,
-    AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss) {
+    AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss,
+    std::u16string search_bar_initial_value) {
+  // TODO(crbug.com/535486238): Plumb search_bar_initial_value through to the
+  // UI.
   ui_session_id_ = ui_session_id;
   suggestions_filling_product_ =
       !suggestions.empty() && IsStandaloneSuggestionType(suggestions[0].type)
@@ -669,8 +673,10 @@ void AutofillKeyboardAccessoryControllerImpl::Show(
     }
   }
 
-  barrier_for_accepting_ = NextIdleBarrier::CreateNextIdleBarrierWithDelay(
-      kIgnoreEarlyClicksOnSuggestionsDuration);
+  if (!barrier_for_accepting_ || ShouldResetIdleBarrier(trigger_source_)) {
+    barrier_for_accepting_ = NextIdleBarrier::CreateNextIdleBarrierWithDelay(
+        kIgnoreEarlyClicksOnSuggestionsDuration);
+  }
   // TODO(crbug.com/364165357): Use actually shown suggestions.
   delegate_->OnSuggestionsShown(suggestions_, std::nullopt);
 }
@@ -772,7 +778,7 @@ void AutofillKeyboardAccessoryControllerImpl::OpenSettingsForEntityType(
 void AutofillKeyboardAccessoryControllerImpl::
     OrderSuggestionsAndCreateLabels() {
   // If there is an Undo suggestion, move it to the front.
-  if (auto it = std::ranges::find(suggestions_, SuggestionType::kUndoOrClear,
+  if (auto it = std::ranges::find(suggestions_, SuggestionType::kUndo,
                                   &Suggestion::type);
       it != suggestions_.end()) {
     std::rotate(suggestions_.begin(), it, it + 1);

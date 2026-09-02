@@ -6,18 +6,17 @@
 
 #include <algorithm>
 #include <memory>
+#include <ranges>
 #include <utility>
 #include <vector>
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/chrome_pref_names.h"
-#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
 #include "chrome/browser/ash/borealis/borealis_prefs.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_pref_names.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_pref_names.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -44,7 +43,7 @@ base::UnguessableToken TokenFromString(const std::string& str) {
 
   uint64_t high = 0, low = 0;
   int count = 0;
-  std::ranges::for_each(base::Reversed(bytes), [&](auto byte) {
+  std::ranges::for_each(std::views::reverse(bytes), [&](auto byte) {
     auto* p = count < kBytesPerUint64 ? &low : &high;
     int pos = count < kBytesPerUint64 ? count : count - kBytesPerUint64;
     *p += static_cast<uint64_t>(byte) << (pos * 8);
@@ -151,10 +150,7 @@ void VmPermissionServiceProvider::RegisterVm(
   }
 
   VmInfo::VmType vm_type;
-  if (request.type() == vm_permission_service::RegisterVmRequest::PLUGIN_VM) {
-    vm_type = VmInfo::VmType::PluginVm;
-  } else if (request.type() ==
-             vm_permission_service::RegisterVmRequest::BOREALIS) {
+  if (request.type() == vm_permission_service::RegisterVmRequest::BOREALIS) {
     vm_type = VmInfo::VmType::Borealis;
   } else if (request.type() ==
              vm_permission_service::RegisterVmRequest::BRUSCHETTA) {
@@ -341,9 +337,6 @@ void VmPermissionServiceProvider::GetPermissions(
 void VmPermissionServiceProvider::UpdateVmPermissions(VmInfo* vm) {
   vm->permission_to_enabled_map.clear();
   switch (vm->type) {
-    case VmInfo::PluginVm:
-      UpdatePluginVmPermissions(vm);
-      break;
     case VmInfo::Borealis:
       UpdateBorealisPermissions(vm);
       break;
@@ -352,25 +345,6 @@ void VmPermissionServiceProvider::UpdateVmPermissions(VmInfo* vm) {
       break;
     case VmInfo::CrostiniVm:
       NOTREACHED();
-  }
-}
-
-void VmPermissionServiceProvider::UpdatePluginVmPermissions(VmInfo* vm) {
-  Profile* profile = ProfileManager::GetPrimaryUserProfile();
-  if (!profile ||
-      ProfileHelper::GetUserIdHashFromProfile(profile) != vm->owner_id) {
-    return;
-  }
-
-  const PrefService* prefs = profile->GetPrefs();
-  if (prefs->GetBoolean(ash::chrome_prefs::kVideoCaptureAllowed)) {
-    vm->permission_to_enabled_map[VmInfo::PermissionCamera] =
-        prefs->GetBoolean(plugin_vm::prefs::kPluginVmCameraAllowed);
-  }
-
-  if (prefs->GetBoolean(ash::chrome_prefs::kAudioCaptureAllowed)) {
-    vm->permission_to_enabled_map[VmInfo::PermissionMicrophone] =
-        prefs->GetBoolean(plugin_vm::prefs::kPluginVmMicAllowed);
   }
 }
 

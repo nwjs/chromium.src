@@ -32,6 +32,10 @@
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 
+namespace gfx {
+class Image;
+}
+
 namespace safe_browsing {
 
 // Enum used to keep stats about the status of the Scorer creation.
@@ -57,7 +61,7 @@ enum ScorerCreationStatus {
 // and to allow inheritance.
 class Scorer {
  public:
-  ~Scorer();
+  virtual ~Scorer();
   // Most clients should use the factory method.  This constructor is public
   // to allow for mock implementations.
   Scorer();
@@ -91,21 +95,22 @@ class Scorer {
                                  int image_embedding_input_height,
                                  base::File image_embedding_model);
 
-  // This method applies the TfLite visual model to the given bitmap for image
+  // This method applies the TfLite visual model to the given image for image
   // classification. It asynchronously returns the list of scores for each
   // category, in the same order as `tflite_thresholds()`.
-  void ApplyVisualTfLiteModel(
-      const SkBitmap& bitmap,
+  virtual void ApplyVisualTfLiteModel(
+      const gfx::Image& image,
       base::OnceCallback<void(std::vector<double>)> callback) const;
 
-  // This method applies the TfLite visual model to the given bitmap for
+  // This method applies the TfLite visual model to the given image for
   // image embedding. It asynchronously returns an ImageFeatureEmbedding object
   // which contains a vector of floats which is the feature vector result from
   // the Image Embedder process.
-  void ApplyVisualTfLiteModelImageEmbedding(
-      const SkBitmap& bitmap,
+  virtual void ApplyVisualTfLiteModelImageEmbedding(
+      const gfx::Image& image,
       base::OnceCallback<void(ImageFeatureEmbedding)> callback) const;
 
+  // Returns true if a valid visual TFLite flatbuffer model is available.
   bool HasVisualTfLiteModel() const;
 
   // Returns the version of the visual TFLite model.
@@ -145,7 +150,7 @@ class Scorer {
       base::OnceCallback<void(std::vector<double>)> callback);
 
   // Apply the TfLite model to the bitmap. The ImageFeatureEmbedding object is
-  // returned by ruinning the `callback` provided by `callback_task_runner`.
+  // returned by running the `callback` provided by `callback_task_runner`.
   // This is expected to be run on a helper thread.
   static void ApplyImageEmbeddingTfLiteModelHelper(
       const SkBitmap& bitmap,
@@ -175,6 +180,7 @@ class Scorer {
   base::WeakPtrFactory<Scorer> weak_ptr_factory_{this};
 };
 
+#if !BUILDFLAG(IS_IOS)
 // A small wrapper around a Scorer that allows callers to observe for changes in
 // the model.
 class ScorerStorage {
@@ -204,6 +210,7 @@ class ScorerStorage {
   std::unique_ptr<Scorer> scorer_;
   base::ObserverList<Observer> observers_;
 };
+#endif  // !BUILDFLAG(IS_IOS)
 
 }  // namespace safe_browsing
 

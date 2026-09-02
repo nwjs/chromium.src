@@ -314,8 +314,7 @@ TEST_P(AutofillAndPasswordsTableViewControllerTest,
 
   // Calling configureSigninPromoWithConfigurator before promo exists should be
   // a no-op.
-  [view_controller configureSigninPromoWithConfigurator:configurator1
-                                        identityChanged:NO];
+  [view_controller configureSigninPromoWithConfigurator:configurator1];
 
   NSString* promo_text =
       l10n_util::GetNSString(IDS_IOS_SIGNIN_PROMO_AUTOFILL_AND_PASSWORDS);
@@ -337,8 +336,7 @@ TEST_P(AutofillAndPasswordsTableViewControllerTest,
                        hasCloseButton:YES
                      hasSignInSpinner:NO];
 
-  [view_controller configureSigninPromoWithConfigurator:configurator2
-                                        identityChanged:NO];
+  [view_controller configureSigninPromoWithConfigurator:configurator2];
 
   promo_item = base::apple::ObjCCastStrict<TableViewSigninPromoItem>(
       GetTableViewItem(0, 0));
@@ -390,6 +388,22 @@ TEST_P(AutofillAndPasswordsTableViewControllerTest,
     CheckDetailItemTextWithIds(IDS_AUTOFILL_ADDRESSES_SETTINGS_TITLE,
                                IDS_IOS_SETTING_ON, 0, 2);
   }
+}
+
+// Verifies that the Level Up walkthrough target item (Payment Methods)
+// exists in AutofillAndPasswordsTableViewController.
+TEST_P(AutofillAndPasswordsTableViewControllerTest,
+       HasPaymentMethodsLevelUpItem) {
+  AutofillAndPasswordsTableViewController* view_controller =
+      base::apple::ObjCCastStrict<AutofillAndPasswordsTableViewController>(
+          controller());
+
+  [view_controller setAutofillCreditCardEnabled:YES];
+  [view_controller loadModel];
+
+  EXPECT_TRUE([view_controller.tableViewModel
+      hasItemForItemType:SettingsItemTypeAutofillCreditCard
+       sectionIdentifier:SettingsSectionIdentifierBasics]);
 }
 
 INSTANTIATE_FEATURE_OVERRIDE_TEST_SUITE(

@@ -33,6 +33,7 @@
 #include "content/public/test/prerender_test_util.h"
 #include "extensions/browser/api/constants.h"
 #include "extensions/browser/event_router.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
 #include "extensions/test/test_extension_dir.h"
@@ -326,8 +327,10 @@ class ExtensionApiCaptureTest : public ExtensionApiTabTest {
 };
 
 // https://crbug.com/40915448 Flaky on Mac.
+// TODO(crbug.com/540627656): Disabled on Linux dbg due to timeout.
 // TODO(crbug.com/488154807): Flaky on desktop Android.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_MAC) || (BUILDFLAG(IS_LINUX) && !defined(NDEBUG)) || \
+    BUILDFLAG(IS_ANDROID)
 #define MAYBE_CaptureVisibleTabJpeg DISABLED_CaptureVisibleTabJpeg
 #else
 #define MAYBE_CaptureVisibleTabJpeg CaptureVisibleTabJpeg
@@ -666,8 +669,14 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTabPrerenderingTest, DISABLED_Prerendering) {
   ASSERT_TRUE(RunExtensionTest("tabs/prerendering")) << message_;
 }
 
+// TODO(crbug.com/497838105): Flaky.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_PrerenderingIntoANewTab DISABLED_PrerenderingIntoANewTab
+#else
+#define MAYBE_PrerenderingIntoANewTab PrerenderingIntoANewTab
+#endif
 IN_PROC_BROWSER_TEST_F(ExtensionApiTabPrerenderingTest,
-                       PrerenderingIntoANewTab) {
+                       MAYBE_PrerenderingIntoANewTab) {
   ASSERT_TRUE(RunExtensionTest("tabs/prerendering_into_new_tab")) << message_;
 }
 
@@ -1107,3 +1116,22 @@ IN_PROC_BROWSER_TEST_F(ExtensionApiTabDSERedirectTest,
   histogram_tester.ExpectBucketCount("Extensions.Tabs.RemoveAction",
                                      3 /* kDSERemovalsAfterLandingOnSERP */, 1);
 }
+
+class ExtensionApiTabSplitViewTest : public ExtensionApiTabTest {
+ public:
+  ExtensionApiTabSplitViewTest() = default;
+  ~ExtensionApiTabSplitViewTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      extensions_features::kApiTabsSplitView};
+};
+
+// TODO(https://crbug.com/480192698): Remove this restriction once split tabs
+// are supported on Desktop Android.
+#if !BUILDFLAG(IS_ANDROID)
+IN_PROC_BROWSER_TEST_F(ExtensionApiTabSplitViewTest, CreateSplitWithTabId) {
+  ASSERT_TRUE(RunExtensionTest("tabs/split_view_create_split_with_id"))
+      << message_;
+}
+#endif  // !BUILDFLAG(IS_ANDROID)

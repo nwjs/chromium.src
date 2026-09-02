@@ -31,6 +31,7 @@
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_metrics.h"
+#include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/chrome_signin_client_factory.h"
 #include "chrome/browser/signin/chrome_signin_pref_names.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -670,7 +671,8 @@ base::ListValue PeopleHandler::GetStoredAccountsList() {
     // If dice is enabled, show all the accounts.
     for (const auto& account : signin_ui_util::GetOrderedAccountsForDisplay(
              identity_manager,
-             /*restrict_to_accounts_eligible_for_sync=*/true)) {
+             AccountPreviewDataServiceFactory::GetForProfile(profile_),
+             /*restrict_to_accounts_eligible_for_signin=*/true)) {
       accounts.Append(GetAccountValue(identity_manager, account));
     }
     return accounts;
@@ -971,8 +973,7 @@ void PeopleHandler::HandleShowSyncPassphraseDialog(
     return;
   }
 
-  ShowSyncPassphraseDialogAndDecryptData(
-      *browser->GetBrowserForMigrationOnly());
+  ShowSyncPassphraseDialogAndDecryptData(*browser);
 }
 
 void PeopleHandler::HandleShowAccountSettingsUI(const base::ListValue& args) {
@@ -1438,8 +1439,9 @@ base::DictValue PeopleHandler::GetChromeSigninUserChoiceInfo() {
       IdentityManagerFactory::GetForProfile(profile_);
   // Gets the Chrome signed in account or the first signed in account in the
   // cooke jar, refresh token should be available too.
-  AccountInfo account =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager);
+  AccountInfo account = signin_ui_util::GetSingleAccountForPromos(
+      identity_manager,
+      AccountPreviewDataServiceFactory::GetForProfile(profile_));
 
   bool should_show_settings = !account.IsEmpty();
 
@@ -1537,7 +1539,10 @@ void PeopleHandler::HandleRecordSigninOffered(const base::ListValue& args) {
 
   auto* identity_manager = IdentityManagerFactory::GetForProfile(profile_);
   signin_metrics::PromoAction promo_action =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager).IsEmpty()
+      signin_ui_util::GetSingleAccountForPromos(
+          identity_manager,
+          AccountPreviewDataServiceFactory::GetForProfile(profile_))
+              .IsEmpty()
           ? signin_metrics::PromoAction::
                 PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT
           : signin_metrics::PromoAction::PROMO_ACTION_WITH_DEFAULT;

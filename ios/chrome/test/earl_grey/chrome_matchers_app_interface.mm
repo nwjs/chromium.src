@@ -31,10 +31,10 @@
 #import "ios/chrome/browser/omnibox/ui/omnibox_text_view_ios.h"
 #import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
 #import "ios/chrome/browser/recent_tabs/public/recent_tabs_constants.h"
+#import "ios/chrome/browser/settings/autofill/payments/ui/autofill_add_credit_card_view_controller.h"
 #import "ios/chrome/browser/settings/clear_browsing_data/public/quick_delete_constants.h"
 #import "ios/chrome/browser/settings/google_services/public/google_services_settings_constants.h"
 #import "ios/chrome/browser/settings/manage_accounts/public/manage_accounts_table_view_controller_constants.h"
-#import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_credit_card_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_profile_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_settings_constants.h"
@@ -382,17 +382,16 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
   return imageMatcher;
 }
 
-+ (id<GREYMatcher>)imageViewWithCustomSymbolNamed:(NSString*)symbolName
-                                        pointSize:(CGFloat)pointSize {
-  UIImage* expectedImage =
-      CustomSymbolTemplateWithPointSize(symbolName, pointSize);
++ (id<GREYMatcher>)imageViewWithSymbol:(Symbol)symbol
+                             pointSize:(CGFloat)pointSize {
+  UIImage* expectedImage = SymbolTemplateWithPointSize(symbol, pointSize);
   GREYMatchesBlock matches = ^BOOL(UIImageView* imageView) {
     return ui::test::uiimage_utils::UIImagesAreEqual(expectedImage,
                                                      imageView.image);
   };
-  NSString* descriptionString = [NSString
-      stringWithFormat:@"Images matching custom symbol named %@ of size %f",
-                       symbolName, pointSize];
+  NSString* descriptionString =
+      [NSString stringWithFormat:@"Images matching symbol enum %d of size %f",
+                                 static_cast<int>(symbol), pointSize];
   GREYDescribeToBlock describe = ^(id<GREYDescription> description) {
     [description appendText:descriptionString];
   };

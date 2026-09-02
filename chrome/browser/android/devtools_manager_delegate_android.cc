@@ -16,7 +16,7 @@
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/devtools/chrome_devtools_session_android.h"
 #include "chrome/browser/devtools/devtools_availability_checker.h"
-#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/devtools/devtools_browser_context_manager.h"
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/grit/browser_resources.h"
@@ -25,7 +25,13 @@
 #include "content/public/browser/devtools_external_agent_proxy.h"
 #include "content/public/browser/devtools_external_agent_proxy_delegate.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/buildflags/buildflags.h"
 #include "ui/base/resource/resource_bundle.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "extensions/browser/view_type_utils.h"
+#include "extensions/common/mojom/view_type.mojom.h"
+#endif
 
 using content::DevToolsAgentHost;
 using content::WebContents;
@@ -214,9 +220,33 @@ DevToolsManagerDelegateAndroid::DevToolsManagerDelegateAndroid() = default;
 
 DevToolsManagerDelegateAndroid::~DevToolsManagerDelegateAndroid() = default;
 
+std::vector<base::WeakPtr<content::BrowserContext>>
+DevToolsManagerDelegateAndroid::GetBrowserContexts() {
+  return DevToolsBrowserContextManager::GetInstance().GetBrowserContexts();
+}
+
 content::BrowserContext*
 DevToolsManagerDelegateAndroid::GetDefaultBrowserContext() {
-  return ProfileManager::GetActiveUserProfile()->GetOriginalProfile();
+  return DevToolsBrowserContextManager::GetInstance()
+      .GetDefaultBrowserContext();
+}
+
+content::BrowserContext* DevToolsManagerDelegateAndroid::GetBrowserContext(
+    const std::string& context_id) {
+  return DevToolsBrowserContextManager::GetInstance().GetProfileById(
+      context_id);
+}
+
+content::BrowserContext*
+DevToolsManagerDelegateAndroid::CreateBrowserContext() {
+  return DevToolsBrowserContextManager::GetInstance().CreateBrowserContext();
+}
+
+void DevToolsManagerDelegateAndroid::DisposeBrowserContext(
+    content::BrowserContext* context,
+    DisposeCallback callback) {
+  DevToolsBrowserContextManager::GetInstance().DisposeBrowserContext(
+      context, std::move(callback));
 }
 
 bool DevToolsManagerDelegateAndroid::IsCreatedByDevTools(
@@ -233,10 +263,24 @@ void DevToolsManagerDelegateAndroid::MarkCreatedByDevTools(
 
 std::string DevToolsManagerDelegateAndroid::GetTargetType(
     content::WebContents* web_contents) {
-  TabAndroid* tab = web_contents ? TabAndroid::FromWebContents(web_contents)
-      : nullptr;
-  return tab ? DevToolsAgentHost::kTypePage :
-      DevToolsAgentHost::kTypeOther;
+  if (!web_contents) {
+    return DevToolsAgentHost::kTypeOther;
+  }
+  TabAndroid* tab = TabAndroid::FromWebContents(web_contents);
+  if (tab) {
+    return DevToolsAgentHost::kTypePage;
+  }
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  // Check if this is an extension context. These might still be "pages", even
+  // if they aren't tabs (and classifying them as "other" would result in
+  // falling back to inspect the extension service worker).
+  auto view_type = extensions::GetViewType(web_contents);
+  if (view_type == extensions::mojom::ViewType::kExtensionPopup ||
+      view_type == extensions::mojom::ViewType::kExtensionSidePanel) {
+    return DevToolsAgentHost::kTypePage;
+  }
+#endif
+  return DevToolsAgentHost::kTypeOther;
 }
 
 DevToolsAgentHost::List DevToolsManagerDelegateAndroid::RemoteDebuggingTargets(

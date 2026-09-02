@@ -24,6 +24,8 @@
 #include "contextual_search_context_controller.h"
 #include "contextual_search_types.h"
 #include "pref_names.h"
+#include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "third_party/lens_server_proto/modality_chip_props.pb.h"
 
 namespace contextual_search {
 
@@ -120,7 +122,8 @@ ContextualSearchSessionHandle::GetSuggestInputs() const {
 
   const auto& suggest_inputs =
       controller->CreateSuggestInputs(uploaded_context_tokens_);
-  if (suggest_inputs->has_encoded_request_id()) {
+  if (suggest_inputs->has_encoded_request_id() ||
+      suggest_inputs->has_encoded_contextual_inputs()) {
     return *suggest_inputs.get();
   }
 
@@ -484,6 +487,10 @@ void ContextualSearchSessionHandle::CreateSearchUrl(
     }
   }
 
+  if (!search_url_request_info->file_tokens.empty()) {
+    has_submitted_context_ = true;
+  }
+
   // Copy the tokens from this request to the list of all submitted tokens.
   submitted_context_tokens_.insert(submitted_context_tokens_.end(),
                                    search_url_request_info->file_tokens.begin(),
@@ -508,6 +515,71 @@ void ContextualSearchSessionHandle::set_smart_tab_sharing_active(
     std::optional<bool> active) {
   if (smart_tab_sharing_active_.value_or(false) != active.value_or(false)) {
     smart_tab_sharing_toggled_since_last_turn_ = true;
+
+    auto* context_controller = GetController();
+
+    auto add_removed_context = [&](const base::UnguessableToken& token) {
+      if (context_controller) {
+        if (const auto* file_info = context_controller->GetFileInfo(token)) {
+          if (file_info->request_id.has_value()) {
+            sts_toggled_removed_contexts_.push_back(file_info->request_id.value());
+          }
+          if (file_info->tab_session_id.has_value()) {
+            deselected_tabs_urls_[file_info->tab_session_id.value()] =
+                std::make_pair(file_info->tab_url.value_or(GURL()),
+                               file_info->tab_title.value_or(""));
+          }
+        }
+      }
+    };
+
+    // Collect request IDs and add to deselected_tabs_urls_ so GetTabsFromContext
+    // in ActiveTaskContextProviderImpl filters out submitted task attachments.
+    for (const auto& [session_id, token_and_req] : persisted_tabs_) {
+      sts_toggled_removed_contexts_.push_back(token_and_req.second);
+      if (context_controller) {
+        const auto* file_info =
+            context_controller->GetFileInfo(token_and_req.first);
+        if (file_info && file_info->tab_session_id.has_value()) {
+          deselected_tabs_urls_[file_info->tab_session_id.value()] =
+              std::make_pair(file_info->tab_url.value_or(GURL()),
+                             file_info->tab_title.value_or(""));
+        }
+      }
+    }
+
+    // Collect request IDs from uploaded context tokens.
+    for (const auto& token : uploaded_context_tokens_) {
+      add_removed_context(token);
+    }
+
+    // Collect request IDs from submitted context tokens.
+    for (const auto& token : submitted_context_tokens_) {
+      add_removed_context(token);
+    }
+
+    // Deduplicate collected request IDs.
+    std::vector<lens::LensOverlayRequestId> unique_reqs;
+    for (const auto& req : sts_toggled_removed_contexts_) {
+      std::string req_str = req.SerializeAsString();
+      bool found = false;
+      for (const auto& existing : unique_reqs) {
+        if (existing.SerializeAsString() == req_str) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        unique_reqs.push_back(req);
+      }
+    }
+    sts_toggled_removed_contexts_ = std::move(unique_reqs);
+
+    // Immediately clear submitted and uploaded context tokens and persisted
+    // tabs so tab strip underlines and context state clear instantly in the UI.
+    persisted_tabs_.clear();
+    submitted_context_tokens_.clear();
+    uploaded_context_tokens_.clear();
   }
   smart_tab_sharing_active_ = active;
 }
@@ -524,31 +596,9 @@ ContextualSearchSessionHandle::CreateClientToAimRequest(
 
   auto* tab_validator = GetTabValidator();
 
-  if (smart_tab_sharing_toggled_since_last_turn_) {
-    std::vector<lens::LensOverlayRequestId> expired_contexts;
-
-    // Collect request IDs from submitted tabs.
-    for (const auto& [session_id, token_and_req] : persisted_tabs_) {
-      expired_contexts.push_back(token_and_req.second);
-    }
-
-    // Collect request IDs from uploaded context tokens.
-    for (const auto& token : uploaded_context_tokens_) {
-      const auto* file_info = context_controller->GetFileInfo(token);
-      if (file_info && file_info->request_id.has_value()) {
-        expired_contexts.push_back(file_info->request_id.value());
-      }
-    }
-
-    // Collect request IDs from submitted context tokens.
-    for (const auto& token : submitted_context_tokens_) {
-      const auto* file_info = context_controller->GetFileInfo(token);
-      if (file_info && file_info->request_id.has_value()) {
-        expired_contexts.push_back(file_info->request_id.value());
-      }
-    }
-
-    for (const auto& req_id : expired_contexts) {
+  if (smart_tab_sharing_toggled_since_last_turn_ ||
+      !sts_toggled_removed_contexts_.empty()) {
+    for (const auto& req_id : sts_toggled_removed_contexts_) {
       bool already_present = false;
       std::string req_id_str = req_id.SerializeAsString();
       for (const auto& existing :
@@ -563,9 +613,7 @@ ContextualSearchSessionHandle::CreateClientToAimRequest(
       }
     }
 
-    persisted_tabs_.clear();
-    uploaded_context_tokens_.clear();
-    submitted_context_tokens_.clear();
+    sts_toggled_removed_contexts_.clear();
     smart_tab_sharing_toggled_since_last_turn_ = false;
   }
 
@@ -698,6 +746,10 @@ ContextualSearchSessionHandle::CreateClientToAimRequest(
   create_client_to_aim_request_info->file_tokens =
       std::move(file_tokens_set).extract();
 
+  if (!create_client_to_aim_request_info->file_tokens.empty()) {
+    has_submitted_context_ = true;
+  }
+
   // Copy the tokens from this request to the list of all submitted tokens.
   submitted_context_tokens_.insert(
       submitted_context_tokens_.end(),
@@ -752,6 +804,9 @@ void ContextualSearchSessionHandle::ClearSubmittedContextTokens() {
 
 void ContextualSearchSessionHandle::set_submitted_context_tokens(
     const std::vector<base::UnguessableToken>& tokens) {
+  if (!tokens.empty()) {
+    has_submitted_context_ = true;
+  }
   submitted_context_tokens_ = tokens;
 }
 

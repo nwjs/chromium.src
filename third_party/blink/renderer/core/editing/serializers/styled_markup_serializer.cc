@@ -238,12 +238,10 @@ String StyledMarkupSerializer<Strategy>::CreateMarkup() {
       DetermineParentTagAndUpdateLastClosed(first_node, past_end);
 
   // `UpdateViewportSize` ensures viewport_size_ is defined.
-  //  See comment on viewport_size_ in style_engine.h
-  //  without `UpdateViewportSize` call to `GetViewportsize()` while
-  //  resolving style causes crash  in other unit tests and resize scenarios
-  if (RuntimeEnabledFeatures::ResolveVarStylesOnCopyEnabled()) {
-    start_.GetDocument()->GetStyleEngine().UpdateViewportSize();
-  }
+  // See comment on viewport_size_ in style_engine.h
+  // without `UpdateViewportSize` call to `GetViewportsize()` while
+  // resolving style causes crash  in other unit tests and resize scenarios.
+  start_.GetDocument()->GetStyleEngine().UpdateViewportSize();
 
   StyledMarkupTraverser<Strategy> traverser(&markup_accumulator, last_closed_);
   Node* last_closed = traverser.Traverse(first_node, past_end);
@@ -276,7 +274,6 @@ String StyledMarkupSerializer<Strategy>::CreateMarkup() {
       // elements are currently not supported - absent in mathml_names.h
       auto* mathml_element = DynamicTo<MathMLElement>(ancestor);
       if (mathml_element &&
-          RuntimeEnabledFeatures::MathMLSkipMtrTagInAncestorWrappingEnabled() &&
           mathml_element->HasTagName(mathml_names::kMtrTag)) {
         if (ancestor == highest_node_to_be_serialized_) {
           break;
@@ -445,9 +442,7 @@ Node* StyledMarkupTraverser<Strategy>::Traverse(Node* start_node,
         continue;
       }
       bool should_skip_unselectable_node = false;
-      if (RuntimeEnabledFeatures::
-              SkipUnselectableContentInSerializationEnabled() &&
-          ShouldSkipUnselectableContent() && n->GetLayoutObject() &&
+      if (ShouldSkipUnselectableContent() && n->GetLayoutObject() &&
           !n->GetLayoutObject()->IsSelectable()) {
         should_skip_unselectable_node = !IsSelectableOrHasSelectableDescendants(
             *n, has_selectable_descendants);

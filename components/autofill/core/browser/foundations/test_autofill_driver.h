@@ -109,6 +109,7 @@ class TestAutofillDriverTemplate : public T {
   void TriggerFormExtractionInAllFrames(
       base::OnceCallback<void(bool)> form_extraction_finished_callback)
       override {}
+  void ClearFormCacheInAllFrames() override {}
   void ExtractFormWithField(
       FieldGlobalId field_id,
       AutofillDriver::BrowserFormHandler response_handler) override {}
@@ -125,9 +126,12 @@ class TestAutofillDriverTemplate : public T {
       uint32_t number_of_ancestor_levels_to_search,
       base::OnceCallback<void(const std::string& amount)> response_callback)
       override {}
+  void GetNonceForEmailVerification(
+      FieldGlobalId email_field_id,
+      base::OnceCallback<void(const std::optional<std::string>&)> callback)
+      override {}
   void SendEmailVerificationToken(FieldGlobalId email_field_id,
                                   const std::string& email,
-                                  FieldGlobalId token_field_id,
                                   const std::string& token) override {}
   void UpdateEmailVerificationState(
       const FieldGlobalId& email_field_id,
@@ -149,8 +153,8 @@ class TestAutofillDriverTemplate : public T {
       const FillId& fill_id,
       bool supports_refill,
       const url::Origin& triggered_origin,
-      const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map,
-      const Section& section_for_clear_form_on_ios) override {
+      const absl::flat_hash_map<FieldGlobalId, FieldType>& field_type_map)
+      override {
     return base::ToVector(fields, &FormFieldData::global_id);
   }
 
@@ -223,6 +227,10 @@ class TestAutofillDriver : public TestAutofillDriverTemplate<AutofillDriver> {
   AutofillManager& GetAutofillManager() override;
   ukm::SourceId GetPageUkmSourceId() const override;
   ukm::SourceId GetPageUkmSourceId();
+  void TriggerFormExtractionInAllFrames(
+      base::OnceCallback<void(bool)> form_extraction_finished_callback)
+      override;
+  void ClearFormCacheInAllFrames() override;
 
   void set_autofill_manager(std::unique_ptr<AutofillManager> autofill_manager) {
     autofill_manager_ = std::move(autofill_manager);

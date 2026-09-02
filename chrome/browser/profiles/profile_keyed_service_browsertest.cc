@@ -31,6 +31,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/supervised_user/core/common/features.h"
+#include "components/universal_optout/features.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_utils.h"
@@ -209,7 +210,6 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
           omnibox::kOnDeviceHeadProviderNonIncognito,
           switches::kSyncEnableBookmarksInTransportMode,
           contextual_tasks::kContextualTasks,
-          supervised_user::kSupervisedUserUseUrlFilteringService,
         },
         {});
     // clang-format on
@@ -420,13 +420,11 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
                        GuestProfileOTR_NeededServices) {
   // clang-format off
   std::set<std::string> guest_otr_active_services {
-    "AimEligibilityExtensionBridge",
     "AlarmManager",
     "AXMainNodeAnnotatorController",
     "AutocompleteActionPredictor",
     "AutocompleteClassifier",
     "AutocompleteControllerEmitter",
-    "AutocompleteHistoryManager",
     "BackgroundContentsService",
     "BackgroundSyncService",
 #if BUILDFLAG(IS_CHROMEOS)
@@ -600,6 +598,25 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
       SearchEnginePreconnector::ShouldBeEnabledForOffTheRecord()) {
     guest_otr_active_services.insert("SearchEnginePreconnector");
   }
+  if (base::FeatureList::IsEnabled(
+          omnibox::kAimEligibilityComponentExtension)) {
+    guest_otr_active_services.insert("AimEligibilityExtensionBridge");
+    guest_otr_active_services.insert("ExtensionMojoBinderRegistry");
+  }
+  if (base::FeatureList::IsEnabled(
+          universal_optout::features::kUniversalOptOut)) {
+    guest_otr_active_services.insert("UniversalOptOutService");
+  }
+
+  // On ChromeOS, Guest session startup navigates to chrome://newtab (a WebUI)
+  // by default, whereas Desktop CreateGuestBrowser() navigates to about:blank.
+  // Loading a WebUI initializes the embedded WebUI toolbar
+  // (WebUIToolbarWebView), which opts into V2 resource loading and
+  // instantiates ThemeColorsSourceManager for the Guest OTR profile.
+  if (base::FeatureList::IsEnabled(
+          features::kWebUIInProcessResourceLoadingV2)) {
+    guest_otr_active_services.insert("ThemeColorsSourceManager");
+  }
 
 #if BUILDFLAG(IS_CHROMEOS)
   EXPECT_TRUE(user_manager::UserManager::Get()->IsLoggedInAsGuest());
@@ -628,7 +645,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "ActivityLogPrivateAPI",
     "AdvancedProtectionStatusManager",
     "AiModeButtonService",
-    "AimEligibilityExtensionBridge",
     "AimEligibilityService",
     "AlarmManager",
     "AnnouncementNotificationService",
@@ -650,6 +666,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
     "AppWindowRegistry",
     "AudioAPI",
     "AutocompleteActionPredictor",
+    "AutocompleteHistoryManager",
     "AutocompleteScoringModelService",
     "AutofillClientProvider",
     "AutofillImageFetcher",
@@ -894,7 +911,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 #endif
     "StorageFrontend",
     "StorageNotificationService",
-    "SupervisedUserService",
     "SystemInfoAPI",
     "TCPServerSocketEventDispatcher",
     "TCPSocketEventDispatcher",
@@ -998,6 +1014,11 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceGuestBrowserTest,
 
   if (SearchEnginePreconnector::ShouldBeEnabledAsKeyedService()) {
     guest_active_services.insert("SearchEnginePreconnector");
+  }
+  if (base::FeatureList::IsEnabled(
+          omnibox::kAimEligibilityComponentExtension)) {
+    guest_active_services.insert("AimEligibilityExtensionBridge");
+    guest_active_services.insert("ExtensionMojoBinderRegistry");
   }
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   if (base::FeatureList::IsEnabled(

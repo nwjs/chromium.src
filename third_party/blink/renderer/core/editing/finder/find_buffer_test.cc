@@ -31,14 +31,14 @@ class FindBufferTest : public EditingTestBase {
                                     LastPositionInDocument());
   }
 
-  PositionInFlatTree PositionFromParentId(const char* id, unsigned offset) {
+  PositionInFlatTree PositionFromParentId(const char* id, wtf_size_t offset) {
     return PositionInFlatTree(GetElementById(id)->firstChild(), offset);
   }
 
   EphemeralRangeInFlatTree CreateRange(const Node& start_node,
-                                       int start_offset,
+                                       wtf_size_t start_offset,
                                        const Node& end_node,
-                                       int end_offset) {
+                                       wtf_size_t end_offset) {
     return EphemeralRangeInFlatTree(
         PositionInFlatTree(start_node, start_offset),
         PositionInFlatTree(end_node, end_offset));
@@ -49,8 +49,8 @@ class FindBufferTest : public EditingTestBase {
         SelectionInFlatTree::Builder().SetAsForwardSelection(range).Build());
   }
 
-  static unsigned CaseInsensitiveMatchCount(FindBuffer& buffer,
-                                            const String& query) {
+  static wtf_size_t CaseInsensitiveMatchCount(FindBuffer& buffer,
+                                              const String& query) {
     return buffer.FindMatches(query, kCaseInsensitive).CountForTesting();
   }
 
@@ -1172,6 +1172,29 @@ TEST_F(FindBufferTest, IsInSameUninterruptedBlockNoCrash) {
   EXPECT_EQ(1u, CaseInsensitiveMatchCount(buffer, u"ABC"));
   // The test confirms GetInlineFormattingContext() doesn't crash.
   // The match count result isn't important.
+}
+
+TEST_F(FindBufferTest, MatchAcrossIgnoredNode) {
+  SetBodyContent("<div id='container'>hello<img>world</div>");
+  FindOptions options = FindOptions().SetMatchAcrossIgnoredNodes(true);
+  FindBuffer buffer(WholeDocumentRange(), RubySupport::kDisabled, options);
+  EXPECT_EQ("helloworld", buffer.BuffersForTesting()[0].Utf8());
+  FindResults results = buffer.FindMatches("helloworld", options);
+  ASSERT_EQ(1u, results.CountForTesting());
+  MatchResultIcu match = *results.begin();
+  EXPECT_EQ(
+      EphemeralRangeInFlatTree(
+          PositionFromParentId("container", 0),
+          PositionInFlatTree(*GetElementById("container")->lastChild(), 5)),
+      buffer.RangeFromBufferIndex(match.start, match.start + match.length));
+}
+
+TEST_F(FindBufferTest, BreakNotOmittedByMatchAcrossIgnoredNodes) {
+  SetBodyContent("<div>hello<br>world</div>");
+  FindOptions options = FindOptions().SetMatchAcrossIgnoredNodes(true);
+  FindBuffer buffer(WholeDocumentRange(), RubySupport::kDisabled, options);
+  EXPECT_EQ(0u, buffer.FindMatches("helloworld", options).CountForTesting());
+  EXPECT_EQ(1u, buffer.FindMatches("hello\nworld", options).CountForTesting());
 }
 
 }  // namespace blink

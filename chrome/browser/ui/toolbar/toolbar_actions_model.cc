@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/functional/bind.h"
+#include "base/json/values_util.h"
 #include "base/location.h"
 #include "base/metrics/histogram_base.h"
 #include "base/metrics/histogram_functions.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/extensions/managed_toolbar_pin_mode.h"
 #include "chrome/browser/extensions/profile_util.h"
+#include "chrome/browser/extensions/sync/extension_sync_service.h"
 #include "chrome/browser/extensions/tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
@@ -32,19 +34,34 @@
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_action_manager.h"
+#include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/extension_util.h"
+#include "extensions/browser/management_policy.h"
 #include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/pref_names.h"
 #include "extensions/browser/uninstall_reason.h"
 #include "extensions/browser/unloaded_extension_reason.h"
 #include "extensions/common/extension_set.h"
+#include "extensions/common/manifest.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/permissions/permissions_data.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #endif
+
+namespace {
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class DefaultPinnedExtensionState {
+  kPinned = 0,
+  kUnpinned = 1,
+  kMaxValue = kUnpinned,
+};
+
+}  // namespace
 
 ToolbarActionsModel::ToolbarActionsModel(
     Profile* profile,
@@ -108,43 +125,69 @@ void ToolbarActionsModel::OnExtensionInstalled(
     return;
   }
 
-  // We can only pin extensions that have a toolbar action.
-  if (!ShouldAddExtension(extension)) {
-    base::UmaHistogramEnumeration("Extensions.Install.PinReason",
-                                  ExtensionPinReason::kNotPinnedNoAction);
-    return;
-  }
+  bool should_add_extension = ShouldAddExtension(extension);
 
   auto* extension_management =
       extensions::ExtensionManagementFactory::GetForBrowserContext(profile_);
   extensions::ManagedToolbarPinMode pin_mode =
       extension_management->GetToolbarPinMode(extension->id());
+  extensions::ManagementPolicy* policy =
+      extensions::ExtensionSystem::Get(profile_)->management_policy();
+  const bool is_enterprise_extension =
+      policy && (!policy->UserMayModifySettings(extension, nullptr) ||
+                 policy->MustRemainInstalled(extension, nullptr));
 
-  ExtensionPinReason pin_reason;
-  if (pin_mode != extensions::ManagedToolbarPinMode::kNotSet) {
-    pin_reason = ExtensionPinReason::kOverriddenByPolicy;
-  } else if (!base::FeatureList::IsEnabled(
-                 features::kExtensionsPinnedByDefault)) {
-    pin_reason = ExtensionPinReason::kNotPinnedFeatureDisabled;
-  } else if (!profile_->GetPrefs()->GetBoolean(
-                 prefs::kExtensionsPinnedByDefault)) {
-    pin_reason = ExtensionPinReason::kNotPinnedToggleOff;
-  } else {
-    pin_reason = ExtensionPinReason::kPinnedByDefault;
-  }
-  base::UmaHistogramEnumeration("Extensions.Install.PinReason", pin_reason);
-  // Pin the extension if the policy enforces default pinning, OR if no policy
-  // is set and the feature flag for pinning new extensions by default is
-  // enabled.
+  auto* sync_service = ExtensionSyncService::Get(profile_);
+  const bool is_installed_from_sync =
+      sync_service && sync_service->IsPendingSyncInstall(extension->id());
+
+  bool is_feature_enabled =
+      base::FeatureList::IsEnabled(features::kExtensionsPinnedByDefault);
+  bool is_toggle_on =
+      profile_->GetPrefs()->GetBoolean(prefs::kExtensionsPinnedByDefault);
+  // Pin the extension if policy enforces default pinning, OR if no policy is
+  // set and default pinning is enabled by feature flag and user preference
+  // (excluding enterprise extensions and extensions installed from sync).
   const bool is_pinned_by_policy =
       pin_mode == extensions::ManagedToolbarPinMode::kDefaultPinned;
   const bool is_pinned_by_feature =
       pin_mode == extensions::ManagedToolbarPinMode::kNotSet &&
-      base::FeatureList::IsEnabled(features::kExtensionsPinnedByDefault) &&
-      profile_->GetPrefs()->GetBoolean(prefs::kExtensionsPinnedByDefault);
+      !is_enterprise_extension && !is_installed_from_sync &&
+      is_feature_enabled && is_toggle_on;
 
-  if (is_pinned_by_policy || is_pinned_by_feature) {
-    SetActionVisibility(extension->id(), true);
+  // We can only pin extensions that have a toolbar action.
+  if (should_add_extension) {
+    if (is_pinned_by_policy || is_pinned_by_feature) {
+      SetActionVisibility(extension->id(), true);
+    }
+  }
+
+  // Record the pin reason for the first time an extension is installed (not on
+  // updates). Don't record for component extensions which are built-in system
+  // extensions.
+  if (!extensions::Manifest::IsComponentLocation(extension->location())) {
+    ExtensionPinReason pin_reason;
+    if (!should_add_extension) {
+      pin_reason = ExtensionPinReason::kNotPinnedNoAction;
+    } else if (pin_mode != extensions::ManagedToolbarPinMode::kNotSet) {
+      pin_reason = ExtensionPinReason::kOverriddenByPolicy;
+    } else if (is_enterprise_extension) {
+      pin_reason = ExtensionPinReason::kNotPinnedEnterpriseExtension;
+    } else if (is_installed_from_sync) {
+      pin_reason = ExtensionPinReason::kNotPinnedInstalledFromSync;
+    } else if (!is_feature_enabled) {
+      pin_reason = ExtensionPinReason::kNotPinnedFeatureDisabled;
+    } else if (!is_toggle_on) {
+      pin_reason = ExtensionPinReason::kNotPinnedToggleOff;
+    } else {
+      pin_reason = ExtensionPinReason::kPinnedByDefault;
+    }
+    base::UmaHistogramEnumeration("Extensions.Install.PinReason", pin_reason);
+
+    extension_prefs_->UpdateExtensionPref(
+        extension->id(),
+        extensions::pref_names::kPrefInstallTimeForActionMetric,
+        base::TimeToValue(base::Time::Now()));
   }
 
   if (pin_mode == extensions::ManagedToolbarPinMode::kNotSet) {
@@ -549,6 +592,12 @@ void ToolbarActionsModel::MovePinnedAction(const ActionId& action_id,
   DCHECK(pinned_action_ids_ == GetFilteredPinnedActionIds());
 }
 
+void ToolbarActionsModel::ReinitializeForTesting() {
+  action_ids_.clear();
+  pinned_action_ids_.clear();
+  InitializeActionList();
+}
+
 // Combine the currently enabled extensions that have browser actions (which
 // we get from the ExtensionRegistry) with the ordering we get from the pref
 // service. For robustness we use a somewhat inefficient process:
@@ -590,6 +639,20 @@ void ToolbarActionsModel::InitializeActionList() {
       base::UmaHistogramPercentageObsoleteDoNotUse(
           "Extensions.Toolbar.PinnedExtensionPercentage3",
           base::ClampRound(percentage_double));
+    }
+
+    if (!base::FeatureList::IsEnabled(features::kExtensionsPinnedByDefault)) {
+      return;
+    }
+    for (const auto& action_id : action_ids_) {
+      if (extension_prefs_->WasPinnedByDefault(action_id) != true) {
+        continue;
+      }
+      bool is_pinned = IsActionPinned(action_id);
+      base::UmaHistogramEnumeration(
+          "Extensions.Startup.DefaultPinnedExtensionState",
+          is_pinned ? DefaultPinnedExtensionState::kPinned
+                    : DefaultPinnedExtensionState::kUnpinned);
     }
   }
 }

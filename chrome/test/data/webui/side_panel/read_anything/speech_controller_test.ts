@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 import {BrowserProxy, ContentPositionSource, MAX_SPEECH_LENGTH, NodeStore, ReadAloudHighlighter, ReadAloudNode, SelectionController, setInstance, SpeechBrowserProxyImpl, SpeechController, VoiceLanguageController, WordBoundaries} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
-import type {Segment} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import type {Segment, SpeechListener} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {assertEquals, assertFalse, assertGE, assertGT, assertNotEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 
 import {createSpeechErrorEvent, createSpeechSynthesisVoice, createWordBoundaryEvent, mockMetrics, setContent} from './common.js';
@@ -854,6 +854,44 @@ suite('SpeechController', () => {
     assertEquals(0, metrics.getCallCount('recordVoiceLanguageChange'));
   });
 
+  test('new utterance starts before old interruption error', async () => {
+    const text = 'I\'m kind of freaking out and not in the best way. ' +
+        'More like a heart beating out my chest cause I\'m stressed way.';
+    const element = document.createElement('div');
+    element.textContent = text;
+    setContent(text, readAloudModel);
+    speechController.onPlayPauseToggle(element);
+
+    // Get the first utterance.
+    const utterance1 = await speech.whenCalled('speak');
+    speech.reset();
+
+    // Simulate start of first utterance.
+    utterance1.onstart(
+        new SpeechSynthesisEvent('start', {utterance: utterance1}));
+    assertTrue(speechController.isSpeechActive());
+
+    // Trigger next granularity. This should cancel utterance1 and speak
+    // utterance2.
+    speechController.onNextGranularityClick();
+    assertEquals(1, speech.getCallCount('cancel'));
+
+    // Fire onstart for utterance2 BEFORE onerror for
+    // utterance1. This simulates a possible race condition possible in
+    // production.
+    const utterance2 = await speech.whenCalled('speak');
+    utterance2.onstart(
+        new SpeechSynthesisEvent('start', {utterance: utterance2}));
+    assertFalse(speechController.isSpeechBeingRepositioned());
+
+    // Fire interrupted error for utterance1.
+    utterance1.onerror(createSpeechErrorEvent(utterance1, 'interrupted'));
+
+    // Verify speech is still active.
+    assertTrue(speechController.isSpeechActive());
+    assertTrue(speechController.isAudioCurrentlyPlaying());
+  });
+
   test('playFromContentPosition logs selection metric', async () => {
     const text = 'This is a selection.';
     setContent(text, readAloudModel);
@@ -989,6 +1027,94 @@ suite('SpeechController', () => {
   });
 
   test(
+      'playFromContentPosition after line focus change when paused reads from new position',
+      async () => {
+        chrome.readingMode.isLineFocusEnabled = true;
+        const text1 = 'First line. ';
+        const text2 = 'Second line after scroll. ';
+        const text3 = 'Third line.';
+        const node1 = document.createTextNode(text1);
+        const node2 = document.createTextNode(text2);
+        const node3 = document.createTextNode(text3);
+        nodeStore.setDomNode(node1, 1);
+        nodeStore.setDomNode(node2, 2);
+        nodeStore.setDomNode(node3, 3);
+
+        const segment1 = {
+          node: ReadAloudNode.create(node1)!,
+          start: 0,
+          length: text1.length,
+        };
+        const segment2 = {
+          node: ReadAloudNode.create(node2)!,
+          start: 0,
+          length: text2.length,
+        };
+        const segment3 = {
+          node: ReadAloudNode.create(node3)!,
+          start: 0,
+          length: text3.length,
+        };
+
+        const allSegments = [[segment1], [segment2], [segment3]];
+        const allContent = [text1, text2, text3];
+        let currentSegmentIndex = 0;
+
+        readAloudModel.resetSpeechToBeginning = () => {
+          readAloudModel.methodCalled('resetSpeechToBeginning');
+          currentSegmentIndex = 0;
+          readAloudModel.setCurrentTextSegments(
+              allSegments[currentSegmentIndex]!);
+          readAloudModel.setCurrentTextContent(
+              allContent[currentSegmentIndex]!);
+        };
+
+        readAloudModel.moveSpeechForward = () => {
+          readAloudModel.methodCalled('moveSpeechForward');
+          if (currentSegmentIndex < allSegments.length - 1) {
+            currentSegmentIndex++;
+            readAloudModel.setCurrentTextSegments(
+                allSegments[currentSegmentIndex]!);
+            readAloudModel.setCurrentTextContent(
+                allContent[currentSegmentIndex]!);
+          }
+        };
+
+        readAloudModel.setCurrentTextSegments(
+            allSegments[currentSegmentIndex]!);
+        readAloudModel.setCurrentTextContent(allContent[currentSegmentIndex]!);
+
+        const element = document.createElement('p');
+        element.appendChild(node1);
+        element.appendChild(node2);
+        element.appendChild(node3);
+        document.body.appendChild(element);
+
+        speechController.setHasSpeechBeenTriggered(true);
+
+        const range = document.createRange();
+        range.selectNode(node2);
+        const rect = range.getClientRects().item(0);
+        assertTrue(!!rect);
+        const position = document.caretPositionFromPoint(rect.left, rect.top);
+
+        let nextGranularityCalls = 0;
+        highlighter.onWillMoveToNextGranularity = () => {
+          nextGranularityCalls++;
+        };
+
+        speechController.onLineFocusChange(position);
+        speechController.onPlayPauseToggle(element);
+        await speech.whenCalled('speak');
+
+        // We expect it to have called moveSpeechForward to reach node2
+        assertEquals(1, readAloudModel.getCallCount('moveSpeechForward'));
+        // We verify that it bypassed adding previous highlights for performance
+        assertEquals(0, nextGranularityCalls);
+        assertTrue(onPlayingFromPosition);
+      });
+
+  test(
       'playFromContentPosition with invalid node plays from next node',
       async () => {
         const text = 'This text does not have the target node.';
@@ -1045,4 +1171,40 @@ suite('SpeechController', () => {
 
     assertFalse(onPlayingFromPosition);
   });
+
+  test(
+      'highlightAndPlayMessage highlights before notifying word boundary when line focus is enabled',
+      async () => {
+        chrome.readingMode.isLineFocusEnabled = true;
+        const text = 'Testing highlight order with line focus.';
+        setContent(text, readAloudModel);
+        const element = document.createElement('p');
+        element.textContent = text;
+
+        const events: string[] = [];
+        const highlighter = ReadAloudHighlighter.getInstance();
+        const originalHighlight = highlighter.highlightCurrentGranularity;
+        highlighter.highlightCurrentGranularity = (...args) => {
+          events.push('highlight');
+          originalHighlight.apply(highlighter, args);
+        };
+
+        const testListener: SpeechListener = {
+          onWordBoundary: () => events.push('word_boundary'),
+          onIsSpeechActiveChange: () => {},
+          onIsAudioCurrentlyPlayingChange: () => {},
+          onEngineStateChange: () => {},
+          onPreviewVoicePlaying: () => {},
+          onPlayingFromSelection: () => {},
+        };
+        speechController.addListener(testListener);
+
+        speechController.onPlayPauseToggle(element);
+        await speech.whenCalled('speak');
+
+        assertEquals('highlight', events[0]);
+        assertEquals('word_boundary', events[1]);
+
+        highlighter.highlightCurrentGranularity = originalHighlight;
+      });
 });

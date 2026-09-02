@@ -5,17 +5,32 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_GPU_WEBGPU_SHARED_IMAGE_WRAPPER_CACHE_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_GPU_WEBGPU_SHARED_IMAGE_WRAPPER_CACHE_H_
 
+#include "base/functional/function_ref.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread_checker.h"
 #include "components/viz/common/resources/shared_image_format.h"
+#include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/webgpu_interface.h"
 #include "gpu/command_buffer/common/sync_token.h"
+#include "third_party/blink/renderer/platform/instrumentation/canvas_memory_dump_provider.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/gfx/color_space.h"
 #include "ui/gfx/geometry/size.h"
-#include "ui/gfx/hdr_metadata.h"
+
+class SkPixmap;
+
+namespace cc {
+class PaintCanvas;
+}  // namespace cc
+
+namespace gpu {
+namespace raster {
+class RasterInterface;
+}  // namespace raster
+}  // namespace gpu
 
 namespace blink {
 
@@ -23,7 +38,8 @@ class WebGpuSharedImageWrapper;
 class WebGpuSharedImageWrapperCache;
 class WebGraphicsContext3DProviderWrapper;
 
-class PLATFORM_EXPORT WebGpuSharedImageWrapperLease {
+class PLATFORM_EXPORT WebGpuSharedImageWrapperLease final
+    : public CanvasMemoryDumpClient {
  public:
   WebGpuSharedImageWrapperLease(
       std::unique_ptr<WebGpuSharedImageWrapper> shared_image_wrapper,
@@ -35,28 +51,68 @@ class PLATFORM_EXPORT WebGpuSharedImageWrapperLease {
     return shared_image_wrapper_.get();
   }
 
+  scoped_refptr<gpu::ClientSharedImage> GetSharedImage() const;
+  gpu::SyncToken GetSyncToken() const;
+
+  bool UploadToBackingSharedImage(const SkPixmap& pixmap,
+                                  uint32_t src_x,
+                                  uint32_t src_y);
+
+  void DrawToBackingSharedImage(
+      base::FunctionRef<void(cc::PaintCanvas&)> draw_callback);
+
+  const gpu::SyncToken& acquire_sync_token() const;
+  void set_release_sync_token(const gpu::SyncToken& token);
+
+  // Invokes `overwrite_callback` with the ClientSharedImage backing this
+  // instance and a SyncToken that should be waited on before writing to the
+  // contents. When the callback finishes, it should return the SyncToken
+  // that should be waited on to ensure that the service-side operations of the
+  // overwrite have completed.
+  void WriteToBackingSharedImage(
+      base::FunctionRef<
+          gpu::SyncToken(const scoped_refptr<gpu::ClientSharedImage>&,
+                         const gpu::SyncToken&)> overwrite_callback);
+
+  bool CopyToBackingSharedImage(
+      const scoped_refptr<gpu::ClientSharedImage>& shared_image,
+      uint32_t src_x,
+      uint32_t src_y,
+      const gpu::SyncToken& ready_sync_token,
+      gpu::SyncToken& completion_sync_token);
+
   void SetCompletionSyncToken(const gpu::SyncToken& completion_sync_token) {
     completion_sync_token_ = completion_sync_token;
   }
 
+  // CanvasMemoryDumpClient implementation.
+  void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd) override;
+  size_t GetSize() const override;
+
  private:
+  gpu::raster::RasterInterface* RasterInterface() const;
+  bool IsGpuContextLost() const;
   std::unique_ptr<WebGpuSharedImageWrapper> shared_image_wrapper_;
   base::WeakPtr<WebGpuSharedImageWrapperCache> cache_;
   gpu::SyncToken completion_sync_token_;
 };
 
-class PLATFORM_EXPORT WebGpuSharedImageWrapperCache {
+class PLATFORM_EXPORT WebGpuSharedImageWrapperCache final
+    : public CanvasMemoryDumpClient {
  public:
   explicit WebGpuSharedImageWrapperCache(
       base::WeakPtr<WebGraphicsContext3DProviderWrapper> context_provider,
       scoped_refptr<base::SingleThreadTaskRunner> task_runner);
-  ~WebGpuSharedImageWrapperCache() = default;
+  ~WebGpuSharedImageWrapperCache();
+
+  // CanvasMemoryDumpClient implementation.
+  void OnMemoryDump(base::trace_event::ProcessMemoryDump* pmd) override;
+  size_t GetSize() const override;
 
   std::unique_ptr<WebGpuSharedImageWrapperLease> LeaseWebGpuSharedImageWrapper(
       viz::SharedImageFormat format,
       gfx::Size size,
       const gfx::ColorSpace& color_space,
-      const gfx::HDRMetadata& hdr_metadata,
       SkAlphaType alpha_type);
 
   // When the lease is destroyed, move the shared image wrapper to

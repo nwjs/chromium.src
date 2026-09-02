@@ -7,8 +7,10 @@
 
 #include "base/functional/callback.h"
 #include "base/supports_user_data.h"
+#include "base/time/time.h"
 #include "content/public/browser/render_frame_host.h"
 #include "net/base/schemeful_site.h"
+#include "third_party/blink/public/mojom/webid/email_verification_request.mojom-shared.h"
 
 namespace content::webid {
 
@@ -41,8 +43,13 @@ class EmailVerifier : public base::SupportsUserData::Data {
     bool operator==(const Result& other) const = default;
   };
 
-  using OnEmailVerifiedCallback =
-      base::OnceCallback<void(std::optional<std::string> token)>;
+  // Callback invoked upon completion of `Verify()`.
+  // `verify_duration` measures the elapsed time from when `Verify()` was
+  // initiated until token generation and verification completed or failed.
+  using OnEmailVerifiedCallback = base::OnceCallback<void(
+      std::optional<std::string> token,
+      blink::mojom::EmailVerificationRequestResult status,
+      base::TimeDelta verify_duration)>;
 
   ~EmailVerifier() override = default;
 
@@ -56,9 +63,17 @@ class EmailVerifier : public base::SupportsUserData::Data {
   // Embedders MUST call this before showing a permission prompt to ensure
   // the browser only requests permission for flows it is confident it can
   // fulfill.
-  using IsVerifiableCallback =
-      base::OnceCallback<void(std::optional<Result> result)>;
+  // `on_dns_resolved_callback` is invoked immediately after DNS TXT record
+  // lookup confirms the domain supports EVP, before well-known and account
+  // metadata fetches begin.
+  // `is_verifiable_duration` measures the elapsed time from when
+  // `CheckIfVerifiable()` was initiated until discovery completed or failed.
+  using IsVerifiableCallback = base::OnceCallback<void(
+      std::optional<Result> result,
+      blink::mojom::EmailVerificationRequestResult status,
+      base::TimeDelta is_verifiable_duration)>;
   virtual void CheckIfVerifiable(const std::string& email,
+                                 base::OnceClosure on_dns_resolved_callback,
                                  IsVerifiableCallback callback) = 0;
 
   // Phase 2: Post-Prompt Execution

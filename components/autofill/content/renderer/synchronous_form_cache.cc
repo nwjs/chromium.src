@@ -29,6 +29,8 @@ SynchronousFormCache::SynchronousFormCache(
 SynchronousFormCache::SynchronousFormCache(
     const std::map<FormRendererId, std::unique_ptr<FormData>>& forms) {
   for (const auto& [id, form] : forms) {
+    // A nullptr in the original form cache indicates that the forms need to be
+    // reextracted.
     Insert(id, form.get());
   }
 }
@@ -41,23 +43,17 @@ std::optional<FormData> SynchronousFormCache::GetOrExtractForm(
     const FieldDataManager& field_data_manager,
     const CallTimerState& timer_state,
     form_util::ButtonTitlesCache* button_titles_cache) const {
-  if (!cache_.empty()) {
-    if (const base::optional_ref<const FormData>* cached_form =
-            base::FindOrNull(cache_,
-                             form_util::GetFormRendererId(form_element))) {
-      // Even if the cache returns a null form, we do not try to extract
-      // because this means extraction happened synchronously before and
-      // failed, meaning that it would fail again if we do it now.
-      return cached_form->CopyAsOptional();
-    }
-    // This codepath should not be reached, as it would mean that we populated
-    // the cache with wrong forms before passing it around methods. We do not
-    // crash the renderer because this wouldn't break anything since we can
-    // always re-extract.
-    base::debug::DumpWithoutCrashing(FROM_HERE);
-  }
-  return form_util::ExtractFormData(document, form_element, field_data_manager,
-                                    timer_state, button_titles_cache);
+  const base::optional_ref<const FormData>* cache_entry =
+      base::FindOrNull(cache_, form_util::GetFormRendererId(form_element));
+
+  // If `cache_entry` is non-null, the value of the `cache_entry` may be a null
+  // reference, in case the previous extraction failed. In this case, the form
+  // is not extracted again, because it would fail again.
+  // TODO(crbug.com/40947729): Try caching forms that were not found.
+  return cache_entry ? cache_entry->CopyAsOptional()
+                     : form_util::ExtractFormData(
+                           document, form_element, field_data_manager,
+                           timer_state, button_titles_cache);
 }
 
 void SynchronousFormCache::Insert(FormRendererId form_id,

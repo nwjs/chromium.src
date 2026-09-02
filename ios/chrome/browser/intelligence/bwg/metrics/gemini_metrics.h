@@ -319,6 +319,12 @@ extern const char kPromptTabsAttachedCountHistogram[];
 // UMA histogram key for IOS.Gemini.Prompt.MultiTabUsed.
 extern const char kPromptMultiTabUsedHistogram[];
 
+// UMA histogram key for IOS.Gemini.BlockQuerySubmissionWhileLoading.
+extern const char kBlockQuerySubmissionWhileLoadingHistogram[];
+
+// UMA histogram key for IOS.Gemini.ShowPageLoadingSnackbarOnOpeningInvocation.
+extern const char kShowPageLoadingSnackbarOnOpeningInvocationHistogram[];
+
 // UMA histogram key for IOS.Gemini.Response.GeneratedImage.Included.
 extern const char kResponseGeneratedImageIncluded[];
 
@@ -565,6 +571,30 @@ void RecordGeminiTabPickerOpened();
 // Records that the Tab Picker was dismissed.
 void RecordGeminiTabPickerDismissed();
 
+// Records that the tab attachment limit error snackbar was shown in the Tab
+// Picker.
+void RecordGeminiTabPickerErrorAttachmentLimit();
+
+// Records that the cannot reload tab error snackbar was shown in the Tab
+// Picker.
+void RecordGeminiTabPickerErrorCannotReloadTab();
+
+// Records that the cannot attach tab error snackbar was shown in the Tab
+// Picker.
+void RecordGeminiTabPickerErrorCannotAttachTab();
+
+// Records that a shared (non-active) tab was detached from a Floaty chip in the
+// Gemini session.
+void RecordGeminiTabDetached();
+
+// Records that the active tab was attached from a Floaty chip in the Gemini
+// session.
+void RecordGeminiActiveTabAttached();
+
+// Records that the active tab was detached from a Floaty chip in the Gemini
+// session.
+void RecordGeminiActiveTabDetached();
+
 // Records the latency from prompt submission to response received, including
 // metadata about the prompt & response.
 void RecordResponseLatency(base::TimeDelta latency,
@@ -707,5 +737,12 @@ void RecordGeminiLiveTurnCount(int turn_count);
 // Records the accumulated duration of Gemini Live mode segments within
 // a single Gemini interaction.
 void RecordGeminiLiveAccumulatedDuration(base::TimeDelta duration);
+
+// Records whether query submission is blocked while page context is loading.
+void RecordBlockQuerySubmissionWhileLoading(bool block_submission);
+
+// Records whether to display the page loading snackbar on the opening
+// invocation while page context is loading.
+void RecordShowPageLoadingSnackbarOnOpeningInvocation(bool show_snackbar);
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_METRICS_GEMINI_METRICS_H_

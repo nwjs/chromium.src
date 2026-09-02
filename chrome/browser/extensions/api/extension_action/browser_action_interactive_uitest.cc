@@ -31,6 +31,7 @@
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -289,7 +290,9 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
   }
 
   ExtensionsToolbarDesktop* extensions_container() {
-    return browser()->GetBrowserView().toolbar()->extensions_container();
+    return BrowserView::GetBrowserViewForBrowser(browser())
+        ->toolbar()
+        ->extensions_container();
   }
 
   int num_popup_hosts_created() const { return host_watcher_->created(); }
@@ -302,7 +305,13 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
 // Tests opening a popup using the chrome.browserAction.openPopup API. This test
 // opens a popup in the starting window, closes the popup, creates a new window
 // and opens a popup in the new window. Both popups should succeed in opening.
-IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, TestOpenPopup) {
+// TODO(crbug.com/542682193): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_TestOpenPopup DISABLED_TestOpenPopup
+#else
+#define MAYBE_TestOpenPopup TestOpenPopup
+#endif
+IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, MAYBE_TestOpenPopup) {
   auto browserActionBar = ExtensionActionTestHelper::Create(browser());
   // Setup extension message listener to wait for javascript to finish running.
   ExtensionTestMessageListener listener("ready", ReplyBehavior::kWillReply);
@@ -856,8 +865,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, OpenPopupOnPopup) {
 #endif
   EXPECT_FALSE(browser()->GetWindow()->IsActive());
   EXPECT_FALSE(
-      popup_browser->GetBrowserForMigrationOnly()->SupportsWindowFeature(
-          Browser::WindowFeature::kFeatureToolbar));
+      WindowFeatureController::From(popup_browser)
+          ->SupportsWindowFeature(
+              WindowFeatureController::WindowFeature::kFeatureToolbar));
   EXPECT_EQ(popup_browser,
             ProfileBrowserCollection::GetForProfile(browser()->GetProfile())
                 ->GetLastActiveBrowser());

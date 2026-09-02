@@ -1,0 +1,237 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.actor;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.InOrder;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
+import org.robolectric.annotation.Config;
+
+import org.chromium.base.Callback;
+import org.chromium.base.Token;
+import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabState;
+import org.chromium.chrome.browser.tab.TabStateExtractor;
+import org.chromium.chrome.browser.tabmodel.TabCreator;
+import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabRemover;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+/** Unit tests for {@link ActorTabStateHelper}. */
+@RunWith(BaseRobolectricTestRunner.class)
+@Config(manifest = Config.NONE)
+public class ActorTabStateHelperTest {
+    private static final int TAB_ID = 100;
+    private static final boolean IS_PINNED = false;
+
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    @Mock private TabModelSelector mTabModelSelector;
+    @Mock private TabModel mTabModel;
+    @Mock private TabRemover mTabRemover;
+    @Mock private Tab mTab;
+    @Mock private Profile mProfile;
+    @Mock private ActorKeyedService mActorKeyedService;
+    @Mock private TabCreator mTabCreator;
+    @Mock private Tab mPlaceholderTab;
+    @Mock private Callback<Tab> mOnTabDetaching;
+
+    @Before
+    public void setUp() {
+        ProfileManager.setLastUsedProfileForTesting(mProfile);
+        ActorKeyedServiceFactory.setForTesting(mActorKeyedService);
+
+        when(mTabModelSelector.getModel(false)).thenReturn(mTabModel);
+        when(mTabModel.getProfile()).thenReturn(mProfile);
+        when(mTabModel.getTabRemover()).thenReturn(mTabRemover);
+        when(mTabModel.getCount()).thenReturn(1);
+        when(mTabModel.getTabAt(0)).thenReturn(mTab);
+        when(mTabModel.iterator()).thenReturn(Collections.singletonList(mTab).iterator());
+
+        when(mTab.getId()).thenReturn(TAB_ID);
+        when(mTab.getIsPinned()).thenReturn(IS_PINNED);
+        when(mTab.getProfile()).thenReturn(mProfile);
+        when(mProfile.getOriginalProfile()).thenReturn(mProfile);
+
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(1);
+        when(mActorKeyedService.getActiveTaskIdOnTab(TAB_ID, false)).thenReturn(500);
+
+        when(mTabModel.getTabCreator()).thenReturn(mTabCreator);
+        when(mTabModel.getRelatedTabList(TAB_ID)).thenReturn(Collections.singletonList(mTab));
+        when(mTabModel.indexOf(mTab)).thenReturn(0);
+        when(mPlaceholderTab.getId()).thenReturn(101);
+        org.chromium.base.UserDataHost userDataHost = new org.chromium.base.UserDataHost();
+        when(mPlaceholderTab.getUserDataHost()).thenReturn(userDataHost);
+        when(mTabCreator.createFrozenTab(any(), anyInt(), eq(1))).thenReturn(mPlaceholderTab);
+    }
+
+    @After
+    public void tearDown() {
+        ProfileManager.resetForTesting();
+        ActorKeyedServiceFactory.setForTesting(null);
+        TabStateExtractor.resetTabStatesForTesting();
+    }
+
+    @Test
+    public void testDetachActiveBackgroundSessions_WithActiveTask_TransitionsTab() {
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+
+        List<BackgroundSession> sessions =
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        mTabModelSelector, 42, mOnTabDetaching);
+
+        assertEquals(1, sessions.size());
+        assertEquals(mTab, sessions.get(0).getLastActiveTab());
+        assertEquals(Integer.valueOf(500), sessions.get(0).getTaskId());
+        assertEquals(1, sessions.get(0).getTabDataList().size());
+        assertEquals(
+                Integer.valueOf(101),
+                sessions.get(0).getTabDataList().get(0).getPlaceholderTabId());
+        assertEquals(0, sessions.get(0).getTabDataList().get(0).getOriginalTabIndex());
+        assertEquals(42, sessions.get(0).getTabDataList().get(0).getTabWindowId());
+
+        InOrder inOrder = inOrder(mOnTabDetaching, mTabRemover);
+        inOrder.verify(mOnTabDetaching).onResult(mTab);
+        inOrder.verify(mTabRemover).removeTab(mTab, false);
+
+        verify(mTabCreator).createFrozenTab(eq(testTabState), anyInt(), eq(1));
+        verify(mTabModel, never()).pinTab(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void testDetachActiveBackgroundSessions_NoActiveTask_NoTransition() {
+        when(mActorKeyedService.getActiveTasksCount()).thenReturn(0);
+        when(mActorKeyedService.getActiveTaskIdOnTab(TAB_ID, false)).thenReturn(null);
+
+        List<BackgroundSession> sessions =
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        mTabModelSelector, 0, mOnTabDetaching);
+
+        assertTrue(sessions.isEmpty());
+        verify(mOnTabDetaching, never()).onResult(any());
+        verify(mTabRemover, never()).removeTab(any(), eq(false));
+    }
+
+    @Test
+    public void testDetachActiveBackgroundSessions_MultipleTabsSameTask_GroupedInSession() {
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+        TabStateExtractor.setTabStateForTesting(102, testTabState);
+
+        Tab tab2 = mock(Tab.class);
+        when(tab2.getId()).thenReturn(102);
+        when(tab2.getProfile()).thenReturn(mProfile);
+        when(tab2.getIsPinned()).thenReturn(false);
+        when(mTabModel.indexOf(tab2)).thenReturn(1);
+        when(mTabCreator.createFrozenTab(any(), anyInt(), eq(2))).thenReturn(mPlaceholderTab);
+
+        when(mTabModel.iterator()).thenReturn(Arrays.asList(mTab, tab2).iterator());
+        when(mActorKeyedService.getActiveTaskIdOnTab(102, false)).thenReturn(500);
+
+        List<BackgroundSession> sessions =
+                ActorTabStateHelper.detachActiveBackgroundSessions(
+                        mTabModelSelector, 0, mOnTabDetaching);
+
+        assertEquals(1, sessions.size());
+        assertEquals(2, sessions.get(0).getTabs().size());
+        assertEquals(mTab, sessions.get(0).getTabs().get(0));
+        assertEquals(tab2, sessions.get(0).getTabs().get(1));
+        assertEquals(tab2, sessions.get(0).getLastActiveTab());
+        assertEquals(0, sessions.get(0).getTabDataList().get(0).getOriginalTabIndex());
+        assertEquals(1, sessions.get(0).getTabDataList().get(1).getOriginalTabIndex());
+
+        InOrder inOrder = inOrder(mOnTabDetaching, mTabRemover);
+        inOrder.verify(mOnTabDetaching).onResult(mTab);
+        inOrder.verify(mTabRemover).removeTab(mTab, false);
+        inOrder.verify(mOnTabDetaching).onResult(tab2);
+        inOrder.verify(mTabRemover).removeTab(tab2, false);
+    }
+
+    @Test
+    public void testCreateAndInsertPlaceholder_CreatesDormantPlaceholder() {
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+
+        Tab placeholder = ActorTabStateHelper.createAndInsertPlaceholder(mTab, mTabModel);
+
+        verify(mTabCreator).createFrozenTab(eq(testTabState), anyInt(), eq(1));
+        verify(mTabModel, never()).pinTab(anyInt(), anyBoolean());
+    }
+
+    @Test
+    public void testCreateAndInsertPlaceholder_PinnedTab() {
+        when(mTab.getIsPinned()).thenReturn(true);
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+
+        Tab placeholder = ActorTabStateHelper.createAndInsertPlaceholder(mTab, mTabModel);
+
+        verify(mTabCreator).createFrozenTab(eq(testTabState), anyInt(), eq(1));
+        verify(mTabModel).pinTab(eq(101), eq(false));
+        verify(mTabModel).moveTab(eq(101), eq(1));
+    }
+
+    @Test
+    public void testCreateAndInsertPlaceholder_TabGroup() {
+        Token groupId = Token.createRandom();
+        when(mTab.getTabGroupId()).thenReturn(groupId);
+        TabState testTabState = new TabState();
+        TabStateExtractor.setTabStateForTesting(TAB_ID, testTabState);
+
+        Tab placeholder = ActorTabStateHelper.createAndInsertPlaceholder(mTab, mTabModel);
+
+        verify(mTabCreator).createFrozenTab(eq(testTabState), anyInt(), eq(1));
+        verify(mTabModel)
+                .mergeListOfTabsToGroup(
+                        eq(Collections.singletonList(mPlaceholderTab)),
+                        eq(mTab),
+                        eq(1),
+                        eq(TabGroupMergeNotificationType.DONT_NOTIFY));
+    }
+
+    @Test
+    public void testBackgroundSession_addTabData_storesOriginalIndex() {
+        BackgroundSession session = new BackgroundSession(mTab, 500);
+        assertEquals(
+                TabModel.INVALID_TAB_INDEX, session.getTabDataList().get(0).getOriginalTabIndex());
+
+        Tab otherTab = mock(Tab.class);
+        when(otherTab.getId()).thenReturn(200);
+        session.addTabData(new BackgroundSession.BackgroundTabData(otherTab, 102, 3, 42));
+
+        assertEquals(2, session.getTabDataList().size());
+        assertEquals(otherTab, session.getTabDataList().get(1).getTab());
+        assertEquals(Integer.valueOf(102), session.getTabDataList().get(1).getPlaceholderTabId());
+        assertEquals(3, session.getTabDataList().get(1).getOriginalTabIndex());
+        assertEquals(42, session.getTabDataList().get(1).getTabWindowId());
+    }
+}

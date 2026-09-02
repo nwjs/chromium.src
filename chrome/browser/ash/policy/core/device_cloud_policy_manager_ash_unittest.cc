@@ -14,6 +14,7 @@
 #include "base/check_deref.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
@@ -23,6 +24,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/scoped_command_line.h"
+#include "base/test/scoped_path_override.h"
 #include "base/time/time.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash.h"
@@ -42,6 +44,7 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/policy/messaging_layer/public/report_client_test_util.h"
 #include "chrome/browser/prefs/browser_prefs.h"
+#include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/attestation/fake_certificate.h"
@@ -245,7 +248,10 @@ class DeviceCloudPolicyManagerAshTest
         TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
         TestingBrowserProcess::GetGlobal()
             ->platform_part()
-            ->browser_policy_connector_ash());
+            ->browser_policy_connector_ash(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->component_manager_ash());
 
     // SystemSaltGetter is used in DeviceOAuth2TokenService.
     ash::SystemSaltGetter::Initialize();
@@ -711,6 +717,13 @@ class DeviceCloudPolicyManagerAshEnrollmentTest
   void SetUp() override {
     DeviceCloudPolicyManagerAshTest::SetUp();
 
+    CHECK(temp_dir_.CreateUniqueTempDir());
+    token_path_override_ = std::make_unique<base::ScopedPathOverride>(
+        chrome::FILE_CHROME_OS_DEVICE_REFRESH_TOKEN,
+        temp_dir_.GetPath().Append("device_refresh_token"),
+        /*is_absolute=*/true,
+        /*create=*/false);
+
     // Set up test data.
     device_policy_->SetDefaultNewSigningKey();
     device_policy_->policy_data().set_timestamp(
@@ -1007,6 +1020,9 @@ class DeviceCloudPolicyManagerAshEnrollmentTest
 
   std::unique_ptr<EnrollmentHandler> enrollment_handler_;
 
+  base::ScopedTempDir temp_dir_;
+  std::unique_ptr<base::ScopedPathOverride> token_path_override_;
+
   // Set to true if the robot auth fetch is expected to fail.
   bool expect_robot_auth_fetch_failure_;
 
@@ -1124,31 +1140,9 @@ TEST_P(DeviceCloudPolicyManagerAshEnrollmentTest, DisableMachineCertReq) {
   ExpectSuccessfulEnrollment();
 }
 
-// A subclass that runs with a blank system salt.
-class DeviceCloudPolicyManagerAshEnrollmentBlankSystemSaltTest
-    : public DeviceCloudPolicyManagerAshEnrollmentTest {
- protected:
-  DeviceCloudPolicyManagerAshEnrollmentBlankSystemSaltTest() {
-    set_empty_system_salt_ = true;
-  }
-};
-
-TEST_P(DeviceCloudPolicyManagerAshEnrollmentBlankSystemSaltTest,
-       RobotRefreshSaveFailed) {
-  // Without the system salt, the robot token can't be stored.
-  expect_robot_auth_fetch_failure_ = true;
-  RunTest();
-  ExpectFailedEnrollment(EnrollmentStatus::Code::kRobotRefreshStoreFailed);
-}
-
 INSTANTIATE_TEST_SUITE_P(Cert,
                          DeviceCloudPolicyManagerAshEnrollmentTest,
                          ::testing::Values(false, true));
-
-INSTANTIATE_TEST_SUITE_P(
-    Cert,
-    DeviceCloudPolicyManagerAshEnrollmentBlankSystemSaltTest,
-    ::testing::Values(false, true));
 
 }  // namespace
 }  // namespace policy

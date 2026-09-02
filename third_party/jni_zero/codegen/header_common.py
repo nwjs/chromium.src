@@ -7,24 +7,34 @@ import common
 import java_types
 
 
-def class_accessors(sb, java_classes):
+def class_accessors(sb,
+                    java_classes,
+                    *,
+                    is_muxing=False,
+                    use_weak_called_by_natives=False):
   for java_class in java_classes:
-    if java_class in (java_types.OBJECT_CLASS, java_types.STRING_CLASS):
-      continue
     escaped_name = java_class.to_cpp()
-    # #ifdef needed when multple .h files are #included that common classes.
+    # #ifdef needed when multiple .h files include shared common classes.
     sb(f"""\
 #ifndef {escaped_name}_clazz_defined
 #define {escaped_name}_clazz_defined
 """)
-    # Uses std::atomic<> instead of "static jclass cached_class = ..." because
-    # that moves the initialize-once logic into the helper method (smaller code
-    # size).
-    # The static local cached_class might get duplicated in component builds,
-    # due to having hidden visibility. However, this duplication is safe because
-    # it will always hold the same value, so the copies can't get out-of-sync.
-    sb(f"""\
-inline jclass {escaped_name}_clazz(JNIEnv* env) {{
+    if is_muxing and not use_weak_called_by_natives:
+      sb(f"""\
+namespace jni_zero::internal {{
+extern const uint16_t kClassIdx_{escaped_name};
+}}  // namespace jni_zero::internal
+JNI_ZERO_ALWAYS_INLINE inline jclass {escaped_name}_clazz(JNIEnv* env) {{
+  return jni_zero::internal::LazyGetClassMuxed(
+      env, ::jni_zero::internal::kClassIdx_{escaped_name});
+}}
+#endif
+
+""")
+    else:
+      weak_attr = ('[[gnu::weak]] ' if use_weak_called_by_natives else '')
+      sb(f"""\
+{weak_attr}inline jclass {escaped_name}_clazz(JNIEnv* env) {{
   static const char kClassName[] = "{java_class.full_name}";
   static std::atomic<jclass> cached_class;
   return jni_zero::internal::LazyGetClass(env, kClassName, &cached_class);
@@ -35,6 +45,7 @@ inline jclass {escaped_name}_clazz(JNIEnv* env) {{
 
 
 def class_accessor_expression(java_class):
+  # Keep in sync with java_types.JCLASS_GLOBALS_CLASSES.
   if java_class == java_types.CLASS_LOADER_CLASS:
     return 'jni_zero::g_class_loader_class'
   if java_class == java_types.OBJECT_CLASS:
@@ -51,8 +62,7 @@ def header_preamble(script_name,
                     user_includes=None,
                     header_guard=None,
                     is_shared_header=False):
-  if header_guard is None:
-    assert java_class is not None
+  if header_guard is None and java_class is not None:
     if is_shared_header:
       header_guard = f'{java_class.to_cpp()}_SHARED_JNI'
     else:
@@ -68,7 +78,8 @@ def header_preamble(script_name,
 //     {java_class.full_name_with_dots}
 
 """)
-  sb.append(f"""\
+  if header_guard:
+    sb.append(f"""\
 #ifndef {header_guard}
 #define {header_guard}
 
@@ -92,7 +103,8 @@ def header_preamble(script_name,
   sb = []
   if not is_shared_header:
     sb.append('#pragma clang diagnostic pop\n')
-  sb.append(f'#endif  // {header_guard}\n')
+  if header_guard:
+    sb.append(f'#endif  // {header_guard}\n')
   epilogue = ''.join(sb)
 
   return preamble, epilogue

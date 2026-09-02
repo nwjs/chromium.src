@@ -49,6 +49,14 @@ NET_EXPORT extern const base::FeatureParam<bool>
 
 // Caches UDP connect() results in AddressSorterPosix.
 NET_EXPORT BASE_DECLARE_FEATURE(kAddressSorterConnectCache);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(size_t,
+                                      kAddressSorterConnectCacheMaxNetworks);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    size_t,
+    kAddressSorterConnectCacheMaxNaksPerNetwork);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    size_t,
+    kAddressSorterConnectCacheMaxPredictionsPerPartition);
 
 // Support for altering the parameters used for DNS transaction timeout. See
 // ResolveContext::SecureTransactionTimeout().
@@ -422,6 +430,16 @@ NET_EXPORT extern const base::FeatureParam<int>
 // A flag to use asynchronous session creation for new QUIC sessions.
 NET_EXPORT BASE_DECLARE_FEATURE(kAsyncQuicSession);
 
+// A flag to use QuicSessionPool::AsyncDnsJob, which resolves hostnames with
+// HostResolver::ServiceEndpointRequest, for direct QUIC sessions.
+NET_EXPORT BASE_DECLARE_FEATURE(kAsyncDnsQuicJob);
+
+// How long AsyncDnsJob waits before it starts a second connection attempt
+// next to the one it already has in flight. Zero or a negative value means
+// AsyncDnsJob never runs two attempts at once.
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                                      kAsyncDnsQuicJobSlowTimerDelay);
+
 // A flag to make multiport context creation asynchronous.
 NET_EXPORT BASE_DECLARE_FEATURE(kAsyncMultiPortPath);
 
@@ -696,6 +714,13 @@ NET_EXPORT BASE_DECLARE_FEATURE(kHttpCacheNoVarySearch);
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(size_t,
                                       kHttpCacheNoVarySearchCacheMaxEntries);
 
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    size_t,
+    kHttpCacheNoVarySearchCacheMaxPartitionEntries);
+
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(size_t,
+                                      kHttpCacheNoVarySearchCacheMaxPartitions);
+
 // Whether persistence is enabled in on-the-record profiles. True by default.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
                                       kHttpCacheNoVarySearchPersistenceEnabled);
@@ -756,9 +781,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kTLSTrustAnchorIDs);
 
 // Controls whether TLS Trust Anchor IDs that are not for MTCs are sent.
 NET_EXPORT BASE_DECLARE_FEATURE(kNonMtcTrustAnchorIDs);
-
-// Enables ML-DSA signature support in TLS (draft-ietf-tls-mldsa-02).
-NET_EXPORT BASE_DECLARE_FEATURE(kTlsMldsaSignatures);
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 // Enables support for Merkle Tree Certificates. `kTLSTrustAnchorIDs` must also
@@ -910,6 +932,7 @@ NET_EXPORT BASE_DECLARE_FEATURE(kUseNSURLDataForGURLConversion);
 NET_EXPORT BASE_DECLARE_FEATURE(kLogicalClearHttpCache);
 NET_EXPORT extern const base::FeatureParam<bool>
     kLogicalClearHttpCacheUserVisiblePriority;
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kLogicalClearHttpCacheMaxFilters);
 
 // If enabled, SPDY sessions will be synchronously drained when the underlying
 // transport socket is detected to be disconnected in GetRemoteEndpoint().
@@ -954,6 +977,8 @@ NET_EXPORT BASE_DECLARE_FEATURE(kIgnoreMemoryPressureForSslClientSessionCache);
 NET_EXPORT BASE_DECLARE_FEATURE(kCookieParseRejectEmptyNameAmbiguous);
 
 NET_EXPORT BASE_DECLARE_FEATURE(kEnablePrivateVerificationTokens);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(std::string,
+                                      kPrivateVerificationTokensCustomIssuer);
 
 // If enabled, request servers to add additional padding to TLS handshakes. The
 // amount requested is configurable by the parameter
@@ -1005,6 +1030,27 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableBackendCleanupTrackerOnHttpCache);
 // once it has been verified safe.
 NET_EXPORT BASE_DECLARE_FEATURE(
     kPartitionWebSocketEndpointLocksByNetworkAnonymizationKey);
+
+// Controls initial delay for broken alternative services.
+NET_EXPORT BASE_DECLARE_FEATURE(kInitialDelayForBrokenAlternativeService);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    base::TimeDelta,
+    kInitialDelayForBrokenAlternativeServiceParam);
+
+// Controls whether broken alternative services should be persisted to disk
+// cache.
+NET_EXPORT BASE_DECLARE_FEATURE(kPersistBrokenAlternativeServices);
+
+// Controls maximum delay for broken alternative services.
+NET_EXPORT BASE_DECLARE_FEATURE(kMaxDelayForBrokenAlternativeService);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    base::TimeDelta,
+    kMaxDelayForBrokenAlternativeServiceParam);
+
+#if BUILDFLAG(IS_WIN)
+// Disables SYN retransmissions for TCP loopback connections on Windows.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableWindowsTcpLoopbackFastFail);
+#endif
 
 }  // namespace net::features
 

@@ -87,7 +87,6 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "components/browser_ui/util/android/url_constants.h"
-#include "components/permissions/android/permissions_android_feature_map.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/resources/android/theme_resources.h"
 #include "components/strings/grit/components_branded_strings.h"
@@ -242,16 +241,16 @@ const PageInfo::ChooserUIInfo kChooserUIInfo[] = {
      IDS_PAGE_INFO_HID_DEVICE_SECONDARY_LABEL,
      IDS_PAGE_INFO_HID_DEVICE_ALLOWED_BY_POLICY_LABEL,
      IDS_PAGE_INFO_DELETE_HID_DEVICE_WITH_NAME},
-#if BUILDFLAG(IS_CHROMEOS)
-    {ContentSettingsType::SMART_CARD_DATA,
-     IDS_PAGE_INFO_SMART_CARD_READER_SECONDARY_LABEL,
-     IDS_PAGE_INFO_SMART_CARD_READER_ALLOWED_BY_POLICY_LABEL,
-     IDS_PAGE_INFO_DELETE_SMART_CARD_READER_WITH_NAME},
 #endif
     {ContentSettingsType::SERIAL_CHOOSER_DATA,
      IDS_PAGE_INFO_SERIAL_PORT_SECONDARY_LABEL,
      IDS_PAGE_INFO_SERIAL_PORT_ALLOWED_BY_POLICY_LABEL,
      IDS_PAGE_INFO_DELETE_SERIAL_PORT_WITH_NAME},
+#if BUILDFLAG(IS_CHROMEOS)
+    {ContentSettingsType::SMART_CARD_DATA,
+     IDS_PAGE_INFO_SMART_CARD_READER_SECONDARY_LABEL,
+     IDS_PAGE_INFO_SMART_CARD_READER_ALLOWED_BY_POLICY_LABEL,
+     IDS_PAGE_INFO_DELETE_SMART_CARD_READER_WITH_NAME},
 #endif
     {ContentSettingsType::BLUETOOTH_CHOOSER_DATA,
      IDS_PAGE_INFO_BLUETOOTH_DEVICE_SECONDARY_LABEL,
@@ -463,7 +462,6 @@ void PageInfo::InitializeUiState(PageInfoUI* ui, base::OnceClosure done) {
   PresentSiteIdentity();
   PresentPageFeatureInfo();
   PresentSiteData(std::move(done));
-  PresentAdPersonalizationData();
 }
 
 void PageInfo::UpdateSecurityState() {
@@ -490,34 +488,9 @@ void PageInfo::RecordPageInfoAction(page_info::PageInfoAction action) {
         .Record(ukm::UkmRecorder::Get());
   }
 
-  auto* settings = GetPageSpecificContentSettings();
-  if (!settings) {
-    return;
-  }
-
-  bool has_topic = settings->HasAccessedTopics();
-  bool has_fledge = settings->HasJoinedUserToInterestGroup();
   switch (action) {
     case page_info::PAGE_INFO_OPENED:
       base::RecordAction(base::UserMetricsAction("PageInfo.Opened"));
-      base::UmaHistogramBoolean("Security.PageInfo.AdPersonalizationRowShown",
-                                has_fledge || has_topic);
-      break;
-    case page_info::PAGE_INFO_AD_PERSONALIZATION_PAGE_OPENED:
-      if (has_fledge && has_topic) {
-        base::RecordAction(base::UserMetricsAction(
-            "PageInfo.AdPersonalization.OpenedWithFledgeAndTopics"));
-      } else if (has_fledge) {
-        base::RecordAction(base::UserMetricsAction(
-            "PageInfo.AdPersonalization.OpenedWithFledge"));
-      } else if (has_topic) {
-        base::RecordAction(base::UserMetricsAction(
-            "PageInfo.AdPersonalization.OpenedWithTopics"));
-      }
-      break;
-    case page_info::PAGE_INFO_AD_PERSONALIZATION_SETTINGS_OPENED:
-      base::RecordAction(base::UserMetricsAction(
-          "PageInfo.AdPersonalization.ManageInterestClicked"));
       break;
     case page_info::PAGE_INFO_CERTIFICATE_DIALOG_OPENED:
       base::RecordAction(
@@ -629,6 +602,10 @@ void PageInfo::RecordPageInfoAction(page_info::PageInfoAction action) {
     case page_info::PAGE_INFO_SAFE_BROWSING_HELP_OPENED:
       base::RecordAction(
           base::UserMetricsAction("PageInfo.SafeBrowsing.HelpOpened"));
+      break;
+    case page_info::PAGE_INFO_UNSAFE_SITE_HELP_OPENED:
+      base::RecordAction(
+          base::UserMetricsAction("PageInfo.UnsafeSite.HelpOpened"));
       break;
     case page_info::PAGE_INFO_SYNC_SETTINGS_OPENED:
       base::RecordAction(base::UserMetricsAction(
@@ -975,9 +952,14 @@ void PageInfo::OpenConnectionHelpCenterPage(const ui::Event& event) {
 #endif
 }
 
-void PageInfo::OpenSafeBrowsingHelpCenterPage(const ui::Event* event) {
-  RecordPageInfoAction(page_info::PAGE_INFO_SAFE_BROWSING_HELP_OPENED);
-  delegate_->OpenSafeBrowsingHelpCenterPage(event);
+void PageInfo::OpenSafeBrowsingHelpCenterPage(const ui::Event* event,
+                                              bool is_suspicious_site) {
+  if (is_suspicious_site) {
+    RecordPageInfoAction(page_info::PAGE_INFO_UNSAFE_SITE_HELP_OPENED);
+  } else {
+    RecordPageInfoAction(page_info::PAGE_INFO_SAFE_BROWSING_HELP_OPENED);
+  }
+  delegate_->OpenSafeBrowsingHelpCenterPage(event, is_suspicious_site);
 }
 
 void PageInfo::OnSuspiciousSiteBackToSafety() {
@@ -1411,13 +1393,7 @@ bool PageInfo::ShouldShowPermission(
           permissions::features::kPermanentNotificationSubscribeInPageInfo));
       return true;
     }
-    // For the Clapper experiment Chrome should display NOTIFICATIONS
-    // permission while it is being requested.
-    if ((base::FeatureList::IsEnabled(
-             permissions::kPermissionsAndroidClapperLoud) ||
-         base::FeatureList::IsEnabled(
-             permissions::kPermissionsAndroidClapperQuiet)) &&
-        web_contents_) {
+    if (web_contents_) {
       permissions::PermissionRequestManager* manager =
           permissions::PermissionRequestManager::FromWebContents(
               web_contents_.get());
@@ -1750,31 +1726,6 @@ void PageInfo::PresentPageFeatureInfo() {
       delegate_->IsContentDisplayedInVrHeadset();
 
   ui_->SetPageFeatureInfo(info);
-}
-
-void PageInfo::PresentAdPersonalizationData() {
-  // If the Ad Privacy UX Deprecation feature is enabled, do not set or show the
-  // ad personalization data.
-  if (base::FeatureList::IsEnabled(
-          privacy_sandbox::kPrivacySandboxAdPrivacyUxDeprecation)) {
-    return;
-  }
-  PageInfoUI::AdPersonalizationInfo info;
-  auto* settings = GetPageSpecificContentSettings();
-  if (!settings) {
-    return;
-  }
-
-  info.has_joined_user_to_interest_group =
-      settings->HasJoinedUserToInterestGroup();
-  info.accessed_topics = settings->GetAccessedTopics();
-  std::sort(info.accessed_topics.begin(), info.accessed_topics.end(),
-            [](const privacy_sandbox::CanonicalTopic& a,
-               const privacy_sandbox::CanonicalTopic& b) {
-              return a.GetLocalizedRepresentation() <
-                     b.GetLocalizedRepresentation();
-            });
-  ui_->SetAdPersonalizationInfo(info);
 }
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)

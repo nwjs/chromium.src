@@ -15,6 +15,7 @@
 #import "ios/web/common/crw_web_view_resizing_type.h"
 #import "ios/web/public/content_type_util.h"
 #import "ios/web/public/web_client.h"
+#import "ios/web/web_state/ui/crw_viewport_insets_animator.h"
 
 namespace {
 
@@ -52,6 +53,26 @@ BOOL IsFrameLargeEnoughToApplyViewportInsets(CGSize frameSize,
   return IsInsetValidForFrame(minInset, frameSize);
 }
 
+// Returns `insets` with horizontal edges expanded to at least `safeAreaInsets`.
+UIEdgeInsets AdjustInsetsForSafeArea(UIEdgeInsets insets,
+                                     UIEdgeInsets safeAreaInsets) {
+  UIEdgeInsets adjusted = insets;
+  adjusted.left = std::max(adjusted.left, safeAreaInsets.left);
+  adjusted.right = std::max(adjusted.right, safeAreaInsets.right);
+  return adjusted;
+}
+
+// Returns `contentInsets` reduced by `maxInsets` (excluding bottom) to simulate
+// toolbar collapse visually for PDFs without changing the web view frame.
+UIEdgeInsets AdjustedPdfContentInsets(UIEdgeInsets contentInsets,
+                                      UIEdgeInsets maxInsets) {
+  UIEdgeInsets adjusted = contentInsets;
+  adjusted.top -= maxInsets.top;
+  adjusted.left -= maxInsets.left;
+  adjusted.right -= maxInsets.right;
+  return adjusted;
+}
+
 // Background color RGB values for the content view which is displayed when the
 // `_webView` is offset from the screen due to user interaction. Displaying this
 // background color is handled by UIWebView but not WKWebView, so it needs to be
@@ -66,7 +87,9 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
   UIEdgeInsets _pendingMaxInset;
   UIEdgeInsets _maxViewportInset;
   BOOL _hasPendingViewportInsets;
+  BOOL _usesObscuredInsets;
   std::string _mimeTypeString;
+  CRWViewportInsetsAnimator* _insetsAnimator;
 }
 @end
 
@@ -109,10 +132,13 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
     _mimeType = mimeType;
     _mimeTypeString = base::SysNSStringToUTF8(mimeType);
     [self setNeedsLayout];
-    // Force a re-evaluation of obscuredInsets now that the MIME type is known.
-    UIEdgeInsets currentInsets = _obscuredInsets;
-    _obscuredInsets = UIEdgeInsetsZero;
-    [self setObscuredInsets:currentInsets];
+    if (_usesObscuredInsets) {
+      // Force a re-evaluation of obscuredInsets now that the MIME type is
+      // known.
+      UIEdgeInsets currentInsets = _obscuredInsets;
+      _obscuredInsets = UIEdgeInsetsZero;
+      [self setObscuredInsets:currentInsets];
+    }
   }
 }
 
@@ -126,6 +152,19 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
 
 - (instancetype)initWithFrame:(CGRect)frame {
   NOTREACHED();
+}
+
+- (void)dealloc {
+  [_insetsAnimator stop];
+  _insetsAnimator = nil;
+}
+
+- (void)willMoveToWindow:(UIWindow*)newWindow {
+  [super willMoveToWindow:newWindow];
+  if (!newWindow) {
+    [_insetsAnimator stop];
+    _insetsAnimator = nil;
+  }
 }
 
 - (void)didMoveToSuperview {
@@ -159,12 +198,17 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
       }
       break;
     case WebViewResizingType::kFrame:
+      if (!_usesObscuredInsets) {
+        break;
+      }
       if (web::IsContentTypePdf(_mimeTypeString)) {
         UIEdgeInsets maxInsets = _maxViewportInset;
         maxInsets.bottom = 0;
-        _webView.frame = UIEdgeInsetsInsetRect(self.frame, maxInsets);
+        _webView.frame = UIEdgeInsetsInsetRect(self.bounds, maxInsets);
       } else {
-        _webView.frame = UIEdgeInsetsInsetRect(self.frame, _obscuredInsets);
+        UIEdgeInsets contentInsets =
+            AdjustInsetsForSafeArea(_obscuredInsets, self.safeAreaInsets);
+        _webView.frame = UIEdgeInsetsInsetRect(self.bounds, contentInsets);
       }
       break;
   }
@@ -205,44 +249,90 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
 }
 
 - (UIEdgeInsets)obscuredInsets {
+  if (_insetsAnimator) {
+    return _insetsAnimator.currentInsets;
+  }
   return _obscuredInsets;
 }
 
 - (void)setObscuredInsets:(UIEdgeInsets)obscuredInsets {
-  BOOL insetsEqual =
-      UIEdgeInsetsEqualToEdgeInsets(_obscuredInsets, obscuredInsets);
-  BOOL scrollInsetsEqual = YES;
-  if (self.webViewResizingType == WebViewResizingType::kContentInset) {
-    scrollInsetsEqual =
-        UIEdgeInsetsEqualToEdgeInsets(_scrollView.contentInset, obscuredInsets);
+  if (!UIEdgeInsetsEqualToEdgeInsets(obscuredInsets, UIEdgeInsetsZero)) {
+    _usesObscuredInsets = YES;
   }
-  if (insetsEqual && scrollInsetsEqual) {
+  BOOL insetsEqual =
+      UIEdgeInsetsEqualToEdgeInsets(self.obscuredInsets, obscuredInsets);
+
+  UIEdgeInsets contentInsets =
+      AdjustInsetsForSafeArea(obscuredInsets, self.safeAreaInsets);
+
+  BOOL appliedInsetsEqual = YES;
+  switch (self.webViewResizingType) {
+    case WebViewResizingType::kContentInset:
+      appliedInsetsEqual = UIEdgeInsetsEqualToEdgeInsets(
+          _scrollView.contentInset, contentInsets);
+      break;
+    case WebViewResizingType::kFrame:
+      if (!_usesObscuredInsets) {
+        break;
+      }
+      if (web::IsContentTypePdf(_mimeTypeString)) {
+        appliedInsetsEqual = UIEdgeInsetsEqualToEdgeInsets(
+            _scrollView.contentInset,
+            AdjustedPdfContentInsets(contentInsets, _maxViewportInset));
+      } else {
+        appliedInsetsEqual = CGRectEqualToRect(
+            _webView.frame, UIEdgeInsetsInsetRect(self.bounds, contentInsets));
+      }
+      break;
+  }
+  if (insetsEqual && appliedInsetsEqual) {
     return;
   }
   switch (self.webViewResizingType) {
     case WebViewResizingType::kContentInset: {
-      UIEdgeInsets oldInsets = _scrollView.contentInset;
       _scrollView.contentInsetAdjustmentBehavior =
           UIScrollViewContentInsetAdjustmentNever;
-      _scrollView.contentInset = obscuredInsets;
-      CGFloat topDelta = obscuredInsets.top - oldInsets.top;
-      // If the top inset changed, and the scroll view was scrolled to the very
-      // top, adjust the contentOffset to the new top boundary to prevent the
-      // page from appearing pre-scrolled.
-      if (!web::IsContentTypePdf(_mimeTypeString) && topDelta != 0 &&
-          fabs(_scrollView.contentOffset.y - (-oldInsets.top)) < 0.1) {
-        CGPoint offset = _scrollView.contentOffset;
-        offset.y = -obscuredInsets.top;
-        _scrollView.contentOffset = offset;
-      }
-      if (@available(iOS 26, *)) {
-        [_webView setObscuredContentInsets:obscuredInsets];
+      NSTimeInterval duration = [UIView inheritedAnimationDuration];
+      if (duration > 0) {
+        if (_insetsAnimator) {
+          if (UIEdgeInsetsEqualToEdgeInsets(_insetsAnimator.targetInsets,
+                                            obscuredInsets)) {
+            return;
+          }
+          _obscuredInsets = _insetsAnimator.currentInsets;
+          [_insetsAnimator stop];
+          _insetsAnimator = nil;
+        }
+        __weak __typeof(self) weakSelf = self;
+        _insetsAnimator = [[CRWViewportInsetsAnimator alloc]
+            initWithStartInsets:_obscuredInsets
+            targetInsets:obscuredInsets
+            duration:duration
+            updateHandler:^(UIEdgeInsets insets) {
+              [weakSelf applyContentInsetModeObscuredInsets:insets];
+            }
+            completion:^{
+              [weakSelf insetsAnimationDidComplete];
+            }];
+        [_insetsAnimator start];
       } else {
-        NOTREACHED();
+        if (_insetsAnimator) {
+          _obscuredInsets = _insetsAnimator.currentInsets;
+          [_insetsAnimator stop];
+          _insetsAnimator = nil;
+        }
+        [self applyContentInsetModeObscuredInsets:obscuredInsets];
       }
       break;
     }
-    case WebViewResizingType::kFrame:
+    case WebViewResizingType::kFrame: {
+      if (_insetsAnimator) {
+        [_insetsAnimator stop];
+        _insetsAnimator = nil;
+      }
+      if (!_usesObscuredInsets) {
+        break;
+      }
       if (web::IsContentTypePdf(_mimeTypeString)) {
         _scrollView.contentInsetAdjustmentBehavior =
             UIScrollViewContentInsetAdjustmentNever;
@@ -251,17 +341,8 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
         // dynamically breaks scroll momentum in PDFs. We do not change the
         // frame here, but rather rely on layoutSubviews and
         // setMinimumViewportInset.
-        UIEdgeInsets maxInsets = _maxViewportInset;
-        maxInsets.bottom = 0;
-
-        // Offset contentInset by maxInsets to fake the toolbar collapse
-        // visually.
-        UIEdgeInsets adjustedContentInset = obscuredInsets;
-        adjustedContentInset.top -= maxInsets.top;
-        adjustedContentInset.left -= maxInsets.left;
-        adjustedContentInset.right -= maxInsets.right;
-
-        _scrollView.contentInset = adjustedContentInset;
+        _scrollView.contentInset =
+            AdjustedPdfContentInsets(contentInsets, _maxViewportInset);
         break;
       }
 
@@ -273,32 +354,39 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
         _scrollView.contentOffset = offset;
       }
       // Update the frame.
-      _webView.frame = UIEdgeInsetsInsetRect(self.frame, obscuredInsets);
+      _webView.frame = UIEdgeInsetsInsetRect(self.bounds, contentInsets);
+      _obscuredInsets = obscuredInsets;
       break;
+    }
   }
-  _obscuredInsets = obscuredInsets;
 }
 
 - (void)setMinimumViewportInset:(UIEdgeInsets)minInset
            maximumViewportInset:(UIEdgeInsets)maxInset {
+  UIEdgeInsets effectiveMinInset =
+      AdjustInsetsForSafeArea(minInset, self.safeAreaInsets);
+  UIEdgeInsets effectiveMaxInset =
+      AdjustInsetsForSafeArea(maxInset, self.safeAreaInsets);
+
   switch (self.webViewResizingType) {
     case WebViewResizingType::kContentInset: {
       BOOL isFrameLargeEnough;
       if (base::FeatureList::IsEnabled(kCRWWebViewContentViewLayoutFix)) {
         isFrameLargeEnough = IsFrameLargeEnoughToApplyViewportInsets(
-            _webView.frame.size, minInset, maxInset);
+            _webView.frame.size, effectiveMinInset, effectiveMaxInset);
       } else {
-        isFrameLargeEnough =
-            !CGRectIsEmpty(UIEdgeInsetsInsetRect(_webView.bounds, maxInset));
+        isFrameLargeEnough = !CGRectIsEmpty(
+            UIEdgeInsetsInsetRect(_webView.bounds, effectiveMaxInset));
       }
 
       // Only apply the viewport insets if the web view's frame is large enough
       // to accommodate them.
       if (_webView.window && isFrameLargeEnough) {
-        [_webView setMinimumViewportInset:minInset
-                     maximumViewportInset:maxInset];
+        [_webView setMinimumViewportInset:effectiveMinInset
+                     maximumViewportInset:effectiveMaxInset];
         _hasPendingViewportInsets = NO;
-        [self viewportInsetsDidChangeWithMinInset:minInset maxInset:maxInset];
+        [self viewportInsetsDidChangeWithMinInset:effectiveMinInset
+                                         maxInset:effectiveMaxInset];
         [_webView setNeedsLayout];
       } else {
         _pendingMinInset = minInset;
@@ -310,12 +398,12 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
     case WebViewResizingType::kFrame: {
       _maxViewportInset = maxInset;
 
-      if (web::IsContentTypePdf(_mimeTypeString)) {
+      if (web::IsContentTypePdf(_mimeTypeString) && _usesObscuredInsets) {
         // Inset the frame by maxInsets to prevent covering the page indicator
         // badge underneath the top toolbar.
         UIEdgeInsets maxInsetsForFrame = _maxViewportInset;
         maxInsetsForFrame.bottom = 0;
-        _webView.frame = UIEdgeInsetsInsetRect(self.frame, maxInsetsForFrame);
+        _webView.frame = UIEdgeInsetsInsetRect(self.bounds, maxInsetsForFrame);
       }
 
       // Do not pass the min/max viewport insets to the underlying web view if
@@ -343,6 +431,34 @@ const CGFloat kBackgroundRGBComponents[] = {0.75f, 0.74f, 0.76f};
 // TODO(crbug.com/40123534): Implement.
 - (void)updateMinViewportInsets:(UIEdgeInsets)minInsets
               maxViewportInsets:(UIEdgeInsets)maxInsets {
+}
+
+#pragma mark - Private
+
+// Applies obscured insets to the scroll view and web view when using
+// WebViewResizingType::kContentInset.
+- (void)applyContentInsetModeObscuredInsets:(UIEdgeInsets)obscuredInsets {
+  UIEdgeInsets contentInsets =
+      AdjustInsetsForSafeArea(obscuredInsets, self.safeAreaInsets);
+
+  UIEdgeInsets oldInsets = _scrollView.contentInset;
+  _scrollView.contentInset = contentInsets;
+  CGFloat topDelta = contentInsets.top - oldInsets.top;
+  if (!web::IsContentTypePdf(_mimeTypeString) && topDelta != 0 &&
+      std::fabs(_scrollView.contentOffset.y - (-oldInsets.top)) < 0.1) {
+    CGPoint offset = _scrollView.contentOffset;
+    offset.y = -contentInsets.top;
+    _scrollView.contentOffset = offset;
+  }
+  if (@available(iOS 26, *)) {
+    [_webView setObscuredContentInsets:obscuredInsets];
+  }
+  _obscuredInsets = obscuredInsets;
+}
+
+// Called when an insets animation completes, clearing the animator instance.
+- (void)insetsAnimationDidComplete {
+  _insetsAnimator = nil;
 }
 
 @end

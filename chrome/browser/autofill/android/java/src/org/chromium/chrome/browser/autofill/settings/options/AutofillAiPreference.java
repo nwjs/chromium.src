@@ -21,6 +21,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.R;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.ProfileDependentSetting;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
@@ -47,8 +48,25 @@ public class AutofillAiPreference extends ChromeSwitchPreference
     }
 
     @Override
+    public void onAttached() {
+        super.onAttached();
+
+        // TODO(crbug.com/530067273): Move string configuration to XML once kAutofillAiUsePrivateAi
+        // is launched.
+        final boolean usePrivateAi =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AI_USE_PRIVATE_AI);
+        setSummary(
+                usePrivateAi
+                        ? R.string.settings_autofill_ai_toggle_sub_label_v2
+                        : R.string.settings_autofill_ai_toggle_sub_label);
+    }
+
+    @Override
     public void onBindViewHolder(PreferenceViewHolder holder) {
         super.onBindViewHolder(holder);
+
+        final boolean usePrivateAi =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AI_USE_PRIVATE_AI);
 
         setInfoItemDetails(
                 holder.findViewById(R.id.autofill_ai_when_on),
@@ -57,10 +75,14 @@ public class AutofillAiPreference extends ChromeSwitchPreference
                 R.drawable.ic_text_analysis_24dp);
 
         View thingsToConsider = holder.findViewById(R.id.autofill_ai_things_to_consider);
+        // TODO(crbug.com/530067273): Move string configuration to XML once kAutofillAiUsePrivateAi
+        // is launched.
         setInfoItemDetails(
                 thingsToConsider,
                 R.string.settings_autofill_ai_things_to_consider,
-                R.string.settings_autofill_ai_to_consider_data_usage,
+                usePrivateAi
+                        ? R.string.settings_autofill_ai_to_consider_data_usage_v2
+                        : R.string.settings_autofill_ai_to_consider_data_usage,
                 R.drawable.google_24dp);
 
         EntityDataManager manager =

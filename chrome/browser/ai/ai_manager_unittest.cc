@@ -36,6 +36,7 @@
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "mojo/public/mojom/base/work_in_progress.mojom.h"
+#include "services/on_device_model/public/cpp/features.h"
 #include "services/on_device_model/public/mojom/download_observer.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features_generated.h"
@@ -71,11 +72,11 @@ std::vector<blink::mojom::AILanguageCodePtr> MakeLanguageCodeVector(
   return result;
 }
 
-class MockCreateSemanticEmbedderClient
+class TestCreateSemanticEmbedderClient
     : public blink::mojom::AIManagerCreateSemanticEmbedderClient {
  public:
-  MockCreateSemanticEmbedderClient() = default;
-  ~MockCreateSemanticEmbedderClient() override = default;
+  TestCreateSemanticEmbedderClient() = default;
+  ~TestCreateSemanticEmbedderClient() override = default;
 
   void OnResult(
       mojo::PendingRemote<blink::mojom::AISemanticEmbedder> embedder) override {
@@ -255,6 +256,86 @@ TEST_F(AIManagerTest, CanCreate) {
               blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
+}
+
+TEST_F(AIManagerTest, CanCreateSpeculativeDecodingSamplingOptions) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      on_device_model::features::kOnDeviceModelSpeculativeDecoding);
+
+  // Default options (no explicit greedy params/mode) should return
+  // incompatible.
+  {
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateLanguageModel(
+        blink::mojom::AILanguageModelCreateOptions::New(),
+        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::
+                  kUnavailableIncompatibleSpeculativeDecodingOptions);
+  }
+
+  // Explicit greedy options (top_k = 1, temperature = 0.5) should return
+  // downloadable.
+  {
+    auto sampling_params = blink::mojom::AILanguageModelSamplingParams::New();
+    sampling_params->top_k = 1;
+    sampling_params->temperature = 0.5f;
+
+    auto options = blink::mojom::AILanguageModelCreateOptions::New();
+    options->sampling_params = std::move(sampling_params);
+
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateLanguageModel(std::move(options),
+                                        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+  }
+
+  // Non-greedy options (top_k = 2, temperature = 0.5) should return
+  // incompatible.
+  {
+    auto sampling_params = blink::mojom::AILanguageModelSamplingParams::New();
+    sampling_params->top_k = 2;
+    sampling_params->temperature = 0.5f;
+
+    auto options = blink::mojom::AILanguageModelCreateOptions::New();
+    options->sampling_params = std::move(sampling_params);
+
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateLanguageModel(std::move(options),
+                                        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::
+                  kUnavailableIncompatibleSpeculativeDecodingOptions);
+  }
+
+  // Compatible sampling mode (kMostPredictable) should return downloadable.
+  {
+    auto options = blink::mojom::AILanguageModelCreateOptions::New();
+    options->sampling_mode =
+        blink::mojom::AILanguageModelSamplingMode::kMostPredictable;
+
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateLanguageModel(std::move(options),
+                                        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::kDownloadable);
+  }
+
+  // Incompatible sampling mode (kBalanced) should return incompatible.
+  {
+    auto options = blink::mojom::AILanguageModelCreateOptions::New();
+    options->sampling_mode =
+        blink::mojom::AILanguageModelSamplingMode::kBalanced;
+
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateLanguageModel(std::move(options),
+                                        future.GetCallback());
+    EXPECT_EQ(future.Get(),
+              blink::mojom::ModelAvailabilityCheckResult::
+                  kUnavailableIncompatibleSpeculativeDecodingOptions);
+  }
 }
 
 TEST_F(AIManagerTest, CanCreateSemanticEmbedderCrashLimit) {
@@ -537,7 +618,7 @@ TEST_F(AIManagerTest, CreateSemanticEmbedderWaitsForModel) {
   // Model is not yet available.
   EXPECT_FALSE(service_launcher->controller()->IsModelAvailable());
 
-  MockCreateSemanticEmbedderClient client;
+  TestCreateSemanticEmbedderClient client;
   MockDownloadObserver monitor;
 
   ai_manager_->CreateSemanticEmbedder(client.BindNewPipeAndPassRemote(),
@@ -571,7 +652,7 @@ TEST_F(AIManagerTest, CreateSemanticEmbedderDownloadProgress) {
   auto* service_launcher = AISemanticEmbedderServiceLauncher::Get();
   service_launcher->RecordSuccessfulUse();
 
-  MockCreateSemanticEmbedderClient client;
+  TestCreateSemanticEmbedderClient client;
   MockDownloadObserver monitor;
 
   EXPECT_CALL(monitor,
@@ -634,7 +715,7 @@ TEST_F(AIManagerTest, CreateSemanticEmbedderCrashLimit) {
 
   EXPECT_FALSE(service_launcher->AllowedToLaunch());
 
-  MockCreateSemanticEmbedderClient client;
+  TestCreateSemanticEmbedderClient client;
   MockDownloadObserver monitor;
 
   ai_manager_->CreateSemanticEmbedder(client.BindNewPipeAndPassRemote(),
@@ -653,7 +734,7 @@ TEST_F(AIManagerTest, CreateSemanticEmbedderComponentUpdateFailed) {
   // Model is not yet available.
   EXPECT_FALSE(service_launcher->controller()->IsModelAvailable());
 
-  MockCreateSemanticEmbedderClient client;
+  TestCreateSemanticEmbedderClient client;
   MockDownloadObserver monitor;
 
   // Expect OnDemandUpdate and capture the callback.

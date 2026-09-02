@@ -27,6 +27,7 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/ip_address_space_util.h"
 #include "services/network/public/cpp/local_network_access_check_result.h"
+#include "services/network/public/mojom/http_request_headers.mojom.h"
 #include "services/network/public/mojom/url_loader_network_service_observer.mojom-shared.h"
 #include "services/network/public/mojom/web_transport.mojom.h"
 
@@ -42,7 +43,9 @@ net::WebTransportParameters CreateParameters(
     std::optional<uint16_t>
         anticipated_concurrent_incoming_unidirectional_streams,
     std::optional<uint16_t>
-        anticipated_concurrent_incoming_bidirectional_streams) {
+        anticipated_concurrent_incoming_bidirectional_streams,
+    std::vector<net::HttpRequestHeaders::HeaderKeyValuePair>
+        additional_headers) {
   net::WebTransportParameters params;
   params.enable_web_transport_http3 = true;
   params.application_protocols = std::move(application_protocols);
@@ -74,6 +77,7 @@ net::WebTransportParameters CreateParameters(
         quic::CertificateFingerprint{.algorithm = fingerprint->algorithm,
                                      .fingerprint = fingerprint->fingerprint});
   }
+  params.additional_headers = std::move(additional_headers);
   return params;
 }
 
@@ -212,6 +216,12 @@ class WebTransport::Stream final {
   void NotifyFinFromClient() {
     has_received_fin_from_client_ = true;
     MaySendFin();
+  }
+
+  void SetPriority(const webtransport::StreamPriority& priority) {
+    if (outgoing_) {
+      outgoing_->SetPriority(priority);
+    }
   }
 
   void Abort(uint8_t code) {
@@ -449,6 +459,7 @@ WebTransport::WebTransport(
         anticipated_concurrent_incoming_unidirectional_streams,
     std::optional<uint16_t>
         anticipated_concurrent_incoming_bidirectional_streams,
+    std::vector<net::HttpRequestHeaders::HeaderKeyValuePair> additional_headers,
     NetworkContext* context,
     mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client,
     mojo::PendingRemote<mojom::URLLoaderNetworkServiceObserver>
@@ -468,7 +479,8 @@ WebTransport::WebTransport(
               std::move(application_protocols),
               congestion_control,
               anticipated_concurrent_incoming_unidirectional_streams,
-              anticipated_concurrent_incoming_bidirectional_streams))),
+              anticipated_concurrent_incoming_bidirectional_streams,
+              std::move(additional_headers)))),
       url_(url),
       origin_(origin),
       context_(context),
@@ -592,6 +604,16 @@ void WebTransport::StopSending(uint32_t stream, uint8_t code) {
     return;
   }
   it->second->StopSending(code);
+}
+
+void WebTransport::SetStreamPriority(
+    uint32_t stream,
+    mojom::WebTransportStreamPriorityPtr priority) {
+  auto it = streams_.find(stream);
+  if (it == streams_.end()) {
+    return;
+  }
+  it->second->SetPriority(ToStreamPriority(*priority));
 }
 
 void WebTransport::SetOutgoingDatagramExpirationDuration(
@@ -729,10 +751,19 @@ void WebTransport::OnConnected(
   }
 
   DCHECK(handshake_client_);
+  CHECK(response_headers);
+
+  // https://fetch.spec.whatwg.org/#forbidden-response-header-name
+  auto filtered_response_headers =
+      base::MakeRefCounted<net::HttpResponseHeaders>(
+          response_headers->raw_headers());
+  filtered_response_headers->RemoveHeader("Set-Cookie");
+  filtered_response_headers->RemoveHeader("Set-Cookie2");
 
   handshake_client_->OnConnectionEstablished(
       receiver_.BindNewPipeAndPassRemote(),
-      client_.BindNewPipeAndPassReceiver(), std::move(response_headers),
+      client_.BindNewPipeAndPassReceiver(),
+      std::move(filtered_response_headers),
       transport_->session()->GetNegotiatedSubprotocol(),
       StatsToMojom(transport_->session()->GetSessionStats()));
 
@@ -742,6 +773,13 @@ void WebTransport::OnConnected(
   // then resets the mojo endpoints.
   receiver_.set_disconnect_handler(
       base::BindOnce(&WebTransport::Dispose, base::Unretained(this)));
+
+  // A GOAWAY travels on the connection's control stream, independently of the
+  // CONNECT stream carrying this handshake, so drain signal can be received
+  // before the CONNECT. Send drain now if that happened.
+  if (draining_received_) {
+    client_->OnDraining();
+  }
 }
 
 void WebTransport::OnConnectionFailed(const net::WebTransportError& error) {
@@ -795,6 +833,18 @@ void WebTransport::OnError(const net::WebTransportError& error) {
   DCHECK(!handshake_client_);
 
   TearDown();
+}
+
+void WebTransport::OnDraining() {
+  if (torn_down_ || closing_ || draining_received_) {
+    return;
+  }
+
+  draining_received_ = true;
+
+  if (client_.is_bound()) {
+    client_->OnDraining();
+  }
 }
 
 void WebTransport::OnIncomingBidirectionalStreamAvailable() {

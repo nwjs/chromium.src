@@ -13,7 +13,7 @@ found in the LICENSE file.
     android:clipChildren="false" >
 
     <view
-        class="org.chromium.components.browser_ui.bottomsheet.BottomSheet$ShadowLayerView"
+        class="org.chromium.components.browser_ui.bottomsheet.BottomSheetView$ShadowLayerView"
         android:id="@+id/shadow_layer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -33,25 +33,22 @@ found in the LICENSE file.
         android:background="@macro/default_bg_color"
         android:importantForAccessibility="no" />
 
+    <ImageView
+        android:id="@+id/handlebar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|top"
+        android:paddingTop="6dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/drag_handlebar"
+        android:visibility="gone" />
+
     <org.chromium.components.browser_ui.bottomsheet.TouchRestrictingFrameLayout
         android:importantForAccessibility="yes"
         android:id="@+id/bottom_sheet_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <org.chromium.ui.widget.ChromeImageButton
-        android:id="@+id/bottom_sheet_close_button"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="top|end"
-        android:layout_marginEnd="8dp"
-        android:layout_marginTop="8dp"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:contentDescription="@string/close"
-        android:padding="12dp"
-        android:scaleType="centerInside"
-        android:src="@drawable/material_ic_close_24dp"
-        android:visibility="gone" />
 
     <FrameLayout
         android:importantForAccessibility="yes"

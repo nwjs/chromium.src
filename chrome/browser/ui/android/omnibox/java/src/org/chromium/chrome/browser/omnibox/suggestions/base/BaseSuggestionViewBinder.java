@@ -4,10 +4,10 @@
 
 package org.chromium.chrome.browser.omnibox.suggestions.base;
 
+import static org.chromium.build.NullUtil.assumeNonNull;
+
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.res.ColorStateList;
-import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.Drawable.ConstantState;
 import android.os.Bundle;
@@ -15,13 +15,12 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.AccessibilityDelegate;
 import android.view.ViewGroup;
-import android.view.ViewGroup.LayoutParams;
-import android.view.ViewGroup.MarginLayoutParams;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 import android.widget.ImageView;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
@@ -39,7 +38,6 @@ import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonPropertie
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProperties.Action;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
-import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor.ViewBinder;
@@ -71,26 +69,20 @@ public abstract class BaseSuggestionViewBinder<T extends View>
 
     private static @BrandedColorScheme int sFocusableDrawableStateTheme;
     private static boolean sFocusableDrawableStateInNightMode;
-    private static boolean sDimensionsInitialized;
-    private static int sEdgeSize;
-    private static int sEdgeSizeLargeIcon;
-    private static int sSideSpacing;
-    private static int sLargeIconRoundingRadius;
-    private static int sSmallIconRoundingRadius;
 
-    private final OmniboxResourceProvider mResourceProvider;
-
-    public BaseSuggestionViewBinder(OmniboxResourceProvider resourceProvider) {
-        mResourceProvider = resourceProvider;
+    protected static OmniboxResourceProvider getResourceProvider(PropertyModel model) {
+        OmniboxResourceProvider provider = model.get(SuggestionCommonProperties.RESOURCE_PROVIDER);
+        return assumeNonNull(provider);
     }
 
     @Override
     @SuppressLint("ClickableViewAccessibility")
     public void bind(PropertyModel model, BaseSuggestionView<T> view, PropertyKey propertyKey) {
-        if (!sDimensionsInitialized) {
-            initializeDimensions(view.getContext(), mResourceProvider);
-            sDimensionsInitialized = true;
-        }
+        view.setSuggestionDimensions(
+                getResourceProvider(model).getSuggestionDecorationIconSizeWidth(),
+                getResourceProvider(model).getSuggestionContentHeight(),
+                getResourceProvider(model).getSuggestionCompactContentHeight(),
+                getResourceProvider(model).getSuggestionContentVerticalPadding());
 
         bindContent(model, view.contentView, propertyKey);
         ActionChipsBinder.bind(model, view.actionChipsView, propertyKey);
@@ -99,14 +91,14 @@ public abstract class BaseSuggestionViewBinder<T extends View>
             view.setActionChipLeadInSpacing(
                     model.get(BaseSuggestionViewProperties.ACTION_CHIP_LEAD_IN_SPACING));
         } else if (SuggestionCommonProperties.APPLY_SIDE_SPACING == propertyKey) {
-            updateMargin(model, view);
+            view.applySideSpacing(
+                    model.get(SuggestionCommonProperties.APPLY_SIDE_SPACING),
+                    getResourceProvider(model).getSideSpacing());
         } else if (BaseSuggestionViewProperties.ICON == propertyKey) {
             updateSuggestionIcon(model, view);
         } else if (SuggestionCommonProperties.LAYOUT_DIRECTION == propertyKey) {
             ViewCompat.setLayoutDirection(
                     view, model.get(SuggestionCommonProperties.LAYOUT_DIRECTION));
-            // TODO(crbug.com/41487873): migrate this to SuggestionLayout.
-            updateMargin(model, view);
         } else if (SuggestionCommonProperties.COLOR_SCHEME == propertyKey) {
             updateColorScheme(model, view);
         } else if (SuggestionCommonProperties.BG_POSITIONAL_MODE == propertyKey
@@ -146,7 +138,11 @@ public abstract class BaseSuggestionViewBinder<T extends View>
         } else if (BaseSuggestionViewProperties.SHOW_DECORATION == propertyKey) {
             view.setShowDecorationIcon(model.get(BaseSuggestionViewProperties.SHOW_DECORATION));
         } else if (BaseSuggestionViewProperties.TOP_PADDING == propertyKey) {
-            view.setPadding(0, model.get(BaseSuggestionViewProperties.TOP_PADDING), 0, 0);
+            view.setPaddingRelative(
+                    view.getPaddingStart(),
+                    model.get(BaseSuggestionViewProperties.TOP_PADDING),
+                    view.getPaddingEnd(),
+                    view.getPaddingBottom());
         } else if (BaseSuggestionViewProperties.USE_LARGE_DECORATION == propertyKey) {
             view.setUseLargeDecorationIcon(
                     model.get(BaseSuggestionViewProperties.USE_LARGE_DECORATION));
@@ -168,7 +164,6 @@ public abstract class BaseSuggestionViewBinder<T extends View>
             actionView.setContentDescription(action.accessibilityDescription);
             actionView.enableShowOnlyOnFocus(action.showOnlyOnFocus);
             updateIcon(
-                    model,
                     actionView,
                     action.icon,
                     ChromeColors.getPrimaryIconTintRes(isIncognito(model)));
@@ -201,7 +196,7 @@ public abstract class BaseSuggestionViewBinder<T extends View>
     private void updateColorScheme(PropertyModel model, BaseSuggestionView<T> view) {
         maybeResetCachedFocusableDrawableState(model, view);
         updateSuggestionIcon(model, view);
-        applySelectableBackground(model, view, mResourceProvider);
+        applySelectableBackground(model, view, getResourceProvider(model));
 
         final List<Action> actions = model.get(BaseSuggestionViewProperties.ACTION_BUTTONS);
         // Setting ACTION_BUTTONS and updating actionViews can happen later. Appropriate color
@@ -213,7 +208,6 @@ public abstract class BaseSuggestionViewBinder<T extends View>
             ImageView actionView = actionViews.get(index);
 
             updateIcon(
-                    model,
                     actionView,
                     actions.get(index).icon,
                     ChromeColors.getPrimaryIconTintRes(isIncognito(model)));
@@ -235,7 +229,11 @@ public abstract class BaseSuggestionViewBinder<T extends View>
 
         if (sds != null) {
             // Ensure the decoration icon size does not exceed the maximum edge size.
-            int edgeSize = sds.isLarge ? sEdgeSizeLargeIcon : sEdgeSize;
+            OmniboxResourceProvider resourceProvider = getResourceProvider(model);
+            int edgeSize =
+                    sds.isLarge
+                            ? resourceProvider.getEdgeSizeLargeIcon()
+                            : resourceProvider.getEdgeSize();
             boolean isTall = sds.drawable.getIntrinsicHeight() > sds.drawable.getIntrinsicWidth();
             rciv.getLayoutParams().width = isTall ? ViewGroup.LayoutParams.WRAP_CONTENT : edgeSize;
             rciv.getLayoutParams().height = isTall ? edgeSize : ViewGroup.LayoutParams.WRAP_CONTENT;
@@ -250,11 +248,13 @@ public abstract class BaseSuggestionViewBinder<T extends View>
 
             rciv.setClipToOutline(sds.useRoundedCorners);
             baseView.decorationIconOutline.setRadius(
-                    sds.isLarge ? sLargeIconRoundingRadius : sSmallIconRoundingRadius);
+                    sds.isLarge
+                            ? resourceProvider.getLargeIconRoundingRadius()
+                            : resourceProvider.getSmallIconRoundingRadius());
         }
 
         rciv.setVisibility(sds == null ? View.GONE : View.VISIBLE);
-        updateIcon(model, rciv, sds, ChromeColors.getSecondaryIconTintRes(isIncognito(model)));
+        updateIcon(rciv, sds, ChromeColors.getSecondaryIconTintRes(isIncognito(model)));
     }
 
     /**
@@ -289,6 +289,7 @@ public abstract class BaseSuggestionViewBinder<T extends View>
         Drawable background;
 
         if (sFocusableDrawableState == null) {
+            @ColorInt
             int suggestionBgColor =
                     resourceProvider.getSuggestionBackgroundColor(
                             model.get(SuggestionCommonProperties.FUSEBOX_LAYOUT_MODE),
@@ -331,7 +332,7 @@ public abstract class BaseSuggestionViewBinder<T extends View>
 
     /** Update image view using supplied drawable state object. */
     private static void updateIcon(
-            PropertyModel model, ImageView view, OmniboxDrawableState sds, @ColorRes int tintRes) {
+            ImageView view, OmniboxDrawableState sds, @ColorRes int tintRes) {
         if (sds == null) {
             // Release any drawable that is still attached to this view to reclaim memory.
             view.setImageDrawable(null);
@@ -343,7 +344,7 @@ public abstract class BaseSuggestionViewBinder<T extends View>
             tint = view.getContext().getColorStateList(tintRes);
         }
 
-        view.setImageDrawable(isIncognito(model) ? sds.incognitoDrawable : sds.drawable);
+        view.setImageDrawable(sds.drawable);
         view.setForegroundTintList(tint);
         ImageViewCompat.setImageTintList(view, tint);
     }
@@ -363,53 +364,8 @@ public abstract class BaseSuggestionViewBinder<T extends View>
         view.setRoundingEdges(roundTopEdge, roundBottomEdge);
     }
 
-    /**
-     * Update the margin for the view.
-     *
-     * @param model A property model to look up relevant properties.
-     * @param view A view that need to be updated.
-     */
-    public static void updateMargin(PropertyModel model, View view) {
-        ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
-        if (layoutParams == null) {
-            layoutParams =
-                    new MarginLayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        }
-
-        int sideSpacing =
-                model.get(SuggestionCommonProperties.APPLY_SIDE_SPACING) ? sSideSpacing : 0;
-        if (layoutParams instanceof MarginLayoutParams) {
-            ((MarginLayoutParams) layoutParams).setMargins(sideSpacing, 0, sideSpacing, 0);
-        }
-        view.setLayoutParams(layoutParams);
-    }
-
     public static void resetCachedResources() {
-        sDimensionsInitialized = false;
         sFocusableDrawableState = null;
-    }
-
-    @VisibleForTesting
-    static void initializeDimensions(Context context, OmniboxResourceProvider resourceProvider) {
-        Resources resources = context.getResources();
-
-        if (OmniboxCapabilities.isDesktopPlatform()) {
-            sEdgeSize =
-                    resources.getDimensionPixelSize(
-                            R.dimen.omnibox_desktop_small_decoration_icon_size);
-            sEdgeSizeLargeIcon =
-                    resources.getDimensionPixelSize(
-                            R.dimen.omnibox_desktop_large_decoration_icon_size);
-        } else {
-            sEdgeSize = resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_24dp_icon_size);
-            sEdgeSizeLargeIcon =
-                    resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_36dp_icon_size);
-        }
-        sSideSpacing = resourceProvider.getSideSpacing();
-        sLargeIconRoundingRadius =
-                resources.getDimensionPixelSize(R.dimen.omnibox_large_icon_rounding_radius);
-        sSmallIconRoundingRadius =
-                resources.getDimensionPixelSize(R.dimen.omnibox_small_icon_rounding_radius);
     }
 
     /**

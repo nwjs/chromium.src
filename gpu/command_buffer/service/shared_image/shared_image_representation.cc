@@ -1261,8 +1261,9 @@ VulkanImageRepresentation::~VulkanImageRepresentation() {
 VulkanImageRepresentation::ScopedAccess::ScopedAccess(
     VulkanImageRepresentation* representation,
     AccessMode access_mode,
-    std::vector<VkSemaphore> begin_semaphores,
-    VkSemaphore end_semaphore)
+    std::vector<base::RawPtrIfPtrT<VkSemaphore, DanglingUntriaged>>
+        begin_semaphores,
+    base::RawPtrIfPtrT<VkSemaphore, DanglingUntriaged> end_semaphore)
     : ScopedAccessBase(representation, access_mode),
       is_read_only_(access_mode == AccessMode::kRead),
       begin_semaphores_(std::move(begin_semaphores)),
@@ -1290,19 +1291,23 @@ VulkanImageRepresentation::BeginScopedAccess(
     AccessMode access_mode,
     std::vector<VkSemaphore>& begin_semaphores,
     std::vector<VkSemaphore>& end_semaphores) {
-  std::vector<VkSemaphore> local_begin_semaphores;
-  std::vector<VkSemaphore> local_end_semaphores;
+  std::vector<base::RawPtrIfPtrT<VkSemaphore, DanglingUntriaged>>
+      local_begin_semaphores;
+  std::vector<base::RawPtrIfPtrT<VkSemaphore, DanglingUntriaged>>
+      local_end_semaphores;
   if (!BeginAccess(access_mode, local_begin_semaphores, local_end_semaphores)) {
     return nullptr;
   }
   // Append all semaphores from local_* to the passed vectors.
-  begin_semaphores.insert(begin_semaphores.end(),
-                          local_begin_semaphores.begin(),
-                          local_begin_semaphores.end());
-  end_semaphores.insert(end_semaphores.end(), local_end_semaphores.begin(),
-                        local_end_semaphores.end());
+  for (const auto& sem : local_begin_semaphores) {
+    begin_semaphores.push_back(sem);
+  }
+  for (const auto& sem : local_end_semaphores) {
+    end_semaphores.push_back(sem);
+  }
 
-  VkSemaphore end_semaphore = VK_NULL_HANDLE;
+  base::RawPtrIfPtrT<VkSemaphore, DanglingUntriaged> end_semaphore =
+      VK_NULL_HANDLE;
   if (!local_end_semaphores.empty()) {
     end_semaphore = local_end_semaphores.back();
   }

@@ -25,6 +25,12 @@ AndroidBnplStrategy::GetNextActionOnUserDecisionToUseBnpl() {
       kCheckAmountExtractionBeforeContinuingFlowForAndroid;
 }
 
+BnplStrategy::UserDecisionToUseBnplAgainNextAction
+AndroidBnplStrategy::GetNextActionOnUserDecisionToUseBnplAgain() {
+  return UserDecisionToUseBnplAgainNextAction::
+      kReshowSelectBnplIssuerUiOnAndroid;
+}
+
 BnplStrategy::BnplAmountExtractionReturnedNextAction
 AndroidBnplStrategy::GetNextActionOnAmountExtractionReturned() {
   return BnplAmountExtractionReturnedNextAction::
@@ -43,6 +49,12 @@ BnplStrategy::BnplAiBasedAmountExtractionReturnedNextAction
 AndroidBnplStrategy::GetNextActionOnAiBasedAmountExtractionReturned() {
   return BnplAiBasedAmountExtractionReturnedNextAction::
       kSwitchToIssuerSelectionScreenOnAndroid;
+}
+
+BnplStrategy::UserDecisionToUseSavedCardsNextAction
+AndroidBnplStrategy::GetNextActionOnUserDecisionToUseSavedCards() {
+  return UserDecisionToUseSavedCardsNextAction::
+      kResetSelectedIssuerOrFlowStateOnAndroid;
 }
 
 BnplStrategy::UiDismissalAction AndroidBnplStrategy::GetUiDismissalAction() {

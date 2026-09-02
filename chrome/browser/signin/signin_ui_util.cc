@@ -26,6 +26,7 @@
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
+#include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_delegate.h"
 #include "chrome/browser/signin/signin_util.h"
@@ -42,6 +43,7 @@
 #include "chrome/common/pref_names.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/prefs/pref_service.h"
+#include "components/signin/core/browser/account_preview_data_service.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -398,64 +400,45 @@ void EnableSyncFromMultiAccountPromo(Profile* profile,
 
 std::vector<AccountInfo> GetOrderedAccountsForDisplay(
     const signin::IdentityManager* identity_manager,
-    bool restrict_to_accounts_eligible_for_sync) {
-  // Fetch account ids for accounts that have a token and are in cookie jar.
-  std::vector<AccountInfo> accounts_with_tokens =
-      identity_manager->GetExtendedAccountInfoForAccountsWithRefreshToken();
-  signin::AccountsInCookieJarInfo accounts_in_jar =
-      identity_manager->GetAccountsInCookieJar();
-  // Compute the default account.
-  CoreAccountId default_account_id =
-      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
+    const signin::AccountPreviewDataService* account_preview_data_service,
+    bool restrict_to_accounts_eligible_for_signin) {
+  const PrefService* prefs = restrict_to_accounts_eligible_for_signin
+                                 ? g_browser_process->local_state()
+                                 : nullptr;
+  std::vector<AccountInfo> accounts =
+      signin::GetOrderedAccountsForDisplay(identity_manager, prefs);
 
-  std::vector<AccountInfo> accounts;
-
-  // First, add the primary account (if available), even if it is not in the
-  // cookie jar.
-  std::vector<AccountInfo>::iterator it = std::ranges::find(
-      accounts_with_tokens, default_account_id, &AccountInfo::account_id);
-
-  if (it != accounts_with_tokens.end()) {
-    accounts.push_back(std::move(*it));
-  }
-
-  // Then, add the other accounts in the order of the accounts in the cookie
-  // jar.
-  for (auto& account_info :
-       accounts_in_jar.GetPotentiallyInvalidSignedInAccounts()) {
-    DCHECK(!account_info.id.empty());
-    if (account_info.id == default_account_id ||
-        (restrict_to_accounts_eligible_for_sync &&
-         !signin::IsUsernameAllowedByPatternFromPrefs(
-             g_browser_process->local_state(), account_info.email))) {
-      continue;
-    }
-
-    // Only insert the account if it has a refresh token, because we need the
-    // account info.
-    it = std::ranges::find(accounts_with_tokens, account_info.id,
-                           &AccountInfo::account_id);
-
-    if (it != accounts_with_tokens.end()) {
-      accounts.push_back(std::move(*it));
+  if (account_preview_data_service) {
+    std::optional<signin::AccountPreviewDataService::AccountPreviewPreference>
+        preferred_preference =
+            account_preview_data_service->GetPreferredAccountForPromo();
+    if (preferred_preference.has_value()) {
+      auto it = std::ranges::find(accounts, preferred_preference->gaia_id,
+                                  &AccountInfo::gaia);
+      if (it != accounts.end()) {
+        // Rotate the subrange [begin, it + 1) so the preferred account at `it`
+        // moves to the front while preserving the relative order of all other
+        // accounts.
+        std::rotate(accounts.begin(), it, it + 1);
+      }
     }
   }
+
   return accounts;
 }
 
-#if !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 AccountInfo GetSingleAccountForPromos(
-    const signin::IdentityManager* identity_manager) {
+    const signin::IdentityManager* identity_manager,
+    const signin::AccountPreviewDataService* account_preview_data_service) {
   std::vector<AccountInfo> accounts = GetOrderedAccountsForDisplay(
-      identity_manager, /*restrict_to_accounts_eligible_for_sync=*/true);
-  if (!accounts.empty()) {
-    return accounts[0];
-  }
-  return AccountInfo();
+      identity_manager, account_preview_data_service,
+      /*restrict_to_accounts_eligible_for_signin=*/true);
+  return accounts.empty() ? AccountInfo() : accounts[0];
 }
 
-#endif  // !BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -583,7 +566,8 @@ void SignInAndEnableHistorySync(BrowserWindowInterface* browser,
   // this opens a reauth tab.
   const AccountInfo account_for_promos =
       signin_ui_util::GetSingleAccountForPromos(
-          IdentityManagerFactory::GetForProfile(profile));
+          IdentityManagerFactory::GetForProfile(profile),
+          AccountPreviewDataServiceFactory::GetForProfile(profile));
   signin_ui_util::SignInFromSingleAccountPromo(profile, account_for_promos,
                                                access_point);
 

@@ -11,6 +11,7 @@
 #include "base/time/time.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/content_settings/content_setting_image_model.h"
+#include "chrome/browser/ui/content_settings/content_setting_image_view_delegate.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -385,8 +386,7 @@ void PermissionDashboardController::OnCollapseAnimationEnded() {
 }
 
 void PermissionDashboardController::OnMousePressed() {
-  should_suppress_reopening_page_info_ =
-      page_info_bubble_suppressor_.ShouldSuppress();
+  page_info_bubble_suppressor_.OnMousePressed();
 }
 
 bool PermissionDashboardController::SuppressVerboseIndicator() {
@@ -489,7 +489,8 @@ void PermissionDashboardController::ShowBubble() {
   }
 }
 
-void PermissionDashboardController::ShowPageInfoDialog() {
+void PermissionDashboardController::ShowPageInfoDialog(
+    bool is_pointer_interaction) {
   content::WebContents* contents = location_bar_->GetWebContents();
   if (!contents) {
     return;
@@ -512,10 +513,8 @@ void PermissionDashboardController::ShowPageInfoDialog() {
     return;
   }
 
-  if (should_suppress_reopening_page_info_) {
-    // Reset the flag because `OnMousePressed()` is not called if the LHS
-    // indicator gets keyboard interaction.
-    should_suppress_reopening_page_info_ = false;
+  if (page_info_bubble_suppressor_.ShouldSuppressBubbleShow(
+          is_pointer_interaction)) {
     return;
   }
 
@@ -532,9 +531,8 @@ void PermissionDashboardController::ShowPageInfoDialog() {
   page_info_bubble_suppressor_.Observe(bubble->GetWidget());
 }
 
-
-
-void PermissionDashboardController::OnIndicatorsChipButtonPressed() {
+void PermissionDashboardController::OnIndicatorsChipButtonPressed(
+    bool is_pointer_interaction) {
   content::WebContents* contents = location_bar_->GetWebContents();
   if (!contents) {
     return;
@@ -552,7 +550,7 @@ void PermissionDashboardController::OnIndicatorsChipButtonPressed() {
       url.SchemeIs(dom_distiller::kDomDistillerScheme)) {
     ShowBubble();
   } else {
-    ShowPageInfoDialog();
+    ShowPageInfoDialog(is_pointer_interaction);
   }
 
   if (content_setting_image_model_) {

@@ -10,6 +10,7 @@
 #include <iterator>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
@@ -40,6 +41,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -283,8 +285,8 @@ void StartupBrowserCreatorImpl::Launch(
   MaybeToggleFullscreen(browser);
 }
 
-Browser* StartupBrowserCreatorImpl::OpenURLsInBrowser(
-    Browser* browser,
+BrowserWindowInterface* StartupBrowserCreatorImpl::OpenURLsInBrowser(
+    BrowserWindowInterface* browser,
     chrome::startup::IsProcessStartup process_startup,
     const std::vector<GURL>& urls) {
   StartupTabs tabs;
@@ -292,8 +294,8 @@ Browser* StartupBrowserCreatorImpl::OpenURLsInBrowser(
   return OpenTabsInBrowser(browser, process_startup, tabs, TabOverWrite::kNo);
 }
 
-Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
-    Browser* browser,
+BrowserWindowInterface* StartupBrowserCreatorImpl::OpenTabsInBrowser(
+    BrowserWindowInterface* browser,
     chrome::startup::IsProcessStartup process_startup,
     const StartupTabs& tabs,
     TabOverWrite is_active_tab_overwrite) {
@@ -314,14 +316,16 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
   }
 #endif
 
-  const bool create_new_browser = !browser || !browser->is_type_normal();
+  const bool create_new_browser =
+      !browser ||
+      browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL;
   if (create_new_browser) {
     CHECK(profile_);
     // In some conditions a new browser object cannot be created. The most
     // common reason for not being able to create browser is having this call
     // when the browser process is shutting down. This can also fail if the
     // passed profile is of a type that is not suitable for browser creation.
-    if (Browser::GetCreationStatusForProfile(profile_) !=
+    if (GetBrowserWindowCreationStatusForProfile(*profile_) !=
         Browser::CreationStatus::kOk) {
       return nullptr;
     }
@@ -330,8 +334,9 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     // created in response to the user clicking on chrome. There was an
     // incomplete check on whether a user gesture created a window which looked
     // at the state of the MessageLoop.
-    Browser::CreateParams params = Browser::CreateParams(profile_, false);
-    params.creation_source = Browser::CreationSource::kStartupCreator;
+    BrowserWindowCreateParams params(profile_, false);
+    params.creation_source =
+        BrowserWindowCreateParams::CreationSource::kStartupCreator;
 #if BUILDFLAG(IS_LINUX)
     params.startup_id = startup_id;
 #endif
@@ -341,11 +346,14 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     }
 
     base::TimeTicks now = base::TimeTicks::Now();
-    browser = Browser::Create(params);
-    if (auto* manager = InitialWebUIWindowMetricsManager::From(browser)) {
+    BrowserWindowInterface* browser_window =
+        CreateBrowserWindow(std::move(params));
+    if (auto* manager =
+            InitialWebUIWindowMetricsManager::From(browser_window)) {
       manager->SetWindowCreationInfo(
           waap::NewWindowCreationSource::kBrowserInitiated, now);
     }
+    browser = browser_window;
   }
   CHECK(profile_);
 
@@ -388,7 +396,7 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
       headless::ProcessHeadlessCommands(
           profile_, tab.url,
           base::BindOnce(
-              [](base::WeakPtr<Browser> browser,
+              [](base::WeakPtr<BrowserWindowInterface> browser,
                  std::unique_ptr<ScopedProfileKeepAlive> profile_keepalive,
                  headless::HeadlessCommandHandler::Result result) {
                 if (browser && browser->GetWindow()) {
@@ -402,12 +410,12 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
                   browser->GetWindow()->Close();
                 }
               },
-              browser->AsWeakPtr(), std::move(profile_keepalive)));
+              browser->GetWeakPtr(), std::move(profile_keepalive)));
       continue;
     }
     // Active tab overwrites apply only to one tab per launch, and can only
     // happen if there is already a tab open to replace
-    if (first_tab && browser->tab_strip_model()->count() &&
+    if (first_tab && browser->GetTabStripModel()->count() &&
         (is_active_tab_overwrite == TabOverWrite::kYes)) {
       NavigateParams params(browser, tab.url,
                             ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
@@ -447,13 +455,13 @@ Browser* StartupBrowserCreatorImpl::OpenTabsInBrowser(
     Navigate(&params);
     first_tab = false;
   }
-  if (!browser->tab_strip_model()->GetActiveWebContents() &&
+  if (!browser->GetTabStripModel()->GetActiveWebContents() &&
       !process_headless_commands) {
     // TODO(sky): this is a work around for 110909. Figure out why it's needed.
-    if (!browser->tab_strip_model()->count()) {
+    if (!browser->GetTabStripModel()->count()) {
       chrome::AddTabAt(browser, GURL(), -1, true);
     } else {
-      browser->tab_strip_model()->ActivateTabAt(0);
+      browser->GetTabStripModel()->ActivateTabAt(0);
     }
   }
 
@@ -568,7 +576,7 @@ void StartupBrowserCreatorImpl::DetermineURLsAndLaunch(
         was_mac_login_or_resume, restore_tabbed_browser);
   }
 
-  Browser* browser = RestoreOrCreateBrowser(
+  BrowserWindowInterface* browser = RestoreOrCreateBrowser(
       tabs, behavior, restore_options, process_startup, is_post_crash_launch);
 
   tab_groups::MaybeShowSharedTabGroupVersionOutOfDateModal(browser);
@@ -727,13 +735,13 @@ bool StartupBrowserCreatorImpl::MaybeAsyncRestore(
   return service && service->RestoreIfNecessary(tabs, restore_apps);
 }
 
-Browser* StartupBrowserCreatorImpl::RestoreOrCreateBrowser(
+BrowserWindowInterface* StartupBrowserCreatorImpl::RestoreOrCreateBrowser(
     const StartupTabs& tabs,
     BrowserOpenBehavior behavior,
     SessionRestore::BehaviorBitmask restore_options,
     chrome::startup::IsProcessStartup process_startup,
     bool is_post_crash_launch) {
-  Browser* browser = nullptr;
+  BrowserWindowInterface* browser = nullptr;
   if (behavior == BrowserOpenBehavior::SYNCHRONOUS_RESTORE) {
     // It's worth noting that this codepath is not hit by crash restore
     // because we want to avoid a crash restore loop, so we don't
@@ -743,10 +751,10 @@ Browser* StartupBrowserCreatorImpl::RestoreOrCreateBrowser(
       restore_options |= SessionRestore::RESTORE_APPS;
     }
 
-    browser = SessionRestore::RestoreSession(profile_, nullptr, restore_options,
-                                             tabs);
-    if (browser) {
-      return browser;
+    BrowserWindowInterface* browser_window = SessionRestore::RestoreSession(
+        profile_, nullptr, restore_options, tabs);
+    if (browser_window) {
+      return browser_window;
     }
   } else if (behavior == BrowserOpenBehavior::USE_EXISTING ||
              behavior ==
@@ -837,7 +845,7 @@ StartupBrowserCreatorImpl::DetermineSynchronousRestoreOptions(
 
 // static
 void StartupBrowserCreatorImpl::MaybeShowNonMilestoneUpdateToast(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const std::string& current_version_string) {
   if (!browser) {
     return;

@@ -587,6 +587,10 @@ void ClipboardCommands::Paste(LocalFrame& frame, EditorCommandSource source) {
 
   if (!DispatchPasteEvent(frame, PasteMode::kAllMimeTypes, source))
     return;
+  // A 'paste' event handler may destroy target frame.
+  if (frame.GetDocument()->GetFrame() != frame) {
+    return;
+  }
   if (!frame.GetEditor().CanPaste())
     return;
 
@@ -632,9 +636,7 @@ void ClipboardCommands::Paste(LocalFrame& frame, EditorCommandSource source) {
   }
 
   if (paste_mode == PasteMode::kAllMimeTypes) {
-    RuntimeEnabledFeatures::InputEventDataTransferForInsertCmdEnabled()
-        ? PasteFromClipboard(frame, source, data_transfer)
-        : PasteFromClipboard(frame, source);
+    PasteFromClipboard(frame, source, data_transfer);
     return;
   }
   PasteAsPlainTextFromClipboard(frame, source);
@@ -847,6 +849,10 @@ bool ClipboardCommands::ExecutePasteAndMatchStyle(LocalFrame& frame,
                                                   const String&) {
   if (!DispatchPasteEvent(frame, PasteMode::kPlainTextOnly, source))
     return false;
+  // A 'paste' event handler may destroy target frame.
+  if (frame.GetDocument()->GetFrame() != frame) {
+    return false;
+  }
   if (!frame.GetEditor().CanPaste())
     return false;
 

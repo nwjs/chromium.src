@@ -16,6 +16,7 @@ import android.content.Context;
 import android.view.View;
 import android.view.View.MeasureSpec;
 
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -28,6 +29,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.base.SuggestionLayout.LayoutParams.SuggestionViewType;
+import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 
 /**
  * Tests for {@link SuggestionLayout}.
@@ -38,13 +40,24 @@ import org.chromium.chrome.browser.omnibox.suggestions.base.SuggestionLayout.Lay
 @RunWith(BaseRobolectricTestRunner.class)
 public class SuggestionLayoutUnitTest {
 
-    public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     private final Context mContext = ContextUtils.getApplicationContext();
     private final View mDecorationView = new View(mContext);
     private final View mActionButtonView = new View(mContext);
     private final View mContentView = new View(mContext);
     private SuggestionLayout mLayout = new SuggestionLayout(mContext);
+    private OmniboxResourceProvider mResourceProvider;
+
+    @Before
+    public void setUp() {
+        mResourceProvider = new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
+        mLayout.setSuggestionDimensions(
+                mResourceProvider.getSuggestionDecorationIconSizeWidth(),
+                mResourceProvider.getSuggestionContentHeight(),
+                mResourceProvider.getSuggestionCompactContentHeight(),
+                mResourceProvider.getSuggestionContentVerticalPadding());
+    }
 
     @Test
     public void setRoundingEdges_redrawViewOnChange() {
@@ -186,8 +199,7 @@ public class SuggestionLayoutUnitTest {
         mLayout.layout(0, 0, 200, 48);
 
         assertEquals(
-                OmniboxResourceProvider.getSuggestionDecorationIconSizeWidth(mContext),
-                mContentView.getLeft());
+                mResourceProvider.getSuggestionDecorationIconSizeWidth(), mContentView.getLeft());
 
         mDecorationView.setVisibility(View.GONE);
 

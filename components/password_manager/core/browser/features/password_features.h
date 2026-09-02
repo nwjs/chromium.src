@@ -109,6 +109,9 @@ BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApi);
 // Enables Phase 2 of the Mojo JavaScript API migration for the password
 // manager, replacing the legacy passwordsPrivate extension API.
 BASE_DECLARE_FEATURE(kEnablePasswordManagerMojoApiPhase2);
+
+// Enables the Desktop Trusted Vault unlock UI flow.
+BASE_DECLARE_FEATURE(kTrustedVaultDesktopUnlock);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
 // Cross domain credential data is not previewed by the manual fallback
@@ -163,10 +166,6 @@ BASE_DECLARE_FEATURE(kPassDeletionOriginToAndroidBackend);
 extern const base::FeatureParam<int> kPassDeletionOriginMinGmsVersion;
 #endif  // BUILDFLAG(IS_ANDROID)
 
-// Triggers password change glow invoking Glic from settings.
-// This flag is only for the prototype version.
-BASE_DECLARE_FEATURE(kPasswordCheckupPrototype);
-
 // Populate the `date_last_filled` timestamp for passwords.
 BASE_DECLARE_FEATURE(kPasswordDateLastFilled);
 
@@ -188,15 +187,15 @@ BASE_DECLARE_FEATURE(kPasswordManualFallbackSecurityChecks);
 // password save flow.
 BASE_DECLARE_FEATURE(kPasswordSaveInContextErrorResolution);
 
-// When enabled, the password store triggers the `OnErrorStateChanged`
-// notifications.
-BASE_DECLARE_FEATURE(kPasswordStorePropagatesActionableErrors);
-
 // Prevents offering Automatic Password Change on federated login.
 BASE_DECLARE_FEATURE(kPreventAPCOnFederatedLogin);
 
 // Prevents password manager from showing save/update UI on federated login.
 BASE_DECLARE_FEATURE(kPreventPasswordManagerOnFederatedLogin);
+
+// Enables publishing of the password readines metric for users with the trusted
+// vault passphrase type.
+BASE_DECLARE_FEATURE(kRecordPasswordReadiness);
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Enables "Needs access to keychain, restart chrome" bubble and banner.
@@ -209,9 +208,6 @@ BASE_DECLARE_FEATURE(kRetryCapturePageContent);
 extern const base::FeatureParam<base::TimeDelta> kCapturePageContentDelay;
 extern const base::FeatureParam<int> kCapturePageContentRetryCount;
 
-// Shows a confirmation dialog before filling grouped credentials from the
-// manual fallback popup on Desktop.
-BASE_DECLARE_FEATURE(kShowConfirmationForGroupedCredentials);
 
 // Shows a tab with password change instead of bubble/settings page after
 // successful password change.
@@ -229,9 +225,13 @@ BASE_DECLARE_FEATURE(kTriggerPasswordResyncWhenUndecryptablePasswordsDetected);
 // that requestAnimationFrame() is not fired on a detached WebContents.
 BASE_DECLARE_FEATURE(kUseDetachedWidget);
 
-// Enables the "Use a passkey / Use a different passkey" in the password manual
-// fallback.
-BASE_DECLARE_FEATURE(kWebAuthnUsePasskeyFromAnotherDeviceInManualFallback);
+// Controls rollout of storing `PasswordString` password values encrypted in
+// memory via `crypto::ProcessBoundU16String`. When disabled, `PasswordString`
+// keeps the password as a plaintext `std::u16string`; when enabled, it uses
+// `crypto::ProcessBoundU16String`. The choice is captured at `PasswordString`
+// construction time.
+// TODO(crbug.com/513276101): Remove flag after rollout completes
+BASE_DECLARE_FEATURE(kUseProcessBoundPasswordString);
 
 // All features parameters in alphabetical order.
 

@@ -14,8 +14,6 @@
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/webui/management/management_ui.h"
-#include "chrome/browser/ui/webui/management/management_ui_handler.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
@@ -30,6 +28,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/webui/management/management_ui.h"  // nogncheck crbug.com/40147906
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
 #include "ui/chromeos/devicetype_utils.h"
 #endif
@@ -212,7 +211,7 @@ std::string GetManagedUiWebUIIcon(Profile* profile) {
 
   if (ShouldDisplayManagedByParentUi(profile)) {
     // The Family Link "kite" icon.
-    return "cr20:kite";
+    return "cr20:family-link";
   }
 
   // This method can be called even if we shouldn't display the managed UI.

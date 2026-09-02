@@ -22,6 +22,7 @@ import org.chromium.chrome.browser.omnibox.styles.SuggestionSpannable;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteUIContext;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProcessor;
+import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.DocumentType;
@@ -119,6 +120,34 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
                 // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
                 return R.drawable.ic_suggestion_magnifier;
 
+            case SuggestTemplateInfo.IconType.LIGHTBULB_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
+            case SuggestTemplateInfo.IconType.ATTACH_FILE_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
+            case SuggestTemplateInfo.IconType.SCHOOL_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
+            case SuggestTemplateInfo.IconType.INK_PEN_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
+            case SuggestTemplateInfo.IconType.TAB_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
+            case SuggestTemplateInfo.IconType.PHOTO_SPARK_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
+            case SuggestTemplateInfo.IconType.BOLT_VALUE:
+                // TODO(crbug.com/479890202): Replace with the correct symbol when it's available.
+                return R.drawable.ic_suggestion_magnifier;
+
             default: // Icon type is specified, but not recognized
                 assert false : "Unrecognized IconType: " + iconType;
                 return 0;
@@ -182,7 +211,7 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
 
         return icon == 0
                 ? super.getFallbackIcon(suggestion)
-                : OmniboxDrawableState.forSmallIcon(mContext, icon, allowTint);
+                : OmniboxDrawableState.forSmallIcon(mUiContext.resourceProvider, icon, allowTint);
     }
 
     @Override
@@ -195,6 +224,8 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
         final boolean isSearchSuggestion = suggestion.isSearchSuggestion();
         final boolean isDocumentSuggestion =
                 suggestion.getType() == OmniboxSuggestionType.DOCUMENT_SUGGESTION;
+        final boolean isTabSearch =
+                input.getPageClassification() == PageClassification.ANDROID_TAB_SEARCH_OVERLAY;
         SuggestionSpannable textLine2 = null;
         boolean urlHighlighted = false;
         @ColorInt int textLine2Color = 0;
@@ -221,7 +252,10 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
         applyTextColor(textLine1, mUiContext.resourceProvider.getSuggestionPrimaryTextColor());
         applyTextColor(textLine2, textLine2Color);
 
-        if (OmniboxCapabilities.isDesktopPlatform() && !TextUtils.isEmpty(textLine2)) {
+        // Tab search on desktop is exempt from the standard single-line desktop layout.
+        if (!isTabSearch
+                && OmniboxCapabilities.isDesktopPlatform()
+                && !TextUtils.isEmpty(textLine2)) {
             // Separate text and url with an emdash on Desktop. Desktop shows URLs as a single line.
             var separator =
                     mUiContext.resourceProvider.getString(
@@ -234,12 +268,6 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
                                     .append(separator)
                                     .append(textLine2));
             textLine2 = null;
-        }
-
-        if (OmniboxCapabilities.isDesktopPlatform()) {
-            model.set(
-                    SuggestionViewProperties.TEXT_LINE_1_TEXT_APPEARANCE,
-                    R.style.TextAppearance_TextMedium);
         }
 
         model.set(SuggestionViewProperties.IS_SEARCH_SUGGESTION, isSearchSuggestion);

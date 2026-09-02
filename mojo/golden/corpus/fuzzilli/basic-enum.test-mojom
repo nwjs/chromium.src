@@ -5,12 +5,16 @@ module golden;
 
 interface Primary {
   enum NestedEnum {
-    kThis,
-    kThat,
+    kThis = 1,
+    kThat = 5,
+    kAnother,
   };
 
   GetEnum(string name) => (NestedEnum result);
   EnumForEnum(NestedEnum enum_param) => (ExternalEnum enum_result);
+
+  [Sync]
+  SyncEnumForEnum(NestedEnum enum_param) => (ExternalEnum enum_result);
 };
 
 enum ExternalEnum {

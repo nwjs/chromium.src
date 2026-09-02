@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/core/trustedtypes/trusted_type_policy_factory.h"
 #include "third_party/blink/renderer/core/xlink_names.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
@@ -130,6 +131,19 @@ Sanitizer::Sanitizer(std::unique_ptr<SanitizerNameSet> allow_elements,
     data_attrs_ = SanitizerBoolWithAbsence::kAbsent;
   }
   DCHECK(isValid());
+}
+
+bool Sanitizer::IsElementAllowed(const QualifiedName& name) const {
+  if (remove_elements_ && remove_elements_->Contains(name)) {
+    return false;
+  }
+  if (replace_elements_ && replace_elements_->Contains(name)) {
+    return false;
+  }
+  if (allow_elements_ && !allow_elements_->Contains(name)) {
+    return false;
+  }
+  return true;
 }
 
 bool Sanitizer::allowElement(
@@ -1097,12 +1111,6 @@ Sanitizer::Action Sanitizer::SanitizeSingleNode(Node* node, Mode safe) const {
   return action;
 }
 
-bool Sanitizer::ShouldReplaceNodeWithChildren(Node* node) const {
-  return replace_elements_ && node->IsElementNode() &&
-         !IsA<HTMLTemplateElement>(node) &&
-         replace_elements_->Contains(To<Element>(node)->TagQName());
-}
-
 bool Sanitizer::setFrom(const SanitizerConfig* config,
                         bool allowCommentsAndDataAttributes) {
   // https://wicg.github.io/sanitizer-api/#configuration-set
@@ -1503,6 +1511,24 @@ void StreamingSanitizer::DidParseDocument(Document* document) {
     case Sanitizer::Action::kKeep:
       NOTREACHED();
   }
+}
+
+// static
+StreamingSanitizer* StreamingSanitizer::SafeFor(StreamingSanitizer* parent) {
+  CHECK(RuntimeEnabledFeatures::DeclarativeFragmentEnabled());
+  if (!parent) {
+    return MakeGarbageCollected<StreamingSanitizer>(
+        SanitizerBuiltins::GetDefaultSafe(), Sanitizer::Mode::kSafe);
+  }
+
+  if (parent->mode_ == Sanitizer::Mode::kSafe) {
+    return parent;
+  }
+  Sanitizer* clone = MakeGarbageCollected<Sanitizer>();
+  clone->setFrom(*parent->sanitizer_);
+  clone->removeUnsafe();
+  return MakeGarbageCollected<StreamingSanitizer>(clone,
+                                                  Sanitizer::Mode::kSafe);
 }
 
 }  // namespace blink

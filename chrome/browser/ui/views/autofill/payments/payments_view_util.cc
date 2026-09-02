@@ -215,20 +215,33 @@ void LabeledTextfieldWithErrorMessage::MaybeAnnounceError() {
 }
 
 ui::ImageModel GetProfileAvatar(const AccountInfo& account_info) {
-  // Get the user avatar icon.
-  gfx::Image account_avatar = account_info.account_image;
-
-  // Check if the avatar is empty, and if so, replace it with a placeholder.
-  if (account_avatar.IsEmpty()) {
-    account_avatar = ui::ResourceBundle::GetSharedInstance().GetImageNamed(
-        profiles::GetPlaceholderAvatarIconResourceID());
-  }
+  // Get the user avatar icon. If the avatar is empty, replace it with a
+  // placeholder.
+  gfx::Image account_avatar = account_info.GetAvatarImage().value_or(
+      ui::ResourceBundle::GetSharedInstance().GetImageNamed(
+          profiles::GetPlaceholderAvatarIconResourceID()));
 
   int avatar_size = views::TypographyProvider::Get().GetLineHeight(
       views::style::CONTEXT_DIALOG_BODY_TEXT, views::style::STYLE_SECONDARY);
 
   return ui::ImageModel::FromImage(profiles::GetSizedAvatarIcon(
       account_avatar, avatar_size, avatar_size, profiles::SHAPE_CIRCLE));
+}
+
+std::unique_ptr<views::BoxLayoutView> CreateUserAvatarAndEmailView(
+    const std::u16string& user_email,
+    const ui::ImageModel& user_avatar) {
+  return views::Builder<views::BoxLayoutView>()
+      .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
+      .SetBetweenChildSpacing(ChromeLayoutProvider::Get()->GetDistanceMetric(
+          DISTANCE_RELATED_CONTROL_HORIZONTAL_SMALL))
+      .SetID(DialogViewId::USER_INFORMATION_VIEW)
+      .AddChildren(views::Builder<views::ImageView>().SetImage(user_avatar),
+                   views::Builder<views::Label>()
+                       .SetText(user_email)
+                       .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
+                       .SetTextStyle(views::style::STYLE_SECONDARY))
+      .Build();
 }
 
 TitleWithIconAfterLabelView::TitleWithIconAfterLabelView(
@@ -341,19 +354,7 @@ std::unique_ptr<views::View> CreateLegalMessageView(
 
   // Extra child view for user identity information including the avatar and
   // the email.
-  result->AddChildView(
-      views::Builder<views::BoxLayoutView>()
-          .SetOrientation(views::BoxLayout::Orientation::kHorizontal)
-          .SetBetweenChildSpacing(
-              ChromeLayoutProvider::Get()->GetDistanceMetric(
-                  DISTANCE_RELATED_CONTROL_HORIZONTAL_SMALL))
-          .SetID(DialogViewId::USER_INFORMATION_VIEW)
-          .AddChildren(views::Builder<views::ImageView>().SetImage(user_avatar),
-                       views::Builder<views::Label>()
-                           .SetText(user_email)
-                           .SetTextContext(CONTEXT_DIALOG_BODY_TEXT_SMALL)
-                           .SetTextStyle(views::style::STYLE_SECONDARY))
-          .Build());
+  result->AddChildView(CreateUserAvatarAndEmailView(user_email, user_avatar));
   return result;
 }
 

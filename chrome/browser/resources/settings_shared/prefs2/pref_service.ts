@@ -93,6 +93,35 @@ export class PrefService {
     return this.setPrefValue(prefKey, dict);
   }
 
+  /**
+   * @param prefKey The key of the PrefObject to be updated. Must be of
+   *     PrefType.DICTIONARY otherwise an assertion error will be thrown.
+   * @param dictKey The key within the dictionary identifying the entry to be
+   *     deleted.
+   */
+  async deletePrefDictEntry(prefKey: string, dictKey: string):
+      Promise<boolean> {
+    const pref = this.getPref<Record<string, unknown>>(prefKey);
+    assert(pref.type === chrome.settingsPrivate.PrefType.DICTIONARY);
+    const dict = {...pref.value};
+    delete dict[dictKey];
+    return this.setPrefValue(prefKey, dict);
+  }
+
+  /**
+   * @param prefKey The key of the PrefObject to be updated. Must be of
+   *     PrefType.LIST otherwise an assertion error will be thrown.
+   * @param value The value to append to the list pref if not already present.
+   */
+  async appendPrefListItem<T>(prefKey: string, value: T): Promise<boolean> {
+    const pref = this.getPref<T[]>(prefKey);
+    assert(pref.type === chrome.settingsPrivate.PrefType.LIST);
+    if (pref.value.includes(value)) {
+      return Promise.resolve(true);
+    }
+    return this.setPrefValue(prefKey, [...pref.value, value]);
+  }
+
   getPref<T>(key: string): Readonly<PrefObject<T>> {
     assert(
         this.isInitialized_,

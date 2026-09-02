@@ -59,6 +59,10 @@ source_set("management") {
     ]
   }
 
+  if (!is_chromeos) {
+    deps += [ "//chrome/browser/ui:managed_ui" ]
+  }
+
   if (is_chromeos) {
     sources += [ "management_ui_handler_chromeos.cc" ]
     public += [ "management_ui_handler_chromeos.h" ]
@@ -70,7 +74,6 @@ source_set("management") {
       "//chrome/browser/ash/floating_sso",
       "//chrome/browser/ash/floating_workspace:utils",
       "//chrome/browser/ash/net",
-      "//chrome/browser/ash/plugin_vm",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/policy/handlers",
       "//chrome/browser/ash/policy/reporting/metrics_reporting",
@@ -84,6 +87,7 @@ source_set("management") {
       "//chrome/browser/net",
       "//chrome/browser/policy:onc",
       "//chromeos/ash/components/browser_context_helper",
+      "//chromeos/ash/components/settings",
       "//net",
       "//ui/chromeos",
     ]
@@ -155,6 +159,7 @@ if (!is_android) {
       "//chrome/browser/apps/app_service",
       "//chrome/browser/profile_resetter",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/ui",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/web_applications:web_applications_test_support",

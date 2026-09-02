@@ -50,6 +50,8 @@ const isContentEditableGetter =
         ?.get;
 const tabIndexGetter =
     Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'tabIndex')?.get;
+const shadowRootGetter =
+    Object.getOwnPropertyDescriptor(Element.prototype, 'shadowRoot')?.get;
 
 const textContentGetter =
     Object.getOwnPropertyDescriptor(Node.prototype, 'textContent')?.get;
@@ -91,10 +93,16 @@ function safeNodeType(node: Node): number {
 
 
 // Returns the equivalent of `node.parentElement` but directly calls the `Node`
-// prototype to prevent clobbering.
-function safeParentElement(node: Node): HTMLElement|null {
-  return parentElementGetter ? parentElementGetter.call(node) :
-                               node.parentElement;
+// prototype to prevent clobbering. Text directly under a ShadowRoot uses the
+// shadow host as its styling parent because ShadowRoot.parentElement is null.
+function safeParentElement(node: Node): Element|null {
+  const parentElement =
+      parentElementGetter ? parentElementGetter.call(node) : node.parentElement;
+  if (parentElement) {
+    return parentElement;
+  }
+  const root = getRootNodeMethod.call(node);
+  return root instanceof ShadowRoot ? root.host : null;
 }
 
 // Returns the equivalent of `element.tagName` but directly calls the `Element`
@@ -122,6 +130,12 @@ function safeGetAttribute(element: Element, name: string): string|null {
     return element.getAttribute(name);
   }
   return getAttributeMethod.call(element, name);
+}
+
+// Returns the equivalent of `element.shadowRoot` but directly calls the
+// `Element` prototype to prevent clobbering.
+function safeShadowRoot(element: Element): ShadowRoot|null {
+  return shadowRootGetter ? shadowRootGetter.call(element) : element.shadowRoot;
 }
 
 // Returns the equivalent of `element.hasAttribute(name)` but directly calls the
@@ -340,6 +354,7 @@ const TAG_INPUT = 'INPUT';
 const TAG_TEXTAREA = 'TEXTAREA';
 const TAG_SELECT = 'SELECT';
 const TAG_BUTTON = 'BUTTON';
+const TAG_FIELDSET = 'FIELDSET';
 const TAG_P = 'P';
 const TAG_OL = 'OL';
 const TAG_UL = 'UL';
@@ -483,6 +498,7 @@ const ATTR_KEY_NAME = 'name';
 // Attribute and style values.
 const ATTR_VALUE_TRUE = 'true';
 const ATTR_VALUE_FALSE = 'false';
+const ATTR_VALUE_CURSOR_AUTO = 'auto';
 const ATTR_VALUE_CURSOR_NOT_ALLOWED = 'not-allowed';
 const ATTR_VALUE_CURSOR_POINTER = 'pointer';
 const ATTR_VALUE_ROLE_BUTTON = 'button';
@@ -580,6 +596,7 @@ function isPageContextActionableOptimizationEnabled() {
   return (window as any).gCrWebPlaceholderPageContextActionableOptimization ??
       false;
 }
+
 
 /**
  * Maps a tag name to its corresponding PageContentAnnotatedRole.
@@ -868,6 +885,10 @@ function getFormControlType(element: HTMLElement): FormControlType|undefined {
     return FormControlType.TEXT_AREA;
   }
 
+  if (tagName === TAG_FIELDSET) {
+    return FormControlType.FIELDSET;
+  }
+
   // Fallback, though we shouldn't reach here for form controls.
   return undefined;
 }
@@ -1007,7 +1028,8 @@ function getAriaFormControlData(element: HTMLElement):
 
   if (formControlType === FormControlType.INPUT_TEXT ||
       formControlType === FormControlType.INPUT_SEARCH) {
-    const placeholder = safeGetAttribute(element, 'aria-placeholder');
+    const placeholder = safeGetAttribute(element, 'placeholder') ||
+        safeGetAttribute(element, 'aria-placeholder');
     if (placeholder) {
       formControlData.placeholder = placeholder;
     }
@@ -1056,18 +1078,61 @@ function mayContainSensitivePayment(element: HTMLElement): boolean {
 }
 
 /**
- * Checks whether geometry should be extracted for sensitive payment redaction.
+ * Checks whether the form control element may contain OTP information.
+ *
+ * Note: Includes `INPUT_PASSWORD` to mirror Blink's OTP extraction candidates
+ * for 2FA forms that mask OTP digits. Password fields are prioritized and
+ * processed first as `REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD` in
+ * `getFormControlData`.
  *
  * @param element The DOM element to check.
- * @param includeSensitivePaymentsForRedaction Whether the configuration is
- *     enabled.
- * @return True if geometry should be extracted for sensitive payment.
+ * @return True if the form control may contain OTP.
  */
-function shouldExtractGeometryForSensitivePayment(
-    element: HTMLElement,
-    includeSensitivePaymentsForRedaction: boolean): boolean {
-  return includeSensitivePaymentsForRedaction &&
-      mayContainSensitivePayment(element);
+function mayContainOtp(element: HTMLElement): boolean {
+  const formControlType = getFormControlType(element);
+  if (formControlType === undefined) {
+    return false;
+  }
+
+  switch (formControlType) {
+    case FormControlType.INPUT_NUMBER:
+    case FormControlType.INPUT_PASSWORD:
+    case FormControlType.INPUT_TELEPHONE:
+    case FormControlType.INPUT_TEXT:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Checks whether geometry should be extracted for screenshot redaction
+ * purposes. Iframes are also included if any redaction flag is enabled because
+ * their geometries are required for absolute coordinate offset calculations.
+ *
+ * @param element The DOM element to check.
+ * @param includeSensitivePaymentsForRedaction Whether sensitive payments
+ *     redaction is enabled.
+ * @param extractAutofillOtpRedactions Whether OTP redaction is enabled.
+ * @return True if geometry should be extracted for redaction.
+ */
+function shouldExtractGeometryForRedaction(
+    element: HTMLElement, includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean): boolean {
+  if (element.tagName === TAG_IFRAME) {
+    return includeSensitivePaymentsForRedaction || extractAutofillOtpRedactions;
+  }
+
+  if (includeSensitivePaymentsForRedaction &&
+      mayContainSensitivePayment(element)) {
+    return true;
+  }
+
+  if (extractAutofillOtpRedactions && mayContainOtp(element)) {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -1426,6 +1491,27 @@ function getScrollerInfo(
 }
 
 /**
+ * Checks if the element uses a pointer cursor, either via explicit CSS styling
+ * or default desktop User-Agent styling (e.g. <a> and <area> links with href).
+ *
+ * @param element The DOM element to check.
+ * @param tagName The standard tag name of the element.
+ * @param style The computed style of the element.
+ * @return True if the element uses a pointer cursor.
+ */
+function hasPointerCursor(
+    element: Element, tagName: string, style?: CSSStyleDeclaration): boolean {
+  if (style?.cursor === ATTR_VALUE_CURSOR_POINTER) {
+    return true;
+  }
+  const isDefaultOrUnsetCursor =
+      !style?.cursor || style.cursor === ATTR_VALUE_CURSOR_AUTO;
+  const isAnchorOrArea = tagName === TAG_A || tagName === TAG_AREA;
+  return isDefaultOrUnsetCursor && isAnchorOrArea &&
+      safeHasAttribute(element, ATTR_KEY_HREF);
+}
+
+/**
  * Computes the interaction info for the element.
  *
  * @param element The element to process.
@@ -1522,7 +1608,7 @@ function getNodeInteractionInfo(
   }
 
   // Pointer Cursor.
-  if (style?.cursor === ATTR_VALUE_CURSOR_POINTER) {
+  if (hasPointerCursor(element, tagName, style)) {
     clickabilityReasons.push(PageContentClickabilityReason.CURSOR_POINTER);
   }
 
@@ -2093,7 +2179,8 @@ function getContentForIframeNode(
     iframeElement: HTMLIFrameElement, nonce: string, depth: number,
     maxDepth: number, actionableMode: boolean,
     paidContentContext: PaidContentExtractionContext,
-    includeSensitivePaymentsForRedaction: boolean): PageContentNode|null {
+    includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean): PageContentNode|null {
   const attributes: PageContentAttributes = {
     attributeType: PageContentAttributeType.IFRAME,
     annotatedRoles: [],
@@ -2122,7 +2209,7 @@ function getContentForIframeNode(
           contentDoc, nonce, depth + APC_NODE_DEPTH_COST, maxDepth,
           actionableMode, paidContentContext.extractPaidContent,
           paidContentContext.attemptPaidContentJsonFixing,
-          includeSensitivePaymentsForRedaction);
+          includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions);
       if (pageContent) {
         childTree = pageContent.rootNode;
         localFrameData = pageContent.frameData;
@@ -2481,15 +2568,11 @@ function getFormControlData(
   }
 
   // Placeholder.
-  const placeholder = (domNode as HTMLInputElement).placeholder;
+  const placeholder = (domNode as HTMLInputElement).placeholder ||
+      safeGetAttribute(domNode as Element, 'placeholder') ||
+      safeGetAttribute(domNode as Element, 'aria-placeholder');
   if (placeholder) {
     formControlData.placeholder = placeholder;
-  } else {
-    const ariaPlaceholder =
-        safeGetAttribute(domNode as Element, 'aria-placeholder');
-    if (ariaPlaceholder) {
-      formControlData.placeholder = ariaPlaceholder;
-    }
   }
 
   // Select Options.
@@ -2562,6 +2645,7 @@ function getBasicContentForNonGenericElement(
     domNode: HTMLElement, nonce: string, depth: number, maxDepth: number,
     actionableMode: boolean, paidContentContext: PaidContentExtractionContext,
     includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean,
     styleCache?: StyleCache): PageContentNode|null {
   const tagName = getStandardTagName(domNode);
 
@@ -2570,7 +2654,8 @@ function getBasicContentForNonGenericElement(
     case TAG_IFRAME:
       return getContentForIframeNode(
           domNode as HTMLIFrameElement, nonce, depth, maxDepth, actionableMode,
-          paidContentContext, includeSensitivePaymentsForRedaction);
+          paidContentContext, includeSensitivePaymentsForRedaction,
+          extractAutofillOtpRedactions);
     case TAG_IMG:
       return {
         childrenNodes: [],
@@ -2697,7 +2782,8 @@ function getBasicContentForNonGenericElement(
     case TAG_INPUT:
     case TAG_TEXTAREA:
     case TAG_SELECT:
-    case TAG_BUTTON: {
+    case TAG_BUTTON:
+    case TAG_FIELDSET: {
       return {
         childrenNodes: [],
         contentAttributes: {
@@ -2834,6 +2920,7 @@ function getContentForElementNode(
     actionableMode: boolean, interactiveNodeIds: InteractiveNodeIds,
     paidContentContext: PaidContentExtractionContext,
     includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean,
     styleCache?: StyleCache): PageContentNode|null {
   let labelForDOMNodeID: number | undefined = undefined;
   if (actionableMode && getStandardTagName(domNode) === TAG_LABEL) {
@@ -2846,7 +2933,8 @@ function getContentForElementNode(
   // 1. Try to get basic content for non-generic elements.
   contentNode = getBasicContentForNonGenericElement(
       domNode, nonce, depth, maxDepth, actionableMode, paidContentContext,
-      includeSensitivePaymentsForRedaction, styleCache);
+      includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions,
+      styleCache);
 
   const annotatedRoles: PageContentAnnotatedRole[] = [];
   addAnnotatedRoles(domNode, annotatedRoles, paidContentContext, styleCache);
@@ -3096,12 +3184,14 @@ function addNodeGeometry(
     element: HTMLElement, attributes: PageContentAttributes,
     context: ClippingContext, actionableMode: boolean,
     includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean,
     styleCache?: StyleCache): ClippingContext {
   // Process element nodes when in actionable mode, or if it may contain
-  // sensitive payments and they should be redacted.
+  // sensitive fields (payments or OTP) that should be redacted.
   if (!actionableMode &&
-      !shouldExtractGeometryForSensitivePayment(
-          element, includeSensitivePaymentsForRedaction)) {
+      !shouldExtractGeometryForRedaction(
+          element, includeSensitivePaymentsForRedaction,
+          extractAutofillOtpRedactions)) {
     return context;
   }
 
@@ -3152,14 +3242,24 @@ function addNodeGeometry(
 
   attributes.geometry = geometry;
 
+  // Match Blink's IsAnchoredOffscreen logic: if an interactive node is
+  // clipped completely offscreen inside an overflow container, drop
+  // nodeInteractionInfo so offscreen carousel items are not retained.
+  if (!geometry.visibleBoundingBox && attributes.nodeInteractionInfo &&
+      context.hasOverflowClip) {
+    delete attributes.nodeInteractionInfo;
+  }
+
   // Determine the new clip context to pass down to children.
   let newNormalClip = context.normalClip;
   let newAbsoluteClip = context.absoluteClip;
+  let newHasOverflowClip = context.hasOverflowClip;
 
   const overflowX = style?.overflowX || '';
   const overflowY = style?.overflowY || '';
 
   if (isClippedStyle(overflowX) || isClippedStyle(overflowY)) {
+    newHasOverflowClip = true;
     const visibleRectForClip = visibleRect;
 
     // If the element actively clips its children, its own visible bounds become
@@ -3177,7 +3277,11 @@ function addNodeGeometry(
     newAbsoluteClip = context.normalClip;
   }
 
-  return {normalClip: newNormalClip, absoluteClip: newAbsoluteClip};
+  return {
+    normalClip: newNormalClip,
+    absoluteClip: newAbsoluteClip,
+    hasOverflowClip: newHasOverflowClip,
+  };
 }
 
 // TODO(crbug.com/476341187): Carry status information when the max depth is
@@ -3205,7 +3309,8 @@ function maybeGenerateContentNode(
     interactiveNodeIds: InteractiveNodeIds, actionableMode: boolean,
     paidContentContext: PaidContentExtractionContext, hasCanvas: boolean,
     parentContext: ClippingContext,
-    includeSensitivePaymentsForRedaction: boolean, styleCache?: StyleCache): {
+    includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean, styleCache?: StyleCache): {
   node: PageContentNode|null,
   nextClippingContext: ClippingContext,
 } {
@@ -3235,7 +3340,8 @@ function maybeGenerateContentNode(
     const contentNode = getContentForElementNode(
         element, nonce, depth, maxDepth, interactionInfo, actionableMode,
         interactiveNodeIds, paidContentContext,
-        includeSensitivePaymentsForRedaction, styleCache);
+        includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions,
+        styleCache);
     if (contentNode) {
       const domNodeId = getOrCreateNodeId(domNode);
       if (domNodeId !== null) {
@@ -3245,7 +3351,8 @@ function maybeGenerateContentNode(
 
       const nextClippingContext = addNodeGeometry(
           element, contentNode.contentAttributes, parentContext, actionableMode,
-          includeSensitivePaymentsForRedaction, styleCache);
+          includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions,
+          styleCache);
       return {node: contentNode, nextClippingContext};
     }
   }
@@ -3316,6 +3423,8 @@ interface ClippingContext {
   normalClip: Rect|null;
   /** Clipping rectangle applied to absolute positioned elements. */
   absoluteClip: Rect|null;
+  /** Whether an ancestor element has an overflow clipping style. */
+  hasOverflowClip?: boolean;
 }
 
 // Item in the ancestor stack.
@@ -3353,7 +3462,7 @@ function generateAndPushContentNode(
     ancestorStack: AncestorStackItem[], interactiveNodeIds: InteractiveNodeIds,
     actionableMode: boolean, paidContentContext: PaidContentExtractionContext,
     hasCanvas: boolean, includeSensitivePaymentsForRedaction: boolean,
-    styleCache?: StyleCache) {
+    extractAutofillOtpRedactions: boolean, styleCache?: StyleCache) {
   const parentStackItem = ancestorStack[ancestorStack.length - 1]!;
 
   // 2. Generate Content Node. Skip nodes that are too deep while keep
@@ -3369,7 +3478,8 @@ function generateAndPushContentNode(
   const result = maybeGenerateContentNode(
       node, nonce, currentDepth, maxDepth, interactiveNodeIds, actionableMode,
       paidContentContext, hasCanvas, parentContext,
-      includeSensitivePaymentsForRedaction, styleCache);
+      includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions,
+      styleCache);
   if (!result.node) {
     // Ignore the node if it can't be parsed. That node cannot be a parent
     // either where another node in the ancestor stack will be picked as the
@@ -3866,7 +3976,8 @@ export function extractAnnotatedPageContent(
     document: Document, nonce: string, depth: number = 0, maxDepth: number,
     actionableMode: boolean, extractPaidContent: boolean,
     attemptPaidContentJsonFixing: boolean,
-    includeSensitivePaymentsForRedaction: boolean): PageContent|null {
+    includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean): PageContent|null {
   if (depth > maxDepth) {
     return null;
   }
@@ -3954,12 +4065,51 @@ export function extractAnnotatedPageContent(
           normalClip: getViewportRect(document),
           absoluteClip: getViewportRect(document),
         },
-        actionableMode, includeSensitivePaymentsForRedaction, styleCache),
+        actionableMode, includeSensitivePaymentsForRedaction,
+        extractAutofillOtpRedactions, styleCache),
   }];
 
   // Collect interactive nodes (focused element, selection start/end).
   const interactiveNodeIds = getInteractiveNodeIds(document);
 
+  walkTreeAndPopulate(
+      root, ancestorStack, document, nonce, maxDepth, interactiveNodeIds,
+      actionableMode, paidContentContext, hasCanvas,
+      includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions,
+      styleCache);
+
+  const pageInteractionInfo = extractPageInteractionInfo(document);
+
+  // Start the viewport at (0, 0) as it represents the entire page surface which
+  // is the root surface. This deliberately extracts the layout viewport bounds,
+  // rather than accounting for visual viewport offsets (e.g., pinch-to-zoom),
+  // to maintain parity with Blink's ConvertViewportGeometry in
+  // components/optimization_guide/content/browser/page_content_proto_provider.cc.
+  const viewportGeometry = toEnclosingRect(getViewportRect(document));
+
+  if (actionableMode) {
+    computeZOrder(rootNode, document);
+  }
+
+  return {
+    rootNode,
+    pageInteractionInfo,
+    frameData: extractFrameData(document, paidContentContext),
+    viewportGeometry,
+    visibleBoundingBoxesForPasswordRedaction: [],
+  };
+}
+
+// Walks the DOM subtree rooted at `root` (a document body or a ShadowRoot),
+// populating the APC node tree under `ancestorStack[0]`. `ancestorStack` must
+// start with that single base item. A separate function so it can recurse into
+// open shadow roots, which a TreeWalker does not cross.
+function walkTreeAndPopulate(
+    root: Node, ancestorStack: AncestorStackItem[], document: Document,
+    nonce: string, maxDepth: number, interactiveNodeIds: InteractiveNodeIds,
+    actionableMode: boolean, paidContentContext: PaidContentExtractionContext,
+    hasCanvas: boolean, includeSensitivePaymentsForRedaction: boolean,
+    extractAutofillOtpRedactions: boolean, styleCache?: StyleCache): void {
   // Create a tree walker to traverse the DOM tree.
   // Uses `undefined` as the filter lambda to avoid performance penalty since
   // the walker would have to cross WebCore C++/JS bridge for every node.
@@ -4056,7 +4206,25 @@ export function extractAnnotatedPageContent(
     generateAndPushContentNode(
         currentNode, nonce, maxDepth, ancestorStack, interactiveNodeIds,
         actionableMode, paidContentContext, hasCanvas,
-        includeSensitivePaymentsForRedaction, styleCache);
+        includeSensitivePaymentsForRedaction, extractAutofillOtpRedactions,
+        styleCache);
+
+    // Descend into an open shadow root, which the TreeWalker does not cross.
+    // Anchor it at the current stack top (the host's node if emitted, else the
+    // nearest emitted ancestor) so shadow content is not dropped.
+    if (safeNodeType(currentNode) === Node.ELEMENT_NODE) {
+      const shadowRoot = safeShadowRoot(currentNode as Element);
+      if (shadowRoot) {
+        // TODO(crbug.com/537140560): Walk the composed tree so shadow and
+        // light-DOM children retain visual order and assigned nodes are
+        // visited at their slots.
+        walkTreeAndPopulate(
+            shadowRoot, [ancestorStack[ancestorStack.length - 1]!], document,
+            nonce, maxDepth, interactiveNodeIds, actionableMode,
+            paidContentContext, hasCanvas, includeSensitivePaymentsForRedaction,
+            extractAutofillOtpRedactions, styleCache);
+      }
+    }
 
     currentNode = walker.nextNode();
   }
@@ -4071,25 +4239,4 @@ export function extractAnnotatedPageContent(
       childrenOfParent.pop();
     }
   }
-
-  const pageInteractionInfo = extractPageInteractionInfo(document);
-
-  // Start the viewport at (0, 0) as it represents the entire page surface which
-  // is the root surface. This deliberately extracts the layout viewport bounds,
-  // rather than accounting for visual viewport offsets (e.g., pinch-to-zoom),
-  // to maintain parity with Blink's ConvertViewportGeometry in
-  // components/optimization_guide/content/browser/page_content_proto_provider.cc.
-  const viewportGeometry = toEnclosingRect(getViewportRect(document));
-
-  if (actionableMode) {
-    computeZOrder(rootNode, document);
-  }
-
-  return {
-    rootNode,
-    pageInteractionInfo,
-    frameData: extractFrameData(document, paidContentContext),
-    viewportGeometry,
-    visibleBoundingBoxesForPasswordRedaction: [],
-  };
 }

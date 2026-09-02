@@ -68,6 +68,7 @@ source_set("location_bar") {
 
 source_set("impl") {
   sources = []
+  public = []
   deps = [
     ":icon_label_bubble",
     ":location_bar",
@@ -77,10 +78,15 @@ source_set("impl") {
   ]
 
   if (toolkit_views) {
+    public += [
+      "location_bar_actions.h",
+      "zoom_bubble_manager_views.h",
+    ]
     sources += [
       "content_setting_image_view.cc",
       "custom_tab_bar_view.cc",
       "lens_overlay_homework_page_action_controller.cc",
+      "location_bar_actions.cc",
       "location_bar_bubble_delegate_view.cc",
       "location_bar_layout.cc",
       "location_bar_view.cc",
@@ -94,7 +100,6 @@ source_set("impl") {
       "webui_location_bar.cc",
       "zoom_bubble_coordinator.cc",
       "zoom_bubble_manager_views.cc",
-      "zoom_bubble_manager_views.h",
       "zoom_bubble_view.cc",
     ]
 
@@ -120,6 +125,7 @@ source_set("impl") {
       "//chrome/browser/themes",
       "//chrome/browser/translate",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:bubble_anchor_util",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui:view_ids",
       "//chrome/browser/ui/actions",
@@ -137,6 +143,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/tabs/saved_tab_groups",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views:bubble_anchor_util_views",
       "//chrome/browser/ui/views:layout_provider",
       "//chrome/browser/ui/views/frame:toolbar_button_provider",
       "//chrome/browser/ui/views/interaction",
@@ -145,6 +152,7 @@ source_set("impl") {
       "//chrome/browser/ui/views/record_replay",
       "//chrome/browser/ui/views/sharing_hub",
       "//chrome/browser/ui/views/toolbar",
+      "//chrome/browser/ui/views/user_education:impl",
       "//chrome/browser/ui/views/zoom",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/ui/webui:webui_util",
@@ -267,6 +275,7 @@ source_set("browser_tests") {
     "//chrome/browser/content_settings",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/browser_web_contents_delegate",
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/page_action",
@@ -344,6 +353,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/ui/views/record_replay",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/views/translate",
+    "//chrome/browser/ui/views/web_apps/frame_toolbar:test_support",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",

@@ -139,10 +139,15 @@ declare_args() {
   # Compile for Undefined Behaviour Sanitizer's vptr checks.
   is_ubsan_vptr = is_ubsan_security || is_ubsan
 
-  # These are set for some non-host toolchain which requires to run built binary
-  # from host toolchain with msan config but in non-host toolchain context.
-  host_toolchain_is_msan = is_msan
-  host_toolchain_msan_track_origins = msan_track_origins
+  # Use dynamic libraries instrumented by MemorySanitizer (MSan) instead of the
+  # standard system libraries. Prebuilt instrumented libraries are required on
+  # Linux desktop and linux-chromeos (simulation) test builds to prevent false
+  # positives from uninstrumented host system libraries.
+  # ChromeOS device builds compile system dependencies with MSan in the target
+  # sysroot and do not use these prebuilt Ubuntu libraries.
+  use_prebuilt_instrumented_libraries =
+      is_msan && current_cpu == "x64" &&
+      (is_linux || (is_chromeos && !is_chromeos_device))
 }
 
 # Whether we are doing a fuzzer build. Prefer this over "use_libfuzzer" as it
@@ -233,6 +238,7 @@ if (!is_a_target_toolchain || toolchain_for_rust_host_build_tools) {
   use_cfi_recover = false
   use_libfuzzer = false
   use_locally_built_instrumented_libraries = false
+  use_prebuilt_instrumented_libraries = false
   use_sanitizer_coverage = false
   enable_fuzztest_fuzz = false
 } else if (current_cpu != "arm64") {
@@ -244,12 +250,6 @@ if (!is_a_target_toolchain || toolchain_for_rust_host_build_tools) {
 # prepare to create stack traces "live" using the sanitizer runtime.
 using_sanitizer = is_asan || is_hwasan || is_lsan || is_tsan || is_msan ||
                   is_ubsan_any || use_sanitizer_coverage || use_cfi_diag
-
-# Use dynamic libraries instrumented by one of the sanitizers instead of the
-# standard system libraries. We have instrumented system libraries for msan,
-# which requires them to prevent false positives.
-# TODO(thakis): Maybe remove this variable.
-use_prebuilt_instrumented_libraries = is_msan
 
 # Whether the current fuzzing engine supports libprotobuf_mutator.
 use_fuzzing_engine_with_lpm = use_libfuzzer || use_centipede
@@ -280,6 +280,11 @@ declare_args() {
   # the sandbox does not apply.
   use_clang_profiling_inside_sandbox =
       use_clang_profiling && !use_fuzzing_engine && !is_fuchsia
+
+  # These are set for some non-host toolchains which require running a binary
+  # built for the host toolchain with MSan in a non-host toolchain context.
+  host_toolchain_is_msan = is_msan && use_prebuilt_instrumented_libraries
+  host_toolchain_msan_track_origins = msan_track_origins
 }
 
 if (sanitizer_coverage_flags == "") {
@@ -312,7 +317,8 @@ assert(!is_cfi || is_clang,
        "is_cfi requires setting is_clang = true in 'gn args'")
 
 prebuilt_instrumented_libraries_available =
-    is_msan && (msan_track_origins == 0 || msan_track_origins == 2)
+    use_prebuilt_instrumented_libraries &&
+    (msan_track_origins == 0 || msan_track_origins == 2)
 
 if (use_fuzzing_engine && (is_linux || is_chromeos)) {
   if (is_asan) {
@@ -501,11 +507,6 @@ if ((is_apple || is_win) && (is_asan || is_ubsan_any)) {
 # provided: your target will crash when the undefined behavior is
 # detected.
 #
-# The target sanitizer is built when
-# *   the build is not already UBSan, which should be a superset of
-#     any single sanitizer we could use here, and
-# *   the build is Clang, which provides the UBSan instrumentation.
-#
 # It is a Chromium convention that GN target names use underscores. This
 # template should be instantiated with a `foo_bar`, and the hyphenated
 # `foo-bar` should be passed via the `sanitizer` argument.
@@ -527,12 +528,18 @@ template("ubsan_hardening") {
                  "cflags",
                ])
 
-    _condition = true
+    # The target sanitizer is built when
+    # *   the build is not already UBSan, which should be a superset of
+    #     any single sanitizer we could use here,
+    # *   the build is not for Wasm, which doesn't recognize any of
+    #     these sanitizer flags (see https://crrev.com/c/7911761), and
+    # *   the build is Clang, which provides the UBSan instrumentation.
+    _condition = !is_ubsan && !is_wasm && is_clang
     if (defined(invoker.condition)) {
-      _condition = invoker.condition
+      _condition = invoker.condition && _condition
     }
 
-    if (_condition && !is_ubsan && is_clang) {
+    if (_condition) {
       cflags = [
         "-fsanitize=${invoker.sanitizer}",
         "-fsanitize-trap=${invoker.sanitizer}",

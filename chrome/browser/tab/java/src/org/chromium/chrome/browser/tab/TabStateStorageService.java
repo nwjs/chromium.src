@@ -66,6 +66,20 @@ public class TabStateStorageService {
     }
 
     /**
+     * Saves a tab explicitly with the provided metadata which avoids resolving data via the tab's
+     * parent collection.
+     *
+     * @param windowTag The window tag to save under.
+     * @param isOffTheRecord true if off the record.
+     * @param tab The tab to save.
+     */
+    public void saveTabData(String windowTag, boolean isOffTheRecord, Tab tab) {
+        assert !windowTag.isEmpty();
+        TabStateStorageServiceJni.get()
+                .saveWithMetadata(mNativeTabStateStorageService, windowTag, isOffTheRecord, tab);
+    }
+
+    /**
      * Loads all data from persistent storage and returns it.
      *
      * <p>TODO(https://crbug.com/427254267): Add tab id/sort order to this.
@@ -191,6 +205,12 @@ public class TabStateStorageService {
         void boostPriority(long nativeTabStateStorageServiceAndroid);
 
         void save(long nativeTabStateStorageServiceAndroid, @JniType("TabAndroid*") Tab tab);
+
+        void saveWithMetadata(
+                long nativeTabStateStorageServiceAndroid,
+                @JniType("std::string") String windowTag,
+                boolean isOffTheRecord,
+                @JniType("TabAndroid*") Tab tab);
 
         void loadAllData(
                 long nativeTabStateStorageServiceAndroid,

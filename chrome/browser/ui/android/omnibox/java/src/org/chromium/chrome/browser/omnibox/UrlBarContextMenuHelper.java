@@ -11,10 +11,8 @@ import android.view.View;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.Nullable;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.components.browser_ui.widget.ListItemBuilder;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.ui.listmenu.BasicListMenu;
 import org.chromium.ui.listmenu.ListMenu;
 import org.chromium.ui.listmenu.ListMenuDelegate;
@@ -24,7 +22,9 @@ import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.widget.RectProvider;
 import org.chromium.ui.widget.ViewRectProvider;
 
-import java.util.Set;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Helper for the UrlBar context menu. */
 @NullMarked
@@ -33,25 +33,19 @@ class UrlBarContextMenuHelper {
     public interface Delegate {
         /** See {@link android.widget.TextView#onTextContextMenuItem(int)} */
         void onTextContextMenuItem(int id);
-
-        /**
-         * @return A callback to trigger the manage search engines flow.
-         */
-        @Nullable Runnable getManageSearchEnginesCallback();
     }
 
-    private static final Set<Integer> ALLOWED_MENU_ITEMS =
-            Set.of(
-                    android.R.id.copy,
-                    android.R.id.paste,
-                    android.R.id.cut,
-                    android.R.id.selectAll,
-                    android.R.id.shareText,
-                    android.R.id.undo,
-                    android.R.id.redo,
-                    R.id.url_bar_delete,
-                    R.id.url_bar_always_show_ai_mode,
-                    R.id.url_bar_manage_search_engines);
+    private static final List<List<Integer>> ORDERED_MENU_GROUPS =
+            List.of(
+                    List.of(android.R.id.undo),
+                    List.of(
+                            android.R.id.cut,
+                            android.R.id.copy,
+                            android.R.id.paste,
+                            R.id.url_bar_paste_and_go,
+                            R.id.url_bar_delete),
+                    List.of(android.R.id.selectAll),
+                    List.of(R.id.url_bar_manage_search_engines, R.id.url_bar_always_show_ai_mode));
 
     public static final float INVALID_TOUCH_COORDINATE = -1f;
 
@@ -69,6 +63,11 @@ class UrlBarContextMenuHelper {
         mListItems = new ModelList();
 
         mListMenuHost = new ListMenuHost(mAnchorView, null);
+        // Keep the soft keyboard visible while the omnibox context menu is up. The popup stays
+        // focusable (for accessibility and key navigation) but does not take input-method focus;
+        // otherwise showing it would move IME focus off the url bar and dismiss the keyboard,
+        // making it flicker while the menu is open. See crbug.com/544573787.
+        mListMenuHost.setKeepSoftInputVisible(true);
         mListMenuHost.setDelegate(createListMenuDelegate(), false);
     }
 
@@ -91,38 +90,44 @@ class UrlBarContextMenuHelper {
     }
 
     public void showListMenu(ContextMenu menu) {
-        if (!OmniboxFeatures.sOmniboxListMenuContextMenu.isEnabled()) {
-            return;
-        }
-
         if (!menu.hasVisibleItems()) {
             return;
         }
 
-        mListItems.clear();
-        int currentGroupId = -1;
-        // Note: We only map ID, title and enabled state from MenuItem to ModelList.
-        // Third-party actions and other non-standard menu items are intentionally ignored.
+        Map<Integer, MenuItem> itemMap = new HashMap<>();
         for (int i = 0; i < menu.size(); i++) {
             MenuItem item = menu.getItem(i);
-            if (item.isVisible() && ALLOWED_MENU_ITEMS.contains(item.getItemId())) {
-                if (currentGroupId != -1 && currentGroupId != item.getGroupId()) {
-                    mListItems.add(BasicListMenu.buildMenuDivider(false));
-                }
-                currentGroupId = item.getGroupId();
+            if (item.isVisible()) {
+                itemMap.put(item.getItemId(), item);
+            }
+        }
 
-                int itemId = item.getItemId();
-                CharSequence title = item.getTitle();
-                ListItemBuilder builder =
-                        new ListItemBuilder()
-                                .withTitle(title != null ? title.toString() : "")
-                                .withMenuId(itemId)
-                                .withEnabled(item.isEnabled());
+        mListItems.clear();
+        boolean hasAddedAnyGroup = false;
+        for (int groupIndex = 0; groupIndex < ORDERED_MENU_GROUPS.size(); groupIndex++) {
+            List<Integer> group = ORDERED_MENU_GROUPS.get(groupIndex);
+            boolean groupHasItem = false;
+            for (int itemId : group) {
+                MenuItem item = itemMap.get(itemId);
+                if (item != null) {
+                    if (hasAddedAnyGroup && !groupHasItem) {
+                        mListItems.add(BasicListMenu.buildMenuDivider(false));
+                    }
+                    groupHasItem = true;
+                    hasAddedAnyGroup = true;
 
-                if (item.isCheckable() && item.isChecked()) {
-                    builder.withStartIconRes(R.drawable.ic_done_blue);
+                    CharSequence title = item.getTitle();
+                    ListItemBuilder builder =
+                            new ListItemBuilder()
+                                    .withTitle(title != null ? title.toString() : "")
+                                    .withMenuId(itemId)
+                                    .withEnabled(item.isEnabled());
+
+                    if (item.isCheckable() && item.isChecked()) {
+                        builder.withEndIconRes(R.drawable.ic_done_blue);
+                    }
+                    mListItems.add(builder.build());
                 }
-                mListItems.add(builder.build());
             }
         }
 
@@ -164,13 +169,6 @@ class UrlBarContextMenuHelper {
 
     @VisibleForTesting
     void onMenuItemClicked(int id) {
-        if (id == R.id.url_bar_manage_search_engines) {
-            Runnable callback = mDelegate.getManageSearchEnginesCallback();
-            if (callback != null) {
-                callback.run();
-            }
-        } else {
-            mDelegate.onTextContextMenuItem(id);
-        }
+        mDelegate.onTextContextMenuItem(id);
     }
 }

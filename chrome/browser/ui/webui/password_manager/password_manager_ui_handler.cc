@@ -13,13 +13,18 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/api/passwords_private/passwords_private_delegate.h"
 #include "chrome/browser/password_manager/chrome_password_change_service.h"
+#include "chrome/browser/password_manager/password_change/features.h"
 #include "chrome/browser/password_manager/password_change_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/browser/sync/sync_ui_util.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager.mojom.h"
 #include "chrome/common/extensions/api/passwords_private.h"
 #include "components/password_manager/core/browser/export/export_progress_status.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
 #include "components/password_manager/core/browser/ui/actor_login_permission.h"
 #include "components/password_manager/core/browser/ui/credential_ui_entry.h"
@@ -335,16 +340,6 @@ void PasswordManagerUIHandler::IsAccountStorageActive(
   std::move(callback).Run(result);
 }
 
-void PasswordManagerUIHandler::SetAccountStorageEnabled(bool enabled) {
-  passwords_private_delegate_->SetAccountStorageEnabled(enabled);
-}
-
-void PasswordManagerUIHandler::ShouldShowAccountStorageSettingToggle(
-    ShouldShowAccountStorageSettingToggleCallback callback) {
-  std::move(callback).Run(
-      passwords_private_delegate_->ShouldShowAccountStorageSettingToggle());
-}
-
 void PasswordManagerUIHandler::SwitchBiometricAuthBeforeFillingState(
     SwitchBiometricAuthBeforeFillingStateCallback callback) {
   passwords_private_delegate_->SwitchBiometricAuthBeforeFillingState(
@@ -353,7 +348,7 @@ void PasswordManagerUIHandler::SwitchBiometricAuthBeforeFillingState(
 
 void PasswordManagerUIHandler::StartPasswordChange(int credential_id) {
   CHECK(base::FeatureList::IsEnabled(
-      password_manager::features::kPasswordCheckupPrototype));
+      password_change::features::kPasswordChangeWithGlic));
   CHECK(web_contents_);
   auto credential =
       passwords_private_delegate_->GetCredentialFromId(credential_id);
@@ -361,26 +356,47 @@ void PasswordManagerUIHandler::StartPasswordChange(int credential_id) {
     return;
   }
 
+  auto* presenter = passwords_private_delegate_->GetSavedPasswordsPresenter();
+  if (!presenter) {
+    return;
+  }
+  std::vector<password_manager::StoredCredential> stored_credentials =
+      presenter->GetCorrespondingStoredCredentials(*credential);
+  if (stored_credentials.empty()) {
+    return;
+  }
+
   Profile* profile =
       Profile::FromBrowserContext(web_contents_->GetBrowserContext());
   auto* service = PasswordChangeServiceFactory::GetForProfile(profile);
   if (service) {
-    service->StartPasswordChangeFromCheckup(
-        *credential, web_contents_,
-        base::BindRepeating(&PasswordManagerUIHandler::OnPasswordAutomaticChangeStateUpdated,
-                            weak_ptr_factory_.GetWeakPtr(), credential_id));
+    password_change_from_checkup_delegates_[credential_id] =
+        service->StartPasswordChangeFromCheckup(
+            std::move(stored_credentials.front()), web_contents_,
+            base::BindRepeating(&PasswordManagerUIHandler::
+                                    OnPasswordAutomaticChangeStateUpdated,
+                                weak_ptr_factory_.GetWeakPtr(), credential_id));
   }
 }
 
-void PasswordManagerUIHandler::StopPasswordChange() {
+void PasswordManagerUIHandler::StopPasswordChange(int credential_id) {
   CHECK(base::FeatureList::IsEnabled(
-      password_manager::features::kPasswordCheckupPrototype));
+      password_change::features::kPasswordChangeWithGlic));
   CHECK(web_contents_);
-  Profile* profile =
-      Profile::FromBrowserContext(web_contents_->GetBrowserContext());
-  auto* service = PasswordChangeServiceFactory::GetForProfile(profile);
-  if (service) {
-    service->StopPasswordChangeFromCheckup();
+  auto it = password_change_from_checkup_delegates_.find(credential_id);
+  if (it != password_change_from_checkup_delegates_.end() && it->second) {
+    it->second->Stop(actor::ActorTask::StoppedReason::kStoppedByUser);
+    password_change_from_checkup_delegates_.erase(it);
+  }
+}
+
+void PasswordManagerUIHandler::OpenPasswordChangeTab(int credential_id) {
+  CHECK(base::FeatureList::IsEnabled(
+      password_change::features::kPasswordChangeWithGlic));
+  CHECK(web_contents_);
+  auto it = password_change_from_checkup_delegates_.find(credential_id);
+  if (it != password_change_from_checkup_delegates_.end() && it->second) {
+    it->second->OpenActuationTab();
   }
 }
 
@@ -459,4 +475,13 @@ void PasswordManagerUIHandler::ContinueImport(
   passwords_private_delegate_->ContinueImport(
       selected_ids,
       base::BindOnce(&ToMojomImportResults).Then(std::move(callback)));
+}
+
+void PasswordManagerUIHandler::StartTrustedVaultUnlock() {
+  if (BrowserWindowInterface* browser =
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              web_contents_)) {
+    OpenTabForSyncKeyRetrieval(
+        browser, trusted_vault::TrustedVaultUserActionTriggerForUMA::kSettings);
+  }
 }

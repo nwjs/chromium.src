@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/platform/geometry/physical_offset.h"
 #include "third_party/blink/renderer/platform/text/writing_mode.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/geometry/rect_f.h"
@@ -164,7 +165,7 @@ class ShapePathBuilder : public HighlightPathBuilder {
     // TODO(pfeldman): Is this kIgnoreTransforms correct?
     gfx::PointF viewport_point(view_->FrameToViewport(
         ToRoundedPoint(layout_object_->LocalToAbsolutePoint(
-            layout_object_point, kIgnoreTransforms))));
+            layout_object_point, {MapCoordinatesMode::kIgnoreTransforms}))));
     viewport_point.Scale(scale_);
     return viewport_point;
   }
@@ -262,8 +263,8 @@ const ShapeOutsideInfo* ShapeOutsideInfoForNode(Node* node,
 }
 
 String ToHEXA(const Color& color) {
-  return String::Format("#%02X%02X%02X%02X", color.Red(), color.Green(),
-                        color.Blue(), color.AlphaAsInteger());
+  return Format("#{:02X}{:02X}{:02X}{:02X}", color.Red(), color.Green(),
+                color.Blue(), color.AlphaAsInteger());
 }
 
 std::unique_ptr<protocol::ListValue> ToRGBAList(const Color& color) {
@@ -2193,7 +2194,7 @@ void InspectorHighlight::AppendDistanceInfo(Node* node) {
   boxes_ = std::make_unique<protocol::Array<protocol::Array<double>>>();
   computed_style_ = protocol::DictionaryValue::create();
 
-  node->GetDocument().EnsurePaintLocationDataValidForNode(
+  node->GetDocument().UpdateStyleAndLayoutForNode(
       node, DocumentUpdateReason::kInspector);
   LayoutObject* layout_object = node->GetLayoutObject();
   if (!layout_object)
@@ -2454,7 +2455,7 @@ bool InspectorHighlight::GetBoxModel(
     Node* node,
     std::unique_ptr<protocol::DOM::BoxModel>* model,
     bool use_absolute_zoom) {
-  node->GetDocument().EnsurePaintLocationDataValidForNode(
+  node->GetDocument().UpdateStyleAndLayoutForNode(
       node, DocumentUpdateReason::kInspector);
   LayoutObject* layout_object = node->GetLayoutObject();
   LocalFrameView* view = node->GetDocument().View();

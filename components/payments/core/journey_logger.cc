@@ -12,6 +12,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "components/payments/core/features.h"
+#include "components/payments/core/payment_request_metrics.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/re2/src/re2/re2.h"
@@ -114,6 +115,18 @@ void JourneyLogger::SetShown() {
 
 void JourneyLogger::SetPayClicked() {
   SetEvent2Occurred(Event2::kPayClicked);
+}
+
+void JourneyLogger::SetCanMakePaymentCalled() {
+  SetEvent2Occurred(Event2::kCanMakePaymentCalled);
+}
+
+void JourneyLogger::SetHasEnrolledInstrumentCalled() {
+  SetEvent2Occurred(Event2::kHasEnrolledInstrumentCalled);
+}
+
+void JourneyLogger::SetInitiatedInCrossSiteIframe() {
+  SetEvent2Occurred(Event2::kInitiatedInCrossSiteIframe);
 }
 
 void JourneyLogger::SetSelectedMethod(PaymentMethodCategory category) {
@@ -394,6 +407,44 @@ bool JourneyLogger::WasPaymentRequestTriggered() {
 void JourneyLogger::SetPaymentAppUkmSourceId(
     ukm::SourceId payment_app_source_id) {
   payment_app_source_id_ = payment_app_source_id;
+}
+
+void JourneyLogger::SetPaymentAppWindowOpened() {
+  was_payment_app_window_opened_ = true;
+}
+
+void JourneyLogger::SetPaymentAppUserInteractionCaptured() {
+  was_payment_app_user_interaction_captured_ = true;
+}
+
+void JourneyLogger::RecordRespondWithResolvedStatus() {
+  base::UmaHistogramBoolean(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithResolvedBeforeOpenWindow",
+      !was_payment_app_window_opened_);
+  base::UmaHistogramBoolean(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithResolvedBeforeUserGesture",
+      !was_payment_app_user_interaction_captured_);
+}
+
+void JourneyLogger::RecordRespondWithRejectedStatus() {
+  base::UmaHistogramBoolean(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeOpenWindow",
+      !was_payment_app_window_opened_);
+  base::UmaHistogramBoolean(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeUserGesture",
+      !was_payment_app_user_interaction_captured_);
+}
+
+void JourneyLogger::RecordPaymentHandlerPausedResolutionOutcome(
+    PaymentHandlerPausedResolutionOutcome outcome) {
+  base::UmaHistogramEnumeration(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      outcome);
 }
 
 void JourneyLogger::SetWindowSizeCheckRejectionReason(

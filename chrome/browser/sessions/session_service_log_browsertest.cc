@@ -9,9 +9,9 @@
 #include <list>
 #include <memory>
 #include <optional>
+#include <ranges>
 
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
@@ -20,7 +20,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sessions/session_restore_test_helper.h"
 #include "chrome/browser/sessions/session_restore_test_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/startup/startup_types.h"
@@ -62,7 +61,7 @@ class SessionServiceLogTest : public InProcessBrowserTest {
   std::optional<SessionServiceEvent> FindMostRecentEventOfType(
       SessionServiceEventLogType type) const {
     auto events = GetSessionServiceEvents(profile_);
-    for (const SessionServiceEvent& event : base::Reversed(events)) {
+    for (const SessionServiceEvent& event : std::views::reverse(events)) {
       if (event.type == type)
         return event;
     }

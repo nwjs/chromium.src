@@ -8,6 +8,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
+#include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_ui.h"
 #include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/optimization_guide/optimization_guide_internals_ui.h"
 #include "chrome/browser/ui/webui/about/about_ui.h"
@@ -15,13 +16,14 @@
 #include "chrome/browser/ui/webui/actor_internals/actor_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/autofill_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/password_manager_internals_ui.h"
-#include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"  // nogncheck
+#include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_urls/chrome_urls_ui.h"
 #include "chrome/browser/ui/webui/commerce/commerce_internals_ui_config.h"
 #include "chrome/browser/ui/webui/components/components_ui.h"
 #include "chrome/browser/ui/webui/connectors_internals/connectors_internals_ui.h"
 #include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
+#include "chrome/browser/ui/webui/content_settings/content_settings_ui.h"
 #include "chrome/browser/ui/webui/context_hub/context_hub_ui.h"
 #include "chrome/browser/ui/webui/crashes/crashes_ui.h"
 #include "chrome/browser/ui/webui/data_sharing_internals/data_sharing_internals_ui.h"
@@ -43,9 +45,9 @@
 #include "chrome/browser/ui/webui/metrics_internals/metrics_internals_ui.h"
 #include "chrome/browser/ui/webui/net_export_ui.h"
 #include "chrome/browser/ui/webui/net_internals/net_internals_ui.h"
+#include "chrome/browser/ui/webui/notebooks_internals/notebooks_internals_ui_config.h"
 #include "chrome/browser/ui/webui/ntp_tiles_internals_ui.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
-#include "chrome/browser/ui/webui/personal_context_internals/personal_context_internals_ui.h"
 #include "chrome/browser/ui/webui/policy/policy_ui.h"
 #include "chrome/browser/ui/webui/predictors/predictors_ui.h"
 #include "chrome/browser/ui/webui/regional_capabilities_internals/regional_capabilities_internals_ui.h"
@@ -53,12 +55,12 @@
 #include "chrome/browser/ui/webui/segmentation_internals/segmentation_internals_ui.h"
 #include "chrome/browser/ui/webui/signin_internals_ui.h"
 #include "chrome/browser/ui/webui/subresource_filter/subresource_filter_internals_ui.h"
+#include "chrome/browser/ui/webui/suggest_internals/suggest_internals_ui.h"
 #include "chrome/browser/ui/webui/sync_internals/sync_internals_ui.h"
 #include "chrome/browser/ui/webui/translate_internals/translate_internals_ui.h"
 #include "chrome/browser/ui/webui/usb_internals/usb_internals_ui.h"
 #include "chrome/browser/ui/webui/version/version_ui.h"
 #include "components/enterprise/buildflags/buildflags.h"
-#include "components/notebooks/internals/webui/notebooks_internals_ui.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/security_interstitials/content/connection_help_ui.h"
 #include "components/security_interstitials/content/known_interception_disclosure_ui.h"
@@ -83,7 +85,6 @@
 #include "chrome/browser/contextual_cueing/internals/contextual_cueing_internals_ui.h"
 #include "chrome/browser/ui/tabs/tab_group_home/tab_group_home_ui.h"
 #include "chrome/browser/ui/webui/content_annotator_internals/content_annotator_internals_ui.h"
-#include "chrome/browser/ui/webui/personal_context/personal_context_notice_ui.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
 #include "chrome/browser/ui/webui_browser/webui_browser_ui.h"
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -92,7 +93,6 @@
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/browser/ui/webui/media_router/cast_feedback_ui.h"
 #endif
-#include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_ui.h"
 #include "chrome/browser/ui/webui/access_code_cast/access_code_cast_ui.h"
 #include "chrome/browser/ui/webui/app_service_internals/app_service_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_ml_internals/autofill_ml_internals_ui.h"
@@ -121,6 +121,7 @@
 #include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
+#include "chrome/browser/ui/webui/organizer_panel/organizer_panel_ui.h"
 #include "chrome/browser/ui/webui/password_manager/password_manager_ui.h"
 #include "chrome/browser/ui/webui/profile_internals/profile_internals_ui.h"
 #include "chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.h"
@@ -133,7 +134,6 @@
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
 #include "chrome/browser/ui/webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.h"
 #include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
-#include "chrome/browser/ui/webui/suggest_internals/suggest_internals_ui.h"
 #include "chrome/browser/ui/webui/support_tool/support_tool_ui.h"
 #include "chrome/browser/ui/webui/system/system_info_ui.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search_ui.h"
@@ -268,12 +268,15 @@ void RegisterChromeWebUIConfigs() {
       std::make_unique<security_interstitials::ConnectionHelpUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<enterprise_connectors::ConnectorsInternalsUIConfig>());
+  map.AddWebUIConfig(
+      std::make_unique<content_settings_internals::ContentSettingsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ConstrainedWebDialogUIConfig>());
   map.AddWebUIConfig(std::make_unique<CreditsUIConfig>());
   map.AddWebUIConfig(std::make_unique<DataSharingInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<DownloadInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<FamilyLinkUserInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<FlagsUIConfig>());
+  map.AddWebUIConfig(std::make_unique<glic::GlicExperimentalOptInUIConfig>());
   map.AddWebUIConfig(std::make_unique<glic::GlicUIConfig>());
   map.AddWebUIConfig(std::make_unique<GCMInternalsUIConfig>());
   map.AddWebUIConfig(
@@ -294,7 +297,6 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<OmniboxUIConfig>());
   map.AddWebUIConfig(std::make_unique<OptimizationGuideInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PasswordManagerInternalsUIConfig>());
-  map.AddWebUIConfig(std::make_unique<PersonalContextInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PolicyUIConfig>());
   map.AddWebUIConfig(std::make_unique<PredictorsUIConfig>());
   map.AddWebUIConfig(
@@ -308,6 +310,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<
                      subresource_filter::SubresourceFilterInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SiteEngagementUIConfig>());
+  map.AddWebUIConfig(std::make_unique<SuggestInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SyncInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<TranslateInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<UsbInternalsUIConfig>());
@@ -351,7 +354,6 @@ void RegisterChromeWebUIConfigs() {
           contextual_cueing_internals::ContextualCueingInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<DownloadsUIConfig>());
   map.AddWebUIConfig(std::make_unique<DrivePickerHostUIConfig>());
-  map.AddWebUIConfig(std::make_unique<glic::GlicExperimentalOptInUIConfig>());
   map.AddWebUIConfig(std::make_unique<FeedbackUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistorySidePanelUIConfig>());
@@ -375,18 +377,15 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<NewTabUIConfig>());
   map.AddWebUIConfig(std::make_unique<OmniboxEverywhereUIConfig>());
   map.AddWebUIConfig(std::make_unique<OmniboxPopupUIConfig>());
+  map.AddWebUIConfig(std::make_unique<OrganizerPanelUIConfig>());
   map.AddWebUIConfig(
       std::make_unique<on_device_internals::OnDeviceInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<PasswordManagerUIConfig>());
-  map.AddWebUIConfig(
-      std::make_unique<
-          personal_context::notice::PersonalContextNoticeUIConfig>());
   map.AddWebUIConfig(std::make_unique<ProfileInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ReadingListUIConfig>());
   map.AddWebUIConfig(std::make_unique<SearchEngineChoiceUIConfig>());
   map.AddWebUIConfig(std::make_unique<settings::SettingsUIConfig>());
   map.AddWebUIConfig(std::make_unique<ShoppingInsightsSidePanelUIConfig>());
-  map.AddWebUIConfig(std::make_unique<SuggestInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<SupportToolUIConfig>());
   map.AddWebUIConfig(std::make_unique<SyncConfirmationUIConfig>());
   map.AddWebUIConfig(std::make_unique<SystemInfoUIConfig>());

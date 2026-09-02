@@ -231,6 +231,11 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   static const CSSValue* ComputeValue(Element*,
                                       const CSSPropertyName&,
                                       const CSSValue&,
+                                      CSSToLengthConversionData::Flags&,
+                                      bool& has_random);
+  static const CSSValue* ComputeValue(Element*,
+                                      const CSSPropertyName&,
+                                      const CSSValue&,
                                       CSSToLengthConversionData::Flags&);
   // A wrapper for the function above when not interested in the conversion
   // flags.
@@ -409,6 +414,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
 
   MatchedPropertiesCache matched_properties_cache_;
 
+  static void SetZoomedInitialLineWidths(float zoom, ComputedStyleBuilder&);
   const ComputedStyle* CreateInitialStyle() const;
 
   // This member is on a hot-path for creating ComputedStyle objects.

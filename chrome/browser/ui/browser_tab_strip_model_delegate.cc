@@ -11,10 +11,12 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/user_metrics.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
@@ -23,8 +25,10 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
@@ -35,8 +39,14 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/contextual_tasks/contextual_tasks_close_button_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/common/chrome_switches.h"
+#include "components/contextual_tasks/public/features.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/reading_list/core/reading_list_model.h"
 #include "components/saved_tab_groups/internal/saved_tab_group_model.h"
 #include "components/saved_tab_groups/public/features.h"
@@ -54,7 +64,28 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
-#include "ui/gfx/range/range.h"
+
+namespace {
+
+void TabGroupsDialogTimingToSource(
+    base::OnceCallback<void(CloseTabSource)> callback,
+    CloseTabSource source,
+    tab_groups::DeletionDialogController::DeletionDialogTiming timing) {
+  switch (timing) {
+    case tab_groups::DeletionDialogController::DeletionDialogTiming::
+        Synchronous: {
+      std::move(callback).Run(source);
+      return;
+    }
+    case tab_groups::DeletionDialogController::DeletionDialogTiming::
+        Asynchronous: {
+      std::move(callback).Run(CloseTabSource::kFromNonUIEvent);
+      return;
+    }
+  }
+}
+
+}  // namespace
 
 namespace chrome {
 
@@ -90,15 +121,16 @@ Browser* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
     std::vector<NewStripContents> tabs,
     const gfx::Rect& window_bounds,
     bool maximize) {
-  DCHECK(browser_->CanSupportWindowFeature(
-      Browser::WindowFeature::kFeatureTabStrip));
+  DCHECK(WindowFeatureController::From(browser_)->CanSupportWindowFeature(
+      WindowFeatureController::WindowFeature::kFeatureTabStrip));
 
   // Create an empty new browser window the same size as the old one.
-  Browser::CreateParams params(browser_->GetProfile(), true);
+  BrowserWindowCreateParams params(browser_->GetProfile(), true);
   params.initial_bounds = window_bounds;
   params.initial_show_state = maximize ? ui::mojom::WindowShowState::kMaximized
                                        : ui::mojom::WindowShowState::kNormal;
-  Browser* browser = Browser::Create(params);
+  Browser* browser =
+      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
   TabStripModel* new_model = browser->tab_strip_model();
 
   for (size_t i = 0; i < tabs.size(); ++i) {
@@ -117,7 +149,7 @@ Browser* BrowserTabStripModelDelegate::CreateNewStripWithTabs(
     // Make sure the loading state is updated correctly, otherwise the throbber
     // won't start if the page is loading.
     // TODO(beng): find a better way of doing this.
-    static_cast<content::WebContentsDelegate*>(browser)->LoadingStateChanged(
+    BrowserWebContentsDelegate::From(browser)->LoadingStateChanged(
         raw_web_contents, true);
   }
 
@@ -201,8 +233,9 @@ std::optional<SessionID> BrowserTabStripModelDelegate::CreateHistoricalTab(
       TabRestoreServiceFactory::GetForProfile(browser_->GetProfile());
 
   // We only create historical tab entries for tabbed browser windows.
-  if (service && browser_->CanSupportWindowFeature(
-                     Browser::WindowFeature::kFeatureTabStrip)) {
+  if (service &&
+      WindowFeatureController::From(browser_)->CanSupportWindowFeature(
+          WindowFeatureController::WindowFeature::kFeatureTabStrip)) {
     return service->CreateHistoricalTab(
         sessions::ContentLiveTab::GetOrCreateForWebContents(contents),
         browser_->tab_strip_model()->GetIndexOfWebContents(contents));
@@ -347,7 +380,7 @@ bool BrowserTabStripModelDelegate::CanGoBack(
 }
 
 bool BrowserTabStripModelDelegate::IsNormalWindow() {
-  return browser_->is_type_normal();
+  return browser_->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL;
 }
 
 BrowserWindowInterface*
@@ -395,6 +428,140 @@ void BrowserTabStripModelDelegate::OnRemovingAllTabsFromGroups(
       base::IgnoreArgs<
           tab_groups::DeletionDialogController::DeletionDialogTiming>(
           std::move(callback)));
+}
+
+void BrowserTabStripModelDelegate::CloseTab(
+    const tabs::TabInterface* tab_interface,
+    CloseTabSource source,
+    base::OnceCallback<void(CloseTabSource)> on_approved) {
+  TabStripModel* model = browser_->tab_strip_model();
+  std::optional<int> maybe_tab_index = model->GetIndexOfTab(tab_interface);
+  if (!maybe_tab_index.has_value()) {
+    return;
+  }
+  int tab_index = maybe_tab_index.value();
+
+  if (!web_app::IsTabClosable(model, tab_index)) {
+    return;
+  }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Tabs cannot be closed when the app is in locked fullscreen, which is
+  // available only on ChromeOS.
+  if (platform_util::IsBrowserLockedFullscreen(browser_)) {
+    return;
+  }
+#endif
+
+  if (base::FeatureList::IsEnabled(
+          contextual_tasks::kContextualTasksCloseTabExpandsSidePanel)) {
+    ContextualTasksCloseButtonController* const close_button_controller =
+        ContextualTasksCloseButtonController::From(browser_);
+    if (tab_interface && tab_interface->IsActivated() &&
+        close_button_controller &&
+        close_button_controller->ShouldShowCloseButton()) {
+      close_button_controller->MaybeCloseTabExpandSidePanel();
+      return;
+    }
+  }
+
+  auto [cb1, cb2] = base::SplitOnceCallback(std::move(on_approved));
+
+  // Only consider pausing the close operation if this is the last remaining
+  // tab (since otherwise closing it won't close the browser window).
+  if (model->count() <= 1) {
+    // Closing this tab will close the current window. See if the browser wants
+    // to prompt the user before the browser is allowed to close.
+    const UnloadController::WarnBeforeClosingResult result =
+        UnloadController::From(browser_)->MaybeWarnBeforeClosing(base::BindOnce(
+            [](base::WeakPtr<BrowserTabStripModelDelegate> delegate,
+               const tabs::TabInterface* tab,
+               base::OnceCallback<void(CloseTabSource)> cb,
+               UnloadController::WarnBeforeClosingResult result) {
+              if (delegate &&
+                  result ==
+                      UnloadController::WarnBeforeClosingResult::kOkToClose) {
+                delegate->CloseTab(tab, CloseTabSource::kFromNonUIEvent,
+                                   std::move(cb));
+              }
+            },
+            weak_factory_.GetWeakPtr(), tab_interface, std::move(cb1)));
+
+    if (result != UnloadController::WarnBeforeClosingResult::kOkToClose) {
+      return;
+    }
+  }
+
+  // Check to make sure the tab is not the last in its group.
+  std::vector<tab_groups::TabGroupId> groups_to_delete =
+      model->GetGroupsDestroyedFromRemovingIndices({tab_index});
+
+  auto do_close = base::BindOnce(
+      [](base::WeakPtr<BrowserTabStripModelDelegate> delegate,
+         base::WeakPtr<content::WebContents> web_contents,
+         base::OnceCallback<void(CloseTabSource)> on_approved,
+         CloseTabSource source) {
+        if (!delegate) {
+          return;
+        }
+        Browser* browser = delegate->browser_;
+        TabStripModel* model = browser->tab_strip_model();
+
+        if (on_approved) {
+          std::move(on_approved).Run(source);
+        }
+
+        if (!web_contents) {
+          return;
+        }
+        int tab_index = model->GetIndexOfWebContents(web_contents.get());
+        if (tab_index == TabStripModel::kNoTab) {
+          return;
+        }
+
+        const tabs::TabInterface* tab = model->GetTabAtIndex(tab_index);
+
+        if (tab->GetGroup().has_value()) {
+          base::RecordAction(base::UserMetricsAction("CloseGroupedTab"));
+
+          if (model->count() == 1) {
+            // Prevent the browser from closing when the last grouped tab is
+            // closed from the browser by adding a new tab.
+            chrome::NewTab(browser, NewTabTypes::kNoUserAction);
+            // In some situations the new tab is assigned a group. So if it is
+            // in a group, we remove it from the group so that after closing the
+            // tab at `tab_index`, the browser shows a tab without a group.
+            model->RemoveFromGroup({1});
+          }
+        }
+
+        model->CloseWebContents(web_contents.get(),
+                                TabCloseTypes::CLOSE_USER_GESTURE |
+                                    TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+
+        // Try to show reading list IPH if needed.
+        if (model->count() >= 7) {
+          BrowserUserEducationInterface::From(browser)->MaybeShowFeaturePromo(
+              feature_engagement::kIPHReadingListEntryPointFeature);
+        }
+      },
+      weak_factory_.GetWeakPtr(), tab_interface->GetContents()->GetWeakPtr(),
+      std::move(cb2));
+
+  if (groups_to_delete.empty()) {
+    std::move(do_close).Run(source);
+    return;
+  }
+
+  auto timing_mapped_callback = base::BindOnce(&TabGroupsDialogTimingToSource,
+                                               std::move(do_close), source);
+
+  // If the user is destroying the last tab in a saved or shared group via the
+  // tabstrip, a dialog is shown that will decide whether to destroy the tab or
+  // not. It will first ungroup the tab, then close the tab.
+  tab_groups::SavedTabGroupUtils::MaybeShowSavedTabGroupDeletionDialog(
+      browser_, tab_groups::GroupDeletionReason::ClosedLastTab,
+      groups_to_delete, std::move(timing_mapped_callback));
 }
 
 ////////////////////////////////////////////////////////////////////////////////

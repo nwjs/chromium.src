@@ -30,6 +30,8 @@ class Profile;
 namespace readaloud {
 
 class ReadAloudPlaybackSession;
+class ReadAloudServiceTest;
+class SpeechSynthesisBroker;
 
 // Central lifecycle and state orchestrator for the Read Aloud feature in
 // Chrome, which allows users to listen to web page content.
@@ -138,7 +140,14 @@ class ReadAloudService
     virtual void OnNativeDestroyed() = 0;
   };
 
-  explicit ReadAloudService(Profile* profile);
+  // Callback type used to inject a fake or mock ReadAloudPlaybackController receiver
+  // during unit testing without friending test classes or exposing ForTesting methods.
+  using PlaybackControllerBinder = base::RepeatingCallback<
+      void(mojo::PendingReceiver<read_aloud::mojom::ReadAloudPlaybackController>)>;
+
+  explicit ReadAloudService(
+      Profile* profile,
+      PlaybackControllerBinder controller_binder = {});
 
   ReadAloudService(const ReadAloudService&) = delete;
   ReadAloudService& operator=(const ReadAloudService&) = delete;
@@ -172,6 +181,9 @@ class ReadAloudService
 
   // Sets the voice to be used for text-to-speech synthesis.
   void SetVoice(std::string_view voice_id);
+
+  // Sets the target language code for text-to-speech synthesis.
+  void SetLanguageCode(std::string_view language_code);
 
   // Plays a short audio sample of the specified voice.
   void PreviewVoice(std::string_view voice_id);
@@ -215,14 +227,15 @@ class ReadAloudService
   void OnDistillationFailed(
       dom_distiller::DistillationParseResult reason) override;
 
+  // Stops any active playback session and restarts the service lifecycle for
+  // the given `web_contents`, triggering page distillation and ensuring the
+  // utility process is connected.
+  void Initialize(content::WebContents* web_contents);
+
   dom_distiller::ViewerHandle* GetViewerHandleForTesting() const {
     return viewer_handle_.get();
   }
 
-  // Initializes the connection to the utility process.
-  void Initialize();
-
- private:
   // read_aloud::mojom::ReadAloudPlaybackControllerClient (called by Utility):
   void OnPlaybackStateChanged(read_aloud::mojom::PlaybackState state) override;
   void OnPlaybackDurationChanged(base::TimeDelta duration) override;
@@ -235,11 +248,13 @@ class ReadAloudService
       read_aloud::mojom::ReadAloudPlaybackControllerClient::
           RequestSpeechSynthesisCallback callback) override;
 
-  void EnsureServiceConnected();
+  void EnsurePlaybackControllerConnected();
   void OnUtilityDisconnect();
+  void ResetUtilityConnection();
   PlaybackState GetCurrentPlaybackState() const;
 
   raw_ptr<Profile> profile_;
+  PlaybackControllerBinder controller_binder_;
   std::unique_ptr<dom_distiller::ViewerHandle> viewer_handle_;
   std::unique_ptr<Delegate> delegate_;
   base::TimeTicks distillation_start_time_;
@@ -254,6 +269,7 @@ class ReadAloudService
       utility_observer_receiver_{this};
 
   std::unique_ptr<ReadAloudPlaybackSession> active_session_;
+  std::unique_ptr<SpeechSynthesisBroker> speech_synthesis_broker_;
 
   base::WeakPtrFactory<ReadAloudService> weak_factory_{this};
 };

@@ -81,6 +81,8 @@ rust_static_library("child_process_security_policy_impl") {
   deps = [
     ":browser_id_types",
     "//base:feature",
+    "//base:file_path",
+    "//base:unguessable_token",
     "//content/common:common_id_types",
     "//storage/common:storage_common_rust",
     "//third_party/blink/public/common",
@@ -144,10 +146,8 @@ source_set("browser") {
     "//cc/animation",
     "//cc/mojo_embedder",
     "//cc/paint",
-    "//components/aggregation_service",
     "//components/back_forward_cache:enum",
     "//components/browsing_data/core:cookie_or_cache_deletion_choice",
-    "//components/browsing_topics/common",
     "//components/cbor",
     "//components/discardable_memory/common",
     "//components/discardable_memory/service",
@@ -205,7 +205,6 @@ source_set("browser") {
     "//components/webauthn/core/browser:client_data",
     "//components/webauthn/core/browser:common_utils",
     "//content:content_resources",
-    "//content/browser/aggregation_service/proto:aggregatable_report_proto",
     "//content/browser/background_fetch:background_fetch_proto",
     "//content/browser/background_sync:background_sync_proto",
     "//content/browser/cache_storage:cache_storage_proto",
@@ -232,6 +231,7 @@ source_set("browser") {
     "//content/public/common:common_sources",
     "//content/public/common:content_descriptor_keys",
     "//content/public/common/zygote:buildflags",
+    "//content/services/devtools_media_encoding_service/public/mojom",
     "//crypto",
     "//device/base",
     "//device/bluetooth",
@@ -477,33 +477,6 @@ source_set("browser") {
     "after_startup_task_utils.h",
     "agent_cluster_key.cc",
     "agent_cluster_key.h",
-    "aggregation_service/aggregatable_report.cc",
-    "aggregation_service/aggregatable_report.h",
-    "aggregation_service/aggregatable_report_assembler.cc",
-    "aggregation_service/aggregatable_report_assembler.h",
-    "aggregation_service/aggregatable_report_request_storage_id.h",
-    "aggregation_service/aggregatable_report_scheduler.cc",
-    "aggregation_service/aggregatable_report_scheduler.h",
-    "aggregation_service/aggregatable_report_sender.cc",
-    "aggregation_service/aggregatable_report_sender.h",
-    "aggregation_service/aggregation_service.h",
-    "aggregation_service/aggregation_service_impl.cc",
-    "aggregation_service/aggregation_service_impl.h",
-    "aggregation_service/aggregation_service_key_fetcher.cc",
-    "aggregation_service/aggregation_service_key_fetcher.h",
-    "aggregation_service/aggregation_service_network_fetcher_impl.cc",
-    "aggregation_service/aggregation_service_network_fetcher_impl.h",
-    "aggregation_service/aggregation_service_observer.h",
-    "aggregation_service/aggregation_service_storage.h",
-    "aggregation_service/aggregation_service_storage_context.h",
-    "aggregation_service/aggregation_service_storage_sql.cc",
-    "aggregation_service/aggregation_service_storage_sql.h",
-    "aggregation_service/public_key.cc",
-    "aggregation_service/public_key.h",
-    "aggregation_service/public_key_parsing_utils.cc",
-    "aggregation_service/public_key_parsing_utils.h",
-    "aggregation_service/report_scheduler_timer.cc",
-    "aggregation_service/report_scheduler_timer.h",
     "ai/echo_ai_language_model.cc",
     "ai/echo_ai_language_model.h",
     "ai/echo_ai_manager_impl.cc",
@@ -682,10 +655,6 @@ source_set("browser") {
     "browsing_data/storage_partition_code_cache_data_remover.h",
     "browsing_instance.cc",
     "browsing_instance.h",
-    "browsing_topics/browsing_topics_site_data_manager_impl.cc",
-    "browsing_topics/browsing_topics_site_data_manager_impl.h",
-    "browsing_topics/browsing_topics_site_data_storage.cc",
-    "browsing_topics/browsing_topics_site_data_storage.h",
     "btm/btm_bounce_detector.cc",
     "btm/btm_bounce_detector.h",
     "btm/btm_database.cc",
@@ -856,8 +825,6 @@ source_set("browser") {
     "devtools/forwarding_agent_host.h",
     "devtools/frame_auto_attacher.cc",
     "devtools/frame_auto_attacher.h",
-    "devtools/mojom_devtools_agent_host.cc",
-    "devtools/mojom_devtools_agent_host.h",
     "devtools/network_service_devtools_observer.cc",
     "devtools/network_service_devtools_observer.h",
     "devtools/protocol/audits_handler.cc",
@@ -902,6 +869,8 @@ source_set("browser") {
     "devtools/protocol/io_handler.h",
     "devtools/protocol/log_handler.cc",
     "devtools/protocol/log_handler.h",
+    "devtools/protocol/media_recorder.cc",
+    "devtools/protocol/media_recorder.h",
     "devtools/protocol/memory_handler.cc",
     "devtools/protocol/memory_handler.h",
     "devtools/protocol/native_input_event_builder.h",
@@ -1942,6 +1911,8 @@ source_set("browser") {
     "resource_coordinator_service.cc",
     "sandboxed_opaque_origin_creator.cc",
     "sandboxed_opaque_origin_creator.h",
+    "sandboxed_process_launcher_delegate.cc",
+    "sandboxed_process_launcher_delegate.h",
     "scheduler/browser_io_thread_delegate.cc",
     "scheduler/browser_io_thread_delegate.h",
     "scheduler/browser_task_executor.cc",
@@ -2297,6 +2268,8 @@ source_set("browser") {
     "webid/identity_registry.cc",
     "webid/identity_registry.h",
     "webid/identity_registry_delegate.h",
+    "webid/idp_accounts_parser.cc",
+    "webid/idp_accounts_parser.h",
     "webid/idp_network_request_manager.cc",
     "webid/idp_network_request_manager.h",
     "webid/idp_registration_handler.cc",
@@ -2400,6 +2373,8 @@ source_set("browser") {
       "memory_pressure/user_level_memory_pressure_signal_generator.h",
       "renderer_host/input/touch_selection_controller_input_observer.cc",
       "renderer_host/input/touch_selection_controller_input_observer.h",
+      "renderer_host/unbounded_surface_window_android.cc",
+      "renderer_host/unbounded_surface_window_android.h",
     ]
   }
 
@@ -2879,6 +2854,8 @@ source_set("browser") {
         "media/capture/desktop_capture_device.h",
         "media/capture/mouse_cursor_overlay_controller.cc",
         "media/capture/mouse_cursor_overlay_controller.h",
+        "media/capture/screenshot_capture_request_impl.cc",
+        "media/capture/screenshot_capture_request_impl.h",
       ]
       public_deps += [ "//ui/base/cursor" ]
 
@@ -2896,6 +2873,11 @@ source_set("browser") {
           "media/captured_surface_controller.h",
         ]
       }
+    } else {
+      sources += [
+        "media/capture/screenshot_capture_request_impl.h",
+        "media/capture/screenshot_capture_request_impl_ios.cc",
+      ]
     }
     if (use_aura) {
       sources += [
@@ -3417,10 +3399,7 @@ source_set("browser") {
         "speech/soda_speech_recognition_engine_impl.h",
       ]
 
-      deps += [
-        "//components/crash/content/browser/error_reporting",
-        "//media/mojo/mojom:web_speech_recognition",
-      ]
+      deps += [ "//media/mojo/mojom:web_speech_recognition" ]
     }
 
     deps += [
@@ -3436,6 +3415,10 @@ source_set("browser") {
       "//media/mojo/mojom:speech_recognition",
       "//ui/base",
     ]
+  }
+
+  if (!is_fuchsia) {
+    deps += [ "//components/crash/content/browser/error_reporting" ]
   }
 
   # For platforms that support extension service workers.
@@ -3614,6 +3597,8 @@ source_set("browser") {
     sources += [
       "vrp_flags/vrp_flags_factory_impl.cc",
       "vrp_flags/vrp_flags_factory_impl.h",
+      "vrp_flags/vrp_navigation_throttle.cc",
+      "vrp_flags/vrp_navigation_throttle.h",
     ]
     deps += [ "//components/vrp_flags" ]
     public_deps += [ "//components/vrp_flags:mojom" ]
@@ -3635,6 +3620,7 @@ if (is_android) {
 group("for_content_tests") {
   visibility = [
     "//content/browser/btm:unit_tests",
+    "//content/browser/indexed_db:idb_factory_mojolpm_fuzzer",
     "//content/browser/indexed_db:unit_tests",
     "//content/public/test/android/*",
     "//content/test/*",

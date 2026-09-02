@@ -85,6 +85,7 @@ constexpr int kVP8AWebMFileDurationMs = 2733;
 constexpr char kSfxLosslessHash[] = "3.03,2.86,2.99,3.31,3.57,4.06,";
 constexpr char kBear320x240AudioHash[] = "-3.59,-2.06,-0.43,2.15,0.77,-0.95,";
 constexpr char kSfxMp3Hash[] = "1.30,2.72,4.56,5.08,3.74,2.03,";
+constexpr char kSilentSectionMp3Hash[] = "-4.37,-4.44,-3.23,-6.92,-6.71,-8.27,";
 
 constexpr char kSfxMseMp3Hash[] = "1.01,2.71,4.18,4.32,3.04,1.12,";
 
@@ -577,6 +578,7 @@ class MSEChangeTypeTest
     EXPECT_TRUE(demuxer_->GetTimelineOffset().is_null());
     source.Shutdown();
     Stop();
+    pipeline_.reset();
   }
 };
 
@@ -1844,6 +1846,13 @@ TEST_F(PipelineIntegrationTest, BasicPlaybackHashed_MP3) {
   EXPECT_AUDIO_HASH(kSfxMp3Hash);
 }
 
+TEST_F(PipelineIntegrationTest, BasicPlayback_SilentSection_MP3) {
+  ASSERT_EQ(PIPELINE_OK, Start("silent-section.mp3", kHashed));
+  Play();
+  ASSERT_TRUE(WaitUntilOnEnded());
+  EXPECT_AUDIO_HASH(kSilentSectionMp3Hash);
+}
+
 TEST_F(PipelineIntegrationTest, BasicPlaybackHashed_FlacInMp4) {
   ASSERT_EQ(PIPELINE_OK, Start("sfx-flac.mp4", kHashed));
   Play();
@@ -3000,9 +3009,10 @@ TEST_F(OpusPipelineIntegrationTest, BasicPlayback_Opus441kHz) {
 // Tests that we signal ended even when audio runs longer than video track.
 TEST_F(PipelineIntegrationTest, BasicPlaybackAudioLongerThanVideo) {
   ASSERT_EQ(PIPELINE_OK, Start("bear_audio_longer_than_video_vp8.ogv"));
-  // Audio track is 2000ms. Video track is 1001ms. Duration should be higher
-  // of the two.
-  EXPECT_EQ(2000, pipeline_->GetMediaDuration().InMilliseconds());
+  // Video track is 1001ms. Audio track payload is 2000ms, but has a container
+  // duration of 2002ms due to the -2.67ms Vorbis priming offset. Duration
+  // should be the higher of the two.
+  EXPECT_EQ(2002, pipeline_->GetMediaDuration().InMilliseconds());
   Play();
   ASSERT_TRUE(WaitUntilOnEnded());
 }
@@ -3010,9 +3020,10 @@ TEST_F(PipelineIntegrationTest, BasicPlaybackAudioLongerThanVideo) {
 // Tests that we signal ended even when audio runs shorter than video track.
 TEST_F(PipelineIntegrationTest, BasicPlaybackAudioShorterThanVideo) {
   ASSERT_EQ(PIPELINE_OK, Start("bear_audio_shorter_than_video_vp8.ogv"));
-  // Audio track is 500ms. Video track is 1001ms. Duration should be higher of
-  // the two.
-  EXPECT_EQ(1001, pipeline_->GetMediaDuration().InMilliseconds());
+  // Audio track is 500ms. Video track is 1001ms. Container duration is 1003ms
+  // because it spans from the audio stream's -2.67ms Vorbis priming offset
+  // to the video track's 1001ms end timestamp.
+  EXPECT_EQ(1003, pipeline_->GetMediaDuration().InMilliseconds());
   Play();
   ASSERT_TRUE(WaitUntilOnEnded());
 }
@@ -3111,6 +3122,13 @@ TEST_F(SymphoniaPipelineIntegrationTest, BasicPlaybackHashed_MP3) {
   EXPECT_AUDIO_HASH(kSfxMp3Hash);
 }
 
+TEST_F(SymphoniaPipelineIntegrationTest, BasicPlayback_SilentSection_MP3) {
+  ASSERT_EQ(PIPELINE_OK, Start("silent-section.mp3", kHashed));
+  Play();
+  ASSERT_TRUE(WaitUntilOnEnded());
+  EXPECT_AUDIO_HASH(kSilentSectionMp3Hash);
+}
+
 TEST_F(SymphoniaPipelineIntegrationTest, BasicPlayback_Flac) {
   ASSERT_EQ(PIPELINE_OK, Start("sfx-flac.mp4", kHashed));
   Play();
@@ -3153,9 +3171,38 @@ TEST_F(SymphoniaPipelineIntegrationTest, BasicPlayback_Vorbis_AudioOnly) {
   EXPECT_AUDIO_HASH(kBear320x240AudioHash);
 }
 
+TEST_F(SymphoniaPipelineIntegrationTest, MSE_Mpeg2ts_MP3Audio_Mp4a_6B) {
+  TestMediaSource source("bear-audio-mp4a.6B.ts",
+                         "video/mp2t; codecs=\"mp4a.6B\"", kAppendWholeFile);
+#if BUILDFLAG(ENABLE_MSE_MPEG2TS_STREAM_PARSER)
+  EXPECT_EQ(PIPELINE_OK, StartPipelineWithMediaSource(&source));
+  source.EndOfStream();
+  ASSERT_EQ(PIPELINE_OK, pipeline_status_);
+#else
+  EXPECT_EQ(
+      DEMUXER_ERROR_COULD_NOT_OPEN,
+      StartPipelineWithMediaSource(&source, kExpectDemuxerFailure, nullptr));
+#endif
+}
+
+TEST_F(SymphoniaPipelineIntegrationTest, MSE_Mpeg2ts_MP3Audio_Mp4a_69) {
+  TestMediaSource source("bear-audio-mp4a.69.ts",
+                         "video/mp2t; codecs=\"mp4a.69\"", kAppendWholeFile);
+#if BUILDFLAG(ENABLE_MSE_MPEG2TS_STREAM_PARSER)
+  EXPECT_EQ(PIPELINE_OK, StartPipelineWithMediaSource(&source));
+  source.EndOfStream();
+  ASSERT_EQ(PIPELINE_OK, pipeline_status_);
+#else
+  EXPECT_EQ(
+      DEMUXER_ERROR_COULD_NOT_OPEN,
+      StartPipelineWithMediaSource(&source, kExpectDemuxerFailure, nullptr));
+#endif
+}
+
 #endif  // BUILDFLAG(ENABLE_SYMPHONIA)
 
-#if BUILDFLAG(ENABLE_IAMF_TOOLS)
+#if BUILDFLAG(ENABLE_IAMF_TOOLS) && BUILDFLAG(USE_PROPRIETARY_CODECS) && \
+    BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
 TEST_F(PipelineIntegrationTest, MSE_BasicPlayback_Iamf_714) {
   base::test::ScopedFeatureList scoped_feature_list(kIamfAudioDecoding);
   TestMediaSource source("iamf_alternating_sine_waves_714.mp4",
@@ -3179,6 +3226,7 @@ TEST_F(PipelineIntegrationTest, MSE_BasicPlayback_Iamf_Stereo) {
   source.Shutdown();
   Stop();
 }
-#endif  // BUILDFLAG(ENABLE_IAMF_TOOLS)
+#endif  // BUILDFLAG(ENABLE_IAMF_TOOLS) && BUILDFLAG(USE_PROPRIETARY_CODECS) &&
+        // \ BUILDFLAG(ENABLE_FFMPEG_VIDEO_DECODERS)
 
 }  // namespace media

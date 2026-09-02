@@ -176,7 +176,6 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   // ExecutionContext overrides:
   bool IsWindow() const final { return true; }
   bool IsContextThread() const final;
-  bool ShouldInstallV8Extensions() const final;
   ContentSecurityPolicy* GetContentSecurityPolicyForWorld(
       const DOMWrapperWorld* world) final;
   const KURL& Url() const final;
@@ -193,6 +192,8 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   void AddInspectorIssue(AuditsIssue) final;
   EventTarget* ErrorEventTarget() final { return this; }
   KURL OutgoingReferrerUrl() const final;
+  void SetInitiatorStateToken(
+      const base::UnguessableToken& initiator_state_token) final;
   CoreProbeSink* GetProbeSink() final;
   const BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() const final;
   FrameOrWorkerScheduler* GetScheduler() final;
@@ -516,6 +517,16 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   const BlinkStorageKey& GetStorageKey() const { return storage_key_; }
   void SetStorageKey(const BlinkStorageKey& storage_key);
 
+  // Returns a token used to retrieve state associated with this LocalWindow in
+  // the browser process. This should be passed to navigations started from this
+  // LocalWindow. The InitiatorStateToken remains valid as long as:
+  //   - The frame exists and its policies have not changed.
+  //   - Or there is an ongoing navigation started from the frame in the state
+  //   associated with the token.
+  const base::UnguessableToken& GetInitiatorStateToken() const {
+    return initiator_state_token_;
+  }
+
   void DidReceiveUserActivation();
 
   // Returns the state of the |payment_request_token_| in this document.
@@ -709,6 +720,12 @@ class CORE_EXPORT LocalDOMWindow final : public DOMWindow,
   // creation. Remains valid even after the frame is destroyed and the context
   // is detached.
   const LocalFrameToken token_;
+
+  // Token tracking the state of policies in the LocalFrame. Used to find an
+  // InitiatorNavigationState in the browser process for navigations started
+  // from this LocalFrame. This will be updated if the policies of the
+  // LocalFrame change (e.g. Referrer policy, CSP).
+  base::UnguessableToken initiator_state_token_;
 
   // Tracks which document policy violation reports have already been sent in
   // this document, to avoid reporting duplicates. The value stored comes

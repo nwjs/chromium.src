@@ -74,6 +74,7 @@
 <translation id="1857749206890802997">Hareket halindeyken sekme gruplarını açmak veya yenilerini oluşturmak için telefonunuza Chromium'u indirin.</translation>
 <translation id="185970820835152459">Oturum açılmış Google Hesaplarınızı yönetebilirsiniz. Google Hesaplarınız; Chromium tarayıcı, Play Store, Gmail ve daha başka yerlerde kullanılır. Aile üyesi gibi başka bir kullanıcı için hesap eklemek isterseniz bunun yerine <ph name="DEVICE_TYPE" /> cihazınıza yeni bir kişi ekleyin. <ph name="LINK_BEGIN" />Daha fazla bilgi<ph name="LINK_END" /></translation>
 <translation id="1862852878885210965">Görsel Arama ile ara</translation>
+<translation id="1863837059069884561"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chromium'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, <ph name="DEVICE" /> içindeki yer işaretlerinize ve diğer öğelere de erişebilirsiniz.</translation>
 <translation id="1880677175115548835">Metin seç</translation>
 <translation id="1881322772814446296">Yönetilen bir hesapla oturum açıyor ve hesabın yöneticisine Chromium profilinizi denetleme izni veriyorsunuz. Uygulamalarınız, yer işaretleriniz, geçmişiniz, şifreleriniz ve diğer ayarlarınız gibi Chromium verileriniz kalıcı olarak <ph name="USER_NAME" /> ile bağlantılandırılacaktır. Google Hesapları Hesap Özeti'ni kullanarak bu verileri silebilecek, ancak bu verileri başka bir hesapla ilişkilendiremeyeceksiniz. İsterseniz mevcut Chromium verilerinizi ayrı tutmak için yeni bir profil oluşturabilirsiniz. <ph name="LEARN_MORE" /></translation>
 <translation id="1896836275755235458">Chromium, arka plan etkinliğini ve görsel efektleri (ör. kolay kaydırma ve video kare hızı) sınırlandırarak pil gücünden tasarruf eder. <ph name="BEGIN_LINK" />Enerji Tasarrufu hakkında daha fazla bilgi edinin<ph name="END_LINK" />.</translation>
@@ -132,6 +133,7 @@
 <translation id="2418322681019544463">Uygulamalardaki bağlantıları Chromium'da açın ve tarayıcıyı görev çubuğunuzda erişilebilir tutun</translation>
 <translation id="2425157128016763890">Kısa bir genel bakış almak ve ek sorular sormak için Özetle düğmesine tıklayıp bu belgeyi Chromium'daki Gemini ile paylaşın</translation>
 <translation id="2440750600860946460"><ph name="BEGIN_LINK" />Chromium araçları<ph name="END_LINK" /> ile güvenli bir şekilde göz atabilir ve kontrolü elinizde tutabilirsiniz</translation>
+<translation id="2449487342837813167"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chromium'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, şifrelerinize ve diğer öğelerinize tüm cihazlarınızdan erişebilirsiniz.</translation>
 <translation id="2451727308784734061">Şifre Yöneticisi'ne hızlıca gitmek için kısayolunuzu kullanın. Kısayolunuzu bilgisayarınızın ana ekranına veya uygulama başlatıcıya taşıyabilirsiniz.</translation>
 <translation id="2478295928299953161">Chromium yakında kapanacak</translation>
 <translation id="2483889755041906834">Chromium'da</translation>
@@ -151,6 +153,7 @@
 <translation id="2635452620547538388">Chromium verilerini kullanmak ve <ph name="ACCOUNT_EMAIL" /> hesabınıza kaydetmek için kimliğinizi doğrulayın</translation>
 <translation id="2636783171884046627">Chromium'da Gemini'dan çıkmak veya Gemini'a dönmek için klavye kısayolunu kullanın.</translation>
 <translation id="2637732208198500597">{COUNT,plural, =0{Gelişmiş Koruma, bir güncellemeyi uygulamak için Chromium'u yeniden başlatmanızı gerektiriyor.}=1{Gelişmiş Koruma, bir güncellemeyi uygulamak için Chromium'u yeniden başlatmanızı gerektiriyor. Gizli pencereniz yeniden açılmayacak.}other{Gelişmiş Koruma, bir güncellemeyi uygulamak için Chromium'u yeniden başlatmanızı gerektiriyor. # gizli pencereniz yeniden açılmayacak.}}</translation>
+<translation id="263863604136125912">Chromium'u Başlat</translation>
 <translation id="2648074677641340862">Yükleme sırasında bir işletim sistemi hatası oluştu. Lütfen Chromium'u yeniden indirin.</translation>
 <translation id="2661879430930417727">Bir cihazı paylaşıyorsanız arkadaşlarınız ve aileniz ayrı olarak göz atabilir ve Chromium'u tam olarak istedikleri şekilde ayarlayabilirler.</translation>
 <translation id="2676569452213089702">Chromium simge durumuna küçültülmüş olsa bile Chromium'da Gemini'a cihazınızda kolayca erişebilirsiniz.</translation>
@@ -302,7 +305,6 @@
 <translation id="4304713468139749426">Şifre Yöneticisi</translation>
 <translation id="4334241893986177674">Bu ekran görüntüsünde arama yapın</translation>
 <translation id="4384331407722351213">Windows başlatıldığında Chromium'u aç</translation>
-<translation id="4384993550046411228">Chromium'u varsayılan tarayıcınız olarak ayarlayarak bildiğiniz, sevdiğiniz ve güvendiğiniz özelliklere kolayca erişin. Chromium, hızlı erişim için görev çubuğunuza sabitlenir.</translation>
 <translation id="4400772909124543403">Kullanılabilir güncelleme yok.</translation>
 <translation id="4407044323746248786">Yine de Chromium'dan çıkılsın mı?</translation>
 <translation id="4413205837991854510">Görsel Arama Kısayolunu Her Zaman Göster</translation>
@@ -402,6 +404,7 @@
 
 Bu sayfa beklendiği gibi çalışmıyorsa optimizasyona izin vermeyi deneyin.</translation>
 <translation id="5575874067957905201">Chromium'da Gemini'ı Mac menü çubuğunda göster ve klavye kısayolunu aç</translation>
+<translation id="5576587363991567745"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chromium'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, <ph name="DEVICE" /> içindeki kayıtlı bilgilerinize ve diğer öğelere de erişebilirsiniz.</translation>
 <translation id="5579324208890605088">Başlatma hatası: Lütfen yükleyiciyi yönetici olarak değil, normal bir kullanıcı olarak çalıştırın.</translation>
 <translation id="5580770360767802657">Varsayılan olarak Chromium'u kullanın ve sabitleyin</translation>
 <translation id="5596627076506792578">Diğer seçenekler</translation>
@@ -576,12 +579,12 @@ Bazı yer işaretlerini silene kadar hesabınıza yeni yer işaretleri kaydedile
 <translation id="7213407614656404070">Mesajlardaki, dokümanlardaki ve diğer uygulamalardaki bağlantıları tıkladığınızda Chromium'u kullanabilirsiniz</translation>
 <translation id="7216228761061470870">Görsel Arama'yı kullandığınızda sayfa başlığı, URL'si ve içeriği (PDF'ler dahil) sunucuya gönderilir</translation>
 <translation id="7223968959479464213">Görev Yöneticisi - Chromium</translation>
+<translation id="7227958669698166857"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chromium'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, kayıtlı bilgilerinize ve diğer öğelere tüm cihazlarınızdan erişebilirsiniz.</translation>
 <translation id="7252276985725323153">Hemen göz atmaya başlayın: Chromium artık Windows başlatıldığında açılabilir.</translation>
 <translation id="7274695763216404502">Sabitlendi. Araç çubuğundan Görsel Arama'yı tekrar kullanabilirsiniz</translation>
 <translation id="7288567540154601580">Sekmeler ve uzantılar</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium bunu kaldırmanızı öneriyor}other{Chromium bunları kaldırmanızı öneriyor}}</translation>
 <translation id="7296334833518879294">Sistem sesini paylaşmak için Sistem Ayarları'nı açıp Chromium için "Yalnızca Sistem Ses Kaydı" seçeneğine izin verin. Ardından Chromium'u yeniden başlatmanız gerekir.</translation>
-<translation id="7309928523159922338">Reklam ölçümü, ziyaret ettiğiniz sitelerin Chromium'dan bilgi istemesine olanak tanır. Bu bilgiler de sitenin, reklamlarının performansını ölçmesine yardımcı olur. Reklam ölçümü, siteler arasında mümkün olduğunca az bilgi aktararak siteler arası izlemeyi kısıtlar.</translation>
 <translation id="731795002583552498">Chromium güncelleniyor</translation>
 <translation id="7318036098707714271">Tercihler dosyanız bozuk veya geçersiz.
 
@@ -646,6 +649,7 @@ Chromium ayarlarınızı kurtaramıyor.</translation>
 <translation id="7888981273428720788">Chromium'u varsayılan tarayıcınız olarak ayarlayın</translation>
 <translation id="7934340546140346950">Chromium, güvensiz bağlantıları mümkün olduğunda otomatik olarak HTTPS'ye yükseltir</translation>
 <translation id="7937630085815544518">Chromium'da <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açtınız. Tekrar oturum açmak için lütfen aynı hesabı kullanın.</translation>
+<translation id="7944602660083060118"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chromium'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, yer işaretlerinize ve diğer öğelerinize tüm cihazlarınızdan erişebilirsiniz.</translation>
 <translation id="7975919845073681630">Bu, Chromium'un ikincil bir yüklemesidir ve varsayılan tarayıcınız yapılamaz.</translation>
 <translation id="7997934263947464652">Bilinmeyen kaynaklardan gelen uzantılar, uygulamalar ve temalar cihazınıza zarar verebilir. Chromium bunların yalnızca <ph name="IDS_EXTENSION_WEB_STORE_TITLE" /> kaynağından yüklenmesini önerir.</translation>
 <translation id="8000759043835159571"><ph name="DEVICE_TYPE" /> cihazınızda Chromium uygulamasıyla Google'dan en iyi şekilde yararlanın</translation>
@@ -677,10 +681,12 @@ Chromium ayarlarınızı kurtaramıyor.</translation>
 <translation id="8232193495299001329">Chromium, bu uzantının kaynağını doğrulayamadığı için uzantı güvenli olmayabilir. Kişisel bilgiler de dahil olmak üzere ziyaret ettiğiniz sitelerdeki verilerinizi artık görememesi ve değiştirememesi için bu uzantıyı Chromium'dan kaldırın.</translation>
 <translation id="8248265253516264921">Bir resmin işe yarar bir açıklaması yoksa, Chromium sizin için bir açıklama sağlamaya çalışır. Açıklama oluşturmak için resimler Google'a gönderilir. Bu özelliği istediğiniz zaman ayarlardan kapatabilirsiniz.</translation>
 <translation id="8254601181414348851">Chromium'da yeni bir profilde oturum açılsın mı?</translation>
+<translation id="8262224117913639129"><ph name="EXISTING_USER" /> zaten oturum açmış durumda. Göz atma işlemlerinizi ayrı tutmak için Chromium'da kendi profilinizde <ph name="USER_EMAIL_ADDRESS" /> olarak oturum açın. Ayrıca, <ph name="DEVICE" /> içindeki şifrelerinize ve diğer öğelere de erişebilirsiniz.</translation>
 <translation id="8277334259226003205">Chromium'da Gemini'ı sistem tepsisinde göster ve klavye kısayolunu aç</translation>
 <translation id="8286943863733751221"><ph name="BEGIN_LINK" />Chromium sizi uyararak<ph name="END_LINK" /> güvenli olmayan sitelerden ve indirmelerden haberdar olmanızı sağlar</translation>
 <translation id="8295827201165805317">Son zamanlarda ziyaret etmediniz. Chromium, <ph name="PERMISSION" /> iznini kaldırdı.</translation>
 <translation id="8296236834352487533">Chromium iOS uygulamasında kameranızı kullanarak gördüklerinizi satın alın, çevirin ve tanımlayın</translation>
+<translation id="8310603974518734211">Chromium'da <ph name="USER_NAME" /> olarak oturum açmak için QR kodu</translation>
 <translation id="8313851650939857356">Başlatma hatası: <ph name="STARTUP_ERROR" /></translation>
 <translation id="8318772038038596122"><ph name="TIMEOUT_DURATION" /> boyunca kullanılmadığında Chromium kuruluşunuz tarafından kapatılır.</translation>
 <translation id="8321888067342493336">Resim olarak kaydet</translation>

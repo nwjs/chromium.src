@@ -2,24 +2,31 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/frame/browser_native_widget_mac.h"
+
 #import <Cocoa/Cocoa.h>
 
-#include "chrome/browser/ui/browser.h"
+#include "base/run_loop.h"
+#include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/tabs/features.h"
+#include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/browser_native_widget_mac.h"
+#include "chrome/browser/ui/views/frame/vertical_tab_strip_region_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/browser_test.h"
-
-#include "base/run_loop.h"
-#include "base/test/scoped_feature_list.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
-#include "ui/views/widget/native_widget_mac.h"
+#include "ui/compositor/layer.h"
 #include "ui/views/cocoa/native_widget_mac_ns_window_host.h"
+#include "ui/views/widget/native_widget_mac.h"
 
 using BrowserNativeWidgetMacInteractiveTest = InProcessBrowserTest;
 
@@ -63,13 +70,17 @@ GlassViews GetGlassViews(NSView* content_view) {
   NSView* tint_view = nil;
   if (glass_view) {
     for (NSView* subview in glass_view.subviews) {
-      if ([NSStringFromClass([subview class]) isEqualToString:@"NSView"]) {
+      if ([subview isMemberOfClass:[NSView class]]) {
         tint_view = subview;
         break;
       }
     }
   }
   return {glass_view, tint_view};
+}
+
+int GetGlassCornerPadding() {
+  return GetLayoutConstant(LayoutConstant::kToolbarCornerRadius) * 2;
 }
 
 }  // namespace
@@ -94,7 +105,7 @@ class BrowserNativeWidgetMacGlassTest : public InProcessBrowserTest {
 
 IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest, ActiveInactiveTintOpacity) {
   if (!features::IsGlassFrameEnabled()) {
-    GTEST_SKIP() << "Glass frame is not supported on this macOS version.";
+    GTEST_SKIP() << "Glass frame feature is disabled.";
   }
 
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
@@ -161,4 +172,227 @@ IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest, ActiveInactiveTintOpacit
   SkColor deactivated_color =
       get_color_from_views(tint_view_deactivated, glass_view_deactivated);
   EXPECT_EQ(SkColorSetA(deactivated_color, 255), SkColorSetA(inactive_color, 255));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
+                       GlassViewGeometryRestrictedToTopChrome) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* widget = browser_view->GetWidget();
+  NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content_view = [ns_window contentView];
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  auto [glass_view, tint_view] = GetGlassViews(content_view);
+  ASSERT_NE(glass_view, nil);
+
+  const auto top_element_info = browser_view->GetFrameElementInfo();
+  int expected_height = top_element_info.top_area_height() +
+                        top_element_info.toolbar_preferred_height;
+
+  EXPECT_EQ(NSHeight(glass_view.frame), expected_height);
+  EXPECT_LT(NSHeight(glass_view.frame), NSHeight(content_view.bounds));
+  EXPECT_EQ(NSMaxY(glass_view.frame), NSMaxY(content_view.bounds));
+  EXPECT_EQ(NSWidth(glass_view.frame), NSWidth(content_view.bounds));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
+                       FullscreenWindowIsOpaque) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* widget = browser_view->GetWidget();
+  NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content_view = [ns_window contentView];
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  EXPECT_FALSE([ns_window isOpaque]);
+  auto [glass_view, tint_view] = GetGlassViews(content_view);
+  EXPECT_NE(glass_view, nil);
+
+  ui_test_utils::ToggleFullscreenModeAndWait(browser());
+
+  EXPECT_TRUE([ns_window isOpaque]);
+  auto [fs_glass_view, fs_tint_view] = GetGlassViews(content_view);
+  EXPECT_EQ(fs_glass_view, nil);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacGlassTest,
+                       IneligibleBrowserWindowIsOpaque) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* first_view = BrowserView::GetBrowserViewForBrowser(browser());
+  NSWindow* first_window =
+      first_view->GetWidget()->GetNativeWindow().GetNativeNSWindow();
+  NSView* first_content_view = [first_window contentView];
+  EXPECT_EQ(0.001, [[first_window backgroundColor] alphaComponent]);
+  EXPECT_FALSE(first_view->GetWidget()->GetLayer()->fills_bounds_opaquely());
+  auto [glass1, tint1] = GetGlassViews(first_content_view);
+  EXPECT_NE(glass1, nil);
+
+  BrowserWindowInterface* second_browser =
+      CreateBrowser(browser()->GetProfile());
+  GlassFrameService::GetInstance()->OnBrowserActivated(second_browser);
+  EXPECT_EQ(1.0, [[first_window backgroundColor] alphaComponent]);
+  EXPECT_TRUE(first_view->GetWidget()->GetLayer()->fills_bounds_opaquely());
+  auto [glass1_ineligible, tint1_ineligible] =
+      GetGlassViews(first_content_view);
+  EXPECT_EQ(glass1_ineligible, nil);
+
+  BrowserWindowInterface* third_browser =
+      CreateBrowser(browser()->GetProfile());
+  GlassFrameService::GetInstance()->OnBrowserActivated(third_browser);
+  NSWindow* second_window =
+      BrowserView::GetBrowserViewForBrowser(second_browser)
+          ->GetWidget()
+          ->GetNativeWindow()
+          .GetNativeNSWindow();
+  NSView* second_content_view = [second_window contentView];
+
+  EXPECT_EQ(1.0, [[first_window backgroundColor] alphaComponent]);
+  EXPECT_TRUE(first_view->GetWidget()->GetLayer()->fills_bounds_opaquely());
+  EXPECT_TRUE([second_window isOpaque]);
+  EXPECT_EQ(1.0, [[second_window backgroundColor] alphaComponent]);
+  auto [glass2_ineligible, tint2_ineligible] =
+      GetGlassViews(second_content_view);
+  EXPECT_EQ(glass2_ineligible, nil);
+
+  CloseBrowserSynchronously(third_browser);
+  CloseBrowserSynchronously(second_browser);
+}
+
+class BrowserNativeWidgetMacVerticalTabsGlassTest
+    : public InProcessBrowserTest {
+ public:
+  BrowserNativeWidgetMacVerticalTabsGlassTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {features::kGlassFrame, tabs::kVerticalTabs}, {});
+  }
+
+  void SetUpOnMainThread() override {
+    InProcessBrowserTest::SetUpOnMainThread();
+    if (auto* controller =
+            tabs::VerticalTabStripStateController::From(browser())) {
+      controller->SetVerticalTabsEnabled(true);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacVerticalTabsGlassTest,
+                       GlassViewGeometryRestrictedToVerticalTabsRegion) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* widget = browser_view->GetWidget();
+  NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content_view = [ns_window contentView];
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  auto [glass_view, tint_view] = GetGlassViews(content_view);
+  ASSERT_NE(glass_view, nil);
+
+  auto* const controller =
+      tabs::VerticalTabStripStateController::From(browser());
+  ASSERT_NE(controller, nullptr);
+
+  const int corner_padding = GetGlassCornerPadding();
+  const int expected_uncollapsed_width =
+      controller->GetUncollapsedWidth() + corner_padding;
+
+  EXPECT_EQ(NSHeight(glass_view.frame), NSHeight(content_view.bounds));
+  EXPECT_EQ(NSWidth(glass_view.frame), expected_uncollapsed_width);
+  EXPECT_LT(NSWidth(glass_view.frame), NSWidth(content_view.bounds));
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacVerticalTabsGlassTest,
+                       GlassViewFullWidthDuringResize) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* widget = browser_view->GetWidget();
+  NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content_view = [ns_window contentView];
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  auto [glass_view, tint_view] = GetGlassViews(content_view);
+  ASSERT_NE(glass_view, nil);
+
+  auto* const controller =
+      tabs::VerticalTabStripStateController::From(browser());
+  ASSERT_NE(controller, nullptr);
+
+  const int corner_padding = GetGlassCornerPadding();
+  const int expected_uncollapsed_width =
+      controller->GetUncollapsedWidth() + corner_padding;
+
+  // Initially at settled uncollapsed width.
+  EXPECT_EQ(NSWidth(glass_view.frame), expected_uncollapsed_width);
+
+  // During drag resizing, glass view expands up to the maximum possible
+  // vertical tab strip width.
+  const int expected_resizing_width =
+      VerticalTabStripRegionView::kUncollapsedMaxWidth + corner_padding;
+  controller->SetIsResizing(true);
+  EXPECT_EQ(NSWidth(glass_view.frame), expected_resizing_width);
+
+  // When resizing ends, glass view returns to settled width.
+  controller->SetIsResizing(false);
+  EXPECT_EQ(NSWidth(glass_view.frame), expected_uncollapsed_width);
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserNativeWidgetMacVerticalTabsGlassTest,
+                       GlassViewExpandsOnCollapseStateToggle) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP() << "Glass frame feature is disabled.";
+  }
+
+  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
+  views::Widget* widget = browser_view->GetWidget();
+  NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
+  NSView* content_view = [ns_window contentView];
+
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
+
+  auto [glass_view, tint_view] = GetGlassViews(content_view);
+  ASSERT_NE(glass_view, nil);
+
+  auto* const controller =
+      tabs::VerticalTabStripStateController::From(browser());
+  ASSERT_NE(controller, nullptr);
+
+  const int corner_padding = GetGlassCornerPadding();
+  const int expected_collapsed_width =
+      VerticalTabStripRegionView::kCollapsedWidth + corner_padding;
+  const int expected_uncollapsed_width =
+      controller->GetUncollapsedWidth() + corner_padding;
+
+  // Toggle to collapsed state.
+  controller->RequestCollapse(true);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return controller->IsCollapsed(); }));
+  EXPECT_EQ(NSWidth(glass_view.frame), expected_collapsed_width);
+
+  // Toggle back to expanded / uncollapsed state.
+  controller->RequestCollapse(false);
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return !controller->IsCollapsed(); }));
+  EXPECT_EQ(NSWidth(glass_view.frame), expected_uncollapsed_width);
 }

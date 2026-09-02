@@ -262,12 +262,12 @@ IN_PROC_BROWSER_TEST_F(GlicActorActionExecutionFunctionalBrowserTest,
       tabs::TabHandle tab_1,
       CreateActorTab(task_id_1, /*open_in_background=*/false,
                      base::ToString(active_tab()->GetHandle().raw_value()),
-                     base::ToString(browser()->session_id().id())));
+                     base::ToString(browser()->GetSessionID().id())));
   ASSERT_OK_AND_ASSIGN(
       tabs::TabHandle tab_2,
       CreateActorTab(task_id_2, /*open_in_background=*/false,
                      base::ToString(active_tab()->GetHandle().raw_value()),
-                     base::ToString(browser()->session_id().id())));
+                     base::ToString(browser()->GetSessionID().id())));
 
   // Perform two WaitActions where the first resolves after the second
   Actions action_1 = ::actor::MakeWait(kShortWaitTime * 2, tab_1, task_id_1);
@@ -319,9 +319,8 @@ IN_PROC_BROWSER_TEST_F(GlicActorActionExecutionFunctionalBrowserTest,
       ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP);
 
   // Close the active web contents.
-  browser()->tab_strip_model()->CloseWebContentsAt(
-      browser()->tab_strip_model()->GetIndexOfWebContents(web_contents()),
-      TabCloseTypes::CLOSE_NONE);
+  browser()->tab_strip_model()->CloseWebContents(web_contents(),
+                                                 TabCloseTypes::CLOSE_NONE);
 
   // After an acting tab is closed, the task should be cancelled and the
   // corresponding action have a result code of kTaskWentAway.

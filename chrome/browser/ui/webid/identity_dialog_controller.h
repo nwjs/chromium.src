@@ -138,7 +138,8 @@ class IdentityDialogController
       blink::mojom::RpMode rp_mode,
       DismissCallback dismiss_callback,
       content::IdentityRequestDialogController::ShownModalAsyncCallback
-          on_shown_async) override;
+          on_shown_async,
+      NativeAppResultCallback native_result_callback) override;
   void CloseModalDialog() override;
   content::WebContents* GetRpWebContents() override;
   void RequestIdPRegistrationPermision(
@@ -155,6 +156,8 @@ class IdentityDialogController
                     const GURL& idp_login_url) override;
   void OnMoreDetails() override;
   void OnAccountsDisplayed() override;
+  void OnNativeAppResult(const std::string& token) override;
+  void OnNativeAppLoginFinished() override;
   gfx::NativeView GetNativeView() override;
   content::WebContents* GetWebContents() override;
   content::IdentityRequestDialogController::PassiveDialogVolume
@@ -204,6 +207,7 @@ class IdentityDialogController
   std::unique_ptr<AccountSelectionView> account_view_{nullptr};
   AccountSelectionCallback on_account_selection_;
   DismissCallback on_dismiss_;
+  NativeAppResultCallback on_native_result_;
   LoginToIdPCallback on_login_;
   MoreDetailsCallback on_more_details_;
   AccountsDisplayedCallback on_accounts_displayed_;

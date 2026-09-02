@@ -9,11 +9,14 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/buildflag.h"
 #include "components/input/timeout_monitor.h"
+#include "content/browser/bad_message.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
 #include "content/browser/renderer_host/render_frame_host_manager.h"
+#include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/common/content_navigation_policy.h"
 #include "content/common/features.h"
@@ -41,6 +44,7 @@
 #include "net/cookies/cookie_change_dispatcher.h"
 #include "net/cookies/cookie_constants.h"
 #include "net/cookies/site_for_cookies.h"
+#include "services/network/public/cpp/connection_allowlist.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/mojom/cors.mojom.h"
 #include "services/network/public/mojom/cors_origin_pattern.mojom.h"
@@ -228,6 +232,32 @@ TEST_F(RenderFrameHostImplTest, InvalidURL) {
   EXPECT_FALSE(invalid_url.is_valid());
   NavigateAndCommit(invalid_url);
   EXPECT_EQ(GURL(url::kAboutBlankURL), main_rfh()->GetLastCommittedURL());
+}
+
+TEST_F(RenderFrameHostImplTest, DefaultToMainFrameWhenNoSubframeFocused) {
+  NavigateAndCommit(GURL("https://test.example.com"));
+
+  // Ensure top-level widget has OS focus.
+  RenderWidgetHostImpl* widget =
+      static_cast<RenderWidgetHostImpl*>(main_rfh()->GetRenderWidgetHost());
+  widget->Focus();
+  EXPECT_TRUE(widget->is_focused());
+
+  // In a unit test, FrameTree::GetFocusedFrame() starts as nullptr before any
+  // subframe focus IPC has been received.
+  EXPECT_EQ(nullptr, contents()->GetPrimaryFrameTree().GetFocusedFrame());
+
+  // By default (with killswitch kDefaultToMainFrameFocusWhenNoSubframeFocused
+  // enabled), the main frame is treated as focused when GetFocusedFrame() is
+  // null.
+  EXPECT_TRUE(main_test_rfh()->IsFocused());
+
+  // Disabling the killswitch falls back to returning false when
+  // GetFocusedFrame() is null.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kDefaultToMainFrameFocusWhenNoSubframeFocused);
+  EXPECT_FALSE(main_test_rfh()->IsFocused());
 }
 
 TEST_F(RenderFrameHostImplTest, ExitFullscreenDestruction) {
@@ -420,11 +450,15 @@ TEST_F(RenderFrameHostImplTest, PolicyContainerLifecycle) {
   EXPECT_EQ(main_rfh->policy_container_host()->referrer_policy(),
             network::mojom::ReferrerPolicy::kDefault);
 
+  base::UnguessableToken initiator_state_token =
+      base::UnguessableToken::Create();
   static_cast<blink::mojom::PolicyContainerHost*>(
       main_rfh->policy_container_host())
-      ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kAlways);
+      ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kAlways,
+                          initiator_state_token);
   EXPECT_EQ(main_rfh->policy_container_host()->referrer_policy(),
             network::mojom::ReferrerPolicy::kAlways);
+  EXPECT_EQ(main_rfh->current_initiator_state_token(), initiator_state_token);
 
   // Create a child frame and check that it inherits the PolicyContainerHost
   // from the parent frame.
@@ -436,11 +470,18 @@ TEST_F(RenderFrameHostImplTest, PolicyContainerLifecycle) {
   EXPECT_EQ(child_frame->policy_container_host()->referrer_policy(),
             network::mojom::ReferrerPolicy::kAlways);
 
+  // The child frame's `initiator_state_token` should be different.
+  EXPECT_NE(child_frame->current_initiator_state_token(),
+            initiator_state_token);
+
   // Create a new WebContents with opener and test that the new main frame
   // inherits the PolicyContainerHost from the opener.
+  base::UnguessableToken child_initiator_state_token =
+      base::UnguessableToken::Create();
   static_cast<blink::mojom::PolicyContainerHost*>(
       child_frame->policy_container_host())
-      ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever);
+      ->SetReferrerPolicy(network::mojom::ReferrerPolicy::kNever,
+                          child_initiator_state_token);
   WebContents::CreateParams params(browser_context());
   std::unique_ptr<WebContentsImpl> new_contents(
       WebContentsImpl::CreateWithOpener(params, child_frame));
@@ -450,6 +491,11 @@ TEST_F(RenderFrameHostImplTest, PolicyContainerLifecycle) {
   ASSERT_NE(new_frame->policy_container_host(), nullptr);
   EXPECT_EQ(new_frame->policy_container_host()->referrer_policy(),
             network::mojom::ReferrerPolicy::kNever);
+
+  // The new frame's `initiator_state_token` should be different.
+  EXPECT_NE(new_frame->current_initiator_state_token(), initiator_state_token);
+  EXPECT_NE(new_frame->current_initiator_state_token(),
+            child_initiator_state_token);
 }
 
 TEST_F(RenderFrameHostImplTest, FaviconURLsSet) {
@@ -565,6 +611,38 @@ TEST_F(RenderFrameHostImplTest, ChildOfCredentiallessIsCredentialless) {
       grandchild_frame->GetNetworkIsolationKey().GetNonce().has_value());
   EXPECT_EQ(main_test_rfh()->GetPage().credentialless_iframes_nonce(),
             grandchild_frame->GetNetworkIsolationKey().GetNonce().value());
+}
+
+// A compromised renderer that delivers a `connectionallowlist` iframe attribute
+// whose serialized value is not a valid HTTP header value (e.g. it contains
+// CR/LF) must be terminated. Otherwise the value would flow to
+// NavigationRequest::SetupConnectionAllowlistEmbeddedEnforcement() and crash
+// the browser process at net::HttpRequestHeaders::SetHeader().
+TEST_F(RenderFrameHostImplTest,
+       InvalidConnectionAllowlistAttributeIsBadMessage) {
+  auto* child_frame = static_cast<TestRenderFrameHost*>(
+      content::RenderFrameHostTester::For(main_test_rfh())
+          ->AppendChild("child"));
+
+  auto attributes = blink::mojom::IframeAttributes::New();
+  network::ConnectionAllowlist required_connection_allowlist;
+  required_connection_allowlist.serialized_value =
+      "(response-origin)\r\nX-Injected: evil";
+  attributes->required_connection_allowlist =
+      std::move(required_connection_allowlist);
+
+  base::HistogramTester histograms;
+  main_test_rfh()->DidChangeIframeAttributes(child_frame->GetFrameToken(),
+                                             std::move(attributes));
+
+  // The renderer is terminated with the dedicated bad-message reason, and the
+  // malicious attribute is never stored on the child.
+  histograms.ExpectUniqueSample(
+      "Stability.BadMessageTerminated.Content",
+      bad_message::RFH_INVALID_CONNECTION_ALLOWLIST_ATTRIBUTE, 1);
+  EXPECT_FALSE(child_frame->frame_tree_node()
+                   ->connection_allowlist_attribute()
+                   .has_value());
 }
 
 TEST_F(RenderFrameHostImplTest, SpeculativeFrameHostIsCredentialless) {

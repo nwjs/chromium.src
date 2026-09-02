@@ -35,7 +35,6 @@ class SingleThreadTaskRunner;
 
 namespace IPC {
 
-class ChannelFactory;
 class UrgentMessageObserver;
 
 //-----------------------------------------------------------------------------
@@ -78,14 +77,8 @@ class COMPONENT_EXPORT(IPC) ChannelProxy {
   // dispatched to the listener.  The given task runner correspond to a thread
   // on which IPC::Channel is created and used (e.g. IO thread).
   static std::unique_ptr<ChannelProxy> Create(
-      const mojo::MessagePipeHandle& channel_handle,
+      mojo::ScopedMessagePipeHandle channel_handle,
       Channel::Mode mode,
-      Listener* listener,
-      const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
-      const scoped_refptr<base::SingleThreadTaskRunner>& listener_task_runner);
-
-  static std::unique_ptr<ChannelProxy> Create(
-      std::unique_ptr<ChannelFactory> factory,
       Listener* listener,
       const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
       const scoped_refptr<base::SingleThreadTaskRunner>& listener_task_runner);
@@ -102,10 +95,8 @@ class COMPONENT_EXPORT(IPC) ChannelProxy {
   // proxy that was not initialized in its constructor. If |create_pipe_now| is
   // true, the pipe is created synchronously. Otherwise it's created on the IO
   // thread.
-  void Init(const mojo::MessagePipeHandle& channel_handle,
+  void Init(mojo::ScopedMessagePipeHandle channel_handle,
             Channel::Mode mode,
-            bool create_pipe_now);
-  void Init(std::unique_ptr<ChannelFactory> factory,
             bool create_pipe_now);
 
   // Pause the channel. Subsequent calls to Send() will be internally queued
@@ -168,9 +159,6 @@ class COMPONENT_EXPORT(IPC) ChannelProxy {
     GetRemoteAssociatedInterface(proxy->BindNewEndpointAndPassReceiver());
   }
 
-  // Called to clear the pointer to the IPC task runner when it's going away.
-  void ClearIPCTaskRunner();
-
  protected:
   class Context;
   // A subclass uses this constructor if it needs to add more information
@@ -185,7 +173,6 @@ class COMPONENT_EXPORT(IPC) ChannelProxy {
             const scoped_refptr<base::SingleThreadTaskRunner>& ipc_task_runner,
             const scoped_refptr<base::SingleThreadTaskRunner>&
                 listener_task_runner);
-    void ClearIPCTaskRunner();
     base::SingleThreadTaskRunner* ipc_task_runner() const {
       return ipc_task_runner_.get();
     }
@@ -222,7 +209,8 @@ class COMPONENT_EXPORT(IPC) ChannelProxy {
     friend class ChannelProxy;
 
     // Create the Channel
-    void CreateChannel(std::unique_ptr<ChannelFactory> factory);
+    void CreateChannel(mojo::ScopedMessagePipeHandle handle,
+                       Channel::Mode mode);
 
     // Methods called on the listener thread.
     void OnDispatchConnected();

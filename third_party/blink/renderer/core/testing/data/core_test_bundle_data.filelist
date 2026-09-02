@@ -151,6 +151,8 @@ testing/data/frameserialization/beautifull.css
 testing/data/frameserialization/broken-image.png
 testing/data/frameserialization/embed_iframe.html
 testing/data/frameserialization/encoding_normalization.html
+testing/data/frameserialization/entities.html
+testing/data/frameserialization/entities.xml
 testing/data/frameserialization/hidden_elements.html
 testing/data/frameserialization/iframe_in_head.html
 testing/data/frameserialization/image_in_plugin.html
@@ -350,8 +352,11 @@ testing/data/pinch-viewport-fixed-pos.html
 testing/data/pinch-viewport-input-field-long-and-wide.html
 testing/data/pinch-viewport-input-field.html
 testing/data/plugin.html
+testing/data/plugin_clip_scroll.html
 testing/data/plugin_container.html
 testing/data/plugin_containing_page.html
+testing/data/plugin_display_lock.html
+testing/data/plugin_fixed_position_scroll.html
 testing/data/plugin_hidden_before_scroll.html
 testing/data/plugin_scroll.html
 testing/data/png-16bit/2x2_16bit_AdobeRGB_opaque.png
@@ -436,6 +441,7 @@ testing/data/root-scroller.html
 testing/data/rtl-iframe-inner.html
 testing/data/rtl-iframe.html
 testing/data/rtl-overview-mode.html
+testing/data/sandboxed-allow-popups-srcdoc-ctrl-click.html
 testing/data/sandboxed-srcdoc-ctrl-click.html
 testing/data/scale_oscillate.html
 testing/data/script/nested-script.js

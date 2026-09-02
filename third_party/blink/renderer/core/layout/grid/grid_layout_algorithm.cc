@@ -497,6 +497,17 @@ const GridLayoutSubtree* GridLayoutAlgorithm::ComputeGridGeometry(
                                  &grid_sizing_tree);
   }
 
+  // A standalone subgrid's baseline depends on its own children (which may be
+  // nested subgrids), so it can't be resolved until those are finalized. Run a
+  // bottom-up pass first: by resolving the innermost subgrids first, every grid
+  // has its standalone-axis subgrid baselines populated before the final
+  // top-down pass measures it.
+  if (grid_sizing_tree.HasDeferredSubgridBaseline()) {
+    ResolveBaselinesInStandaloneAxes(GridSizingSubtree(&grid_sizing_tree),
+                                     &grid_sizing_tree,
+                                     SizingConstraint::kLayout);
+  }
+
   // Calculate final alignment baselines of the entire grid sizing tree.
   CompleteFinalBaselineAlignment(&grid_sizing_tree);
 
@@ -535,27 +546,6 @@ LayoutUnit Baseline(const GridItemData& grid_item,
                     const GridLayoutData& layout_data,
                     GridTrackSizingDirection track_direction) {
   return GetTrackBaseline(grid_item, layout_data, track_direction);
-}
-
-LayoutUnit GetExtraMarginForBaseline(const BoxStrut& margins,
-                                     const SubgriddedItemData& subgridded_item,
-                                     GridTrackSizingDirection track_direction,
-                                     WritingMode writing_mode) {
-  const auto& track_collection = (track_direction == kForColumns)
-                                     ? subgridded_item.Columns(writing_mode)
-                                     : subgridded_item.Rows(writing_mode);
-  const auto& [begin_set_index, end_set_index] =
-      subgridded_item->SetIndices(track_collection.Direction());
-
-  const LayoutUnit extra_margin =
-      (subgridded_item->BaselineGroup(track_direction) == BaselineGroup::kMajor)
-          ? track_collection.StartExtraMargin(begin_set_index)
-          : track_collection.EndExtraMargin(end_set_index);
-
-  return extra_margin +
-         (subgridded_item->IsLastBaselineSpecified(track_direction)
-              ? margins.block_end
-              : margins.block_start);
 }
 
 LayoutUnit ComputeBlockSizeForSubgrid(const GridSizingSubtree& sizing_subtree,
@@ -953,7 +943,8 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
     const GridSizingSubtree& sizing_subtree,
     GridTrackSizingDirection track_direction,
     SizingConstraint sizing_constraint,
-    bool is_track_sizing) const {
+    bool is_track_sizing,
+    BaselineCollectionPhase phase) const {
   auto& layout_data = sizing_subtree.LayoutData();
 
   if (!layout_data.HasBaselines(track_direction)) {
@@ -962,7 +953,13 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
 
   auto& track_collection = sizing_subtree.SizingCollection(track_direction);
   const auto writing_mode = GetConstraintSpace().GetWritingMode();
-  layout_data.ResetBaselines(track_direction, track_collection.GetSetCount());
+
+  // The bottom-up phase (`kBaselinesForStandaloneAxes`) accumulates subgrid
+  // baselines on top of the values from the previous baseline calculation pass
+  // during track sizing, so it must not reset them.
+  if (phase != BaselineCollectionPhase::kBaselinesForStandaloneAxes) {
+    layout_data.ResetBaselines(track_direction, track_collection.GetSetCount());
+  }
 
   for (auto& grid_item :
        sizing_subtree.GetGridItems().IncludeSubgriddedItems()) {
@@ -971,15 +968,36 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
       continue;
     }
 
+    // The standalone-axes phase only fills in subgrid items and skips all leaf
+    // nodes.
+    if (phase == BaselineCollectionPhase::kBaselinesForStandaloneAxes &&
+        !grid_item.IsSubgrid()) {
+      continue;
+    }
+
     GridLayoutSubtree* subgrid_layout_subtree = nullptr;
     if (grid_item.IsSubgrid()) {
-      subgrid_layout_subtree = MakeGarbageCollected<GridLayoutSubtree>(
-          layout_tree, sizing_subtree.LookupSubgridIndex(grid_item));
+      // The standalone-axes phase re-finalizes only the current subtree, so the
+      // `layout_tree` passed in here is that subtree with its root at index 0;
+      // rebase the subgrid's absolute index to a subtree-relative one.
+      const wtf_size_t subgrid_index =
+          phase == BaselineCollectionPhase::kBaselinesForStandaloneAxes
+              ? sizing_subtree.LookupSubgridSubtreeIndex(grid_item)
+              : sizing_subtree.LookupSubgridIndex(grid_item);
+      subgrid_layout_subtree =
+          MakeGarbageCollected<GridLayoutSubtree>(layout_tree, subgrid_index);
 
       if (subgrid_layout_subtree->HasUnresolvedGeometry()) {
-        // Calling `Layout` for a nested subgrid rely on the geometry of its
-        // respective layout subtree to be fully resolved. Otherwise, the
-        // subgrid won't be able to resolve its intrinsic sizes.
+        // A subgrid's geometry can only be unresolved during the track-sizing
+        // phase; by the standalone-axes and final phases the sizing tree has
+        // been finalized, so every subgrid subtree is fully resolved.
+        CHECK_EQ(phase, BaselineCollectionPhase::kBaselinesForTrackSizing);
+        // Laying out a nested subgrid relies on its layout subtree geometry
+        // being fully resolved; otherwise it can't resolve its intrinsic sizes,
+        // so its baseline is deferred here. Flag the tree so the bottom-up
+        // standalone-axis pass resolves this subgrid's baseline and propagates
+        // it up to the ancestors that measure it.
+        sizing_subtree.SetHasDeferredSubgridBaseline();
         continue;
       }
     }
@@ -1010,28 +1028,9 @@ void GridLayoutAlgorithm::ComputeGridItemBaselines(
     const auto* result =
         LayoutGridItemForMeasure(grid_item, space, sizing_constraint);
 
-    const auto baseline_writing_direction =
-        grid_item.BaselineWritingDirection(track_direction);
-    const LogicalBoxFragment baseline_fragment(
-        baseline_writing_direction,
-        To<PhysicalBoxFragment>(result->GetPhysicalFragment()));
-
-    const bool has_synthesized_baseline =
-        !baseline_fragment.FirstBaseline().has_value();
-    grid_item.SetAlignmentFallback(track_direction, has_synthesized_baseline);
-
-    if (!grid_item.IsBaselineAligned(track_direction)) {
-      continue;
-    }
-
-    const LayoutUnit extra_margin = GetExtraMarginForBaseline(
-        ComputeMarginsFor(space, grid_item.node.Style(),
-                          baseline_writing_direction),
-        subgridded_item, track_direction, writing_mode);
-
-    StoreItemBaseline(baseline_fragment, track_direction,
-                      grid_item.parent_grid_font_baseline, extra_margin,
-                      layout_data, grid_item);
+    MeasureAndStoreItemBaseline(
+        *result, grid_item, subgridded_item, space, track_direction,
+        grid_item.parent_grid_font_baseline, writing_mode, layout_data);
   }
 }
 
@@ -1315,7 +1314,10 @@ void GridLayoutAlgorithm::ComputeBaselineAlignment(
         } else {
           ComputeGridItemBaselines(
               layout_tree, sizing_subtree, track_direction, sizing_constraint,
-              /*is_track_sizing=*/opt_track_direction.has_value());
+              /*is_track_sizing=*/opt_track_direction.has_value(),
+              opt_track_direction.has_value()
+                  ? BaselineCollectionPhase::kBaselinesForTrackSizing
+                  : BaselineCollectionPhase::kFinalBaselines);
         }
       };
 
@@ -1329,6 +1331,37 @@ void GridLayoutAlgorithm::ComputeBaselineAlignment(
   ComputeBaselineAlignmentForEachSubgrid(sizing_subtree, *this, layout_tree,
                                          opt_track_direction,
                                          sizing_constraint);
+}
+
+void GridLayoutAlgorithm::ResolveBaselinesInStandaloneAxes(
+    const GridSizingSubtree& sizing_subtree,
+    GridSizingTree* sizing_tree,
+    SizingConstraint sizing_constraint) const {
+  ForEachSubgrid(sizing_subtree, *this,
+                 [&](const GridLayoutAlgorithm& subgrid_algorithm,
+                     const GridSizingSubtree& subgrid_subtree,
+                     const SubgriddedItemData& /*subgrid_data*/) {
+                   subgrid_algorithm.ResolveBaselinesInStandaloneAxes(
+                       subgrid_subtree, sizing_tree, sizing_constraint);
+                 });
+
+  // If both axes are subgridded, this grid inherits all its baselines top-down
+  // and has nothing to resolve here.
+  auto& layout_data = sizing_subtree.LayoutData();
+  if (layout_data.HasSubgriddedAxis(kForColumns) &&
+      layout_data.HasSubgriddedAxis(kForRows)) {
+    return;
+  }
+
+  const GridLayoutTree* layout_tree = sizing_subtree.FinalizeTree();
+  for (auto track_direction : {kForColumns, kForRows}) {
+    if (!layout_data.HasSubgriddedAxis(track_direction)) {
+      ComputeGridItemBaselines(
+          layout_tree, sizing_subtree, track_direction, sizing_constraint,
+          /*is_track_sizing=*/false,
+          BaselineCollectionPhase::kBaselinesForStandaloneAxes);
+    }
+  }
 }
 
 void GridLayoutAlgorithm::CompleteFinalBaselineAlignment(
@@ -2070,8 +2103,8 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
       // Check to see if this child should be placed within this fragmentainer.
       // We base this calculation on the grid-area rather than the offset.
       // The row can either be:
-      //  - Above, we've handled it already in a previous fragment.
       //  - Below, we'll handle it within a subsequent fragment.
+      //  - Above, we've handled it already in a previous fragment.
       //
       // NOTE: Basing this calculation of the row position has the effect that
       // a child with a negative margin will be placed in the fragmentainer
@@ -2091,9 +2124,19 @@ void GridLayoutAlgorithm::PlaceGridItemsForFragmentation(
         }
         has_subsequent_children = true;
         continue;
-      }
-      if (grid_area.offset.block_offset < LayoutUnit() && !break_token)
+      } else if (grid_area.offset.block_offset < LayoutUnit() && !break_token &&
+                 IsBreakInside(GetBreakToken())) {
+        // We know this child was handled in a previous fragment because the
+        // row falls above this fragmentainer (so we would have tried to start
+        // it in a previous fragment), the child has no incoming break token (so
+        // is not being continued into this fragment), and the grid is currently
+        // *mid*-fragmentation (so we know there actually *is* a previous
+        // fragment).
+        //
+        // TODO: What if the item has a break_token but hasn't broken inside
+        // yet? (e.g. break before).
         continue;
+      }
 
       auto* result = grid_item.node.Layout(space, break_token);
       DCHECK_EQ(result->Status(), LayoutResult::kSuccess);

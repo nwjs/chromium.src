@@ -8,6 +8,7 @@ import 'chrome://bookmarks-side-panel.top-chrome/power_bookmarks_app.js';
 import {SortOrder, ViewType} from 'chrome://bookmarks-side-panel.top-chrome/bookmarks.mojom-webui.js';
 import {BookmarksApiProxyImpl} from 'chrome://bookmarks-side-panel.top-chrome/bookmarks_api_proxy.js';
 import type {PowerBookmarkRowElement} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmark_row.js';
+import {BOOKMARK_ROW_LOAD_EVENT} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmark_row.js';
 import type {PowerBookmarksAddFolderButtonElement} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmarks_add_folder_button.js';
 import type {PowerBookmarksAppElement} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmarks_app.js';
 import type {PowerBookmarksListHeaderElement} from 'chrome://bookmarks-side-panel.top-chrome/power_bookmarks_list_header.js';
@@ -16,6 +17,7 @@ import type {PageRemote} from 'chrome://resources/cr_components/commerce/price_t
 import {PageImageServiceBrowserProxy} from 'chrome://resources/cr_components/page_image_service/browser_proxy.js';
 import {PageImageServiceHandlerRemote} from 'chrome://resources/cr_components/page_image_service/page_image_service.mojom-webui.js';
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
+import type {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import type {CrInputElement} from 'chrome://resources/cr_elements/cr_input/cr_input.js';
 import type {CrUrlListItemElement} from 'chrome://resources/cr_elements/cr_url_list_item/cr_url_list_item.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -288,8 +290,8 @@ suite('General', () => {
               .getElementsForTesting()
               .map((el: HTMLElement) => el.id));
 
-      const navigationElementsRebuilt = eventToPromise(
-          'rebuild-navigation-elements', powerBookmarksApp.$.bookmarksList);
+      const rowLoaded = eventToPromise(
+          BOOKMARK_ROW_LOAD_EVENT, powerBookmarksApp.$.bookmarksList);
       const movedBookmark = FOLDERS[1]!.children![2]!.children![0]!;
       assertTrue(!!movedBookmark);
       bookmarksApi.callbackRouterRemote.onBookmarkNodeMoved(
@@ -299,7 +301,9 @@ suite('General', () => {
           /*parentId=*/ FOLDERS[1]!.id,  // Moving to other bookmarks.
           /*index=*/ 0,
       );
-      await navigationElementsRebuilt;
+      await rowLoaded;
+      powerBookmarksApp.$.bookmarksList
+          .flushNavigationElementsDebouncerForTesting();
 
       assertArrayEquals(
           [
@@ -655,8 +659,12 @@ suite('General', () => {
       await microtasksFinished();
 
       await selectBookmark('3');
-      assertTrue(powerBookmarksApp['selectedBookmarks_']['3'] === true);
-      assertTrue(powerBookmarksApp['editing_']);
+      assertTrue(
+          getPowerBookmarksRowItemElement(powerBookmarksApp, '3')!.shadowRoot
+              .querySelector<CrCheckboxElement>('#checkbox')!.checked);
+      assertTrue(powerBookmarksApp.shadowRoot
+                     .querySelector('cr-toolbar-selection-overlay')!
+                     .hasAttribute('show'));
 
       bookmarksApi.callbackRouterRemote.onBookmarkNodeMoved(
           FOLDERS[1]!.id,
@@ -666,8 +674,14 @@ suite('General', () => {
       );
       await microtasksFinished();
 
-      assertFalse(powerBookmarksApp['selectedBookmarks_']['3'] === true);
-      assertTrue(powerBookmarksApp['editing_']);
+      assertFalse(
+          getPowerBookmarksRowItemElement(powerBookmarksApp, '3')
+              ?.shadowRoot?.querySelector<CrCheckboxElement>('#checkbox')
+              ?.checked ??
+          false);
+      assertTrue(powerBookmarksApp.shadowRoot
+                     .querySelector('cr-toolbar-selection-overlay')!
+                     .hasAttribute('show'));
     });
 
     test('ClearsSelectionOnChanged', async () => {
@@ -680,8 +694,12 @@ suite('General', () => {
       await microtasksFinished();
 
       await selectBookmark('3');
-      assertTrue(powerBookmarksApp['selectedBookmarks_']['3'] === true);
-      assertTrue(powerBookmarksApp['editing_']);
+      assertTrue(
+          getPowerBookmarksRowItemElement(powerBookmarksApp, '3')!.shadowRoot
+              .querySelector<CrCheckboxElement>('#checkbox')!.checked);
+      assertTrue(powerBookmarksApp.shadowRoot
+                     .querySelector('cr-toolbar-selection-overlay')!
+                     .hasAttribute('show'));
 
       bookmarksApi.callbackRouterRemote.onBookmarkNodeChanged(
           '3',
@@ -690,8 +708,12 @@ suite('General', () => {
       );
       await microtasksFinished();
 
-      assertFalse(powerBookmarksApp['selectedBookmarks_']['3'] === true);
-      assertTrue(powerBookmarksApp['editing_']);
+      assertFalse(
+          getPowerBookmarksRowItemElement(powerBookmarksApp, '3')!.shadowRoot
+              .querySelector<CrCheckboxElement>('#checkbox')!.checked);
+      assertTrue(powerBookmarksApp.shadowRoot
+                     .querySelector('cr-toolbar-selection-overlay')!
+                     .hasAttribute('show'));
     });
 
     test('MovesBookmarkWithFilter', async () => {

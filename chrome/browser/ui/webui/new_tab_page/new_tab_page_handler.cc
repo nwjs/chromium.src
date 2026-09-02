@@ -62,7 +62,6 @@
 #include "chrome/browser/ui/hats/hats_service_factory.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_controller.h"
-#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/new_tab_footer/new_tab_footer_helper.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page_ui.h"
 #include "chrome/browser/ui/webui/util/webui_util_desktop.h"
@@ -111,10 +110,9 @@
 #include "ui/native_theme/native_theme.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
+#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "components/user_education/webui/help_bubble_handler.h"  // nogncheck
 #include "ui/webui/tracked_element/tracked_element_handler.h"
 #include "ui/webui/tracked_element/tracked_element_web_ui.h"
@@ -1210,7 +1208,14 @@ void NewTabPageHandler::CanShowRealboxContextMenuAnimation(
   std::move(callback).Run(can_show);
 }
 
-void NewTabPageHandler::RecordRealboxContextMenuAnimationImpression() {
+void NewTabPageHandler::RecordRealboxContextMenuAnimationImpression(
+    bool shown) {
+  base::UmaHistogramBoolean("Omnibox.ContextMenu.AnimationShown.NTP", shown);
+
+  if (!shown) {
+    return;
+  }
+
   PrefService* prefs = profile_->GetPrefs();
   const base::DictValue& state_dict =
       prefs->GetDict(prefs::kContextMenuAnimationState);

@@ -10,7 +10,6 @@
 #include "base/strings/string_util.h"
 #include "device/vr/openxr/openxr_util.h"
 #include "device/vr/openxr/test/openxr_mock_helper.h"
-#include "device/vr/openxr/test/openxr_negotiate.h"
 #include "device/vr/openxr/test/openxr_test_helper.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -20,12 +19,8 @@
 namespace openxr_mock {
 
 namespace {
-// Global test helper that communicates with the test and contains the mock
-// OpenXR runtime state/properties. A reference to this is returned as the
-// instance handle through xrCreateInstance.
 OpenXrTestHelper& GetTestHelper() {
-  static base::NoDestructor<OpenXrTestHelper> test_helper;
-  return *test_helper;
+  return OpenXrTestHelper::Get();
 }
 }  // namespace
 
@@ -1250,8 +1245,6 @@ XrResult XRAPI_PTR xrSyncActions(XrSession session,
                                  const XrActionsSyncInfo* sync_info) {
   DVLOG(2) << __FUNCTION__;
   RETURN_IF_XR_FAILED(GetTestHelper().ValidateSession(session));
-  RETURN_IF_FALSE(GetTestHelper().UpdateData(), XR_ERROR_VALIDATION_FAILURE,
-                  "xrSyncActionData can't receive data from test");
   RETURN_IF(sync_info == nullptr, XR_ERROR_VALIDATION_FAILURE,
             "XrActionsSyncInfo is nullptr");
   RETURN_IF(sync_info->type != XR_TYPE_ACTIONS_SYNC_INFO,
@@ -1281,6 +1274,8 @@ XrResult XRAPI_PTR xrWaitFrame(XrSession session,
                                XrFrameState* frame_state) {
   DVLOG(2) << __FUNCTION__;
   RETURN_IF_XR_FAILED(GetTestHelper().ValidateSession(session));
+  RETURN_IF_FALSE(GetTestHelper().UpdateData(), XR_ERROR_VALIDATION_FAILURE,
+                  "xrWaitFrame can't receive data from test");
   RETURN_IF(frame_wait_info == nullptr, XR_ERROR_VALIDATION_FAILURE,
             "XrFrameWaitInfo is nullptr");
   RETURN_IF(frame_wait_info->type != XR_TYPE_FRAME_WAIT_INFO,

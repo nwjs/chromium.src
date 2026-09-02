@@ -6,7 +6,6 @@ import './toolbar_chip_button.js';
 
 import {assertNotReachedCase} from '//resources/js/assert.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {ContentSettingImageState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import {ContentSettingImageType} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
@@ -39,10 +38,6 @@ export class ContentSettingIconElement extends CrLitElement {
   static override get properties() {
     return {
       state: {type: Object},
-      animating: {
-        type: Boolean,
-        reflect: true,
-      },
     };
   }
 
@@ -52,23 +47,13 @@ export class ContentSettingIconElement extends CrLitElement {
     tooltip: '',
     accessibilityString: '',
     isBubbleVisible: false,
-    shouldRunAnimation: false,
     explanatoryString: '',
   };
 
-  protected accessor animating: boolean = false;
-
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
 
-  override willUpdate(changedProperties: PropertyValues<this>) {
-    super.willUpdate(changedProperties);
-    if (changedProperties.has('state')) {
-      this.animating = this.state.shouldRunAnimation;
-    }
-  }
-
-  protected onLabelAnimationend_() {
-    this.animating = false;
+  override focus() {
+    this.$.chip.focus();
   }
 
   protected getIconUrl_(): string {
@@ -160,18 +145,22 @@ export class ContentSettingIconElement extends CrLitElement {
     return this.state.accessibilityString || this.state.tooltip;
   }
 
-  protected showContentSettingsBubble_() {
+  protected showContentSettingsBubble_(e: PointerEvent) {
+    // Keyboard synthetic clicks generate PointerEvents with an empty
+    // pointerType in WebUI, whereas natural pointer clicks have a valid
+    // pointerType (e.g., 'mouse', 'touch', 'pen').
+    const isPointerInteraction = !!e.pointerType;
     this.browserProxy_.toolbarUIHandler.showContentSettingsBubble(
-        this.state.type);
+        this.state.type, isPointerInteraction);
   }
 
-  protected onClick_() {
-    this.showContentSettingsBubble_();
+  protected onClick_(e: PointerEvent) {
+    this.showContentSettingsBubble_(e);
   }
 
-  protected onAuxclick_() {
+  protected onAuxclick_(e: PointerEvent) {
     // Handles both middle and right clicks.
-    this.showContentSettingsBubble_();
+    this.showContentSettingsBubble_(e);
   }
 
   protected onContextmenu_(e: PointerEvent) {
@@ -179,6 +168,11 @@ export class ContentSettingIconElement extends CrLitElement {
     // action is natively handled as opening the bubble, which we process in
     // onAuxclick_ instead to avoid double-triggering.
     e.preventDefault();
+  }
+
+  protected onPointerdown_() {
+    this.browserProxy_.toolbarUIHandler.onContentSettingImagePointerDown(
+        this.state.type);
   }
 
   protected onPointerenter_() {

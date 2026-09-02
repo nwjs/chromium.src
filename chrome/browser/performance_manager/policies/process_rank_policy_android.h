@@ -50,7 +50,7 @@ class ProcessRankPolicyAndroid
       public PageLiveStateObserver {
  public:
   ProcessRankPolicyAndroid();
-  explicit ProcessRankPolicyAndroid(bool is_perceptible_importance_supported);
+  explicit ProcessRankPolicyAndroid(bool is_not_perceptible_importance_supported);
   ~ProcessRankPolicyAndroid() override;
   ProcessRankPolicyAndroid(const ProcessRankPolicyAndroid& other) = delete;
   ProcessRankPolicyAndroid& operator=(const ProcessRankPolicyAndroid&) = delete;
@@ -70,7 +70,8 @@ class ProcessRankPolicyAndroid
   void OnIsVisibleChanged(const PageNode* page_node) override;
   void OnIsAudibleChanged(const PageNode* page_node) override;
   void OnHasPictureInPictureChanged(const PageNode* page_node) override;
-  void OnMainFrameUrlChanged(const PageNode* page_node) override;
+  void OnMainFrameUrlChanged(const PageNode* page_node,
+                             const GURL& previous_url) override;
   // Change on GetContentsMimeType() is notified by
   // OnMainFrameDocumentChanged().
   void OnMainFrameDocumentChanged(const PageNode* page_node) override;
@@ -107,6 +108,8 @@ class ProcessRankPolicyAndroid
   // callbacks are never triggered.
   void OnIsPinnedTabChanged(const PageNode* page_node) override;
   void OnIsDevToolsOpenChanged(const PageNode* page_node) override;
+  void OnIsGlicPinnedToVisibleInstanceChanged(
+      const PageNode* page_node) override;
   void OnUpdatedTitleOrFaviconInBackgroundChanged(
       const PageNode* page_node) override;
 
@@ -115,7 +118,7 @@ class ProcessRankPolicyAndroid
   friend class WebViewUpdater;
 #endif
 
-  const bool is_perceptible_importance_supported_;
+  const bool is_not_perceptible_importance_supported_;
   void UpdateProcessRank(const PageNode* page_node);
   void UpdateProcessRankAndClearTimer(const PageNode* page_node);
   content::ChildProcessImportance CalculateRank(const PageNode* page_node);

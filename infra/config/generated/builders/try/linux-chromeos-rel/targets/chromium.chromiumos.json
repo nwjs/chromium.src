@@ -319,6 +319,9 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
       },
       {
+        "args": [
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
+        ],
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -332,8 +335,13 @@
             "kvm": "1",
             "os": "Ubuntu-22.04"
           },
+          "optional_dimensions": {
+            "30": {
+              "cpu": "x86-64-e4"
+            }
+          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 179
+          "shards": 201
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -536,7 +544,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 11
+          "shards": 10
         },
         "test": "content_browsertests",
         "test_id_prefix": "ninja://content/test:content_browsertests/"
@@ -885,6 +893,9 @@
         "test_id_prefix": "ninja://components/gwp_asan:gwp_asan_unittests/"
       },
       {
+        "args": [
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
+        ],
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -898,7 +909,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 14
+          "shards": 15
         },
         "test": "interactive_ui_tests",
         "test_id_prefix": "ninja://chrome/test:interactive_ui_tests/"
@@ -1087,6 +1098,42 @@
         },
         "test": "midi_unittests",
         "test_id_prefix": "ninja://media/midi:midi_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//chromeos/ash/components/mojo_proxy/mojo_core:mojo_legacy_unittests",
+        "module_scheme": "gtest",
+        "name": "mojo_legacy_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "mojo_legacy_unittests",
+        "test_id_prefix": "ninja://chromeos/ash/components/mojo_proxy/mojo_core:mojo_legacy_unittests/"
+      },
+      {
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//chromeos/ash/components/mojo_proxy/service:mojo_proxy_unittests",
+        "module_scheme": "gtest",
+        "name": "mojo_proxy_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "mojo_proxy_unittests",
+        "test_id_prefix": "ninja://chromeos/ash/components/mojo_proxy/service:mojo_proxy_unittests/"
       },
       {
         "isolate_profile_data": true,
@@ -1434,6 +1481,9 @@
         "test_id_prefix": "ninja://storage:storage_unittests/"
       },
       {
+        "args": [
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
+        ],
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1447,7 +1497,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 4
+          "shards": 7
         },
         "test": "sync_integration_tests",
         "test_id_prefix": "ninja://chrome/test:sync_integration_tests/"

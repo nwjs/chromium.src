@@ -70,6 +70,7 @@
 #include "chrome/browser/sync/send_tab_to_self_sync_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -4224,7 +4225,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, DoNotShowSplitTabInWebApp) {
   const GURL test_url("http://www.example.com/");
   const AppId app_id = InstallTestWebApp(GURL(kAppUrl1));
   Browser* const app_window = OpenTestWebApp(app_id);
-  ASSERT_FALSE(app_window->is_type_normal());
+  ASSERT_NE(app_window->GetType(), BrowserWindowInterface::Type::TYPE_NORMAL);
 
   std::unique_ptr<TestRenderViewContextMenu> menu =
       CreateContextMenuMediaTypeNoneInWebContents(
@@ -4283,7 +4284,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   menu->ExecuteCommand(IDC_CONTENT_CONTEXT_OPENLINKSPLITVIEW, 0);
 
   // Restore the original delegate before teardown.
-  web_contents->SetDelegate(browser());
+  web_contents->SetDelegate(BrowserWebContentsDelegate::From(browser()));
 
   // No new tab was created, no split was formed.
   EXPECT_EQ(tab_strip_model->count(), 1);

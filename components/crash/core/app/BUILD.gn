@@ -61,6 +61,8 @@ static_library("app") {
     "crash_switches.h",
     "crashpad.cc",
     "crashpad.h",
+    "shared_memory_user_stream_data_source.cc",
+    "shared_memory_user_stream_data_source.h",
   ]
 
   if (is_castos) {
@@ -80,8 +82,11 @@ static_library("app") {
     "//build:branding_buildflags",
     "//build:chromeos_buildflags",
     "//components/crash/core/common:crash_key",
+    "//components/crash/core/common:shared_memory_user_stream",
     "//content/public/common:content_descriptors",
     "//third_party/crashpad/crashpad/client",
+    "//third_party/crashpad/crashpad/handler:common",
+    "//third_party/crashpad/crashpad/minidump",
     "//third_party/crashpad/crashpad/util",
   ]
 
@@ -92,7 +97,6 @@ static_library("app") {
 
   if (is_ios) {
     deps -= [ "//content/public/common:content_descriptors" ]
-    deps += [ "//third_party/crashpad/crashpad/handler:common" ]
     public_deps += [ "//third_party/crashpad/crashpad/client" ]
   }
 
@@ -303,13 +307,16 @@ source_set("test_support") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = []
+  sources = [ "shared_memory_user_stream_data_source_unittest.cc" ]
   deps = [
+    ":app",
     ":lib",
     "//base",
     "//base/test:test_support",
+    "//components/crash/core/common",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/crashpad/crashpad/minidump",
   ]
 
   if (is_win) {

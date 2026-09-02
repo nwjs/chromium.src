@@ -22,7 +22,7 @@ class MockPermissionPromptDelegate : public PermissionPrompt::Delegate {
   MOCK_METHOD(const std::vector<std::unique_ptr<PermissionRequest>>&,
               Requests,
               (),
-              (override));
+              (const, override));
   MOCK_METHOD(GURL, GetRequestingOrigin, (), (const, override));
   MOCK_METHOD(GURL, GetEmbeddingOrigin, (), (const, override));
   MOCK_METHOD(void, Accept, (const PromptOptions&), (override));
@@ -30,6 +30,12 @@ class MockPermissionPromptDelegate : public PermissionPrompt::Delegate {
   MOCK_METHOD(void, Deny, (const PromptOptions&), (override));
   MOCK_METHOD(void, Dismiss, (const PromptOptions&), (override));
   MOCK_METHOD(void, Ignore, (const PromptOptions&), (override));
+  MOCK_METHOD(void, AdvanceOrFinalizeEmbeddedPromptFlow, (), (override));
+  MOCK_METHOD(EmbeddedPermissionPromptFlowModel*,
+              GetEmbeddedPromptFlowModel,
+              (),
+              (const, override));
+  MOCK_METHOD(void, CalculateCurrentVariantForEmbeddedPrompt, (), (override));
   MOCK_METHOD(void, SwitchToLoudPrompt, (), (override));
   MOCK_METHOD(GeolocationAccuracy,
               GetInitialGeolocationAccuracySelection,

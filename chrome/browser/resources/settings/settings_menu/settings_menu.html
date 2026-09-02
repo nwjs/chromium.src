@@ -60,14 +60,12 @@
         <a role="menuitem" id="autofill" href="/autofill"
             on-click="onAutofillClick_"
             class="cr-nav-menu-item"
-            hidden="[[!showAutofillMenuItem_(
-                enableYourSavedInfoSettingsPage_,
-                pageVisibility_.yourSavedInfo, pageVisibility_.autofill)]]">
+            hidden="[[!pageVisibility_.yourSavedInfo]]">
           <cr-icon icon="settings:password-manager"></cr-icon>
           $i18n{autofillPageTitle}
           <cr-ripple></cr-ripple>
         </a>
-        <a role="menuitem" href="/privacy"
+        <a role="menuitem" id="privacy" href="/privacy"
             hidden="[[!pageVisibility_.privacy]]"
             class="cr-nav-menu-item">
           <cr-icon icon="settings:security"></cr-icon>
@@ -81,9 +79,8 @@
           $i18n{performancePageTitle}
           <cr-ripple></cr-ripple>
         </a>
-        <a role="menuitem" href="/ai"
+        <a role="menuitem" id="ai" href="/ai"
             hidden="[[!showAiPageMenuItem_(showAiPage_, pageVisibility_.ai)]]"
-            on-click="onAiPageClick_"
             class="cr-nav-menu-item">
           <cr-icon icon="settings20:button-magic"></cr-icon>
           $i18n{aiPageTitle}
@@ -96,7 +93,7 @@
           $i18n{appearancePageTitle}
           <cr-ripple></cr-ripple>
         </a>
-        <a role="menuitem" href="/search" class="cr-nav-menu-item">
+        <a role="menuitem" id="search" href="/search" class="cr-nav-menu-item">
           <cr-icon icon="settings:search"></cr-icon>
           $i18n{searchPageTitle}
           <cr-ripple></cr-ripple>

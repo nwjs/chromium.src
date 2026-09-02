@@ -15,15 +15,26 @@
 #include "base/functional/bind.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/foundations/browser_autofill_manager.h"
+#include "components/autofill/core/browser/integrators/one_time_tokens/otp_field_detector.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_phish_guard_delegate.h"
+#include "components/autofill/core/browser/logging/log_manager.h"
+#include "components/autofill/core/common/autofill_internals/log_message.h"
+#include "components/autofill/core/common/autofill_internals/logging_scope.h"
+#include "components/autofill/core/common/form_field_data.h"
+#include "components/autofill/core/common/logging/log_buffer.h"
+#include "components/autofill/core/common/logging/log_macros.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/one_time_tokens/core/browser/one_time_token.h"
+#include "components/one_time_tokens/core/browser/one_time_token_log_sink.h"
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service.h"
 #include "components/one_time_tokens/core/browser/one_time_token_type.h"
@@ -47,12 +58,24 @@ OtpManagerImpl::OtpManagerImpl(BrowserAutofillManager& owner,
                                OneTimeTokenService* one_time_token_service)
     : owner_(owner), one_time_token_services_(one_time_token_service) {
   autofill_manager_observation_.Observe(&owner);
+  if (one_time_token_services_ && one_time_token_services_->log_sink()) {
+    log_subscription_ =
+        one_time_token_services_->log_sink()->AddLogHandler(base::BindRepeating(
+            &OtpManagerImpl::OnLogMessage, weak_ptr_factory_.GetWeakPtr()));
+  }
 }
 
 OtpManagerImpl::~OtpManagerImpl() = default;
 
 void OtpManagerImpl::GetOtpSuggestions(
+    const FormStructure& form,
+    const url::Origin& origin,
     OtpManagerImpl::GetOtpSuggestionsCallback callback) {
+  if (!OtpFieldDetector::IsOtpForm(form)) {
+    std::move(callback).Run({});
+    return;
+  }
+
   // TODO(crbug.com/415273270) This is just a hack to prepopulate the OTPs in
   // case no real backend is triggered. The feature definition should migrate to
   // autofill.
@@ -62,6 +85,9 @@ void OtpManagerImpl::GetOtpSuggestions(
     return;
   }
 
+  // TODO(crbug.com/415273270): Do not fill OTP suggestions into opaque origin
+  // iframes.
+  last_pending_field_origin_ = origin;
   last_pending_get_suggestions_callback_ = std::move(callback);
 
   // This queries OTPs from the backend and calls `OnOneTimeTokenReceived` to
@@ -105,13 +131,13 @@ void OtpManagerImpl::OnFieldTypesDetermined(
     return;
   }
 
-  const bool form_contains_otp_field = std::ranges::any_of(
-      form->fields(), [](const std::unique_ptr<AutofillField>& field) {
-        return field->Type().GetTypes().contains(ONE_TIME_CODE);
-      });
-  if (!form_contains_otp_field) {
+  if (!OtpFieldDetector::IsOtpForm(*form)) {
     return;
   }
+
+  LOG_AF(owner_->client().GetCurrentLogManager())
+      << LoggingScope::kOneTimeTokens << "OTP field detected in web form."
+      << Br{} << "Form ID: " << form_id;
 
   GetRecentOtpsAndRenewSubscription();
 }
@@ -123,8 +149,14 @@ void OtpManagerImpl::OnFieldTypesDetermined(
 void OtpManagerImpl::OnBeforeFocusOnFormField(AutofillManager& manager,
                                               FormGlobalId form,
                                               FieldGlobalId field) {
-  if (!last_pending_get_suggestions_callback_.is_null()) {
-    std::move(last_pending_get_suggestions_callback_).Run({});
+  if (last_pending_get_suggestions_callback_) {
+    // Post the callback asynchronously to prevent re-entrancy when notifying
+    // `Observer::OnAfterAskForValuesToFill` from inside this
+    // `Observer::OnBeforeFocusOnFormField` notification loop.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(last_pending_get_suggestions_callback_),
+                       std::vector<std::string>{}));
   }
 }
 
@@ -133,8 +165,14 @@ void OtpManagerImpl::OnBeforeFocusOnFormField(AutofillManager& manager,
 // TODO(crbug.com/451991285): Remove this method once we switch to using
 // observers instead of delaying the callback.
 void OtpManagerImpl::OnBeforeFocusOnNonFormField(AutofillManager& manager) {
-  if (!last_pending_get_suggestions_callback_.is_null()) {
-    std::move(last_pending_get_suggestions_callback_).Run({});
+  if (last_pending_get_suggestions_callback_) {
+    // Post the callback asynchronously to prevent re-entrancy when notifying
+    // `Observer::OnAfterAskForValuesToFill` from inside this
+    // `Observer::OnBeforeFocusOnNonFormField` notification loop.
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(last_pending_get_suggestions_callback_),
+                       std::vector<std::string>{}));
   }
 }
 
@@ -167,8 +205,12 @@ void OtpManagerImpl::OnOneTimeTokenReceived(
     phish_guard_check_start_time_ = base::TimeTicks::Now();
     base::UmaHistogramBoolean(
         "Autofill.OneTimeTokens.PhishGuard.CheckPerformed", true);
+    LOG_AF(owner_->client().GetCurrentLogManager())
+        << LoggingScope::kOneTimeTokens
+        << "PhishGuard check initiated for OTP token delivery.";
     delegate->StartOtpPhishGuardCheck(
         owner_->client().GetLastCommittedPrimaryMainFrameURL(),
+        last_pending_field_origin_.GetURL(),
         base::BindOnce(
             [](base::WeakPtr<OtpManagerImpl> self, OneTimeToken token,
                bool is_phishing_site) {
@@ -192,6 +234,9 @@ void OtpManagerImpl::OnOneTimeTokenReceived(
 void OtpManagerImpl::MaybeShowOtpSuggestions(
     OneTimeToken token,
     OneTimeTokensPhishGuardVerdict verdict) {
+  LOG_AF(owner_->client().GetCurrentLogManager())
+      << LoggingScope::kOneTimeTokens
+      << "PhishGuard check completed with verdict: " << verdict;
   if (!phish_guard_check_start_time_.is_null()) {
     base::UmaHistogramTimes(
         "Autofill.OneTimeTokens.PhishGuard.Latency",
@@ -202,6 +247,9 @@ void OtpManagerImpl::MaybeShowOtpSuggestions(
                                 verdict);
 
   if (!last_pending_get_suggestions_callback_) {
+    LOG_AF(owner_->client().GetCurrentLogManager())
+        << LoggingScope::kOneTimeTokens
+        << "No pending callback, skipping further processing.";
     return;
   }
 
@@ -210,9 +258,21 @@ void OtpManagerImpl::MaybeShowOtpSuggestions(
     suggestions.emplace_back(std::move(token).value());
   }
 
-  if (IsOtpDeliveryBlocked() ||
-      verdict == OneTimeTokensPhishGuardVerdict::kPhishing) {
+  if (IsOtpDeliveryBlocked()) {
+    LOG_AF(owner_->client().GetCurrentLogManager())
+        << LoggingScope::kOneTimeTokens << LogMessage::kSuggestionSuppressed
+        << "Reason: OTP delivery is blocked due to the WebOTP API.";
     suggestions.clear();
+  } else if (verdict == OneTimeTokensPhishGuardVerdict::kPhishing) {
+    LOG_AF(owner_->client().GetCurrentLogManager())
+        << LoggingScope::kOneTimeTokens << LogMessage::kSuggestionSuppressed
+        << "Reason: PhishGuard verdict is phishing.";
+    suggestions.clear();
+  } else if (!suggestions.empty()) {
+    LOG_AF(owner_->client().GetCurrentLogManager())
+        << LoggingScope::kOneTimeTokens
+        << "Delivering OTP suggestion to UI. Token length: "
+        << suggestions[0].size() << " (value omitted for privacy).";
   }
 
   std::move(last_pending_get_suggestions_callback_).Run(std::move(suggestions));
@@ -230,6 +290,24 @@ OtpManagerImpl::SelectMostRecentToken() const {
   return *std::ranges::max_element(
       received_otps_, {},
       &one_time_tokens::OneTimeToken::on_device_arrival_time);
+}
+
+void OtpManagerImpl::OnLogMessage(std::string_view message) {
+  LOG_AF(owner_->client().GetCurrentLogManager())
+      << LoggingScope::kOneTimeTokens << message;
+}
+
+LogBuffer& operator<<(LogBuffer& buffer,
+                      OneTimeTokensPhishGuardVerdict verdict) {
+  switch (verdict) {
+    case OneTimeTokensPhishGuardVerdict::kUnknown:
+      return buffer << "kUnknown";
+    case OneTimeTokensPhishGuardVerdict::kPhishing:
+      return buffer << "kPhishing";
+    case OneTimeTokensPhishGuardVerdict::kNotPhishing:
+      return buffer << "kNotPhishing";
+  }
+  NOTREACHED();
 }
 
 }  // namespace autofill

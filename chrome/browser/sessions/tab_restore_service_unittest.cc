@@ -28,6 +28,7 @@
 #include "chrome/browser/sessions/session_tab_helper_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_load_waiter.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/chrome_render_view_test.h"
@@ -129,6 +130,9 @@ class MockLiveTabContext : public sessions::LiveTabContext {
   MOCK_METHOD2(SetVisualDataForGroup,
                void(const tab_groups::TabGroupId& group,
                     const tab_groups::TabGroupVisualData& visual_data));
+  MOCK_CONST_METHOD0(GetInitialFocusedTabGroup,
+                     const std::optional<tab_groups::TabGroupId>());
+  MOCK_METHOD1(SetFocusedTabGroup, void(const tab_groups::TabGroupId& group));
   MOCK_CONST_METHOD0(GetRestoredBounds, const gfx::Rect());
   MOCK_CONST_METHOD0(GetRestoredState, ui::mojom::WindowShowState());
   MOCK_CONST_METHOD0(GetWorkspace, std::string());
@@ -300,7 +304,8 @@ class TabRestoreServiceImplTest : public ChromeRenderViewHostTestHarness {
 
     SessionService* session_service =
         SessionServiceFactory::GetForProfile(profile());
-    session_service->SetWindowType(window_id(), Browser::TYPE_NORMAL);
+    session_service->SetWindowType(window_id(),
+                                   BrowserWindowInterface::TYPE_NORMAL);
     session_service->SetTabWindow(window_id(), tab_id());
     session_service->SetTabIndexInWindow(window_id(), tab_id(), 0);
     session_service->SetSelectedTabInWindow(window_id(), 0);

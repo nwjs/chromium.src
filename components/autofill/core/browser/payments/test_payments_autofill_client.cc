@@ -25,6 +25,7 @@
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/test/mock_payments_window_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
+#include "components/autofill/core/browser/payments/wallet_reminder_notice_manager.h"
 #include "components/autofill/core/browser/single_field_fillers/payments/merchant_promo_code_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_utils.h"
@@ -71,7 +72,11 @@ TestPaymentsAutofillClient::~TestPaymentsAutofillClient() = default;
 void TestPaymentsAutofillClient::LoadRiskData(
     base::OnceCallback<void(const std::string&)> callback) {
   risk_data_loaded_ = true;
-  std::move(callback).Run("some risk data");
+  if (defer_load_risk_data_responses_) {
+    load_risk_data_callbacks_.push_back(std::move(callback));
+  } else {
+    std::move(callback).Run("some risk data");
+  }
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -175,6 +180,7 @@ void TestPaymentsAutofillClient::ConfirmUploadIbanToCloud(
   confirm_upload_iban_to_cloud_called_ = true;
   legal_message_lines_ = std::move(legal_message_lines);
   offer_to_save_iban_bubble_was_shown_ = should_show_prompt;
+  confirm_upload_iban_to_cloud_callbacks_.push_back(std::move(callback));
 }
 
 void TestPaymentsAutofillClient::IbanUploadCompleted(bool iban_saved,
@@ -479,6 +485,20 @@ BnplStrategy* TestPaymentsAutofillClient::GetBnplStrategy() {
 
 BnplUiDelegate* TestPaymentsAutofillClient::GetBnplUiDelegate() {
   return bnpl_ui_delegate_.get();
+}
+
+WalletReminderNoticeUiDelegate*
+TestPaymentsAutofillClient::GetWalletReminderNoticeUiDelegate() {
+  return wallet_reminder_notice_ui_delegate_.get();
+}
+
+WalletReminderNoticeManager*
+TestPaymentsAutofillClient::GetWalletReminderNoticeManager() {
+  if (!wallet_reminder_notice_manager_) {
+    wallet_reminder_notice_manager_ =
+        std::make_unique<WalletReminderNoticeManager>(&client_.get());
+  }
+  return wallet_reminder_notice_manager_.get();
 }
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)

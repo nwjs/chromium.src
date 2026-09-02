@@ -31,7 +31,6 @@
 #include "components/optimization_guide/core/model_execution/on_device_model_names.h"
 #include "components/optimization_guide/core/model_execution/performance_class.h"
 #include "components/optimization_guide/core/model_execution/usage_tracker.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
@@ -148,7 +147,11 @@ std::optional<OnDeviceBaseModelSpec> GetOnDeviceBaseModelSpecFromManifest(
   if (!selected_performance_hint) {
     return std::nullopt;
   }
-  return OnDeviceBaseModelSpec(*name, *version, *selected_performance_hint);
+  return OnDeviceBaseModelSpec{
+      .model_name = *name,
+      .model_version = *version,
+      .selected_performance_hint = *selected_performance_hint,
+  };
 }
 
 base::DictValue MakeOverrideManifest() {
@@ -208,17 +211,6 @@ std::ostream& operator<<(std::ostream& out, OnDeviceModelStatus status) {
       return out << "Insufficient Disk Space For Caches";
   }
 }
-
-OnDeviceBaseModelSpec::OnDeviceBaseModelSpec(
-    const std::string& model_name,
-    const std::string& model_version,
-    proto::OnDeviceModelPerformanceHint selected_performance_hint)
-    : model_name(model_name),
-      model_version(model_version),
-      selected_performance_hint(selected_performance_hint) {}
-OnDeviceBaseModelSpec::~OnDeviceBaseModelSpec() = default;
-OnDeviceBaseModelSpec::OnDeviceBaseModelSpec(const OnDeviceBaseModelSpec&) =
-    default;
 
 bool OnDeviceBaseModelSpec::operator==(
     const OnDeviceBaseModelSpec& other) const {

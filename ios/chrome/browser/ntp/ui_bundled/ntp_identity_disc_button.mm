@@ -16,9 +16,13 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/signin/model/constants.h"
+#import "ios/chrome/browser/signin/model/signin_util.h"
+#import "ios/chrome/browser/signin/ui/avatar/ai_tier_avatar_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/dynamic_type_util.h"
 #import "ios/chrome/grit/ios_strings.h"
+#import "ios/public/provider/chrome/browser/intelligence/signin/signin_ai_logo.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -55,7 +59,11 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
   UIImageView* _accountDiscParticleBadgeImageView;
   BOOL _isSignedIn;
   BOOL _hasAccountError;
+  // The avatar image to be displayed when the AI tier ring is not shown.
   UIImage* _identityDiscImage;
+  // Whether the user has a AITier.
+  BOOL _hasAITier;
+  AITierAvatarView* _avatarViewWithRing;
   NSString* _identityDiscAccessibilityLabel;
   NSLayoutConstraint* _widthConstraint;
   NSLayoutConstraint* _heightConstraint;
@@ -74,7 +82,7 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
         UIButton* button, UIPointerEffect* proposedEffect,
         UIPointerShape* proposedShape) {
       CGFloat singleInset =
-          (button.frame.size.width - ntp_home::kIdentityAvatarDimension) / 2;
+          (button.frame.size.width - ntp_home::kIdentityAvatarDiameter) / 2;
       CGRect rect = CGRectInset(button.frame, singleInset, singleInset);
       UIPointerShape* shape =
           [UIPointerShape shapeWithRoundedRect:rect
@@ -123,19 +131,20 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
   [self updateIdentityDiscConstraints];
 }
 
-- (void)updateAccountImage:(UIImage*)image
-                      name:(NSString*)name
-                     email:(NSString*)email {
-  DCHECK(image && image.size.width == ntp_home::kIdentityAvatarDimension &&
-         image.size.height == ntp_home::kIdentityAvatarDimension)
-      << base::SysNSStringToUTF8([image description]);
+// Updates current signed-in user account avatar with the supplied images.
+- (void)updateAccountWithName:(NSString*)name
+                        email:(NSString*)email
+                  avatarImage:(UIImage*)avatarImage
+                    hasAITier:(BOOL)hasAITier {
   DCHECK(email);
 
-  _identityDiscImage = image;
+  _identityDiscImage = avatarImage;
+  _hasAITier = hasAITier;
 
   _isSignedIn = YES;
 
   [self updateIdentityDiscAccessibilityLabelWithName:name email:email];
+  [self updateIdentityDiscState];
   [self updateIdentityDiscConstraints];
 }
 
@@ -157,12 +166,13 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
   if (email.length > 0) {
     [self updateIdentityDiscAccessibilityLabelWithName:name email:email];
   }
+  [self updateIdentityDiscState];
 }
 
 - (void)updateIdentityDiscConstraints {
   BOOL showSignInButtonWithoutAvatar = !_isSignedIn;
 
-  CGFloat dimension = ntp_home::kIdentityAvatarDimension +
+  CGFloat dimension = ntp_home::kIdentityAvatarDiameter +
                       kMarginMultiplier * ntp_home::kHeaderIconMargin;
 
   CGFloat identityAvatarPadding = ntp_home::kIdentityAvatarPadding;
@@ -199,18 +209,37 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
   self.clipsToBounds = YES;
 
   if (_isSignedIn) {
-    UIImage* image = _identityDiscImage;
+    // Clear the button's own image.
+    [self setImage:nil forState:UIControlStateNormal];
     self.configuration = nil;
-    [self setImage:image forState:UIControlStateNormal];
     self.backgroundColor = nil;
-    self.imageView.layer.cornerRadius = image.size.width / 2;
-    self.imageView.layer.masksToBounds = YES;
-    self.layer.cornerRadius = image.size.width;
+
+    if (_avatarViewWithRing) {
+      [_avatarViewWithRing removeFromSuperview];
+    }
+
+    BOOL showRing = _hasAITier && !_hasAccountError;
+    _avatarViewWithRing = [[AITierAvatarView alloc]
+        initWithAvatarImage:_identityDiscImage
+             avatarDiameter:ntp_home::kIdentityAvatarDiameter
+            showsAITierRing:showRing];
+    _avatarViewWithRing.userInteractionEnabled = NO;
+
+    [self insertSubview:_avatarViewWithRing atIndex:0];
+    [NSLayoutConstraint activateConstraints:@[
+      [_avatarViewWithRing.centerXAnchor
+          constraintEqualToAnchor:self.centerXAnchor],
+      [_avatarViewWithRing.centerYAnchor
+          constraintEqualToAnchor:self.centerYAnchor],
+    ]];
     [self updateBadgeBackgroundColor];
     return;
   }
 
   // Signed out state styling.
+  if (_avatarViewWithRing) {
+    _avatarViewWithRing.hidden = YES;
+  }
   [self updateIdentityDiscStateWithPalette:nil];
 }
 
@@ -312,25 +341,37 @@ UIColor* AccountParticleDiscBadgeBackgroundColor(UIUserInterfaceStyle style) {
                                                email:(NSString*)email {
   NSString* accountButtonLabel;
   if (name) {
-    accountButtonLabel =
-        _hasAccountError
-            ? l10n_util::GetNSStringF(
-                  IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
-                  base::SysNSStringToUTF16(name),
-                  base::SysNSStringToUTF16(email))
-            : l10n_util::GetNSStringF(
-                  IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU,
-                  base::SysNSStringToUTF16(name),
-                  base::SysNSStringToUTF16(email));
+    if (_hasAccountError) {
+      accountButtonLabel = l10n_util::GetNSStringF(
+          IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
+          base::SysNSStringToUTF16(name), base::SysNSStringToUTF16(email));
+    } else {
+      if (_hasAITier) {
+        accountButtonLabel = l10n_util::GetNSStringF(
+            IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_GOOGLE_MEMBERSHIP_OPEN_ACCOUNT_MENU,
+            base::SysNSStringToUTF16(name), base::SysNSStringToUTF16(email));
+      } else {
+        accountButtonLabel = l10n_util::GetNSStringF(
+            IDS_IOS_IDENTITY_DISC_WITH_NAME_AND_EMAIL_OPEN_ACCOUNT_MENU,
+            base::SysNSStringToUTF16(name), base::SysNSStringToUTF16(email));
+      }
+    }
   } else {
-    accountButtonLabel =
-        _hasAccountError
-            ? l10n_util::GetNSStringF(
-                  IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
-                  base::SysNSStringToUTF16(email))
-            : l10n_util::GetNSStringF(
-                  IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU,
-                  base::SysNSStringToUTF16(email));
+    if (_hasAccountError) {
+      accountButtonLabel = l10n_util::GetNSStringF(
+          IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU_WITH_ERROR,
+          base::SysNSStringToUTF16(email));
+    } else {
+      if (_hasAITier) {
+        accountButtonLabel = l10n_util::GetNSStringF(
+            IDS_IOS_IDENTITY_DISC_WITH_EMAIL_GOOGLE_MEMBERSHIP_OPEN_ACCOUNT_MENU,
+            base::SysNSStringToUTF16(email));
+      } else {
+        accountButtonLabel = l10n_util::GetNSStringF(
+            IDS_IOS_IDENTITY_DISC_WITH_EMAIL_OPEN_ACCOUNT_MENU,
+            base::SysNSStringToUTF16(email));
+      }
+    }
   }
 
   _identityDiscAccessibilityLabel = accountButtonLabel;

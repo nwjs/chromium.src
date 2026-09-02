@@ -4,6 +4,7 @@
 
 import("//build/config/android/rules.gni")
 import("//third_party/jni_zero/jni_zero.gni")
+import("//ui/webui/webui_features.gni")
 
 assert(is_android)
 
@@ -21,6 +22,7 @@ source_set("ntp_customization") {
     "ntp_android_custom_background_service.cc",
     "ntp_android_custom_background_service_factory.cc",
     "ntp_android_theme_sync_bridge.cc",
+    "ntp_customization_side_panel.cc",
     "ntp_customization_utils.cc",
     "ntp_synced_theme_bridge.cc",
     "ntp_theme_collection_bridge.cc",
@@ -35,6 +37,9 @@ source_set("ntp_customization") {
     "//build:android_buildflags",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
+    "//chrome/browser/android:tabs_public",
+    "//chrome/browser/sync:factories",
+    "//chrome/browser/ui/side_panel",
     "//chrome/common:constants",
     "//components/application_locale_storage",
     "//components/sync",
@@ -46,6 +51,9 @@ source_set("ntp_customization") {
     "//ui/webui:buildflags",
     "//url",
   ]
+  if (enable_webui_ntp) {
+    deps += [ "//chrome/browser/ui/customize_chrome" ]
+  }
 }
 
 android_library("public_java") {
@@ -77,6 +85,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationCoordinatorFactory.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationMediator.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationMetricsUtils.java",
+    "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationSidePanel.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationUtils.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationViewProperties.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/edge_to_edge/TopInsetCoordinator.java",
@@ -156,6 +165,7 @@ android_library("java") {
     "//base:resetters_java",
     "//base:supplier_java",
     "//base:tasks_java",
+    "//chrome/android:new_tab_page_utils_java",
     "//chrome/browser/android/lifecycle:java",
     "//chrome/browser/composeplate/android:java",
     "//chrome/browser/composeplate/android:java_resources",
@@ -192,6 +202,7 @@ android_library("java") {
     "//components/embedder_support/android:util_java",
     "//components/feed/core/v2:feedv2_common_core_java",
     "//components/image_fetcher:java",
+    "//components/omnibox/common:features_java",
     "//components/page_image_service/mojom:mojo_bindings_java",
     "//components/prefs/android:java",
     "//components/search_engines/android:java",
@@ -218,6 +229,7 @@ android_library("java") {
 
 generate_jni("jni_headers") {
   sources = [
+    "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationSidePanel.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationUtils.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/NtpSyncedThemeBridge.java",
     "java/src/org/chromium/chrome/browser/ntp_customization/theme/theme_collections/NtpThemeCollectionBridge.java",
@@ -333,6 +345,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationMediatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationMetricsUtilsUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationSidePanelUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/NtpCustomizationUtilsUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/edge_to_edge/TopInsetCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/feed/FeedSettingsCoordinatorUnitTest.java",
@@ -375,6 +388,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewLayoutUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme/upload_image/UploadImagePreviewLayoutViewBinderUnitTest.java",
+    "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/CrossDeviceThemeTrackerUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/NtpThemeSyncHistoryCoordinatorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/NtpThemeSyncHistoryRecyclerViewAdaptorUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ntp_customization/theme_sync/data/NtpBackgroundDataColorUnitTest.java",
@@ -420,6 +434,7 @@ robolectric_library("junit") {
     "//components/browser_ui/theme/android:java_resources",
     "//components/browser_ui/widget/android:java",
     "//components/image_fetcher:java",
+    "//components/omnibox/common:features_java",
     "//components/prefs/android:java",
     "//components/search_engines/android:java",
     "//components/user_prefs/android:java",
@@ -448,12 +463,12 @@ robolectric_library("junit") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [
-    "ntp_android_custom_background_service_unittest.cc",
-    "ntp_customization_utils_unittest.cc",
-  ]
-  if (!is_desktop_android) {
-    sources += [ "ntp_android_theme_sync_bridge_unittest.cc" ]
+  sources = [ "ntp_customization_utils_unittest.cc" ]
+  if (!enable_webui_ntp) {
+    sources += [
+      "ntp_android_custom_background_service_unittest.cc",
+      "ntp_android_theme_sync_bridge_unittest.cc",
+    ]
   }
   deps = [
     ":ntp_customization",

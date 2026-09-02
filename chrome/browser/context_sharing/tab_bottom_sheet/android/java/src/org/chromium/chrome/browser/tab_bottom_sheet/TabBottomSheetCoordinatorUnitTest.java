@@ -50,6 +50,7 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
@@ -58,6 +59,7 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.ActivityState;
 import org.chromium.base.CallbackUtils;
 import org.chromium.base.supplier.NullableObservableSupplier;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -172,10 +174,9 @@ public class TabBottomSheetCoordinatorUnitTest {
                                 TabBottomSheetClientType.UNKNOWN,
                                 CoBrowseContainerType.BOTTOM_SHEET,
                                 mMockWebUi,
-                                null,
                                 0,
                                 mMockContentProvider,
-                                () -> null));
+                                SupplierUtils.ofNull()));
         mView = containerViewSpy;
         assertNotNull(
                 "peek_view_container should be found in CoBrowseViews",
@@ -1124,15 +1125,14 @@ public class TabBottomSheetCoordinatorUnitTest {
 
     private void setupMockContentProvider() {
         doAnswer(
-                        invocation -> {
-                            return new TestTabBottomSheetContent(
-                                    invocation.getArgument(0),
-                                    invocation.getArgument(1),
-                                    invocation.getArgument(2),
-                                    invocation.getArgument(3),
-                                    invocation.getArgument(4),
-                                    invocation.getArgument(5));
-                        })
+                        (InvocationOnMock invocation) ->
+                                new TestTabBottomSheetContent(
+                                        invocation.getArgument(0),
+                                        invocation.getArgument(1),
+                                        invocation.getArgument(2),
+                                        invocation.getArgument(3),
+                                        invocation.getArgument(4),
+                                        invocation.getArgument(5)))
                 .when(mMockContentProvider)
                 .createContent(
                         any(View.class),
@@ -1150,10 +1150,9 @@ public class TabBottomSheetCoordinatorUnitTest {
                         clientType,
                         CoBrowseContainerType.BOTTOM_SHEET,
                         mMockWebUi,
-                        null,
                         0,
                         mMockContentProvider,
-                        () -> null);
+                        SupplierUtils.ofNull());
         mCoordinator =
                 new TabBottomSheetCoordinator(
                         mContext,

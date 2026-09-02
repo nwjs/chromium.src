@@ -10,6 +10,7 @@
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
 #include "base/files/file_util.h"
+#include "base/functional/callback_helpers.h"
 #include "base/rand_util.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
@@ -19,8 +20,12 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "mojo/public/cpp/bindings/message.h"
+#include "mojo/public/cpp/test_support/fake_message_dispatch_context.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
 #include "net/cert/mock_cert_verifier.h"
 #include "net/dns/mock_host_resolver.h"
+#include "net/http/http_request_headers.h"
 #include "net/log/net_log_event_type.h"
 #include "net/log/test_net_log.h"
 #include "net/quic/quic_context.h"
@@ -172,6 +177,7 @@ class TestHandshakeClient final : public mojom::WebTransportHandshakeClient {
     has_seen_connection_establishment_ = true;
     receiver_.reset();
     selected_application_protocol_ = selected_application_protocol;
+    response_headers_ = response_headers;
     std::move(callback_).Run();
   }
 
@@ -211,6 +217,9 @@ class TestHandshakeClient final : public mojom::WebTransportHandshakeClient {
   std::optional<std::string> selected_application_protocol() const {
     return selected_application_protocol_;
   }
+  const scoped_refptr<net::HttpResponseHeaders>& response_headers() const {
+    return response_headers_;
+  }
 
  private:
   mojo::Receiver<mojom::WebTransportHandshakeClient> receiver_;
@@ -223,6 +232,7 @@ class TestHandshakeClient final : public mojom::WebTransportHandshakeClient {
   bool has_seen_mojo_connection_error_ = false;
   std::optional<net::WebTransportError> handshake_error_;
   std::optional<std::string> selected_application_protocol_;
+  scoped_refptr<net::HttpResponseHeaders> response_headers_;
 };
 
 class TestClient final : public mojom::WebTransportClient {
@@ -252,8 +262,16 @@ class TestClient final : public mojom::WebTransportClient {
   }
   void OnReceivedResetStream(uint32_t stream_id, uint32_t) override {}
   void OnReceivedStopSending(uint32_t stream_id, uint32_t) override {}
+  void OnDraining() override {
+    has_seen_draining_ = true;
+    if (quit_closure_for_draining_) {
+      std::move(quit_closure_for_draining_).Run();
+    }
+  }
   void OnClosed(mojom::WebTransportCloseInfoPtr close_info,
-                mojom::WebTransportStatsPtr final_stats) override {}
+                mojom::WebTransportStatsPtr final_stats) override {
+    has_seen_closed_ = true;
+  }
 
   void WaitUntilMojoConnectionError() {
     base::RunLoop run_loop;
@@ -298,6 +316,19 @@ class TestClient final : public mojom::WebTransportClient {
   bool has_seen_mojo_connection_error() const {
     return has_seen_mojo_connection_error_;
   }
+  bool has_seen_draining() const { return has_seen_draining_; }
+  bool has_seen_closed() const { return has_seen_closed_; }
+
+  void FlushForTesting() { receiver_.FlushForTesting(); }
+
+  void WaitUntilDraining() {
+    if (has_seen_draining_) {
+      return;
+    }
+    base::RunLoop run_loop;
+    quit_closure_for_draining_ = run_loop.QuitClosure();
+    run_loop.Run();
+  }
 
  private:
   void OnMojoConnectionError() {
@@ -312,11 +343,14 @@ class TestClient final : public mojom::WebTransportClient {
   base::OnceClosure quit_closure_for_mojo_connection_error_;
   base::OnceClosure quit_closure_for_incoming_stream_closure_;
   base::OnceClosure quit_closure_for_outgoing_stream_closure_;
+  base::OnceClosure quit_closure_for_draining_;
 
   std::vector<std::vector<uint8_t>> received_datagrams_;
   std::map<uint32_t, bool> closed_incoming_streams_;
   std::set<uint32_t> closed_outgoing_streams_;
   bool has_seen_mojo_connection_error_ = false;
+  bool has_seen_draining_ = false;
+  bool has_seen_closed_ = false;
 };
 
 quic::ParsedQuicVersion GetTestVersion() {
@@ -379,7 +413,8 @@ class WebTransportTest : public testing::TestWithParam<std::string_view> {
         mojom::WebTransportCongestionControl::kDefault,
         /*anticipated_concurrent_incoming_unidirectional_streams=*/std::nullopt,
         /*anticipated_concurrent_incoming_bidirectional_streams=*/std::nullopt,
-        std::move(handshake_client), std::move(url_loader_network_observer),
+        /*additional_headers=*/{}, std::move(handshake_client),
+        std::move(url_loader_network_observer),
         std::move(client_security_state),
         network::GetTestNetworkRestrictionsId());
   }
@@ -426,6 +461,24 @@ class WebTransportTest : public testing::TestWithParam<std::string_view> {
           handshake_client) {
     CreateWebTransport(url, origin, net::NetworkAnonymizationKey(),
                        std::move(fingerprints), std::move(handshake_client));
+  }
+
+  void CreateWebTransportWithHeaders(
+      const GURL& url,
+      const url::Origin& origin,
+      std::vector<net::HttpRequestHeaders::HeaderKeyValuePair>
+          additional_headers,
+      mojo::PendingRemote<mojom::WebTransportHandshakeClient>
+          handshake_client) {
+    network_context_->CreateWebTransport(
+        url, origin, net::NetworkAnonymizationKey(), /*fingerprints=*/{},
+        /*application_protocols=*/{},
+        mojom::WebTransportCongestionControl::kDefault,
+        /*anticipated_concurrent_incoming_unidirectional_streams=*/std::nullopt,
+        /*anticipated_concurrent_incoming_bidirectional_streams=*/std::nullopt,
+        std::move(additional_headers), std::move(handshake_client),
+        url_loader_network_observer_.Bind(), mojom::ClientSecurityState::New(),
+        /*network_restrictions_id=*/network::GetTestNetworkRestrictionsId());
   }
 
   GURL GetURL(std::string_view suffix) {
@@ -797,6 +850,161 @@ TEST_F(WebTransportTest, EchoOnUnidirectionalStreams) {
   EXPECT_EQ(0u, resets_sent.size());
 }
 
+TEST_F(WebTransportTest, SetStreamPriority) {
+  base::test::TestFuture<void> handshake_future;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      handshake_future.GetCallback());
+
+  CreateWebTransport(GetURL("/echo"),
+                     url::Origin::Create(GURL("https://example.org/")),
+                     std::move(handshake_client));
+
+  ASSERT_TRUE(handshake_future.Wait());
+  ASSERT_TRUE(test_handshake_client.has_seen_connection_establishment());
+
+  TestClient client(test_handshake_client.PassClientReceiver());
+  mojo::Remote<mojom::WebTransport> transport_remote(
+      test_handshake_client.PassTransport());
+
+  mojo::ScopedDataPipeConsumerHandle readable_for_outgoing;
+  mojo::ScopedDataPipeProducerHandle writable_for_outgoing;
+  const MojoCreateDataPipeOptions options = {
+      sizeof(options), MOJO_CREATE_DATA_PIPE_FLAG_NONE, 1, 4 * 1024};
+  ASSERT_EQ(MOJO_RESULT_OK,
+            mojo::CreateDataPipe(&options, writable_for_outgoing,
+                                 readable_for_outgoing));
+  size_t actually_written_bytes = 0;
+  ASSERT_EQ(MOJO_RESULT_OK,
+            writable_for_outgoing->WriteData(
+                base::byte_span_from_cstring("hello"),
+                MOJO_WRITE_DATA_FLAG_NONE, actually_written_bytes));
+
+  base::test::TestFuture<bool, uint32_t> stream_creation_future;
+  transport_remote->CreateStream(std::move(readable_for_outgoing),
+                                 /*writable=*/{}, /*priority=*/nullptr,
+                                 stream_creation_future.GetCallback());
+  ASSERT_TRUE(stream_creation_future.Get<0>());
+  const uint32_t stream_id = stream_creation_future.Get<1>();
+
+  // Update the stream's priority after creation. This mirrors the JavaScript
+  // WebTransportSendStream.sendGroup / sendOrder setters and must not disrupt
+  // the stream.
+  transport_remote->SetStreamPriority(
+      stream_id, mojom::WebTransportStreamPriority::New(
+                     /*send_group_id=*/std::make_optional<uint32_t>(3),
+                     /*send_order=*/42));
+  // Setting priority on an unknown stream id must be a harmless no-op.
+  transport_remote->SetStreamPriority(
+      stream_id + 1234,
+      mojom::WebTransportStreamPriority::New(std::nullopt, 0));
+
+  transport_remote->SendFin(stream_id);
+  writable_for_outgoing.reset();
+
+  client.WaitUntilOutgoingStreamIsClosed(stream_id);
+
+  base::test::TestFuture<uint32_t, mojo::ScopedDataPipeConsumerHandle>
+      incoming_stream_future;
+  transport_remote->AcceptUnidirectionalStream(
+      incoming_stream_future.GetCallback());
+  auto [incoming_stream_id, readable_for_incoming] =
+      incoming_stream_future.Take();
+  ASSERT_TRUE(readable_for_incoming);
+
+  // The stream is unaffected by the priority updates and still echoes.
+  std::string echo_back = Read(std::move(readable_for_incoming));
+  EXPECT_EQ("hello", echo_back);
+
+  client.WaitUntilIncomingStreamIsClosed(incoming_stream_id);
+  EXPECT_FALSE(client.has_seen_mojo_connection_error());
+}
+
+TEST_F(WebTransportTest, SessionDraining) {
+  base::RunLoop run_loop_for_handshake;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      run_loop_for_handshake.QuitClosure());
+
+  // The "/session-close" endpoint sends a DRAIN_WEBTRANSPORT_SESSION capsule
+  // when it receives the string "DRAIN" on a unidirectional stream.
+  CreateWebTransport(GetURL("/session-close"), origin(),
+                     std::move(handshake_client));
+
+  run_loop_for_handshake.Run();
+  ASSERT_TRUE(test_handshake_client.has_seen_connection_establishment());
+
+  TestClient client(test_handshake_client.PassClientReceiver());
+  mojo::Remote<mojom::WebTransport> transport_remote(
+      test_handshake_client.PassTransport());
+
+  mojo::ScopedDataPipeConsumerHandle readable_for_outgoing;
+  mojo::ScopedDataPipeProducerHandle writable_for_outgoing;
+  const MojoCreateDataPipeOptions options = {
+      sizeof(options), MOJO_CREATE_DATA_PIPE_FLAG_NONE, 1, 4 * 1024};
+  ASSERT_EQ(MOJO_RESULT_OK,
+            mojo::CreateDataPipe(&options, writable_for_outgoing,
+                                 readable_for_outgoing));
+  size_t actually_written_bytes = 0;
+  ASSERT_EQ(MOJO_RESULT_OK,
+            writable_for_outgoing->WriteData(
+                base::byte_span_from_cstring("DRAIN"),
+                MOJO_WRITE_DATA_FLAG_NONE, actually_written_bytes));
+
+  base::test::TestFuture<bool, uint32_t> stream_creation_future;
+  transport_remote->CreateStream(std::move(readable_for_outgoing),
+                                 /*writable=*/{}, /*priority=*/nullptr,
+                                 stream_creation_future.GetCallback());
+  ASSERT_TRUE(stream_creation_future.Get<0>());
+
+  transport_remote->SendFin(stream_creation_future.Get<1>());
+  writable_for_outgoing.reset();
+
+  client.WaitUntilDraining();
+  EXPECT_TRUE(client.has_seen_draining());
+  EXPECT_FALSE(client.has_seen_closed());
+  EXPECT_FALSE(client.has_seen_mojo_connection_error());
+  EXPECT_EQ(1u, network_context().NumOpenWebTransports());
+
+  // Verify stream creation remains functional after entering draining state.
+  mojo::ScopedDataPipeConsumerHandle post_draining_readable;
+  mojo::ScopedDataPipeProducerHandle post_draining_writable;
+  ASSERT_EQ(MOJO_RESULT_OK,
+            mojo::CreateDataPipe(&options, post_draining_writable,
+                                 post_draining_readable));
+
+  base::test::TestFuture<bool, uint32_t> post_draining_stream_creation_future;
+  transport_remote->CreateStream(
+      std::move(post_draining_readable),
+      /*writable=*/{}, /*priority=*/nullptr,
+      post_draining_stream_creation_future.GetCallback());
+  EXPECT_TRUE(post_draining_stream_creation_future.Get<0>());
+}
+
+TEST_F(WebTransportTest, PendingDrainingDispatchOnConnection) {
+  base::test::TestFuture<void> handshake_future;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      handshake_future.GetCallback());
+
+  CreateWebTransport(GetURL("/echo"), origin(), std::move(handshake_client));
+
+  mutable_network_context().GetWebTransportForTesting()->OnDraining();
+
+  ASSERT_TRUE(handshake_future.Wait());
+  ASSERT_TRUE(test_handshake_client.has_seen_connection_establishment());
+
+  TestClient client(test_handshake_client.PassClientReceiver());
+
+  client.FlushForTesting();
+  EXPECT_TRUE(client.has_seen_draining());
+  EXPECT_FALSE(client.has_seen_closed());
+  EXPECT_FALSE(client.has_seen_mojo_connection_error());
+}
+
 TEST_F(WebTransportTest, DeleteClientWithStreamsOpen) {
   base::RunLoop run_loop_for_handshake;
   mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
@@ -1030,6 +1238,91 @@ TEST_F(WebTransportTest, ExplicitConnectionClose) {
 
   // The torn_down_ flag should prevent double Close() when Dispose() is called.
   EXPECT_EQ(0u, network_context().NumOpenWebTransports());
+}
+
+TEST_F(WebTransportTest, AllowsBenignAdditionalHeader) {
+  mojo::FakeMessageDispatchContext dispatch_context;
+  mojo::test::BadMessageObserver bad_message_observer;
+
+  base::RunLoop run_loop_for_handshake;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      run_loop_for_handshake.QuitClosure());
+
+  std::vector<net::HttpRequestHeaders::HeaderKeyValuePair> headers;
+  headers.push_back({"x-custom", "value"});
+
+  CreateWebTransportWithHeaders(GetURL("/echo"), origin(), std::move(headers),
+                                std::move(handshake_client));
+
+  run_loop_for_handshake.Run();
+
+  EXPECT_FALSE(bad_message_observer.got_bad_message());
+  EXPECT_TRUE(test_handshake_client.has_seen_connection_establishment());
+  EXPECT_FALSE(test_handshake_client.has_seen_handshake_failure());
+  EXPECT_EQ(1u, network_context().NumOpenWebTransports());
+}
+
+// https://fetch.spec.whatwg.org/#forbidden-response-header-name — the
+// network service must strip Set-Cookie and Set-Cookie2 from the response
+// header list so they are never visible to the renderer, regardless of
+// what the server sent.
+
+TEST_F(WebTransportTest, StripsSetCookieResponseHeader) {
+  base::RunLoop run_loop_for_handshake;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      run_loop_for_handshake.QuitClosure());
+
+  CreateWebTransport(GetURL("/echo?set-header=set-cookie:probe=1"), origin(),
+                     std::move(handshake_client));
+  run_loop_for_handshake.Run();
+
+  ASSERT_TRUE(test_handshake_client.has_seen_connection_establishment());
+  ASSERT_TRUE(test_handshake_client.response_headers());
+  EXPECT_FALSE(
+      test_handshake_client.response_headers()->HasHeader("Set-Cookie"))
+      << "Set-Cookie must be stripped at the network service layer";
+}
+
+TEST_F(WebTransportTest, StripsSetCookie2ResponseHeader) {
+  base::RunLoop run_loop_for_handshake;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      run_loop_for_handshake.QuitClosure());
+
+  CreateWebTransport(GetURL("/echo?set-header=set-cookie2:probe=1"), origin(),
+                     std::move(handshake_client));
+  run_loop_for_handshake.Run();
+
+  ASSERT_TRUE(test_handshake_client.has_seen_connection_establishment());
+  ASSERT_TRUE(test_handshake_client.response_headers());
+  EXPECT_FALSE(
+      test_handshake_client.response_headers()->HasHeader("Set-Cookie2"))
+      << "Set-Cookie2 must be stripped at the network service layer";
+}
+
+TEST_F(WebTransportTest, AllowsBenignResponseHeader) {
+  base::RunLoop run_loop_for_handshake;
+  mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client;
+  TestHandshakeClient test_handshake_client(
+      handshake_client.InitWithNewPipeAndPassReceiver(),
+      run_loop_for_handshake.QuitClosure());
+
+  CreateWebTransport(GetURL("/echo?set-header=x-custom:value"), origin(),
+                     std::move(handshake_client));
+  run_loop_for_handshake.Run();
+
+  ASSERT_TRUE(test_handshake_client.has_seen_connection_establishment());
+  ASSERT_TRUE(test_handshake_client.response_headers());
+  std::optional<std::string> value =
+      test_handshake_client.response_headers()->GetNormalizedHeader("x-custom");
+  ASSERT_TRUE(value.has_value())
+      << "benign response headers must pass through the network service";
+  EXPECT_EQ(*value, "value");
 }
 
 class WebTransportWithCustomCertificateTest : public WebTransportTest {

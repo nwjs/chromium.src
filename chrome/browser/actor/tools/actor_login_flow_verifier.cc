@@ -37,36 +37,6 @@ VerifyIsActorLoginFlowEvent GetWeakMatchVerificationResult(
   return kPslMatchAllowed;
 }
 
-void OnOtpFrameOriginMatchEvaluated(
-    bool should_use_strong_matching,
-    base::OnceCallback<void(bool)> callback,
-    std::optional<affiliations::MatchType> match_type) {
-  if (!match_type.has_value()) {
-    RecordActorLoginFlowVerification(kNoMatch);
-    std::move(callback).Run(false);
-    return;
-  }
-
-  // Exact or affiliated matches are always allowed.
-  bool is_exact_match = *match_type == affiliations::MatchType::kExact;
-  bool is_affiliated_match =
-      static_cast<int>(*match_type) &
-      static_cast<int>(affiliations::MatchType::kAffiliated);
-  if (is_exact_match || is_affiliated_match) {
-    RecordActorLoginFlowVerification(is_exact_match ? kExactMatchAllowed
-                                                    : kAffiliatedMatchAllowed);
-    std::move(callback).Run(true);
-    return;
-  }
-
-  // PSL match is only allowed when `should_use_strong_matching` is false.
-  bool is_psl_match = static_cast<int>(*match_type) &
-                      static_cast<int>(affiliations::MatchType::kPSL);
-
-  RecordActorLoginFlowVerification(
-      GetWeakMatchVerificationResult(is_psl_match, should_use_strong_matching));
-  std::move(callback).Run(is_psl_match && !should_use_strong_matching);
-}
 }  // namespace
 
 ActorLoginFlowVerifier::ActorLoginFlowVerifier(
@@ -78,36 +48,56 @@ ActorLoginFlowVerifier::~ActorLoginFlowVerifier() = default;
 void ActorLoginFlowVerifier::VerifyIsActorLoginFlow(
     content::FrameTreeNodeId otp_frame_id,
     const url::Origin& otp_frame_origin,
-    const std::optional<autofill::ActorLoginContext>& context,
+    const url::Origin& main_frame_origin,
+    std::optional<url::Origin> context_origin,
+    bool should_use_strong_matching,
+    base::OnceCallback<std::optional<autofill::ActorLoginContext>()>
+        consume_context_callback,
     base::OnceCallback<void(bool)> callback) {
   RecordActorLoginFlowVerification(kStart);
-  if (!context.has_value()) {
+  if (!context_origin.has_value()) {
     RecordActorLoginFlowVerification(kNoActorLoginContext);
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), false));
     return;
   }
 
-  if (!context->navigations_per_frame.contains(otp_frame_id)) {
-    RecordActorLoginFlowVerification(kFrameNotInLoginContext);
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
+  // Verify that the login flow started on the same origin (or an affiliated
+  // one) as the current main frame origin. This prevents silent filling if the
+  // user navigated away from the original login flow to a different, unrelated
+  // website.
+  domain_relation_checker_.Check(
+      *context_origin, main_frame_origin,
+      base::BindOnce(&ActorLoginFlowVerifier::OnMainFrameOriginMatchEvaluated,
+                     weak_ptr_factory_.GetWeakPtr(), otp_frame_id,
+                     otp_frame_origin, *context_origin,
+                     should_use_strong_matching,
+                     std::move(consume_context_callback), std::move(callback)));
+}
+
+void ActorLoginFlowVerifier::OnMainFrameOriginMatchEvaluated(
+    content::FrameTreeNodeId otp_frame_id,
+    const url::Origin& otp_frame_origin,
+    const url::Origin& context_origin,
+    bool should_use_strong_matching,
+    base::OnceCallback<std::optional<autofill::ActorLoginContext>()>
+        consume_context_callback,
+    base::OnceCallback<void(bool)> callback,
+    std::optional<affiliations::MatchType> match_type) {
+  if (!match_type.has_value()) {
+    RecordActorLoginFlowVerification(kMainFrameOriginMismatch);
+    std::move(callback).Run(false);
     return;
   }
 
-  // Actor Login filled credentials in all of these frames but the actual
-  // login frame is unknown. While finding an OTP field in one
-  // of those frames is a signal that the frame was the login frame, it's not
-  // guaranteed. Therefore, require all frames to have <2 navigations to
-  // avoid accidentally skipping user confirmation for OTPs not meant for
-  // login flows.
-  bool navigations_ok =
-      std::ranges::all_of(context->navigations_per_frame,
-                          [](const auto& entry) { return entry.second < 2; });
-  if (!navigations_ok) {
-    RecordActorLoginFlowVerification(kAllFramesHaveTooManyNavigations);
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(std::move(callback), false));
+  // Only exact or affiliated matches are allowed for the main frame.
+  bool is_exact_match = *match_type == affiliations::MatchType::kExact;
+  bool is_affiliated_match =
+      static_cast<int>(*match_type) &
+      static_cast<int>(affiliations::MatchType::kAffiliated);
+  if (!is_exact_match && !is_affiliated_match) {
+    RecordActorLoginFlowVerification(kMainFrameOriginMismatch);
+    std::move(callback).Run(false);
     return;
   }
 
@@ -123,9 +113,84 @@ void ActorLoginFlowVerifier::VerifyIsActorLoginFlow(
   // frame where actor login flow started and rely on the fact that affiliations
   // are transitive.
   domain_relation_checker_.Check(
-      context->origin, otp_frame_origin,
-      base::BindOnce(&OnOtpFrameOriginMatchEvaluated,
-                     context->should_use_strong_matching, std::move(callback)));
+      context_origin, otp_frame_origin,
+      base::BindOnce(&ActorLoginFlowVerifier::OnOtpFrameOriginMatchEvaluated,
+                     weak_ptr_factory_.GetWeakPtr(), otp_frame_id,
+                     should_use_strong_matching,
+                     std::move(consume_context_callback), std::move(callback)));
+}
+
+void ActorLoginFlowVerifier::OnOtpFrameOriginMatchEvaluated(
+    content::FrameTreeNodeId otp_frame_id,
+    bool should_use_strong_matching,
+    base::OnceCallback<std::optional<autofill::ActorLoginContext>()>
+        consume_context_callback,
+    base::OnceCallback<void(bool)> callback,
+    std::optional<affiliations::MatchType> match_type) {
+  if (!match_type.has_value()) {
+    RecordActorLoginFlowVerification(kNoMatch);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  // Exact or affiliated matches are always allowed.
+  bool is_exact_match = *match_type == affiliations::MatchType::kExact;
+  bool is_affiliated_match =
+      static_cast<int>(*match_type) &
+      static_cast<int>(affiliations::MatchType::kAffiliated);
+
+  bool match_allowed = false;
+  if (is_exact_match || is_affiliated_match) {
+    RecordActorLoginFlowVerification(is_exact_match ? kExactMatchAllowed
+                                                    : kAffiliatedMatchAllowed);
+    match_allowed = true;
+  } else {
+    // PSL match is only allowed when `should_use_strong_matching` is false.
+    bool is_psl_match = static_cast<int>(*match_type) &
+                        static_cast<int>(affiliations::MatchType::kPSL);
+
+    RecordActorLoginFlowVerification(GetWeakMatchVerificationResult(
+        is_psl_match, should_use_strong_matching));
+    match_allowed = is_psl_match && !should_use_strong_matching;
+  }
+
+  if (!match_allowed) {
+    std::move(callback).Run(false);
+    return;
+  }
+
+  // This consumes the context, which means that observing navigations in
+  // the login frames also ends now.
+  std::optional<autofill::ActorLoginContext> context =
+      std::move(consume_context_callback).Run();
+  if (!context.has_value()) {
+    RecordActorLoginFlowVerification(kNoActorLoginContext);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  if (!context->navigations_per_frame.contains(otp_frame_id)) {
+    RecordActorLoginFlowVerification(kFrameNotInLoginContext);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  // Actor Login filled credentials in all of these frames but the actual
+  // login frame is unknown. While finding an OTP field in one
+  // of those frames is a signal that the frame was the login frame, it's not
+  // guaranteed. Therefore, require all frames to have <2 navigations to
+  // avoid accidentally skipping user confirmation for OTPs not meant for
+  // login flows.
+  bool navigations_ok =
+      std::ranges::all_of(context->navigations_per_frame,
+                          [](const auto& entry) { return entry.second < 2; });
+  if (!navigations_ok) {
+    RecordActorLoginFlowVerification(kAllFramesHaveTooManyNavigations);
+    std::move(callback).Run(false);
+    return;
+  }
+
+  std::move(callback).Run(true);
 }
 
 }  // namespace actor

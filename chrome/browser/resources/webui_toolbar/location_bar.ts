@@ -14,19 +14,38 @@ import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import type {LocationBarState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
+import type {ToolbarAppElement} from './app.js';
 import {BrowserProxyImpl} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
 import {getCss} from './location_bar.css.js';
 import {getHtml} from './location_bar.html.js';
+import type {PageActionIconsElement} from './page_action_icons.js';
 import type {ReadonlyOmniboxElement} from './readonly_omnibox.js';
+import type {ResponsiveControl} from './responsive_control.js';
 
 export interface LocationBarElement {
   $: {
     omnibox: ReadonlyOmniboxElement,
+    pageActions: PageActionIconsElement,
   };
 }
 
-export class LocationBarElement extends CrLitElement {
+export class LocationBarElement extends CrLitElement implements
+    ResponsiveControl {
+  // The smallest allowed width of the location bar.
+  //
+  // TODO(crbug.com/474060468): This is a placeholder value. We need to do a
+  // proper calculation.
+  static readonly LOCATION_BAR_MIN_WIDTH = 330;
+  // The preferred width of the location bar. It will, based on priority order,
+  // try to assume this width when ResponsiveControls are all being sized. At
+  // the end of that process, expandUpToPreferredWidth() will be invoked, and it
+  // will claim any extra available width.
+  //
+  // TODO(crbug.com/474060468): This is a placeholder value. We need to do a
+  // proper calculation.
+  static readonly LOCATION_BAR_PREFERRED_WIDTH = 400;
+
   static get is() {
     return 'location-bar';
   }
@@ -42,6 +61,7 @@ export class LocationBarElement extends CrLitElement {
   static override get properties() {
     return {
       locationBarState: {type: Object},
+      isPopupOpen: {type: Boolean},
     };
   }
 
@@ -54,6 +74,7 @@ export class LocationBarElement extends CrLitElement {
       placeholder: null,
       inlineAutocompletion: '',
       additionalText: '',
+      a11yFriendlySuggestionText: '',
       selection: null,
       textIsUrl: false,
       userInputInProgress: false,
@@ -61,6 +82,7 @@ export class LocationBarElement extends CrLitElement {
     locationBarFlags: {
       userInputInProgress: false,
       popupOpen: false,
+      forceAimButtonFocusRing: false,
     },
     selectedKeyword: null,
     lhsChipsState: {
@@ -68,6 +90,7 @@ export class LocationBarElement extends CrLitElement {
         icon: {handleId: 0n},
         securityLevel: 0,
         text: '',
+        tooltip: '',
         accessibilityState: {
           label: '',
           description: '',
@@ -82,6 +105,8 @@ export class LocationBarElement extends CrLitElement {
     contentSettingImageStates: [],
     pageActionStates: [],
   };
+
+  accessor isPopupOpen: boolean = false;
 
   private trackedElementManager_: TrackedElementManager;
   private browserProxy_: BrowserProxy = BrowserProxyImpl.getInstance();
@@ -109,6 +134,13 @@ export class LocationBarElement extends CrLitElement {
     this.trackedElementManager_.stopTracking(this.$.omnibox);
   }
 
+  override willUpdate(changedProperties: PropertyValues<this>): void {
+    super.willUpdate(changedProperties);
+    if (changedProperties.has('locationBarState')) {
+      this.isPopupOpen = this.locationBarState.locationBarFlags.popupOpen;
+    }
+  }
+
   override updated(changedProperties: PropertyValues<this>): void {
     super.updated(changedProperties);
     if (changedProperties.has('locationBarState')) {
@@ -117,6 +149,15 @@ export class LocationBarElement extends CrLitElement {
       this.classList.toggle(
           'input-in-progress',
           this.locationBarState.locationBarFlags.userInputInProgress);
+      this.classList.toggle(
+          'no-focus-ring',
+          this.locationBarState.locationBarFlags.popupOpen ||
+              this.locationBarState.locationBarFlags.forceAimButtonFocusRing);
+      const aimButton = this.$.pageActions.aiModePageAction();
+      if (aimButton) {
+        aimButton.forceFocusRing =
+            this.locationBarState.locationBarFlags.forceAimButtonFocusRing;
+      }
     }
   }
 
@@ -142,6 +183,75 @@ export class LocationBarElement extends CrLitElement {
 
   private onBlur_() {
     this.updateFocusWithin_();
+  }
+
+  /**
+   * Calculates the maximum width of the location bar's content area, taking
+   * into account the current size of all other controls on the toolbar and the
+   * width of the window. Note that this is available width in a CSS sense, so,
+   * e.g., exterior margins are not included in the return value. Requires the
+   * location bar be displayed to accurately calculate this value.
+   *
+   * To achieve this without replicating CSS layout calculations (margins,
+   * padding, gaps, child visibility, walking through children), it adds the
+   * `ToolbarAppElement.getAvailableWidth()` to current width of the location
+   * bar.
+   *
+   * Always returns a value of at least LOCATION_BAR_MIN_WIDTH, even if there's
+   * not that much width available.
+   */
+  private getMaxAvailableWidth(): number {
+    const shadowRoot = this.getRootNode() as ShadowRoot;
+    if (!shadowRoot || !shadowRoot.host) {
+      return 0;
+    }
+    const toolbarApp = shadowRoot.host as ToolbarAppElement;
+    const availableWidth = toolbarApp.getAvailableWidth() + this.clientWidth;
+    // Always consider at least the minimum required width available.
+    return Math.max(availableWidth, LocationBarElement.LOCATION_BAR_MIN_WIDTH);
+  }
+
+  // ResponsiveControl implementation
+  shouldBeShown(): boolean {
+    return true;
+  }
+
+  setToMinWidth() {
+    this.style.width = `${LocationBarElement.LOCATION_BAR_MIN_WIDTH}px`;
+  }
+
+  setToPreferredWidth() {
+    this.style.width = `${LocationBarElement.LOCATION_BAR_PREFERRED_WIDTH}px`;
+  }
+
+  // For the location bar, the "preferred width" is maximum width the location
+  // bar will assume before space is allocated to lower priority
+  // ResponsiveControls. At the end of layout, any remaining available space is
+  // allocated to the location bar by calling setToMaxAvailableWidth(),
+  // potentially increasing its size beyond its preferred width.
+  expandUpToPreferredWidth() {
+    const width = Math.min(
+        this.getMaxAvailableWidth(),
+        LocationBarElement.LOCATION_BAR_PREFERRED_WIDTH);
+    this.style.width = `${width}px`;
+  }
+
+  controlsToAddToOverflowMenu(): string[] {
+    return [];
+  }
+
+  consumeNeedsLayout(): boolean {
+    // The minimum and preferred sizes of this control do not change.
+    return false;
+  }
+
+  // Sets the width to include all remaining unclaimed space on the toolbar.
+  // Will not set to less than minimum width.
+  //
+  // TODO(crbug.com/491791965): Should we shrink the location bar to even less
+  // than the minimum if there's less width than that available?
+  setToMaxAvailableWidth() {
+    this.style.width = `${this.getMaxAvailableWidth()}px`;
   }
 
   private updateFocusWithin_() {

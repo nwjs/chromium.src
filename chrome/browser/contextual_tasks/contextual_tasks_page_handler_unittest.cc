@@ -15,16 +15,8 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/unguessable_token.h"
 #include "chrome/browser/browser_process.h"
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/actions/chrome_action_id.h"  // nogncheck
-#include "chrome/browser/ui/actions/chrome_actions.h"  // nogncheck
-#include "chrome/browser/ui/browser_actions.h"  // nogncheck
-#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"  // nogncheck
-#include "ui/actions/actions.h"  // nogncheck
-#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
-#include "chrome/test/user_education/mock_browser_user_education_interface.h"
-#endif
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
@@ -39,7 +31,6 @@
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/pref_names.h"
-#include "components/contextual_tasks/public/prefs.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -66,6 +57,16 @@
 #include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/gfx/range/range.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/actions/chrome_action_id.h"  // nogncheck
+#include "chrome/browser/ui/actions/chrome_actions.h"    // nogncheck
+#include "chrome/browser/ui/browser_actions.h"           // nogncheck
+#include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"  // nogncheck
+#include "chrome/test/user_education/mock_browser_user_education_interface.h"
+#include "ui/actions/actions.h"  // nogncheck
+#endif
 
 namespace contextual_tasks {
 
@@ -947,6 +948,17 @@ TEST_F(ContextualTasksPageHandlerTest, LensSearchTooltipDismissed) {
             1);
 }
 
+TEST_F(ContextualTasksPageHandlerTest, AskGTooltipDismissed) {
+  PrefService* prefs = profile()->GetPrefs();
+  EXPECT_EQ(prefs->GetInteger(
+                contextual_tasks::kContextualTasksAskGTooltipDismissedCount),
+            0);
+  page_handler_->AskGTooltipDismissed();
+  EXPECT_EQ(prefs->GetInteger(
+                contextual_tasks::kContextualTasksAskGTooltipDismissedCount),
+            1);
+}
+
 
 TEST_F(ContextualTasksPageHandlerTest, GetCommonSearchParams) {
   g_browser_process->GetFeatures()->application_locale_storage()->Set("en-US");
@@ -1043,6 +1055,38 @@ TEST_F(ContextualTasksPageHandlerTest,
       .Times(1);
 
   page_handler_->OnWebviewMessage(serialized);
+}
+
+TEST_F(
+    ContextualTasksPageHandlerTest,
+    OnWebviewMessage_UpdateThreadContextLibrary_EmptyMessagePreservesSubmittedContext) {
+  base::Uuid task_id = base::Uuid::GenerateRandomV4();
+  contextual_tasks_ui_->SetTaskId(task_id);
+
+  NiceMock<contextual_search::MockContextualSearchSessionHandle>
+      mock_session_handle;
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  mock_session_handle.set_submitted_context_tokens({token});
+
+  ON_CALL(*contextual_tasks_ui_, GetOrCreateContextualSessionHandle())
+      .WillByDefault(Return(&mock_session_handle));
+
+  // Initial empty update received (contexts_size == 0).
+  lens::AimToClientMessage empty_message;
+  empty_message.mutable_update_thread_context_library();
+
+  size_t empty_size = empty_message.ByteSizeLong();
+  std::vector<uint8_t> empty_serialized(empty_size);
+  empty_message.SerializeToArray(empty_serialized.data(), empty_size);
+
+  EXPECT_CALL(*mock_contextual_tasks_service_,
+              SetUrlResourcesFromServer(task_id, _))
+      .Times(0);
+
+  page_handler_->OnWebviewMessage(empty_serialized);
+
+  // Submitted tokens should NOT be cleared on an empty message.
+  EXPECT_EQ(mock_session_handle.GetSubmittedContextTokens().size(), 1u);
 }
 
 TEST_F(ContextualTasksPageHandlerTest, PostAimMessage) {

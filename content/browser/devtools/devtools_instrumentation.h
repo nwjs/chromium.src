@@ -124,8 +124,6 @@ void ApplyNetworkRequestOverrides(
     FrameTreeNode* frame_tree_node,
     blink::mojom::BeginNavigationParams* begin_params,
     bool* report_raw_headers,
-    std::optional<std::vector<net::SourceStreamType>>*
-        devtools_accepted_stream_types,
     bool* devtools_user_agent_overridden,
     bool* devtools_accept_language_overridden,
     GURL* referrer_override);
@@ -212,6 +210,31 @@ void OnNavigationResponseReceived(
 void OnNavigationRequestFailed(
     const NavigationRequest& nav_request,
     const network::URLLoaderCompletionStatus& status);
+
+// The ways in which the Connection-Allowlist embedded-enforcement handshake
+// between an embedder and a framed document can go wrong. These mirror the
+// enforcement-time members of `Audits.ConnectionAllowlistError`; the
+// parse-time members are reported by the network service instead (see
+// `network::mojom::ConnectionAllowlistIssue`).
+enum class ConnectionAllowlistEmbeddedEnforcementIssue {
+  // The frame's `connectionallowlist` attribute was discarded because it was
+  // less strict than the allowlist an ancestor already requires.
+  kIFrameAttributeLoosensEmbeddingRequirement,
+  // The framed document's `Allow-Connection-Allowlist-From` response header
+  // could not be parsed.
+  kInvalidAllowConnectionAllowlistFrom,
+  // The framed document neither accepted the requirement via
+  // `Allow-Connection-Allowlist-From` nor delivered a `Connection-Allowlist`
+  // that is at least as strict, so it was not displayed.
+  kEmbeddingRequirementNotSatisfied,
+};
+
+// Reports a DevTools issue against the document being navigated to by
+// `nav_request` describing why its embedder's Connection-Allowlist requirement
+// could not be satisfied.
+void OnConnectionAllowlistEmbeddedEnforcementIssue(
+    const NavigationRequest& nav_request,
+    ConnectionAllowlistEmbeddedEnforcementIssue issue);
 
 // Entry function for creating, storing, and surfacing a
 // NavigationEntryMarkedSkippable generic issue in the DevTools panel

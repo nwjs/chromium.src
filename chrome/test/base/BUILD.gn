@@ -9,6 +9,174 @@ import("//printing/buildflags/buildflags.gni")
 import("//services/device/public/cpp/geolocation/buildflags.gni")
 import("//ui/views/features.gni")
 
+source_set("test_switches") {
+  testonly = true
+  sources = [
+    "test_switches.cc",
+    "test_switches.h",
+  ]
+}
+
+if (toolkit_views) {
+  source_set("test_theme_provider") {
+    testonly = true
+    sources = [
+      "test_theme_provider.cc",
+      "test_theme_provider.h",
+    ]
+    public_deps = [ "//ui/base" ]
+    deps = [ "//ui/gfx" ]
+  }
+}
+
+source_set("tracing") {
+  testonly = true
+  sources = [
+    "tracing.cc",
+    "tracing.h",
+  ]
+  public_deps = [ "//base" ]
+  deps = [
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//services/tracing/public/mojom",
+  ]
+}
+
+source_set("web_feature_histogram_tester") {
+  testonly = true
+  sources = [
+    "web_feature_histogram_tester.cc",
+    "web_feature_histogram_tester.h",
+  ]
+  public_deps = [
+    "//base",
+    "//base/test:test_support",
+    "//third_party/blink/public/mojom:web_feature_mojo_bindings",
+  ]
+  deps = [
+    "//components/metrics:content",
+    "//content/test:test_support",
+  ]
+}
+
+source_set("web_ui_test_data_source") {
+  testonly = true
+  sources = [
+    "web_ui_test_data_source.cc",
+    "web_ui_test_data_source.h",
+  ]
+  public_deps = [
+    "//base",
+    "//content/public/browser",
+  ]
+  deps = [
+    "//chrome/common",
+    "//chrome/test/data/webui:resources",
+    "//content/public/common",
+    "//services/network/public/mojom",
+    "//ui/webui",
+    "//ui/webui/resources",
+  ]
+  if (is_chromeos) {
+    deps += [ "//ash/webui/common:trusted_types_util" ]
+  }
+}
+
+if (is_chrome_branded && (is_mac || is_win || is_linux)) {
+  source_set("scoped_channel_override") {
+    testonly = true
+    sources = [ "scoped_channel_override.h" ]
+    public_deps = [ "//build:branding_buildflags" ]
+    if (is_mac) {
+      sources += [ "scoped_channel_override_mac.cc" ]
+      deps = [ "//chrome/common" ]
+    } else if (is_win) {
+      sources += [ "scoped_channel_override_win.cc" ]
+      public_deps += [ "//chrome/install_static/test:test_support" ]
+      deps = [ "//chrome/install_static:install_static_util" ]
+    } else {
+      sources += [ "scoped_channel_override_posix.cc" ]
+      public_deps += [ "//base/test:test_support" ]
+      deps = [ "//base" ]
+    }
+  }
+}
+
+if (!is_android) {
+  source_set("platform_browser_test") {
+    testonly = true
+    sources = [ "platform_browser_test.h" ]
+    public_deps = [ "//chrome/test/base:in_process_browser_test" ]
+  }
+}
+
+# Thin header-only target that exposes chrome_test_utils.h for gn check. The
+# implementation (chrome_test_utils.cc) still lives in
+# //chrome/test:test_support until the TestingBrowserProcessDeathTestMixin
+# dependency cycle is resolved.
+#
+# TODO(crbug.com/353332589): Add chrome_test_utils.cc as a source and remove
+# from //chrome/test:test_support once testing_browser_process is split into a
+# thin header + impl target (Pattern A), breaking the dep cycle through
+# //chrome/browser/extensions:test_support.
+source_set("chrome_test_utils") {
+  testonly = true
+  sources = [ "chrome_test_utils.h" ]
+  public_deps = [
+    "//components/tabs:public",
+    "//content/public/browser",
+  ]
+  if (is_android) {
+    # TODO(crbug.com/353332589): Remove once android_browser_test.cc no longer
+    # includes chrome_test_utils.h, or the android_browser_test functions it
+    # calls are moved to a dep-graph-safe separate target.
+    allow_circular_includes_from = [ "//chrome/test:test_support_ui_android" ]
+    public_deps += [ "//chrome/test:test_support_ui_android" ]
+  } else {
+    public_deps += [ "//chrome/test/base:platform_browser_test" ]
+  }
+}
+
+source_set("chrome_render_view_host_test_harness") {
+  testonly = true
+  sources = [
+    "chrome_render_view_host_test_harness.cc",
+    "chrome_render_view_host_test_harness.h",
+  ]
+  public_deps = [
+    "//chrome/test/base:testing_profile",
+    "//content/test:test_support",
+  ]
+  deps = [
+    "//base",
+    "//chrome/browser:browser_process",
+    "//chrome/browser/signin",
+  ]
+  if (is_chromeos) {
+    deps += [ "//ash" ]
+  }
+}
+
+source_set("scoped_metrics_service_for_synthetic_trials") {
+  testonly = true
+  sources = [
+    "scoped_metrics_service_for_synthetic_trials.cc",
+    "scoped_metrics_service_for_synthetic_trials.h",
+  ]
+  public_deps = [
+    "//base",
+    "//chrome/test/base:testing_browser_process",
+    "//chrome/test/base:testing_profile",
+    "//components/metrics",
+    "//components/metrics:test_support",
+    "//components/prefs",
+    "//components/variations",
+    "//components/variations:test_support",
+    "//content/test:test_support",
+  ]
+}
+
 source_set("in_process_browser_test_mixin") {
   testonly = true
   sources = [
@@ -431,6 +599,328 @@ if (!is_android) {
     ]
     if (toolkit_views) {
       public_deps += [ "//ui/views:test_support" ]
+    }
+  }
+}
+
+if (!is_android) {
+  source_set("devtools_coverage") {
+    testonly = true
+    sources = [
+      "devtools_agent_coverage_observer.cc",
+      "devtools_agent_coverage_observer.h",
+      "devtools_listener.cc",
+      "devtools_listener.h",
+    ]
+    public_deps = [
+      "//base",
+      "//content/public/browser",
+    ]
+    deps = [
+      "//content/test:test_support",
+      "//crypto",
+      "//url",
+    ]
+  }
+
+  source_set("test_browser_window") {
+    testonly = true
+    sources = [
+      "dialog_test_browser_window.cc",
+      "dialog_test_browser_window.h",
+      "test_browser_window.cc",
+      "test_browser_window.h",
+    ]
+    public_deps = [
+      "//base",
+      "//chrome/browser/ui",
+      "//chrome/browser/ui/autofill:test_support",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/location_bar",
+      "//chrome/browser/ui/translate",
+      "//chrome/browser/ui/webui/tab_search:mojo_bindings",
+      "//components/user_education/common",
+      "//components/web_modal",
+      "//content/public/browser",
+    ]
+    deps = [
+      "//chrome/browser/apps/link_capturing",
+      "//chrome/browser/ui/browser_window:create_browser_window",
+      "//chrome/browser/ui/find_bar",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views:bubble_anchor_util_views",
+      "//chrome/common:buildflags",
+      "//components/sharing_message",
+      "//ui/color",
+      "//ui/views",
+    ]
+  }
+}
+
+if (is_mac) {
+  source_set("launchservices_utils_mac") {
+    testonly = true
+    sources = [
+      "launchservices_utils_mac.h",
+      "launchservices_utils_mac.mm",
+    ]
+    public_deps = [ "//base" ]
+    deps = [ "//build:branding_buildflags" ]
+  }
+
+  source_set("scoped_bundle_swizzler_mac") {
+    testonly = true
+    sources = [
+      "scoped_bundle_swizzler_mac.h",
+      "scoped_bundle_swizzler_mac.mm",
+    ]
+    deps = [ "//base" ]
+  }
+}
+
+if (is_win) {
+  source_set("process_inspector_win") {
+    testonly = true
+    sources = [
+      "process_inspector_win.cc",
+      "process_inspector_win.h",
+    ]
+    deps = [ "//base" ]
+  }
+
+  source_set("process_lineage_win") {
+    testonly = true
+    sources = [
+      "process_lineage_win.cc",
+      "process_lineage_win.h",
+    ]
+    deps = [
+      "//base",
+      "//chrome/test/base:process_inspector_win",
+    ]
+  }
+}
+
+if (is_android) {
+  source_set("android_ui_test_utils") {
+    testonly = true
+    sources = [
+      "android/android_ui_test_utils.cc",
+      "android/android_ui_test_utils.h",
+    ]
+    public_deps = [ "//url" ]
+    deps = [
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/ui/android/tab_model",
+      "//content/public/browser",
+      "//content/test:test_support",
+    ]
+  }
+}
+
+if (!is_android) {
+  source_set("save_desktop_snapshot") {
+    testonly = true
+    sources = [
+      "save_desktop_snapshot.cc",
+      "save_desktop_snapshot.h",
+    ]
+    public_deps = [ "//base" ]
+    deps = [
+      "//base/test:test_support",
+      "//content/public/browser",
+      "//skia",
+      "//ui/gfx",
+      "//ui/gfx/codec",
+    ]
+  }
+
+  source_set("test_chrome_web_ui_controller_factory") {
+    testonly = true
+    sources = [
+      "test_chrome_web_ui_controller_factory.cc",
+      "test_chrome_web_ui_controller_factory.h",
+    ]
+    public_deps = [
+      "//base",
+      "//chrome/browser/ui/webui:chrome_web_ui_controller_factory",
+      "//content/public/browser",
+    ]
+    deps = [
+      "//chrome/browser/profiles:profile",
+      "//chrome/common",
+      "//chrome/test/base:web_ui_test_data_source",
+    ]
+  }
+
+  if (is_win) {
+    source_set("always_on_top_window_killer_win") {
+      testonly = true
+      sources = [
+        "always_on_top_window_killer_win.cc",
+        "always_on_top_window_killer_win.h",
+      ]
+      deps = [
+        "//base",
+        "//base/test:test_support",
+        "//chrome/test/base:process_lineage_win",
+        "//chrome/test/base:save_desktop_snapshot",
+        "//ui/display",
+      ]
+    }
+
+    source_set("window_contents_as_string_win") {
+      testonly = true
+      sources = [
+        "window_contents_as_string_win.cc",
+        "window_contents_as_string_win.h",
+      ]
+      deps = [ "//base" ]
+    }
+  }
+}
+
+if (is_chromeos) {
+  source_set("js_test_api") {
+    testonly = true
+    sources = [
+      "ash/js_test_api.cc",
+      "ash/js_test_api.h",
+    ]
+    public_deps = [ "//base" ]
+    deps = [ "//chrome/common" ]
+  }
+
+  source_set("browser_process_platform_part_test_api_chromeos") {
+    testonly = true
+    sources = [
+      "browser_process_platform_part_test_api_chromeos.cc",
+      "browser_process_platform_part_test_api_chromeos.h",
+    ]
+    public_deps = [
+      "//base",
+      "//components/component_updater/ash",
+    ]
+    deps = [ "//chrome/browser:browser_process_platform_part" ]
+  }
+
+  source_set("aura_window_title_observer") {
+    testonly = true
+    sources = [
+      "chromeos/crosier/aura_window_title_observer.cc",
+      "chromeos/crosier/aura_window_title_observer.h",
+    ]
+    public_deps = [
+      "//base",
+      "//ui/aura",
+      "//ui/base/interaction:test_support",
+    ]
+    deps = [ "//ui/aura:test_support" ]
+  }
+
+  source_set("web_ui_test_handler") {
+    testonly = true
+    sources = [
+      "ash/web_ui_test_handler.cc",
+      "ash/web_ui_test_handler.h",
+    ]
+    public_deps = [ "//content/public/browser" ]
+    deps = [
+      "//base",
+      "//chrome/common:mojo_bindings",
+      "//content/public/common",
+      "//content/test:test_support",
+      "//mojo/public/cpp/bindings",
+      "//testing/gtest",
+      "//third_party/blink/public/common:headers",
+    ]
+  }
+}
+
+source_set("web_ui_mocha_browser_test") {
+  testonly = true
+  sources = [
+    "web_ui_mocha_browser_test.cc",
+    "web_ui_mocha_browser_test.h",
+  ]
+  public_deps = [
+    "//base",
+    "//testing/gtest",
+  ]
+  deps = [
+    "//chrome/browser/profiles:profile",
+    "//chrome/common",
+    "//chrome/test/base:chrome_test_utils",
+    "//chrome/test/base:test_switches",
+    "//chrome/test/base:web_ui_test_data_source",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//ui/base",
+    "//url",
+  ]
+  if (is_android) {
+    public_deps += [
+      "//base/test:test_support",
+      "//chrome/test:test_support_ui_android",
+      "//content/public/common",
+    ]
+    deps += [ "//chrome/test/base:android_ui_test_utils" ]
+  } else {
+    public_deps += [
+      "//chrome/test/base:devtools_coverage",
+      "//chrome/test/base:platform_browser_test",
+    ]
+    deps += [
+      "//base/test:test_support",
+      "//chrome/browser/ui",
+      "//chrome/test/base:ui_test_utils",
+      "//content/public/common",
+    ]
+  }
+}
+
+if (use_aura) {
+  source_set("test_browser_window_aura") {
+    testonly = true
+    sources = [
+      "test_browser_window_aura.cc",
+      "test_browser_window_aura.h",
+    ]
+    public_deps = [
+      "//chrome/test/base:test_browser_window",
+      "//ui/aura:test_support",
+    ]
+    deps = [
+      "//base",
+      "//chrome/browser/ui/browser_window:create_browser_window",
+      "//ui/views",
+      "//ui/wm",
+      "//ui/wm/public",
+    ]
+  }
+
+  source_set("drag_and_drop_test_utils") {
+    testonly = true
+    sources = [
+      "drag_and_drop_test_utils.cc",
+      "drag_and_drop_test_utils.h",
+    ]
+    public_deps = [
+      "//base",
+      "//ui/aura",
+      "//ui/base/dragdrop/mojom",
+      "//ui/gfx/geometry",
+    ]
+    deps = [
+      "//content/public/browser",
+      "//content/test:test_support",
+      "//testing/gtest",
+      "//ui/base/dragdrop:types",
+      "//url",
+    ]
+    if (is_win) {
+      deps += [ "//ui/base" ]
     }
   }
 }

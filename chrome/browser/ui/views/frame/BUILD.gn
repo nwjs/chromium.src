@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/ui.gni")
+
 assert(!is_android)
 
 source_set("shadow") {
@@ -17,6 +19,72 @@ source_set("shadow") {
     "//ui/gfx:color_utils",
     "//ui/views",
   ]
+}
+
+# immersive_mode_tester is only built on ChromeOS, matching the platforms
+# where its immersive-fullscreen consumers compile it.
+if (is_chromeos) {
+  source_set("immersive_mode_tester") {
+    testonly = true
+
+    sources = [
+      "immersive_mode_tester.cc",
+      "immersive_mode_tester.h",
+    ]
+
+    public_deps = [
+      "//base",
+      "//base/test:test_support",
+      "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/immersive:immersive_mode_controller",
+      "//testing/gtest",
+      "//ui/base",
+    ]
+
+    deps = [
+      "//chrome/browser/ui",
+      "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views",
+    ]
+  }
+}
+
+if (toolkit_views) {
+  source_set("test_with_browser_view") {
+    testonly = true
+
+    sources = [
+      "test_with_browser_view.cc",
+      "test_with_browser_view.h",
+    ]
+
+    public_deps = [
+      "//chrome/browser/media/router:media_router_feature",
+      "//chrome/test:test_support",
+    ]
+
+    deps = [
+      "//base",
+      "//chrome/browser/autocomplete",
+      "//chrome/browser/extensions",
+      "//chrome/browser/search_engines",
+      "//chrome/browser/signin",
+      "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views",
+      "//components/omnibox/browser",
+      "//components/omnibox/browser:test_support",
+      "//components/signin/public/base:test_support",
+      "//extensions/browser",
+    ]
+
+    if (is_chromeos) {
+      deps += [
+        "//chrome/browser/ash/input_method",
+        "//ui/base/ime/ash",
+      ]
+    }
+  }
 }
 
 static_library("test_support") {
@@ -74,3 +142,86 @@ source_set("top_controls_slide_controller") {
   sources = [ "top_controls_slide_controller.h" ]
 }
 
+source_set("glass_frame_service") {
+  public = [ "glass_frame_service.h" ]
+  sources = [ "glass_frame_service.cc" ]
+  deps = [
+    "//base",
+    "//chrome/browser:browser_process",
+    "//chrome/browser:global_features",
+    "//chrome/browser/performance_manager/public/user_tuning",
+    "//chrome/browser/themes",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/exclusive_access",
+    "//chrome/common:constants",
+    "//components/prefs",
+    "//ui/base/unowned_user_data",
+  ]
+}
+
+source_set("caption_button_placeholder_container") {
+  public = [ "caption_button_placeholder_container.h" ]
+  sources = [ "caption_button_placeholder_container.cc" ]
+  public_deps = [
+    "//ui/base/metadata",
+    "//ui/views",
+  ]
+}
+
+source_set("contents_container_outline") {
+  public = [ "contents_container_outline.h" ]
+  sources = [ "contents_container_outline.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/ui/color:color_headers",
+    "//ui/views",
+  ]
+  deps = [
+    "//base:i18n",
+    "//skia",
+    "//ui/base/metadata",
+    "//ui/color:color_headers",
+    "//ui/compositor",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+}
+
+source_set("contents_separator") {
+  public = [ "contents_separator.h" ]
+  sources = [ "contents_separator.cc" ]
+  public_deps = [ "//ui/views" ]
+  deps = [
+    "//base",
+    "//chrome/browser/ui/color:color_headers",
+    "//ui/base/metadata",
+  ]
+}
+
+source_set("scrim_view") {
+  public = [ "scrim_view.h" ]
+  sources = [ "scrim_view.cc" ]
+  public_deps = [
+    "//ui/color:color_headers",
+    "//ui/views",
+  ]
+  deps = [
+    "//ui/base/metadata",
+    "//ui/compositor",
+    "//ui/gfx/geometry",
+  ]
+}
+
+source_set("windows_icon_painter") {
+  public = [ "windows_icon_painter.h" ]
+  sources = [ "windows_icon_painter.cc" ]
+  public_deps = [
+    "//base",
+    "//ui/gfx",
+  ]
+  deps = [
+    "//chrome/browser/ui/color:color_headers",
+    "//skia",
+    "//ui/gfx/geometry",
+  ]
+}

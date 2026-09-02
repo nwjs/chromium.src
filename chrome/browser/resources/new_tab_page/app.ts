@@ -2,15 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './action_chips/action_chips.js';
-import './iframe.js';
 import './logo.js';
 import './ntp_composebox.js';
 import './ntp_searchbox.js';
 import '/strings.m.js';
 import 'chrome://new-tab-page/shared/customize_buttons/customize_buttons.js';
-import 'chrome://resources/cr_elements/cr_button/cr_button.js';
-import 'chrome://resources/cr_elements/cr_toast/cr_toast.js';
 import 'chrome://resources/cr_components/composebox/threads_rail.js';
 import 'chrome://resources/cr_components/composebox/composebox_voice_search.js';
 import 'chrome://resources/cr_components/search/animated_glow.js';
@@ -49,6 +45,8 @@ import {SidePanelOpenTrigger} from './customize_buttons.mojom-webui.js';
 import {CustomizeButtonsProxy} from './customize_buttons_proxy.js';
 import {CustomizeChromeSection} from './customize_chrome.mojom-webui.js';
 import {CustomizeDialogPage} from './customize_dialog_types.js';
+import type {FuseboxAction} from './fusebox_action.mojom-webui.js';
+import {SearchboxOverride} from './fusebox_action.mojom-webui.js';
 import type {IframeElement} from './iframe.js';
 import type {LogoElement} from './logo.js';
 import {recordBoolean, recordDuration, recordEnumeration, recordLinearValue, recordLoadDuration, recordSparseValueWithPersistentHash} from './metrics_utils.js';
@@ -975,36 +973,67 @@ export class AppElement extends AppElementBase {
   }
 
   protected onActionChipClick_(e: CustomEvent<ActionChipClickDetail>) {
-    this.pageHandler_.onContextualSearchIPHEngaged();
+    if (!this.composeboxEnabled) {
+      // Enforce Composebox availability at the receiver even if an event
+      // bypasses the Action Chips render gate.
+      return;
+    }
     const detail = e.detail;
-    this.composeboxState_ = {
-      text: detail.suggestion,
-      files: detail.files,
-      mode: detail.fuseboxAction?.preselectedTool,
-      model: detail.fuseboxAction?.preselectedModel,
-      suggestInventory: detail.fuseboxAction?.preferredInventory,
-    } as ComposeboxState;
-    this.toggleComposebox_();
+    if (this.isUnsupportedSearchboxSurface_(detail.fuseboxAction)) {
+      return;
+    }
+    this.pageHandler_.onContextualSearchIPHEngaged();
+    this.openComposeboxForActionChip_(detail);
+  }
+
+  // The Composebox is the only searchbox surface supported for action chip
+  // clicks; an explicit request for a different surface is a no-op. An action
+  // with the override missing keeps the compatible open-Composebox behavior.
+  private isUnsupportedSearchboxSurface_(action?: FuseboxAction): boolean {
+    if (!action || action.searchboxOverride === null) {
+      return false;
+    }
+    return action.searchboxOverride !== SearchboxOverride.kComposebox;
   }
 
   protected onOpenComposebox_(e: CustomEvent<ComposeboxState>) {
-    this.composeboxState_ = e.detail;
+    this.openComposebox_(e.detail);
+  }
 
-    this.toggleComposebox_();
+  private async openComposeboxForActionChip_(detail: ActionChipClickDetail) {
+    this.composeboxState_ = null;
+    this.ensureComposeboxOpen_();
+    await this.updateComplete;
+    const composebox =
+        this.shadowRoot?.querySelector<NtpComposeboxElement>('#composebox');
+    if (composebox) {
+      await composebox.handleFuseboxAction(detail);
+    }
   }
 
   protected onContextMenuEntrypointClick_() {
     this.pageHandler_.onContextualSearchIPHEngaged();
   }
 
-  protected toggleComposebox_() {
-    this.showComposebox_ = !this.showComposebox_;
+  protected openComposebox_(state: ComposeboxState) {
+    this.composeboxState_ = state;
+    this.ensureComposeboxOpen_();
+  }
+
+  private ensureComposeboxOpen_() {
+    if (!this.showComposebox_) {
+      this.showComposebox_ = true;
+    }
     if (!this.wasComposeboxOpened_) {
       recordLoadDuration(
           'NewTabPage.Composebox.FromNTPLoadToSessionStart',
           WindowProxy.getInstance().now());
       this.wasComposeboxOpened_ = true;
     }
+  }
+
+  protected closeComposebox_() {
+    this.showComposebox_ = false;
   }
 
   protected onScrimClick_() {
@@ -1037,12 +1066,15 @@ export class AppElement extends AppElementBase {
     this.onCloseComposebox_(closeComposebox);
   }
 
-  protected onCloseComposebox_(e: CustomEvent<{composeboxText?: string}>) {
-    const composeboxDialog =
-        this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
-    assert(composeboxDialog);
-    composeboxDialog.close();
+  protected onComposeboxContextMenuOpened_() {
+    this.$.searchbox.closeContextMenu();
+  }
 
+  protected onCloseComposebox_(e: CustomEvent<{composeboxText?: string}>) {
+    if (!this.showComposebox_) {
+      return;
+    }
+    this.$.searchbox.closeContextMenu();
     const composeboxText = e.detail.composeboxText;
 
     if (composeboxText && composeboxText.trim()) {
@@ -1056,7 +1088,7 @@ export class AppElement extends AppElementBase {
     if (this.ntpRealboxNextEnabled_) {
       composebox.closeDropdown();
     }
-    this.toggleComposebox_();
+    this.closeComposebox_();
     this.logoColor_ = this.computeLogoColor_();
     this.singleColoredLogo_ = this.computeSingleColoredLogo_();
     this.updateOneGoogleBarAppearance_();
@@ -1689,9 +1721,7 @@ export class AppElement extends AppElementBase {
       if (canShow) {
         if (this.energyEffectAnimationEnabled_) {
           this.contextMenuGlifAnimationState_ = GlifAnimationState.STARTED;
-          if (this.contextMenuAnimationLimitingEnabled_) {
-            this.pageHandler_.recordRealboxContextMenuAnimationImpression();
-          }
+          this.pageHandler_.recordRealboxContextMenuAnimationImpression(true);
         } else {
           const isSpinnerEligible =
               this.ntpNextFeaturesEnabled_ && this.isActionChipsVisible_;
@@ -1701,6 +1731,7 @@ export class AppElement extends AppElementBase {
         }
       } else {
         this.contextMenuGlifAnimationState_ = GlifAnimationState.INELIGIBLE;
+        this.pageHandler_.recordRealboxContextMenuAnimationImpression(false);
       }
     } else {
       this.realboxContextMenuAnimationAllowed_ = false;
@@ -1738,9 +1769,7 @@ export class AppElement extends AppElementBase {
         this.contextMenuGlifAnimationState_ = GlifAnimationState.SPINNER_ONLY;
       } else if (state === ActionChipsRetrievalState.UPDATED) {
         this.contextMenuGlifAnimationState_ = GlifAnimationState.STARTED;
-        if (this.contextMenuAnimationLimitingEnabled_) {
-          this.pageHandler_.recordRealboxContextMenuAnimationImpression();
-        }
+        this.pageHandler_.recordRealboxContextMenuAnimationImpression(true);
       }
     }
   }
@@ -1812,13 +1841,6 @@ export class AppElement extends AppElementBase {
   }
 
   private onShowComposeboxChange_() {
-    if (this.showComposebox_) {
-      const composeboxDialog =
-          this.shadowRoot.querySelector<HTMLDialogElement>('#composeboxDialog');
-      assert(composeboxDialog);
-      composeboxDialog.show();
-    }
-
     const notSelector =
         COMPOSEBOX_INERT_ALLOWLIST.map(s => `:not(${s})`).join('');
     const blockedElements = this.shadowRoot.querySelectorAll<HTMLElement>(
@@ -1830,18 +1852,6 @@ export class AppElement extends AppElementBase {
         element.removeAttribute('inert');
       }
     });
-  }
-
-  getVoiceSearchListeningForTesting(): boolean {
-    return this.voiceSearchListening_;
-  }
-
-  getVoiceSearchReceivedSpeechForTesting(): boolean {
-    return this.voiceSearchReceivedSpeech_;
-  }
-
-  getVoiceSearchTranscriptForTesting(): string {
-    return this.voiceSearchTranscript_;
   }
 }
 

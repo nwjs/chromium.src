@@ -77,7 +77,8 @@ class AutofillKeyboardAccessoryControllerImpl
             std::vector<Suggestion> suggestions,
             AutofillSuggestionTriggerSource trigger_source,
             AutoselectFirstSuggestion autoselect_first_suggestion,
-            AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss) override;
+            AutofillSuggestionsIgnoreFocusLoss ignore_focus_loss,
+            std::u16string search_bar_initial_value) override;
   std::optional<UiSessionId> GetUiSessionId() const override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
@@ -148,7 +149,7 @@ class AutofillKeyboardAccessoryControllerImpl
   // suggestions. It is used to safeguard against accepting suggestions too
   // quickly after a the popup view was shown (see the `show_threshold`
   // parameter of `AcceptSuggestion`).
-  NextIdleBarrier barrier_for_accepting_;
+  std::optional<NextIdleBarrier> barrier_for_accepting_;
 
   // An override to suppress minimum show thresholds. It should only be set
   // during tests that cannot mock time (e.g. the autofill interactive

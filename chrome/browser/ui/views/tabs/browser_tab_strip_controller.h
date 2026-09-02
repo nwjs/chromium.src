@@ -75,7 +75,6 @@ class BrowserTabStripController : public TabStripController,
   void OnCloseTab(int model_index,
                   CloseTabSource source,
                   base::OnceCallback<void(CloseTabSource)> callback) override;
-  void CloseTab(int model_index) override;
   void ToggleTabAudioMute(int model_index) override;
   void AddTabToGroup(int model_index,
                      const tab_groups::TabGroupId& group) override;
@@ -139,6 +138,15 @@ class BrowserTabStripController : public TabStripController,
   void OnTabGroupFocusChanged(
       std::optional<tab_groups::TabGroupId> new_focused_group_id,
       std::optional<tab_groups::TabGroupId> old_focused_group_id) override;
+
+  // Updates the browser theme when focus mode is active for a tab group.
+  // Triggered when tab group focus changes or when the color of the currently
+  // focused tab group changes.
+  void UpdateFocusModeTheme(std::optional<tab_groups::TabGroupId> group_id);
+
+  // Updates freezing votes when focus mode or tab membership changes.
+  void UpdateTabFocusFreezing(int model_index);
+  void UpdateAllTabsFocusFreezing();
 
   BrowserFrameView* GetFrameView();
   const BrowserFrameView* GetFrameView() const;

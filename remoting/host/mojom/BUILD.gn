@@ -45,6 +45,18 @@ mojom("mojom") {
       mojom = "remoting.mojom.SourceLocation"
       cpp = "::remoting::SourceLocation"
     },
+    {
+      mojom = "remoting.mojom.PortRange"
+      cpp = "::remoting::PortRange"
+    },
+    {
+      mojom = "remoting.mojom.SessionPolicies"
+      cpp = "::remoting::SessionPolicies"
+    },
+    {
+      mojom = "remoting.mojom.SessionOptions"
+      cpp = "::remoting::SessionOptions"
+    },
   ]
   if (remoting_multi_process) {
     mojom_typemap_types += [
@@ -199,6 +211,52 @@ mojom("mojom") {
         move_only = true
         nullable_is_same_type = true
       },
+      {
+        mojom = "remoting.mojom.WebrtcSocketAddress"
+        cpp = "::webrtc::SocketAddress"
+      },
+      {
+        mojom = "remoting.mojom.WebrtcIceCandidateType"
+        cpp = "::webrtc::IceCandidateType"
+      },
+      {
+        mojom = "remoting.mojom.WebrtcCandidate"
+        cpp = "::webrtc::Candidate"
+      },
+      {
+        mojom = "remoting.mojom.SdpType"
+        cpp = "::remoting::SessionDescription::Type"
+      },
+      {
+        mojom = "remoting.mojom.SessionDescription"
+        cpp = "::remoting::SessionDescription"
+      },
+      {
+        mojom = "remoting.mojom.NamedCandidate"
+        cpp = "::remoting::IceTransportInfo::NamedCandidate"
+      },
+      {
+        mojom = "remoting.mojom.JingleTransportInfo"
+        cpp = "::remoting::JingleTransportInfo"
+      },
+      {
+        mojom = "remoting.mojom.WebrtcProtocolType"
+        cpp = "::webrtc::ProtocolType"
+      },
+      {
+        mojom = "remoting.mojom.WebrtcRelayServerConfig"
+        cpp = "::webrtc::RelayServerConfig"
+      },
+      {
+        mojom = "remoting.mojom.IceConfig"
+        cpp = "::remoting::protocol::IceConfig"
+        move_only = true
+      },
+      {
+        mojom = "remoting.mojom.PairingResponse"
+        cpp = "::remoting::protocol::PairingResponse"
+        move_only = true
+      },
     ]
 
     if (is_win) {
@@ -227,6 +285,7 @@ mojom("mojom") {
         "//remoting/protocol",
         "//remoting/protocol:errors",
         "//remoting/protocol:transport",
+        "//remoting/signaling",
         "//services/network/public/cpp:ip_address_mojom_support",
         "//third_party/webrtc_overrides:webrtc_component",
       ]

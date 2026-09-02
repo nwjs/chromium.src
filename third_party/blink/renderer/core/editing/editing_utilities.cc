@@ -100,6 +100,7 @@
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
+#include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 
 namespace blink {
@@ -435,9 +436,7 @@ static PositionTemplate<Strategy> NextVisuallyDistinctCandidateAlgorithm(
   // Only skip non-editable content when explicitly requested via
   // kCanSkipOverEditingBoundary (used for caret navigation).
   const bool skip_non_editable =
-      rule == kCanSkipOverEditingBoundary &&
-      RuntimeEnabledFeatures::SkipNonEditableInAtomicMoveEnabled() &&
-      IsEditablePosition(position);
+      rule == kCanSkipOverEditingBoundary && IsEditablePosition(position);
   const EditingBoundaryCrossingRule boundary_rule =
       skip_non_editable ? kCanCrossEditingBoundary : rule;
   const PositionTemplate<Strategy> downstream_start =
@@ -530,9 +529,7 @@ PositionTemplate<Strategy> PreviousVisuallyDistinctCandidateAlgorithm(
   // Only skip non-editable content when explicitly requested via
   // kCanSkipOverEditingBoundary (used for caret navigation).
   const bool skip_non_editable =
-      rule == kCanSkipOverEditingBoundary &&
-      RuntimeEnabledFeatures::SkipNonEditableInAtomicMoveEnabled() &&
-      IsEditablePosition(position);
+      rule == kCanSkipOverEditingBoundary && IsEditablePosition(position);
   const EditingBoundaryCrossingRule boundary_rule =
       skip_non_editable ? kCanCrossEditingBoundary : rule;
   const PositionTemplate<Strategy> downstream_start =
@@ -990,8 +987,8 @@ const ComputedStyle* GetComputedStyleForElementOrLayoutObject(
     return element->GetComputedStyle();
   }
   // Text nodes and Document.
-  if (LayoutObject* layout_object = node.GetLayoutObject()) {
-    return layout_object->Style();
+  if (const LayoutObject* layout_object = node.GetLayoutObject()) {
+    return &layout_object->StyleRef();
   }
   return nullptr;
 }
@@ -999,7 +996,7 @@ const ComputedStyle* GetComputedStyleForElementOrLayoutObject(
 String StringWithRebalancedWhitespace(const StringView& string,
                                       bool start_is_start_of_paragraph,
                                       bool should_emit_nbs_pbefore_end) {
-  unsigned length = string.length();
+  wtf_size_t length = string.length();
 
   StringBuilder rebalanced_string;
   rebalanced_string.ReserveCapacity(length);
@@ -1017,11 +1014,12 @@ String StringWithRebalancedWhitespace(const StringView& string,
   return rebalanced_string.ToString();
 }
 
-String RepeatString(const String& string, unsigned count) {
+String RepeatString(const String& string, wtf_size_t count) {
   StringBuilder builder;
   builder.ReserveCapacity(string.length() * count);
-  for (unsigned counter = 0; counter < count; ++counter)
+  for (wtf_size_t counter = 0; counter < count; ++counter) {
     builder.Append(string);
+  }
   return builder.ToString();
 }
 
@@ -1383,14 +1381,18 @@ PositionWithAffinity PositionRespectingEditingBoundary(
   if (!target_object)
     return PositionWithAffinity();
 
-  if (RuntimeEnabledFeatures::
+  Element* editable_element = UserSelectContainBoundaryOf(position);
+
+  if ((!editable_element ||
+       !RuntimeEnabledFeatures::
+           NoExtendSelectionToUserSelectNoneOutOfFlowUnlessEditableEnabled()) &&
+      RuntimeEnabledFeatures::
           NoExtendSelectionToUserSelectNoneOutOfFlowEnabled() &&
       !position.IsNull() && !target_object->IsSelectable() &&
       !HaveSameOutOfFlowAncestor(*position.AnchorNode(), *target_node)) {
     return PositionWithAffinity();
   }
 
-  Element* editable_element = UserSelectContainBoundaryOf(position);
   if (!editable_element || editable_element->contains(target_node))
     return hit_test_result.GetPosition();
 
@@ -1401,9 +1403,9 @@ PositionWithAffinity PositionRespectingEditingBoundary(
   // TODO(yosin): Is this kIgnoreTransforms correct here?
   PhysicalOffset selection_end_point = hit_test_result.LocalPoint();
   PhysicalOffset absolute_point = target_object->LocalToAbsolutePoint(
-      selection_end_point, kIgnoreTransforms);
-  selection_end_point =
-      editable_object->AbsoluteToLocalPoint(absolute_point, kIgnoreTransforms);
+      selection_end_point, {MapCoordinatesMode::kIgnoreTransforms});
+  selection_end_point = editable_object->AbsoluteToLocalPoint(
+      absolute_point, {MapCoordinatesMode::kIgnoreTransforms});
   target_object = editable_object;
   // TODO(kojii): Support fragment-based |PositionForPoint|. LayoutObject-based
   // |PositionForPoint| may not work if NG block fragmented.
@@ -1483,8 +1485,7 @@ Position ComputePositionForNodeRemoval(const Position& position,
     case PositionAnchorType::kOffsetInAnchor:
       container_node = position.ComputeContainerNode();
       if (container_node == node.parentNode() &&
-          static_cast<unsigned>(position.OffsetInContainerNode()) >
-              node.NodeIndex()) {
+          position.OffsetInContainerNode() > node.NodeIndex()) {
         return Position(container_node, position.OffsetInContainerNode() - 1);
       }
       if (!container_node ||
@@ -1535,8 +1536,8 @@ bool ElementCannotHaveEndTag(const Node& node) {
 // VisiblePositions.
 // FIXME: Deploy these functions everywhere that TextIterators are used to
 // convert between VisiblePositions and indices.
-int IndexForVisiblePosition(const VisiblePosition& visible_position,
-                            ContainerNode*& scope) {
+wtf_size_t IndexForVisiblePosition(const VisiblePosition& visible_position,
+                                   ContainerNode*& scope) {
   if (visible_position.IsNull())
     return 0;
 
@@ -1853,16 +1854,10 @@ void InsertTextAndSendInputEventsOfTypeInsertReplacementText(
   if (is_canceled) {
     return;
   }
-  if (RuntimeEnabledFeatures::InputEventDataTransferForInsertCmdEnabled()) {
-    frame.GetEditor().InsertTextWithoutSendingTextEvent(
-        replacement, false, nullptr,
-        InputEvent::InputType::kInsertReplacementText,
-        EditCommand::PasswordEchoBehavior::kDoNotEcho, data_transfer);
-  } else {
-    frame.GetEditor().InsertTextWithoutSendingTextEvent(
-        replacement, false, nullptr,
-        InputEvent::InputType::kInsertReplacementText);
-  }
+  frame.GetEditor().InsertTextWithoutSendingTextEvent(
+      replacement, false, nullptr,
+      InputEvent::InputType::kInsertReplacementText,
+      EditCommand::PasswordEchoBehavior::kDoNotEcho, data_transfer);
 }
 
 // |IsEmptyNonEditableNodeInEditable()| is introduced for fixing

@@ -102,6 +102,19 @@ export class MostVisitedElement extends MostVisitedElementBase {
     return {
       theme: {type: Object},
       /**
+       * If true, disables editing/removing shortcuts, hides action buttons and
+       * the add shortcut button, and prevents tile dragging.
+       */
+      nonEditable: {
+        type: Boolean,
+        reflect: true,
+      },
+      /** If true, hides the text title under each tile/button. */
+      hideTitle: {
+        type: Boolean,
+        reflect: true,
+      },
+      /**
        * If true, renders MV tiles in a single row up to 10 columns wide.
        * If false, renders MV tiles in up to 2 rows up to 5 columns wide.
        */
@@ -184,6 +197,8 @@ export class MostVisitedElement extends MostVisitedElementBase {
   }
 
   accessor theme: MostVisitedTheme|null = null;
+  accessor nonEditable: boolean = false;
+  accessor hideTitle: boolean = false;
   accessor reflowOnOverflow: boolean = false;
   accessor singleRow: boolean = false;
   accessor expandableTilesEnabled: boolean = false;
@@ -232,6 +247,8 @@ export class MostVisitedElement extends MostVisitedElementBase {
   private prefetchTimer_: null|ReturnType<typeof setTimeout> = null;
   private preconnectTimer_: null|ReturnType<typeof setTimeout> = null;
   private dragImage_: HTMLImageElement;
+  private mostVisitedHighDpiFaviconsEnabled_: boolean =
+      loadTimeData.getBoolean('mostVisitedHighDpiFaviconsEnabled');
 
   private accessor info_: MostVisitedInfo|null = null;
 
@@ -397,7 +414,7 @@ export class MostVisitedElement extends MostVisitedElementBase {
     const shortcutCount = this.tiles_ ? this.tiles_.length : 0;
     const canShowAdd = this.expandableTilesEnabled ?
         this.showAdd_ :
-        this.maxTiles_ > shortcutCount;
+        !this.nonEditable && this.maxTiles_ > shortcutCount;
     const canShowShowMore = this.expandableTilesEnabled && this.showShowMore_;
     const canShowShowLess = this.expandableTilesEnabled && this.showShowLess_;
     const visibleShortcutCount =
@@ -449,7 +466,7 @@ export class MostVisitedElement extends MostVisitedElementBase {
   }
 
   private computeShowAdd_(): boolean {
-    if (this.showShowMore_) {
+    if (this.nonEditable || this.showShowMore_) {
       return false;
     }
     if (!this.customLinksEnabled_) {
@@ -726,7 +743,10 @@ export class MostVisitedElement extends MostVisitedElementBase {
   protected getFaviconUrl_(url: Url): string {
     const faviconUrl = new URL('chrome://favicon2/');
     faviconUrl.searchParams.set('size', '24');
-    faviconUrl.searchParams.set('scaleFactor', '1x');
+    const scaleFactor = this.mostVisitedHighDpiFaviconsEnabled_ ?
+        `${window.devicePixelRatio || 1}x` :
+        '1x';
+    faviconUrl.searchParams.set('scaleFactor', scaleFactor);
     faviconUrl.searchParams.set('showFallbackMonogram', '');
     faviconUrl.searchParams.set('pageUrl', url);
     return faviconUrl.href;
@@ -845,6 +865,31 @@ export class MostVisitedElement extends MostVisitedElementBase {
     this.adding_ = false;
   }
 
+  protected onDialogKeydown_(e: KeyboardEvent) {
+    if (e.key !== 'Tab') {
+      return;
+    }
+
+    const focusable = Array.from(this.$.dialog.querySelectorAll<HTMLElement>(
+        'cr-input, cr-button:not([disabled]):not([hidden])'));
+
+    if (focusable.length === 0) {
+      return;
+    }
+
+    const firstEl = focusable[0]!;
+    const lastEl = focusable[focusable.length - 1]!;
+    const path = e.composedPath();
+
+    if (e.shiftKey && path.includes(firstEl)) {
+      e.preventDefault();
+      lastEl.focus();
+    } else if (!e.shiftKey && path.includes(lastEl)) {
+      e.preventDefault();
+      firstEl.focus();
+    }
+  }
+
   protected onDialogTileUrlBlur_() {
     if (this.dialogTileUrl_.length > 0 &&
         (normalizeUrl(this.dialogTileUrl_) === null ||
@@ -863,7 +908,7 @@ export class MostVisitedElement extends MostVisitedElementBase {
   }
 
   protected onDocumentKeyDown_(e: KeyboardEvent) {
-    if (e.altKey || e.shiftKey) {
+    if (this.nonEditable || e.altKey || e.shiftKey) {
       return;
     }
 
@@ -876,6 +921,9 @@ export class MostVisitedElement extends MostVisitedElementBase {
   }
 
   protected onDragstart_(e: DragEvent) {
+    if (this.nonEditable) {
+      return;
+    }
     const item = this.tiles_[this.getCurrentTargetIndex_(e)]!;
     assert(item);
     if (!this.customLinksEnabled_ &&
@@ -1029,7 +1077,9 @@ export class MostVisitedElement extends MostVisitedElementBase {
 
     const index = this.getCurrentTargetIndex_(e);
     if (e.key === 'Delete') {
-      this.tileRemove_(index);
+      if (!this.nonEditable) {
+        this.tileRemove_(index);
+      }
       return;
     }
 
@@ -1116,7 +1166,7 @@ export class MostVisitedElement extends MostVisitedElementBase {
   }
 
   protected onTouchstart_(e: TouchEvent) {
-    if (this.reordering_) {
+    if (this.nonEditable || this.reordering_) {
       return;
     }
     const item = this.tiles_[this.getCurrentTargetIndex_(e)]!;
@@ -1216,14 +1266,6 @@ export class MostVisitedElement extends MostVisitedElementBase {
 
   protected isFromEnterpriseShortcut_(source: number) {
     return source === TileSource.ENTERPRISE_SHORTCUTS;
-  }
-
-  getShowAllForTesting(): boolean {
-    return this.showAll_;
-  }
-
-  getDialogShortcutAlreadyExistsForTesting(): boolean {
-    return this.dialogShortcutAlreadyExists_;
   }
 }
 

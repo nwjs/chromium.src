@@ -33,6 +33,7 @@
 #include "chrome/browser/download/download_stats.h"
 #include "chrome/browser/download/download_target_determiner.h"
 #include "chrome/browser/download/download_ui_model.h"
+#include "chrome/browser/download/download_ui_safe_browsing_util.h"
 #include "chrome/browser/download/offline_item_utils.h"
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/profiles/profile.h"
@@ -63,7 +64,7 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "ui/views/vector_icons.h"
 #endif
 
@@ -1049,6 +1050,15 @@ bool DownloadItemModel::IsEphemeralWarning() const {
     case download::DownloadItem::InsecureDownloadStatus::VALIDATED:
     case download::DownloadItem::InsecureDownloadStatus::SILENT_BLOCK:
       break;
+  }
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+  // When MaliciousApkDownloadCheck is enabled, only downloads blocked by Safe
+  // Browsing for dangerous content should be subject to ephemeral warnings
+  // and scheduled cancellation.
+  if (ShouldShowSafeBrowsingAndroidDownloadWarnings()) {
+    return GetDangerType() == download::DOWNLOAD_DANGER_TYPE_DANGEROUS_CONTENT;
   }
 #endif
 

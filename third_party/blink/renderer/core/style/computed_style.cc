@@ -329,8 +329,8 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
   if (!old_style->ScrollMarkerGroupEqual(*new_style)) {
     return true;
   }
-  if (old_style->IsInternalOverscrollArea() !=
-      new_style->IsInternalOverscrollArea()) {
+  if (old_style->EffectiveOverscrollContainerType() !=
+      new_style->EffectiveOverscrollContainerType()) {
     return true;
   }
   // We need to perform a reattach if a "display: layout(foo)" has changed to a
@@ -479,12 +479,9 @@ ComputedStyle::ComputeDifferenceIgnoringInheritedFirstLineStyle(
     }
     return Difference::kPseudoElementStyle;
   }
-  if (old_style.IsInternalOverscrollArea() !=
-      new_style.IsInternalOverscrollArea()) {
-    // TODO(crbug.com/447642032): Should we return kDescendantAffecting since
-    // descendants may move into or out of a newly declared or no longer
-    // declared overscroll area?
-    return Difference::kPseudoElementStyle;
+  if (old_style.EffectiveOverscrollContainerType() !=
+      new_style.EffectiveOverscrollContainerType()) {
+    return Difference::kDescendantAffecting;
   }
 
   if (new_style.HasAnyPseudoElementStyles() ||
@@ -1525,8 +1522,9 @@ gfx::RectF GetReferenceBox(const LayoutBox* box, CoordBox coord_box) {
 gfx::PointF GetOffsetFromContainingBlock(const LayoutBox* box) {
   if (box) {
     if (const LayoutBlock* containing_block = box->ContainingBlock()) {
-      gfx::PointF offset = box->LocalToAncestorPoint(
-          gfx::PointF(), containing_block, kIgnoreTransforms);
+      gfx::PointF offset =
+          box->LocalToAncestorPoint(gfx::PointF(), containing_block,
+                                    {MapCoordinatesMode::kIgnoreTransforms});
       return offset;
     }
   }
@@ -2183,7 +2181,11 @@ bool ComputedStyle::TextDecorationVisualOverflowChanged(
         decoration_from_this.UnderlineOffset() !=
             decoration_from_other.UnderlineOffset() ||
         decoration_from_this.Style() != decoration_from_other.Style() ||
-        decoration_from_this.Lines() != decoration_from_other.Lines()) {
+        decoration_from_this.Lines() != decoration_from_other.Lines() ||
+        decoration_from_this.DecorationInset() !=
+            decoration_from_other.DecorationInset() ||
+        decoration_from_this.BoxDecorationBreak() !=
+            decoration_from_other.BoxDecorationBreak()) {
       return true;
     }
   }
@@ -2220,7 +2222,8 @@ AppliedTextDecorationVector* ComputedStyle::EnsureAppliedTextDecorationsCache()
     decorations->emplace_back(
         GetTextDecorationLine(), TextDecorationStyle(),
         VisitedDependentColor(GetCSSPropertyTextDecorationColor()),
-        GetTextDecorationThickness(), TextUnderlineOffset());
+        GetTextDecorationThickness(), TextUnderlineOffset(),
+        GetTextDecorationInset(), BoxDecorationBreak());
     EnsureCachedData().applied_text_decorations_ = decorations;
   }
 

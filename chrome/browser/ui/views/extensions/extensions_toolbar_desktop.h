@@ -30,7 +30,7 @@
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/views/widget/widget_observer.h"
 
-class Browser;
+class BrowserWindowInterface;
 class ExtensionsToolbarButton;
 class ToolbarActionViewModel;
 class ExtensionsMenuCoordinator;
@@ -41,7 +41,6 @@ class ExtensionsMenuCoordinator;
 class ExtensionsToolbarDesktop : public ToolbarIconContainerView,
                                  public ExtensionsContainerViews,
                                  public ToolbarActionView::Delegate,
-                                 public views::WidgetObserver,
                                  public ExtensionsToolbarViewModel::Delegate,
                                  public ExtensionsToolbarViewModel::Observer {
   METADATA_HEADER(ExtensionsToolbarDesktop, ToolbarIconContainerView)
@@ -85,7 +84,7 @@ class ExtensionsToolbarDesktop : public ToolbarIconContainerView,
   }
 
   explicit ExtensionsToolbarDesktop(
-      Browser* browser,
+      BrowserWindowInterface* browser,
       DisplayMode display_mode = DisplayMode::kNormal);
   ExtensionsToolbarDesktop(const ExtensionsToolbarDesktop&) = delete;
   ExtensionsToolbarDesktop& operator=(const ExtensionsToolbarDesktop&) = delete;
@@ -345,7 +344,7 @@ class ExtensionsToolbarDesktop : public ToolbarIconContainerView,
   // from navigations.
   base::WeakPtr<content::WebContents> active_web_contents_;
 
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
   const raw_ptr<ToolbarActionsModel> model_;
 
   DisplayMode display_mode_;

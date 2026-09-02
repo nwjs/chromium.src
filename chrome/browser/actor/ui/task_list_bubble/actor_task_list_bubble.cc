@@ -12,6 +12,7 @@
 #include "chrome/browser/actor/ui/actor_ui_metrics.h"
 #include "chrome/browser/actor/ui/actor_ui_state_manager_interface.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_row_button.h"
+#include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -52,18 +53,27 @@ int GetPriorityForTaskState(actor::ActorTask::State task_state,
 
 }  // namespace
 
-// static
-views::Widget* ActorTaskListBubble::ShowBubble(
+ActorTaskListBubble::ActorTaskListBubble(
     Profile* profile,
-    views::View* anchor_view,
+    BrowserWindowInterface* browser,
     const absl::flat_hash_map<actor::TaskId, bool>& task_list,
-    base::RepeatingCallback<void(actor::TaskId)> on_row_clicked) {
-  auto contents_view =
-      CreateContentsView(profile, task_list, std::move(on_row_clicked));
+    OnTaskClickedCallback on_row_clicked)
+    : profile_(profile),
+      browser_(browser),
+      task_list_(task_list),
+      on_row_clicked_(std::move(on_row_clicked)) {}
+
+ActorTaskListBubble::~ActorTaskListBubble() {
+  widget_observation_.Reset();
+  Close();
+}
+
+void ActorTaskListBubble::Show(views::View* anchor_view) {
+  auto contents_view = CreateContentsView();
 
   // If there are no rows, don't show the bubble.
   if (contents_view->children().empty()) {
-    return nullptr;
+    return;
   }
 
   std::unique_ptr<views::ScrollView> scroll_view =
@@ -91,25 +101,44 @@ views::Widget* ActorTaskListBubble::ShowBubble(
       views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
   bubble->set_margins(gfx::Insets::VH(kVerticalMargin, 0));
 
-  auto* widget = views::BubbleDialogDelegate::CreateBubbleDeprecated(
+  widget_ = views::BubbleDialogDelegate::CreateBubbleDeprecated(
       std::move(bubble), views::Widget::InitParams::NATIVE_WIDGET_OWNS_WIDGET);
   // Bubble can always show activated as it will only show in the active window.
-  widget->Show();
-
-  return widget;
+  widget_->Show();
+  widget_observation_.Reset();
+  widget_observation_.Observe(widget_);
+  actor::ui::RecordTaskListBubbleRows(num_rows_);
 }
 
-std::unique_ptr<views::View> ActorTaskListBubble::CreateContentsView(
-    Profile* profile,
-    const absl::flat_hash_map<actor::TaskId, bool>& task_list,
-    base::RepeatingCallback<void(actor::TaskId)> on_row_clicked) {
+void ActorTaskListBubble::Close() {
+  if (widget_) {
+    widget_->Close();
+    widget_ = nullptr;
+  }
+}
+
+bool ActorTaskListBubble::IsShowing() const {
+  return widget_ && widget_->IsVisible();
+}
+
+void ActorTaskListBubble::OnWidgetDestroyed(views::Widget* widget) {
+  widget_observation_.Reset();
+  widget_ = nullptr;
+  if (auto* controller = ActorTaskListBubbleController::From(browser_)) {
+    controller->OnBubbleDestroyed();
+  }
+}
+
+// TODO(crbug.com/518584352): share the non-Views parts of this function with
+// Android.
+std::unique_ptr<views::View> ActorTaskListBubble::CreateContentsView() {
   std::unique_ptr<views::View> contents_view =
       views::Builder<views::FlexLayoutView>()
           .SetOrientation(views::LayoutOrientation::kVertical)
           .SetProperty(views::kElementIdentifierKey, kActorTaskListBubbleView)
           .Build();
 
-  auto* actor_service = actor::ActorKeyedService::Get(profile);
+  auto* actor_service = actor::ActorKeyedService::Get(profile_);
   CHECK(actor_service);
   actor::ui::ActorUiStateManagerInterface* actor_ui_state_manager =
       actor_service->GetActorUiStateManager();
@@ -118,7 +147,7 @@ std::unique_ptr<views::View> ActorTaskListBubble::CreateContentsView(
   std::vector<std::pair</*priority=*/int, actor::TaskId>> row_priority_list;
 
   // Loop through the list to assign priorities to each task.
-  for (auto [task_id, requires_processing] : task_list) {
+  for (auto [task_id, requires_processing] : *task_list_) {
     auto task_state = actor_ui_state_manager->GetActorTaskState(task_id);
     if (!task_state) {
       actor::ui::RecordTaskIconError(
@@ -135,11 +164,14 @@ std::unique_ptr<views::View> ActorTaskListBubble::CreateContentsView(
   std::sort(row_priority_list.begin(), row_priority_list.end());
 
   // Can now create rows in order of priority.
+  num_rows_ = 0ul;
   for (auto [priority, task_id] : row_priority_list) {
     auto task_state = actor_ui_state_manager->GetActorTaskState(task_id);
     auto task_title = actor_ui_state_manager->GetActorTaskTitle(task_id);
     auto task_tab = actor_ui_state_manager->GetLastActedOnTab(task_id);
-    bool requires_processing = task_list.at(task_id);
+    auto task_interrupt_reason =
+        actor_ui_state_manager->GetActorTaskInterruptReason(task_id);
+    bool requires_processing = task_list_->at(task_id);
     CHECK(task_state.has_value() && task_title.has_value() &&
           task_tab.has_value());
     bool has_tab = task_tab.value() != nullptr;
@@ -155,11 +187,13 @@ std::unique_ptr<views::View> ActorTaskListBubble::CreateContentsView(
 
     std::unique_ptr<ActorTaskListBubbleRowButton> row =
         std::make_unique<ActorTaskListBubbleRowButton>(
-            base::BindRepeating(on_row_clicked, task_id), task_state.value(),
+            base::BindRepeating(on_row_clicked_, task_id), task_state.value(),
             base::UTF8ToUTF16(task_title.value()), requires_processing, has_tab,
-            actor_ui_state_manager->GetFeatureMode(task_id));
+            actor_ui_state_manager->GetFeatureMode(task_id),
+            task_interrupt_reason);
 
     contents_view->AddChildView(std::move(row));
+    ++num_rows_;
   }
   return contents_view;
 }

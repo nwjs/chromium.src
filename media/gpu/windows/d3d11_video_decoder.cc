@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/check_is_test.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -32,7 +33,7 @@
 #include "media/base/video_util.h"
 #include "media/gpu/windows/d3d11_av1_accelerator.h"
 #if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-#include "media/gpu/windows/d3d11_h265_accelerator.h"
+#include "media/gpu/windows/d3d_h265_accelerator.h"
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
 #include "media/gpu/windows/d3d11_picture_buffer.h"
 #include "media/gpu/windows/d3d11_status.h"
@@ -174,12 +175,12 @@ bool D3D11VideoDecoder::InitializeAcceleratedDecoder(
   profile_ = config.profile();
   if (config.codec() == VideoCodec::kVP9) {
     accelerated_video_decoder_ = std::make_unique<VP9Decoder>(
-        std::make_unique<D3D11VP9Accelerator>(this, media_log_.get()), profile_,
+        std::make_unique<D3DVP9Accelerator>(this, media_log_.get()), profile_,
         config.color_space_info());
   } else if (config.codec() == VideoCodec::kH264) {
     accelerated_video_decoder_ = std::make_unique<H264Decoder>(
-        std::make_unique<D3D11H264Accelerator>(this, media_log_.get()),
-        profile_, config.color_space_info());
+        std::make_unique<D3DH264Accelerator>(this, media_log_.get()), profile_,
+        config.color_space_info());
   } else if (config.codec() == VideoCodec::kAV1) {
     accelerated_video_decoder_ = std::make_unique<AV1Decoder>(
         std::make_unique<D3D11AV1Accelerator>(
@@ -192,8 +193,8 @@ bool D3D11VideoDecoder::InitializeAcceleratedDecoder(
     bool use_dxva_device_for_hevc_rext =
         ShouldUseDXVADeviceForHEVCRangeExtension(config, device_);
     accelerated_video_decoder_ = std::make_unique<H265Decoder>(
-        std::make_unique<D3D11H265Accelerator>(this, media_log_.get(),
-                                               use_dxva_device_for_hevc_rext),
+        std::make_unique<D3DH265Accelerator>(this, media_log_.get(),
+                                             use_dxva_device_for_hevc_rext),
         profile_, config.color_space_info());
 #endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
   } else {
@@ -316,11 +317,11 @@ D3D11VideoDecoder::CreateD3DVideoDecoderWrapper(
         GetMaxDecodeRequests());
   } else {
     MEDIA_LOG(INFO, media_log_) << "D3D11VideoDecoder is using D3D11 backend";
-    ComD3D11VideoContext video_context;
+    ComD3D11VideoContext1 video_context;
     CHECK_EQ(device_context_.As(&video_context), S_OK);
     video_decoder_wrapper = D3D11VideoDecoderWrapper::Create(
         media_log_.get(), video_device_, std::move(video_context),
-        decoder_configurator, usable_feature_level_, config_);
+        decoder_configurator, config_);
   }
 
   if (!video_decoder_wrapper) {
@@ -414,8 +415,7 @@ void D3D11VideoDecoder::Initialize(const VideoDecoderConfig& config,
   }
   CHECK_EQ(d3d_device.As(&device_), S_OK);
 
-  if (!GetD3D11FeatureLevel(device_, gpu_workarounds_,
-                            &usable_feature_level_)) {
+  if (!IsD3D11FeatureLevelSupported(device_)) {
     return NotifyError(D3D11Status::Codes::kUnsupportedFeatureLevel);
   }
 
@@ -944,26 +944,6 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
                      scoped_refptr<D3D11PictureBuffer>(picture_buffer)));
   frame->SetReleaseMailboxCB(
       base::BindOnce(release_mailbox_cb_, std::move(wait_complete_cb)));
-  // For NV12, overlay is allowed by default. If the decoder is going to support
-  // non-NV12 textures, then this may have to be conditionally set. Also note
-  // that ALLOW_OVERLAY is required for encrypted video path.
-  //
-  // Since all of our picture buffers allow overlay, we just set this to true.
-  // However, we may choose to set ALLOW_OVERLAY to false even if
-  // the finch flag is enabled.  We may not choose to set ALLOW_OVERLAY if the
-  // flag is off, however.
-  frame->metadata().allow_overlay = true;
-  // The swapchain presenter currently only supports NV12 and P010 overlay,
-  // with BGRA only as fallback when DWM continuously fails to overlay submitted
-  // video. As a result, we should not allow overlay for non-NV12/P010 formats
-  // which may cause chroma downsampling when blitting into the back buffer.
-  // See https://crbugs.com/331679628 for more details.
-  auto output_si_format = texture_selector_->OutputSharedImageFormat();
-  if (!config_.is_encrypted()) {
-    frame->metadata().allow_overlay =
-        output_si_format == viz::MultiPlaneFormat::kP010 ||
-        output_si_format == viz::MultiPlaneFormat::kNV12;
-  }
   frame->metadata().power_efficient = true;
 
   // If the output texture is in RGB pixel format, then the color space needs to
@@ -981,7 +961,8 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
 
   frame->metadata().is_webgpu_compatible =
       !(gpu_workarounds_.disable_sharing_nv12_from_d3d11_to_d3d12 &&
-        output_si_format == viz::MultiPlaneFormat::kNV12) &&
+        texture_selector_->OutputSharedImageFormat() ==
+            viz::MultiPlaneFormat::kNV12) &&
       use_shared_handle_;
 
   output_cb_.Run(frame);
@@ -990,6 +971,16 @@ bool D3D11VideoDecoder::OutputResult(const CodecPicture* picture,
 
 D3DVideoDecoderWrapper* D3D11VideoDecoder::GetWrapper() {
   return d3d_video_decoder_wrapper_.get();
+}
+
+bool D3D11VideoDecoder::SubmitBitstreamBufferForTesting(  // IN-TEST
+    base::span<const uint8_t> bitstream) {
+  CHECK_IS_TEST();
+  CHECK(d3d_video_decoder_wrapper_);
+  ScopedSequenceD3DInputBuffer& buffer =
+      d3d_video_decoder_wrapper_->GetBitstreamBuffer(bitstream.size());
+  return buffer.Write(bitstream) == bitstream.size() &&
+         d3d_video_decoder_wrapper_->SubmitSlice();
 }
 
 void D3D11VideoDecoder::NotifyError(D3D11Status reason,
@@ -1087,21 +1078,8 @@ void D3D11VideoDecoder::LogDecoderAdapterLUID() {
 }
 
 // static
-bool D3D11VideoDecoder::GetD3D11FeatureLevel(
-    ComD3D11Device dev,
-    const gpu::GpuDriverBugWorkarounds& gpu_workarounds,
-    D3D_FEATURE_LEVEL* feature_level) {
-  if (!dev || !feature_level)
-    return false;
-
-  *feature_level = dev->GetFeatureLevel();
-  if (*feature_level < D3D_FEATURE_LEVEL_11_0)
-    return false;
-
-  if (gpu_workarounds.limit_d3d11_video_decoder_to_11_0)
-    *feature_level = D3D_FEATURE_LEVEL_11_0;
-
-  return true;
+bool D3D11VideoDecoder::IsD3D11FeatureLevelSupported(ComD3D11Device device) {
+  return device && device->GetFeatureLevel() >= D3D_FEATURE_LEVEL_11_0;
 }
 
 // static
@@ -1153,9 +1131,7 @@ D3D11VideoDecoder::GetSupportedVideoDecoderConfigs(
     ComD3D11Device d3d11_device;
     CHECK_EQ(d3d_device.As(&d3d11_device), S_OK);
 
-    D3D_FEATURE_LEVEL usable_feature_level;
-    if (!GetD3D11FeatureLevel(d3d11_device, gpu_workarounds,
-                              &usable_feature_level)) {
+    if (!IsD3D11FeatureLevelSupported(d3d11_device)) {
       return {};
     }
 

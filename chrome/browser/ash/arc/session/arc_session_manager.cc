@@ -18,6 +18,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/run_loop.h"
 #include "base/strings/string_split.h"
+#include "base/system/sys_info.h"
 #include "base/task/task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -50,6 +51,7 @@
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/webui/ash/diagnostics_dialog/diagnostics_dialog.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -707,9 +709,11 @@ void ArcSessionManager::OnProvisioningFinished(
 
     prefs->SetBoolean(prefs::kArcSignedIn, true);
 
-    if (ShouldLaunchPlayStoreApp(
-            profile_,
-            prefs->GetBoolean(prefs::kArcProvisioningInitiatedFromOobe))) {
+    const bool was_provisioning_initiated_from_oobe =
+        prefs->GetBoolean(prefs::kArcProvisioningInitiatedFromOobe);
+
+    if (ShouldLaunchPlayStoreApp(profile_,
+                                 was_provisioning_initiated_from_oobe)) {
       playstore_launcher_ = std::make_unique<ArcAppLauncher>(
           profile_, kPlayStoreAppId,
           apps_util::MakeIntentForActivity(
@@ -723,6 +727,24 @@ void ArcSessionManager::OnProvisioningFinished(
     for (auto& observer : observer_list_) {
       observer.OnArcInitialStart();
     }
+
+    // On low-end (4GB RAM) devices, shut down ARCVM after post-OOBE
+    // provisioning to free system resources. ARCVM will be re-activated
+    // on-demand when the user launches an ARC app.
+    if (base::FeatureList::IsEnabled(arc::kShutDownArcPostOobeProvisioning) &&
+        was_provisioning_initiated_from_oobe && IsArcVmEnabled() &&
+        base::SysInfo::Is4GbDevice()) {
+      VLOG(1) << "Shutting down ARCVM post-OOBE provisioning on 4GB device.";
+      activation_is_allowed_ = false;
+      // Set is_activation_delayed_ so that even when ArcSessionManager is
+      // notified on completion of OOBE (e.g.
+      // OnUserSessionStartUpTaskCompleted), ARC won't run immediately at that
+      // time.
+      is_activation_delayed_ = true;
+      is_post_oobe_shutdown_4gb_device_ = true;
+      ShutdownSession();
+    }
+
     return;
   }
 
@@ -1252,7 +1274,8 @@ void ArcSessionManager::RequestEnableImpl() {
     // If the next step was the ToS negotiation, show a notification instead.
     // Otherwise, be silent now. Users are notified when clicking ARC app icons.
     if (!skip_terms_of_service_negotiation && g_ui_enabled) {
-      arc::ShowArcMigrationGuideNotification(profile_);
+      arc::ShowArcMigrationGuideNotification(CHECK_DEREF(
+          ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile_)));
     }
     return;
   }
@@ -1734,6 +1757,17 @@ void ArcSessionManager::OnArcDataRemoved(std::optional<bool> result) {
 
     // Note: Currently, we may re-enable ARC even if data removal fails.
     // We may have to avoid it.
+  }
+
+  // If ARCVM was shut down post-OOBE provisioning on low-end devices,
+  // transition the state to READY so that subsequent app launches
+  // (or AllowActivation calls) can re-activate ARCVM on demand.
+  if (is_post_oobe_shutdown_4gb_device_) {
+    is_post_oobe_shutdown_4gb_device_ = false;
+    if (enable_requested_ && profile_ && IsArcProvisioned(profile_)) {
+      state_ = State::READY;
+    }
+    return;
   }
 
   MaybeReenableArc();

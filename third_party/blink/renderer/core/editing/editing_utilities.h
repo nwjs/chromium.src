@@ -314,8 +314,8 @@ Position PositionAfterNode(const Node&);
 
 int16_t ComparePositions(const VisiblePosition&, const VisiblePosition&);
 
-CORE_EXPORT int IndexForVisiblePosition(const VisiblePosition&,
-                                        ContainerNode*& scope);
+CORE_EXPORT wtf_size_t IndexForVisiblePosition(const VisiblePosition&,
+                                               ContainerNode*& scope);
 EphemeralRange MakeRange(const VisiblePosition&, const VisiblePosition&);
 EphemeralRange NormalizeRange(const EphemeralRange&);
 EphemeralRangeInFlatTree NormalizeRange(const EphemeralRangeInFlatTree&);
@@ -375,7 +375,7 @@ String StringWithRebalancedWhitespace(const StringView&,
                                       bool start_is_start_of_paragraph,
                                       bool should_emit_nbs_pbefore_end);
 
-CORE_EXPORT String RepeatString(const String&, unsigned);
+CORE_EXPORT String RepeatString(const String&, wtf_size_t);
 
 // -------------------------------------------------------------------------
 // Distance calculation functions

@@ -19,12 +19,16 @@
 #import "ios/chrome/browser/scene/ui/scene_view_controller.h"
 #import "ios/chrome/browser/scene/ui/scene_view_controller_delegate.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state_options.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/test/fake_scene_state.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
+#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
@@ -45,6 +49,7 @@ using UserFeedbackDataCallback =
     base::RepeatingCallback<void(UserFeedbackData*)>;
 
 @interface SceneCoordinator (Testing)
+@property(nonatomic, readonly) Browser* currentBrowser;
 - (void)presentReportAnIssueViewController:(UIViewController*)baseViewController
                                     sender:(UserFeedbackSender)sender
                           userFeedbackData:(UserFeedbackData*)userFeedbackData
@@ -66,7 +71,7 @@ class SceneCoordinatorTest : public PlatformTest {
                                 BuildIdentityManagerForTests));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegate(
+        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
 
@@ -75,8 +80,8 @@ class SceneCoordinatorTest : public PlatformTest {
     profile_state_.profile = profile_.get();
 
     scene_state_ = [[FakeSceneState alloc] initWithProfile:profile_.get()];
-    [scene_state_ connectWithOptions:{.profile_state = profile_state_,
-                                      .identifier = "scene"}];
+    scene_state_.profileState = profile_state_;
+    scene_state_.sceneSessionID = "scene";
 
     profile_->SetSharedURLLoaderFactory(
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
@@ -226,6 +231,49 @@ TEST_F(SceneCoordinatorTest, PresentViewControllerHidesGeminiFloaty) {
                                     completion:nil];
 
   EXPECT_OCMOCK_VERIFY(mock_delegate);
+}
+
+// Tests that dismissModalDialogsWithCompletion completes without crashing.
+TEST_F(SceneCoordinatorTest, TestDismissModalDialogsWithCompletion) {
+  CommandDispatcher* dispatcher =
+      coordinator_.currentBrowser->GetCommandDispatcher();
+
+  id mockSnackbarHandler = OCMProtocolMock(@protocol(SnackbarCommands));
+  [dispatcher startDispatchingToTarget:mockSnackbarHandler
+                           forProtocol:@protocol(SnackbarCommands)];
+
+  id mockBookmarksHandler = OCMProtocolMock(@protocol(BookmarksCommands));
+  [dispatcher startDispatchingToTarget:mockBookmarksHandler
+                           forProtocol:@protocol(BookmarksCommands)];
+
+  id mockBrowserCoordinatorHandler =
+      OCMProtocolMock(@protocol(BrowserCoordinatorCommands));
+  OCMStub([mockBrowserCoordinatorHandler
+              clearPresentedStateWithCompletion:[OCMArg any]
+                                 dismissOmnibox:YES])
+      .andDo(^(NSInvocation* invocation) {
+        void* ptr = nullptr;
+        [invocation getArgument:&ptr atIndex:2];
+        ProceduralBlock completionBlock = (__bridge ProceduralBlock)ptr;
+        if (completionBlock) {
+          completionBlock();
+        }
+      });
+  [dispatcher startDispatchingToTarget:mockBrowserCoordinatorHandler
+                           forProtocol:@protocol(BrowserCoordinatorCommands)];
+
+  id mockGeminiHandler = OCMProtocolMock(@protocol(GeminiCommands));
+  [dispatcher startDispatchingToTarget:mockGeminiHandler
+                           forProtocol:@protocol(GeminiCommands)];
+
+  __block bool completed = false;
+  [coordinator_
+      dismissModalDialogsWithCompletion:^{
+        completed = true;
+      }
+                         dismissOmnibox:YES
+                       dismissSnackbars:YES];
+  EXPECT_TRUE(completed);
 }
 
 }  // namespace

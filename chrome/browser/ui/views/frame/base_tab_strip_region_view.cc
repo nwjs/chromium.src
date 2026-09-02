@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/views/tabs/common/root_tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_drag_handler.h"
+#include "chrome/browser/ui/views/tabs/common/tab_group_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
@@ -226,18 +227,13 @@ const tabs::TabData& BaseTabStripRegionView::GetTabData(
   return tab_view->data();
 }
 
-views::View* BaseTabStripRegionView::GetTabAnchorViewAt(int tab_index) {
-  if (!root_node_ || tab_index < 0 || tab_index >= tab_strip_model_->count()) {
+views::View* BaseTabStripRegionView::GetTabAnchorView(
+    const tabs::TabHandle& tab) {
+  if (!root_node_) {
     return nullptr;
   }
-  tabs::TabInterface* tab = tab_strip_model_->GetTabAtIndex(tab_index);
-  CHECK(tab) << "No tab found for tab_index: " << tab_index;
-
-  const TabCollectionNode* node =
-      root_node_->GetNodeForHandle(tab->GetHandle());
-  CHECK(node) << "No node found for tab handle";
-
-  return node->view();
+  const TabCollectionNode* node = root_node_->GetNodeForHandle(tab);
+  return node ? node->view() : nullptr;
 }
 
 views::View* BaseTabStripRegionView::GetTabGroupAnchorView(
@@ -378,6 +374,10 @@ void BaseTabStripRegionView::SetTabStripObserver(TabStripObserver* observer) {
 
 views::View* BaseTabStripRegionView::GetTabStripView() {
   return tab_strip_view_;
+}
+
+TabHoverCardController* BaseTabStripRegionView::GetHoverCardController() {
+  return hover_card_controller_.get();
 }
 
 bool BaseTabStripRegionView::TraverseUsingUpDownKeys() {
@@ -563,6 +563,56 @@ void BaseTabStripRegionView::SetLinkDropArrow(
   }
 }
 
+views::View* BaseTabStripRegionView::GetTabViewAt(int tab_index) const {
+  if (!root_node_ || !tab_strip_model_ || tab_index < 0 ||
+      tab_index >= tab_strip_model_->count()) {
+    return nullptr;
+  }
+  tabs::TabInterface* tab = tab_strip_model_->GetTabAtIndex(tab_index);
+  if (!tab) {
+    return nullptr;
+  }
+  TabCollectionNode* node = root_node_->GetNodeForHandle(tab->GetHandle());
+  return node ? node->view() : nullptr;
+}
+
+bool BaseTabStripRegionView::IsDropBeforeGroupHeader(
+    const BrowserRootView::DropIndex& drop_index,
+    const tabs::TabInterface* tab) const {
+  if (!tab || !tab->GetGroup().has_value()) {
+    return false;
+  }
+  if (drop_index.relative_to_index ==
+          BrowserRootView::DropIndex::RelativeToIndex::kInsertBeforeIndex &&
+      drop_index.group_inclusion ==
+          BrowserRootView::DropIndex::GroupInclusion::kDontIncludeInGroup) {
+    return tab_strip_model_->group_model()
+               ->GetTabGroup(tab->GetGroup().value())
+               ->GetFirstTab() == tab;
+  }
+  return false;
+}
+
+views::View* BaseTabStripRegionView::GetGroupHeaderView(
+    const tab_groups::TabGroupId& group_id) const {
+  if (!root_node_) {
+    return nullptr;
+  }
+  TabCollectionNode* group_node =
+      root_node_->GetNodeForHandle(tab_strip_model_->group_model()
+                                       ->GetTabGroup(group_id)
+                                       ->GetCollectionHandle());
+  if (!group_node || !group_node->view()) {
+    return nullptr;
+  }
+  auto* group_view = views::AsViewClass<TabGroupView>(group_node->view());
+  return group_view ? group_view->group_header() : nullptr;
+}
+
+bool BaseTabStripRegionView::IsDragging() const {
+  return drag_handler_ && drag_handler_->IsDragging();
+}
+
 gfx::Rect BaseTabStripRegionView::GetLinkDropBounds(
     const BrowserRootView::DropIndex& drop_index,
     DropArrow::Direction* direction) {
@@ -621,6 +671,16 @@ gfx::Rect BaseTabStripRegionView::GetLinkDropBoundsFromPosition(
 
 void BaseTabStripRegionView::OnGlassFrameEligibilityChanged(bool is_eligible) {
   SchedulePaint();
+  // The parent of the Tab views are layer backed, so we need to explicitly
+  // schedule a repaint on them.
+  if (UnpinnedTabContainerView* unpinned_tabs_container_view =
+          GetUnpinnedTabsContainer()) {
+    unpinned_tabs_container_view->SchedulePaint();
+  }
+  if (PinnedTabContainerView* pinned_tab_container_view =
+          GetPinnedTabsContainer()) {
+    pinned_tab_container_view->SchedulePaint();
+  }
 }
 
 BEGIN_METADATA(BaseTabStripRegionView)

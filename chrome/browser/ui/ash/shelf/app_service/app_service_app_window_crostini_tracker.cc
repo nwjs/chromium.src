@@ -9,6 +9,7 @@
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
 #include "ash/wm/window_state.h"
+#include "base/check_deref.h"
 #include "base/containers/flat_tree.h"
 #include "base/time/time.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
@@ -21,7 +22,6 @@
 #include "chrome/browser/ash/guest_os/guest_os_registry_service.h"
 #include "chrome/browser/ash/guest_os/guest_os_registry_service_factory.h"
 #include "chrome/browser/ash/guest_os/guest_os_shelf_utils.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/shelf/app_service/app_service_app_window_shelf_controller.h"
@@ -74,7 +74,6 @@ void MoveWindowFromOldDisplayToNewDisplay(aura::Window* window,
 bool ShouldSkipWindow(aura::Window* window) {
   return wm::GetTransientParent(window) ||
          arc::GetWindowTaskOrSessionId(window).has_value() ||
-         plugin_vm::IsPluginVmAppWindow(window) ||
          ash::borealis::IsBorealisWindow(window);
 }
 
@@ -268,20 +267,20 @@ void AppServiceAppWindowCrostiniTracker::MaybeModifyInstance(
     Profile* profile,
     aura::Window* window,
     const std::string& app_id) const {
-  auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile);
-  DCHECK(proxy);
-  auto& instance_registry = proxy->InstanceRegistry();
-  std::string old_app_id = instance_registry.GetShelfId(window).app_id;
+  auto& app_service_instance_helper =
+      CHECK_DEREF(app_service_controller_->app_service_instance_helper());
+  std::string old_app_id =
+      app_service_instance_helper.GetShelfId(profile, window).app_id;
   if (old_app_id.empty() || app_id == old_app_id) {
     return;
   }
 
-  auto* app_service_instance_helper =
-      app_service_controller_->app_service_instance_helper();
-  DCHECK(app_service_instance_helper);
+  auto& proxy =
+      CHECK_DEREF(apps::AppServiceProxyFactory::GetForProfile(profile));
+  auto& instance_registry = proxy.InstanceRegistry();
   auto state = instance_registry.GetState(window);
-  app_service_instance_helper->OnInstances(old_app_id, window, std::string(),
-                                           apps::InstanceState::kDestroyed);
-  app_service_instance_helper->OnInstances(app_id, window, std::string(),
-                                           state);
+
+  app_service_instance_helper.OnInstances(old_app_id, window, std::string(),
+                                          apps::InstanceState::kDestroyed);
+  app_service_instance_helper.OnInstances(app_id, window, std::string(), state);
 }

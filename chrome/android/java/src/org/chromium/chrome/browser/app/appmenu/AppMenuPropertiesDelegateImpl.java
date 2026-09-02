@@ -11,6 +11,9 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.View;
@@ -116,7 +119,6 @@ import java.util.function.BiFunction;
  */
 @NullMarked
 public abstract class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate {
-
     public static final String BOOKMARK_ID_BUNDLE_KEY = "BookmarkId";
     public static final String TAB_ID_BUNDLE_KEY = "TabId";
     public static final String TAB_GROUP_ID_BUNDLE_KEY = "TabGroupId";
@@ -160,31 +162,6 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         int PAGE_MENU = 0;
         int OVERVIEW_MODE_MENU = 1;
         int TABLET_EMPTY_MODE_MENU = 2;
-    }
-
-    // Please treat this list as append only and keep it in sync with
-    // AppMenuHighlightItem in enums.xml.
-    @IntDef({
-        AppMenuHighlightItem.UNKNOWN,
-        AppMenuHighlightItem.DOWNLOADS,
-        AppMenuHighlightItem.BOOKMARKS,
-        AppMenuHighlightItem.TRANSLATE,
-        AppMenuHighlightItem.ADD_TO_HOMESCREEN,
-        AppMenuHighlightItem.DOWNLOAD_THIS_PAGE,
-        AppMenuHighlightItem.BOOKMARK_THIS_PAGE,
-        AppMenuHighlightItem.DATA_REDUCTION_FOOTER
-    })
-    @Retention(RetentionPolicy.SOURCE)
-    @interface AppMenuHighlightItem {
-        int UNKNOWN = 0;
-        int DOWNLOADS = 1;
-        int BOOKMARKS = 2;
-        int TRANSLATE = 3;
-        int ADD_TO_HOMESCREEN = 4;
-        int DOWNLOAD_THIS_PAGE = 5;
-        int BOOKMARK_THIS_PAGE = 6;
-        int DATA_REDUCTION_FOOTER = 7;
-        int NUM_ENTRIES = 8;
     }
 
     @IntDef({CustomMenuItemType.ZOOM_ITEM})
@@ -238,9 +215,8 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
         if (layoutStateProvidersSupplier != null) {
             layoutStateProvidersSupplier.onAvailable(
                     mCallbackController.makeCancelable(
-                            layoutStateProvider -> {
-                                mLayoutStateProvider = layoutStateProvider;
-                            }));
+                            (LayoutStateProvider layoutStateProvider) ->
+                                    mLayoutStateProvider = layoutStateProvider));
         }
 
         mBookmarkModelSupplier = bookmarkModelSupplier;
@@ -615,17 +591,54 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
     protected ListItem buildAddToHomescreenListItem(Tab currentTab, boolean showIcon) {
         ResolveInfo resolveInfo = queryWebApkResolveInfo(mContext, currentTab);
 
+        String manifestId = WebappRegistry.getManifestIdOrUrl(currentTab);
+
+        String webApkPackageName =
+                WebappRegistry.getInstance().findWebApkWithManifestId(manifestId);
+        boolean isWebApkInstalled = false;
+
+        if (webApkPackageName != null) {
+            if (org.chromium.base.PackageUtils.isPackageInstalled(webApkPackageName)) {
+                isWebApkInstalled = true;
+            } else {
+                String webappId =
+                        org.chromium.chrome.browser.browserservices.intents.WebappIntentUtils
+                                .getIdForWebApkPackage(webApkPackageName);
+                org.chromium.chrome.browser.webapps.WebappDataStorage storage =
+                        WebappRegistry.getInstance().getWebappDataStorage(webappId);
+                if (storage != null) {
+                    long registrationTime = storage.getLocalRegistrationTimestamp();
+                    long latencyWindow = 5000; // 5 seconds
+                    if (org.chromium.base.TimeUtils.currentTimeMillis() - registrationTime
+                            < latencyWindow) {
+                        isWebApkInstalled = true;
+                    }
+                }
+            }
+        }
+
         // When Universal Install is active, we only show this menu item if we are browsing
         // the root page of an already installed app.
         boolean openWebApkItemVisible =
-                resolveInfo != null
-                        && resolveInfo.activityInfo.packageName != null
+                (resolveInfo != null || isWebApkInstalled)
                         && "/".equals(currentTab.getUrl().getPath());
 
         if (openWebApkItemVisible) {
-            assumeNonNull(resolveInfo);
-            // This is the 'webapp is already installed' case, so we offer to open the webapp.
-            String appName = resolveInfo.loadLabel(mContext.getPackageManager()).toString();
+            String appName = null;
+            if (resolveInfo != null) {
+                appName = resolveInfo.loadLabel(mContext.getPackageManager()).toString();
+            } else if (webApkPackageName != null) {
+                try {
+                    android.content.pm.PackageManager pm = mContext.getPackageManager();
+                    appName =
+                            pm.getApplicationLabel(pm.getApplicationInfo(webApkPackageName, 0))
+                                    .toString();
+                } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+                }
+            }
+            if (appName == null) {
+                appName = currentTab.getTitle();
+            }
             return new ListItem(
                     showIcon
                             ? AppMenuHandler.AppMenuItemType.STANDARD
@@ -643,17 +656,36 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                                             : null)
                             .build());
         } else {
-            return new ListItem(
-                    showIcon
-                            ? AppMenuHandler.AppMenuItemType.STANDARD
-                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
+            PropertyModel model =
                     AppMenuItemUtils.buildModelForStandardMenuItem(
                             mContext,
                             mAppMenuItemTheme,
                             R.id.universal_install,
                             R.string.menu_install_create_shortcut,
                             showIcon ? R.drawable.ic_add_to_home_screen : 0,
-                            isMenuIconAtStart()));
+                            isMenuIconAtStart());
+
+            boolean isPending = WebappRegistry.getInstance().isWebApkPending(manifestId);
+            if (isPending) {
+                model.set(
+                        AppMenuItemProperties.ICON_COLOR_RES, R.color.default_icon_color_disabled);
+
+                String titleText = mContext.getString(R.string.menu_install_create_shortcut);
+                SpannableString spannableTitle = new SpannableString(titleText);
+                spannableTitle.setSpan(
+                        new ForegroundColorSpan(
+                                mContext.getColor(R.color.default_text_color_disabled_list)),
+                        0,
+                        titleText.length(),
+                        Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+                model.set(AppMenuItemProperties.TITLE, spannableTitle);
+            }
+
+            return new ListItem(
+                    showIcon
+                            ? AppMenuHandler.AppMenuItemType.STANDARD
+                            : AppMenuHandler.AppMenuItemType.STANDARD_NO_ICON,
+                    model);
         }
     }
 
@@ -1270,6 +1302,9 @@ public abstract class AppMenuPropertiesDelegateImpl implements AppMenuProperties
                                 isMenuIconAtStart())
                         .with(
                                 AppMenuItemProperties.TITLE,
+                                mContext.getString(R.string.page_zoom_menu_title))
+                        .with(
+                                AppMenuItemProperties.TITLE_CONDENSED,
                                 mContext.getString(R.string.page_zoom_menu_title))
                         .with(AppMenuItemProperties.MENU_ITEM_ID, R.id.page_zoom_id)
                         .with(AppMenuItemProperties.ICON, icon)

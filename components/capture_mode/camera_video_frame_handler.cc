@@ -377,7 +377,6 @@ class GpuMemoryBufferHandleHolder : public BufferHandleHolder,
     CHECK(format.is_multi_plane() || g_force_use_gpu_memory_buffer_for_test);
 
     frame->set_color_space(shared_image_->color_space());
-    frame->metadata().allow_overlay = true;
     frame->metadata().read_lock_fences_enabled = true;
     frame->metadata().MergeMetadataFrom(frame_info->metadata);
 

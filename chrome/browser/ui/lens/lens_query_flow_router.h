@@ -12,12 +12,12 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/contextual_search/desktop_query_contextualizer_delegate.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
-#include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 
 namespace lens {
+class LensOverlayQueryController;
 
 using CreateSearchUrlRequestInfo = contextual_search::
     ContextualSearchContextController::CreateSearchUrlRequestInfo;
@@ -34,6 +34,7 @@ class LensQueryFlowRouter
   enum class ContextUploadMode {
     kViewportOnly,
     kFullPage,
+    kSelectedRegionOnly,
   };
 
   explicit LensQueryFlowRouter(LensSearchController* lens_search_controller);
@@ -172,8 +173,8 @@ class LensQueryFlowRouter
   // Returns whether the current active tab is context eligible.
   virtual bool IsActiveTabContextEligible() const;
 
-  // Returns whether full page context should be populated based on sign-in
-  // status, cobrowse eligibility, and permissions.
+  // Returns whether full page context should be populated based on page context
+  // eligibility and permissions.
   bool ShouldPopulateFullPageContext() const;
 
   virtual Profile* profile() const;

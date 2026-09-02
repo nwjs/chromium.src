@@ -8,8 +8,6 @@ import android.app.Activity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
-import android.view.accessibility.AccessibilityEvent;
-import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.PopupWindow.OnDismissListener;
 import android.widget.TextView;
@@ -25,6 +23,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.insets.InsetObserver;
@@ -40,12 +39,6 @@ import java.util.Set;
 /** A popup for the Fusebox component. */
 @NullMarked
 class FuseboxPopup {
-    /**
-     * Delay (in milliseconds) between calling up the popup window and requesting focus for
-     * accessibility. This is needed because Popup views are not shown instantaneously.
-     */
-    private static final int ACCESSIBILITY_VIEW_FOCUS_DELAY_MS = 500;
-
     /* package */ final AnchoredPopupWindow mPopupWindow;
     /* package */ final ViewGroup mViewGroup;
     /* package */ final FuseboxScrollView mScrollView;
@@ -72,6 +65,7 @@ class FuseboxPopup {
     private final @Nullable InsetObserver mInsetObserver;
     private final int mInitialScrollPaddingBottom;
     private @PopupState int mCurrentState = PopupState.HIDDEN;
+    private boolean mIsFirstShow = true;
     private @Nullable Integer mPreviousAccessibilityImportance;
     private @Nullable View mCachedContentView;
 
@@ -167,12 +161,16 @@ class FuseboxPopup {
                 R.string.accessibility_omnibox_add_camera_picture);
         initializeItem(
                 mGalleryButton,
-                R.string.omnibox_navattach_gallery,
-                R.drawable.photo_24dp,
+                OmniboxCapabilities.isDesktopPlatform()
+                        ? R.string.omnibox_navattach_add_images
+                        : R.string.omnibox_navattach_gallery,
+                R.drawable.add_photo_alternate_24dp,
                 R.string.accessibility_omnibox_add_images);
         initializeItem(
                 mFileButton,
-                R.string.omnibox_navattach_files,
+                OmniboxCapabilities.isDesktopPlatform()
+                        ? R.string.omnibox_navattach_add_files
+                        : R.string.omnibox_navattach_files,
                 R.drawable.ic_attach_file_24dp,
                 R.string.accessibility_omnibox_add_files);
 
@@ -207,12 +205,6 @@ class FuseboxPopup {
     /** Show the popup window. */
     void show() {
         mPopupWindow.show();
-        // TODO(crbug.com/470324794): This isn't right. Figure out why AnchoredPopupWindow won't
-        // focus views for us.
-        PostTask.postDelayedTask(
-                TaskTraits.UI_DEFAULT,
-                this::focusFirstViewForAccessibility,
-                ACCESSIBILITY_VIEW_FOCUS_DELAY_MS);
     }
 
     /**
@@ -241,7 +233,15 @@ class FuseboxPopup {
         }
 
         updateLayout();
-        show();
+        if (mIsFirstShow) {
+            mIsFirstShow = false;
+            // Defer showing the popup window by one main-looper tick when transitioning from
+            // HIDDEN on the very first show so that pending PropertyModel view-binder callbacks
+            // (e.g., model selection buttons) finish populating content views into mViewGroup.
+            PostTask.postTask(TaskTraits.UI_DEFAULT, this::show);
+        } else {
+            show();
+        }
     }
 
     private void hideBackgroundAccessibility() {
@@ -286,41 +286,6 @@ class FuseboxPopup {
         if (a11yRes != 0) {
             item.setContentDescription(item.getContext().getString(a11yRes));
         }
-    }
-
-    /**
-     * Focuses for accessibility the first view marked as important for accessibility.
-     *
-     * <p>This is important because Android Popup windows are not focused for accessibility by
-     * default and do not automatically move the Accessibility focus when called up.
-     *
-     * <p>TODO(crbug.com/470324794): This isn't right. Figure out why AnchoredPopupWindow won't
-     * focus views for us.
-     */
-    @SuppressWarnings("AccessibilityFocus")
-    void focusFirstViewForAccessibility() {
-        View viewForAccessibility = findFirstViewForAccessibility(mViewGroup);
-        if (viewForAccessibility == null) return;
-
-        // Move focus to the view, emitting event.
-        viewForAccessibility.requestFocus();
-        viewForAccessibility.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
-        viewForAccessibility.performAccessibilityAction(
-                AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
-    }
-
-    private @Nullable View findFirstViewForAccessibility(View view) {
-        if (view.getVisibility() != View.VISIBLE) return null;
-        if (view.isImportantForAccessibility()) return view;
-
-        if (view instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) view;
-            for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                View result = findFirstViewForAccessibility(viewGroup.getChildAt(i));
-                if (result != null) return result;
-            }
-        }
-        return null;
     }
 
     /** Dismiss the popup window. */

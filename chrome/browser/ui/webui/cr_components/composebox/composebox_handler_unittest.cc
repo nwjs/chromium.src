@@ -31,6 +31,8 @@
 #include "components/contextual_tasks/public/prefs.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -69,6 +71,10 @@ class ComposeboxHandlerTest : public ContextualSearchboxHandlerTestHarness {
         /*variations_client=*/nullptr,
         std::move(query_controller_config_params));
     query_controller_ = query_controller_ptr.get();
+
+    ON_CALL(*query_controller_, GetFileInfo)
+        .WillByDefault(testing::Invoke(query_controller_.get(),
+                                       &MockQueryController::FakeGetFileInfo));
 
     auto metrics_recorder_ptr =
         std::make_unique<MockContextualSearchMetricsRecorder>();
@@ -233,10 +239,13 @@ TEST_F(ComposeboxHandlerTest, SubmitQueryWithToolMetric) {
       omnibox::ModelMode::MODEL_MODE_UNSPECIFIED, 1);
 
   // Submitting with deep search and Gemini regular model enabled.
-  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
-  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
+  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH,
+                              /*is_set_by_server=*/false);
+  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH,
+                              /*is_set_by_server=*/false);
   handler().RecordToolSelectionAction(omnibox::ToolMode::TOOL_MODE_DEEP_SEARCH);
-  handler().SetActiveModelMode(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
+  handler().SetActiveModelMode(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR,
+                               /*is_set_by_server=*/false);
   handler().RecordModelSelectionAction(
       omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
   EXPECT_CALL(metrics_recorder(),
@@ -253,9 +262,11 @@ TEST_F(ComposeboxHandlerTest, SubmitQueryWithToolMetric) {
       omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR, 1);
 
   // Submitting with create image and Gemini Pro model enabled.
-  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
+  handler().SetActiveToolMode(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN,
+                              /*is_set_by_server=*/false);
   handler().RecordToolSelectionAction(omnibox::ToolMode::TOOL_MODE_IMAGE_GEN);
-  handler().SetActiveModelMode(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+  handler().SetActiveModelMode(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO,
+                               /*is_set_by_server=*/false);
   handler().RecordModelSelectionAction(
       omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
   EXPECT_CALL(metrics_recorder(),
@@ -291,6 +302,25 @@ TEST_F(ComposeboxHandlerTest, SetSmartTabSharingActive) {
   EXPECT_TRUE(handler().IsSmartTabSharingActive());
 
   handler().SetSmartTabSharingActive(false);
+  EXPECT_FALSE(handler().IsSmartTabSharingActive());
+}
+
+TEST_F(ComposeboxHandlerTest, ResetInputStateModelClearsSmartTabSharingActive) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{contextual_tasks::kContextualTasksContext,
+        {{"ContextualTasksContextSmartTabSharing", "true"}}},
+       {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}}},
+      {});
+
+  EXPECT_FALSE(handler().IsSmartTabSharingActive());
+
+  handler().SetSmartTabSharingActive(true);
+  EXPECT_TRUE(handler().IsSmartTabSharingActive());
+
+  // Starting a new session resets the session handle and input state model.
+  contextual_session_handle()->set_smart_tab_sharing_active(std::nullopt);
+  handler().ResetInputStateModel();
   EXPECT_FALSE(handler().IsSmartTabSharingActive());
 }
 
@@ -357,6 +387,7 @@ TEST_F(ComposeboxHandlerTest, DeleteContext_MojoDoesNotNotifyPage) {
 }
 
 TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
+  base::HistogramTester histogram_tester;
   PrefService* prefs = profile()->GetPrefs();
 
   // 1. Initially allowed, counts are 0.
@@ -373,12 +404,14 @@ TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
 
   // 2. Record 1st impression.
   {
-    handler().RecordNextboxAnimationImpression();
+    handler().RecordNextboxAnimationImpression(/*shown=*/true);
 
     const base::DictValue& dict =
         prefs->GetDict(prefs::kContextMenuAnimationState);
     EXPECT_THAT(dict.FindInt("nextbox_daily_count"), testing::Optional(1));
     EXPECT_THAT(dict.FindInt("nextbox_lifetime_count"), testing::Optional(1));
+    histogram_tester.ExpectBucketCount(
+        "Omnibox.ContextMenu.AnimationShown.ContextualTasks", true, 1);
   }
 
   // 3. Play 4 more times (total 5 daily impressions recorded).
@@ -386,7 +419,7 @@ TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
     base::test::TestFuture<bool> future;
     handler().CanShowNextboxAnimation(future.GetCallback());
     EXPECT_TRUE(future.Take());
-    handler().RecordNextboxAnimationImpression();
+    handler().RecordNextboxAnimationImpression(/*shown=*/true);
   }
 
   // Verify counts are now 5 daily and 5 lifetime.
@@ -395,20 +428,25 @@ TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
         prefs->GetDict(prefs::kContextMenuAnimationState);
     EXPECT_THAT(dict.FindInt("nextbox_daily_count"), testing::Optional(5));
     EXPECT_THAT(dict.FindInt("nextbox_lifetime_count"), testing::Optional(5));
+    histogram_tester.ExpectBucketCount(
+        "Omnibox.ContextMenu.AnimationShown.ContextualTasks", true, 5);
   }
 
-  // 4. The 6th time, it should not be allowed and record should do nothing.
+  // 4. The 6th time, it should not be allowed and record should do nothing to
+  // prefs.
   {
     base::test::TestFuture<bool> future;
     handler().CanShowNextboxAnimation(future.GetCallback());
     EXPECT_FALSE(future.Take());
 
-    handler().RecordNextboxAnimationImpression();
+    handler().RecordNextboxAnimationImpression(/*shown=*/false);
 
     const base::DictValue& dict =
         prefs->GetDict(prefs::kContextMenuAnimationState);
     EXPECT_THAT(dict.FindInt("nextbox_daily_count"), testing::Optional(5));
     EXPECT_THAT(dict.FindInt("nextbox_lifetime_count"), testing::Optional(5));
+    histogram_tester.ExpectBucketCount(
+        "Omnibox.ContextMenu.AnimationShown.ContextualTasks", false, 1);
   }
 
   // 5. Simulate a new day (change the date string in prefs).
@@ -425,12 +463,14 @@ TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
     handler().CanShowNextboxAnimation(future.GetCallback());
     EXPECT_TRUE(future.Take());
 
-    handler().RecordNextboxAnimationImpression();
+    handler().RecordNextboxAnimationImpression(/*shown=*/true);
 
     const base::DictValue& dict =
         prefs->GetDict(prefs::kContextMenuAnimationState);
     EXPECT_THAT(dict.FindInt("nextbox_daily_count"), testing::Optional(1));
     EXPECT_THAT(dict.FindInt("nextbox_lifetime_count"), testing::Optional(6));
+    histogram_tester.ExpectBucketCount(
+        "Omnibox.ContextMenu.AnimationShown.ContextualTasks", true, 6);
   }
 
   // 7. Bring lifetime count to 19 and verify it caps after 20.
@@ -448,12 +488,14 @@ TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
     handler().CanShowNextboxAnimation(future.GetCallback());
     EXPECT_TRUE(future.Take());
 
-    handler().RecordNextboxAnimationImpression();
+    handler().RecordNextboxAnimationImpression(/*shown=*/true);
 
     const base::DictValue& dict =
         prefs->GetDict(prefs::kContextMenuAnimationState);
     EXPECT_THAT(dict.FindInt("nextbox_daily_count"), testing::Optional(1));
     EXPECT_THAT(dict.FindInt("nextbox_lifetime_count"), testing::Optional(20));
+    histogram_tester.ExpectBucketCount(
+        "Omnibox.ContextMenu.AnimationShown.ContextualTasks", true, 7);
   }
 
   // 21st lifetime impression should be blocked.
@@ -462,12 +504,14 @@ TEST_F(ComposeboxHandlerTest, NextboxAnimationLimiting) {
     handler().CanShowNextboxAnimation(future.GetCallback());
     EXPECT_FALSE(future.Take());
 
-    handler().RecordNextboxAnimationImpression();
+    handler().RecordNextboxAnimationImpression(/*shown=*/false);
 
     const base::DictValue& dict =
         prefs->GetDict(prefs::kContextMenuAnimationState);
     EXPECT_THAT(dict.FindInt("nextbox_daily_count"), testing::Optional(1));
     EXPECT_THAT(dict.FindInt("nextbox_lifetime_count"), testing::Optional(20));
+    histogram_tester.ExpectBucketCount(
+        "Omnibox.ContextMenu.AnimationShown.ContextualTasks", false, 2);
   }
 }
 
@@ -618,4 +662,138 @@ TEST_F(ComposeboxHandlerTest, SubmitQuery_NullInputStateModel) {
 
   // This should not crash and should return early.
   test_handler->SubmitQuery("test query", 1, false, false, false, false, false);
+}
+
+TEST_F(ComposeboxHandlerTest,
+       ShouldOpenInLensSidePanel_ContextualTasksSidePanelEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::kContextualTasksSidePanel},
+      /*disabled_features=*/{contextual_tasks::kContextualTasks});
+
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents(), base::BindRepeating([](content::WebContents* contents) {
+        return static_cast<sessions::SessionTabHelperDelegate*>(nullptr);
+      }));
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents());
+
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  query_controller().AddTabFileInfoForTesting(
+      token, GURL("https://example.com"), lens::MimeType::kAnnotatedPageContent,
+      tab_id);
+  contextual_session_handle()->set_submitted_context_tokens({token});
+
+  EXPECT_TRUE(handler().ShouldOpenInLensSidePanelForTesting(
+      web_contents(), contextual_session_handle()));
+}
+
+TEST_F(
+    ComposeboxHandlerTest,
+    ShouldOpenInLensSidePanel_ContextualTasksSidePanelEnabled_CobrowseEligible) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::kContextualTasksSidePanel,
+                            contextual_tasks::
+                                kContextualTasksForceEntryPointEligibility},
+      /*disabled_features=*/{contextual_tasks::kContextualTasks});
+
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents(), base::BindRepeating([](content::WebContents* contents) {
+        return static_cast<sessions::SessionTabHelperDelegate*>(nullptr);
+      }));
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents());
+
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  query_controller().AddTabFileInfoForTesting(
+      token, GURL("https://example.com"), lens::MimeType::kAnnotatedPageContent,
+      tab_id);
+  contextual_session_handle()->set_submitted_context_tokens({token});
+
+  // When kContextualTasks (cobrowse) is disabled, even if the user is cobrowse
+  // eligible, the query should route to the ContextualTasks side panel if
+  // kContextualTasksSidePanel is enabled.
+  EXPECT_TRUE(handler().ShouldOpenInLensSidePanelForTesting(
+      web_contents(), contextual_session_handle()));
+}
+
+TEST_F(ComposeboxHandlerTest,
+       ShouldOpenInLensSidePanel_ContextualTasksCobrowseEligible) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::kContextualTasks,
+                            contextual_tasks::
+                                kContextualTasksForceEntryPointEligibility},
+      /*disabled_features=*/{});
+
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents(), base::BindRepeating([](content::WebContents* contents) {
+        return static_cast<sessions::SessionTabHelperDelegate*>(nullptr);
+      }));
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents());
+
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  query_controller().AddTabFileInfoForTesting(
+      token, GURL("https://example.com"), lens::MimeType::kAnnotatedPageContent,
+      tab_id);
+  contextual_session_handle()->set_submitted_context_tokens({token});
+
+  // When kContextualTasks is enabled and eligible, cobrowse should handle
+  // the navigation, so ShouldOpenInLensSidePanel returns false.
+  EXPECT_FALSE(handler().ShouldOpenInLensSidePanelForTesting(
+      web_contents(), contextual_session_handle()));
+}
+
+TEST_F(ComposeboxHandlerTest,
+       ShouldOpenInLensSidePanel_ContextualTasksEnabled_CobrowseIneligible) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::kContextualTasks,
+                            contextual_tasks::kContextualTasksSidePanel},
+      /*disabled_features=*/{
+          contextual_tasks::kContextualTasksForceEntryPointEligibility});
+
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents(), base::BindRepeating([](content::WebContents* contents) {
+        return static_cast<sessions::SessionTabHelperDelegate*>(nullptr);
+      }));
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents());
+
+  base::UnguessableToken token = base::UnguessableToken::Create();
+  query_controller().AddTabFileInfoForTesting(
+      token, GURL("https://example.com"), lens::MimeType::kAnnotatedPageContent,
+      tab_id);
+  contextual_session_handle()->set_submitted_context_tokens({token});
+
+  // When kContextualTasks is enabled but the profile is ineligible for
+  // cobrowse, it should route to the side panel if ContextualTasksSidePanel
+  // is enabled.
+  EXPECT_TRUE(handler().ShouldOpenInLensSidePanelForTesting(
+      web_contents(), contextual_session_handle()));
+}
+
+TEST_F(ComposeboxHandlerTest, ShouldOpenInLensSidePanel_MultipleTabsAttached) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{contextual_tasks::kContextualTasksSidePanel},
+      /*disabled_features=*/{contextual_tasks::kContextualTasks});
+
+  sessions::SessionTabHelper::CreateForWebContents(
+      web_contents(), base::BindRepeating([](content::WebContents* contents) {
+        return static_cast<sessions::SessionTabHelperDelegate*>(nullptr);
+      }));
+  SessionID tab_id = sessions::SessionTabHelper::IdForTab(web_contents());
+
+  base::UnguessableToken token1 = base::UnguessableToken::Create();
+  base::UnguessableToken token2 = base::UnguessableToken::Create();
+  query_controller().AddTabFileInfoForTesting(
+      token1, GURL("https://example1.com"),
+      lens::MimeType::kAnnotatedPageContent, tab_id);
+  query_controller().AddTabFileInfoForTesting(
+      token2, GURL("https://example2.com"),
+      lens::MimeType::kAnnotatedPageContent,
+      SessionID::FromSerializedValue(tab_id.id() + 1));
+  contextual_session_handle()->set_submitted_context_tokens({token1, token2});
+
+  EXPECT_FALSE(handler().ShouldOpenInLensSidePanelForTesting(
+      web_contents(), contextual_session_handle()));
 }

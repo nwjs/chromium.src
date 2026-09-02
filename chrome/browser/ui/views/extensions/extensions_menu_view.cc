@@ -10,7 +10,6 @@
 #include "base/check_deref.h"
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
@@ -70,12 +69,11 @@ ExtensionMenuItemView* GetAsMenuItemView(views::View* view) {
 }  // namespace
 
 ExtensionsMenuView::ExtensionsMenuView(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     BrowserWindowInterface* browser,
     ExtensionsContainer* extensions_container,
     ExtensionsContainerViews* extensions_container_views)
-    : BubbleDialogDelegateView(views::BubbleAnchor(anchor_view),
-                               views::BubbleBorder::Arrow::TOP_RIGHT),
+    : BubbleDialogDelegateView(anchor, views::BubbleBorder::Arrow::TOP_RIGHT),
       browser_(browser),
       extensions_container_(CHECK_DEREF(extensions_container)),
       extensions_container_views_(extensions_container_views),
@@ -431,7 +429,6 @@ std::u16string ExtensionsMenuView::GetAccessibleWindowTitle() const {
 }
 
 void ExtensionsMenuView::OnTabChangedAt(tabs::TabInterface* tab,
-                                        int index,
                                         TabChangeType change_type) {
   Update();
 }
@@ -507,7 +504,7 @@ base::AutoReset<bool> ExtensionsMenuView::AllowInstancesForTesting() {
 
 // static
 views::Widget* ExtensionsMenuView::ShowBubble(
-    views::View* anchor_view,
+    views::BubbleAnchor anchor,
     BrowserWindowInterface* browser,
     ExtensionsContainer* extensions_container,
     ExtensionsContainerViews* extensions_container_views) {
@@ -517,7 +514,7 @@ views::Widget* ExtensionsMenuView::ShowBubble(
   DCHECK(!base::FeatureList::IsEnabled(
       extensions_features::kExtensionsMenuAccessControl));
   g_extensions_dialog = new ExtensionsMenuView(
-      anchor_view, browser, extensions_container, extensions_container_views);
+      anchor, browser, extensions_container, extensions_container_views);
   views::Widget* widget =
       views::BubbleDialogDelegateView::CreateBubble(g_extensions_dialog);
   widget->Show();

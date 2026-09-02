@@ -380,9 +380,9 @@ TEST_F(HTMLMetaElementSimTest, WebMonetizationNotCountedInSubFrame) {
       GetDocument().IsUseCounted(WebFeature::kHTMLMetaElementMonetization));
 }
 
-TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowedOrigins) {
+TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowOrigins) {
   struct TestCase {
-    const char* allowed_origins_attr;
+    const char* allow_origins_attr;
     bool expected_allowed;
   } cases[] = {
       {nullptr, false},
@@ -415,10 +415,9 @@ TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowedOrigins) {
     test::RunPendingTasks();
 
     String meta_tag;
-    if (test.allowed_origins_attr) {
-      meta_tag = StrCat(
-          {R"(<meta name="responsive-embedded-sizing" allowed-origins=")",
-           test.allowed_origins_attr, R"(">)"});
+    if (test.allow_origins_attr) {
+      meta_tag = StrCat({R"(<meta name="responsive-embedded-sizing" content=")",
+                         test.allow_origins_attr, R"(">)"});
     } else {
       meta_tag = R"(<meta name="responsive-embedded-sizing">)";
     }
@@ -436,19 +435,18 @@ TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowedOrigins) {
     const auto* meta =
         To<HTMLMetaElement>(child_doc->QuerySelector(AtomicString("meta")));
     ASSERT_TRUE(meta);
-    EXPECT_EQ(meta->IsAllowedOrigins(), test.expected_allowed);
+    EXPECT_EQ(meta->IsAllowOrigins(), test.expected_allowed);
 
     DummyExceptionStateForTesting exception_state;
     child_doc->RequestResizeResponsiveIframe(&exception_state);
     EXPECT_EQ(!test.expected_allowed, exception_state.HadException())
-        << "Failed for allowed-origins: "
-        << (test.allowed_origins_attr ? test.allowed_origins_attr
-                                      : "(missing)");
+        << "Failed for allow-origins: "
+        << (test.allow_origins_attr ? test.allow_origins_attr : "(missing)");
   }
 }
 
-// Test that "https:" allowed-origins blocks an HTTP container frame.
-TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowedOriginsHttp) {
+// Test that "https:" allow-origins blocks an HTTP container frame.
+TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowOriginsHttp) {
   SimRequest main_resource("http://parent.example/", "text/html");
   SimRequest child_frame_resource("http://child.example/subframe.html",
                                   "text/html");
@@ -464,7 +462,7 @@ TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowedOriginsHttp) {
   test::RunPendingTasks();
 
   child_frame_resource.Complete(
-      R"(<head><meta name="responsive-embedded-sizing" allowed-origins="https:"></head>)");
+      R"(<head><meta name="responsive-embedded-sizing" content="https:"></head>)");
   Compositor().BeginFrame();
   test::RunPendingTasks();
 
@@ -477,12 +475,12 @@ TEST_F(HTMLMetaElementSimTest, ResponsiveEmbeddedSizingAllowedOriginsHttp) {
   const auto* meta =
       To<HTMLMetaElement>(child_doc->QuerySelector(AtomicString("meta")));
   ASSERT_TRUE(meta);
-  EXPECT_FALSE(meta->IsAllowedOrigins());
+  EXPECT_FALSE(meta->IsAllowOrigins());
 
   DummyExceptionStateForTesting exception_state;
   child_doc->RequestResizeResponsiveIframe(&exception_state);
   EXPECT_TRUE(exception_state.HadException())
-      << "Failed to block HTTP container frame when allowed-origins is https:";
+      << "Failed to block HTTP container frame when allow-origins is https:";
 }
 
 }  // namespace blink

@@ -3,16 +3,14 @@
 // found in the LICENSE file.
 
 
-import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
-import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
-
-// <if expr="not is_android or enable_webui_contextual_tasks_composebox">
-import {assertDeepEquals, assertFalse} from 'chrome://webui-test/chai_assert.js';
 import type {ContextualTasksAppElement} from 'chrome://contextual-tasks/app.js';
+// <if expr="not is_android or enable_webui_contextual_tasks_composebox">
 import type {ContextualTasksComposeboxElement} from 'chrome://contextual-tasks/composebox.js';
+import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
 import type {ContextualTasksInnerComposeboxElement} from 'chrome://contextual-tasks/contextual_tasks_inner_composebox.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import type {PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 // </if>
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -61,10 +59,23 @@ export function installMock<T extends object>(
 
 
 export function simulateUserInput(
-    inputElement: HTMLInputElement|HTMLTextAreaElement, value: string) {
-  inputElement.value = value;
+    inputElement: HTMLInputElement|HTMLTextAreaElement|HTMLElement,
+    value: string) {
+  if ('value' in inputElement) {
+    (inputElement as HTMLInputElement).value = value;
+  } else {
+    inputElement.innerText = value;
+  }
   inputElement.dispatchEvent(
       new Event('input', {bubbles: true, composed: true}));
+}
+
+export function getInputValue(
+    inputElement: HTMLInputElement|HTMLTextAreaElement|HTMLElement): string {
+  if ('value' in inputElement) {
+    return (inputElement as HTMLInputElement).value;
+  }
+  return inputElement.innerText;
 }
 
 /**

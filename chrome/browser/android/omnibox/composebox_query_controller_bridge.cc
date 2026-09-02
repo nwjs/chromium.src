@@ -24,8 +24,8 @@
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
+#include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_ui_interface.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
@@ -47,6 +47,7 @@
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -107,8 +108,7 @@ static int64_t JNI_ComposeboxQueryControllerBridge_Init(
     JNIEnv* env,
     const base::android::JavaRef<jobject>& java_obj,
     Profile* profile,
-    content::WebContents* web_contents,
-    bool is_task_scoped) {
+    content::WebContents* web_contents) {
   auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile);
   if (!aim_service || !aim_service->IsAimEligible()) {
     return 0L;
@@ -122,28 +122,17 @@ static int64_t JNI_ComposeboxQueryControllerBridge_Init(
   }
 
   ComposeboxQueryControllerBridge* instance =
-      new ComposeboxQueryControllerBridge(java_obj, profile, web_contents,
-                                          is_task_scoped);
+      new ComposeboxQueryControllerBridge(java_obj, profile, web_contents);
   return reinterpret_cast<intptr_t>(instance);
 }
 
 ComposeboxQueryControllerBridge::ComposeboxQueryControllerBridge(
     const base::android::JavaRef<jobject>& java_obj,
     Profile* profile,
-    content::WebContents* web_contents,
-    bool is_task_scoped)
-    : profile_{profile}, is_task_scoped_(is_task_scoped), java_obj_(java_obj) {
-  if (is_task_scoped_) {
-    DCHECK(base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks));
-  }
-  if (is_task_scoped_ && web_contents && !web_contents->IsBeingDestroyed()) {
-    contextual_tasks_web_ui_interface_ =
-        contextual_tasks::GetWebUiInterface(web_contents);
-    if (contextual_tasks_web_ui_interface_) {
-      contextual_tasks_web_ui_interface_->SetComposeboxHandler(this);
-    }
-  }
-
+    content::WebContents* web_contents)
+    : profile_{profile},
+      web_contents_{web_contents ? web_contents->GetWeakPtr() : nullptr},
+      java_obj_{java_obj} {
   auto query_controller_config_params = std::make_unique<
       contextual_search::ContextualSearchContextController::ConfigParams>();
   query_controller_config_params->send_lns_surface = false;
@@ -191,10 +180,6 @@ void ComposeboxQueryControllerBridge::Destroy(JNIEnv* env) {
   }
 
   delete this;
-}
-
-void ComposeboxQueryControllerBridge::OnWebUIDestroyed(JNIEnv* env) {
-  contextual_tasks_web_ui_interface_ = nullptr;
 }
 
 size_t ComposeboxQueryControllerBridge::GetAttachmentCount() const {
@@ -273,7 +258,7 @@ ComposeboxQueryControllerBridge::AddFile(
 
   std::optional<lens::ImageEncodingOptions> image_options;
   if (file_type.find("image") != std::string::npos) {
-    image_options = lens::ImageEncodingOptions{.enable_webp_encoding = false,
+    image_options = lens::ImageEncodingOptions{
                                                .max_size = 1500000,
                                                .max_height = 1600,
                                                .max_width = 1600,
@@ -317,13 +302,14 @@ ComposeboxQueryControllerBridge::AddTabContext(
     return {};
   }
 
+  SessionID tab_session_id = sessions::SessionTabHelper::IdForTab(web_contents);
   base::UnguessableToken file_token = session_handle_->CreateContextToken();
   // Leak this pointer it will delete itself when it's done.
   TabContextCaptureRequest* tab_context_capture = new TabContextCaptureRequest(
       tab_contextualization_controller, tab,
       base::BindOnce(
           &ComposeboxQueryControllerBridge::StartTabContextUploadFlow,
-          weak_ptr_factory_.GetWeakPtr(), env, file_token,
+          weak_ptr_factory_.GetWeakPtr(), env, file_token, tab_session_id,
           /*was_cached=*/false, base::TimeTicks::Now()));
   tab_context_capture->Start();
 
@@ -366,6 +352,38 @@ ComposeboxQueryControllerBridge::CreateSearchUrlRequestInfoFromUrl(GURL url) {
   return search_url_request_info;
 }
 
+void ComposeboxQueryControllerBridge::OnSearchUrlCreated(
+    base::android::ScopedJavaGlobalRef<jobject> j_callback,
+    GURL url) {
+  // Store a copy of the session handle in the central web contents helper with
+  // the tab session IDs. This is required to answer IsTabInContext() correctly
+  // during navigation interception.
+  // TODO(crbug.com/470404040): Deduplicate session handle copying and state
+  // transfer logic with ContextualSearchboxHandler::OpenUrl.
+  if (web_contents_ && session_handle_) {
+    contextual_search::ContextualSearchService* search_service =
+        ContextualSearchServiceFactory::GetForProfile(profile_);
+    if (search_service) {
+      std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
+          handle_copy =
+              search_service->GetSession(session_handle_->session_id(),
+                                         session_handle_->invocation_source());
+      if (handle_copy) {
+        handle_copy->set_submitted_context_tokens(
+            session_handle_->GetSubmittedContextTokens());
+        handle_copy->CheckSearchContentSharingSettings(profile_->GetPrefs());
+
+        auto* helper =
+            ContextualSearchWebContentsHelper::GetOrCreateForWebContents(
+                web_contents_.get());
+        helper->SetTaskSession(std::nullopt, std::move(handle_copy), nullptr);
+      }
+    }
+  }
+
+  RunJavaCallback(j_callback, url);
+}
+
 void ComposeboxQueryControllerBridge::ContextualizeAndCreateSearchUrl(
     std::unique_ptr<ComposeboxQueryController::CreateSearchUrlRequestInfo>
         search_url_request_info,
@@ -375,7 +393,8 @@ void ComposeboxQueryControllerBridge::ContextualizeAndCreateSearchUrl(
   auto callback = base::BindOnce(
       &contextual_search::ContextualSearchSessionHandle::CreateSearchUrl,
       session_handle_->AsWeakPtr(), std::move(search_url_request_info),
-      base::BindOnce(&RunJavaCallback,
+      base::BindOnce(&ComposeboxQueryControllerBridge::OnSearchUrlCreated,
+                     weak_ptr_factory_.GetWeakPtr(),
                      base::android::ScopedJavaGlobalRef<jobject>(j_callback)));
 
   contextual_tasks::QueryContextualizer::ContextualizeParams params;
@@ -557,16 +576,22 @@ void ComposeboxQueryControllerBridge::OnGetPageContentFromCache(
     }
   }
 
-  StartTabContextUploadFlow(env, context_token, /*was_cached=*/true, start_time,
+  StartTabContextUploadFlow(env, context_token, /*tab_session_id=*/std::nullopt,
+                            /*was_cached=*/true, start_time,
                             std::move(input_data));
 }
 
 void ComposeboxQueryControllerBridge::StartTabContextUploadFlow(
     JNIEnv* env,
     const base::UnguessableToken& context_token,
+    std::optional<SessionID> tab_session_id,
     bool was_cached,
     base::TimeTicks start_time,
     std::unique_ptr<lens::ContextualInputData> page_content_data) {
+  if (page_content_data && tab_session_id.has_value() &&
+      tab_session_id->is_valid()) {
+    page_content_data->tab_session_id = *tab_session_id;
+  }
   if (!page_content_data || !page_content_data->context_input.has_value() ||
       page_content_data->context_input->size() <= 0) {
     OnContextUploadStatusChanged(
@@ -582,7 +607,7 @@ void ComposeboxQueryControllerBridge::StartTabContextUploadFlow(
       base::TimeTicks::Now() - start_time);
 
   std::optional<lens::ImageEncodingOptions> image_options =
-      lens::ImageEncodingOptions{.enable_webp_encoding = false,
+      lens::ImageEncodingOptions{
                                  .max_size = 1500000,
                                  .max_height = 1600,
                                  .max_width = 1600,
@@ -692,14 +717,15 @@ void ComposeboxQueryControllerBridge::InitializeInputStateModel() {
                            ? contextual_tasks::ContextualTasksUiServiceFactory::
                                  GetForBrowserContext(profile_)
                            : nullptr;
+    bool is_signed_in =
+        ui_service && ui_service->IsSignedInToBrowserWithValidCredentials();
     bool browser_identity_matches_aim_identity =
-        ui_service && ui_service->IsSignedInToBrowserWithValidCredentials() &&
-        ui_service->IsUrlForPrimaryAccount(GURL());
+        is_signed_in && ui_service->IsUrlForPrimaryAccount(GURL());
     const omnibox::SearchboxConfig* config_ptr =
         aim_service->GetSearchboxConfig();
     input_state_model_ = std::make_unique<contextual_search::InputStateModel>(
         *session_handle_, config_ptr ? *config_ptr : omnibox::SearchboxConfig(),
-        GURL(), profile_ ? profile_->IsOffTheRecord() : false,
+        GURL(), profile_ ? profile_->IsOffTheRecord() : false, is_signed_in,
         browser_identity_matches_aim_identity);
     input_state_subscription_ =
         input_state_model_->subscribe(base::BindRepeating(
@@ -713,62 +739,6 @@ void ComposeboxQueryControllerBridge::UpdateStateFromUrl(const GURL& url) {
   if (input_state_model_) {
     input_state_model_->UpdateStateFromUrl(url);
   }
-}
-
-void ComposeboxQueryControllerBridge::SubmitQueryToAimPage(
-    JNIEnv* env,
-    const std::string& query) {
-  if (!contextual_tasks_web_ui_interface_) {
-    return;
-  }
-
-  omnibox::ToolMode active_tool = omnibox::ToolMode::TOOL_MODE_UNSPECIFIED;
-  omnibox::ModelMode active_model = omnibox::ModelMode::MODEL_MODE_UNSPECIFIED;
-  if (input_state_model_) {
-    contextual_search::InputState input_state =
-        input_state_model_->GetInputState();
-    active_tool = input_state.active_tool;
-    active_model = input_state.active_model;
-  }
-
-  std::string query_text = query;
-  GURL url(query);
-  if (url.is_valid()) {
-    std::string extracted_query;
-    if (net::GetValueForKeyInQuery(url, "q", &extracted_query)) {
-      query_text = extracted_query;
-    }
-  }
-
-  auto callback = base::BindOnce(
-      [](base::WeakPtr<ComposeboxQueryControllerBridge> self,
-         const std::string& query_text, omnibox::ToolMode active_tool,
-         omnibox::ModelMode active_model,
-         base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
-             session_handle) {
-        if (!self || !self->contextual_tasks_web_ui_interface_) {
-          return;
-        }
-        auto request_info = contextual_tasks::PrepareClientToAimRequestInfo(
-            query_text, self->session_handle_.get(),
-            self->contextual_tasks_web_ui_interface_, active_tool, active_model,
-            /*active_tab_context_id=*/std::nullopt,
-            /*overlay_token=*/std::nullopt, /*is_voice_search=*/false);
-
-        contextual_tasks::FinalizeAndSendAimQuery(
-            std::move(request_info), self->session_handle_.get(),
-            self->contextual_tasks_web_ui_interface_);
-      },
-      weak_ptr_factory_.GetWeakPtr(), query_text, active_tool, active_model);
-
-  contextual_tasks::QueryContextualizer::ContextualizeParams params;
-  params.task_id = std::nullopt;
-  params.query_text = query_text;
-  params.on_ineligible_callback = base::DoNothing();
-  params.on_processed_callback = base::DoNothing();
-  params.complete_callback = std::move(callback);
-  params.enable_smart_tab_selection = false;
-  query_contextualizer_->Contextualize(std::move(params));
 }
 
 static bool JNI_ComposeboxQueryControllerBridge_IsFuseboxEligibleForProfile(

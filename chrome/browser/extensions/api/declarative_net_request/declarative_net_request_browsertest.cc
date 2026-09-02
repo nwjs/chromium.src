@@ -18,6 +18,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_helpers.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -70,6 +71,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/webui_config_map.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
@@ -100,6 +102,7 @@
 #include "extensions/browser/disable_reason.h"
 #include "extensions/browser/extension_action.h"
 #include "extensions/browser/extension_action_manager.h"
+#include "extensions/browser/extension_file_task_runner.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
@@ -148,8 +151,8 @@
 #include "ui/webui/untrusted_web_ui_browsertest_util.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #endif
@@ -1989,6 +1992,46 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   }
 }
 
+// Regression test for crbug.com/40807910: uninstalling an extension that has a
+// dynamic ruleset should delete its dynamic rules directory from disk.
+IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
+                       DynamicRulesDirectoryDeletedOnUninstall) {
+  set_config_flags(ConfigFlag::kConfig_HasBackgroundScript);
+
+  // Load an extension and add a dynamic rule so its dynamic rules directory is
+  // written to disk.
+  ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules({}));
+  const ExtensionId extension_id = last_loaded_extension_id();
+  TestRule rule = CreateGenericRule();
+  rule.condition->url_filter = std::string("dynamic.example");
+  ASSERT_NO_FATAL_FAILURE(AddDynamicRules(extension_id, {rule}));
+
+  const base::FilePath dynamic_rules_dir =
+      FileBackedRulesetSource::CreateDynamic(profile(), extension_id)
+          .json_path()
+          .DirName();
+  {
+    base::ScopedAllowBlockingForTesting scoped_allow_blocking;
+    ASSERT_TRUE(base::DirectoryExists(dynamic_rules_dir));
+  }
+
+  UninstallExtension(extension_id);
+  WaitForExtensionsWithRulesetsCount(0);
+
+  // The directory is deleted asynchronously on the extension file task runner;
+  // flush it before checking that the directory is gone.
+  {
+    base::RunLoop run_loop;
+    GetExtensionFileTaskRunner()->PostTaskAndReply(FROM_HERE, base::DoNothing(),
+                                                   run_loop.QuitClosure());
+    run_loop.Run();
+  }
+  {
+    base::ScopedAllowBlockingForTesting scoped_allow_blocking;
+    EXPECT_FALSE(base::DirectoryExists(dynamic_rules_dir));
+  }
+}
+
 // Tests that multiple enabled extensions with declarative rulesets having
 // blocking rules behave correctly.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
@@ -3570,6 +3613,32 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, DynamicRules) {
   EXPECT_TRUE(IsNavigationBlocked(yahoo_url));
 }
 
+// A privileged WebContents (see //chrome's PrivilegedWebContents) is exempt
+// from Declarative Net Request: a main-frame block rule that blocks an ordinary
+// tab does not fire for a privileged WebContents at the same URL.
+IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
+                       PrivilegedWebContentsExemptFromDNR) {
+  TestRule rule = CreateMainFrameBlockRule("block.example");
+  ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules({rule}));
+
+  const GURL url = embedded_test_server()->GetURL(
+      "block.example", "/pages_with_script/index.html");
+
+  // An ordinary tab navigation is blocked by the rule.
+  EXPECT_TRUE(IsNavigationBlocked(url));
+
+  // A privileged WebContents navigation to the same URL is not evaluated
+  // against the ruleset, so the page loads.
+  content::WebContents::CreateParams params(profile());
+  content::WebContents::PrivilegedParams privileged_params;
+  privileged_params.feature_id = 42;
+  params.privileged_params = privileged_params;
+  std::unique_ptr<content::WebContents> privileged =
+      content::WebContents::Create(params);
+  EXPECT_TRUE(content::NavigateToURL(privileged.get(), url));
+  EXPECT_TRUE(WasFrameWithScriptLoaded(privileged->GetPrimaryMainFrame()));
+}
+
 // Tests rules using the Redirect dictionary.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, Redirect) {
   TestRule rule1 = CreateGenericRule();
@@ -4259,10 +4328,10 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
   // Now create a new browser with the same profile as |browser()| and navigate
   // to |page_url|.
-  Browser* second_browser = CreateBrowser(profile());
+  BrowserWindowInterface* second_browser = CreateBrowser(profile());
   ASSERT_TRUE(ui_test_utils::NavigateToURL(second_browser, page_url));
   content::WebContents* second_browser_contents =
-      second_browser->tab_strip_model()->GetActiveWebContents();
+      second_browser->GetTabStripModel()->GetActiveWebContents();
 
   int second_browser_tab_id =
       ExtensionTabUtil::GetTabId(second_browser_contents);
@@ -4321,12 +4390,12 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
   PrefsHelper helper(*ExtensionPrefs::Get(profile()));
   helper.SetUseActionCountAsBadgeText(extension_id, true);
 
-  Browser* incognito_browser = CreateIncognitoBrowser();
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
   ASSERT_TRUE(
       ui_test_utils::NavigateToURL(incognito_browser, GURL("http://abc.com")));
 
   content::WebContents* incognito_contents =
-      incognito_browser->tab_strip_model()->GetActiveWebContents();
+      incognito_browser->GetTabStripModel()->GetActiveWebContents();
 
   const Extension* dnr_extension = last_loaded_extension();
   ExtensionAction* incognito_action =

@@ -36,6 +36,11 @@ OmniboxEverywhereService::controller() const {
              : nullptr;
 }
 
+omnibox_everywhere::OmniboxEverywhereUIManager*
+OmniboxEverywhereService::ui_manager() const {
+  return controller() ? controller()->ui_manager() : nullptr;
+}
+
 void OmniboxEverywhereService::Shutdown() {
   if (controller()) {
     controller()->ShutdownForProfile(profile_);
@@ -58,28 +63,33 @@ void OmniboxEverywhereService::ShowProfilePicker() {
   }
 }
 
-void OmniboxEverywhereService::SetIsNavigating(bool is_navigating) {
-  if (controller() && controller()->ui_manager()) {
-    controller()->ui_manager()->SetIsNavigating(is_navigating);
-  }
-}
-
 void OmniboxEverywhereService::OnDrivePickerOpened() {
-  if (controller() && controller()->ui_manager()) {
-    controller()->ui_manager()->OnDrivePickerOpened();
+  if (ui_manager()) {
+    ui_manager()->OnDrivePickerOpened();
   }
 }
 
 void OmniboxEverywhereService::OnDrivePickerClosed() {
-  if (controller() && controller()->ui_manager()) {
-    controller()->ui_manager()->OnDrivePickerClosed();
+  if (ui_manager()) {
+    ui_manager()->OnDrivePickerClosed();
+  }
+}
+
+void OmniboxEverywhereService::OnScreensharePickerOpened() {
+  if (ui_manager()) {
+    ui_manager()->OnScreensharePickerOpened();
+  }
+}
+
+void OmniboxEverywhereService::OnScreensharePickerClosed() {
+  if (ui_manager()) {
+    ui_manager()->OnScreensharePickerClosed();
   }
 }
 
 void OmniboxEverywhereService::OpenUrl(const GURL& url,
                                        WindowOpenDisposition disposition,
                                        ui::PageTransition transition) {
-  SetIsNavigating(true);
   HidePopup();
 
   auto* browser_collection = ProfileBrowserCollection::GetForProfile(profile_);

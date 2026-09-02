@@ -5,15 +5,19 @@
 #include "components/crx_file/crx_verifier.h"
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cstring>
 #include <iterator>
 #include <memory>
 #include <optional>
 #include <set>
+#include <string>
 #include <utility>
 
 #include "base/base64.h"
+#include "base/feature.h"
+#include "base/feature_list.h"
 #include "base/files/file.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -35,6 +39,11 @@ namespace {
 
 using KeyHash = std::array<uint8_t, crypto::hash::kSha256Size>;
 
+// A feature to block EOCD64 record tokens in CRX files, only here as a
+// killswitch. This can be removed in October 2026.
+BASE_FEATURE(kDisallowEocdRecord64TokensInCrx,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // The SHA256 hash of the DER SPKI "ecdsa_2017_public" Crx3 key.
 constexpr KeyHash kPublisherKeyHash = {
     0x61, 0xf7, 0xf2, 0xa6, 0xbf, 0xcf, 0x74, 0xcd, 0x0b, 0xc1, 0xfe,
@@ -49,6 +58,7 @@ constexpr KeyHash kPublisherTestKeyHash = {
 
 constexpr auto kEocd = std::to_array<uint8_t>({'P', 'K', 0x05, 0x06});
 constexpr auto kEocd64 = std::to_array<uint8_t>({'P', 'K', 0x06, 0x07});
+constexpr auto kEocd64Record = std::to_array<uint8_t>({'P', 'K', 0x06, 0x06});
 
 using VerifierCollection = std::vector<std::unique_ptr<crypto::sign::Verifier>>;
 using RepeatedProof = ::google::protobuf::RepeatedPtrField<AsymmetricKeyProof>;
@@ -67,7 +77,7 @@ std::optional<size_t> ReadAndHashBuffer(base::span<uint8_t> buffer,
 // returns the read uint32.
 uint32_t ReadAndHashLittleEndianUInt32(base::File* file,
                                        crypto::hash::Hasher& hash) {
-  std::array<uint8_t, 4> buffer;
+  std::array<uint8_t, 4> buffer = {};
   if (ReadAndHashBuffer(buffer, file, hash).value_or(4) != buffer.size()) {
     return UINT32_MAX;
   }
@@ -78,7 +88,7 @@ uint32_t ReadAndHashLittleEndianUInt32(base::File* file,
 bool ReadHashAndVerifyArchive(base::File* file,
                               crypto::hash::Hasher& hash,
                               const VerifierCollection& verifiers) {
-  std::array<uint8_t, 1 << 12> buffer;
+  std::array<uint8_t, 1 << 12> buffer = {};
   std::optional<size_t> len;
   while ((len = ReadAndHashBuffer(buffer, file, hash)).value_or(0) > 0) {
     auto to_verify = base::span<const uint8_t>(buffer).first(*len);
@@ -122,10 +132,17 @@ VerifierResult VerifyCrx3(
     return VerifierResult::ERROR_HEADER_INVALID;
   }
 
-  // If the header contains a ZIP EOCD or EOCD64 token, unzipping may not work
-  // correctly.
+  // If the header contains a ZIP EOCD, EOCD64, or EOCD64 record token,
+  // unzipping may not work correctly.
   if (std::ranges::search(header_bytes, kEocd) ||
       std::ranges::search(header_bytes, kEocd64)) {
+    return VerifierResult::ERROR_HEADER_INVALID;
+  }
+  // Out of an abundance of caution, we gate the EOCD64 record token on a
+  // base::Feature. The feature check can be removed (and this can be folded
+  // into the if-statement above) in October 2026.
+  if (base::FeatureList::IsEnabled(kDisallowEocdRecord64TokensInCrx) &&
+      std::ranges::search(header_bytes, kEocd64Record)) {
     return VerifierResult::ERROR_HEADER_INVALID;
   }
 
@@ -158,7 +175,7 @@ VerifierResult VerifyCrx3(
   // Create a set of all required key hashes.
   std::set<KeyHash> required_key_set;
   for (const auto& key_hash : required_key_hashes) {
-    KeyHash hash_copy;
+    KeyHash hash_copy = {};
     base::span<uint8_t>(hash_copy).copy_from(key_hash);
     required_key_set.insert(hash_copy);
   }
@@ -259,7 +276,7 @@ VerifierResult Verify(
 
   // Magic number.
   bool diff = false;
-  std::array<uint8_t, std::size(kCrxFileHeaderMagic)> buffer;
+  std::array<uint8_t, std::size(kCrxFileHeaderMagic)> buffer = {};
   if (!file.ReadAtCurrentPosAndCheck(buffer)) {
     return VerifierResult::ERROR_HEADER_INVALID;
   }
@@ -289,7 +306,7 @@ VerifierResult Verify(
   }
 
   // Finalize file hash.
-  std::array<uint8_t, crypto::hash::kSha256Size> final_hash;
+  std::array<uint8_t, crypto::hash::kSha256Size> final_hash = {};
   file_hash.Finish(final_hash);
   if (!required_file_hash.empty()) {
     if (required_file_hash.size() != crypto::hash::kSha256Size) {

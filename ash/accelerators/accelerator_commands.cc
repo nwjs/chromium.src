@@ -640,10 +640,6 @@ bool CanResizePipWindow() {
   return Shell::Get()->pip_controller()->CanResizePip();
 }
 
-bool CanToggleGeminiApp() {
-  return features::IsAppLaunchShortcutEnabled();
-}
-
 bool CanScreenshot(bool take_screenshot) {
   // |AcceleratorAction::kTakeScreenshot| is allowed when user session is
   // blocked.
@@ -1079,9 +1075,7 @@ void OpenHelp() {
 }
 
 void ToggleGeminiApp() {
-  if (ash::features::IsAppLaunchShortcutEnabled()) {
     NewWindowDelegate::GetInstance()->ToggleGeminiApp();
-  }
 }
 
 void PerformTilingWindowResize(AcceleratorAction action) {
@@ -1364,10 +1358,6 @@ void ToggleCalendar() {
 }
 
 void ToggleCameraAllowed() {
-  if (!features::IsToggleCameraShortcutEnabled()) {
-    return;
-  }
-
   auto* pref_service =
       Shell::Get()->session_controller()->GetActivePrefService();
   if (!pref_service) {

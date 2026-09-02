@@ -27,7 +27,6 @@ CPP_TYPE_BY_JAVA_TYPE = {
     'java/lang/Throwable': 'jthrowable',
 }
 
-# Replaced with CPP_TYPE_BY_JAVA_TYPE based on --use-std-primitive-types.
 CPP_UNDERLYING_TYPE_BY_JAVA_TYPE = {
     'boolean': 'bool',  # underlying type of jboolean
     'byte': 'int8_t',  # underlying type of jbyte
@@ -74,12 +73,6 @@ _DEFAULT_VALUE_BY_PRIMITIVE_TYPE = {
 }
 
 PRIMITIVES = frozenset(_DEFAULT_VALUE_BY_PRIMITIVE_TYPE)
-
-
-def SetUseJniPrimitiveTypes():
-  """Use jint rather than int32_t."""
-  global CPP_UNDERLYING_TYPE_BY_JAVA_TYPE
-  CPP_UNDERLYING_TYPE_BY_JAVA_TYPE = CPP_TYPE_BY_JAVA_TYPE
 
 
 @dataclasses.dataclass(frozen=True, order=True)
@@ -659,6 +652,10 @@ COLLECTION_CLASSES = (
     JavaClass('java/util/Collection'),
     JavaClass('java/util/Set'),
 )
+
+# Classes provided by jni_zero.h (and used by
+# header_common.class_accessor_expression()).
+JCLASS_GLOBALS_CLASSES = (CLASS_LOADER_CLASS, OBJECT_CLASS, STRING_CLASS)
 
 OBJECT = OBJECT_CLASS.as_type()
 STRING = STRING_CLASS.as_type()

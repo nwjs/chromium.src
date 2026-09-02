@@ -16,8 +16,11 @@
 
 namespace enterprise_net {
 
-// Controls whether dynamic route fetching is enabled.
+// Feature flag controlling dynamic route fetching.
 BASE_DECLARE_FEATURE(kEnableDynamicRouteFetching);
+
+// Feature flag controlling enterprise proxy error handling.
+BASE_DECLARE_FEATURE(kEnterpriseProxyErrorHandling);
 
 // Feature param for the maximum size limit (in bytes) for Provisioning Domain
 // configuration downloads. Defaults to 3 MiB.
@@ -25,6 +28,9 @@ extern const base::FeatureParam<int> kPvdConfigMaxSizeBytesParam;
 
 // Return true if dynamic route fetching is enabled.
 bool IsDynamicRouteFetchingEnabled();
+
+// Return true if enterprise proxy error handling is enabled.
+bool IsEnterpriseProxyErrorHandlingEnabled();
 
 // Returns the maximum allowed size in bytes for Provisioning Domain
 // configuration downloads.

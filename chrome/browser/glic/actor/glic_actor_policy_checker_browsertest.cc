@@ -28,8 +28,8 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_test_environment.h"
-#include "chrome/browser/glic/test_support/non_interactive_glic_test.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
@@ -91,7 +91,7 @@ constexpr TestAccount kEnterpriseAccount = {"foo@testenterprise.com",
 }  // namespace
 
 // TODO(crbug.com/537849136): Simplify this test suite to GlicBrowserTest.
-class GlicActorPolicyCheckerBrowserTestBase : public NonInteractiveGlicTest {
+class GlicActorPolicyCheckerBrowserTestBase : public GlicBrowserTest {
  public:
   GlicActorPolicyCheckerBrowserTestBase() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
@@ -105,9 +105,14 @@ class GlicActorPolicyCheckerBrowserTestBase : public NonInteractiveGlicTest {
 
   void SetUpOnMainThread() override {
     content::SetupCrossSiteRedirector(embedded_test_server());
-    InProcessBrowserTest::SetUpOnMainThread();
+    embedded_test_server()->ServeFilesFromSourceDirectory(
+        "components/test/data");
+    embedded_https_test_server().ServeFilesFromSourceDirectory(
+        "components/test/data");
+
+    GlicBrowserTest::SetUpOnMainThread();
+
     host_resolver()->AddRule("*", "127.0.0.1");
-    ASSERT_TRUE(embedded_test_server()->Start());
     ASSERT_TRUE(embedded_https_test_server().Start());
 
     adaptor_ =
@@ -124,12 +129,11 @@ class GlicActorPolicyCheckerBrowserTestBase : public NonInteractiveGlicTest {
   }
 
   void TearDownOnMainThread() override {
-    ASSERT_TRUE(embedded_test_server()->ShutdownAndWaitUntilComplete());
     identity_manager_ = nullptr;
     identity_test_env_ = nullptr;
     adaptor_.reset();
 
-    InProcessBrowserTest::TearDownOnMainThread();
+    GlicBrowserTest::TearDownOnMainThread();
   }
 
   void SetUpBrowserContextKeyedServices(
@@ -140,7 +144,7 @@ class GlicActorPolicyCheckerBrowserTestBase : public NonInteractiveGlicTest {
         context, base::BindRepeating(&BuildChromeSigninClientWithURLLoader,
                                      &test_url_loader_factory_));
 
-    InProcessBrowserTest::SetUpBrowserContextKeyedServices(context);
+    GlicBrowserTest::SetUpBrowserContextKeyedServices(context);
   }
 
   void SimulatePrimaryAccountChangedSignIn(const TestAccount* account) {
@@ -683,12 +687,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
 
   ActResultFuture result;
   task->Act(ToRequestList(click), result.GetCallback());
-  const auto expected_result =
-      base::FeatureList::IsEnabled(
-          actor::kGlicGranularBlockingActionResultCodes)
-          ? actor::mojom::ActionResultCode::kActionsBlockedByEnterprisePolicy
-          : actor::mojom::ActionResultCode::kUrlBlocked;
-  ExpectErrorResult(result, expected_result);
+  ExpectErrorResult(
+      result,
+      actor::mojom::ActionResultCode::kActionsBlockedByEnterprisePolicy);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
@@ -752,12 +753,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
 
   ActResultFuture result;
   task->Act(ToRequestList(click), result.GetCallback());
-  const auto expected_result =
-      base::FeatureList::IsEnabled(
-          actor::kGlicGranularBlockingActionResultCodes)
-          ? actor::mojom::ActionResultCode::kActionsBlockedByEnterprisePolicy
-          : actor::mojom::ActionResultCode::kTriggeredNavigationBlocked;
-  ExpectErrorResult(result, expected_result);
+  ExpectErrorResult(
+      result,
+      actor::mojom::ActionResultCode::kActionsBlockedByEnterprisePolicy);
 }
 
 IN_PROC_BROWSER_TEST_F(GlicActorPolicyCheckerBrowserTestManagedBrowser,
@@ -1091,8 +1089,7 @@ IN_PROC_BROWSER_TEST_F(
 IN_PROC_BROWSER_TEST_F(
     ActorPolicyCheckerBrowserTestWithManagedAccountWithPolicy,
     InvalidPolicyValueFallsSafeAndDoesNotCrash) {
-  browser()->GetProfile()->GetPrefs()->SetInteger(
-      glic::prefs::kGlicActuationOnWeb, 2);
+  GetProfile()->GetPrefs()->SetInteger(glic::prefs::kGlicActuationOnWeb, 2);
   EXPECT_FALSE(GetPolicyChecker().CanActOnWeb());
   EXPECT_EQ(GetPolicyChecker().CannotActOnWebReason(),
             CannotActReason::kDisabledByPolicy);

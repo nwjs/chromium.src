@@ -103,13 +103,11 @@ gpu.ci.linux_builder(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_common_android_telemetry_tests",
+            "gpu_android_arm_release_gtests",
+            "gpu_android_arm_release_telemetry_tests",
         ],
         mixins = [
             "chromium_pixel_2_q",
-            # TODO(crbug.com/538273327): Return these tests to CQ after device
-            # pool stabalizes (or we increase its size?)
-            "ci_only",
         ],
     ),
     targets_settings = targets.settings(
@@ -469,8 +467,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_desktop_passthrough_gtests",
-            "gpu_common_linux_telemetry_tests",
+            "gpu_linux_release_gtests",
+            "gpu_linux_release_telemetry_tests",
         ],
         mixins = [
             "linux_nvidia_gtx_1660_stable",
@@ -510,8 +508,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_desktop_passthrough_gtests",
-            "gpu_common_metal_passthrough_graphite_telemetry_tests",
+            "gpu_mac_debug_gtests",
+            "gpu_mac_debug_telemetry_tests",
         ],
         mixins = [
             "mac_mini_intel_gpu_stable",
@@ -565,8 +563,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_desktop_passthrough_gtests",
-            "gpu_common_metal_passthrough_graphite_telemetry_tests",
+            "gpu_mac_release_gtests",
+            "gpu_mac_release_telemetry_tests",
         ],
         mixins = [
             "mac_mini_intel_gpu_stable",
@@ -605,8 +603,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_desktop_passthrough_gtests",
-            "gpu_common_metal_passthrough_graphite_telemetry_tests",
+            "gpu_mac_debug_gtests",
+            "gpu_mac_debug_telemetry_tests",
         ],
         mixins = [
             "mac_retina_amd_gpu_stable",
@@ -655,8 +653,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_desktop_passthrough_gtests",
-            "gpu_common_metal_passthrough_graphite_telemetry_tests",
+            "gpu_mac_release_gtests",
+            "gpu_mac_release_telemetry_tests",
         ],
         mixins = [
             "mac_retina_amd_gpu_stable",
@@ -697,8 +695,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_desktop_passthrough_gtests",
-            "gpu_common_metal_passthrough_graphite_telemetry_tests",
+            "gpu_mac_release_gtests",
+            "gpu_mac_release_telemetry_tests",
         ],
         mixins = [
             "mac_arm64_apple_m2_retina_gpu_stable",
@@ -737,8 +735,8 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_win_gtests",
-            "gpu_common_win_telemetry_tests",
+            "gpu_win_debug_gtests",
+            "gpu_win_debug_telemetry_tests",
         ],
         mixins = [
             "win10_nvidia_gtx_1660_stable",
@@ -804,12 +802,13 @@ ci.thin_tester(
     ),
     targets = targets.bundle(
         targets = [
-            "gpu_win_gtests",
-            "gpu_common_win_telemetry_tests",
+            "gpu_win_release_gtests",
+            "gpu_win_release_telemetry_tests",
         ],
         mixins = [
             "win10_nvidia_gtx_1660_stable",
             "puppet_production",
+            "isolate_profile_data",
         ],
         per_test_modifications = {
             "pixel_skia_gold_passthrough_test": targets.per_test_modification(

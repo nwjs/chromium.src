@@ -181,7 +181,7 @@ const CGFloat kSeparatorHeight = 0.5;
     [_stackView addArrangedSubview:_separator];
     [NSLayoutConstraint activateConstraints:@[
       [_separator.heightAnchor
-          constraintEqualToConstant:AlignValueToPixel(kSeparatorHeight)],
+          constraintEqualToConstant:AlignValueToLowerPixel(kSeparatorHeight)],
       [_separator.leadingAnchor
           constraintEqualToAnchor:_stackView.leadingAnchor],
       [_separator.trailingAnchor
@@ -190,8 +190,7 @@ const CGFloat kSeparatorHeight = 0.5;
 
     [self addSubview:_stackView];
     AddSameConstraintsToSidesWithInsets(
-        _stackView, self,
-        (LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing),
+        _stackView, self, LayoutSides::kTop | LayoutSides::kHorizontal,
         noInset ? NSDirectionalEdgeInsetsZero : kMagicStackContainerInsets);
     _contentStackViewBottomMarginAnchor =
         [_stackView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor

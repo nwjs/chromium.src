@@ -25,6 +25,7 @@ namespace syncer {
 class ExtensionsActivity;
 class DataTypeRegistry;
 class ServerConnectionManager;
+class SyncAccessTokenFetcher;
 
 // Default number of items a client can commit in a single message.
 constexpr int kDefaultMaxCommitBatchSize = 25;
@@ -48,7 +49,9 @@ class SyncCycleContext {
                    const std::string& cache_guid,
                    const std::string& birthday,
                    const std::string& bag_of_chips,
-                   base::TimeDelta poll_interval);
+                   base::TimeDelta poll_interval,
+                   const std::string& account_email,
+                   SyncAccessTokenFetcher* sync_access_token_fetcher);
 
   SyncCycleContext(const SyncCycleContext&) = delete;
   SyncCycleContext& operator=(const SyncCycleContext&) = delete;
@@ -79,8 +82,7 @@ class SyncCycleContext {
   void set_bag_of_chips(const std::string& bag_of_chips);
   const std::string& bag_of_chips() const { return bag_of_chips_; }
 
-  void set_account_name(const std::string& name) { account_name_ = name; }
-  const std::string& account_name() const { return account_name_; }
+  const std::string& account_email() const { return account_email_; }
 
   void set_max_commit_batch_size(int batch_size) {
     max_commit_batch_size_ = batch_size;
@@ -121,6 +123,10 @@ class SyncCycleContext {
         std::move(active_devices_invalidation_info);
   }
 
+  SyncAccessTokenFetcher* sync_access_token_fetcher() {
+    return sync_access_token_fetcher_;
+  }
+
  private:
   base::ObserverList<SyncEngineEventListener> listeners_;
 
@@ -139,9 +145,6 @@ class SyncCycleContext {
   std::string birthday_;
 
   std::string bag_of_chips_;
-
-  // The name of the account being synced.
-  std::string account_name_;
 
   // The server limits the number of items a client can commit in one batch.
   int max_commit_batch_size_ = kDefaultMaxCommitBatchSize;
@@ -164,6 +167,11 @@ class SyncCycleContext {
       ActiveDevicesInvalidationInfo::CreateUninitialized();
 
   base::TimeDelta poll_interval_;
+
+  // The email of the account being synced.
+  const std::string account_email_;
+
+  const raw_ptr<SyncAccessTokenFetcher> sync_access_token_fetcher_;
 };
 
 }  // namespace syncer

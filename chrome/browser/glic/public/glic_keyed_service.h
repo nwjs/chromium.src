@@ -58,10 +58,8 @@ class GlicShareImageHandler;
 class GlicTabDataObserver;
 class GlicTabFaviconObserver;
 class GlicInstanceCoordinator;
-
-#if !BUILDFLAG(IS_ANDROID)
 class GlicExperimentalOptInController;
-#endif
+class GlicExperimentalTriggeringTransportHandlerFactory;
 
 enum class GlicPrewarmingChecksResult;
 
@@ -102,10 +100,15 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   // KeyedService
   void Shutdown() override;
 
+  // Show, summon or activate the panel. If `bwi` is non-null, attach the panel
+  // to its Browser.
+  virtual void ShowUI(BrowserWindowInterface* bwi,
+                      mojom::InvocationSource source);
+
   // Show, summon or activate the panel, or close it if it's already active and
   // prevent_close is false. If `bwi` is non-null, attach the panel to its
   // Browser.
-  // TODO(b:448888544): remove `prevent_close` in favor of a Show method.
+  // TODO(b:448888544): remove `prevent_close` in favor of ShowUI.
 
   virtual void ToggleUI(BrowserWindowInterface* bwi,
                         bool prevent_close,
@@ -138,9 +141,9 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
   GlicEnabling& enabling() { return *enabling_.get(); }
 
   GlicMetrics* metrics() { return metrics_.get(); }
-#if !BUILDFLAG(IS_ANDROID)
+
   virtual GlicExperimentalOptInController& opt_in_controller();
-#endif
+
   virtual GlicInstanceCoordinator& instance_coordinator() const;
 
   // Return a `GlicActiveInstanceSharingManager` which tracks the sharing state
@@ -254,8 +257,6 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
           GetZeroStateSuggestionsForFocusedTabCallback callback,
       std::vector<std::string> returned_suggestions);
 
-  bool MaybeInvoke(BrowserWindowInterface* bwi, mojom::InvocationSource source);
-
   void InitializeAfterConstruction();
 
   void FinishPreload(GlicPrewarmingChecksResult reason);
@@ -280,9 +281,7 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   std::unique_ptr<GlicEnabling> enabling_;
   std::unique_ptr<GlicMetrics> metrics_;
-#if !BUILDFLAG(IS_ANDROID)
   std::unique_ptr<GlicExperimentalOptInController> opt_in_controller_;
-#endif
   // Is a GlicInstanceCoordinatorImpl.
   std::unique_ptr<GlicInstanceCoordinator> instance_coordinator_;
   std::unique_ptr<GlicShareImageHandler> share_image_handler_;
@@ -293,6 +292,8 @@ class GlicKeyedService : public KeyedService, public base::SupportsUserData {
 
   std::unique_ptr<GlicTabDataObserver> tab_data_observer_;
   std::unique_ptr<GlicTabFaviconObserver> tab_favicon_observer_;
+  std::unique_ptr<GlicExperimentalTriggeringTransportHandlerFactory>
+      experimental_triggering_transport_handler_factory_;
 
   base::CallbackListSubscription experimental_triggering_state_subscription_;
 

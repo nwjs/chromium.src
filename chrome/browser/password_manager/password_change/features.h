@@ -16,6 +16,13 @@ namespace password_change::features {
 // password form.
 BASE_DECLARE_FEATURE(kCheckFieldEnabledInChangePasswordFormWaiter);
 
+// Controls whether ChromePasswordChangeService checks whether the password
+// field is focusable (visible).
+BASE_DECLARE_FEATURE(kCheckPasswordFieldFocusableBeforeOffering);
+
+// Controls whether PasswordChangeDelegateImpl uses Glic for password change.
+BASE_DECLARE_FEATURE(kPasswordChangeWithGlic);
+
 // Controls whether LOGIN_CHECK is executed before offering APC using Private
 // Inference.
 BASE_DECLARE_FEATURE(kPasswordChangeWithPrivateInferenceLoginCheck);
@@ -24,9 +31,17 @@ BASE_DECLARE_FEATURE(kPasswordChangeWithPrivateInferenceLoginCheck);
 // forms.
 BASE_DECLARE_FEATURE(kRecordDiscardedFormsToModelQualityLogs);
 
+// Controls whether ChangePasswordFormWaiter rechecks cached password forms
+// exponentially.
+BASE_DECLARE_FEATURE(kRecheckFormsExponentiallyInChangePasswordFormWaiter);
+
 // Controls whether ChromePasswordChangeService::GetGeneralAvailability skips
 // the check for ShouldModelExecutionBeAllowedForUser.
 BASE_DECLARE_FEATURE(kSkipModelExecutionAllowedCheckForPasswordChange);
+
+// Controls whether ChangePasswordFormWaiter stops waiting for local ML model to
+// finish downloading after timeout.
+BASE_DECLARE_FEATURE(kTimeoutLocalMLModelDownloadInChangePasswordFormWaiter);
 
 }  // namespace password_change::features
 

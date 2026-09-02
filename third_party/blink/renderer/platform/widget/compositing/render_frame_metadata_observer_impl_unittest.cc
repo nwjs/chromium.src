@@ -51,6 +51,10 @@ class MockRenderFrameMetadataObserverClient
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   MOCK_METHOD1(OnRootScrollOffsetChanged, void(const gfx::PointF& offset));
 #endif
+#if BUILDFLAG(IS_ANDROID)
+  MOCK_METHOD2(ReportScrollJankStats,
+               void(uint32_t total_frames, uint32_t janky_frames));
+#endif
 
  private:
   mojo::Receiver<cc::mojom::blink::RenderFrameMetadataObserverClient>
@@ -507,5 +511,17 @@ TEST_F(RenderFrameMetadataObserverImplTest, ForceSendMetadata) {
     run_loop.Run();
   }
 }
+
+#if BUILDFLAG(IS_ANDROID)
+TEST_F(RenderFrameMetadataObserverImplTest, ReportScrollJankStats) {
+  base::RunLoop run_loop;
+  EXPECT_CALL(client(),
+              ReportScrollJankStats(/*total_frames=*/100, /*janky_frames=*/10))
+      .WillOnce(InvokeClosure(run_loop.QuitClosure()));
+  observer_impl().ReportScrollJankStats(/*total_frames=*/100,
+                                        /*janky_frames=*/10);
+  run_loop.Run();
+}
+#endif
 
 }  // namespace blink

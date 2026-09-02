@@ -44,6 +44,9 @@ public interface PageZoomManagerDelegate {
 
     boolean isCurrentTabNull();
 
-    /** Returns true if the window/activity for this manager currently has window focus. */
-    boolean isActivityFocused();
+    /**
+     * Returns true if the window/activity for this manager currently has window focus, the current
+     * tab is not a native page, and the overflow menu is not showing.
+     */
+    boolean canShowPopupWindow();
 }

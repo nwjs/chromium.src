@@ -54,7 +54,8 @@ class LayoutSVGModelObject : public LayoutObject {
 
   void QuadsInAncestorInternal(Vector<gfx::QuadF>&,
                                const LayoutBoxModelObject* ancestor,
-                               MapCoordinatesFlags) const override;
+                               MapCoordinatesFlags,
+                               BoxQuadType) const override;
   gfx::RectF LocalBoundingBoxRectForAccessibility(
       IncludeDescendants include_descendants) const final;
 
@@ -66,6 +67,7 @@ class LayoutSVGModelObject : public LayoutObject {
                           MapCoordinatesFlags) const final;
   void StyleDidChange(StyleDifference,
                       const ComputedStyle* old_style,
+                      const ComputedStyle& new_style,
                       const StyleChangeContext&) override;
 
   SVGElement* GetElement() const {

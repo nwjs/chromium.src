@@ -23,6 +23,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test_utils.h"
+#include "net/dns/mock_host_resolver.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -30,6 +31,50 @@
 #endif
 
 namespace glic {
+
+// This file defines Glic API test fixture GlicApiBrowserTest (and
+// GlicApiBrowserTestMixin).
+// These fixtures configure a Glic client that runs test code. Each .cc test
+// file corresponds to a .ts file. The .cc file runs browser-side code, and the
+// .ts file runs glic client code. Each gtest in the .cc file should correspond
+// to a test function in the .ts file.
+// Using these fixtures requires a little bit of setup. Example:
+//
+// class MyNewGlicTest : public GlicApiBrowserTest {
+//  public:
+//   MyNewGlicTest() :
+//     // Make a new .ts file in chrome/test/data/webui/glic/browser_tests
+//     // update build rules, and point to the generated .js file here.
+//     GlicApiBrowserTest("./my_new_glic_test_browsertest.js") {}
+// };
+//
+// // Always include this test in one fixture of your test file. It ensures
+// // the set of tests in the .ts file match the set of tests in the .cc file.
+// IN_PROC_BROWSER_TEST_F(MyNewGlicTest, testAllTestsAreRegistered) {
+//   // Include all test fixture names here.
+//   AssertAllTestsRegistered({
+//       "MyNewGlicTest",
+//   });
+// }
+// // Add test cases...
+//
+// Next, here's boilerplate for the my_new_glic_test_browsertest.ts file:
+//
+// import {ApiTestFixtureBase, testMain} from './browser_test_base.js';
+//
+// class MyNewGlicTest extends ApiTestFixtureBase {
+//   // Normally it's useful to wait until the client is shown to start the test
+//   // but is not necessary.
+//   override async setUpTest() {
+//     await this.client.waitForFirstOpen();
+//   }
+//   // Add test cases...
+// }
+// testMain([
+//   // All test fixtures need to be listed here.
+//   MyNewGlicTest,
+// ]);
+
 namespace internal {
 
 struct CloseTabCommand {
@@ -160,6 +205,13 @@ class GlicApiBrowserTestMixin : public T {
     Base::SetGlicPagePath("/glic/browser_tests/test.html");
     Base::AddMockGlicQueryParam("testsrc", js_source_path);
 
+    Base::embedded_test_server()->RegisterRequestHandler(
+        base::BindRepeating(&GlicApiBrowserTestMixin::SorryHtmlRequestHandler,
+                            base::Unretained(this)));
+    Base::embedded_test_server()->RegisterRequestHandler(
+        base::BindRepeating(&GlicApiBrowserTestMixin::FakeRpcRequestHandler,
+                            base::Unretained(this)));
+
     Base::embedded_test_server()->RegisterRequestMonitor(base::BindRepeating(
         &GlicApiBrowserTestMixin::OnEmbeddedTestServerHttpRequest,
         base::Unretained(this)));
@@ -171,6 +223,7 @@ class GlicApiBrowserTestMixin : public T {
              {
                  {"glic-default-hotkey", "Ctrl+G"},
              }},
+            {features::kGlicForceNonSkSLBorder, {}},
             {features::kGlicWebClientLoadTimes,
              {
                  // Shorten transition times.
@@ -199,10 +252,17 @@ class GlicApiBrowserTestMixin : public T {
     // TODO(b/495451913): This shouldn't be necessary.
     command_line->AppendSwitch(switches::kDisableRendererBackgrounding);
     command_line->AppendSwitch(switches::kDisableBackgroundTimerThrottling);
+    // Bypass media picker UI and auto-accept tab capture to avoid GPU crashes
+    // in headless tests.
+    command_line->AppendSwitch(switches::kUseFakeUIForMediaStream);
+    command_line->AppendSwitch(switches::kThisTabCaptureAutoAccept);
+    command_line->AppendSwitch("use-fake-device-for-media-stream");
   }
 
   void SetUpOnMainThread() override {
     Base::SetUpOnMainThread();
+    Base::host_resolver()->AddRule("a.com", "127.0.0.1");
+    Base::host_resolver()->AddRule("b.com", "127.0.0.1");
 #if !BUILDFLAG(IS_ANDROID)
     // Makes active browser selection deterministic for tests.
     GlicFocusedBrowserManagerImpl::SetTestingModeForTesting(true);
@@ -237,8 +297,14 @@ class GlicApiBrowserTestMixin : public T {
                             "embeddedTestServerUrl",
                             Base::embedded_test_server()->GetURL("/").spec()))
             .value_or("");
+    // Store `frame_id` early to avoid evaluation-order use-after-free if
+    // `EvalJs` yields and the frame is destroyed.
+    content::GlobalRenderFrameHostId frame_id = glic_guest_frame->GetGlobalId();
+    // Clear `options.instance` before `EvalJs` yields, to avoid it dangling if
+    // the instance is destroyed.
+    options.instance = nullptr;
     ProcessTestResult(
-        glic_guest_frame->GetGlobalId(), options,
+        frame_id, options,
         content::EvalJs(
             glic_guest_frame,
             base::StrCat(
@@ -257,8 +323,14 @@ class GlicApiBrowserTestMixin : public T {
     ASSERT_TRUE(next_step_required_.contains(glic_guest_frame->GetGlobalId()));
     next_step_required_.erase(glic_guest_frame->GetGlobalId());
     std::string param_json = base::WriteJson(options.params).value_or("");
+    // Store `frame_id` early to avoid evaluation-order use-after-free if
+    // `EvalJs` yields and the frame is destroyed.
+    content::GlobalRenderFrameHostId frame_id = glic_guest_frame->GetGlobalId();
+    // Clear `options.instance` before `EvalJs` yields, to avoid it dangling if
+    // the instance is destroyed.
+    options.instance = nullptr;
     ProcessTestResult(
-        glic_guest_frame->GetGlobalId(), options,
+        frame_id, options,
         content::EvalJs(glic_guest_frame,
                         base::StrCat({"continueApiTest(", param_json, ")"})));
   }
@@ -352,10 +424,43 @@ class GlicApiBrowserTestMixin : public T {
 
   const std::optional<base::Value>& step_data() const { return step_data_; }
 
+  // Fake handler that returns a "Sorry!" page.
+  std::unique_ptr<net::test_server::HttpResponse> SorryHtmlRequestHandler(
+      const net::test_server::HttpRequest& request) {
+    if (request.method != net::test_server::METHOD_GET ||
+        request.relative_url != "/glic/browser_tests/sorry.html") {
+      return nullptr;
+    }
+    auto result = std::make_unique<net::test_server::BasicHttpResponse>();
+    result->set_code(net::HttpStatusCode::HTTP_OK);
+    result->set_content_type("text/html");
+    result->set_content("Sorry!");
+    return result;
+  }
+
+  // Fake RPC endpoint that sometimes produces a CORS response.
+  // It does not respond to allow preflights, though.
+  std::unique_ptr<net::test_server::HttpResponse> FakeRpcRequestHandler(
+      const net::test_server::HttpRequest& request) {
+    if (request.method != net::test_server::METHOD_GET ||
+        !base::StartsWith(request.relative_url, "/fake-rpc")) {
+      return nullptr;
+    }
+    auto result = std::make_unique<net::test_server::BasicHttpResponse>();
+    result->set_code(net::HttpStatusCode::HTTP_OK);
+    result->set_content_type("application/json");
+    result->set_content("{\"status\": \"ok\"}");
+    if (request.relative_url.find("/cors") != std::string::npos) {
+      result->AddCustomHeader("Access-Control-Allow-Origin", "*");
+    }
+    return result;
+  }
+
  private:
   void OnEmbeddedTestServerHttpRequest(
       const net::test_server::HttpRequest& request) {
     VLOG(1) << "EmbeddedTestServerHttpRequest: " << request.relative_url;
+    embedded_test_server_requests_.push_back(request);
   }
   void ProcessTestResult(content::GlobalRenderFrameHostId frame_id,
                          const ExecuteTestOptions& options,
@@ -548,6 +653,9 @@ class GlicApiBrowserTestMixin : public T {
   base::test::ScopedFeatureList features_;
   std::set<content::GlobalRenderFrameHostId> next_step_required_;
   std::optional<base::Value> step_data_;
+
+ protected:
+  std::vector<net::test_server::HttpRequest> embedded_test_server_requests_;
 };
 
 using GlicApiBrowserTest = GlicApiBrowserTestMixin<GlicBrowserTest>;

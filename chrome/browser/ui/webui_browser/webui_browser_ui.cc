@@ -127,6 +127,9 @@ WebUIBrowserUI::WebUIBrowserUI(content::WebUI* web_ui)
   source->AddLocalizedStrings(
       SearchboxHandler::GetWebUIDataSourceDict(profile));
 
+  source->AddInteger("tabStripInset",
+                     WebUIBrowserPageHandler::GetTabStripInsetWidth());
+
   source->AddBoolean(
       "enableSurfaceEmbed",
       base::FeatureList::IsEnabled(surface_embed::features::kSurfaceEmbed));
@@ -228,7 +231,7 @@ void WebUIBrowserUI::BindInterface(
 void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<tabs_api::mojom::TabStripService> receiver) {
   auto* tab_strip_service_feature =
-      browser_->browser_window_features()->tab_strip_service_feature();
+      browser_->GetFeatures().tab_strip_service_feature();
   CHECK(tab_strip_service_feature) << "Browser missing TabStripService";
   tab_strip_service_feature->Accept(std::move(receiver));
 }
@@ -237,7 +240,7 @@ void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<tabs_api::mojom::TabStripExperimentService>
         receiver) {
   auto* tab_strip_service_feature =
-      browser_->browser_window_features()->tab_strip_service_feature();
+      browser_->GetFeatures().tab_strip_service_feature();
   CHECK(tab_strip_service_feature) << "Browser missing TabStripService";
   tab_strip_service_feature->AcceptExperimental(std::move(receiver));
 }
@@ -245,7 +248,7 @@ void WebUIBrowserUI::BindInterface(
 void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<tabs_api::mojom::TabDragService> receiver) {
   auto* tab_drag_service_feature =
-      browser_->browser_window_features()->tab_drag_service_feature();
+      browser_->GetFeatures().tab_drag_service_feature();
   CHECK(tab_drag_service_feature) << "Browser missing TabDragService";
   tab_drag_service_feature->AcceptDragService(
       std::move(receiver), web_ui()->GetWebContents()->GetNativeView());
@@ -253,8 +256,7 @@ void WebUIBrowserUI::BindInterface(
 
 void WebUIBrowserUI::BindInterface(
     mojo::PendingReceiver<tabs_api::mojom::TabStripUIController> receiver) {
-  auto* ui_controller =
-      browser_->browser_window_features()->tab_strip_ui_controller();
+  auto* ui_controller = browser_->GetFeatures().tab_strip_ui_controller();
   CHECK(ui_controller) << "Browser missing TabStripUIController";
   ui_controller->Bind(std::move(receiver));
 }

@@ -22,6 +22,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/memory_mapped_file.h"
+#include "base/i18n/rtl.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/metrics_hashes.h"
@@ -36,6 +37,8 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/apk_assets.h"
+#include "base/android/jni_android.h"
+#include "base/android/locale_utils.h"
 #endif
 
 #if BUILDFLAG(IS_IOS)
@@ -61,6 +64,9 @@
 
 namespace base::i18n {
 
+// Exposed to help debug https://crbug.com/40064988
+bool g_icu_initialized = false;
+
 namespace {
 
 #if DCHECK_IS_ON()
@@ -68,7 +74,6 @@ namespace {
 // function isn't harmful (ICU can handle it), being called twice probably
 // indicates a programming error.
 bool g_check_called_once = true;
-bool g_called_once = false;
 #endif  // DCHECK_IS_ON()
 
 #if (ICU_UTIL_DATA_IMPL == ICU_UTIL_DATA_FILE)
@@ -357,10 +362,31 @@ enum class ICUCreateInstance {
 // There are multiple exposed InitializeIcu* functions. This should be called
 // as at the end of (the last functions in the sequence of) these functions.
 bool DoCommonInitialization() {
+  UErrorCode status = U_ZERO_ERROR;
+  u_init(&status);
+  if (!U_SUCCESS(status)) {
+    LOG(FATAL) << "Failed to initialize ICU with data file: "
+               << u_errorName(status);
+  }
+
   // TODO(jungshik): Some callers do not care about tz at all. If necessary,
   // add a boolean argument to this function to init the default tz only
   // when requested.
   InitializeIcuTimeZone();
+
+#if BUILDFLAG(IS_ANDROID)
+  // On Android, ICU's default locale ID comes from POSIX environment variables
+  // (LC_ALL, etc.), which are not set for Android apps, resulting in
+  // "en_US_POSIX". That is not a real locale and causes break iterators and
+  // other ICU operations to fail if called before SetICUDefaultLocale() is run
+  // in PostEarlyInitialization. Initialize the default ICU locale using the
+  // system default.
+  if (base::android::IsJavaAvailable()) {
+    SetICUDefaultLocale(base::android::GetDefaultLocaleString());
+  } else {
+    SetICUDefaultLocale("en-US");
+  }
+#endif
 
   utrace_setLevel(UTRACE_VERBOSE);
   return true;
@@ -373,9 +399,9 @@ bool InitializeICUWithFileDescriptor(
     PlatformFile data_fd,
     const MemoryMappedFile::Region& data_region) {
 #if DCHECK_IS_ON()
-  DCHECK(!g_check_called_once || !g_called_once);
-  g_called_once = true;
+  DCHECK(!g_check_called_once || !g_icu_initialized);
 #endif
+  g_icu_initialized = true;
   if (!InitializeICUWithFileDescriptorInternal(data_fd, data_region)) {
     return false;
   }
@@ -436,9 +462,9 @@ void SetIcuTimeZoneDataDirForTesting(const char* dir) {
 
 bool InitializeICU() {
 #if DCHECK_IS_ON()
-  DCHECK(!g_check_called_once || !g_called_once);
-  g_called_once = true;
+  DCHECK(!g_check_called_once || !g_icu_initialized);
 #endif
+  g_icu_initialized = true;
 
 #if (ICU_UTIL_DATA_IMPL == ICU_UTIL_DATA_STATIC)
   // The ICU data is statically linked.

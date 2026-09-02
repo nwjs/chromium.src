@@ -157,6 +157,7 @@ class AnimationClock;
 class AriaNotificationOptions;
 class Attr;
 class BeforeUnloadEventListener;
+class BoxQuadOptions;
 class ViewTransitionSupplement;
 class CaretPosition;
 class CaretPositionFromPointOptions;
@@ -168,9 +169,15 @@ class CheckPseudoHasCacheScope;
 class ChromeClient;
 class Comment;
 class ConsoleMessage;
+class ConvertCoordinateOptions;
 class CookieJar;
 class DOMFeaturePolicy;
 class DOMImplementation;
+class DOMPoint;
+class DOMPointInit;
+class DOMQuad;
+class DOMQuadInit;
+class DOMRectReadOnly;
 class DOMWindow;
 class DOMWrapperWorld;
 class DisplayLockDocumentState;
@@ -214,7 +221,6 @@ class HitTestRequest;
 class HttpRefreshScheduler;
 class IntersectionObserverController;
 class InvalidateNodeListCachesScope;
-class ImportNodeOptions;
 class LayoutUpgrade;
 class LayoutView;
 class LazyLoadMediaObserver;
@@ -269,6 +275,8 @@ class TreeWalker;
 class TrustedHTML;
 class V8DocumentReadyState;
 class V8NodeFilter;
+class V8UnionCSSPseudoElementOrDocumentOrElementOrText;
+class V8UnionBooleanOrImportNodeOptions;
 class V8UnionElementCreationOptionsOrString;
 class V8UnionStringOrTrustedHTML;
 class ViewportData;
@@ -458,6 +466,24 @@ class CORE_EXPORT Document : public ContainerNode,
   // ```
   Element* documentElement() const { return document_element_.Get(); }
 
+  HeapVector<Member<DOMQuad>> getBoxQuads(const BoxQuadOptions* options,
+                                          ExceptionState&) const;
+  DOMQuad* convertQuadFromNode(
+      DOMQuadInit* quad,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options,
+      ExceptionState&) const;
+  DOMQuad* convertRectFromNode(
+      DOMRectReadOnly* rect,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options,
+      ExceptionState&) const;
+  DOMPoint* convertPointFromNode(
+      DOMPointInit* point,
+      const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+      const ConvertCoordinateOptions* options,
+      ExceptionState&) const;
+
   Location* location() const;
 
   DocumentFragment* createDocumentFragment();
@@ -473,7 +499,7 @@ class CORE_EXPORT Document : public ContainerNode,
                           ExceptionState&);
 
   Node* importNode(Node* imported_node,
-                   ImportNodeOptions* options,
+                   V8UnionBooleanOrImportNodeOptions* options,
                    ExceptionState&);
   Node* importNode(Node* imported_node, bool deep, ExceptionState&);
 
@@ -611,9 +637,9 @@ class CORE_EXPORT Document : public ContainerNode,
   // Returns all `HTMLFormElement`s that have no shadow-including
   // `HTMLFormElement` ancestor. Note that the form elements are returned in BFS
   // order.
-  const HeapVector<Member<HTMLFormElement>>& GetTopLevelForms();
-  // Invalidates the cache for top level form elements.
-  void MarkTopLevelFormsDirty();
+  const HeapVector<Member<HTMLFormElement>>& GetOutermostForms();
+  // Invalidates the cache for outermost form elements.
+  void MarkOutermostFormsDirty();
 
   // "defaultView" attribute defined in HTML spec.
   DOMWindow* defaultView() const;
@@ -655,6 +681,9 @@ class CORE_EXPORT Document : public ContainerNode,
   bool IsMobileDocument() const { return is_mobile_document_; }
 
   StyleResolver& GetStyleResolver() const;
+
+  bool IsCAPAlert() const { return is_cap_alert_; }
+  void SetIsCAPAlert(bool is_cap_alert) { is_cap_alert_ = is_cap_alert; }
 
   bool IsViewSource() const { return is_view_source_; }
   void SetIsViewSource(bool is_view_source) {
@@ -817,16 +846,6 @@ class CORE_EXPORT Document : public ContainerNode,
   void UpdateStyleAndLayoutForNode(const Node*, DocumentUpdateReason);
   void UpdateStyleAndLayoutForRange(const Range*, DocumentUpdateReason);
 
-  // Ensures that location-based data will be valid for a given node.
-  //
-  // This will run style and layout if they are currently dirty, and it may also
-  // run compositing inputs if the node is in a sticky subtree (as the sticky
-  // offset may change the node's position).
-  //
-  // Due to this you should only call this if you definitely need valid location
-  // data, otherwise use one of the |UpdateStyleAndLayout...| methods above.
-  void EnsurePaintLocationDataValidForNode(const Node*,
-                                           DocumentUpdateReason reason);
 
   // Gets the description for the specified page. This includes preferred page
   // size and margins in pixels, assuming 96 pixels per inch. Updates layout as
@@ -1937,10 +1956,6 @@ class CORE_EXPORT Document : public ContainerNode,
   ukm::UkmRecorder* UkmRecorder();
   ukm::SourceId UkmSourceID() const;
 
-  void MaybeRecordSvgImageProcessingTime(
-      int data_change_count,
-      base::TimeDelta data_change_elapsed_time) const;
-
   scoped_refptr<base::SingleThreadTaskRunner> GetTaskRunner(TaskType);
 
   StylePropertyMapReadOnly* ComputedStyleMap(Element*);
@@ -2317,7 +2332,6 @@ class CORE_EXPORT Document : public ContainerNode,
   CustomElementRegistry* EffectiveGlobalCustomElementRegistry() const;
 
   void SetScopedCustomElementRegistryUsed() {
-    DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
     scoped_custom_element_registry_used_ = true;
   }
   bool ScopedCustomElementRegistryUsed() const {
@@ -2340,6 +2354,12 @@ class CORE_EXPORT Document : public ContainerNode,
       return CreateViewTransitions();
     }
   }
+
+  bool IsOverscrollCommandTarget(Element& element) const;
+  void UpdateOverscrollCommandTargets();
+  void MarkOverscrollCommandTargetsDirty();
+  void AddOverscrollCommandInvoker(Element& invoker);
+  void RemoveOverscrollCommandInvoker(Element& invoker);
 
   void UpdateActiveState(bool is_active, bool update_active_chain, Element*);
   void UpdateHoverState(Element*);
@@ -2415,8 +2435,8 @@ class CORE_EXPORT Document : public ContainerNode,
     bool dirty_ = false;
   };
 
-  // Helper class to cache the top level <form> elements of a document.
-  class TopLevelFormsList {
+  // Helper class to cache the outermost <form> elements of a document.
+  class OutermostFormsList {
     DISALLOW_NEW();
 
    public:
@@ -2967,6 +2987,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool is_dom_parser_document_ = false;
   bool is_xhr_document_ = false;
   bool is_mobile_document_ = false;
+  bool is_cap_alert_ = false;
 
   Member<LayoutView> layout_view_;
 
@@ -3105,7 +3126,7 @@ class CORE_EXPORT Document : public ContainerNode,
 
   UnassociatedListedElementsList unassociated_listed_elements_;
 
-  TopLevelFormsList top_level_forms_;
+  OutermostFormsList outermost_forms_;
 
   // |ukm_recorder_| and |source_id_| will allow objects that are part of
   // the document to record UKM.
@@ -3278,6 +3299,14 @@ class CORE_EXPORT Document : public ContainerNode,
 
   bool responsive_embedded_sizing_ = false;
   bool text_scale_meta_tag_present_ = false;
+
+  // `overscroll_command_targets_` is a set of elements that are currently the
+  // targets of command invokers that have `command=toggle-overscroll`.
+  // The `overscroll_command_invokers_` set contains the associated list of
+  // command invokers themselves.
+  HeapHashSet<Member<Element>> overscroll_command_targets_;
+  HeapHashSet<Member<Element>> overscroll_command_invokers_;
+  bool overscroll_command_targets_dirty_ = false;
 
   // Data on the currently active safe-triangle (if any), for HTML menu
   // elements, that is delaying interest gain/loss.

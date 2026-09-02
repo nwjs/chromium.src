@@ -22,6 +22,7 @@
 #include "components/autofill/core/browser/integrators/actor/actor_form_filling_types.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/visibility.h"
+#include "mojo/public/cpp/bindings/pending_receiver.h"
 
 class Profile;
 namespace content {
@@ -102,11 +103,8 @@ class Host : public GlicSharingManagerProvider {
         glic::mojom::WebClientHandler::
             GetZeroStateSuggestionsForFocusedTabCallback callback) = 0;
 
-    virtual void GetZeroStateSuggestionsAndSubscribe(
-        bool has_active_subscription,
-        const mojom::ZeroStateSuggestionsOptions& options,
-        mojom::WebClientHandler::GetZeroStateSuggestionsAndSubscribeCallback
-            callback) = 0;
+    virtual void CreateZeroStateSuggestionsHandler(
+        mojo::PendingReceiver<mojom::ZeroStateSuggestionsHandler> receiver) = 0;
 
     virtual void RegisterConversation(
         glic::mojom::ConversationInfoPtr info,
@@ -135,6 +133,9 @@ class Host : public GlicSharingManagerProvider {
     virtual void WebClientConnected() {}
     // Called when Glic is disconnected from the WebClient.
     virtual void WebClientDisconnected() {}
+
+    // Called when the web client state changes.
+    virtual void WebClientStateChanged(mojom::WebClientState state) {}
 
     // Called when the client is ready to show, invoked sometime after
     // `Host::PanelWillOpen()` is called.
@@ -190,6 +191,11 @@ class Host : public GlicSharingManagerProvider {
     // An override for the First Run Experience.
     mojom::FreOverride fre_override = mojom::FreOverride::kUnspecified;
   };
+
+  // Sets whether the host is visible in an embedder. This signal is debounced
+  // on hide, so it will receive a slightly delayed off signal.
+  void SetDebouncedVisibility(bool is_visible);
+
   void PanelWillOpen(mojom::InvocationSource invocation_source,
                      PanelWillOpenOptions options);
 
@@ -202,8 +208,12 @@ class Host : public GlicSharingManagerProvider {
       glic::mojom::ConversationInfoPtr info,
       mojom::WebClientHandler::SwitchConversationCallback callback);
 
-  // Delete the owned web contents and prepare for destruction.
-  void Shutdown();
+  // Wakes up the host. When awake, the host will maintain a web client.
+  void Awaken();
+  // Frees resources, no longer maintaining the web client.
+  void Hibernate();
+  // Returns true if the host should maintain the web client.
+  bool IsAwake() const;
 
   // Request panel closing.
   void Close();
@@ -212,9 +222,6 @@ class Host : public GlicSharingManagerProvider {
 
   // Called when the WebUI web contents has navigated.
   void OnWebContentsNavigated();
-
-  // Creates the web contents that will own the Glic WebUI.
-  void CreateContents();
 
   // Signals the glic WebUI that the glic window will be shown soon.
   void NotifyWindowIntentToShow();
@@ -248,8 +255,9 @@ class Host : public GlicSharingManagerProvider {
   // Returns the WebUI web contents. May be null.
   content::WebContents* webui_contents() const;
 
-  // Sets the visibility of the WebUI web contents.
-  void SetWebContentsVisibility(content::Visibility visibility);
+  // Sets the visibility override of the WebUI web contents.
+  void SetWebContentsVisibilityOverride(
+      std::optional<content::Visibility> visibility_override);
 
   // Returns the WebClient web contents. May be null.
   content::WebContents* web_client_contents() const;
@@ -275,6 +283,14 @@ class Host : public GlicSharingManagerProvider {
   // Whether the primary client is alive and has returned from PanelWillOpen().
   // This transitions to false after PanelWasClosed() is called.
   bool IsPrimaryClientOpen();
+
+  mojom::WebClientState web_client_state() const {
+    return web_client_access_ ? web_client_access_->web_client_state()
+                              : mojom::WebClientState::kUninitialized;
+  }
+  bool is_web_client_ready() const {
+    return web_client_state() == mojom::WebClientState::kResponsive;
+  }
 
   // Whether the primary web client is connected. Guaranteed not to be true
   // until the initialize() handshake has completed.
@@ -302,10 +318,6 @@ class Host : public GlicSharingManagerProvider {
     return primary_webui_state_;
   }
 
-  // Informs the host that the Zero State Suggestions have changed.
-  void NotifyZeroStateSuggestion(mojom::ZeroStateSuggestionsV2Ptr suggestions,
-                                 mojom::ZeroStateSuggestionsOptions options);
-
   void NotifyInstanceActivationChanged(bool is_active);
   void OnActuatingChanged(bool actuating);
   void OnTaskTabsVisibilityChanged(bool has_visible_tab);
@@ -327,10 +339,8 @@ class Host : public GlicSharingManagerProvider {
   // Called when a login page was committed in a glic webview.
   void LoginPageCommitted(GlicPageHandler* page_handler);
 
-  // Called when a page handler's web client is created or destroyed.
-  void SetWebClient();
-  void UnsetWebClient(GlicWebClientAccess* web_client);
-  void WebClientInitializeFailed(GlicWebClientAccess* web_client);
+  void WebClientInitialized();
+  void WebClientInitializeFailed();
 
   void SetContextAccessIndicator(bool enabled);
 
@@ -392,8 +402,10 @@ class Host : public GlicSharingManagerProvider {
   void WebUIPageHandlerRemoved(GlicPageHandler* page_handler);
 
  private:
+  void UnsetWebClient();
   void InvokeInternal(mojom::InvokeOptionsPtr options,
                       base::OnceClosure callback);
+  void OnWebClientStateChanged(mojom::WebClientState state);
 
   GlicKeyedService& glic_service();
   GlicPageHandler* page_handler() const;
@@ -441,6 +453,8 @@ class Host : public GlicSharingManagerProvider {
   // after the panel is closed.
   std::optional<mojom::InvocationSource> invocation_source_;
   bool panel_open_ = false;
+  // Whether the host is (or was recently) showing on an embedder.
+  bool debounced_visibility_ = false;
   bool is_manually_resizing_ = false;
   std::optional<PanelWillOpenOptions> pending_panel_open_options_;
   base::flat_map<mojom::AdditionalContextSource, mojom::AdditionalContextPtr>
@@ -465,6 +479,13 @@ class Host : public GlicSharingManagerProvider {
 
   mojom::MicrophoneStatus microphone_status_ =
       mojom::MicrophoneStatus::kUnknown;
+
+  content::Visibility GetExpectedVisibility() const;
+  void UpdateVisibility();
+
+  std::optional<content::Visibility> visibility_override_;
+
+  content::Visibility web_contents_visibility_ = content::Visibility::HIDDEN;
 
   base::WeakPtrFactory<Host> weak_ptr_factory_{this};
 };

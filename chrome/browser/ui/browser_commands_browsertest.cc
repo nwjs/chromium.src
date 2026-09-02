@@ -15,12 +15,14 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -37,7 +39,10 @@
 #include "content/public/common/content_paths.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
+#include "content/public/test/test_navigation_observer.h"
 #include "net/dns/mock_host_resolver.h"
+#include "ui/base/clipboard/clipboard.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/ui_base_features.h"
 
 namespace chrome {
@@ -447,7 +452,9 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest, MoveGroupToExistingWindow) {
 
   // Prepare the target browser (existing window).
   Browser* target_browser =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   ASSERT_TRUE(target_browser);
   AddTabs(target_browser, 1);
 
@@ -501,7 +508,9 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
 
   // Target browser: 0(active)
   Browser* target_browser =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   AddTabs(target_browser, 1);
   ASSERT_EQ(1, target_browser->tab_strip_model()->count());
 
@@ -528,7 +537,9 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
 
   // Target browser: 0(active)
   Browser* target_browser =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   AddTabs(target_browser, 1);
   ASSERT_EQ(1, target_browser->tab_strip_model()->count());
 
@@ -561,7 +572,9 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
 
   // Target browser: 0(active)
   Browser* target_browser =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   AddTabs(target_browser, 1);
   ASSERT_EQ(1, target_browser->tab_strip_model()->count());
 
@@ -592,7 +605,9 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
 
   // Target browser: 0(active)
   Browser* target_browser =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   AddTabs(target_browser, 1);
   ASSERT_EQ(1, target_browser->tab_strip_model()->count());
 
@@ -689,8 +704,12 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
                        ConvertPopupToTabbedBrowserShutdownRace) {
   // Confirm we do not incorrectly start shutdown when converting a popup into a
   // tab, in the case where the popup is the only active Browser object
-  Browser* popup_browser = Browser::Create(Browser::CreateParams(
-      Browser::TYPE_POPUP, browser()->GetProfile(), true));
+  Browser* popup_browser =
+      CreateBrowserWindow(
+          BrowserWindowCreateParams(BrowserWindowInterface::TYPE_POPUP,
+                                    browser()->GetProfile(),
+                                    /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   chrome::AddTabAt(popup_browser, GURL(url::kAboutBlankURL), -1, true);
   popup_browser->tab_strip_model()->SelectTabAt(0);
   browser()->tab_strip_model()->CloseAllTabs();
@@ -725,5 +744,125 @@ IN_PROC_BROWSER_TEST_F(BrowserCommandsTest, CopyingUrlOpensToast) {
   chrome::ExecuteCommand(browser(), IDC_COPY_URL);
   EXPECT_TRUE(browser()->GetFeatures().toast_controller()->IsShowingToast());
 }
+
+IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
+                       CloseTabShowsToastWhenAllSelectedTabsArePinned) {
+  // Add 2 tabs so we have 3 tabs total (indices 0, 1, 2).
+  AddTabs(2);
+  ASSERT_EQ(3, browser()->tab_strip_model()->count());
+
+  // Pin the first two tabs.
+  browser()->tab_strip_model()->SetTabPinned(0, true);
+  browser()->tab_strip_model()->SetTabPinned(1, true);
+  EXPECT_TRUE(browser()->tab_strip_model()->GetTabAtIndex(0)->IsPinned());
+  EXPECT_TRUE(browser()->tab_strip_model()->GetTabAtIndex(1)->IsPinned());
+
+  // Select both tab 0 (pinned) and tab 1 (pinned).
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->tab_strip_model()->AddSelectionFromAnchorTo(1);
+  EXPECT_TRUE(browser()->tab_strip_model()->IsTabSelected(0));
+  EXPECT_TRUE(browser()->tab_strip_model()->IsTabSelected(1));
+  EXPECT_FALSE(browser()->tab_strip_model()->IsTabSelected(2));
+
+  ToastController* const toast_controller =
+      browser()->GetFeatures().toast_controller();
+  ASSERT_TRUE(toast_controller);
+
+  // Attempting to close selected tabs when ALL are pinned triggers the toast
+  // rather than immediately closing the tabs.
+  chrome::CloseTab(browser());
+  EXPECT_EQ(ToastId::kClosePinnedTab, toast_controller->GetCurrentToastId());
+  EXPECT_EQ(3, browser()->tab_strip_model()->count());
+
+  // Invoking CloseTab a second time while the toast is active closes the
+  // selected tabs.
+  chrome::CloseTab(browser());
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    BrowserCommandsTest,
+    CloseTabDoesNotShowToastWhenNotAllSelectedTabsArePinned) {
+  // Add 2 tabs so we have 3 tabs total (indices 0, 1, 2).
+  AddTabs(2);
+  ASSERT_EQ(3, browser()->tab_strip_model()->count());
+
+  // Pin the first tab (index 0) only.
+  browser()->tab_strip_model()->SetTabPinned(0, true);
+  EXPECT_TRUE(browser()->tab_strip_model()->GetTabAtIndex(0)->IsPinned());
+
+  // Select tab 0 (pinned) and tab 1 (unpinned).
+  browser()->tab_strip_model()->ActivateTabAt(0);
+  browser()->tab_strip_model()->AddSelectionFromAnchorTo(1);
+  EXPECT_TRUE(browser()->tab_strip_model()->IsTabSelected(0));
+  EXPECT_TRUE(browser()->tab_strip_model()->IsTabSelected(1));
+  EXPECT_FALSE(browser()->tab_strip_model()->IsTabSelected(2));
+
+  ToastController* const toast_controller =
+      browser()->GetFeatures().toast_controller();
+  ASSERT_TRUE(toast_controller);
+
+  // Attempting to close selected tabs when NOT ALL selected tabs are pinned
+  // closes them immediately without showing the toast.
+  chrome::CloseTab(browser());
+  EXPECT_NE(ToastId::kClosePinnedTab, toast_controller->GetCurrentToastId());
+  EXPECT_EQ(1, browser()->tab_strip_model()->count());
+}
+
+#if BUILDFLAG(IS_LINUX)
+// Tests that unsafe schemes are not allowed when opening new tabs from a
+// clipboard URL.
+IN_PROC_BROWSER_TEST_F(BrowserCommandsTest,
+                       NewTabFromClipboardURLBlocksUnsafeSchemes) {
+  if (!ui::Clipboard::IsSupportedClipboardBuffer(
+          ui::ClipboardBuffer::kSelection)) {
+    return;
+  }
+
+  TabStripModel* tab_strip_model = browser()->tab_strip_model();
+  int initial_tab_count = tab_strip_model->count();
+
+  // Try file:// URL. Note: ui::Clipboard::ReadText is asynchronous on Linux, so
+  // we must pump the runloop to allow the callback to run and be rejected.
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kSelection);
+    writer.WriteText(u"file:///etc/passwd");
+  }
+
+  chrome::NewTabFromClipboardURL(browser());
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(initial_tab_count, tab_strip_model->count());
+
+  // Try chrome:// URL.
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kSelection);
+    writer.WriteText(u"chrome://version");
+  }
+
+  chrome::NewTabFromClipboardURL(browser());
+  base::RunLoop().RunUntilIdle();
+  EXPECT_EQ(initial_tab_count, tab_strip_model->count());
+
+  // Try a safe URL (http). We explicitly observe both the new tab addition and
+  // the navigation completion instead of guessing runloop cycles.
+  GURL safe_url = https_server_.GetURL("a.test", "/title1.html");
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kSelection);
+    writer.WriteText(base::UTF8ToUTF16(safe_url.spec()));
+  }
+
+  ui_test_utils::TabAddedWaiter tab_waiter(browser());
+  content::TestNavigationObserver observer(safe_url);
+  observer.StartWatchingNewWebContents();
+
+  chrome::NewTabFromClipboardURL(browser());
+  tab_waiter.Wait();
+  observer.Wait();
+
+  EXPECT_EQ(initial_tab_count + 1, tab_strip_model->count());
+  EXPECT_EQ(safe_url,
+            tab_strip_model->GetActiveWebContents()->GetLastCommittedURL());
+}
+#endif
 
 }  // namespace chrome

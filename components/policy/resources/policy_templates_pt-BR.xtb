@@ -182,6 +182,16 @@ O rótulo pode ser personalizado usando a política <ph name="ENTERPRISE_CUSTOM_
 <translation id="1100840127293327071">Não marcar a opção para manter os dados de navegação existentes por padrão</translation>
 <translation id="1105572260329131950">Usar os ícones padrão em conexões seguras</translation>
 <translation id="1105711894873068933">Após a desativação do <ph name="LACROS_NAME" />, todos os dados do usuário vão ser removidos no próximo login.</translation>
+<translation id="1106279506320506502">Especifica se o Modo Isolado está ativado.
+
+O Modo Isolado é um modo de navegação temporário exclusivo para empresas.
+Ele é compatível com políticas empresariais relacionadas à DLP e extensões de instalação forçada.
+
+Se for definida como 1 (Ativado), o Modo Isolado será ativado e o Modo de Navegação Anônima será desativado.
+
+Se for definida como 0 (Desativado) ou deixada sem definição, o Modo Isolado será desativado.
+
+Esta política exige uma licença do <ph name="CHROME_ENTERPRISE_PREMIUM_NAME" /> para entrar em vigor.</translation>
 <translation id="1106342730891876476">Configurações de compartilhamento</translation>
 <translation id="1107538157073168076">Desativar extensão de insights</translation>
 <translation id="1110426799149444997">Desativar a pesquisa por região do <ph name="GOOGLE_LENS_PRODUCT_NAME" />.</translation>
@@ -1508,6 +1518,24 @@ Observação: bloquear URLs internos chrome://* e chrome-untrusted://* pode gera
 <translation id="1962273523772270623">Permite a coleta de logs de eventos WebRTC dos serviços do Google</translation>
 <translation id="1962864958436828230">Definir o limite mínimo para a prevenção contra vazamento de dados de acordo com a restrição da área de transferência</translation>
 <translation id="1963986268950915756">Permitir instalação de apps da web pelo navegador</translation>
+<translation id="1964128875283181035">Lista de padrões de URL. Solicitações de rede iniciadas em sites com as mesmas origens não ficam sujeitas a verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
+
+Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
+
+Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
+
+Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
+
+Várias políticas listam origens que afetam as solicitações para o dispositivo local e para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
+
+  - LocalNetworkBlockedForUrls
+  - LocalNetworkAllowedForUrls
+  - LoopbackNetworkBlockedForUrls
+  - LoopbackNetworkAllowedForUrls
+  - LocalNetworkAccessBlockedForUrls
+  - LocalNetworkAccessAllowedForUrls
+  - DeviceLocalNetworkAccessBlockedForUrls
+  - DeviceLocalNetworkAccessAllowedForUrls</translation>
 <translation id="1964191545419036999">Galeria (com suporte desde a versão 117)</translation>
 <translation id="1964634611280150550">Modo de navegação anônima desativado</translation>
 <translation id="1964985353230379667">Especifica a configuração <ph name="KRB5_CONFIG" /> sugerida para os novos tíquetes criados manualmente.
@@ -1668,6 +1696,17 @@ Normalmente, essa política fica desativada como defesa contra phishing.</transl
 <translation id="2057317273526988987">Permitir acesso a uma lista de URLs</translation>
 <translation id="205807990145127714">Dados de telemetria para registrar o evento da intensidade do sinal.</translation>
 <translation id="2060153898336610735">Automático, com base no idioma atual</translation>
+<translation id="2060316966423154087">Especifica se os usuários podem permitir que o <ph name="PRODUCT_NAME" /> use a IA generativa para entender melhor os formulários e ajudar a preencher mais campos.
+
+0 = tem o mesmo efeito que 1. Antes da versão M153, a configuração permitia que o Google usasse dados relevantes para melhorar os modelos de IA. Esses dados podem incluir comandos, entradas, saídas, materiais de fonte e feedback por escrito, dependendo do recurso. O valor padrão é 0, exceto quando indicado de outra forma abaixo.
+
+1 = o recurso será habilitado, mas o Google não poderá usar dados relevantes (incluindo comandos, entradas, saídas, materiais de fonte e feedback por escrito) para melhorar os modelos. 1 é o valor padrão para usuários corporativos gerenciados pelo <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" /> e contas de ensino gerenciadas pelo <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />.
+
+Se ela for definida como 2, o recurso não será habilitado.
+
+Se for deixada sem definição, o comportamento será determinado pela política <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" />.
+
+Para mais informações sobre o tratamento de dados em recursos de IA generativa, consulte https://support.google.com/chrome/a?p=generative_ai_settings.</translation>
 <translation id="2061123930713023976">Permitir capturas de pacotes de rede para depuração</translation>
 <translation id="2061810934846663491">Configurar os nomes de domínio obrigatórios para hosts de acesso remoto</translation>
 <translation id="2062632109797189011">Reativar a API window.webkitStorageInfo descontinuada</translation>
@@ -2085,18 +2124,6 @@ Se a política for deixada sem definição, os usuários poderão mudar a lista 
 
       Se ela for definida como falsa ou não for definida, nenhum botão será exibido.</translation>
 <translation id="2294382669900758280">A reprodução de vídeos em apps Android não é levada em consideração, mesmo se esta política estiver definida como <ph name="TRUE" />.</translation>
-<translation id="2296529215567227994">Especifica se o Modo de Navegação Anônima deve ser substituído pelo Modo Isolado.
-
-O Modo Isolado é um modo de navegação temporário exclusivo para empresas que substitui o Modo de Navegação Anônima.
-Ao contrário do Modo de Navegação Anônima, o Modo Isolado é compatível com políticas empresariais relacionadas à DLP e extensões de instalação forçada.
-
-Tenha em mente que as políticas relacionadas à Navegação Anônima não são aplicadas ao Modo Isolado.
-
-Se for definida como 1 – Ativado, o Modo Isolado será ativado e substituirá o Modo de Navegação Anônima.
-
-Se for definida como 0 – Desativada ou deixada sem definição, o Modo Isolado será desativado e a Navegação Anônima será usada como comportamento padrão.
-
-Esta política exige uma licença do <ph name="CHROME_ENTERPRISE_PREMIUM_NAME" /> para entrar em vigor.</translation>
 <translation id="2299220924812062390">Especifica uma lista de plug-ins ativados</translation>
 <translation id="2299815818824242485">Não permitir pesquisas por proxy com maior proteção</translation>
 <translation id="2303795211377219696">Ativar o preenchimento automático para cartões de crédito</translation>
@@ -2111,6 +2138,7 @@ Esta política exige uma licença do <ph name="CHROME_ENTERPRISE_PREMIUM_NAME" /
 <translation id="230713790688681130">Ativar layout de teclado Inscript hindi</translation>
 <translation id="2307496301287881990">Informar status de tela e gráficos</translation>
 <translation id="2308084581803907194">Alta complexidade</translation>
+<translation id="2308557460534055666">Política de configuração para o <ph name="ON_DATA_COPIED_ENTERPRISE_CONNECTOR" /> do Chrome Enterprise Connectors</translation>
 <translation id="2308899582897965249">Desativar a impressão silenciosa</translation>
 <translation id="2309284543927494965">Bloquear atualizações</translation>
 <translation id="2309341709647905294">Não relatar informações sobre periféricos que estão conectados ao dispositivo</translation>
@@ -3140,6 +3168,23 @@ Os níveis de complexidade são baseados nas métricas de qualidade de senha do 
 
 Consulte o artigo da Central de Ajuda para explicações detalhadas sobre o que cada nível significa para PINs e senhas.</translation>
 <translation id="2926813071464307947">Desativar o sandbox do contêiner do app Renderer</translation>
+<translation id="2928782459146756987">Lista de configurações dos serviços do <ph name="PRODUCT_NAME" /> Enterprise Connectors a serem aplicadas ao <ph name="ON_DATA_COPIED_ENTERPRISE_CONNECTOR" /> Enterprise Connector, que é acionado quando dados são copiados do <ph name="PRODUCT_NAME" /> para a área de transferência.
+
+Os campos <ph name="ENTERPRISE_CONNECTOR_URL_LIST_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_TAGS_FIELD" />, <ph name="ENTERPRISE_CONNECTOR_ENABLE_FIELD" /> e <ph name="ENTERPRISE_CONNECTOR_DISABLE_FIELD" /> são usados para determinar se o conector enviará dados para análise quando eles forem copiados de uma página específica e quais tags serão incluídas na solicitação de análise desses dados. Uma tag correspondente ao padrão "ativar" será incluída na solicitação de análise se o URL da página corresponder a um padrão associado a essa tag. Isso acontecerá apenas se nenhum padrão "desativar" com a mesma tag corresponder ao URL da página. A análise será feita se pelo menos uma tag for incluída na solicitação.
+
+O campo <ph name="ENTERPRISE_CONNECTOR_SERVICE_PROVIDER_FIELD" /> identifica o provedor de serviços de análise correspondente às configurações.
+
+Se o campo <ph name="ENTERPRISE_CONNECTOR_BLOCK_UNTIL_VERDICT_FIELD" /> for definido como 1, o <ph name="PRODUCT_NAME" /> vai esperar uma resposta do serviço de análise antes de dar à área de transferência do SO o acesso aos dados. Qualquer outro valor inteiro significa que o <ph name="PRODUCT_NAME" /> concede à área de transferência do SO o acesso imediato aos dados.
+
+Se o campo <ph name="ENTERPRISE_CONNECTOR_DEFAULT_ACTION_FIELD" /> for definido para bloquear, o <ph name="PRODUCT_NAME" /> não vai conceder à área de transferência do SO o acesso aos dados caso ocorra um erro na comunicação com o serviço de análise. Qualquer outro valor significa que o <ph name="PRODUCT_NAME" /> concede à área de transferência do SO o acesso aos dados.
+
+O campo <ph name="ENTERPRISE_CONNECTOR_MINIMUM_DATA_SIZE" /> indica que o tamanho mínimo (em bytes) dos dados copiados do <ph name="PRODUCT_NAME" /> precisa ser igual ou maior para ser verificado. Se o campo não for definido, o valor padrão será de 100 bytes.
+
+O campo <ph name="ENTERPRISE_CONNECTOR_REQUIRE_JUSTIFICATION_TAGS_FIELD" /> é usado com objetivo de determinar para quais tags o conector precisa de uma justificativa do usuário para ignorar uma verificação que resulta em um aviso que pode ser ignorado. Quando o campo não é definido, presume-se que uma justificativa não é necessária.
+
+O campo <ph name="ENTERPRISE_CONNECTOR_VERIFICATION_FIELD" /> permite que os admins configurem requisitos de verificação específicos da plataforma.
+
+Configurações extras são necessárias para que essa política seja aplicada. Acesse https://support.google.com/chrome/a?p=chrome_enterprise_connector_policies_setting para mais informações.</translation>
 <translation id="2930792103747180259">Desativado: a Background Fetch de service workers é permitida sem restrições.</translation>
 <translation id="2931888116345994552">Se a política for ativada ou deixada sem definição, as atualizações para todos os componentes no <ph name="PRODUCT_NAME" /> serão ativadas.
 
@@ -3582,22 +3627,6 @@ do <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3181114468897395940">As configurações Page Up/Page Down usam o atalho que contém a tecla modificadora Alt</translation>
 <translation id="3182503302060513467">A página "Nova guia" vai mostrar o anúncio do slot do meio, se ele estiver disponível</translation>
 <translation id="3184161739683646075">Controla o modo de DNS sobre HTTPS</translation>
-<translation id="3184247679989063353">Lista de padrões de URL. Solicitações de rede iniciadas em sites que têm as mesmas origens não estão sujeitas a verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
-
-Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
-
-Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
-
-Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
-
-Várias políticas listam origens que afetam as solicitações para o dispositivo local e para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
-
-  - LocalNetworkBlockedForUrls
-  - LocalNetworkAllowedForUrls
-  - LoopbackNetworkAccessBlockedForUrls
-  - LoopbackNetworkAccessAllowedForUrls
-  - LocalNetworkAccessBlockedForUrls
-  - LocalNetworkAccessAllowedForUrls</translation>
 <translation id="3184638144755436350">O Chrome vai bloquear a navegação para protocolos externos no
       iframe dentro do sandbox. Consulte https://chromestatus.com/features/5680742077038592.
 
@@ -4323,6 +4352,14 @@ incluir as duas opções em certificados RSA destinados a HTTPS.</translation>
 <translation id="366494444808132420">Permitir integrações com o Gemini.</translation>
 <translation id="3665437376055221832">Consultar o usuário apenas quando nenhum certificado corresponder à seleção automática.</translation>
 <translation id="3671773704245936868">Desativar destaque de foco do teclado</translation>
+<translation id="367258298235646178">Permite que admins personalizem a aparência das marcas-d'água aplicadas pelas regras de Prevenção Contra Perda de Dados (DLP, na sigla em inglês). Isso inclui configurar a opacidade do preenchimento/contorno, o tamanho da fonte e o fuso horário do carimbo de data/hora.
+Se a política ou alguns valores não forem definidos, o Chrome vai usar o comportamento padrão de marca-d'água.
+Os valores padrão no computador são: opacidade do preenchimento em 4, opacidade do contorno em 6 e tamanho da fonte em 24. No iOS, os valores padrão são: opacidade do preenchimento em 10, opacidade do contorno em 15 e tamanho da fonte em 16. Em todas as plataformas, o fuso horário do carimbo de data/hora é definido como "user_device" (fuso horário local do dispositivo do usuário).
+
+A "Opacidade do preenchimento" é uma porcentagem de 0 (totalmente transparente) a 100 (totalmente opaco).
+A "Opacidade do contorno" é uma porcentagem de 0 (totalmente transparente) a 100 (totalmente opaco).
+O "Tamanho da fonte" é definido em pontos.
+O "Fuso horário do carimbo de data/hora" especifica o identificador da IANA (por exemplo, "America/Toronto") usado para formatar marcas-d'água com carimbo de data/hora (disponível a partir do Chrome 152), seguindo os nomes no banco de dados dessa organização (https://www.iana.org/time-zones, site em inglês).</translation>
 <translation id="3674010627788940405">Não oferecer suporte a cabeçalhos de solicitação de CORS sem caractere curinga.</translation>
 <translation id="3675248815331229366">Se a política for definida, será possível configurar uma lista de padrões de URL que especifica os sites que não têm permissão para acessar a geolocalização do usuário e também não podem pedir permissão do usuário para fazer isso.
 
@@ -4344,6 +4381,7 @@ incluir as duas opções em certificados RSA destinados a HTTPS.</translation>
           </translation>
 <translation id="3677660004554019617">Não permitir segundo plano de IA generativa para videochamadas</translation>
 <translation id="3678069907945250643">Permitir acesso do app de personalização ao Google Fotos</translation>
+<translation id="3682200407044593844">Substituir mapeamentos de espaço de endereço IP no dispositivo</translation>
 <translation id="3685979383016152590">A definição da política designa qual política de acesso se aplica à configuração em massa de impressoras, controlando quais impressoras da <ph name="PRINTERS_BULK_CONFIGURATION_POLICY_NAME" /> estão disponíveis para os usuários.
 
       * <ph name="PRINTERS_BLOCKLIST" /> (valor 0) usa <ph name="PRINTERS_BULK_BLOCKLIST" /> para restringir o acesso às impressoras especificadas.
@@ -4747,6 +4785,23 @@ Em plataformas para computador, também é possível desativar o download desse 
       Se esta política for definida como "Ativada", o usuário receberá uma solicitação para selecionar um certificado de cliente sempre que a política de seleção automática corresponder a vários certificados.
       Se esta política for definida como "Desativada" ou deixada sem definição, o usuário só receberá a solicitação quando nenhum certificado corresponder à seleção automática.</translation>
 <translation id="3947897854999940598">Especificar o modelo de URI do resolvedor de DNS sobre HTTPS desejado com informações de identidade</translation>
+<translation id="394949637082417941">A política pode ser usada para tratar determinados intervalos de endereços internos como "públicos" em todo o dispositivo e, portanto, não sujeitos a verificações de <ph name="LOCAL_NETWORK_ACCESS" />. Da mesma maneira, pode ser usada para tratar determinados intervalos de endereços públicos com possível uso interno como endereços "locais" para que fiquem protegidos por verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
+
+As substituições de espaço de endereço IP têm duas formas:
+
+[cidr]=[public|local|loopback]
+
+Nesta, [cidr] é um intervalo de endereço IP na notação CIDR (consulte a seção 3.1 de https://tools.ietf.org/html/rfc4632 para IPv4 e a seção 2.3 de https://tools.ietf.org/html/rfc4291 para IPv6, ambos em inglês). Endereços IPv6 precisam ser especificados em formato seguro para URL (entre colchetes). As substituições de CIDR se aplicam a todas as portas.
+
+ou
+
+[ip-address]:[port]=[public|local|loopback]
+
+Para saber mais sobre o <ph name="LOCAL_NETWORK_ACCESS" />, consulte https://wicg.github.io/local-network-access/ (em inglês) e https://developer.chrome.com/blog/local-network-access.
+
+As substituições da política LocalNetworkAccessIpAddressSpaceOverrides têm precedência sobre as definidas por esta política.
+
+As substituições da chave de linha de comando --ip-address-space-overrides têm precedência sobre as definidas por políticas.</translation>
 <translation id="3949642828552641632">Permitir o fluxo de <ph name="CLOUD_UPLOAD_NAME" /> para <ph name="GOOGLE_DRIVE_NAME" /> e <ph name="GOOGLE_WORKSPACE_NAME" /></translation>
 <translation id="3950110092991281616">Ativar a autenticação pelo SO apenas em sessões normais.</translation>
 <translation id="3950239119790560549">Atualiza restrições de tempo</translation>
@@ -4767,6 +4822,11 @@ Em plataformas para computador, também é possível desativar o download desse 
 
       Se a política for definida como "Desativada" ou não for definida, o <ph name="PLUGIN_VM_NAME" /> não será ativado para o dispositivo.</translation>
 <translation id="3973371701361892765">Nunca ocultar automaticamente a estante</translation>
+<translation id="3974715256242096353">Se a política for definida como falsa, a página "Nova guia" não permitirá que os usuários personalizem o plano de fundo. Qualquer plano de fundo personalizado já existente será removido permanentemente, mesmo que a política seja definida como verdadeira mais tarde.
+
+Se a política for definida como verdadeira ou não for definida, os usuários poderão personalizar o plano de fundo da página "Nova guia".
+
+Observação: no Android, a política é aplicada ao navegador somente após a reinicialização.</translation>
 <translation id="3977304360459208438">Usar a configuração padrão para pacotes de criptografia 3DES em TLS</translation>
 <translation id="3977906634350977040">Se a política for ativada, o host de acesso remoto poderá usar autenticações com PIN e pareamento ao aceitar conexões de clientes.
 
@@ -5191,6 +5251,24 @@ Domínios com formato incorreto serão ignorados.</translation>
 <translation id="4238777612788632629">Reinicializar rapidamente em caso de desatualização</translation>
 <translation id="4239720644496144453">O cache não é usado para apps Android. Se vários usuários instalarem o mesmo app Android, o download dele será feito novamente para cada usuário.</translation>
 <translation id="4239949495354048254">Permita uploads de arquivos para o Gemini no Chrome.</translation>
+<translation id="424049794524032498">Lista de padrões de URL. As solicitações de rede iniciadas em sites que têm as mesmas origens são bloqueadas e não podem solicitar <ph name="LOCAL_NETWORK_ACCESS" /> em nenhuma sessão no dispositivo.
+
+Se as origens não corresponderem aos padrões especificados aqui, a configuração de sessão ou de perfil será aplicada.
+
+Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
+
+Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
+
+Várias políticas listam origens que afetam as solicitações para o dispositivo local e para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
+
+  - LocalNetworkBlockedForUrls
+  - LocalNetworkAllowedForUrls
+  - LoopbackNetworkBlockedForUrls
+  - LoopbackNetworkAllowedForUrls
+  - LocalNetworkAccessBlockedForUrls
+  - LocalNetworkAccessAllowedForUrls
+  - DeviceLocalNetworkAccessBlockedForUrls
+  - DeviceLocalNetworkAccessAllowedForUrls</translation>
 <translation id="4242583077375244471">Quando a política é ativada, o <ph name="PRODUCT_NAME" />
 verifica os certificados do servidor usando o verificador de certificados integrado,
 com a Chrome Root Store como fonte de verdade pública.
@@ -5387,20 +5465,6 @@ Se ela for ativada, a sintaxe descontinuada será ativada.
 Se ela for desativada, a sintaxe descontinuada também será.
 
 Se ela não for definida, a sintaxe descontinuada será desativada.</translation>
-<translation id="4400152722459197056">Lista de padrões de URL. Solicitações de rede iniciadas em sites que têm as mesmas origens dos endpoints da rede local não estão sujeitas a verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
-
-Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
-
-Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
-
-Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
-
-Várias políticas listam origens que afetam as solicitações para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
-
-  - LocalNetworkBlockedForUrls
-  - LocalNetworkAllowedForUrls
-  - LocalNetworkAccessBlockedForUrls
-  - LocalNetworkAccessAllowedForUrls</translation>
 <translation id="4401196752827224189">O WebSQL em contextos não seguros vai ser removido da versão M110 em diante. Esta política reativa a API.
           Se a política for definida como verdadeira, o WebSQL em contextos não seguros vai ficar disponível.
           Se ela for definida como falsa ou for deixada sem definição, o WebSQL em contextos não seguros continuará disponível até a versão M109 e indisponível da M110 em diante.
@@ -6053,6 +6117,7 @@ Caso contrário, apenas os serviços selecionados serão ativados.</translation>
 Quando ela é desativada, a promoção da extensão do provedor de credenciais não é mostrada ao usuário.</translation>
 <translation id="4768446404233019970">Ativar pacotes de criptografia 3DES em TLS</translation>
 <translation id="4770334626033858263">Configuração usada para gerar e verificar o código de acesso do familiar responsável.</translation>
+<translation id="477383002672213319">Permitir o preenchimento automático aprimorado sem melhorar os modelos de IA (melhora os modelos de IA antes da versão M153).</translation>
 <translation id="4773997835955617342">Muda a configuração sugerida do <ph name="KRB5_CONFIG" /> para os novos tíquetes criados manualmente.
 
       Se esta política for ativada, o valor da "KerberosCustomPrefilledConfig" será aplicado como a configuração sugerida e mostrado na seção "Avançado" da caixa de diálogo de autenticação Kerberos.
@@ -6586,9 +6651,6 @@ Se for deixada sem definição, o comportamento será determinado pela política
 Para mais informações sobre como tratar dados de recursos de IA generativa, consulte https://support.google.com/chrome/a?p=generative_ai_settings.</translation>
 <translation id="5070539335358964387">Permitir o recurso Encontrar e Preencher com o Gemini e melhorar os modelos de IA.</translation>
 <translation id="5071303485174858500">Desativar sessão de visitante gerenciada restrita.</translation>
-<translation id="5073609397321802133">Se a política for definida como falsa, a página "Nova guia" não permitirá que os usuários personalizem o plano de fundo. Qualquer plano de fundo personalizado já existente será removido permanentemente, mesmo que a política seja definida como verdadeira mais tarde.
-
-      Se a política for definida como "verdadeira" ou não for definida, os usuários poderão personalizar o plano de fundo da página "Nova guia".</translation>
 <translation id="5073788301065423829">Esta política ativa ou desativa o recurso "Me ajude a escrever" no ChromeOS.
 
 Se a política for ativada, o recurso ficará ativado.
@@ -7122,17 +7184,6 @@ Se o valor for "false", os usuários não poderão acessar o recurso.</translati
 <translation id="537786648513450280">Controla, no lugar do dispositivo, o uso de apps Android de fontes não confiáveis</translation>
 <translation id="5378885577701865339">Desativar a área de transferência compartilhada</translation>
 <translation id="5385337904220716757">Permitir acesso apenas aos serviços do sistema pela geolocalização</translation>
-<translation id="538768040137709073">Ativar o recurso de área de transferência compartilhada, que permite que os usuários enviem texto entre computadores Chrome e um dispositivo Android quando a sincronização está ativada e o usuário está conectado.
-
-          Se esta política for definida como verdadeira, a capacidade de enviar texto entre dispositivos ficará ativada para o usuário do Chrome.
-
-          Se esta política for definida como falsa, a capacidade de enviar texto entre dispositivos ficará desativada para o usuário do Chrome.
-
-          Se você definir esta política, os usuários não poderão alterá-la nem substituí-la.
-
-          Se esta política não for definida, o recurso de área de transferência compartilhada será ativado por padrão.
-
-          Cabe aos administradores definir políticas em todas as plataformas que sejam relevantes. É recomendado definir um único valor para esta política em todas as plataformas.</translation>
 <translation id="5389708774452952523">Permitir que o processo de áudio seja executado com prioridade acima do normal no Windows</translation>
 <translation id="5390083518957894426">Permite a reautenticação on-line na tela de bloqueio para usuários do SAML</translation>
 <translation id="5391388690191341203">Conta local do dispositivo para login automático</translation>
@@ -7252,6 +7303,23 @@ os atalhos baseados em pesquisa vão funcionar como padrão.</translation>
 
       O valor da política precisa ser especificado em dias.</translation>
 <translation id="5457065417344056871">Ativar o modo visitante no navegador</translation>
+<translation id="5457999916455787365">A política pode ser usada para tratar determinados intervalos de endereços internos como "públicos" e, portanto, não sujeitos a verificações de <ph name="LOCAL_NETWORK_ACCES" />. Da mesma maneira, pode ser usada para tratar determinados intervalos de endereços públicos com possível uso interno como endereços "locais" para que fiquem protegidos por verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
+
+As substituições de espaço de endereço IP têm duas formas:
+
+[cidr]=[public|local|loopback]
+
+Nesta, [cidr] é um intervalo de endereço IP na notação CIDR (consulte a seção 3.1 de https://tools.ietf.org/html/rfc4632 para IPv4 e a seção 2.3 de https://tools.ietf.org/html/rfc4291 para IPv6, ambos em inglês). Endereços IPv6 precisam ser especificados em formato seguro para URL (entre colchetes). As substituições de CIDR se aplicam a todas as portas.
+
+ou
+
+[ip-address]:[port]=[public|local|loopback]
+
+Para saber mais sobre o <ph name="LOCAL_NETWORK_ACCESS" />, consulte https://wicg.github.io/local-network-access/ (em inglês) e https://developer.chrome.com/blog/local-network-access.
+
+As substituições desta política têm precedência sobre as definidas por DeviceLocalNetworkAccessIpAddressSpaceOverrides.
+
+As substituições da chave de linha de comando --ip-address-space-overrides têm precedência sobre as definidas por políticas.</translation>
 <translation id="545817252640069915">Ativar interceptação de login</translation>
 <translation id="5460797984317417682">Permitir alertas de tela cheia</translation>
 <translation id="5462898272514237681">Controlar o acesso do <ph name="PRODUCT_OS_NAME" /> aos Serviços de localização do Google</translation>
@@ -7337,6 +7405,22 @@ Se a política <ph name="NTPCARDSVISIBLE" /> for desativada, o card do SharePoin
 <translation id="5519619299971727565">Desativar os relatórios de uso de apps Linux</translation>
 <translation id="5521035900165046997">Ativar relatórios de informações de Bluetooth do dispositivo</translation>
 <translation id="5521875416764302911">Impedir que os usuários façam login no <ph name="PRODUCT_NAME" /></translation>
+<translation id="5523077138980091816">Lista de padrões de URL. Solicitações de rede iniciadas em sites com as mesmas origens dos endpoints da rede local não ficam sujeitas a verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
+
+Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
+
+Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
+
+Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
+
+Várias políticas listam origens que afetam as solicitações para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
+
+  - LocalNetworkBlockedForUrls
+  - LocalNetworkAllowedForUrls
+  - LocalNetworkAccessBlockedForUrls
+  - LocalNetworkAccessAllowedForUrls
+  - DeviceLocalNetworkAccessBlockedForUrls
+  - DeviceLocalNetworkAccessAllowedForUrls</translation>
 <translation id="552607466422196365">Desativar <ph name="DBSC_FEATURE_NAME" />.</translation>
 <translation id="5526184558582921522">Permitir consultas ao Quirks Server e possíveis downloads de arquivos de configuração específicos de hardware</translation>
 <translation id="5526701598901867718">Todos (não seguro)</translation>
@@ -7346,6 +7430,13 @@ Se a política <ph name="NTPCARDSVISIBLE" /> for desativada, o card do SharePoin
 <translation id="5537400155400537818">Desativada: o zoom do CSS preserva o comportamento legado pré-padrão.</translation>
 <translation id="5537587542872235553">Permitir que aplicativos de quiosque e Apps Isolados da Web instalados à força usem a API Device Attributes</translation>
 <translation id="553806128266843748">Uma sinalização booleana indicando se a limitação está ativada.</translation>
+<translation id="5540415024237352600">Essa política será descontinuada na versão M153 e não terá suporte (não terá efeito) em uma versão futura. As assinaturas ad hoc para apps nativos criados ao instalar um Aplicativo da Web Progressivo (PWA) agora estão ativadas permanentemente no <ph name="MAC_OS_NAME" />. Isso garante que cada aplicativo instalado tenha uma identidade exclusiva para os componentes do sistema <ph name="MAC_OS_NAME" />.
+
+Se a política for ativada ou deixada sem definição, será possível usar assinaturas ad hoc no app nativo criado ao instalar um App Web Progressivo (PWA). Isso garante que cada aplicativo instalado tenha uma identidade exclusiva para os componentes do sistema <ph name="MAC_OS_NAME" />.
+
+Se a política for desativada, todos os apps nativos criados na instalação de Apps Web Progressivos terão a mesma identidade. Isso pode interferir na funcionalidade do <ph name="MAC_OS_NAME" />.
+
+Desative a política somente se você estiver usando uma solução de segurança de endpoint que bloqueie aplicativos com uma assinatura ad-hoc.</translation>
 <translation id="5540885720415375851">Permitir a detecção de dispositivos locais</translation>
 <translation id="5542235730745104308">Se a política for definida como verdadeira, o <ph name="PRODUCT_NAME" /> vai usar páginas de erro alternativas integradas no navegador, como "Página não encontrada". Se a política for definida como falsa, o <ph name="PRODUCT_NAME" /> nunca vai usar páginas de erro alternativas.
 
@@ -8007,23 +8098,6 @@ No <ph name="MAC_OS_NAME" />, essa política só está disponível em instância
 
       Esta política está suspensa. Use a <ph name="PRINTERS_BULK_BLOCKLIST" />.</translation>
 <translation id="591088232153082363">Carregamento adaptável com base no padrão de uso da bateria.</translation>
-<translation id="5913506885872855604">A política pode ser usada para tratar determinados intervalos de endereços internos como "públicos" e, portanto, não sujeitos a verificações de <ph name="LOCAL_NETWORK_ACCES" />. Da mesma maneira, pode ser usada para tratar determinados intervalos de endereços públicos com possível uso interno como endereços "locais" para que fiquem protegidos por verificações de <ph name="LOCAL_NETWORK_ACCESS" />.
-
-As substituições de espaço de endereço IP têm duas formas:
-
-[cidr]=[public|local|loopback]
-
-Nesta, [cidr] é um intervalo de endereço IP na notação CIDR (consulte a seção 3.1 de https://tools.ietf.org/html/rfc4632 para IPv4 e a seção 2.3 de https://tools.ietf.org/html/rfc4291 para IPv6). Endereços IPv6 precisam ser especificados em formato seguro para URL (entre colchetes). As substituições de CIDR se aplicam a todas as portas.
-
-ou
-
-[ip-address]:[port]=[public|local|loopback]
-
-Para saber mais sobre o <ph name="LOCAL_NETWORK_ACCESS" />, consulte https://wicg.github.io/local-network-access/ e https://developer.chrome.com/blog/local-network-access.
-
-Esta política não é compatível com atualização dinâmica.
-
-As substituições da chave de linha de comando --ip-address-space-overrides têm precedência sobre as definidas por esta política.</translation>
 <translation id="5915023683182228340">Se a política for definida como "Ativada" ou não for definida, o uso de protocolo QUIC será permitido no <ph name="PRODUCT_NAME" />.
 
       Se a política for definida como "Desativada", o uso de protocolo QUIC não será permitido.</translation>
@@ -8197,6 +8271,24 @@ Se a política for definida como "false", a atribuição à extensão no rodapé
 Se o valor for "true" ou não for definido, a lista poderá ser usada.
 
 Se o valor for "false", os usuários não poderão acessar o recurso.</translation>
+<translation id="606337187257433827">Lista de padrões de URL. Solicitações de rede iniciadas em sites que têm as mesmas origens são bloqueadas e não podem solicitar <ph name="LOCAL_NETWORK_ACCESS" />.
+
+Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
+
+Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
+
+Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
+
+Várias políticas listam origens que afetam as solicitações para o dispositivo local e para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
+
+  - LocalNetworkBlockedForUrls
+  - LocalNetworkAllowedForUrls
+  - LoopbackNetworkBlockedForUrls
+  - LoopbackNetworkAllowedForUrls
+  - LocalNetworkAccessBlockedForUrls
+  - LocalNetworkAccessAllowedForUrls
+  - DeviceLocalNetworkAccessBlockedForUrls
+  - DeviceLocalNetworkAccessAllowedForUrls</translation>
 <translation id="6066761914755798079">Se a <ph name="DEFAULT_SEARCH_PROVIDER_ENABLED_POLICY_NAME" /> estiver ativada, definir <ph name="DEFAULT_SEARCH_PROVIDER_SUGGEST_URL_POLICY_NAME" /> especificará o URL do mecanismo que fornecerá sugestões de pesquisa. O URL precisa incluir a string <ph name="SEARCH_TERM_MARKER" />, que é substituída na consulta pelos termos de pesquisa do usuário.
 
       É possível especificar o URL de pesquisa do Google como: <ph name="GOOGLE_SUGGEST_SEARCH_URL" />.</translation>
@@ -8308,14 +8400,6 @@ Quando esta política for ativada ou deixada sem definição, os usuários poder
 
 Quando ela estiver desativada, o app vai estar no modo somente leitura, impedindo qualquer personalização.</translation>
 <translation id="6150320133676152520">Desativar o envio automático do PIN nas telas de bloqueio e login</translation>
-<translation id="6152224988699207920">Permite que os admins personalizem a aparência das marcas-d'água aplicadas pelas regras de Prevenção Contra Perda de Dados (DLP, na sigla em inglês). Isso inclui configurar a opacidade do preenchimento/contorno, o tamanho da fonte e o fuso horário do carimbo de data/hora.
-Se a política ou alguns valores não forem definidos, o Chrome vai usar o comportamento padrão de marca-d'água.
-Os valores padrão são: opacidade do preenchimento em 4, opacidade do contorno em 6, tamanho da fonte em 24 e fuso horário do carimbo de data/hora definido como "user_device" (fuso horário local do dispositivo do usuário).
-
-A opacidade do preenchimento é uma porcentagem de 0 (totalmente transparente) a 100 (totalmente opaco).
-A opacidade do contorno é uma porcentagem de 0 (totalmente transparente) a 100 (totalmente opaco).
-O tamanho da fonte é definido em pontos.
-O fuso horário do carimbo de data/hora especifica o identificador da IANA, como "America/Toronto", usado para formatar marcas-d'água com carimbo de data/hora (disponível a partir do Chrome 152), seguindo os nomes no banco de dados dessa organização (https://www.iana.org/time-zones, site em inglês).</translation>
 <translation id="6155350825868160236">Permitir que o usuário escolha se serviços da Web do Google serão usados para solucionar erros de ortografia</translation>
 <translation id="6155936611791017817">Definir estado padrão do cursor grande na tela de login</translation>
 <translation id="6157537876488211233">Lista separada por vírgulas das regras de proxies ignoráveis</translation>
@@ -8671,6 +8755,22 @@ No <ph name="MAC_OS_NAME" />, essa política só está disponível em instância
 
       Observação: se <ph name="DEVICE_LOGIN_SCREEN_VIRTUAL_KEYBOARD_ENABLED_POLICY_NAME" /> for especificada, ela substituirá esta política.</translation>
 <translation id="6315039134652691025">Os usuários não podem migrar dados de navegação para o perfil gerenciado</translation>
+<translation id="6316247387848694915">Lista de padrões de URL. Solicitações de rede iniciadas em sites que têm as mesmas origens dos endpoints da rede local são bloqueadas e não podem solicitar <ph name="LOCAL_NETWORK_ACCESS" />.
+
+Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
+
+Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
+
+Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
+
+Várias políticas listam origens que afetam as solicitações para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
+
+  - LocalNetworkBlockedForUrls
+  - LocalNetworkAllowedForUrls
+  - LocalNetworkAccessBlockedForUrls
+  - LocalNetworkAccessAllowedForUrls
+  - DeviceLocalNetworkAccessBlockedForUrls
+  - DeviceLocalNetworkAccessAllowedForUrls</translation>
 <translation id="6316678265585263617">Permite que o <ph name="PRODUCT_NAME" /> decida qual abordagem usar</translation>
 <translation id="6316885783540658874">Esta política controla se a implementação de <ph name="AES_KL_NAME" /> está ativada para a criptografia de armazenamento do usuário em telas iniciais <ph name="DM_CRYPT" /> no ChromeOS, se compatível.
 
@@ -9937,6 +10037,7 @@ a otimização do JavaScript será ativada.</translation>
 <translation id="7030205756530739128">Se <ph name="DEVICE_BATTERY_CHARGE_MODE_NAME" /> for definida como <ph name="DEVICE_BATTERY_CHARGE_CUSTOM_MODE_NAME" />, a definição de <ph name="DEVICE_BATTERY_CHARGE_CUSTOM_START_CHARGING_POLICY_NAME" /> personalizará quando o carregamento da bateria será iniciado, com base na porcentagem de carga da bateria. O valor precisa estar pelo menos 5% abaixo de <ph name="DEVICE_BATTERY_CHARGE_CUSTOM_STOP_CHARGING_POLICY_NAME" />.
 
       Se a política não for definida, o modo padrão de carregamento da bateria será aplicado.</translation>
+<translation id="7030213287413687536">Permitir que sites façam solicitações de rede para dispositivos locais e endpoints da rede local no dispositivo</translation>
 <translation id="7030407698292813622">Permitir consultas DNS em mais tipos de registro DNS</translation>
 <translation id="7030632236140191991">Lista de configurações para os serviços do Chrome Enterprise Connectors que serão aplicadas ao conector <ph name="ON_BULK_DATA_ENTRY_ENTERPRISE_CONNECTOR" />, que é acionado quando há a inserção de dados da área de transferência ou de conteúdos da Web (usando o recurso de arrastar e soltar) no Chrome.
 
@@ -10306,6 +10407,20 @@ Observação: se você estiver usando esta política para resolver o fuso horár
       Se ela for definida como falsa, os usuários, apps e extensões não poderão entrar no modo de tela cheia.</translation>
 <translation id="7180529638251181928">Não aplicar o Modo Restrito no <ph name="YOUTUBE_PRODUCT_NAME" /></translation>
 <translation id="718126088895133062">Esta política especifica o código de licenciamento do usuário do <ph name="PLUGIN_VM_NAME" /> para este dispositivo.</translation>
+<translation id="7182622189057326705">Esta política foi descontinuada e não tem efeito porque o recurso de área de transferência compartilhada foi removido do Chrome.
+
+Descrição original:
+Ativar o recurso de área de transferência compartilhada, que permite que os usuários enviem texto entre computadores Chrome e um dispositivo Android quando a sincronização está ativada e o usuário está conectado.
+
+          Se esta política for definida como verdadeira, a capacidade de enviar texto entre dispositivos ficará ativada para o usuário do Chrome.
+
+          Se esta política for definida como falsa, a capacidade de enviar texto entre dispositivos ficará desativada para o usuário do Chrome.
+
+          Se você definir esta política, os usuários não poderão mudá-la ou substituí-la.
+
+          Se esta política não for definida, o recurso de área de transferência compartilhada será ativado por padrão.
+
+          Cabe aos administradores definir políticas em todas as plataformas que sejam relevantes. É recomendado definir um único valor para esta política em todas as plataformas.</translation>
 <translation id="7185078796915954712">TLS 1.3</translation>
 <translation id="7185630966939835143">Usar um serviço da Web do Google para ajudar a solucionar erros de ortografia</translation>
 <translation id="7187248416163189586">Desativar relatórios de informações da luz de fundo do dispositivo</translation>
@@ -10913,20 +11028,6 @@ Esta política tem um limite de 1.000 entradas.</translation>
           Se ela for definida como "false" (falsa) ou não for definida, o PIN não vai ser enviado automaticamente na tela de bloqueio e login.
 
           Se a política for definida, os usuários não poderão ativar esse recurso.</translation>
-<translation id="7609566862616914296">Lista de padrões de URL. Solicitações de rede iniciadas em sites que têm as mesmas origens dos endpoints da rede local são bloqueadas e não podem pedir<ph name="LOCAL_NETWORK_ACCESS" />.
-
-Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
-
-Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
-
-Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
-
-Várias políticas listam origens que afetam as solicitações para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
-
-  - LocalNetworkBlockedForUrls
-  - LocalNetworkAllowedForUrls
-  - LocalNetworkAccessBlockedForUrls
-  - LocalNetworkAccessAllowedForUrls</translation>
 <translation id="7612030083959326401">Configure a lista de domínios em que <ph name="PASSWORD_MANAGER_NAME" /> (salvar e preencher) vai estar desativado</translation>
 <translation id="7612059745454194563">Não permitir que a promoção da extensão do provedor de credenciais seja mostrada</translation>
 <translation id="7612157962821894603">Sinalizações amplas do sistema que devem ser aplicadas na inicialização do <ph name="PRODUCT_NAME" /></translation>
@@ -11168,6 +11269,22 @@ Observação: esta política só se aplica a plataformas que são compatíveis c
       A política <ph name="INCOGNITO_MODE_URL_ALLOWLIST_POLICY_NAME" /> tem precedência e pode reativar o modo de navegação anônima para URLs específicos. Quando o modo de navegação anônima é desativado por essa política e uma lista de permissões é fornecida, ele fica disponível apenas para URLs que correspondem a essa lista, enquanto todas as outras páginas são bloqueadas.
 
       Observação: no iOS, se a política for alterada durante a sessão, ela só terá efeito após a reinicialização.</translation>
+<translation id="7753487237310360952">Lista de padrões de URL. As solicitações de rede iniciadas em sites com origens correspondentes não ficam sujeitas a verificações de <ph name="LOCAL_NETWORK_ACCESS" /> em todas as sessões no dispositivo.
+
+Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
+
+Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
+
+Várias políticas listam origens que afetam as solicitações para o dispositivo local e para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
+
+  - LocalNetworkBlockedForUrls
+  - LocalNetworkAllowedForUrls
+  - LoopbackNetworkBlockedForUrls
+  - LoopbackNetworkAllowedForUrls
+  - LocalNetworkAccessBlockedForUrls
+  - LocalNetworkAccessAllowedForUrls
+  - DeviceLocalNetworkAccessBlockedForUrls
+  - DeviceLocalNetworkAccessAllowedForUrls</translation>
 <translation id="7753678409577376761">Ativar o ponto de entrada da barra de ferramentas de recursos experimentais do navegador</translation>
 <translation id="7754704193130578113">Perguntar onde salvar cada arquivo antes de fazer download</translation>
 <translation id="7754893969683595513">A definição da política especifica um período em milissegundos em que o serviço de gerenciamento do dispositivo recebe consultas sobre informações de políticas do usuário. O intervalo válido de valores é de 1.800.000 (30 minutos) até 86.400.000 (1 dia). Valores fora desse intervalo serão ajustados para o respectivo limite.
@@ -11474,11 +11591,6 @@ Se a política <ph name="ENABLE_MEDIA_ROUTER_POLICY_NAME" /> for definida como d
 
       Se a política não for definida, não haverá seleção automática para nenhum site.</translation>
 <translation id="7937766917976512374">Permitir ou negar captura de vídeo</translation>
-<translation id="7937825205289116563">Se a política for ativada ou deixada sem definição, será possível usar assinaturas ad hoc no app nativo criado ao instalar um App Web Progressivo (PWA). Isso garante que cada aplicativo instalado tenha uma identidade exclusiva para os componentes do sistema <ph name="MAC_OS_NAME" />.
-
-Se a política for desativada, todos os apps nativos criados na instalação de Apps Web Progressivos terão a mesma identidade. Isso pode interferir na funcionalidade do <ph name="MAC_OS_NAME" />.
-
-Desative a política somente se você estiver usando uma solução de segurança de endpoint que bloqueie aplicativos com uma assinatura ad-hoc.</translation>
 <translation id="7941528208359969119">Permitir a realização de verificações on-line de <ph name="OCSP_CRL_LABEL" /></translation>
 <translation id="7941975817681987555">Não prever ações da rede em nenhuma conexão de rede</translation>
 <translation id="794447754389837404">Bloquear o acesso à rede particular na API Direct Sockets nestes sites</translation>
@@ -11988,22 +12100,6 @@ No caso do <ph name="PRODUCT_NAME" />, esta política só é eficaz quando a má
 
 Mais informações sobre tecnologias legadas podem ser encontradas em https://chromestatus.com/features.</translation>
 <translation id="8273183018575414926">Progressive Web Apps</translation>
-<translation id="8274053052968966211">Lista de padrões de URL. Solicitações de rede iniciadas em sites que têm as mesmas origens são bloqueadas e não podem pedir <ph name="LOCAL_NETWORK_ACCESS" />.
-
-Se as origens não corresponderem aos padrões especificados aqui, a configuração pessoal do usuário será aplicada.
-
-Para saber mais sobre padrões de URL válidos, acesse https://chromeenterprise.google/policies/url-patterns/.
-
-Consulte as restrições de <ph name="LOCAL_NETWORK_ACCESS" /> em https://wicg.github.io/local-network-access/ (em inglês).
-
-Várias políticas listam origens que afetam as solicitações para o dispositivo local e para endpoints da rede local. Se mais de uma das políticas abaixo estiver associada à origem, elas serão aplicadas nesta ordem:
-
-  - LocalNetworkBlockedForUrls
-  - LocalNetworkAllowedForUrls
-  - LoopbackNetworkAccessBlockedForUrls
-  - LoopbackNetworkAccessAllowedForUrls
-  - LocalNetworkAccessBlockedForUrls
-  - LocalNetworkAccessAllowedForUrls</translation>
 <translation id="8274603902181597201">Faz a limpeza do diretório inicial do ecryptfs do usuário e começa com um novo diretório inicial ext4-encrypted.</translation>
 <translation id="8274926413890711289">Ativar controles de geração de relatórios granulares</translation>
 <translation id="8275103737670730746">Permitir que APIs de seletores de arquivos ou diretórios sejam chamadas sem o gesto anterior do usuário</translation>
@@ -12094,7 +12190,6 @@ Quando esta política não é definida, o controle facial fica desativado, mas p
 <translation id="8330437518362176921">Usar apenas o URL de atualização fornecido pela política para fazer o download e a atualização de apps do Chrome para quiosque</translation>
 <translation id="8331479227794770304">Ativar tecla aderente</translation>
 <translation id="8332822245414537447">Desativar a verificação de uso da Chave RSA</translation>
-<translation id="8333141477131859004">Permitir o preenchimento automático aprimorado e melhorar os modelos de IA.</translation>
 <translation id="8334685561819743286">Desativar a correção automática do teclado físico durante a digitação</translation>
 <translation id="8336986243404088829">Esta política mitiga ataques de memória em processo cruzado de canal lateral, isolando o processo do renderizador no núcleo da CPU e impedindo que outros processos compartilhem o mesmo núcleo. A mitigação é compatível com o <ph name="MS_WIN_NAME" /> 11 24H2 e versões mais recentes. Se o SO não tiver o suporte de programação necessário, esta política não terá efeito. Esta política pode diminuir o desempenho em alguns cenários exigentes, de forma semelhante à desativação do hyperthreading. Para mais informações, acesse https://learn.microsoft.com/pt-br/windows/win32/api/winnt/ns-winnt-process_mitigation_side_channel_isolation_policy
       Se esta política estiver ativada, todos os outros processos não serão programados no mesmo núcleo da CPU quando o processo do renderizador estiver em execução.
@@ -13013,6 +13108,7 @@ Esta política só controla a <ph name="ARC_VM" /> no <ph name="PRODUCT_OS_FLEX_
 <translation id="8911736066340032670">Informe os dados relacionados à tela, como a taxa de atualização, e os relacionados a gráficos, como versão do driver.
 
       Se a política for definida como falsa ou não for definida, os status de tela e gráficos não serão informados. Se ela for definida como verdadeira, os status de tela e gráficos serão informados.</translation>
+<translation id="8912595396523313912">Impedir que sites façam solicitações de rede para dispositivos locais e endpoints da rede local no dispositivo</translation>
 <translation id="891435090623616439">codificado como um string JSON, para ver mais detalhes consulte <ph name="COMPLEX_POLICIES_URL" /></translation>
 <translation id="8916106787085606382">A propriedade window.name não será removida quando a navegação for de nível superior, entre sites e trocar BrowsingContextGroup.</translation>
 <translation id="8917070657147922192">Permite que o usuário gerencie os certificados de CA instalados.</translation>
@@ -13232,17 +13328,6 @@ Se a política é deixada sem definição, o <ph name="PRODUCT_NAME" /> pode col
 <translation id="9053841574218808519">Sempre executar plug-ins que não estão desatualizados</translation>
 <translation id="9055866143096316150">Rebaixar solicitações de wake lock da tela para solicitações de wake lock do sistema</translation>
 <translation id="9057159618445405645">Usar o comportamento padrão do navegador Chrome</translation>
-<translation id="9061455386353325110">Especifica se os usuários podem permitir que o <ph name="PRODUCT_NAME" /> use a IA generativa para entender melhor os formulários e ajudar a preencher mais campos.
-
-Se ela for definida como 0, o recurso será habilitado e os dados relevantes poderão ser usados pelo Google para melhorar os modelos de IA. Esses dados podem incluir comandos, entradas, saídas, fontes e feedback por escrito, dependendo do recurso. O valor padrão é 0, exceto quando indicado de outra forma abaixo.
-
-Se a política for definida como 1, o recurso será habilitado, mas o Google não poderá usar o conteúdo dos usuários (incluindo comandos, entradas, saídas, fontes e feedback por escrito) para melhorar os modelos. 1 é o valor padrão para usuários corporativos gerenciados pelo <ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" /> e contas de ensino gerenciadas pelo <ph name="GOOGLE_WORKSPACE_PRODUCT_NAME" />.
-
-Se ela for definida como 2, o recurso não será habilitado.
-
-Se for deixada sem definição, o comportamento será determinado pela política <ph name="GEN_AI_DEFAULT_SETTINGS_POLICY_NAME" />.
-
-Para mais informações sobre como tratar dados de recursos de IA generativa, consulte https://support.google.com/chrome/a?p=generative_ai_settings.</translation>
 <translation id="9061609750723054419">Controlar a visibilidade do aviso de gerenciamento na página "Nova guia" para navegadores gerenciados</translation>
 <translation id="9063485115966829754">O visualizador de PDF usa a arquitetura do GuestView.</translation>
 <translation id="9064546884927958824">Se a política for definida, você poderá fazer uma lista de padrões de URL que especificam sites que podem exibir imagens.

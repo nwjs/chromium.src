@@ -25,11 +25,13 @@
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/guided_tour_commands.h"
+#import "ios/chrome/browser/shared/public/commands/new_tab_page_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/synced_set_up/public/synced_set_up_metrics.h"
+#import "ios/chrome/browser/synced_set_up/utils/utils.h"
 #import "ios/chrome/browser/welcome_back/model/features.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/web_task_environment.h"
@@ -80,6 +82,10 @@
 - (void)hideTabGridGuidedTour {
 }
 - (void)presentPinTabBubble {
+}
+- (void)presentCreateTabGroupBubble {
+}
+- (void)showSwipeToIncognitoIPH {
 }
 - (void)showPageActionMenuFromTabGrid {
 }
@@ -189,6 +195,13 @@ TEST_F(FirstRunProfileAgentTest, GuidedTourStepMetrics) {
       startDispatchingToTarget:guided_tour_handler
                    forProtocol:@protocol(GuidedTourCommands)];
 
+  // NewTabPageCommands is required by maybePresentPostFREPromos when the Guided
+  // Tour completes.
+  id ntp_commands_handler = OCMProtocolMock(@protocol(NewTabPageCommands));
+  [browser()->GetCommandDispatcher()
+      startDispatchingToTarget:ntp_commands_handler
+                   forProtocol:@protocol(NewTabPageCommands)];
+
   base::HistogramTester tester;
 
   // Start and stop step 1 (NTP).
@@ -228,7 +241,7 @@ TEST_F(FirstRunProfileAgentTest, SyncedSetUpDoesNotTriggerInIncognito) {
       prefs::kSyncedSetUpImpressionCount, 0);
   ASSERT_TRUE(pref_service->FindPreference(prefs::kSyncedSetUpImpressionCount));
   ASSERT_LT(pref_service->GetInteger(prefs::kSyncedSetUpImpressionCount),
-            GetSyncedSetUpImpressionLimit());
+            kSyncedSetUpImpressionLimit);
 
   TestProfileIOS::Builder builder;
   builder.SetPrefService(std::move(pref_service));
@@ -291,4 +304,58 @@ TEST_F(FirstRunProfileAgentTest, StopGuidedTourWithoutHandlers) {
 
   // This should not crash even if handlers are missing.
   [profile_agent_ stopGuidedTour];
+}
+
+// Validates that maybePresentPostFREPromos correctly triggers the NTP command
+// to present the Lens bubble when the BestOfAppLensAnimatedPromo variant is
+// enabled.
+TEST_F(FirstRunProfileAgentTest, MaybePresentPostFREPromos_LensBubble) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(kBestOfAppFRE,
+                                                  {{"variant", "2"}});
+
+  InitializeActiveSceneState();
+  [profile_agent_ profileState:profile_state_
+      firstSceneHasInitializedUI:scene_state_];
+  [profile_state_ sceneStateConnected:scene_state_];
+
+  // Mock NewTabPageCommands.
+  id ntp_commands_handler = OCMProtocolMock(@protocol(NewTabPageCommands));
+  OCMExpect([ntp_commands_handler presentLensIconBubble]);
+
+  [browser()->GetCommandDispatcher()
+      startDispatchingToTarget:ntp_commands_handler
+                   forProtocol:@protocol(NewTabPageCommands)];
+
+  [profile_agent_ maybePresentPostFREPromos];
+
+  id self = nil;
+  OCMVerifyAll(ntp_commands_handler);
+}
+
+// Validates that maybePresentPostFREPromos correctly triggers the NTP command
+// to present the feed swipe bubble when BestOfAppLensAnimatedPromo is not
+// enabled.
+TEST_F(FirstRunProfileAgentTest, MaybePresentPostFREPromos_FeedSwipe) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(kBestOfAppFRE,
+                                                  {{"variant", "1"}});
+
+  InitializeActiveSceneState();
+  [profile_agent_ profileState:profile_state_
+      firstSceneHasInitializedUI:scene_state_];
+  [profile_state_ sceneStateConnected:scene_state_];
+
+  // Mock NewTabPageCommands.
+  id ntp_commands_handler = OCMProtocolMock(@protocol(NewTabPageCommands));
+  OCMExpect([ntp_commands_handler presentFeedSwipeFirstRunBubble]);
+
+  [browser()->GetCommandDispatcher()
+      startDispatchingToTarget:ntp_commands_handler
+                   forProtocol:@protocol(NewTabPageCommands)];
+
+  [profile_agent_ maybePresentPostFREPromos];
+
+  id self = nil;
+  OCMVerifyAll(ntp_commands_handler);
 }

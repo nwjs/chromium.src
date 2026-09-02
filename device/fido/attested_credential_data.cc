@@ -7,7 +7,9 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/containers/extend.h"
 #include "base/containers/span_reader.h"
+#include "base/containers/to_array.h"
 #include "base/containers/to_vector.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/numerics/safe_math.h"
@@ -15,7 +17,6 @@
 #include "components/device_event_log/device_event_log.h"
 #include "device/fido/cbor_extract.h"
 #include "device/fido/ed25519_public_key.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/p256_public_key.h"
 #include "device/fido/public/fido_constants.h"
 #include "device/fido/public_key.h"
@@ -164,7 +165,7 @@ AttestedCredentialData::ConsumeFromCtapResponse(
 
   return std::make_pair(
       AttestedCredentialData(aaguid, credential_id_length_span,
-                             fido_parsing_utils::Materialize(credential_id),
+                             base::ToVector(credential_id),
                              std::move(public_key)),
       buffer);
 }
@@ -213,9 +214,8 @@ AttestedCredentialData::AttestedCredentialData(
         credential_id_length_bytes,
     std::vector<uint8_t> credential_id,
     std::unique_ptr<PublicKey> public_key)
-    : aaguid_(fido_parsing_utils::Materialize(aaguid)),
-      credential_id_length_(
-          fido_parsing_utils::Materialize(credential_id_length_bytes)),
+    : aaguid_(base::ToArray(aaguid)),
+      credential_id_length_(base::ToArray(credential_id_length_bytes)),
       credential_id_(std::move(credential_id)),
       public_key_(std::move(public_key)) {
   const size_t credential_id_length =
@@ -233,7 +233,7 @@ AttestedCredentialData::AttestedCredentialData(
           std::array<uint8_t, kCredentialIdLengthLength>{
               base::checked_cast<uint8_t>((0xff00 & credential_id.size()) >> 8),
               base::checked_cast<uint8_t>(0xff & credential_id.size())},
-          fido_parsing_utils::Materialize(credential_id),
+          base::ToVector(credential_id),
           std::move(public_key)) {
   CHECK_LE(credential_id.size(), 0xffffu);
 }
@@ -257,10 +257,10 @@ bool AttestedCredentialData::DeleteAaguid() {
 
 std::vector<uint8_t> AttestedCredentialData::SerializeAsBytes() const {
   std::vector<uint8_t> attestation_data;
-  fido_parsing_utils::Append(&attestation_data, aaguid_);
-  fido_parsing_utils::Append(&attestation_data, credential_id_length_);
-  fido_parsing_utils::Append(&attestation_data, credential_id_);
-  fido_parsing_utils::Append(&attestation_data, public_key_->cose_key_bytes);
+  base::Extend(attestation_data, aaguid_);
+  base::Extend(attestation_data, credential_id_length_);
+  base::Extend(attestation_data, credential_id_);
+  base::Extend(attestation_data, public_key_->cose_key_bytes);
   return attestation_data;
 }
 

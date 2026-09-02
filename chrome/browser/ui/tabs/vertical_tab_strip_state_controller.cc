@@ -182,6 +182,13 @@ bool VerticalTabStripStateController::ShouldDisplayVerticalTabs() const {
 }
 
 void VerticalTabStripStateController::SetVerticalTabsEnabled(bool enabled) {
+  // If the user already has a pending mode switch, but tries to change tab
+  // strip mode again, ensure the toast is displayed.
+  if (enable_state_lock_count_ > 0 && enabled != is_vertical_tabs_enabled_ &&
+      pref_service_->GetBoolean(prefs::kVerticalTabsEnabled) == enabled) {
+    MaybeShowDelayedToast(enabled);
+    return;
+  }
   NotifyModeWillChange();
   pref_service_->SetBoolean(prefs::kVerticalTabsEnabled, enabled);
 }
@@ -242,6 +249,20 @@ void VerticalTabStripStateController::SetExpandOnHoverEnabled(bool enabled) {
   pref_service_->SetBoolean(prefs::kVerticalTabsExpandOnHoverEnabled, enabled);
 }
 
+void VerticalTabStripStateController::SetIsResizing(bool is_resizing) {
+  if (is_resizing_ == is_resizing) {
+    return;
+  }
+  is_resizing_ = is_resizing;
+  on_resizing_changed_callback_list_.Notify(is_resizing_);
+}
+
+base::CallbackListSubscription
+VerticalTabStripStateController::RegisterOnResizingChanged(
+    ResizingChangeCallback callback) {
+  return on_resizing_changed_callback_list_.Add(std::move(callback));
+}
+
 base::CallbackListSubscription
 VerticalTabStripStateController::RegisterOnCollapseChanged(
     CollapseChangeCallback callback) {
@@ -298,13 +319,7 @@ void VerticalTabStripStateController::OnModeChanged() {
   }
   if (enable_state_lock_count_ > 0) {
     if (new_enabled != is_vertical_tabs_enabled_) {
-      ToastController* const toast_controller =
-          ToastController::From(browser_window_);
-      if (toast_controller) {
-        toast_controller->MaybeShowToast(ToastParams(
-            new_enabled ? ToastId::kTabStripSwitchDelayedVertical
-                        : ToastId::kTabStripSwitchDelayedHorizontal));
-      }
+      MaybeShowDelayedToast(new_enabled);
     }
     return;
   }
@@ -312,6 +327,7 @@ void VerticalTabStripStateController::OnModeChanged() {
   is_vertical_tabs_enabled_ = new_enabled;
 
   NotifyModeChanged();
+  UpdateCollapseActionItem();
 }
 
 void VerticalTabStripStateController::OnExpandOnHoverEnabledChanged() {
@@ -399,6 +415,7 @@ void VerticalTabStripStateController::UpdateCollapseActionItem() {
         chrome::GetCleanTitleAndTooltipText(l10n_util::GetStringUTF16(text)));
     collapse_action->SetTooltipText(
         chrome::GetCleanTitleAndTooltipText(l10n_util::GetStringUTF16(text)));
+    collapse_action->SetEnabled(ShouldDisplayVerticalTabs());
   }
 }
 
@@ -433,6 +450,16 @@ void VerticalTabStripStateController::MaybeShowExpandOnHoverIPH() {
     BrowserUserEducationInterface::From(browser_window_)
         ->MaybeShowFeaturePromo(
             feature_engagement::kIPHVerticalTabsExpandOnHoverFeature);
+  }
+}
+
+void VerticalTabStripStateController::MaybeShowDelayedToast(bool new_enabled) {
+  ToastController* const toast_controller =
+      ToastController::From(browser_window_);
+  if (toast_controller) {
+    toast_controller->MaybeShowToast(
+        ToastParams(new_enabled ? ToastId::kTabStripSwitchDelayedVertical
+                                : ToastId::kTabStripSwitchDelayedHorizontal));
   }
 }
 

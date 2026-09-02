@@ -4,6 +4,7 @@
 
 #include "media/video/video_encode_accelerator_adapter.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 
@@ -16,6 +17,7 @@
 #include "base/task/thread_pool.h"
 #include "base/test/bind.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/run_until.h"
 #include "base/test/task_environment.h"
 #include "base/threading/thread.h"
 #include "base/threading/thread_restrictions.h"
@@ -99,6 +101,8 @@ class VideoEncodeAcceleratorAdapterTest
         .WillRepeatedly(Return(vea_.get()));
     EXPECT_CALL(*gpu_factories_.get(), GetTaskRunner())
         .WillRepeatedly(Return(vea_runner_));
+    EXPECT_CALL(*sii_.get(), DoCreateSharedImage(_, _, _, _))
+        .Times(testing::AnyNumber());
 
     auto media_log = std::make_unique<NullMediaLog>();
     callback_runner_ = base::SequencedTaskRunner::GetCurrentDefault();
@@ -120,12 +124,17 @@ class VideoEncodeAcceleratorAdapterTest
     // Define shared image usage for a mappable shared image.
     constexpr auto si_usage = gpu::SHARED_IMAGE_USAGE_CPU_WRITE_ONLY |
                               gpu::SHARED_IMAGE_USAGE_DISPLAY_READ;
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+    constexpr auto buffer_usage =
+        gfx::BufferUsage::VEA_READ_CAMERA_AND_CPU_READ_WRITE;
+#else
+    constexpr auto buffer_usage = gfx::BufferUsage::GPU_READ_CPU_READ_WRITE;
+#endif
     auto shared_image = sii_->CreateSharedImage(
         {viz::MultiPlaneFormat::kNV12, size, kYUVColorSpace,
          gpu::SharedImageUsageSet(si_usage),
          "VideoEncodeAcceleratorAdapterTest"},
-        gpu::kNullSurfaceHandle,
-        gfx::BufferUsage::VEA_READ_CAMERA_AND_CPU_READ_WRITE);
+        gpu::kNullSurfaceHandle, buffer_usage);
     if (!shared_image) {
       return nullptr;
     }
@@ -163,6 +172,21 @@ class VideoEncodeAcceleratorAdapterTest
                      0x96,                            // Y color
                      0x40,                            // U color
                      0x40);                           // V color
+
+    frame->set_color_space(kYUVColorSpace);
+    return frame;
+  }
+
+  scoped_refptr<VideoFrame> CreateGreenCpuFrameP010(gfx::Size size,
+                                                    base::TimeDelta timestamp) {
+    auto frame = VideoFrame::CreateFrame(PIXEL_FORMAT_P010LE, size,
+                                         gfx::Rect(size), size, timestamp);
+
+    // Green P010 frame (Y:0x96, UV:0x80)
+    std::ranges::fill(frame->GetWritableVisiblePlaneData(VideoFrame::Plane::kY),
+                      0x96);
+    std::ranges::fill(
+        frame->GetWritableVisiblePlaneData(VideoFrame::Plane::kUV), 0x80);
 
     frame->set_color_space(kYUVColorSpace);
     return frame;
@@ -209,14 +233,35 @@ class VideoEncodeAcceleratorAdapterTest
       return kYUVColorSpace;
     }
 
-    // libyuv's RGB to YUV methods always output BT.601.
+    // We now use matrix-based conversion, so RGB to YUV uses the source
+    // frame's primary to select the matrix. For sRGB, this is BT.709.
     if (IsRGB(src_format) && IsYuvPlanar(dst_format)) {
-      return gfx::ColorSpace::CreateREC601();
+      return kYUVFullColorSpace;
     }
 
     EXPECT_TRUE(false) << "unexpected formats: src=" << src_format
                        << ", dst=" << dst_format;
     return gfx::ColorSpace();
+  }
+
+  // Advertises a single profile with the given input pixel formats. The
+  // expectation installed in SetUp() captured a copy of |supported_profiles_|,
+  // so it has to be reinstalled rather than the vector merely mutated.
+  void SetSupportedProfile(VideoCodecProfile profile,
+                           std::vector<VideoPixelFormat> pixel_formats) {
+    VideoEncodeAccelerator::SupportedProfile supported_profile(
+        profile,
+        /*max_resolution=*/gfx::Size(3840, 2160),
+        /*max_framerate_numerator=*/30,
+        /*max_framerate_denominator=*/1,
+        /*rc_modes=*/VideoEncodeAccelerator::kConstantMode |
+            VideoEncodeAccelerator::kVariableMode);
+    supported_profile.gpu_supported_pixel_formats = std::move(pixel_formats);
+    supported_profiles_ = {std::move(supported_profile)};
+    profile_ = profile;
+    EXPECT_CALL(*gpu_factories_.get(),
+                GetVideoEncodeAcceleratorSupportedProfiles())
+        .WillRepeatedly(Return(supported_profiles_));
   }
 
   VideoEncoder::EncoderStatusCB ValidatingStatusCB(
@@ -245,6 +290,11 @@ class VideoEncodeAcceleratorAdapterTest
       gfx::ColorSpace::CreateSRGB();
   static constexpr gfx::ColorSpace kYUVColorSpace =
       gfx::ColorSpace::CreateREC709();
+  const gfx::ColorSpace kYUVFullColorSpace =
+      gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT709,
+                      gfx::ColorSpace::TransferID::SRGB,
+                      gfx::ColorSpace::MatrixID::BT709,
+                      gfx::ColorSpace::RangeID::FULL);
   std::vector<VideoEncodeAccelerator::SupportedProfile> supported_profiles_;
   base::test::TaskEnvironment task_environment_;
   raw_ptr<FakeVideoEncodeAccelerator, AcrossTasksDanglingUntriaged>
@@ -955,6 +1005,124 @@ TEST_F(VideoEncodeAcceleratorAdapterTest,
 
   EXPECT_EQ(output_count_before_change, 1);
   EXPECT_EQ(output_count_after_change, 0);
+}
+
+TEST_F(VideoEncodeAcceleratorAdapterTest, ConvertsCpuP010ToSessionFormat) {
+  VideoEncoder::Options options;
+  options.frame_size = gfx::Size(640, 480);
+
+  int outputs_count = 0;
+  VideoEncoder::OutputCB output_cb = base::BindLambdaForTesting(
+      [&](VideoEncoderOutput, std::optional<VideoEncoder::CodecDescription>) {
+        outputs_count++;
+      });
+
+  VideoPixelFormat expected_input_format = PIXEL_FORMAT_NV12;
+#if BUILDFLAG(IS_FUCHSIA)
+  expected_input_format = PIXEL_FORMAT_I420;
+#endif
+  vea()->SetEncodingCallback(base::BindLambdaForTesting(
+      [&](BitstreamBuffer&, bool keyframe, scoped_refptr<VideoFrame> frame) {
+        EXPECT_EQ(keyframe, true);
+        EXPECT_EQ(frame->format(), expected_input_format);
+        EXPECT_EQ(frame->coded_size(), options.frame_size);
+        return BitstreamBufferMetadata(1, keyframe, frame->timestamp());
+      }));
+
+  adapter()->Initialize(profile_, options, /*info_cb=*/base::DoNothing(),
+                        std::move(output_cb), ValidatingStatusCB());
+
+  auto frame =
+      CreateGreenCpuFrameP010(options.frame_size, base::Milliseconds(1));
+  ASSERT_TRUE(frame);
+  adapter()->Encode(frame, VideoEncoder::EncodeOptions(true),
+                    ValidatingStatusCB());
+  EXPECT_TRUE(base::test::RunUntil([&]() { return outputs_count == 1; }));
+}
+
+// AV1 profile 0 covers both 8 and 10 bit, so unlike HEVC the profile alone
+// doesn't say which one was asked for. The input pixel format is what carries
+// that to the platform encoder, hence P010 for a 10 bit request.
+TEST_F(VideoEncodeAcceleratorAdapterTest, 10bAv1UsesP010InputFormat) {
+  SetSupportedProfile(AV1PROFILE_PROFILE_MAIN,
+                      {PIXEL_FORMAT_NV12, PIXEL_FORMAT_P010LE});
+
+  VideoEncoder::Options options;
+  options.frame_size = gfx::Size(640, 480);
+  options.bit_depth = 10;
+
+  int outputs_count = 0;
+  VideoEncoder::OutputCB output_cb = base::BindLambdaForTesting(
+      [&](VideoEncoderOutput, std::optional<VideoEncoder::CodecDescription>) {
+        outputs_count++;
+      });
+
+  vea()->SetEncodingCallback(base::BindLambdaForTesting(
+      [&](BitstreamBuffer&, bool keyframe, scoped_refptr<VideoFrame> frame) {
+        EXPECT_EQ(frame->format(), PIXEL_FORMAT_P010LE);
+        return BitstreamBufferMetadata(1, keyframe, frame->timestamp());
+      }));
+
+  adapter()->Initialize(profile_, options, /*info_cb=*/base::DoNothing(),
+                        std::move(output_cb), ValidatingStatusCB());
+  adapter()->Encode(
+      CreateGreenCpuFrame(options.frame_size, base::Milliseconds(1)),
+      VideoEncoder::EncodeOptions(true), ValidatingStatusCB());
+  EXPECT_TRUE(base::test::RunUntil([&]() { return outputs_count == 1; }));
+}
+
+TEST_F(VideoEncodeAcceleratorAdapterTest, 8bAv1KeepsDefaultInputFormat) {
+  VideoPixelFormat expected_input_format = PIXEL_FORMAT_NV12;
+#if BUILDFLAG(IS_FUCHSIA)
+  expected_input_format = PIXEL_FORMAT_I420;
+#endif
+  // The default format has to be advertised as well, otherwise the adapter
+  // rejects the config outright instead of falling back to it.
+  SetSupportedProfile(AV1PROFILE_PROFILE_MAIN,
+                      {expected_input_format, PIXEL_FORMAT_P010LE});
+
+  VideoEncoder::Options options;
+  options.frame_size = gfx::Size(640, 480);
+  options.bit_depth = 8;
+
+  int outputs_count = 0;
+  VideoEncoder::OutputCB output_cb = base::BindLambdaForTesting(
+      [&](VideoEncoderOutput, std::optional<VideoEncoder::CodecDescription>) {
+        outputs_count++;
+      });
+
+  vea()->SetEncodingCallback(base::BindLambdaForTesting(
+      [&](BitstreamBuffer&, bool keyframe, scoped_refptr<VideoFrame> frame) {
+        EXPECT_EQ(frame->format(), expected_input_format);
+        return BitstreamBufferMetadata(1, keyframe, frame->timestamp());
+      }));
+
+  adapter()->Initialize(profile_, options, /*info_cb=*/base::DoNothing(),
+                        std::move(output_cb), ValidatingStatusCB());
+  adapter()->Encode(
+      CreateGreenCpuFrame(options.frame_size, base::Milliseconds(1)),
+      VideoEncoder::EncodeOptions(true), ValidatingStatusCB());
+  EXPECT_TRUE(base::test::RunUntil([&]() { return outputs_count == 1; }));
+}
+
+TEST_F(VideoEncodeAcceleratorAdapterTest, 10bAv1RejectedWithoutP010) {
+  SetSupportedProfile(AV1PROFILE_PROFILE_MAIN, {PIXEL_FORMAT_NV12});
+
+  VideoEncoder::Options options;
+  options.frame_size = gfx::Size(640, 480);
+  options.bit_depth = 10;
+
+  bool done_called = false;
+  adapter()->Initialize(profile_, options, /*info_cb=*/base::DoNothing(),
+                        /*output_cb=*/base::DoNothing(),
+                        base::BindLambdaForTesting([&](EncoderStatus status) {
+                          done_called = true;
+                          EXPECT_EQ(
+                              status.code(),
+                              EncoderStatus::Codes::kEncoderUnsupportedConfig);
+                        }));
+  RunUntilIdle();
+  EXPECT_TRUE(done_called);
 }
 
 INSTANTIATE_TEST_SUITE_P(VideoEncodeAcceleratorAdapterTest,

@@ -31,9 +31,6 @@
 #include "chrome/browser/devtools/aida_client.h"
 #include "chrome/browser/devtools/devtools_availability_checker.h"
 #include "chrome/browser/devtools/devtools_eye_dropper.h"
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/devtools/devtools_policy_dialog.h"
-#endif
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/devtools/process_sharing_infobar_delegate.h"
 #include "chrome/browser/file_select_helper.h"
@@ -44,9 +41,13 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/renderer_host/chrome_render_widget_host_view_mac_history_swiping_control.h"
+#endif
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/prefs/prefs_tab_helper.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
@@ -112,8 +113,8 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/android/chrome_jni_headers/DevToolsActivity_jni.h"
 #else
+#include "chrome/browser/devtools/devtools_policy_dialog.h"
 #include "chrome/browser/devtools/devtools_ui_controller.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
@@ -1296,6 +1297,11 @@ DevToolsWindow::DevToolsWindow(
   // so that it shows up in the task manager.
   task_manager::WebContentsTags::CreateForDevToolsContents(main_web_contents_);
 
+#if BUILDFLAG(IS_MAC)
+  history_swiper::HistorySwipingControl::CreateForWebContents(
+      main_web_contents_, base::BindRepeating([] { return false; }));
+#endif
+
   std::vector<base::RepeatingCallback<void(DevToolsWindow*)>> copy(
       GetCreationCallbacks());
   for (const auto& callback : copy) {
@@ -1343,9 +1349,8 @@ void DevToolsWindow::OnPolicyUpdated(const policy::PolicyNamespace& ns,
   OnDevToolsPolicyChanged();
 }
 
-// static
-bool DevToolsWindow::AllowDevToolsFor(Profile* profile,
-                                      content::WebContents* web_contents) {
+namespace {
+bool IsDevToolsAllowedForProfile(Profile* profile) {
   // Don't allow DevTools UI in kiosk mode, because the DevTools UI would be
   // broken there. See https://crbug.com/41191065 for context.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kKioskMode)) {
@@ -1361,7 +1366,22 @@ bool DevToolsWindow::AllowDevToolsFor(Profile* profile,
     return false;
   }
 
-  return IsInspectionAllowed(profile, web_contents);
+  return true;
+}
+}  // namespace
+
+// static
+bool DevToolsWindow::AllowDevToolsFor(Profile* profile,
+                                      content::WebContents* web_contents) {
+  return IsDevToolsAllowedForProfile(profile) &&
+         IsInspectionAllowed(profile, web_contents);
+}
+
+// static
+bool DevToolsWindow::AllowDevToolsFor(Profile* profile,
+                                      content::DevToolsAgentHost* agent_host) {
+  return IsDevToolsAllowedForProfile(profile) &&
+         IsInspectionAllowed(profile, agent_host);
 }
 
 // static
@@ -1648,6 +1668,11 @@ void DevToolsWindow::WebContentsCreated(
     task_manager::WebContentsTags::CreateForDevToolsContents(
         toolbox_web_contents_);
 
+#if BUILDFLAG(IS_MAC)
+    history_swiper::HistorySwipingControl::CreateForWebContents(
+        toolbox_web_contents_, base::BindRepeating([] { return false; }));
+#endif
+
     // The toolbox holds a placeholder for the inspected WebContents. When the
     // placeholder is resized, a frame is requested. The inspected WebContents
     // is resized when the frame is rendered. Force rendering of the toolbox at
@@ -1732,7 +1757,17 @@ void DevToolsWindow::ActivateWindow() {
 }
 
 void DevToolsWindow::CloseWindow() {
-  Close(DevToolsClosedByAction::kCloseButton);
+  if (is_docked_) {
+    Close(DevToolsClosedByAction::kCloseButton);
+  } else {
+#if BUILDFLAG(IS_ANDROID)
+    main_web_contents_->Close();
+#else
+    if (browser_) {
+      browser_->GetWindow()->Close();
+    }
+#endif  // BUILDFLAG(IS_ANDROID)
+  }
 }
 
 void DevToolsWindow::Close(DevToolsClosedByAction closed_by) {
@@ -2099,12 +2134,12 @@ void DevToolsWindow::CreateDevToolsBrowser() {
 #if BUILDFLAG(IS_ANDROID)
   NOTIMPLEMENTED();
 #else
-  if (Browser::GetCreationStatusForProfile(profile_) !=
-      Browser::CreationStatus::kOk) {
+  if (GetBrowserWindowCreationStatusForProfile(*profile_) !=
+      BrowserWindowInterface::CreationStatus::kOk) {
     return;
   }
-  browser_ =
-      Browser::Create(Browser::CreateParams::CreateForDevTools(profile_));
+  browser_ = CreateBrowserWindow(
+      BrowserWindowCreateParams::CreateForDevTools(profile_));
   browser_->GetTabStripModel()->AddWebContents(
       OwnedMainWebContents::TakeWebContents(
           std::move(owned_main_web_contents_)),

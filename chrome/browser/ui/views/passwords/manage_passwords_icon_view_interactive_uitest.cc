@@ -9,7 +9,6 @@
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/browser/ui/views/passwords/password_bubble_view_base.h"
 #include "chrome/browser/ui/views/toolbar/pinned_toolbar_actions_container.h"
@@ -26,9 +25,7 @@
 
 class ManagePasswordsIconViewTest : public ManagePasswordsTest {
  public:
-  ManagePasswordsIconViewTest() {
-    scoped_feature_list_.InitAndEnableFeature(features::kPageActionsMigration);
-  }
+  ManagePasswordsIconViewTest() = default;
 
   ManagePasswordsIconViewTest(const ManagePasswordsIconViewTest&) = delete;
   ManagePasswordsIconViewTest& operator=(const ManagePasswordsIconViewTest&) =

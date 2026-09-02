@@ -44,8 +44,7 @@
 
 <if expr="not is_chromeos">
   <template is="dom-if" if="[[showPage_(pageVisibility_.languages)]]">
-    <settings-languages languages="{{languages_}}" prefs="{{prefs}}">
-    </settings-languages>
+    <settings-languages languages="{{languages_}}"></settings-languages>
   </template>
 </if>
 
@@ -60,8 +59,7 @@
     <div slot="view" id="people">
       <template is="dom-if" if="[[renderPlugin_(
           routes_.PEOPLE, lastRoute_, inSearchMode_)]]">
-        <settings-people-page-index prefs="{{prefs}}"
-            in-search-mode="[[inSearchMode_]]">
+        <settings-people-page-index in-search-mode="[[inSearchMode_]]">
         </settings-people-page-index>
       </template>
     </div>
@@ -78,8 +76,9 @@
     </div>
   </template>
 
-  <template is="dom-if" if="[[showAutofillPage_(pageVisibility_.autofill)]]">
-    <div slot="view" id="autofill">
+  <template is="dom-if" if="[[showPage_(
+      pageVisibility_.yourSavedInfo)]]">
+    <div slot="view" id="yourSavedInfo">
       <template is="dom-if" if="[[renderPlugin_(
           routes_.AUTOFILL, lastRoute_, inSearchMode_)]]">
         <settings-autofill-page-index prefs="{{prefs}}"
@@ -89,24 +88,11 @@
     </div>
   </template>
 
-  <template is="dom-if" if="[[showYourSavedInfoPage_(
-      pageVisibility_.yourSavedInfo)]]">
-    <div slot="view" id="yourSavedInfo">
-      <template is="dom-if" if="[[renderPlugin_(
-          routes_.YOUR_SAVED_INFO, lastRoute_, inSearchMode_)]]">
-        <settings-your-saved-info-page-index prefs="{{prefs}}"
-            in-search-mode="[[inSearchMode_]]">
-        </settings-your-saved-info-page-index>
-      </template>
-    </div>
-  </template>
-
   <template is="dom-if" if="[[showPage_(pageVisibility_.performance)]]">
     <div slot="view" id="performance">
       <template is="dom-if" if="[[renderPlugin_(
           routes_.PERFORMANCE, lastRoute_, inSearchMode_)]]">
-        <settings-performance-page-index prefs="{{prefs}}"
-            in-search-mode="[[inSearchMode_]]">
+        <settings-performance-page-index in-search-mode="[[inSearchMode_]]">
         </settings-performance-page-index>
       </template>
     </div>
@@ -136,8 +122,7 @@
   <div slot="view" id="search">
     <template is="dom-if" if="[[renderPlugin_(
         routes_.SEARCH, lastRoute_, inSearchMode_)]]">
-      <settings-search-page-index prefs="{{prefs}}"
-          in-search-mode="[[inSearchMode_]]">
+      <settings-search-page-index in-search-mode="[[inSearchMode_]]">
       </settings-search-page-index>
     </template>
   </div>
@@ -171,7 +156,7 @@
         </settings-languages-page-index-cros>
 </if>
 <if expr="not is_chromeos">
-        <settings-languages-page-index prefs="{{prefs}}"
+        <settings-languages-page-index
             languages="[[languages_]]" in-search-mode="[[inSearchMode_]]">
         </settings-languages-page-index>
 </if>

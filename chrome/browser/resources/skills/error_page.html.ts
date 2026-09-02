@@ -12,8 +12,8 @@ export function getHtml(this: ErrorPageElement) {
   return html`<!--_html_template_start_-->
 <div id="mainContent">
   <div id="header">
-    ${this.isGlicDisabled_() || this.isSkillsDisabled_() ? html`
-      <cr-icon icon="cr:error-outline"></cr-icon>` : ''}
+    ${this.isGlicDisabled_() || this.isSkillsDisabled_() || this.isRemoteAuthorityUnreachable_() ? html`
+      <cr-icon icon="cr:error"></cr-icon>` : ''}
     <h1 class="headline">${this.errorTitle()}</h1>
   </div>
   <p class="body-text">${this.errorDescription()}</p>

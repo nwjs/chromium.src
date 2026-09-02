@@ -115,6 +115,7 @@ source_set("password_manager") {
     public += [
       # TODO(crbug.com/485620841): Make delegate not dependent on client and
       # move this back to /password_change.
+      "password_change/password_change_actuator.h",
       "password_change/password_change_from_checkup_delegate.h",
       "remote_actor/remote_actor_credential_sharing_impl.h",
       "web_app_profile_switcher.h",
@@ -227,7 +228,6 @@ source_set("impl") {
       "//chrome/android:chrome_jni_headers",
       "//chrome/browser/keyboard_accessory/android",
       "//chrome/browser/password_manager/android:password_manager_android",
-      "//chrome/browser/plus_addresses",
       "//chrome/browser/touch_to_fill/password_manager:public",
       "//chrome/browser/touch_to_fill/password_manager/no_passkeys/android:public",
       "//chrome/browser/touch_to_fill/password_manager/password_generation/android",
@@ -238,21 +238,26 @@ source_set("impl") {
       "//components/password_manager/core/browser/affiliation:affiliation_fetching",
       "//components/password_manager/core/browser/form_parsing",
       "//components/password_manager/core/browser/leak_detection",
-      "//components/plus_addresses/core/browser",
       "//components/webauthn/android",
     ]
   } else {
     sources += [
       "generated_password_leak_detection_pref.cc",
       "generated_password_leak_detection_pref.h",
+      "password_change/glic_password_change_actuator.cc",
+      "password_change/glic_password_change_actuator.h",
       "password_change/password_change_from_checkup_delegate.cc",
+      "password_change/script_password_change_actuator.cc",
+      "password_change/script_password_change_actuator.h",
       "password_change_delegate_impl.cc",
       "password_change_delegate_impl.h",
       "remote_actor/remote_actor_credential_sharing_impl.cc",
       "web_app_profile_switcher.cc",
     ]
     deps += [
+      "//chrome/browser/glic/actor",
       "//chrome/browser/password_manager/password_change",
+      "//chrome/browser/password_manager/remote_actor",
       "//chrome/browser/ui/passwords",
       "//chrome/browser/ui/passwords:impl",
       "//chrome/browser/ui/tabs:tab_strip",
@@ -489,12 +494,15 @@ source_set("unit_tests") {
   } else {
     sources += [
       "generated_password_leak_detection_pref_unittest.cc",
+      "password_change/password_change_from_checkup_delegate_unittest.cc",
+      "password_change/script_password_change_actuator_unittest.cc",
       "password_change_delegate_impl_unittest.cc",
       "remote_actor/remote_actor_credential_sharing_impl_unittest.cc",
     ]
     deps += [
       "//chrome/browser/extensions:test_support",
       "//chrome/browser/password_manager/password_change",
+      "//chrome/browser/password_manager/remote_actor",
       "//chrome/browser/signin",
       "//chrome/browser/signin:test_support",
       "//chrome/browser/ui/hats",
@@ -502,6 +510,7 @@ source_set("unit_tests") {
       "//chrome/browser/ui/passwords:impl",
       "//chrome/browser/ui/passwords:test_support_ui",
       "//components/optimization_guide/core",
+      "//components/optimization_guide/core:model_execution_test_support",
       "//components/safe_browsing/core/common:safe_browsing_prefs",
       "//components/signin/public/identity_manager:test_support",
       "//components/tabs:test_support",
@@ -570,7 +579,9 @@ if (!is_android) {
       "//chrome/browser/ui/tabs:tab_enums",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/test:dialog",
+      "//chrome/browser/ui/views/passwords",
       "//chrome/browser/ui/views/passwords:password_bubble_view_base",
+      "//chrome/browser/ui/views/passwords/password_change:password_change_toast",
       "//chrome/common",
       "//chrome/common:constants",
       "//chrome/test:test_support",

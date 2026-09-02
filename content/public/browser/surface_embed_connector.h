@@ -8,6 +8,8 @@
 #include "components/viz/common/surfaces/frame_sink_id.h"
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "content/common/content_export.h"
+#include "ui/accessibility/ax_node_id_forward.h"
+#include "ui/accessibility/ax_tree_id.h"
 
 namespace gfx {
 class Size;
@@ -64,7 +66,10 @@ class CONTENT_EXPORT SurfaceEmbedConnector {
     virtual void ChildProcessGone() = 0;
 
     // Requests focus for the embedding element in the parent.
-    virtual void RequestFocus() = 0;
+    virtual void RequestFocusOnEmbedElement() = 0;
+
+    // Advances focus from the embedding element in the parent.
+    virtual void AdvanceFocusFromEmbedElement(bool reverse) = 0;
   };
 
   // Attach a child WebContents to a parent WebContents. This creates a
@@ -90,6 +95,11 @@ class CONTENT_EXPORT SurfaceEmbedConnector {
   virtual void OnSynchronizeVisualProperties(
       const blink::FrameVisualProperties& visual_properties) = 0;
 
+  // Called by the SurfaceEmbedHost to update the render throttling status.
+  virtual void UpdateRenderThrottlingStatus(bool is_throttled,
+                                            bool subtree_throttled,
+                                            bool display_locked) = 0;
+
   // Gets the FrameSinkId of the child's view.
   virtual const viz::FrameSinkId& GetFrameSinkId() const = 0;
 
@@ -102,6 +112,28 @@ class CONTENT_EXPORT SurfaceEmbedConnector {
   // Exposed for testing to cleanly verify properties without creating flakes
   // from cross-process EvalJs layout evaluation delays.
   virtual const gfx::Size& GetLocalFrameSizeInPixelsForTesting() = 0;
+
+  // Returns whether rendering is currently throttled.
+  // Exposed for testing to verify throttling propagation.
+  virtual bool IsThrottledForTesting() = 0;
+
+  // Returns whether the subtree is currently throttled.
+  // Exposed for testing to verify throttling propagation.
+  virtual bool IsSubtreeThrottledForTesting() = 0;
+
+  // Returns whether the display is currently locked.
+  // Exposed for testing to verify throttling propagation.
+  virtual bool IsDisplayLockedForTesting() = 0;
+
+  // Sets the accessibility node ID and tree ID of the container element
+  // in the parent document. This is used to stitch the accessibility trees.
+  virtual void SetParentAccessibilityInfo(ui::AXNodeID ax_node_id,
+                                          const ui::AXTreeID& ax_tree_id) = 0;
+
+  // Returns the AXTreeID of the parent (embedder) accessibility tree that the
+  // surface-embedded child WebContents' tree is stitched into, or
+  // ui::AXTreeIDUnknown() if the trees are not currently stitched.
+  virtual ui::AXTreeID GetParentAXTreeID() const = 0;
 };
 
 }  // namespace content

@@ -76,6 +76,10 @@ GlicActorFunctionalBrowserTestBase::actor_keyed_service() {
 }
 
 void GlicActorFunctionalBrowserTestBase::SetUpOnMainThread() {
+  embedded_test_server()->ServeFilesFromSourceDirectory(
+      "components/test/data");
+  embedded_https_test_server().ServeFilesFromSourceDirectory(
+      "components/test/data");
   GlicFunctionalBrowserTestBase::SetUpOnMainThread();
   RunTestSequence(OpenGlic());
 }
@@ -234,6 +238,15 @@ void GlicActorFunctionalBrowserTestBase::InterruptActorTask(
 void GlicActorFunctionalBrowserTestBase::UninterruptActorTask(TaskId task_id) {
   std::string script = "window.client.browser.uninterruptActorTask($1);";
   EXPECT_OK(EvalJsInGlic(content::JsReplace(script, task_id.value())));
+}
+
+void GlicActorFunctionalBrowserTestBase::UpdateActorTaskStepProgress(
+    TaskId task_id,
+    const std::string& step_progress) {
+  std::string script =
+      "window.client.browser.updateActorTaskStepProgress($1, $2);";
+  EXPECT_OK(
+      EvalJsInGlic(content::JsReplace(script, task_id.value(), step_progress)));
 }
 
 void GlicActorFunctionalBrowserTestBase::WaitForTaskState(

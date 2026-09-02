@@ -32,6 +32,7 @@
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permission_request.h"
 #include "components/permissions/permission_request_data.h"
+#include "components/permissions/permission_uma_constants.h"
 #include "components/permissions/permission_util.h"
 #include "components/permissions/permissions_client.h"
 #include "components/permissions/prediction_service/prediction_common.h"
@@ -85,13 +86,6 @@ namespace {
 
 const int kPriorCountCap = 10;
 
-// This enum backs the UKM Permission.PromptOptions, so it must be treated as
-// append-only.
-enum class UkmPromptOptions {
-  APPROXIMATE_LOCATION = 1,
-  PRECISE_LOCATION = 2,
-};
-
 struct PermissionActionUkmParams {
   PermissionAction action;
   PermissionRequestGestureType gesture_type;
@@ -116,7 +110,7 @@ struct PermissionActionUkmParams {
   PredictionRequestFeatures::ActionCounts actions_counts_for_request_type;
   PredictionRequestFeatures::ActionCounts actions_counts;
   std::optional<bool> prediction_decision_held_back;
-  std::optional<UkmPromptOptions> prompt_options;
+  std::optional<UkmPermissionPromptOptions> prompt_options;
   std::optional<GeolocationAccuracy> initial_geolocation_accuracy_selection;
   std::optional<GeolocationPromptType> geolocation_prompt_type;
 };
@@ -268,24 +262,6 @@ PermissionHeaderPolicyForUMA GetTopLevelPermissionHeaderPolicyForUMA(
                    FEATURE_ALLOWLIST_DOES_NOT_MATCH_ORIGIN;
 }
 
-void RecordEngagementMetric(
-    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
-    content::BrowserContext* browser_context,
-    const std::string& action) {
-  CHECK(!requests.empty());
-
-  RequestTypeForUma type = PermissionUtil::GetUmaValueForRequests(requests);
-
-  DCHECK(action == "Accepted" || action == "Denied" || action == "Dismissed" ||
-         action == "Ignored" || action == "AcceptedOnce");
-  std::string name = base::StrCat({"Permissions.Engagement.", action, ".",
-                                   GetPermissionRequestString(type)});
-
-  double engagement_score = PermissionsClient::Get()->GetSiteEngagementScore(
-      browser_context, requests[0]->requesting_origin());
-  base::UmaHistogramPercentageObsoleteDoNotUse(name, engagement_score);
-}
-
 // Records in a UMA histogram whether we should expect to see an event in UKM,
 // to allow for evaluating if the current constraints on UKM recording work well
 // in practice.
@@ -351,12 +327,13 @@ void RecordPermissionUsageNotificationShownUkm(
   builder.Record(ukm::UkmRecorder::Get());
 }
 
-UkmPromptOptions ToUkmPromptOptions(GeolocationAccuracy accuracy) {
+UkmPermissionPromptOptions ToUkmPermissionPromptOptions(
+    GeolocationAccuracy accuracy) {
   switch (accuracy) {
     case GeolocationAccuracy::kPrecise:
-      return UkmPromptOptions::PRECISE_LOCATION;
+      return UkmPermissionPromptOptions::PRECISE_LOCATION;
     case GeolocationAccuracy::kApproximate:
-      return UkmPromptOptions::APPROXIMATE_LOCATION;
+      return UkmPermissionPromptOptions::APPROXIMATE_LOCATION;
   }
 }
 
@@ -885,7 +862,7 @@ void PermissionUmaUtil::RecordActivityIndicator(
 }
 
 void PermissionUmaUtil::RecordDismissalType(
-    const std::vector<base::SafeRef<permissions::PermissionRequest>>& requests,
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
     PermissionPromptDisposition ui_disposition,
     DismissalType dismissalType) {
   RequestTypeForUma type = PermissionUtil::GetUmaValueForRequests(requests);
@@ -1107,7 +1084,6 @@ void PermissionUmaUtil::PermissionPromptResolved(
       NOTREACHED();
   }
   std::string action_string = GetPermissionActionString(permission_action);
-  RecordEngagementMetric(requests, browser_context, action_string);
 
   PermissionDecisionAutoBlocker* autoblocker =
       PermissionsClient::Get()->GetPermissionDecisionAutoBlocker(
@@ -1522,12 +1498,12 @@ void PermissionUmaUtil::RecordPermissionAction(
     RecordUmaForRevocationSourceUI(permission, source_ui);
   }
 
-  std::optional<UkmPromptOptions> ukm_prompt_options;
+  std::optional<UkmPermissionPromptOptions> ukm_prompt_options;
   if (permission == ContentSettingsType::GEOLOCATION_WITH_OPTIONS) {
     if (const auto* geolocation_options =
             std::get_if<GeolocationPromptOptions>(&prompt_options)) {
       ukm_prompt_options =
-          ToUkmPromptOptions(geolocation_options->selected_accuracy);
+          ToUkmPermissionPromptOptions(geolocation_options->selected_accuracy);
     }
   }
 
@@ -2262,26 +2238,23 @@ PermissionUmaUtil::GetDaysSinceUnusedSitePermissionRevocation(
 
 // static
 void PermissionUmaUtil::RecordElementAnchoredPermissionPromptAction(
-    const std::vector<std::unique_ptr<PermissionRequest>>& requests,
-    const std::vector<base::SafeRef<permissions::PermissionRequest>>&
-        screen_requests,
+    const PermissionRequest& first_request,
+    RequestTypeForUma permission,
+    RequestTypeForUma screen_permission,
     ElementAnchoredBubbleAction action,
     ElementAnchoredBubbleVariant variant,
     int screen_counter,
     const GURL& requesting_origin,
     content::BrowserContext* browser_context) {
-  CHECK(requests.size());
-  CHECK(screen_requests.size());
   auto first_request_type =
-      RequestTypeToContentSettingsType(requests[0]->request_type());
+      RequestTypeToContentSettingsType(first_request.request_type());
   PermissionsClient::Get()->GetUkmSourceId(
       first_request_type.value(), browser_context,
-      content::RenderFrameHost::FromID(requests[0]->get_requesting_frame_id()),
+      content::RenderFrameHost::FromID(first_request.get_requesting_frame_id()),
       requesting_origin,
       base::BindOnce(&RecordElementAnchoredPermissionPromptActionUkm,
-                     PermissionUtil::GetUmaValueForRequests(requests),
-                     PermissionUtil::GetUmaValueForRequests(screen_requests),
-                     action, variant, screen_counter));
+                     permission, screen_permission, action, variant,
+                     screen_counter));
 }
 
 // static

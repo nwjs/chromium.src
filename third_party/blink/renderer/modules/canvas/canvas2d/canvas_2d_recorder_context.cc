@@ -1592,6 +1592,13 @@ void Canvas2DRecorderContext::DrawPathInternal(
   }
 
   if (paint_type == CanvasRenderingContext2DState::kStrokePaintType) {
+    // Zero-size bounds mean all path points are coincident — a degenerate
+    // segment that the spec requires to be pruned before stroking. Exact
+    // float equality is intentional: near-degenerate paths (non-zero but
+    // very small bounds) are not pruned, matching spec intent.
+    if (bounds.width() == 0 && bounds.height() == 0) {
+      return;
+    }
     InflateStrokeRect(bounds);
   }
 
@@ -2190,23 +2197,12 @@ void Canvas2DRecorderContext::DrawImageInternal(
     bool ignore_transformation =
         RespectImageOrientationInternal(image_source) ==
         kDoNotRespectImageOrientation;
-    gfx::RectF corrected_src_rect = src_rect;
-
-    if (!ignore_transformation) {
-      auto orientation_enum = VideoTransformationToImageOrientation(
-          media_frame->metadata().transformation.value_or(
-              media::kNoTransformation));
-      if (ImageOrientation(orientation_enum).UsesWidthAsHeight()) {
-        corrected_src_rect = gfx::TransposeRect(src_rect);
-      }
-    }
-
     c->save();
     c->clipRect(gfx::RectFToSkRect(dst_rect));
     c->translate(dst_rect.x(), dst_rect.y());
-    c->scale(dst_rect.width() / corrected_src_rect.width(),
-             dst_rect.height() / corrected_src_rect.height());
-    c->translate(-corrected_src_rect.x(), -corrected_src_rect.y());
+    c->scale(dst_rect.width() / src_rect.width(),
+             dst_rect.height() / src_rect.height());
+    c->translate(-src_rect.x(), -src_rect.y());
     DrawVideoFrameIntoCanvas(std::move(media_frame), c, image_flags,
                              ignore_transformation);
   } else {
@@ -2729,45 +2725,6 @@ Canvas2DRecorderContext::UsageCounters::UsageCounters()
       num_clear_rect_calls(0),
       num_draw_focus_calls(0),
       num_frames_since_reset(0) {}
-
-namespace {
-
-void CanvasOverdrawHistogram(Canvas2DRecorderContext::OverdrawOp op) {
-  UMA_HISTOGRAM_ENUMERATION("Blink.Canvas.OverdrawOp", op);
-}
-
-}  // unnamed namespace
-
-void Canvas2DRecorderContext::WillOverwriteCanvas(
-    Canvas2DRecorderContext::OverdrawOp op) {
-  auto* host = GetCanvasRenderingContextHost();
-  if (host) {  // CSS paint use cases not counted.
-    UseCounter::Count(GetTopExecutionContext(),
-                      WebFeature::kCanvasRenderingContext2DHasOverdraw);
-    CanvasOverdrawHistogram(op);
-    CanvasOverdrawHistogram(OverdrawOp::kTotal);
-  }
-
-  // We only hit the kHasTransform bucket if the op is affected by transforms.
-  if (op == OverdrawOp::kClearRect || op == OverdrawOp::kDrawImage) {
-    const CanvasRenderingContext2DState& state = GetState();
-    bool has_clip = state.HasClip();
-    bool has_transform = !state.GetTransform().IsIdentity();
-    if (has_clip && has_transform) {
-      CanvasOverdrawHistogram(OverdrawOp::kHasClipAndTransform);
-    }
-    if (has_clip) {
-      CanvasOverdrawHistogram(OverdrawOp::kHasClip);
-    }
-    if (has_transform) {
-      CanvasOverdrawHistogram(OverdrawOp::kHasTransform);
-    }
-  }
-
-  if (MemoryManagedPaintRecorder* recorder = Recorder(); recorder != nullptr) {
-    recorder->RestartCurrentLayer();
-  }
-}
 
 HTMLCanvasElement* Canvas2DRecorderContext::HostAsHTMLCanvasElement() const {
   return nullptr;

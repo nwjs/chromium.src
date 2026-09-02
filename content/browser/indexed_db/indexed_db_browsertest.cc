@@ -783,6 +783,12 @@ IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTest, Bug346955148Test) {
   SimpleTest(GetTestUrl("indexeddb", "bug_346955148.html"));
 }
 
+// Regression test for crbug.com/545736196: Tests that concurrent callers
+// probing an unversioned DB, aborting upgrade, and reopening do not hang.
+IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTest, AbortedUpgradeReopen) {
+  SimpleTest(GetTestUrl("indexeddb", "aborted_upgrade_reopen.html"));
+}
+
 // Regression test for crbug.com/392376370
 IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTest, NestedBlob) {
   SimpleTest(GetTestUrl("indexeddb", "nested_blob.html"));
@@ -1068,9 +1074,9 @@ IN_PROC_BROWSER_TEST_P(IndexedDBIncognitoTest, BlobHistograms) {
   const std::string_view suffix = IsIncognito() ? "InMemory" : "OnDisk";
 
   SimpleTest(GetTestUrl("indexeddb", "simple_blob_read.html"), shell_);
-  // LevelDB in-memory DBs don't log these histograms because they use a
-  // different code path for blobs.
-  int blob_event_count_expectation = (IsIncognito() && !using_sqlite_) ? 0 : 1;
+  // In-memory DBs don't log these histograms because they don't write blobs to
+  // the store.
+  int blob_event_count_expectation = IsIncognito() ? 0 : 1;
   histograms.ExpectBucketCount(
       base::StrCat({"IndexedDB.BackingStore.WriteBlobs.", suffix}),
       0 /*Status::Type::kOk*/, blob_event_count_expectation);
@@ -1661,6 +1667,18 @@ IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTest, GetAllChunking) {
   GURL test_url = GetTestUrl("indexeddb", "get_all_chunking.html");
   SimpleTest(GURL(absl::StrFormat("%s?chunk_size=%i", test_url.spec(),
                                   blink::mojom::kIDBGetAllChunkSize)));
+}
+
+// Too slow on MSAN.
+#if defined(MEMORY_SANITIZER)
+#define MAYBE_GetAllLargeValues DISABLED_GetAllLargeValues
+#else
+#define MAYBE_GetAllLargeValues GetAllLargeValues
+#endif
+// Verifies that getAll() succeeds over an object store containing many large
+// values, testing platform limits. Regression test for crbug.com/523912081.
+IN_PROC_BROWSER_TEST_P(IndexedDBBrowserTest, MAYBE_GetAllLargeValues) {
+  SimpleTest(GetTestUrl("indexeddb", "get_all_large_values.html"));
 }
 
 // Large values are NOT wrapped when using SQLite, but are wrapped when using

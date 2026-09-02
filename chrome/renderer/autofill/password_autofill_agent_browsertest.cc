@@ -30,7 +30,7 @@
 #include "components/autofill/content/renderer/autofill_agent.h"
 #include "components/autofill/content/renderer/autofill_agent_test_api.h"
 #include "components/autofill/content/renderer/form_autofill_util.h"
-#include "components/autofill/content/renderer/form_tracker.h"
+#include "components/autofill/content/renderer/form_submission_tracker.h"
 #include "components/autofill/content/renderer/password_generation_agent.h"
 #include "components/autofill/content/renderer/test_password_autofill_agent.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -71,7 +71,7 @@ namespace autofill {
 namespace {
 
 using ::autofill::FormRendererId;
-using ::autofill::FormTracker;
+using ::autofill::FormSubmissionTracker;
 using ::autofill::mojom::FocusedFieldType;
 using ::autofill::mojom::SubmissionIndicatorEvent;
 using ::base::ASCIIToUTF16;
@@ -674,7 +674,7 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
     GetMainFrame()->NotifyUserActivation(
         blink::mojom::UserActivationNotificationType::kTest);
     auto first_form_element =
-        GetMainFrame()->GetDocument().GetTopLevelForms()[0];
+        GetMainFrame()->GetDocument().GetOutermostForms()[0];
     GetMainFrame()->Client()->FocusedElementChanged(
         first_form_element.GetFormControlElements()[0]);
     GetMainFrame()->AutofillClient()->DidCompleteFocusChangeInFrame();
@@ -1090,7 +1090,7 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
   void SaveAndSubmitForm() { SaveAndSubmitForm(username_element_.Form()); }
 
   void SaveAndSubmitForm(const WebFormElement& form_element) {
-    FormTracker& tracker = test_api(*autofill_agent_).form_tracker();
+    FormSubmissionTracker& tracker = test_api(*autofill_agent_).form_tracker();
     static_cast<blink::WebLocalFrameObserver&>(tracker).WillSendSubmitEvent(
         form_element);
     static_cast<content::RenderFrameObserver&>(tracker).WillSubmitForm(
@@ -1103,18 +1103,18 @@ class PasswordAutofillAgentTest : public ChromeRenderViewTest {
   }
 
   void SubmitForm() {
-    FormTracker& tracker = test_api(*autofill_agent_).form_tracker();
+    FormSubmissionTracker& tracker = test_api(*autofill_agent_).form_tracker();
     static_cast<content::RenderFrameObserver&>(tracker).WillSubmitForm(
         username_element_.Form());
   }
 
   void FireAjaxSucceeded() {
-    FormTracker& tracker = test_api(*autofill_agent_).form_tracker();
+    FormSubmissionTracker& tracker = test_api(*autofill_agent_).form_tracker();
     tracker.AjaxSucceeded();
   }
 
   void FireDidFinishSameDocumentNavigation() {
-    FormTracker& tracker = test_api(*autofill_agent_).form_tracker();
+    FormSubmissionTracker& tracker = test_api(*autofill_agent_).form_tracker();
     static_cast<content::RenderFrameObserver&>(tracker)
         .DidFinishSameDocumentNavigation();
   }
@@ -1460,7 +1460,7 @@ TEST_F(PasswordAutofillAgentTest, IsWebElementVisibleTest) {
 
   LoadHTML(kVisibleFormWithNoUsernameHTML);
   frame = GetMainFrame();
-  std::vector<WebFormElement> forms = frame->GetDocument().GetTopLevelForms();
+  std::vector<WebFormElement> forms = frame->GetDocument().GetOutermostForms();
   ASSERT_EQ(1u, forms.size());
   std::vector<blink::WebFormControlElement> web_control_elements =
       forms[0].GetFormControlElements();
@@ -1469,7 +1469,7 @@ TEST_F(PasswordAutofillAgentTest, IsWebElementVisibleTest) {
 
   LoadHTML(kNonVisibleFormHTML);
   frame = GetMainFrame();
-  forms = frame->GetDocument().GetTopLevelForms();
+  forms = frame->GetDocument().GetOutermostForms();
   ASSERT_EQ(1u, forms.size());
   web_control_elements = forms[0].GetFormControlElements();
   ASSERT_EQ(1u, web_control_elements.size());
@@ -1477,7 +1477,7 @@ TEST_F(PasswordAutofillAgentTest, IsWebElementVisibleTest) {
 
   LoadHTML(kNonDisplayedFormHTML);
   frame = GetMainFrame();
-  forms = frame->GetDocument().GetTopLevelForms();
+  forms = frame->GetDocument().GetOutermostForms();
   ASSERT_EQ(1u, forms.size());
   web_control_elements = forms[0].GetFormControlElements();
   ASSERT_EQ(1u, web_control_elements.size());
@@ -2727,7 +2727,7 @@ TEST_F(PasswordAutofillAgentTest,
   confirmation_password_element.SetValue(WebString());
 
   // Submit form.
-  FormTracker& tracker = test_api(*autofill_agent_).form_tracker();
+  FormSubmissionTracker& tracker = test_api(*autofill_agent_).form_tracker();
   static_cast<content::RenderFrameObserver&>(tracker).WillSubmitForm(
       username_element.Form());
 
@@ -3908,6 +3908,113 @@ TEST_F(PasswordAutofillAgentTest, DriverIsInformedAboutFillableTextArea) {
   EXPECT_EQ(FocusedFieldType::kFillableTextArea, last_focused_field_type_);
 }
 
+#if BUILDFLAG(IS_ANDROID)
+// Tests that when kAutofillAtMemorySupportContenteditableOnAndroid is disabled,
+// focusing a contenteditable element is not treated as kContenteditableField.
+TEST_F(PasswordAutofillAgentTest, ContentEditableIgnoredWhenFeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillAtMemorySupportContenteditableOnAndroid);
+
+  const char kContentEditableHTML[] =
+      "<div id='editable_div' contenteditable='true'>Hello world</div>";
+  LoadHTML(kContentEditableHTML);
+
+  FocusElement("editable_div");
+  fake_driver_.Flush();
+  EXPECT_EQ(FocusedFieldType::kUnknown, last_focused_field_type_);
+}
+
+// Tests that focusing a contenteditable element informs the password manager
+// driver about the focused input with FocusedFieldType::kContenteditableField
+// and its correct FieldRendererId.
+TEST_F(PasswordAutofillAgentTest, DriverIsInformedAboutContentEditable) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillAtMemorySupportContenteditableOnAndroid);
+
+  const char kContentEditableHTML[] =
+      "<div id='editable_div' contenteditable='true'>Hello world</div>";
+  LoadHTML(kContentEditableHTML);
+
+  FocusElement("editable_div");
+  fake_driver_.Flush();
+  EXPECT_EQ(FocusedFieldType::kContenteditableField, last_focused_field_type_);
+  WebElement editable_element = GetMainFrame()->GetDocument().GetElementById(
+      WebString::FromAscii("editable_div"));
+  ASSERT_TRUE(editable_element);
+  EXPECT_EQ(form_util::GetFieldRendererId(editable_element),
+            last_focused_field_id_);
+  EXPECT_FALSE(last_focused_field_id_.is_null());
+}
+
+// Tests that multiple contenteditable elements receive distinct FieldRendererId
+// values, that focus switches update the driver accordingly, and that focusing
+// an unfillable field or blurring resets/updates the state appropriately.
+TEST_F(PasswordAutofillAgentTest, ContentEditableFieldRendererIds) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillAtMemorySupportContenteditableOnAndroid);
+
+  const char kMultipleContentEditablesHTML[] =
+      "<div id='editable1' contenteditable='true'>First</div>"
+      "<p id='editable2' contenteditable='true'>Second</p>"
+      "<input id='readonly_input' readonly value='test'/>";
+  LoadHTML(kMultipleContentEditablesHTML);
+
+  WebElement elem1 = GetMainFrame()->GetDocument().GetElementById(
+      WebString::FromAscii("editable1"));
+  WebElement elem2 = GetMainFrame()->GetDocument().GetElementById(
+      WebString::FromAscii("editable2"));
+  WebElement readonly_input = GetMainFrame()->GetDocument().GetElementById(
+      WebString::FromAscii("readonly_input"));
+  ASSERT_TRUE(elem1);
+  ASSERT_TRUE(elem2);
+  ASSERT_TRUE(readonly_input);
+
+  FieldRendererId id1 = form_util::GetFieldRendererId(elem1);
+  FieldRendererId id2 = form_util::GetFieldRendererId(elem2);
+  FieldRendererId id_ro = form_util::GetFieldRendererId(readonly_input);
+  EXPECT_FALSE(id1.is_null());
+  EXPECT_FALSE(id2.is_null());
+  EXPECT_FALSE(id_ro.is_null());
+  EXPECT_NE(id1, id2);
+  EXPECT_NE(id1, id_ro);
+  EXPECT_NE(id2, id_ro);
+
+  FocusElement("editable1");
+  fake_driver_.Flush();
+  EXPECT_EQ(FocusedFieldType::kContenteditableField, last_focused_field_type_);
+  EXPECT_EQ(id1, last_focused_field_id_);
+
+  FocusElement("editable2");
+  fake_driver_.Flush();
+  EXPECT_EQ(FocusedFieldType::kContenteditableField, last_focused_field_type_);
+  EXPECT_EQ(id2, last_focused_field_id_);
+
+  FocusElement("readonly_input");
+  fake_driver_.Flush();
+  EXPECT_EQ(FocusedFieldType::kUnfillableElement, last_focused_field_type_);
+  EXPECT_EQ(id_ro, last_focused_field_id_);
+
+  BlurElement("readonly_input");
+  fake_driver_.Flush();
+}
+#else
+// Tests that focusing a contenteditable element on desktop is ignored by
+// PasswordAutofillAgent and does not report kContenteditableField.
+TEST_F(PasswordAutofillAgentTest, ContentEditableIgnoredOnDesktop) {
+  base::test::ScopedFeatureList scoped_feature_list(
+      features::kAutofillAtMemorySupportContenteditableOnAndroid);
+
+  const char kContentEditableHTML[] =
+      "<div id='editable_div' contenteditable='true'>Hello world</div>";
+  LoadHTML(kContentEditableHTML);
+
+  FocusElement("editable_div");
+  fake_driver_.Flush();
+  EXPECT_EQ(FocusedFieldType::kUnknown, last_focused_field_type_);
+}
+#endif
+
 // Tests that credential suggestions are autofilled on a password (and change
 // password) forms having either ambiguous or empty name.
 TEST_F(PasswordAutofillAgentTest,
@@ -4017,7 +4124,7 @@ TEST_F(PasswordAutofillAgentTest,
 
     // Get the username and password form input elements.
     blink::WebDocument document = GetMainFrame()->GetDocument();
-    std::vector<WebFormElement> forms = document.GetTopLevelForms();
+    std::vector<WebFormElement> forms = document.GetOutermostForms();
     WebFormElement form_element = forms[0];
     std::vector<blink::WebFormControlElement> control_elements =
         form_util::GetOwnedAutofillableFormControls(document, form_element);

@@ -70,6 +70,7 @@
 #include "third_party/blink/renderer/core/page/chrome_client.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/streams/readable_stream.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
 #include "third_party/blink/renderer/core/workers/shared_worker_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
@@ -1183,9 +1184,6 @@ void FetchLoaderBase::PerformHTTPFetch(ExceptionState& exception_state) {
   if (fetch_request_data_->HasRetryOptions()) {
     request.SetFetchRetryOptions(fetch_request_data_->RetryOptions().value());
   }
-
-  request.SetSharedStorageWritableOptedIn(
-      fetch_request_data_->SharedStorageWritable());
 
   request.SetOriginalDestination(fetch_request_data_->OriginalDestination());
 

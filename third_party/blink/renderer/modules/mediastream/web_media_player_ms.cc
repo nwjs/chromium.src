@@ -23,7 +23,6 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "cc/layers/video_frame_provider_client_impl.h"
 #include "media/base/media_content_type.h"
 #include "media/base/media_log.h"
 #include "media/base/media_track.h"
@@ -62,6 +61,7 @@
 #include "third_party/blink/renderer/platform/wtf/cross_thread_copier_media.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 
 namespace blink {
 
@@ -920,7 +920,7 @@ void WebMediaPlayerMS::SetRate(double rate) {
 
 void WebMediaPlayerMS::SetVolume(double volume) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  SendLogMessage(String::Format("%s({volume=%.2f})", __func__, volume));
+  SendLogMessage(Format("{}({{volume={:.2f}}})", __func__, volume));
 
   volume_ = volume;
   if (!enabled_) {

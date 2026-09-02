@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/layout/grid/grid_layout_utils.h"
 
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/layout/block_node.h"
 #include "third_party/blink/renderer/core/layout/box_fragment_builder.h"
 #include "third_party/blink/renderer/core/layout/constraint_space.h"
@@ -23,6 +24,7 @@
 #include "third_party/blink/renderer/core/layout/length_utils.h"
 #include "third_party/blink/renderer/core/layout/logical_box_fragment.h"
 #include "third_party/blink/renderer/core/style/grid_track_list.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 
 namespace blink {
 
@@ -139,6 +141,27 @@ void SetTrackBaseline(const GridItemData& grid_item,
   }
 }
 
+LayoutUnit GetExtraMarginForBaseline(const BoxStrut& margins,
+                                     const SubgriddedItemData& subgridded_item,
+                                     GridTrackSizingDirection track_direction,
+                                     WritingMode writing_mode) {
+  const auto& track_collection = (track_direction == kForColumns)
+                                     ? subgridded_item.Columns(writing_mode)
+                                     : subgridded_item.Rows(writing_mode);
+  const auto& [begin_set_index, end_set_index] =
+      subgridded_item->SetIndices(track_collection.Direction());
+
+  const LayoutUnit subgrid_extra_margin =
+      (subgridded_item->BaselineGroup(track_direction) == BaselineGroup::kMajor)
+          ? track_collection.StartExtraMargin(begin_set_index)
+          : track_collection.EndExtraMargin(end_set_index);
+
+  return subgrid_extra_margin +
+         (subgridded_item->IsLastBaselineSpecified(track_direction)
+              ? margins.block_end
+              : margins.block_start);
+}
+
 void StoreItemBaseline(const LogicalBoxFragment& baseline_fragment,
                        GridTrackSizingDirection track_direction,
                        FontBaseline font_baseline,
@@ -155,6 +178,33 @@ void StoreItemBaseline(const LogicalBoxFragment& baseline_fragment,
   const LayoutUnit total_baseline = extra_margin + item_baseline;
 
   SetTrackBaseline(item, track_direction, total_baseline, layout_data);
+}
+
+void MeasureAndStoreItemBaseline(const LayoutResult& result,
+                                 GridItemData& item,
+                                 const SubgriddedItemData& subgridded_item,
+                                 const ConstraintSpace& space,
+                                 GridTrackSizingDirection track_direction,
+                                 FontBaseline font_baseline,
+                                 WritingMode writing_mode,
+                                 GridLayoutData& layout_data) {
+  const LogicalBoxFragment baseline_fragment(
+      item.BaselineWritingDirection(track_direction),
+      To<PhysicalBoxFragment>(result.GetPhysicalFragment()));
+
+  item.SetAlignmentFallback(track_direction,
+                            !baseline_fragment.FirstBaseline().has_value());
+  if (!item.IsBaselineAligned(track_direction)) {
+    return;
+  }
+
+  const LayoutUnit extra_margin = GetExtraMarginForBaseline(
+      ComputeMarginsFor(space, item.node.Style(),
+                        item.BaselineWritingDirection(track_direction)),
+      subgridded_item, track_direction, writing_mode);
+
+  StoreItemBaseline(baseline_fragment, track_direction, font_baseline,
+                    extra_margin, layout_data, item);
 }
 
 LayoutUnit ComputeBaselineOffset(const GridItemData& grid_item,
@@ -651,6 +701,16 @@ LayoutUnit CalculateIntrinsicMinimumContribution(
           return ResolveInitialMinBlockLength(space, item_style, border_padding,
                                               min_length);
         }
+      }
+
+      // Count if the child element on the track axis would have been allowed
+      // to collapse to zero (auto) if single-axis scroll containers were
+      // disabled.
+      if (is_parallel_with_track_direction
+              ? item_style.IsOverflowValueScrollableBlock()
+              : item_style.IsOverflowValueScrollableInline()) {
+        UseCounter::Count(node.GetDocument(),
+                          WebFeature::kSingleAxisScrollerAutoMinSize);
       }
 
       maybe_clamp = true;

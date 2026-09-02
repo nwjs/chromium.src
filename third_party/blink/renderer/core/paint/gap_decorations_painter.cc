@@ -196,20 +196,22 @@ void AdjustIntersectionIndexPair(GridTrackSizingDirection track_direction,
   }
 }
 
-// Advances `main_gap_index` to the flex line that owns cross gap
-// `cross_gap_index`. Cross gaps are painted in order, so the main gap index
-// should only move forward.
-void AdvanceFlexCrossGapLineCursor(const GapGeometry& gap_geometry,
-                                   wtf_size_t cross_gap_index,
-                                   wtf_size_t& main_gap_index) {
+// Advances `owner_index` to the owner of cross gap `cross_gap_index`. The owner
+// is the flex line for flex, or the lane for grid-lanes. Cross gaps are painted
+// in order, so the owner index should only move forward. If no `MainGap` claims
+// the cross gap, `owner_index == main_gaps.size()` identifies the trailing lane
+// for grid-lanes and the content-end sentinel for flex.
+void AdvanceCrossGapOwnerCursor(const GapGeometry& gap_geometry,
+                                wtf_size_t cross_gap_index,
+                                wtf_size_t& owner_index) {
   const Vector<MainGap>& main_gaps = gap_geometry.GetMainGaps();
-  while (main_gap_index < main_gaps.size()) {
-    const MainGap& main_gap = main_gaps[main_gap_index];
+  while (owner_index < main_gaps.size()) {
+    const MainGap& main_gap = main_gaps[owner_index];
     if (main_gap.HasCrossGapsBefore() &&
         cross_gap_index <= main_gap.GetCrossGapBeforeEnd()) {
       return;
     }
-    ++main_gap_index;
+    ++owner_index;
   }
 }
 
@@ -294,9 +296,8 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
   auto color_iterator = GapDataListIterator<StyleColor>(
       rule_colors.GetGapDataList(), total_gap_count);
 
-  // Reused across loop iterations: `GenerateIntersectionListForGap` resets the
-  // size but preserves capacity, so this allocates at most once per Paint call
-  // (or zero times if the loop is fully skipped, e.g. all multicol spanners).
+  // Reused across gaps. Grid and multicol allocate at most once per Paint;
+  // flex grows capacity only when a later gap needs more.
   Vector<GapIntersection> intersections;
 
   // Reset transient per-paint state. The `GapGeometry` may be reused across
@@ -304,12 +305,16 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
   // multicol spanner-adjacent set) from a previous paint.
   gap_geometry.InitPaintState();
 
-  // For flex cross gaps, we need to track the flex line that owns the current
-  // cross gap for intersection generation and getting the stitched gap index.
-  std::optional<wtf_size_t> main_gap_index;
-  if (gap_geometry.GetContainerType() == GapGeometry::ContainerType::kFlex &&
-      !is_main) {
-    main_gap_index = 0u;
+  // For flex and grid-lanes cross gaps, track the owner (flex line or grid
+  // lane) of the current cross gap as a forward-only cursor. The owner is
+  // needed to generate the gap's intersections, and for flex it also resolves
+  // the stitched gap index across fragments.
+  std::optional<wtf_size_t> cross_gap_owner_index;
+  if (!is_main &&
+      (gap_geometry.GetContainerType() == GapGeometry::ContainerType::kFlex ||
+       gap_geometry.GetContainerType() ==
+           GapGeometry::ContainerType::kGridLanes)) {
+    cross_gap_owner_index = 0u;
   }
 
   for (wtf_size_t gap_index = 0; gap_index < fragment_relative_gap_count;
@@ -320,11 +325,13 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
     if (gap_geometry.IsMultiColSpanner(gap_index, track_direction)) {
       continue;
     }
-    // For flex cross gaps, advance the per-line cursor to the flex line that
-    // owns this gap. We need the owning line both to generate the gap's
-    // intersections and to resolve its stitched index across fragments.
-    if (main_gap_index) {
-      AdvanceFlexCrossGapLineCursor(gap_geometry, gap_index, *main_gap_index);
+    // For flex and grid-lanes cross gaps, advance the owner cursor to the flex
+    // line or grid lane that owns this gap. We need the owner to generate the
+    // gap's intersections, and for flex to resolve its stitched index across
+    // fragments.
+    if (cross_gap_owner_index) {
+      AdvanceCrossGapOwnerCursor(gap_geometry, gap_index,
+                                 *cross_gap_owner_index);
     }
     // Gap decorations can take a list format for their styles, and that order
     // must be maintained when the container fragments. Resolve this gap's
@@ -332,9 +339,14 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
     // and advance the iterators to that point so that the 'color', 'style' and
     // 'width' patterns are maintained across fragments.
     if (has_row_gap_fragmentation) {
+      // TODO(crbug.com/343257585): If grid-lanes gap decorations gain
+      // fragmentation support, do not pass the lane owner index to
+      // `StitchedRowGapIndex`, which expects a flex-line index.
+      CHECK(gap_geometry.GetContainerType() !=
+            GapGeometry::ContainerType::kGridLanes);
       const wtf_size_t stitched_gap_index =
           box_fragment_.GetLayoutObject()->StitchedRowGapIndex(
-              box_fragment_, gap_index, main_gap_index);
+              box_fragment_, gap_index, cross_gap_owner_index);
       color_iterator.AdvanceUpTo(stitched_gap_index);
       style_iterator.AdvanceUpTo(stitched_gap_index);
       width_iterator.AdvanceUpTo(stitched_gap_index);
@@ -349,8 +361,8 @@ void GapDecorationsPainter::Paint(GridTrackSizingDirection track_direction,
     const LayoutUnit center =
         gap_geometry.GetGapCenterOffset(track_direction, gap_index);
 
-    gap_geometry.GenerateIntersectionListForGap(track_direction, gap_index,
-                                                intersections, main_gap_index);
+    gap_geometry.GenerateIntersectionListForGap(
+        track_direction, gap_index, intersections, cross_gap_owner_index);
 
     const wtf_size_t intersection_count = intersections.size();
 

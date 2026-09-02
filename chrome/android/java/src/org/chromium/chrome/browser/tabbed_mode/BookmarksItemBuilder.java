@@ -4,16 +4,22 @@
 
 package org.chromium.chrome.browser.tabbed_mode;
 
+import static org.chromium.chrome.browser.bookmarks.R.dimen.bookmarks_bar_context_menu_end_icon_padding;
+
 import android.content.Context;
 import android.content.res.Resources;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 
+import androidx.annotation.IdRes;
 import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.LazyOneshotSupplierImpl;
+import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -23,6 +29,7 @@ import org.chromium.chrome.browser.bookmarks.BookmarkImageFetcher;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.BookmarkUtils;
 import org.chromium.chrome.browser.bookmarks.bar.BookmarkBarUtils;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -30,6 +37,7 @@ import org.chromium.chrome.browser.ui.appmenu.AppMenuBookmarkItemProperties;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
 import org.chromium.chrome.browser.ui.favicon.FaviconUtils;
+import org.chromium.components.bookmarks.BookmarkBarVisibilityState;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
 import org.chromium.components.browser_ui.util.GlobalDiscardableReferencePool;
@@ -52,7 +60,7 @@ public class BookmarksItemBuilder implements Destroyable {
     private final TabModelSelector mTabModelSelector;
     private final boolean mIsMenuIconAtStart;
     private final boolean mShouldShowIconBeforeItem;
-    private final Supplier<Boolean> mIsXrFullSpaceModeSupplier;
+    private final NonNullObservableSupplier<Boolean> mXrSpaceModeObservableSupplier;
 
     private @Nullable BookmarkImageFetcher mImageFetcher;
 
@@ -66,8 +74,7 @@ public class BookmarksItemBuilder implements Destroyable {
      * @param tabModelSelector The selector used to query tab state.
      * @param isMenuIconAtStart Whether the menu icon is displayed at the start.
      * @param shouldShowIconBeforeItem Whether an icon should be shown before the item text.
-     * @param isXrFullSpaceModeSupplier The supplier for whether the device is XR in full space
-     *     mode.
+     * @param xrSpaceModeObservableSupplier The supplier for the XR space mode state.
      */
     public BookmarksItemBuilder(
             Context context,
@@ -76,14 +83,14 @@ public class BookmarksItemBuilder implements Destroyable {
             TabModelSelector tabModelSelector,
             boolean isMenuIconAtStart,
             boolean shouldShowIconBeforeItem,
-            Supplier<Boolean> isXrFullSpaceModeSupplier) {
+            NonNullObservableSupplier<Boolean> xrSpaceModeObservableSupplier) {
         mContext = context;
         mAppMenuItemTheme = appMenuItemTheme;
         mBookmarkModelSupplier = bookmarkModelSupplier;
         mTabModelSelector = tabModelSelector;
         mIsMenuIconAtStart = isMenuIconAtStart;
         mShouldShowIconBeforeItem = shouldShowIconBeforeItem;
-        mIsXrFullSpaceModeSupplier = isXrFullSpaceModeSupplier;
+        mXrSpaceModeObservableSupplier = xrSpaceModeObservableSupplier;
     }
 
     /** Cleans up resources used by this builder, specifically the image fetcher. */
@@ -158,7 +165,13 @@ public class BookmarksItemBuilder implements Destroyable {
                                     AppMenuHandler.AppMenuItemType.DIVIDER,
                                     AppMenuItemUtils.buildModelForDivider(R.id.divider_line_id)));
 
-                    submenuItems.add(buildToggleBookmarksBarItem());
+                    if (BookmarkBarUtils.isDeviceBookmarkBarCompatible(mContext)) {
+                        if (ChromeFeatureList.sBookmarksBarNTP.isEnabled()) {
+                            submenuItems.add(buildBookmarkBarVisibilityParentItem());
+                        } else {
+                            submenuItems.add(buildToggleBookmarksBarItem());
+                        }
+                    }
 
                     // TODO(crbug.com/521223427): Implement dynamic updates so that we don't
                     // have to rely on timing to load the {@link BookmarkModel}.
@@ -235,7 +248,7 @@ public class BookmarksItemBuilder implements Destroyable {
     }
 
     private ListItem buildReadingListItem(@Nullable Tab currentTab) {
-        List<ListItem> submenuItems = new ArrayList<>();
+        List<ListItem> submenuItems = new ArrayList<>(2);
         submenuItems.add(
                 AppMenuItemUtils.createStandardListItem(
                         AppMenuItemUtils.buildModelForStandardMenuItem(
@@ -281,7 +294,7 @@ public class BookmarksItemBuilder implements Destroyable {
                         BookmarkBarUtils.isBookmarkBarVisible(
                                         mContext,
                                         mTabModelSelector.getCurrentModel().getProfile(),
-                                        mIsXrFullSpaceModeSupplier.get())
+                                        mXrSpaceModeObservableSupplier.get())
                                 ? R.string.menu_hide_bookmarks_bar
                                 : R.string.menu_show_bookmarks_bar,
                         Resources.ID_NULL,
@@ -309,7 +322,7 @@ public class BookmarksItemBuilder implements Destroyable {
     }
 
     private List<ListItem> getBookmarkItemList(List<BookmarkId> ids, BookmarkModel bookmarkModel) {
-        List<ListItem> submenuItems = new ArrayList<>();
+        List<ListItem> submenuItems = new ArrayList<>(ids.size());
         for (BookmarkId id : ids) {
             BookmarkItem item = bookmarkModel.getBookmarkById(id);
             if (item != null) {
@@ -402,6 +415,74 @@ public class BookmarksItemBuilder implements Destroyable {
                         showIcon ? R.drawable.ic_star_filled_24dp : Resources.ID_NULL,
                         mIsMenuIconAtStart),
                 showIcon);
+    }
+
+    private ListItem buildBookmarkBarVisibilityParentItem() {
+        Supplier<List<ListItem>> submenuItemsSupplier =
+                () -> {
+                    @BookmarkBarVisibilityState
+                    int visibilityState =
+                            BookmarkBarUtils.getBookmarkBarVisibilityState(
+                                    mContext,
+                                    getProfileFromTabModel(),
+                                    mXrSpaceModeObservableSupplier.get());
+                    List<ListItem> items = new ArrayList<>(3);
+                    items.add(
+                            buildBookmarkBarStateItem(
+                                    R.id.bookmark_bar_state_always_hide_menu_id,
+                                    R.string.bookmark_bar_setting_always_hide,
+                                    visibilityState == BookmarkBarVisibilityState.ALWAYS_HIDE));
+                    items.add(
+                            buildBookmarkBarStateItem(
+                                    R.id.bookmark_bar_state_always_show_menu_id,
+                                    R.string.bookmark_bar_setting_always_show,
+                                    visibilityState == BookmarkBarVisibilityState.ALWAYS_SHOW));
+                    items.add(
+                            buildBookmarkBarStateItem(
+                                    R.id.bookmark_bar_state_only_ntp_menu_id,
+                                    R.string.bookmark_bar_setting_only_show_bookmarks_bar_on_ntp,
+                                    visibilityState
+                                            == BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP));
+                    return items;
+                };
+
+        PropertyModel model =
+                AppMenuItemUtils.buildModelForMenuItemWithSubmenu(
+                        mContext,
+                        mAppMenuItemTheme,
+                        R.id.bookmark_bar_parent_menu_id,
+                        R.string.bookmark_bar_settings_title,
+                        Resources.ID_NULL,
+                        submenuItemsSupplier,
+                        mIsMenuIconAtStart);
+        return AppMenuItemUtils.createMenuItemWithSubmenuListItem(model, /* showIcon= */ false);
+    }
+
+    private ListItem buildBookmarkBarStateItem(
+            @IdRes int id, @StringRes int titleRes, boolean isSelected) {
+        int iconMarginStartPx =
+                mContext.getResources()
+                        .getDimensionPixelSize(bookmarks_bar_context_menu_end_icon_padding);
+        PropertyModel model =
+                AppMenuItemUtils.buildModelForStandardMenuItem(
+                        mContext,
+                        mAppMenuItemTheme,
+                        id,
+                        titleRes,
+                        Resources.ID_NULL,
+                        mIsMenuIconAtStart);
+        model.set(AppMenuItemProperties.END_ICON_MARGIN_START, iconMarginStartPx);
+        model.set(AppMenuItemProperties.TITLE_MAX_LINES, 2);
+        if (isSelected) {
+            model.set(
+                    AppMenuItemProperties.END_ICON,
+                    AppCompatResources.getDrawable(mContext, R.drawable.material_ic_check_24dp));
+        } else {
+            model.set(AppMenuItemProperties.END_ICON, new ColorDrawable(Color.TRANSPARENT));
+        }
+        model.set(AppMenuItemProperties.CHECKABLE, true);
+        model.set(AppMenuItemProperties.CHECKED, isSelected);
+        return AppMenuItemUtils.createStandardListItem(model, /* showIcon= */ false);
     }
 
     private ListItem buildBookmarkThisPageItem() {

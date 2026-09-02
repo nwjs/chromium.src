@@ -9,9 +9,10 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/containers/span_reader.h"
+#include "base/containers/to_vector.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/safe_conversions.h"
-#include "device/fido/fido_parsing_utils.h"
 
 namespace device {
 
@@ -149,16 +150,17 @@ FidoHidMessage::FidoHidMessage(uint32_t channel_id,
       max_report_size - kHidContinuationPacketHeaderSize;
   uint8_t sequence = 0;
 
-  auto init_data = data.first(std::min(init_packet_data_size, data.size()));
+  base::SpanReader reader(data);
+  auto init_data =
+      *reader.Read(std::min(reader.remaining(), init_packet_data_size));
   packets_.push_back(std::make_unique<FidoHidInitPacket>(
-      channel_id, type,
-      std::vector<uint8_t>(init_data.begin(), init_data.end()), data.size()));
-  data = data.subspan(init_data.size());
+      channel_id, type, base::ToVector(init_data), data.size()));
 
-  for (auto cont_data :
-       fido_parsing_utils::SplitSpan(data, continuation_packet_data_size)) {
+  while (reader.remaining() > 0) {
+    auto chunk = *reader.Read(
+        std::min(reader.remaining(), continuation_packet_data_size));
     packets_.push_back(std::make_unique<FidoHidContinuationPacket>(
-        channel_id, sequence++, fido_parsing_utils::Materialize(cont_data)));
+        channel_id, sequence++, base::ToVector(chunk)));
   }
 }
 

@@ -1,6 +1,7 @@
 // Copyright 2026 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+import {loadTimeData} from '//resources/js/load_time_data.js';
 
 /** Message type used by the host to initiate the handshake ping. */
 export const SKILLS_HANDSHAKE_TYPE = 'skills-handshake';
@@ -20,6 +21,23 @@ export const SKILLS_CLOSE_DIALOG = 'close-dialog';
 /** Message type used by the guest to open a URL in a new tab. */
 export const SKILLS_OPEN_URL = 'open-url';
 
+/** Message type used by the guest to send a prompt to the host. */
+export const SKILLS_SEND_PROMPT = 'send-prompt';
+
+/** Message type used by the guest to open the full page editor. */
+export const SKILLS_OPEN_FULL_PAGE_EDITOR = 'open-full-page-editor';
+
+/** Message type used by the host to send skill dialog info to the guest. */
+export const SKILLS_DIALOG_INFO_TYPE = 'skills-dialog-info';
+/** Message type used by the host to send provided skills. */
+export const SKILLS_SEND_PROVIDED_SKILLS_TYPE = 'send-provided-skills';
+
+/** Message type used by the guest to fetch an provided skill. */
+export const SKILLS_GET_PROVIDED_SKILL = 'get-provided-skill';
+
+/** Message type used by the host to send provided skill info. */
+export const SKILLS_PROVIDED_SKILL_INFO_TYPE = 'provided-skill-info';
+
 /** Message type used by the host to send the Gemini prompt. */
 export const SKILLS_GEMINI_PROMPT_TYPE = 'skills-gemini-prompt';
 
@@ -29,6 +47,18 @@ export const IS_SAVING_GEMINI_QUERY_PARAMETER = 'isSavingGeminiPrompt';
 /** Message type used by the guest to report performance metrics. */
 export const SKILLS_LOG_METRIC = 'log-metric';
 
+/** Query parameter key used to indicate the skill source. */
+export const SOURCE_QUERY_PARAMETER = 'source';
+
+/** Skill source types for the Webview UI. */
+export enum SkillSource {
+  FIRST_PARTY = 'first-party',
+  USER = 'user',
+  PROVIDED = 'provided',
+}
+
+/** Message type used by the guest to report UMA enum metrics. */
+export const SKILLS_LOG_UMA_ENUM = 'log-uma-enum';
 
 /**
  * Interval in milliseconds between successive handshake pings sent by the
@@ -39,29 +69,58 @@ export const HANDSHAKE_PING_INTERVAL_MS = 50;
 /** Timeout in milliseconds before the host aborts the handshake. */
 export const HANDSHAKE_TIMEOUT_MS = 5000;
 
-/** The primary origin for the Skills guest page. */
-export const PRIMARY_SKILLS_ORIGIN =
-    'https://chromeskills-staging.corp.google.com';
+/** Returns the primary origin for the Skills guest page. */
+export function getPrimarySkillsOrigin(): string {
+  return loadTimeData.getString('skillsPrimaryOrigin');
+}
 
-export const SKILLS_API_ALLOWED_ORIGINS = [
-  PRIMARY_SKILLS_ORIGIN,
-  'https://accounts.google.com',
-  // Only allowed for internal users.
-  'https://login.corp.google.com',
-  'https://accounts.googlers.com',
-];
+/** Returns the language code for the Skills guest page. */
+export function getLanguageCode(): string|null {
+  if (!loadTimeData.valueExists('languageCode') ||
+      typeof loadTimeData.getValue('languageCode') !== 'string') {
+    return null;
+  }
+  return loadTimeData.getString('languageCode') || null;
+}
 
-/** The remote URL that the webview loads. */
-export const SKILLS_REMOTE_URL = `${PRIMARY_SKILLS_ORIGIN}/chromeskills/browse`;
+/** Returns the allowed origins list. */
+export function getSkillsApiAllowedOrigins(): string[] {
+  return [
+    getPrimarySkillsOrigin(),
+    'https://accounts.google.com',
+    // Only allowed for internal users.
+    'https://login.corp.google.com',
+    'https://accounts.googlers.com',
+    'https://gaiastaging.corp.google.com',
+    'https://*.proxy.googlers.com',
+  ];
+}
+
+/** Returns the remote URL that the webview loads. */
+export function getSkillsRemoteUrl(): string {
+  return `${getPrimarySkillsOrigin()}/chromeskills/browse`;
+}
 
 const REMOTE_PATH_PREFIX = '/chromeskills';
 
+/** Message type used by the host to notify guest that undo was clicked. */
+export const SKILLS_UNDO_TYPE = 'skills-undo';
+
+/** Message type used by the host to notify guest that the toast closed. */
+export const SKILLS_TOAST_CLOSED_TYPE = 'toast-closed';
+
 /**
  * Translates a Chrome WebUI path (e.g. '/yourSkills') to the corresponding
- * staging remote URL.
+ * staging remote URL, including the localized 'hl' query parameter if present.
  */
 export function getRemoteUrlForChromePath(chromePath: string): string {
-  return `${PRIMARY_SKILLS_ORIGIN}${REMOTE_PATH_PREFIX}${chromePath}`;
+  const url =
+      new URL(`${getPrimarySkillsOrigin()}${REMOTE_PATH_PREFIX}${chromePath}`);
+  const languageCode = getLanguageCode();
+  if (languageCode) {
+    url.searchParams.set('hl', languageCode);
+  }
+  return url.toString();
 }
 
 /**
@@ -69,7 +128,7 @@ export function getRemoteUrlForChromePath(chromePath: string): string {
  * to display in the address bar.
  */
 export function getChromePathForRemoteUrl(url: URL): string {
-  if (url.origin !== PRIMARY_SKILLS_ORIGIN ||
+  if (url.origin !== getPrimarySkillsOrigin() ||
       !url.pathname.startsWith(REMOTE_PATH_PREFIX)) {
     console.warn(
         `URL "${url.href}" does not match primary ` +
@@ -87,6 +146,7 @@ export enum LoadingStage {
   HANDSHAKE = 'HANDSHAKE',
   GUEST_FRAMEWORK = 'GUEST_FRAMEWORK',
   GUEST_WEB_CLIENT = 'GUEST_WEB_CLIENT',
+  GUEST_DATA_FETCH = 'GUEST_DATA_FETCH',
 }
 // LINT.ThenChange(//tools/metrics/histograms/metadata/skills/histograms.xml:SkillsLoadingStage)
 
@@ -98,3 +158,4 @@ export function getLoadingStageHistogramName(stage: LoadingStage): string {
 /** Non-stage histogram names used by both production code and WebUI tests. */
 export const HISTOGRAM_HANDSHAKE_RESULT = 'Skills.Webview.Handshake.Result';
 export const HISTOGRAM_TOTAL_INIT_LATENCY = 'Skills.Webview.TotalInitLatency';
+export const HISTOGRAM_WRITE_LATENCY = 'Skills.Webview.WriteLatency';

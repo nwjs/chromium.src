@@ -64,28 +64,41 @@ libyuv::RotationMode TranslateRotation(int rotation_degrees) {
   return rotation_mode;
 }
 
-void GetI420BufferAccess(
-    const media::VideoCaptureDevice::Client::Buffer& buffer,
-    const gfx::Size& dimensions,
-    uint8_t** y_plane_data,
-    uint8_t** u_plane_data,
-    uint8_t** v_plane_data,
-    int* y_plane_stride,
-    int* uv_plane_stride) {
-  *y_plane_data =
-      buffer.handle_provider->GetHandleForInProcessAccess()->data().data();
-  *u_plane_data =
-      UNSAFE_TODO(*y_plane_data + media::VideoFrame::PlaneSize(
-                                      media::PIXEL_FORMAT_I420,
-                                      media::VideoFrame::Plane::kY, dimensions)
-                                      .GetArea());
-  *v_plane_data =
-      UNSAFE_TODO(*u_plane_data + media::VideoFrame::PlaneSize(
-                                      media::PIXEL_FORMAT_I420,
-                                      media::VideoFrame::Plane::kU, dimensions)
-                                      .GetArea());
-  *y_plane_stride = dimensions.width();
-  *uv_plane_stride = *y_plane_stride / 2;
+struct I420BufferAccess {
+  raw_ptr<uint8_t> y_plane_data = nullptr;
+  raw_ptr<uint8_t> u_plane_data = nullptr;
+  raw_ptr<uint8_t> v_plane_data = nullptr;
+  int y_plane_stride = 0;
+  int uv_plane_stride = 0;
+};
+
+I420BufferAccess GetI420BufferAccess(base::span<uint8_t> data,
+                                     const gfx::Size& dimensions) {
+  const size_t y_plane_size =
+      media::VideoFrame::PlaneSize(media::PIXEL_FORMAT_I420,
+                                   media::VideoFrame::Plane::kY, dimensions)
+          .GetArea();
+  const size_t u_plane_size =
+      media::VideoFrame::PlaneSize(media::PIXEL_FORMAT_I420,
+                                   media::VideoFrame::Plane::kU, dimensions)
+          .GetArea();
+  const size_t v_plane_size =
+      media::VideoFrame::PlaneSize(media::PIXEL_FORMAT_I420,
+                                   media::VideoFrame::Plane::kV, dimensions)
+          .GetArea();
+
+  auto [y_plane, uv_data] = data.split_at(y_plane_size);
+  auto [u_plane, v_plane] = uv_data.split_at(u_plane_size);
+  CHECK_GE(v_plane.size(), v_plane_size);
+
+  const int y_plane_stride = dimensions.width();
+  return {
+      .y_plane_data = y_plane.data(),
+      .u_plane_data = u_plane.data(),
+      .v_plane_data = v_plane.data(),
+      .y_plane_stride = y_plane_stride,
+      .uv_plane_stride = y_plane_stride / 2,
+  };
 }
 
 gfx::ColorSpace OverrideColorSpaceForLibYuvConversion(
@@ -338,8 +351,7 @@ void VideoCaptureDeviceClient::OnCaptureConfigurationChanged() {
 }
 
 void VideoCaptureDeviceClient::OnIncomingCapturedData(
-    const uint8_t* data,
-    int length,
+    base::span<const uint8_t> data,
     const VideoCaptureFormat& format,
     const gfx::ColorSpace& data_color_space,
     int rotation,
@@ -358,11 +370,10 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
                << data_color_space.ToString();
   }
 
-  // The input |length| can be greater than the required buffer size because of
-  // paddings and/or alignments, but it cannot be smaller.
-  CHECK_GE(static_cast<size_t>(length),
-           media::VideoFrame::AllocationSize(format.pixel_format,
-                                             format.frame_size));
+  // The input `data.size()` can be greater than the required buffer size
+  // because of paddings and/or alignments, but it cannot be smaller.
+  CHECK_GE(data.size(), media::VideoFrame::AllocationSize(format.pixel_format,
+                                                          format.frame_size));
 
   if (last_captured_pixel_format_ != format.pixel_format) {
     OnLog("Pixel format: " + VideoPixelFormatToString(format.pixel_format));
@@ -386,9 +397,9 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
   }
 
   if (format.pixel_format == PIXEL_FORMAT_Y16) {
-    return OnIncomingCapturedY16Data(data, length, format, reference_time,
-                                     timestamp, capture_begin_timestamp,
-                                     metadata, frame_feedback_id);
+    return OnIncomingCapturedY16Data(data, format, reference_time, timestamp,
+                                     capture_begin_timestamp, metadata,
+                                     frame_feedback_id);
   }
 
   // |new_unrotated_{width,height}| are the dimensions of the output buffer that
@@ -422,12 +433,9 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
   const auto [fourcc_format, flip] =
       GetFourccAndFlipFromPixelFormat(format, flip_y);
 
-  uint8_t* y_plane_data;
-  uint8_t* u_plane_data;
-  uint8_t* v_plane_data;
-  int yplane_stride, uv_plane_stride;
-  GetI420BufferAccess(buffer, dimensions, &y_plane_data, &u_plane_data,
-                      &v_plane_data, &yplane_stride, &uv_plane_stride);
+  auto buffer_access = buffer.handle_provider->GetHandleForInProcessAccess();
+  const auto i420_buffer =
+      GetI420BufferAccess(buffer_access->data(), dimensions);
 
   const gfx::ColorSpace color_space = OverrideColorSpaceForLibYuvConversion(
       data_color_space, format.pixel_format);
@@ -443,8 +451,9 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
                !flip) {
       if (on_started_using_gpu_cb_)
         std::move(on_started_using_gpu_cb_).Run();
-      external_jpeg_decoder_->DecodeCapturedData(
-          data, length, format, reference_time, timestamp, std::move(buffer));
+      external_jpeg_decoder_->DecodeCapturedData(data.data(), data.size(),
+                                                 format, reference_time,
+                                                 timestamp, std::move(buffer));
       return;
     }
   }
@@ -452,8 +461,10 @@ void VideoCaptureDeviceClient::OnIncomingCapturedData(
 
   // libyuv::ConvertToI420 uses Rec601 to convert RGB to YUV.
   if (libyuv::ConvertToI420(
-          data, length, y_plane_data, yplane_stride, u_plane_data,
-          uv_plane_stride, v_plane_data, uv_plane_stride, /*crop_x=*/0,
+          data.data(), data.size(), i420_buffer.y_plane_data,
+          i420_buffer.y_plane_stride, i420_buffer.u_plane_data,
+          i420_buffer.uv_plane_stride, i420_buffer.v_plane_data,
+          i420_buffer.uv_plane_stride, /*crop_x=*/0,
           /*crop_y=*/0, format.frame_size.width(),
           (flip ? -1 : 1) * format.frame_size.height(), new_unrotated_width,
           new_unrotated_height, rotation_mode, fourcc_format) != 0) {
@@ -547,12 +558,10 @@ void VideoCaptureDeviceClient::OnIncomingCapturedImage(
     LOG(ERROR) << "Dropping color space because shared image is copied to YUV";
   }
 
-  uint8_t* y_plane_data;
-  uint8_t* u_plane_data;
-  uint8_t* v_plane_data;
-  int y_plane_stride, uv_plane_stride;
-  GetI420BufferAccess(output_buffer, dimensions, &y_plane_data, &u_plane_data,
-                      &v_plane_data, &y_plane_stride, &uv_plane_stride);
+  auto buffer_access =
+      output_buffer.handle_provider->GetHandleForInProcessAccess();
+  const auto i420_buffer =
+      GetI420BufferAccess(buffer_access->data(), dimensions);
 
   auto scoped_mapping = shared_image->Map();
   if (!scoped_mapping) {
@@ -569,10 +578,11 @@ void VideoCaptureDeviceClient::OnIncomingCapturedImage(
           scoped_mapping->GetMemoryForPlane(0).data(),
           scoped_mapping->Stride(0),
           scoped_mapping->GetMemoryForPlane(1).data(),
-          scoped_mapping->Stride(1), y_plane_data, y_plane_stride, u_plane_data,
-          uv_plane_stride, v_plane_data, uv_plane_stride,
-          scoped_mapping->Size().width(), scoped_mapping->Size().height(),
-          rotation_mode);
+          scoped_mapping->Stride(1), i420_buffer.y_plane_data,
+          i420_buffer.y_plane_stride, i420_buffer.u_plane_data,
+          i420_buffer.uv_plane_stride, i420_buffer.v_plane_data,
+          i420_buffer.uv_plane_stride, scoped_mapping->Size().width(),
+          scoped_mapping->Size().height(), rotation_mode);
       break;
 
     default:
@@ -890,8 +900,7 @@ void VideoCaptureDeviceClient::OnStarted() {
 }
 
 void VideoCaptureDeviceClient::OnIncomingCapturedY16Data(
-    const uint8_t* data,
-    int length,
+    base::span<const uint8_t> data,
     const VideoCaptureFormat& format,
     base::TimeTicks reference_time,
     base::TimeDelta timestamp,
@@ -902,11 +911,10 @@ void VideoCaptureDeviceClient::OnIncomingCapturedY16Data(
   const auto reservation_result_code = ReserveOutputBuffer(
       format.frame_size, PIXEL_FORMAT_Y16, frame_feedback_id, &buffer,
       /*require_new_buffer_id=*/nullptr, /*retire_old_buffer_id=*/nullptr);
-  // The input |length| can be greater than the required buffer size because of
-  // paddings and/or alignments, but it cannot be smaller.
-  CHECK_GE(static_cast<size_t>(length),
-           media::VideoFrame::AllocationSize(format.pixel_format,
-                                             format.frame_size));
+  // The input `data.size()` can be greater than the required buffer size
+  // because of paddings and/or alignments, but it cannot be smaller.
+  CHECK_GE(data.size(), media::VideoFrame::AllocationSize(format.pixel_format,
+                                                          format.frame_size));
   // Failed to reserve output buffer, so drop the frame.
   if (reservation_result_code != ReserveResult::kSucceeded) {
     receiver_->OnFrameDropped(
@@ -914,9 +922,11 @@ void VideoCaptureDeviceClient::OnIncomingCapturedY16Data(
     return;
   }
   auto buffer_access = buffer.handle_provider->GetHandleForInProcessAccess();
-  UNSAFE_TODO(memcpy(
-      buffer_access->data().data(), data,
-      std::min(static_cast<size_t>(length), buffer_access->mapped_size())));
+  const size_t copy_length =
+      std::min(data.size(), buffer_access->data().size());
+  buffer_access->data()
+      .first(copy_length)
+      .copy_from_nonoverlapping(data.first(copy_length));
   const VideoCaptureFormat output_format = VideoCaptureFormat(
       format.frame_size, format.frame_rate, PIXEL_FORMAT_Y16);
   OnIncomingCapturedBuffer(std::move(buffer), output_format, reference_time,

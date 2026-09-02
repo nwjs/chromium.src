@@ -39,6 +39,7 @@
   --alignment-inset-horizontal: 1px;
   --cr-searchbox-font-size: 15px;
   --cr-searchbox-height: 36px;
+  --cr-searchbox-icon-size-in-searchbox: 20px;
   --location-bar-page-info-icon-vertical-padding: 3px;
 }
 
@@ -51,6 +52,7 @@
   --alignment-inset-horizontal: 6px;
   --cr-searchbox-font-size: 14px;
   --cr-searchbox-height: 32px;
+  --cr-searchbox-icon-size-in-searchbox: 16px;
   --location-bar-page-info-icon-vertical-padding: 5px;
 }
 
@@ -77,12 +79,15 @@
   margin-bottom: var(--alignment-inset-top);
 }
 
-:host(:not([dropdown-is-visible])) #inputWrapper:hover:not(:focus-within) {
+:host(:not([dropdown-is-visible]):not([has-input-selection_]):not([is-focused_])) #inputWrapper:hover:not(:focus-within) {
   cursor: text;
   background-color: var(--color-omnibox-results-background-hovered);
 }
 
-:host(:not([dropdown-is-visible])) #inputWrapper:focus-within {
+:host(:not([dropdown-is-visible])) #inputWrapper:focus-within,
+:host([is-focused_]:not([dropdown-is-visible])) #inputWrapper,
+:host([is-focused_][has-input-selection_]) #inputWrapper {
+  --cr-searchbox-shadow: none;
   box-shadow: 0 0 0 2px var(--cr-focus-outline-color);
 }
 
@@ -140,7 +145,10 @@ cr-searchbox-input::part(searchbox-input) {
   padding-top: 0;
 }
 
-cr-searchbox-input::part(searchbox-input)::selection {
+/* When the window is inactive (top container has focus), the selection should
+   still be the same color. */
+cr-searchbox-input::part(searchbox-input)::selection,
+cr-searchbox-input::part(searchbox-input):window-inactive::selection {
   background-color: var(--color-omnibox-selection-background);
   color: var(--color-omnibox-selection-foreground);
 }
@@ -197,7 +205,7 @@ cr-searchbox-input::part(icon) {
 }
 
 :host(:not([use-webkit-search-icons_])) #voiceSearchButton {
-  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+  background-image: url(//resources/cr_components/searchbox/icons/mic_old.svg);
 }
 
 :host(:not([use-webkit-search-icons_])) #lensSearchButton {
@@ -205,7 +213,7 @@ cr-searchbox-input::part(icon) {
 }
 
 :host([use-webkit-search-icons_]) #voiceSearchButton {
-  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic_old.svg);
 }
 
 :host([use-webkit-search-icons_]) #lensSearchButton {
@@ -257,6 +265,11 @@ cr-searchbox-dropdown::part(dropdown-content) {
   height: 24px;
   margin-inline-end: 2px;
   top: 0;
+}
+
+:host([dropdown-is-visible]) #composeButton::part(glow-container) {
+  margin-inline-end: 9px;
+  top: -2px;
 }
 
 #composeButton::part(compose-button) {
@@ -317,6 +330,19 @@ cr-searchbox-dropdown::part(dropdown-content) {
   inset-inline-end: 7px;
 }
 
+:host([aim-button-icon-only_]) #composeButton::part(compose-button) {
+  border-radius: 50%;
+  padding: 0;
+  /* Match width to height (24px) for a 1:1 circular icon button. */
+  min-width: var(--cr-button-height);
+  width: var(--cr-button-height);
+}
+
+:host([aim-button-icon-only_]) #composeButton::part(label),
+:host([aim-button-icon-only_]) #composeButton::part(arrow-icon) {
+  display: none;
+}
+
 #composeButton::part(hoverBackground) {
   background-color: var(--color-sys-state-hover-dim-blend-protection);
   display: block;
@@ -326,4 +352,12 @@ cr-searchbox-dropdown::part(dropdown-content) {
 
 #composeButton:hover::part(hoverBackground) {
   opacity: 1;
+}
+
+:host-context([webui-rounded-icons]):host(:not([use-webkit-search-icons_])) #voiceSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+}
+
+:host-context([webui-rounded-icons]):host([use-webkit-search-icons_]) #voiceSearchButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic.svg);
 }

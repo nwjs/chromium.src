@@ -92,6 +92,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
       lineFocusMovement_: {type: Number},
       isDocsLoadMoreButtonVisible_: {type: Boolean},
       hasValidSelection_: {type: Boolean},
+      showLineFocusNewBadge_: {type: Boolean},
     };
   }
 
@@ -105,7 +106,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   protected accessor isDocsLoadMoreButtonVisible_: boolean = false;
   protected accessor hasValidSelection_: boolean = false;
   protected isImmersiveEnabled_: boolean = false;
-  protected isImprovedReadAloudEnabled_: boolean = false;
+  protected isReadAnythingImprovedUiEnabled_: boolean = false;
 
   // If the speech engine is considered "loaded." If it is, we should display
   // the play / pause buttons normally. Otherwise, we should disable the
@@ -152,6 +153,9 @@ export class AppElement extends AppElementBase implements SpeechListener,
 
   protected accessor isSpeechActive_: boolean = false;
   protected accessor isAudioCurrentlyPlaying_: boolean = false;
+  // TODO(crbug.com/543113387): Remove this when the WebUI new badge supports
+  // auto-disappearing logic itself.
+  protected accessor showLineFocusNewBadge_: boolean = false;
 
   protected accessor presentationState_: number = 0;
 
@@ -173,8 +177,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.contentController_.configureTrustedTypes();
     }
     this.isImmersiveEnabled_ = chrome.readingMode.isImmersiveEnabled;
-    this.isImprovedReadAloudEnabled_ =
-        chrome.readingMode.isImprovedReadAloudEnabled;
+    this.isReadAnythingImprovedUiEnabled_ =
+        chrome.readingMode.isReadAnythingImprovedUiEnabled;
   }
 
   override connectedCallback() {
@@ -298,6 +302,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
       this.restoreSettingsFromPrefs_();
     };
 
+    chrome.readingMode.onShouldShowLineFocusNewBadgeResponse = (show) => {
+      this.showLineFocusNewBadge_ = show;
+    };
+
     chrome.readingMode.languageChanged = () => {
       this.languageChanged();
     };
@@ -373,7 +381,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   setPlayOnOpen(playOnOpen: boolean) {
-    if (this.isImprovedReadAloudEnabled_) {
+    if (this.isReadAnythingImprovedUiEnabled_) {
       this.playOnOpen_ = playOnOpen;
       this.requestUpdate();
     }
@@ -764,7 +772,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onThemeChange_(event: CustomEvent<{data: number}>) {
-    if (chrome.readingMode.isImprovedReadAloudEnabled && event.detail &&
+    if (chrome.readingMode.isReadAnythingImprovedUiEnabled && event.detail &&
         event.detail.data !== undefined) {
       this.settingsPrefs_ = {
         ...this.settingsPrefs_,
@@ -848,8 +856,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
     if (!chrome.readingMode.isLineFocusEnabled) {
       return;
     }
-    this.styleUpdater_.setLineFocusStyle(
-        this.lineFocusController_.getCurrentLineFocusType());
+    if (this.computeHasContent()) {
+      this.styleUpdater_.setLineFocusStyle(
+          this.lineFocusController_.getCurrentLineFocusType());
+      return;
+    }
+    this.styleUpdater_.setLineFocusStyle(LineFocusType.NONE);
   }
 
   private onTextLocationsChange_() {
@@ -958,6 +970,8 @@ export class AppElement extends AppElementBase implements SpeechListener,
         return '';
     }
   }
+
+
 }
 
 declare global {

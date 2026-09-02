@@ -11,6 +11,7 @@
 
 #include "base/json/json_writer.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notimplemented.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -186,29 +187,33 @@ base::Value NotConditionToValue(
   return ConditionToValue(*not_condition.condition);
 }
 
+base::DictValue SafeURLPatternToValue(const blink::SafeUrlPattern& pattern) {
+  base::DictValue url_pattern_value;
+#define TO_VALUE(type, type_name)                       \
+  do {                                                  \
+    auto value = ConvertToPatternString(pattern, type); \
+    url_pattern_value.Set(type_name, value);            \
+  } while (0)
+
+  TO_VALUE(URLPatternFieldType::kProtocol, "protocol");
+  TO_VALUE(URLPatternFieldType::kUsername, "username");
+  TO_VALUE(URLPatternFieldType::kPassword, "password");
+  TO_VALUE(URLPatternFieldType::kHostname, "hostname");
+  TO_VALUE(URLPatternFieldType::kPort, "port");
+  TO_VALUE(URLPatternFieldType::kPathname, "pathname");
+  TO_VALUE(URLPatternFieldType::kSearch, "search");
+  TO_VALUE(URLPatternFieldType::kHash, "hash");
+#undef TO_VALUE
+  return url_pattern_value;
+}
+
 base::Value ConditionToValue(
     const blink::ServiceWorkerRouterCondition& condition) {
   base::DictValue out_c;
   const auto& [url_pattern, request, running_status, or_condition,
                not_condition] = condition.get();
   if (url_pattern) {
-    base::DictValue url_pattern_value;
-#define TO_VALUE(type, type_name)                            \
-  do {                                                       \
-    auto value = ConvertToPatternString(*url_pattern, type); \
-    url_pattern_value.Set(type_name, value);                 \
-  } while (0)
-
-    TO_VALUE(URLPatternFieldType::kProtocol, "protocol");
-    TO_VALUE(URLPatternFieldType::kUsername, "username");
-    TO_VALUE(URLPatternFieldType::kPassword, "password");
-    TO_VALUE(URLPatternFieldType::kHostname, "hostname");
-    TO_VALUE(URLPatternFieldType::kPort, "port");
-    TO_VALUE(URLPatternFieldType::kPathname, "pathname");
-    TO_VALUE(URLPatternFieldType::kSearch, "search");
-    TO_VALUE(URLPatternFieldType::kHash, "hash");
-#undef TO_VALUE
-      out_c.Set("urlPattern", std::move(url_pattern_value));
+    out_c.Set("urlPattern", SafeURLPatternToValue(*url_pattern));
   }
   if (request) {
     out_c.Set("request", RequestToValue(*request));
@@ -656,6 +661,10 @@ bool NotCondition::Match(
 
 namespace content {
 
+std::string SafeURLPatternToJsonString(const blink::SafeUrlPattern& pattern) {
+  return base::WriteJson(SafeURLPatternToValue(pattern)).value_or("");
+}
+
 class ServiceWorkerRouterEvaluator::RouterRule {
  public:
   ServiceWorkerRouterEvaluatorErrorEnums SetRule(
@@ -725,6 +734,7 @@ void ServiceWorkerRouterEvaluator::Compile() {
         ServiceWorkerRouterEvaluatorErrorEnums::kExceedMaxRouterSize;
     return;
   }
+  CHECK(compiled_rules_.empty());
   for (size_t idx = 0; idx < rules_.rules.size(); ++idx) {
     const auto& r = rules_.rules[idx];
     std::unique_ptr<RouterRule> rule = std::make_unique<RouterRule>();
@@ -748,6 +758,8 @@ void ServiceWorkerRouterEvaluator::Compile() {
       has_non_fetch_event_source_ |= !has_fetch_event;
     }
     compiled_rules_.emplace_back(std::move(rule));
+    UpdateMaxConditionDepthAndWidth(r.condition, max_rule_depth_,
+                                    max_rule_width_);
   }
   RecordSetupError(ServiceWorkerRouterEvaluatorErrorEnums::kNoError);
   is_valid_ = true;
@@ -844,24 +856,26 @@ std::string ServiceWorkerRouterEvaluator::ToString() const {
   return base::WriteJson(ToValue()).value_or("");
 }
 
+std::vector<ServiceWorkerRouterRule>
+ServiceWorkerRouterEvaluator::CalculateRouterRulesForDevTools() const {
+  CHECK_EQ(rules_.rules.size(), compiled_rules_.size());
+  std::vector<ServiceWorkerRouterRule> router_rules;
+  router_rules.reserve(rules_.rules.size());
+  for (size_t idx = 0; idx < rules_.rules.size(); ++idx) {
+    const auto& r = rules_.rules[idx];
+    router_rules.push_back(
+        {.condition = r.condition,
+         // `sources` is always a singleton per the current spec.
+         // TODO(crbug.com/545781129): Refactor to a single source field.
+         .source = r.sources[0],
+         .id = base::checked_cast<int>(compiled_rules_[idx]->id())});
+  }
+  return router_rules;
+}
+
 void ServiceWorkerRouterEvaluator::RecordRouterRuleInfo() const {
   base::UmaHistogramCounts1000("ServiceWorker.RouterEvaluator.RuleCount",
                                compiled_rules_.size());
-  size_t depth, width;
-  std::tie(depth, width) = GetMaxDepthAndWidth();
-  base::UmaHistogramCounts1000("ServiceWorker.RouterEvaluator.ConditionDepth",
-                               depth);
-  base::UmaHistogramCounts1000("ServiceWorker.RouterEvaluator.OrConditionWidth",
-                               width);
-}
-
-std::tuple<size_t, size_t> ServiceWorkerRouterEvaluator::GetMaxDepthAndWidth()
-    const {
-  size_t depth = 0, width = 0;
-  for (const auto& r : rules_.rules) {
-    UpdateMaxConditionDepthAndWidth(r.condition, depth, width);
-  }
-  return {depth, width};
 }
 
 }  // namespace content

@@ -101,8 +101,7 @@ class ChromotingHostTest : public testing::Test {
         base::BindRepeating(
             []() -> std::unique_ptr<protocol::IceConfigFetcher> {
               return nullptr;
-            }),
-        task_runner_);
+            }));
     host_ = std::make_unique<ChromotingHost>(
         std::move(peer_session_factory),
         base::WrapUnique(session_manager_.get()),
@@ -156,7 +155,7 @@ class ChromotingHostTest : public testing::Test {
         .Times(AtMost(1))
         .WillOnce(Return(ByMove(std::make_unique<PeerSessionImpl>(
             std::move(connection), desktop_environment_factory_.get(),
-            nullptr))));
+            base::NullCallback()))));
     MockPeerSessionFactory* mock_factory_ptr = mock_factory.get();
     mock_peer_session_factories_.push_back(std::move(mock_factory));
 
@@ -469,8 +468,7 @@ TEST_F(ChromotingHostTest, SessionAcceptedWhenSecondarySessionManagerExists) {
       /*get_ice_config_fetcher_cb=*/
       base::BindRepeating([]() -> std::unique_ptr<protocol::IceConfigFetcher> {
         return nullptr;
-      }),
-      task_runner_);
+      }));
   host_ = std::make_unique<ChromotingHost>(
       std::move(peer_session_factory), base::WrapUnique(session_manager_.get()),
       std::move(secondary_session_manager),

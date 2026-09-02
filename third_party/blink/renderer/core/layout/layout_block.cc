@@ -113,6 +113,7 @@ static double ComputeSquaredLocalFontSizeScalingFactor(
 void LayoutBlock::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
   // Computes old scaling factor before PaintLayer::UpdateTransform()
@@ -123,9 +124,7 @@ void LayoutBlock::StyleDidChange(
         ComputeSquaredLocalFontSizeScalingFactor(Layer()->Transform());
   }
 
-  LayoutBox::StyleDidChange(diff, old_style, style_change_context);
-
-  const ComputedStyle& new_style = StyleRef();
+  LayoutBox::StyleDidChange(diff, old_style, new_style, style_change_context);
 
   if (old_style && Parent()) {
     if (old_style->GetPosition() != new_style.GetPosition() &&
@@ -545,7 +544,7 @@ void LayoutBlock::AddOutlineRects(OutlineRectCollector& collector,
   }
 
   if (ShouldIncludeBlockInkOverflow(include_block_overflows) &&
-      !HasNonVisibleOverflow() && !HasControlClip()) {
+      !HasNonVisibleOverflow()) {
     AddOutlineRectsForNormalChildren(collector, additional_offset,
                                      include_block_overflows);
   }
@@ -616,7 +615,7 @@ LayoutBlock* LayoutBlock::CreateAnonymousWithParentAndDisplay(
            new_display == EDisplay::kFlowRoot);
     layout_block = MakeGarbageCollected<LayoutBlockFlow>(nullptr);
   }
-  layout_block->SetDocumentForAnonymous(&parent->GetDocument());
+  layout_block->SetDocumentForAnonymous(parent->GetDocument());
   layout_block->SetStyle(new_style);
   return layout_block;
 }

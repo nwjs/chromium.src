@@ -12,8 +12,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "chrome/browser/platform_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/bubble_anchor_util.h"
 #include "chrome/browser/ui/global_error/global_error.h"
 #include "chrome/browser/ui/global_error/global_error_service.h"
@@ -40,7 +40,7 @@
 
 // static
 GlobalErrorBubbleViewBase* GlobalErrorBubbleViewBase::ShowStandardBubbleView(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const base::WeakPtr<GlobalErrorWithStandardBubble>& error) {
   auto* control = BrowserView::GetBrowserViewForBrowser(browser)
                       ->toolbar_button_provider()
@@ -59,7 +59,7 @@ GlobalErrorBubbleViewBase* GlobalErrorBubbleViewBase::ShowStandardBubbleView(
 GlobalErrorBubbleView::GlobalErrorBubbleView(
     views::BubbleAnchor anchor,
     views::BubbleBorder::Arrow arrow,
-    Browser* browser,
+    BrowserWindowInterface* browser,
     const base::WeakPtr<GlobalErrorWithStandardBubble>& error)
     : BubbleDialogDelegateView(anchor,
                                arrow,
@@ -73,7 +73,7 @@ GlobalErrorBubbleView::GlobalErrorBubbleView(
   WidgetDelegate::SetShowCloseButton(error_->ShouldShowCloseButton());
   WidgetDelegate::RegisterWindowClosingCallback(base::BindOnce(
       [](base::WeakPtr<GlobalErrorWithStandardBubble> error,
-         base::WeakPtr<Browser> browser) {
+         base::WeakPtr<BrowserWindowInterface> browser) {
         if (error) {
           // The browser may have been destroyed by the time the bubble closes,
           // so `browser` can be null. Call `BubbleViewDidClose` regardless
@@ -83,7 +83,7 @@ GlobalErrorBubbleView::GlobalErrorBubbleView(
           error->BubbleViewDidClose(browser.get());
         }
       },
-      error_, browser->AsWeakPtr()));
+      error_, browser->GetWeakPtr()));
 
   SetDefaultButton(static_cast<int>(ui::mojom::DialogButton::kOk));
   SetButtons(!error_->GetBubbleViewCancelButtonLabel().empty()
@@ -100,31 +100,31 @@ GlobalErrorBubbleView::GlobalErrorBubbleView(
   // destruction.
   SetAcceptCallback(base::BindOnce(
       [](base::WeakPtr<GlobalErrorWithStandardBubble> error,
-         base::WeakPtr<Browser> browser) {
+         base::WeakPtr<BrowserWindowInterface> browser) {
         if (error && browser) {
           error->BubbleViewAcceptButtonPressed(browser.get());
         }
       },
-      error, browser->AsWeakPtr()));
+      error, browser->GetWeakPtr()));
   SetCancelCallback(base::BindOnce(
       [](base::WeakPtr<GlobalErrorWithStandardBubble> error,
-         base::WeakPtr<Browser> browser) {
+         base::WeakPtr<BrowserWindowInterface> browser) {
         if (error && browser) {
           error->BubbleViewCancelButtonPressed(browser.get());
         }
       },
-      error, browser->AsWeakPtr()));
+      error, browser->GetWeakPtr()));
 
   if (!error_->GetBubbleViewDetailsButtonLabel().empty()) {
     SetExtraView(std::make_unique<views::MdTextButton>(
         base::BindRepeating(
             [](base::WeakPtr<GlobalErrorWithStandardBubble> error,
-               base::WeakPtr<Browser> browser) {
+               base::WeakPtr<BrowserWindowInterface> browser) {
               if (error && browser) {
                 error->BubbleViewDetailsButtonPressed(browser.get());
               }
             },
-            error_, browser->AsWeakPtr()),
+            error_, browser->GetWeakPtr()),
         error_->GetBubbleViewDetailsButtonLabel()));
   }
 }

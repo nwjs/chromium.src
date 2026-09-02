@@ -98,20 +98,16 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     CanvasNon2DResourceProvider* snapshot_provider,
     std::optional<CanvasSnapshotInfo> sw_draw_info,
     media::PaintCanvasVideoRenderer* video_renderer,
-    bool prefer_tagged_orientation,
-    bool reinterpret_video_as_srgb,
-    std::optional<media::VideoTransformation> transformation_override) {
+    VideoOrientationBehavior orientation_behavior,
+    VideoColorSpaceInterpretation color_space_interpretation) {
   CHECK(sw_draw_info || snapshot_provider);
   CHECK(!sw_draw_info || !snapshot_provider);
 
   auto raster_context_provider = GetRasterContextProvider();
   bool is_accelerated = snapshot_provider && !snapshot_provider->IsSoftware();
   if (is_accelerated) {
-    prefer_tagged_orientation = false;
+    orientation_behavior = VideoOrientationBehavior::kHardFlip;
   }
-
-  const auto transform = transformation_override.value_or(
-      frame->metadata().transformation.value_or(media::kNoTransformation));
 
   // If not doing an accelerated draw, avoid GPU round trips to upload frame
   // data from MappableSI-backed frames.
@@ -144,21 +140,27 @@ scoped_refptr<StaticBitmapImage> CreateImageFromVideoFrame(
     video_renderer = local_video_renderer.get();
   }
 
+  const auto transform =
+      frame->metadata().transformation.value_or(media::kNoTransformation);
+
   media::PaintCanvasVideoRenderer::PaintParams params;
   params.dest_rect = gfx::RectF(snapshot_provider ? snapshot_provider->Size()
                                                   : sw_draw_info->size);
   params.transformation =
-      prefer_tagged_orientation
+      orientation_behavior == VideoOrientationBehavior::kTagOrientation
           ? media::kNoTransformation
-          : frame->metadata().transformation.value_or(media::kNoTransformation);
-  params.reinterpret_as_srgb = reinterpret_video_as_srgb;
+          : transform;
+  params.reinterpret_as_srgb =
+      color_space_interpretation ==
+      VideoColorSpaceInterpretation::kReinterpretAsSRGB;
   auto draw_callback = [&](cc::PaintCanvas& canvas) {
     video_renderer->Paint(frame.get(), &canvas, media_flags, params,
                           raster_context_provider.get());
   };
-  auto orientation = prefer_tagged_orientation
-                         ? VideoTransformationToImageOrientation(transform)
-                         : ImageOrientationEnum::kDefault;
+  auto orientation =
+      orientation_behavior == VideoOrientationBehavior::kTagOrientation
+          ? VideoTransformationToImageOrientation(transform)
+          : ImageOrientationEnum::kDefault;
   if (sw_draw_info) {
     return DrawAndSnapshotToImage(sw_draw_info.value(), draw_callback,
                                   orientation);
@@ -280,27 +282,23 @@ scoped_refptr<StaticBitmapImage> CreateAcceleratedImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
     CanvasNon2DResourceProvider* snapshot_provider,
     media::PaintCanvasVideoRenderer* video_renderer,
-    bool prefer_tagged_orientation,
-    bool reinterpret_video_as_srgb,
-    std::optional<media::VideoTransformation> transformation_override) {
+    VideoOrientationBehavior orientation_behavior,
+    VideoColorSpaceInterpretation color_space_interpretation) {
   CHECK(snapshot_provider);
   return CreateImageFromVideoFrame(
       std::move(frame), snapshot_provider, /*sw_draw_info=*/std::nullopt,
-      video_renderer, prefer_tagged_orientation, reinterpret_video_as_srgb,
-      transformation_override);
+      video_renderer, orientation_behavior, color_space_interpretation);
 }
 
 scoped_refptr<StaticBitmapImage> CreateUnacceleratedImageFromVideoFrame(
     scoped_refptr<media::VideoFrame> frame,
     const CanvasSnapshotInfo& draw_info,
     media::PaintCanvasVideoRenderer* video_renderer,
-    bool prefer_tagged_orientation,
-    bool reinterpret_video_as_srgb,
-    std::optional<media::VideoTransformation> transformation_override) {
+    VideoOrientationBehavior orientation_behavior,
+    VideoColorSpaceInterpretation color_space_interpretation) {
   return CreateImageFromVideoFrame(
       std::move(frame), /*snapshot_provider=*/nullptr, draw_info,
-      video_renderer, prefer_tagged_orientation, reinterpret_video_as_srgb,
-      transformation_override);
+      video_renderer, orientation_behavior, color_space_interpretation);
 }
 
 void DrawVideoFrameIntoCanvas(scoped_refptr<media::VideoFrame> frame,
@@ -315,8 +313,14 @@ void DrawVideoFrameIntoCanvas(scoped_refptr<media::VideoFrame> frame,
 
   media::PaintCanvasVideoRenderer video_renderer;
   media::PaintCanvasVideoRenderer::PaintParams params;
-  params.dest_rect =
-      gfx::RectF(frame->natural_size().width(), frame->natural_size().height());
+  gfx::SizeF dest_size(frame->natural_size());
+  if (!ignore_video_transformation &&
+      frame->metadata()
+          .transformation.value_or(media::kNoTransformation)
+          .IsOrthogonal()) {
+    dest_size.Transpose();
+  }
+  params.dest_rect = gfx::RectF(dest_size);
   params.transformation =
       ignore_video_transformation
           ? media::kNoTransformation
@@ -336,17 +340,27 @@ scoped_refptr<viz::RasterContextProvider> GetRasterContextProvider() {
 CanvasSnapshotInfo CreateSnapshotProviderInfoForVideoFrame(
     const media::VideoFrame& frame,
     std::optional<gfx::Size> scaled_size,
-    bool reinterpret_video_as_srgb) {
+    VideoColorSpaceInterpretation color_space_interpretation,
+    VideoOrientationBehavior orientation_behavior) {
+  const auto transform =
+      frame.metadata().transformation.value_or(media::kNoTransformation);
+  gfx::Size size = scaled_size.value_or(frame.natural_size());
+  if (orientation_behavior == VideoOrientationBehavior::kHardFlip &&
+      !scaled_size && transform.IsOrthogonal()) {
+    size.Transpose();
+  }
   return {
       .alpha_type = media::IsOpaque(frame.format()) ? kOpaque_SkAlphaType
                                                     : kPremul_SkAlphaType,
-      .color_space = reinterpret_video_as_srgb ? gfx::ColorSpace::CreateSRGB()
-                                               : frame.CompatRGBColorSpace(),
+      .color_space = color_space_interpretation ==
+                             VideoColorSpaceInterpretation::kReinterpretAsSRGB
+                         ? gfx::ColorSpace::CreateSRGB()
+                         : frame.CompatRGBColorSpace(),
       .hdr_metadata = frame.hdr_metadata(),
       // TODO(https://crbug.com/40230609): N32 may be incorrect when drawing
       // high bit depth frames destined for a high bit depth canvas.
       .format = GetN32FormatForCanvas(),
-      .size = scaled_size.value_or(frame.natural_size()),
+      .size = size,
   };
 }
 

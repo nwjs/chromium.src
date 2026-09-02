@@ -7,6 +7,10 @@
 
 #import "ios/chrome/browser/shared/coordinator/chrome_coordinator/chrome_coordinator.h"
 
+namespace autofill::autofill_metrics {
+enum class AutofillSettingsReferrer;
+}  // namespace autofill::autofill_metrics
+
 @class AutofillAndPasswordsCoordinator;
 
 // Delegate for AutofillAndPasswordsCoordinator.
@@ -26,10 +30,17 @@
 
 @property(nonatomic, weak) id<AutofillAndPasswordsCoordinatorDelegate> delegate;
 
+// Whether the Level Up Payment Methods Walkthrough IPH should be presented when
+// the view appears.
+@property(nonatomic, assign) BOOL shouldShowLevelUpPaymentMethodsWalkthroughIPH;
+
 // Designated initializer.
 - (instancetype)initWithBaseNavigationController:
                     (UINavigationController*)navigationController
                                          browser:(Browser*)browser
+                                        referrer:(autofill::autofill_metrics::
+                                                      AutofillSettingsReferrer)
+                                                     referrer
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithBaseViewController:(UIViewController*)viewController

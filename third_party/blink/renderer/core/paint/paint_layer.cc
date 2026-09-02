@@ -291,18 +291,29 @@ const PaintLayer* PaintLayer::ContainingScrollContainerLayer(
 }
 
 void PaintLayer::UpdateTransform() {
-  if (gfx::Transform* transform = Transform()) {
-    const LayoutBox* box = GetLayoutBox();
-    DCHECK(box);
-    transform->MakeIdentity();
-    const PhysicalRect reference_box = ComputeReferenceBox(*box);
-    box->StyleRef().ApplyTransform(
-        *transform, box, reference_box,
-        ComputedStyle::kIncludeTransformOperations,
-        ComputedStyle::kIncludeTransformOrigin,
-        ComputedStyle::kIncludeMotionPath,
-        ComputedStyle::kIncludeIndependentTransformProperties);
+  if (!GetLayoutObject().HasTransform()) {
+    transform_.reset();
+    return;
   }
+
+  if (!transform_) {
+    transform_ = std::make_unique<gfx::Transform>();
+  } else {
+    transform_->MakeIdentity();
+  }
+  const LayoutBox* box = GetLayoutBox();
+  DCHECK(box);
+  if (const auto* element = DynamicTo<Element>(box->GetNode())) {
+    if (const auto* canvas_transform = element->GetUsedCanvasTransform()) {
+      transform_->PreConcat(*canvas_transform);
+    }
+  }
+  const PhysicalRect reference_box = ComputeReferenceBox(*box);
+  box->StyleRef().ApplyTransform(
+      *transform_, box, reference_box,
+      ComputedStyle::kIncludeTransformOperations,
+      ComputedStyle::kIncludeTransformOrigin, ComputedStyle::kIncludeMotionPath,
+      ComputedStyle::kIncludeIndependentTransformProperties);
 }
 
 void PaintLayer::UpdateTransformAfterStyleChange(
@@ -319,13 +330,6 @@ void PaintLayer::UpdateTransformAfterStyleChange(
     return;
   }
   bool had_3d_transform = Has3DTransform();
-
-  if (has_transform != had_transform) {
-    if (has_transform)
-      transform_ = std::make_unique<gfx::Transform>();
-    else
-      transform_.reset();
-  }
 
   UpdateTransform();
 
@@ -1243,7 +1247,7 @@ static bool IsHitCandidateForDepthOrder(
           child_z_offset = pt3.z();
         }
       }
-      if (child_z_offset < 0) {
+      if (child_z_offset < *z_offset) {
         return false;
       }
     } else {
@@ -1931,7 +1935,7 @@ PaintLayer* PaintLayer::HitTestChildren(
   }
 
   const LayoutObject* stop_node = result.GetHitTestRequest().GetStopNode();
-  PaintLayer* stop_layer = stop_node ? stop_node->PaintingLayer() : nullptr;
+  const PaintLayer* stop_layer = result.GetHitTestRequest().GetStopLayer();
 
   PaintLayer* result_layer = nullptr;
   PaintLayerPaintOrderReverseIterator iterator(this, children_to_visit);
@@ -1976,7 +1980,11 @@ PaintLayer* PaintLayer::HitTestChildren(
     }
 
     if (IsHitCandidateForDepthOrder(
-            hit_layer, depth_sort_descendants, z_offset, local_transform_state,
+            hit_layer, depth_sort_descendants, z_offset,
+            RuntimeEnabledFeatures::
+                    HitTestContainerTransformStateForPreserve3dEnabled()
+                ? container_transform_state
+                : local_transform_state,
             result.GetHitTestRequest().IsHitTestVisualOverflow())) {
       result_layer = hit_layer;
       if (!result.GetHitTestRequest().ListBased())
@@ -2216,7 +2224,8 @@ void PaintLayer::ExpandRectForSelfPaintingDescendants(
     }
 
     PhysicalOffset delta = child_layer->GetLayoutObject().LocalToAncestorPoint(
-        PhysicalOffset(), &GetLayoutObject(), kIgnoreTransforms);
+        PhysicalOffset(), &GetLayoutObject(),
+        {MapCoordinatesMode::kIgnoreTransforms});
     added_rect.Move(delta);
 
     result.Unite(added_rect);

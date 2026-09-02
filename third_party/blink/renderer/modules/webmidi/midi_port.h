@@ -97,7 +97,7 @@ class MIDIPort : public EventTarget,
            midi::mojom::PortState);
 
   void open();
-  bool IsOpening() { return running_open_count_; }
+  bool IsOpening() const { return running_open_count_; }
   MIDIAccess* midiAccess() const { return access_.Get(); }
 
  private:
@@ -116,7 +116,7 @@ class MIDIPort : public EventTarget,
   String version_;
   Member<MIDIAccess> access_;
   midi::mojom::PortState state_;
-  MIDIPortConnectionState connection_;
+  MIDIPortConnectionState connection_ = MIDIPortConnectionState::kClosed;
   unsigned running_open_count_ = 0;
 };
 

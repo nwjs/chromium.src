@@ -4,7 +4,10 @@
 
 #include "chrome/browser/skills/skills_interactive_uitest_base.h"
 
+#include <inttypes.h>
+
 #include "base/json/json_writer.h"
+#include "base/strings/stringprintf.h"
 #include "base/uuid.h"
 #include "base/values.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
@@ -18,13 +21,13 @@
 #include "chrome/browser/skills/skills_glic_mojom_util.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_window_controller.h"
-#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "chrome/browser/sync/data_type_store_service_factory.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_view.h"
 #include "chrome/common/channel_info.h"
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/optimization_guide/core/optimization_guide_proto_util.h"
 #include "components/optimization_guide/proto/hints.pb.h"
 #include "components/skills/features.h"
@@ -206,7 +209,7 @@ ui::test::InteractiveTestApi::StepBuilder
 SkillsInteractiveUiTestBase::InvokeSkillDirectly(std::string* skill_id_ptr) {
   return Do([this, skill_id_ptr]() {
     skills::SkillsUiWindowController::From(browser())->InvokeSkill(
-        *skill_id_ptr);
+        *skill_id_ptr, /*skill_name=*/"", /*skill_icon=*/"");
   });
 }
 
@@ -231,19 +234,36 @@ SkillsInteractiveUiTestBase::UpdateSkill(const std::string* skill_id_ptr) {
 
 ui::test::InteractiveTestApi::MultiStep
 SkillsInteractiveUiTestBase::VerifyInvocationInWebUI(
-    const std::string& expected_prompt) {
-  return Steps(
-      Log("Verifying Glic Panel Opened via Toast Interaction"),
-      WaitForShow(glic::kGlicHostElementId),
-
-      WaitForJsResult(
-          glic::kGlicContentsElementId,
-          base::StringPrintf(
-              "() => {"
-              "  const input = document.getElementById('skillPromptInput');"
-              "  return !!input && input.value === '%s';"
-              "}",
-              expected_prompt.c_str())));
+    const std::string& expected_prompt,
+    const std::string& expected_name,
+    const std::string& expected_icon) {
+  if (base::FeatureList::IsEnabled(features::kSkillsWebViewV2Enabled)) {
+    return Steps(
+        Log("Verifying Glic Panel Opened via Toast Interaction (V2)"),
+        WaitForShow(glic::kGlicHostElementId),
+        WaitForJsResult(
+            glic::kGlicContentsElementId,
+            base::StringPrintf(
+                "() => {"
+                "  const nameInput = document.getElementById('skillNameInput');"
+                "  const iconInput = document.getElementById('skillIconInput');"
+                "  return !!nameInput && nameInput.value === '%s' &&"
+                "         !!iconInput && iconInput.value === '%s';"
+                "}",
+                expected_name.c_str(), expected_icon.c_str())));
+  } else {
+    return Steps(Log("Verifying Glic Panel Opened via Toast Interaction (V1)"),
+                 WaitForShow(glic::kGlicHostElementId),
+                 WaitForJsResult(
+                     glic::kGlicContentsElementId,
+                     base::StringPrintf(
+                         "() => {"
+                         "  const promptInput = "
+                         "document.getElementById('skillPromptInput');"
+                         "  return !!promptInput && promptInput.value === '%s';"
+                         "}",
+                         expected_prompt.c_str())));
+  }
 }
 
 ui::test::InteractiveTestApi::StepBuilder
@@ -306,6 +326,36 @@ SkillsInteractiveUiTestBase::WaitForSkillPreviewShown(
                         std::string(skill_name) + "\"]"};
   state_change.test_function = "el => el.checkVisibility()";
   state_change.event = kSkillPreviewShown;
+  return WaitForStateChange(glic::kGlicContentsElementId, state_change);
+}
+
+ui::test::InteractiveTestApi::MultiStep
+SkillsInteractiveUiTestBase::WaitForSkillPreviewWithCreationTime(
+    std::string_view skill_name,
+    base::Time expected_creation_time) {
+  DEFINE_LOCAL_CUSTOM_ELEMENT_EVENT_TYPE(kSkillPreviewWithCreationTimeShown);
+  StateChange state_change;
+  state_change.type = StateChange::Type::kExistsAndConditionTrue;
+  state_change.where = {"#skillsList"};
+  state_change.test_function = base::StringPrintf(
+      "(el) => {"
+      "  const items = Array.from(el.querySelectorAll('li'));"
+      "  const item = items.find(li => {"
+      "    const nameSpan = li.querySelector('.skill-name');"
+      "    return nameSpan && nameSpan.getAttribute('value') === '%s';"
+      "  });"
+      "  if (!item) return false;"
+      "  const timeSpan = item.querySelector('.skill-creation-time');"
+      "  if (!timeSpan) return false;"
+      "  const dateStr = timeSpan.getAttribute('value');"
+      "  if (!dateStr) return false;"
+      "  const timeMs = new Date(dateStr).getTime();"
+      "  return timeMs === %" PRId64
+      ";"
+      "}",
+      std::string(skill_name).c_str(),
+      expected_creation_time.InMillisecondsSinceUnixEpoch());
+  state_change.event = kSkillPreviewWithCreationTimeShown;
   return WaitForStateChange(glic::kGlicContentsElementId, state_change);
 }
 

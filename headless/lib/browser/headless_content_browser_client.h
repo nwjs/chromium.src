@@ -75,6 +75,7 @@ class HeadlessContentBrowserClient : public content::ContentBrowserClient {
       net::ClientCertIdentityList client_certs,
       std::unique_ptr<content::ClientCertificateDelegate> delegate) override;
   bool ShouldEnableStrictSiteIsolation() override;
+  bool ShouldIsolateErrorPage(bool in_main_frame) override;
   bool ShouldAllowProcessPerSiteForMultipleMainFrames(
       content::BrowserContext* context) override;
   std::unique_ptr<content::DigitalIdentityProvider>
@@ -85,19 +86,6 @@ class HeadlessContentBrowserClient : public content::ContentBrowserClient {
       const url::Origin& destination_origin,
       content::PrivacySandboxInvokingAPI invoking_api) override;
 
-  bool IsSharedStorageAllowed(
-      content::BrowserContext* browser_context,
-      content::RenderFrameHost* rfh,
-      const url::Origin& top_frame_origin,
-      const url::Origin& accessing_origin,
-      std::string* out_debug_message,
-      bool* out_block_is_site_setting_specific) override;
-  bool IsSharedStorageSelectURLAllowed(
-      content::BrowserContext* browser_context,
-      const url::Origin& top_frame_origin,
-      const url::Origin& accessing_origin,
-      std::string* out_debug_message,
-      bool* out_block_is_site_setting_specific) override;
   void ConfigureNetworkContextParams(
       content::BrowserContext* context,
       bool in_memory,

@@ -41,6 +41,7 @@
 #include "base/i18n/time_formatting.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -88,7 +89,9 @@
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_value.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_aria_notification_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_box_quad_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_caret_position_from_point_options.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_convert_coordinate_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_document_ready_state.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_creation_options.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_element_registration_options.h"
@@ -97,6 +100,7 @@
 #include "third_party/blink/renderer/bindings/core/v8/v8_observable_array_css_style_sheet.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_overscroll_event_init.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_throw_dom_exception.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_boolean_importnodeoptions.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_elementcreationoptions_string.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_htmlscriptelement_svgscriptelement.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_union_string_trustedhtml.h"
@@ -164,6 +168,7 @@
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/focused_element_change_observer.h"
 #include "third_party/blink/renderer/core/dom/focusgroup_flags.h"
+#include "third_party/blink/renderer/core/dom/geometry_utils.h"
 #include "third_party/blink/renderer/core/dom/layout_tree_builder_traversal.h"
 #include "third_party/blink/renderer/core/dom/live_node_list.h"
 #include "third_party/blink/renderer/core/dom/mutation_observer.h"
@@ -231,6 +236,8 @@
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
+#include "third_party/blink/renderer/core/geometry/dom_point.h"
+#include "third_party/blink/renderer/core/geometry/dom_quad.h"
 #include "third_party/blink/renderer/core/html/anchor_element_metrics_sender.h"
 #include "third_party/blink/renderer/core/html/canvas/canvas_font_cache.h"
 #include "third_party/blink/renderer/core/html/collection_type.h"
@@ -249,6 +256,7 @@
 #include "third_party/blink/renderer/core/html/forms/html_select_element.h"
 #include "third_party/blink/renderer/core/html/html_all_collection.h"
 #include "third_party/blink/renderer/core/html/html_anchor_element.h"
+#include "third_party/blink/renderer/core/html/html_area_element.h"
 #include "third_party/blink/renderer/core/html/html_base_element.h"
 #include "third_party/blink/renderer/core/html/html_body_element.h"
 #include "third_party/blink/renderer/core/html/html_collection.h"
@@ -367,6 +375,7 @@
 #include "third_party/blink/renderer/core/trustedtypes/trusted_html.h"
 #include "third_party/blink/renderer/core/trustedtypes/trusted_types_util.h"
 #include "third_party/blink/renderer/core/view_transition/page_reveal_event.h"
+#include "third_party/blink/renderer/core/view_transition/view_transition_skip_reason.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_supplement.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/core/xml/parser/xml_document_parser.h"
@@ -542,9 +551,6 @@ bool IsSyntheticSelect(Element& element) {
          HasSelectInNameAttribute(element) || IsRoleCombobox(element) ||
          IsAriaHasPopupListbox(element);
 }
-
-// The sampling rate for UKM.
-constexpr double kUkmSamplingRate = 0.001;
 
 }  // namespace
 
@@ -796,16 +802,16 @@ void Document::MarkUnassociatedListedElementsDirty() {
   unassociated_listed_elements_.MarkDirty();
 }
 
-void Document::TopLevelFormsList::MarkDirty() {
+void Document::OutermostFormsList::MarkDirty() {
   dirty_ = true;
   list_.clear();
 }
 
-void Document::TopLevelFormsList::Trace(Visitor* visitor) const {
+void Document::OutermostFormsList::Trace(Visitor* visitor) const {
   visitor->Trace(list_);
 }
 
-const HeapVector<Member<HTMLFormElement>>& Document::TopLevelFormsList::Get(
+const HeapVector<Member<HTMLFormElement>>& Document::OutermostFormsList::Get(
     Document& owner) {
   if (dirty_) {
     // Use BFS to avoid unnecessarily visiting the descendants of form elements.
@@ -845,7 +851,7 @@ const HeapVector<Member<HTMLFormElement>>& Document::TopLevelFormsList::Get(
 // The element which satisfies one of the first 2 conditions
 // but does satisfy any of the last 5 conditions
 // is considered a potential synthetic select.
-void Document::TopLevelFormsList::LogSyntheticSelectMetrics(
+void Document::OutermostFormsList::LogSyntheticSelectMetrics(
     Document& owner) const {
   for (Node* form : list_) {
     bool found_synthetic_select = false;
@@ -868,12 +874,12 @@ void Document::TopLevelFormsList::LogSyntheticSelectMetrics(
   }
 }
 
-const HeapVector<Member<HTMLFormElement>>& Document::GetTopLevelForms() {
-  return top_level_forms_.Get(*this);
+const HeapVector<Member<HTMLFormElement>>& Document::GetOutermostForms() {
+  return outermost_forms_.Get(*this);
 }
 
-void Document::MarkTopLevelFormsDirty() {
-  top_level_forms_.MarkDirty();
+void Document::MarkOutermostFormsDirty() {
+  outermost_forms_.MarkDirty();
 }
 
 Document::URLCache::URLCache()
@@ -1243,6 +1249,44 @@ DOMImplementation& Document::implementation() {
   return *implementation_;
 }
 
+HeapVector<Member<DOMQuad>> Document::getBoxQuads(
+    const BoxQuadOptions* options,
+    ExceptionState& exception_state) const {
+  auto* document = const_cast<Document*>(this);
+  return geometry_utils::GetBoxQuads(document, nullptr, options,
+                                     exception_state);
+}
+
+DOMQuad* Document::convertQuadFromNode(
+    DOMQuadInit* quad,
+    const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+    const ConvertCoordinateOptions* options,
+    ExceptionState& exception_state) const {
+  auto* document = const_cast<Document*>(this);
+  return geometry_utils::ConvertQuadFromNode(quad, document, nullptr, from,
+                                             options, exception_state);
+}
+
+DOMQuad* Document::convertRectFromNode(
+    DOMRectReadOnly* rect,
+    const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+    const ConvertCoordinateOptions* options,
+    ExceptionState& exception_state) const {
+  auto* document = const_cast<Document*>(this);
+  return geometry_utils::ConvertRectFromNode(rect, document, nullptr, from,
+                                             options, exception_state);
+}
+
+DOMPoint* Document::convertPointFromNode(
+    DOMPointInit* point,
+    const V8UnionCSSPseudoElementOrDocumentOrElementOrText* from,
+    const ConvertCoordinateOptions* options,
+    ExceptionState& exception_state) const {
+  auto* document = const_cast<Document*>(this);
+  return geometry_utils::ConvertPointFromNode(point, document, nullptr, from,
+                                              options, exception_state);
+}
+
 Location* Document::location() const {
   if (!GetFrame())
     return nullptr;
@@ -1388,8 +1432,7 @@ std::pair<CustomElementRegistry*, AtomicString> FlattenCreateElementOptions(
         is = AtomicString(options->is());
       }
       // 3-2. If options["customElementRegistry"] exists:
-      if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-          options->hasCustomElementRegistry()) {
+      if (options->hasCustomElementRegistry()) {
         // 3-2-1. If is is non-null, then throw a "notSupportedError"
         // DOMException.
         if (!is.IsNull()) {
@@ -1548,11 +1591,6 @@ Element* Document::CreateElement(const QualifiedName& q_name,
   CustomElementDefinition* definition = nullptr;
   // 2. If registry is "default", set registry to the result of looking
   // up a custom element registry given document.
-  // Note that we need to assign default registry when scoped registry is
-  // disabled
-  if (!RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-    registry = CustomElementRegistry::DefaultRegistry(*this);
-  }
   if (flags.IsCustomElements() &&
       q_name.NamespaceURI() == html_names::xhtmlNamespaceURI) {
     // 3. Let definition be the result of looking up a custom element definition
@@ -1633,48 +1671,37 @@ Text* Document::CreateEditingTextNode(const String& text) {
 }
 
 Node* Document::importNode(Node* imported_node,
-                           ImportNodeOptions* options,
+                           V8UnionBooleanOrImportNodeOptions* options,
                            ExceptionState& exception_state) {
   DCHECK(options);
-  DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
 
-  // The spec[1] says:
-  // 1. Let subtree be false.
-  // ...4. If options is a boolean, then set subtree to options .
-  // ...5.1 Set subtree to the negation of options [" selfOnly "].
-  //
-  // However, due to the overloads we know `ImportNodeOptions` to be
-  // an object, but `selfOnly` may not be supplied (in which case it
-  // will be false). Because we take the _negation_ of selfOnly, this
-  // means when it is not supplied subtree will be true. So another
-  // way to write the spec could be:
-  //
-  // 1. Let subtree be true
-  // ...5.1 Set subtree to the negation of options [" selfOnly "].
-  //
-  // [1]:
-  // https://whatpr.org/dom/1341/eaf2ac7...2ff2920.html#dom-document-importnode
-  bool subtree = true;
-  if (options->hasSelfOnly()) {
-    subtree = !options->selfOnly();
-  }
-
-  // 5-2. If options["customElementRegistry"] exists, then set registry to it.
+  bool subtree = false;
   CustomElementRegistry* registry = nullptr;
-  if (options->hasCustomElementRegistry()) {
-    CHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
-    registry = options->customElementRegistry();
-    // 5-3. If registry's "is scoped" is false and registry is not this's custom
-    // element registry, then throw a "notSupportedError" DOMException.
-    if (registry->IsGlobalRegistry() && registry != customElementRegistry()) {
-      exception_state.ThrowDOMException(
-          DOMExceptionCode::kNotSupportedError,
-          "The registry provided is a global registry from another document.");
-      return nullptr;
+  // 4. If options is a boolean, then set subtree to options.
+  if (options->IsBoolean()) {
+    subtree = options->GetAsBoolean();
+  } else {
+    ImportNodeOptions* import_node_options = options->GetAsImportNodeOptions();
+    // 5.1. Set subtree to the negation of options["selfOnly"].
+    subtree =
+        !import_node_options->hasSelfOnly() || !import_node_options->selfOnly();
+
+    // 5.2. If options["customElementRegistry"] exists, then set registry to it.
+    if (import_node_options->hasCustomElementRegistry()) {
+      registry = import_node_options->customElementRegistry();
+      // 5.3. If registry is global and differs from this document's registry,
+      // then throw a NotSupportedError.
+      if (registry->IsGlobalRegistry() && registry != customElementRegistry()) {
+        exception_state.ThrowDOMException(
+            DOMExceptionCode::kNotSupportedError,
+            "The registry provided is a global registry from another "
+            "document.");
+        return nullptr;
+      }
     }
   }
-  // 6. If registry is null, then set registry to the result of looking up a
-  // custom element registry given this
+
+  // 6. If registry is null, look up a custom element registry given this.
   if (!registry) {
     registry = customElementRegistry();
   }
@@ -2379,27 +2406,37 @@ Document::StyleAndLayoutTreeUpdate Document::CalculateStyleAndLayoutTreeUpdate()
 
 Document::StyleAndLayoutTreeUpdate
 Document::CalculateStyleAndLayoutTreeUpdateForThisDocument() const {
-  if (!IsActive() || !View())
+  if (!IsActive() || !View()) {
     return StyleAndLayoutTreeUpdate::kNone;
+  }
 
   if (style_engine_->NeedsFullStyleUpdate()) {
     return StyleAndLayoutTreeUpdate::kFull;
   }
-  if (!use_elements_needing_update_.empty())
+  if (!use_elements_needing_update_.empty()) {
     return StyleAndLayoutTreeUpdate::kFull;
+  }
   // We have scheduled an invalidation set on the document node which means any
   // element may need a style recalc.
-  if (NeedsStyleInvalidation())
+  if (NeedsStyleInvalidation()) {
     return StyleAndLayoutTreeUpdate::kFull;
-  if (IsSlotAssignmentDirty())
+  }
+  if (IsSlotAssignmentDirty()) {
     return StyleAndLayoutTreeUpdate::kFull;
-  if (document_animations_->NeedsAnimationTimingUpdate())
+  }
+  if (document_animations_->NeedsAnimationTimingUpdate()) {
     return StyleAndLayoutTreeUpdate::kFull;
+  }
 
-  if (style_engine_->NeedsStyleRecalc())
+  if (style_engine_->NeedsStyleRecalc()) {
     return StyleAndLayoutTreeUpdate::kAnalyzed;
-  if (style_engine_->NeedsStyleInvalidation())
+  }
+  if (style_engine_->NeedsStyleInvalidation()) {
     return StyleAndLayoutTreeUpdate::kAnalyzed;
+  }
+  if (overscroll_command_targets_dirty_) {
+    return StyleAndLayoutTreeUpdate::kAnalyzed;
+  }
   if (style_engine_->NeedsLayoutTreeRebuild()) {
     // TODO(futhark): there a couple of places where call back into the top
     // frame while recursively doing a lifecycle update. One of them are for the
@@ -2715,6 +2752,8 @@ void Document::UpdateStyleAndLayoutTreeForThisDocument() {
   document_animations_->UpdateAnimationTimingIfNeeded();
   EvaluateMediaQueryListIfNeeded();
   UpdateUseShadowTreesIfNeeded();
+
+  UpdateOverscrollCommandTargets();
 
   style_engine.UpdateActiveStyle();
   style_engine.UpdateCounterStyles();
@@ -3151,11 +3190,6 @@ void Document::ClearFocusedElementTimerFired(TimerBase*) {
     focused_element_->blur();
 }
 
-void Document::EnsurePaintLocationDataValidForNode(
-    const Node* node,
-    DocumentUpdateReason reason) {
-  UpdateStyleAndLayoutForNode(node, reason);
-}
 
 WebPrintPageDescription Document::GetPageDescription(uint32_t page_index) {
   View()->UpdateLifecycleToLayoutClean(DocumentUpdateReason::kUnknown);
@@ -3387,16 +3421,17 @@ void Document::Shutdown() {
   // Because the document view transition supplement can get destroyed before
   // the execution context notification, we should clean up the transition
   // objects here.
-  ViewTransitionUtils::ForEachTransition(
-      *this, [](ViewTransition& transition) { transition.SkipTransition(); });
+  ViewTransitionUtils::ForEachTransition(*this, [](ViewTransition& transition) {
+    transition.SkipTransition(ViewTransition::PromiseResponse::kRejectAbort,
+                              ViewTransitionSkipReason::kContextDestroyed);
+  });
 
   // Preserve the global custom element registry on the TreeScope before the
   // window reference is cleared. This ensures that
   // Document.customElementRegistry continues to return the correct registry
   // even after the document's browsing context is destroyed (e.g., when an
   // iframe is removed from the DOM).
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-      dom_window_) {
+  if (dom_window_) {
     if (CustomElementRegistry* registry = dom_window_->MaybeCustomElements()) {
       SetCustomElementRegistry(
           CustomElementRegistryAssignment::Explicit(registry));
@@ -3587,10 +3622,8 @@ CanvasFontCache* Document::GetCanvasFontCache() {
 
 DocumentParser* Document::CreateParser() {
   if (auto* html_document = DynamicTo<HTMLDocument>(this)) {
-    CustomElementRegistry* registry = nullptr;
-    if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-      registry = CustomElementRegistry::DefaultRegistry(*this);
-    }
+    CustomElementRegistry* registry =
+        CustomElementRegistry::DefaultRegistry(*this);
     return MakeGarbageCollected<HTMLDocumentParser>(
         *html_document, parser_sync_policy_, registry, sanitizer_.Get());
   }
@@ -5550,13 +5583,11 @@ Node* Document::Clone(Document& factory,
     return nullptr;
   Document* clone = CloneDocumentWithoutChildren();
   clone->CloneDataFromDocument(*this);
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled()) {
-    // 2. If node's custom element registry's "is scoped" is true, then
-    // set copy's custom element registry to node's custom element registry.
-    if (fallback_registry && !fallback_registry->IsGlobalRegistry()) {
-      clone->SetCustomElementRegistry(
-          CustomElementRegistryAssignment::Explicit(fallback_registry));
-    }
+  // 2. If node's custom element registry's "is scoped" is true, then
+  // set copy's custom element registry to node's custom element registry.
+  if (fallback_registry && !fallback_registry->IsGlobalRegistry()) {
+    clone->SetCustomElementRegistry(
+        CustomElementRegistryAssignment::Explicit(fallback_registry));
   }
   if (data.Has(CloneOption::kIncludeDescendants)) {
     clone->CloneChildNodesFrom(*this, data, fallback_registry);
@@ -5766,6 +5797,14 @@ static Element* SkipDisplayNoneAncestors(Element* element) {
   for (; element; element = FlatTreeTraversal::ParentElement(*element)) {
     if (element->GetLayoutObject() || element->HasDisplayContentsStyle())
       return element;
+    // <area> is display:none by default, in which case it has no box of its
+    // own, but it is painted as part of the <img> that uses its <map>, and hit
+    // testing resolves image map hits to it, so it can be hovered/activated
+    // like a rendered element.
+    if (IsA<HTMLAreaElement>(*element) &&
+        RuntimeEnabledFeatures::HTMLAreaElementDisplayNoneEnabled()) {
+      return element;
+    }
   }
   return nullptr;
 }
@@ -5980,8 +6019,7 @@ bool Document::SetFocusedElement(Element* new_focused_element,
       return false;
     }
     SetShouldUpdateSelectionAfterLayout(false);
-    EnsurePaintLocationDataValidForNode(focused_element_,
-                                        DocumentUpdateReason::kFocus);
+    UpdateStyleAndLayoutForNode(focused_element_, DocumentUpdateReason::kFocus);
     focused_element_->UpdateSelectionOnFocus(params.selection_behavior,
                                              params.options);
 
@@ -7027,8 +7065,12 @@ std::optional<base::Time> Document::lastModifiedTime() const {
 
 // https://html.spec.whatwg.org/C#dom-document-lastmodified
 String Document::lastModified() const {
-  return String(base::UnlocalizedTimeFormatWithPattern(
-      lastModifiedTime().value_or(base::Time::Now()), "MM/dd/yyyy HH:mm:ss"));
+  base::Time time = lastModifiedTime().value_or(base::Time::Now());
+  base::Time::Exploded exploded;
+  time.LocalExplode(&exploded);
+  return String(base::StringPrintf(
+      "%02d/%02d/%04d %02d:%02d:%02d", exploded.month, exploded.day_of_month,
+      exploded.year, exploded.hour, exploded.minute, exploded.second));
 }
 
 scoped_refptr<const SecurityOrigin> Document::TopFrameOrigin() const {
@@ -8078,24 +8120,6 @@ void Document::FinishedParsing() {
 
   if (IsInOutermostMainFrame() && !IsInitialEmptyDocument() &&
       Url().ProtocolIsInHttpFamily()) {
-    // Record histograms of SVGImage.
-    base::UmaHistogramCounts100(
-        "Blink.Layout.SVGImage.Count.InOutermostMainFrame",
-        data_->svg_image_processed_count_);
-    base::UmaHistogramMicrosecondsTimes(
-        "Blink.Layout.SVGImage.TotalTime.InOutermostMainFrame",
-        data_->accumulated_svg_image_elapsed_time_);
-
-    // UKM data is sampled at a frequency of `kUkmSamplingRate`.
-    if (base::RandDouble() < kUkmSamplingRate) {
-      ukm::builders::Blink_SVGImage(UkmSourceID())
-          .SetCount(ukm::GetExponentialBucketMinForCounts1000(
-              data_->svg_image_processed_count_))
-          .SetTotalTime(
-              data_->accumulated_svg_image_elapsed_time_.InMicroseconds())
-          .Record(UkmRecorder());
-    }
-
     // Record the total taken time by UseCounter.
     Loader()->GetUseCounter().ReportTotalTakenTime(GetFrame(),
                                                    /*did_commit_load=*/false);
@@ -8442,13 +8466,6 @@ ukm::UkmRecorder* Document::UkmRecorder() {
 
 ukm::SourceId Document::UkmSourceID() const {
   return ukm_source_id_;
-}
-
-void Document::MaybeRecordSvgImageProcessingTime(
-    int data_change_count,
-    base::TimeDelta data_change_elapsed_time) const {
-  data_->svg_image_processed_count_ += data_change_count;
-  data_->accumulated_svg_image_elapsed_time_ += data_change_elapsed_time;
 }
 
 bool Document::AllowInlineEventHandler(Node* node,
@@ -9582,7 +9599,7 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(data_);
   visitor->Trace(meta_theme_color_elements_);
   visitor->Trace(unassociated_listed_elements_);
-  visitor->Trace(top_level_forms_);
+  visitor->Trace(outermost_forms_);
   visitor->Trace(intrinsic_size_observer_);
   visitor->Trace(lazy_loaded_auto_sized_img_observer_);
   visitor->Trace(anchor_element_interaction_tracker_);
@@ -9593,6 +9610,8 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(payment_link_handler_);
 #endif  // BUILDFLAG(IS_ANDROID)
   visitor->Trace(view_transitions_);
+  visitor->Trace(overscroll_command_targets_);
+  visitor->Trace(overscroll_command_invokers_);
 
   visitor->Trace(menu_safe_triangle_);
   Supplementable<Document>::Trace(visitor);
@@ -10379,7 +10398,6 @@ net::SchemefulSite Document::GetCachedTopFrameSite(VisitedLinkPassKey) {
 
 
 CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
-  DCHECK(RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled());
   auto* registry = customElementRegistry();
   if (registry && registry->IsGlobalRegistry()) {
     return registry;
@@ -10387,7 +10405,67 @@ CustomElementRegistry* Document::EffectiveGlobalCustomElementRegistry() const {
   return nullptr;
 }
 
+bool Document::IsOverscrollCommandTarget(Element& element) const {
+  return overscroll_command_targets_.Contains(&element);
+}
 
+void Document::UpdateOverscrollCommandTargets() {
+  if (!overscroll_command_targets_dirty_) {
+    return;
+  }
+
+  if (overscroll_command_invokers_.empty() &&
+      overscroll_command_targets_.empty()) {
+    overscroll_command_targets_dirty_ = false;
+    return;
+  }
+
+  HeapHashSet<Member<Element>> new_targets;
+  for (Element* element : overscroll_command_invokers_) {
+    if (auto* html_element = DynamicTo<HTMLElement>(element)) {
+      if (Element* target = html_element->commandForElement()) {
+        new_targets.insert(target);
+      }
+    }
+  }
+
+  // Calculate the difference and call OverscrollTargetStateChanged.
+  for (Element* entry : overscroll_command_targets_) {
+    if (!new_targets.Contains(entry)) {
+      entry->OverscrollTargetStateChanged();
+    }
+  }
+  for (Element* entry : new_targets) {
+    if (!overscroll_command_targets_.Contains(entry)) {
+      entry->OverscrollTargetStateChanged();
+    }
+  }
+
+  overscroll_command_targets_ = std::move(new_targets);
+  overscroll_command_targets_dirty_ = false;
+}
+
+void Document::MarkOverscrollCommandTargetsDirty() {
+  if (overscroll_command_invokers_.empty() &&
+      overscroll_command_targets_.empty()) {
+    return;
+  }
+  overscroll_command_targets_dirty_ = true;
+  ScheduleLayoutTreeUpdateIfNeeded();
+}
+
+void Document::AddOverscrollCommandInvoker(Element& invoker) {
+  if (overscroll_command_invokers_.insert(&invoker).is_new_entry) {
+    MarkOverscrollCommandTargetsDirty();
+  }
+}
+
+void Document::RemoveOverscrollCommandInvoker(Element& invoker) {
+  if (overscroll_command_invokers_.Contains(&invoker)) {
+    overscroll_command_invokers_.erase(&invoker);
+    MarkOverscrollCommandTargetsDirty();
+  }
+}
 
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;
 

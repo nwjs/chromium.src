@@ -30,7 +30,7 @@
 #include "chrome/browser/ui/views/file_system_access/file_system_access_test_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
+#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -1348,8 +1348,6 @@ IN_PROC_BROWSER_TEST_F(FileSystemAccessBrowserTest,
 class FileSystemAccessBrowserTestForWebUI : public InProcessBrowserTest {
  public:
   FileSystemAccessBrowserTestForWebUI() {
-    scoped_feature_list_.InitWithFeatures({::features::kPageActionsMigration},
-                                          {});
     base::ScopedAllowBlockingForTesting allow_blocking;
 
     // Create a scoped directory under %TEMP% instead of using

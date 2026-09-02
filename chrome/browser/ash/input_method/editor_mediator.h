@@ -6,8 +6,10 @@
 #define CHROME_BROWSER_ASH_INPUT_METHOD_EDITOR_MEDIATOR_H_
 
 #include <optional>
+#include <string>
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ash/input_method/editor_announcer.h"
 #include "chrome/browser/ash/input_method/editor_client_connector.h"
@@ -32,6 +34,8 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "ui/display/display_observer.h"
 
+class ApplicationLocaleStorage;
+
 namespace display {
 enum class TabletState;
 }  // namespace display
@@ -52,7 +56,9 @@ class EditorMediator : public EditorContext::Observer,
                        public display::DisplayObserver,
                        public KeyedService {
  public:
+  // `application_locale_storage` must not be null and must outlive `this`.
   EditorMediator(
+      const ApplicationLocaleStorage* application_locale_storage,
       Profile* profile,
       std::unique_ptr<EditorGeolocationProvider> editor_geolocation_provider);
   ~EditorMediator() override;
@@ -167,6 +173,8 @@ class EditorMediator : public EditorContext::Observer,
 
   bool GetUserPref();
   void SetUserPref(bool value);
+
+  const raw_ref<const ApplicationLocaleStorage> application_locale_storage_;
 
   // Not owned by this class
   raw_ptr<Profile> profile_;

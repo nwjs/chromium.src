@@ -29,6 +29,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/sessions/session_restore.h"
+#include "chrome/browser/signin/account_preview_data_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -129,6 +130,9 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   source->AddString("accountPictureUrl",
                     profiles::GetPlaceholderAvatarIconUrl());
 
+  const bool is_critical_actions_enabled = base::FeatureList::IsEnabled(
+      critical_actions::features::kCriticalActionHistory);
+
   // The history page footer can display messages about other forms of
   // browsing history, linking to Google My Activity (GMA) and/or
   // Gemini Apps Activity (GAA). At most one message is shown, depending on
@@ -143,9 +147,11 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
                                  chrome::kMyActivityGeminiAppsUrl));
   source->AddString(
       "sidebarFooterGMAAndGAA",
-      l10n_util::GetStringFUTF16(IDS_HISTORY_OTHER_FORMS_OF_HISTORY_GMA_AND_GAA,
-                                 chrome::kMyActivityUrlInHistory,
-                                 chrome::kMyActivityGeminiAppsUrl));
+      l10n_util::GetStringFUTF16(
+          is_critical_actions_enabled
+              ? IDS_HISTORY_OTHER_FORMS_OF_HISTORY_GMA_AND_GAA_CRITICAL_ACTIONS
+              : IDS_HISTORY_OTHER_FORMS_OF_HISTORY_GMA_AND_GAA,
+          chrome::kMyActivityUrlInHistory, chrome::kMyActivityGeminiAppsUrl));
   // Links that are used in the messages above.
   source->AddString("sidebarFooterGMALink", chrome::kMyActivityUrlInHistory);
   source->AddString("sidebarFooterGAALink", chrome::kMyActivityGeminiAppsUrl);
@@ -169,8 +175,9 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
       IdentityManagerFactory::GetForProfile(profile);
   bool has_primary_account =
       identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin);
-  AccountInfo account_info =
-      signin_ui_util::GetSingleAccountForPromos(identity_manager);
+  AccountInfo account_info = signin_ui_util::GetSingleAccountForPromos(
+      identity_manager,
+      AccountPreviewDataServiceFactory::GetForProfile(profile));
   source->AddString(
       "historySyncPromoBodySignedIn",
       l10n_util::GetStringFUTF16(IDS_HISTORY_SYNC_PROMO_BODY_SIGNED_IN,
@@ -228,9 +235,7 @@ content::WebUIDataSource* CreateAndAddHistoryUIHTMLSource(Profile* profile) {
   source->AddLocalizedStrings(kHistoryEmbeddingsStrings);
   source->AddBoolean("isBrowsingHistoryActorIntegrationM3Enabled",
                      history::IsBrowsingHistoryActorIntegrationM3Enabled());
-  source->AddBoolean("isCriticalActionsEnabled",
-                     base::FeatureList::IsEnabled(
-                         critical_actions::features::kCriticalActionHistory));
+  source->AddBoolean("isCriticalActionsEnabled", is_critical_actions_enabled);
 
   source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
                                             ? "webui-refresh-2026"
@@ -290,11 +295,10 @@ HistoryUI::~HistoryUI() = default;
 WEB_UI_CONTROLLER_TYPE_IMPL(HistoryUI)
 
 // static
-base::RefCountedMemory* HistoryUI::GetFaviconResourceBytes(
+scoped_refptr<base::RefCountedMemory> HistoryUI::GetFaviconResourceBytes(
     ui::ResourceScaleFactor scale_factor) {
-  return static_cast<base::RefCountedMemory*>(
-      ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
-          IDR_HISTORY_FAVICON, scale_factor));
+  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
+      IDR_HISTORY_FAVICON, scale_factor);
 }
 
 void HistoryUI::BindInterface(

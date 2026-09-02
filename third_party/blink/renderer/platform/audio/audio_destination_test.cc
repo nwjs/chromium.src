@@ -7,19 +7,19 @@
 #include <array>
 #include <memory>
 
-#include "base/test/scoped_feature_list.h"
-#include "base/test/task_environment.h"
-#include "base/test/test_simple_task_runner.h"
 #include "base/run_loop.h"
-#include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/task/single_thread_task_runner.h"
-#include "base/threading/thread_restrictions.h"
+#include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
+#include "base/test/test_simple_task_runner.h"
 #include "base/thread_annotations.h"
+#include "base/threading/thread_restrictions.h"
 #include "media/audio/audio_features.h"
 #include "media/base/audio_bus.h"
 #include "media/base/audio_glitch_info.h"
+#include "media/base/audio_timestamp_helper.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/platform/web_audio_device.h"
@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/platform/audio/audio_callback_metric_reporter.h"
 #include "third_party/blink/renderer/platform/audio/audio_io_callback.h"
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
+#include "third_party/blink/renderer/platform/scheduler/public/non_main_thread.h"
 #include "third_party/blink/renderer/platform/testing/testing_platform_support.h"
 
 namespace blink {
@@ -350,7 +351,7 @@ TEST_P(AudioDestinationTest, GlitchAndDelay) {
   // delay.
   const int priming_frames = RoundUpToRenderQuantum(requested_frames);
 #endif
-  base::TimeDelta priming_delay = audio_utilities::FramesToTime(
+  base::TimeDelta priming_delay = media::AudioTimestampHelper::FramesToTime(
       priming_frames, Platform::Current()->AudioHardwareSampleRate());
 
   auto audio_bus = media::AudioBus::Create(kDefaultHardwareOutputChannelNumber,
@@ -752,6 +753,45 @@ TEST_F(AudioDestinationTest, DestructOnMainThread) {
   // main thread.
   run_loop.Run();
 }
+
+class AudioDestinationSmallRenderQuantumTest
+    : public ::testing::TestWithParam<unsigned> {};
+
+TEST_P(AudioDestinationSmallRenderQuantumTest, Resampling) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kWebAudioRemoveAudioDestinationResampler);
+  ScopedTestingPlatformSupport<TestPlatform> platform;
+  platform->CreateMockWebAudioDevice(kDefaultHardwareSampleRate,
+                                     kDefaultHardwareBufferSize);
+  EXPECT_CALL(platform->web_audio_device(), Start).Times(1);
+  EXPECT_CALL(platform->web_audio_device(), Stop).Times(1);
+
+  WebAudioSinkDescriptor sink_descriptor(WebString(""), kFrameToken);
+  const int channel_count = Platform::Current()->AudioHardwareOutputChannels();
+
+  AudioCallback callback;
+  const unsigned quantum = GetParam();
+  scoped_refptr<AudioDestination> destination = AudioDestination::Create(
+      callback, sink_descriptor, channel_count,
+      // Pick an unusual context sample rate to force resampling regardless of
+      // platform-default hardware sample rate.
+      WebAudioLatencyHint(WebAudioLatencyHint::kCategoryInteractive), 40000.0f,
+      quantum);
+  ASSERT_NE(destination, nullptr);
+  EXPECT_NE(destination->GetResamplerForTesting(), nullptr);
+
+  destination->Start();
+  auto audio_bus =
+      media::AudioBus::Create(channel_count, destination->FramesPerBuffer());
+  destination->Render(base::TimeDelta::Min(), base::TimeTicks::Now(), {},
+                      audio_bus.get());
+  destination->Stop();
+}
+
+INSTANTIATE_TEST_SUITE_P(AudioDestinationSmallRenderQuantumTest,
+                         AudioDestinationSmallRenderQuantumTest,
+                         ::testing::Values(1u, 16u, 32u, 48u, 64u));
 
 }  // namespace
 

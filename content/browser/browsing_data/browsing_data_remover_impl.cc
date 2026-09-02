@@ -397,8 +397,11 @@ void BrowsingDataRemoverImpl::RemoveImpl(
       (!embedder_delegate_ || embedder_delegate_->MayRemoveDownloadHistory())) {
     base::RecordAction(UserMetricsAction("ClearBrowsingData_Downloads"));
     DownloadManager* download_manager = browser_context_->GetDownloadManager();
-    download_manager->RemoveDownloadsByURLAndTime(url_filter, delete_begin_,
-                                                  delete_end_);
+    if (download_manager) {
+      download_manager->RemoveDownloadsByURLAndTime(
+          url_filter, delete_begin_, delete_end_,
+          CreateTaskCompletionClosureForMojo(TracingDataType::kDownloads));
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -431,6 +434,10 @@ void BrowsingDataRemoverImpl::RemoveImpl(
   if (remove_mask & DATA_TYPE_LOCAL_STORAGE) {
     storage_partition_remove_mask |=
         StoragePartition::REMOVE_DATA_MASK_LOCAL_STORAGE;
+  }
+  if (remove_mask & DATA_TYPE_DECLARATIVE_PERFORMANCE_OBSERVER) {
+    storage_partition_remove_mask |=
+        StoragePartition::REMOVE_DATA_MASK_DECLARATIVE_PERFORMANCE_OBSERVER;
   }
   if (remove_mask & DATA_TYPE_INDEXED_DB) {
     storage_partition_remove_mask |=
@@ -547,9 +554,15 @@ void BrowsingDataRemoverImpl::RemoveImpl(
     // The clearing of the HTTP cache happens in the network service process
     // when enabled. Note that we've deprecated the concept of a media cache,
     // and are now using a single cache for both purposes.
-    network_context->ClearHttpCache(
-        delete_begin, delete_end, filter_builder->BuildNetworkServiceFilter(),
-        CreateTaskCompletionClosureForMojo(TracingDataType::kHttpCache));
+    if (remove_mask & DATA_TYPE_LOGICAL_CLEAR) {
+      network_context->ClearHttpCacheLogically(
+          delete_begin, delete_end, filter_builder->BuildNetworkServiceFilter(),
+          CreateTaskCompletionClosureForMojo(TracingDataType::kHttpCache));
+    } else {
+      network_context->ClearHttpCache(
+          delete_begin, delete_end, filter_builder->BuildNetworkServiceFilter(),
+          CreateTaskCompletionClosureForMojo(TracingDataType::kHttpCache));
+    }
 
     if (base::FeatureList::IsEnabled(
             features::kCodeCacheDeletionWithoutFilter)) {
@@ -954,6 +967,8 @@ const char* BrowsingDataRemoverImpl::GetHistogramSuffix(TracingDataType task) {
       return "PrefetchCache";
     case TracingDataType::kPrerenderCache:
       return "PrerenderCache";
+    case TracingDataType::kDownloads:
+      return "Downloads";
   }
 }
 

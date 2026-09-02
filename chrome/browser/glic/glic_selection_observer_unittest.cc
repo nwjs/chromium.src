@@ -8,11 +8,14 @@
 
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/glic/browser_ui/glic_nudge_controller.h"
+#include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
@@ -32,6 +35,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/test_renderer_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/clipboard_buffer.h"
 #include "ui/base/clipboard/test/test_clipboard.h"
@@ -73,10 +77,10 @@ class TestGlicSelectionObserver : public GlicSelectionObserver {
     }
   }
 
-  void DismissUI(bool keep_nudge) override {
+  void DismissUI(DismissReason reason) override {
     dismiss_ui_called_ = true;
-    dismiss_ui_kept_nudge_ = keep_nudge;
-    GlicSelectionObserver::DismissUI(keep_nudge);
+    dismiss_ui_reason_ = reason;
+    GlicSelectionObserver::DismissUI(reason);
   }
 
   const std::optional<std::u16string>& last_processed_text() const {
@@ -86,19 +90,22 @@ class TestGlicSelectionObserver : public GlicSelectionObserver {
   int update_count() const { return update_count_; }
 
   bool dismiss_ui_called() const { return dismiss_ui_called_; }
-  bool dismiss_ui_kept_nudge() const { return dismiss_ui_kept_nudge_; }
+  std::optional<DismissReason> dismiss_ui_reason() const {
+    return dismiss_ui_reason_;
+  }
 
   void Reset() {
     last_processed_text_.reset();
     update_count_ = 0;
     dismiss_ui_called_ = false;
-    dismiss_ui_kept_nudge_ = false;
+    dismiss_ui_reason_ = std::nullopt;
     call_base_update_selection_state_ = false;
     mock_panel_showing_ = false;
     send_context_called_ = false;
     last_sent_context_.reset();
     show_selection_affordance_called_ = false;
     last_affordance_text_.reset();
+    trigger_region_capture_called_ = false;
   }
 
   // Expose methods for testing.
@@ -122,6 +129,10 @@ class TestGlicSelectionObserver : public GlicSelectionObserver {
   }
   const std::optional<std::u16string>& last_affordance_text() const {
     return last_affordance_text_;
+  }
+
+  bool trigger_region_capture_called() const {
+    return trigger_region_capture_called_;
   }
 
  protected:
@@ -148,11 +159,16 @@ class TestGlicSelectionObserver : public GlicSelectionObserver {
     last_affordance_text_ = selected_text;
   }
 
+  void TriggerRegionCapture() override {
+    trigger_region_capture_called_ = true;
+    GlicSelectionObserver::TriggerRegionCapture();
+  }
+
  private:
   std::optional<std::u16string> last_processed_text_;
   int update_count_ = 0;
   bool dismiss_ui_called_ = false;
-  bool dismiss_ui_kept_nudge_ = false;
+  std::optional<DismissReason> dismiss_ui_reason_;
 
   bool call_base_update_selection_state_ = false;
   bool mock_panel_showing_ = false;
@@ -160,6 +176,7 @@ class TestGlicSelectionObserver : public GlicSelectionObserver {
   std::optional<std::u16string> last_sent_context_;
   bool show_selection_affordance_called_ = false;
   std::optional<std::u16string> last_affordance_text_;
+  bool trigger_region_capture_called_ = false;
 };
 
 }  // namespace
@@ -607,8 +624,7 @@ TEST_F(GlicSelectionObserverTest, InputEventsDismissUI) {
   tabs::TabLookupFromWebContents::CreateForWebContents(web_contents(),
                                                        &mock_tab);
 
-  // Keyboard events should dismiss UI with keep_nudge = false.
-  // The nudge should be dismissed.
+  // Keyboard events should dismiss UI with DismissReason::kExternal.
   EXPECT_CALL(mock_tab, GetBrowserWindowInterface())
       .WillRepeatedly(testing::Return(nullptr));
   blink::WebKeyboardEvent key_event(
@@ -619,12 +635,12 @@ TEST_F(GlicSelectionObserverTest, InputEventsDismissUI) {
                              InputEventSource::kUnknown);
   task_environment()->RunUntilIdle();
   EXPECT_TRUE(observer->dismiss_ui_called());
-  EXPECT_FALSE(observer->dismiss_ui_kept_nudge());
+  EXPECT_EQ(observer->dismiss_ui_reason(),
+            GlicSelectionObserver::DismissReason::kExternal);
   testing::Mock::VerifyAndClearExpectations(&mock_tab);
   observer->Reset();
 
-  // Mouse clicks should dismiss UI with keep_nudge = false.
-  // The nudge should be dismissed.
+  // Mouse clicks should dismiss UI with DismissReason::kExternal.
   EXPECT_CALL(mock_tab, GetBrowserWindowInterface())
       .WillRepeatedly(testing::Return(nullptr));
   blink::WebMouseEvent mouse_event(
@@ -637,12 +653,12 @@ TEST_F(GlicSelectionObserverTest, InputEventsDismissUI) {
                              InputEventSource::kUnknown);
   task_environment()->RunUntilIdle();
   EXPECT_TRUE(observer->dismiss_ui_called());
-  EXPECT_FALSE(observer->dismiss_ui_kept_nudge());
+  EXPECT_EQ(observer->dismiss_ui_reason(),
+            GlicSelectionObserver::DismissReason::kExternal);
   testing::Mock::VerifyAndClearExpectations(&mock_tab);
   observer->Reset();
 
-  // Scroll events should dismiss UI with keep_nudge = true.
-  // The nudge should NOT be dismissed.
+  // Scroll events should dismiss UI with DismissReason::kExternal.
   EXPECT_CALL(mock_tab, GetBrowserWindowInterface()).Times(0);
   blink::WebMouseWheelEvent scroll_event(
       blink::WebInputEvent::Type::kMouseWheel,
@@ -653,7 +669,8 @@ TEST_F(GlicSelectionObserverTest, InputEventsDismissUI) {
                              InputEventSource::kUnknown);
   task_environment()->RunUntilIdle();
   EXPECT_TRUE(observer->dismiss_ui_called());
-  EXPECT_TRUE(observer->dismiss_ui_kept_nudge());
+  EXPECT_EQ(observer->dismiss_ui_reason(),
+            GlicSelectionObserver::DismissReason::kExternal);
   testing::Mock::VerifyAndClearExpectations(&mock_tab);
   observer->Reset();
 }
@@ -664,7 +681,8 @@ TEST_F(GlicSelectionObserverTest, PrimaryMainFrameResizedDismissesUI) {
 
   observer->PrimaryMainFrameWasResized(/*width_changed=*/true);
   EXPECT_TRUE(observer->dismiss_ui_called());
-  EXPECT_TRUE(observer->dismiss_ui_kept_nudge());
+  EXPECT_EQ(observer->dismiss_ui_reason(),
+            GlicSelectionObserver::DismissReason::kExternal);
 }
 
 TEST_F(GlicSelectionObserverTest, OnLinkGeneratedSuccess) {
@@ -874,7 +892,8 @@ TEST_F(GlicSelectionObserverTest, SelectionShowOnShiftClick) {
 
   // Expect UI to be dismissed.
   EXPECT_TRUE(observer->dismiss_ui_called());
-  EXPECT_FALSE(observer->dismiss_ui_kept_nudge());
+  EXPECT_EQ(observer->dismiss_ui_reason(),
+            GlicSelectionObserver::DismissReason::kExternal);
   observer->Reset();
 
   // Simulate MouseDown with Shift modifier.
@@ -1094,6 +1113,171 @@ TEST_F(GlicSelectionObserverTest, OnHideHidesSelectionWidget) {
   EXPECT_EQ(CONTENT_SETTING_ALLOW,
             settings_map->GetContentSetting(
                 url, GURL(), ContentSettingsType::INLINE_CUE_MENU));
+}
+
+TEST_F(GlicSelectionObserverTest, ShakeTriggerSucceedsWhenFeatureAndPrefEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kGlicSelectionPrompt,
+                            features::kGlicShakeTrigger},
+      /*disabled_features=*/{});
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicShakeTriggerEnabled, true);
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  auto* observer = GetObserver();
+  ASSERT_TRUE(observer);
+
+  auto simulate_mouse_move = [&](float x, float y) {
+    blink::WebMouseEvent event(
+        blink::WebInputEvent::Type::kMouseMove,
+        blink::WebInputEvent::kNoModifiers,
+        blink::WebInputEvent::GetStaticTimeStampForTests());
+    event.SetPositionInWidget(x, y);
+    observer->OnInputEvent(
+        *main_rfh()->GetRenderWidgetHost(), event,
+        content::RenderWidgetHost::InputEventObserver::InputEventSource::kUnknown);
+    task_environment()->RunUntilIdle();
+  };
+
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+
+  // Move right 20px (establishes initial direction: RIGHT).
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+
+  // Move left 20px (Direction change 1: LEFT).
+  simulate_mouse_move(0.0f, 0.0f);
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+
+  // Move right 20px (Direction change 2: RIGHT).
+  simulate_mouse_move(20.0f, 0.0f);
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+
+  // Move left 20px (Direction change 3: LEFT).
+  simulate_mouse_move(0.0f, 0.0f);
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+
+  // Move right 20px (Direction change 4: RIGHT -> Shake triggered!).
+  simulate_mouse_move(20.0f, 0.0f);
+  EXPECT_TRUE(observer->trigger_region_capture_called());
+}
+
+TEST_F(GlicSelectionObserverTest, ShakeTriggerDisabledByFeatureFlag) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kGlicSelectionPrompt},
+      /*disabled_features=*/{features::kGlicShakeTrigger});
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicShakeTriggerEnabled, true);
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  auto* observer = GetObserver();
+  ASSERT_TRUE(observer);
+
+  auto simulate_mouse_move = [&](float x, float y) {
+    blink::WebMouseEvent event(
+        blink::WebInputEvent::Type::kMouseMove,
+        blink::WebInputEvent::kNoModifiers,
+        blink::WebInputEvent::GetStaticTimeStampForTests());
+    event.SetPositionInWidget(x, y);
+    observer->OnInputEvent(
+        *main_rfh()->GetRenderWidgetHost(), event,
+        content::RenderWidgetHost::InputEventObserver::InputEventSource::kUnknown);
+    task_environment()->RunUntilIdle();
+  };
+
+  // Perform 4 direction changes.
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+}
+
+TEST_F(GlicSelectionObserverTest, ShakeTriggerDisabledByPref) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kGlicSelectionPrompt,
+                            features::kGlicShakeTrigger},
+      /*disabled_features=*/{});
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicShakeTriggerEnabled, false);
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  auto* observer = GetObserver();
+  ASSERT_TRUE(observer);
+
+  auto simulate_mouse_move = [&](float x, float y) {
+    blink::WebMouseEvent event(
+        blink::WebInputEvent::Type::kMouseMove,
+        blink::WebInputEvent::kNoModifiers,
+        blink::WebInputEvent::GetStaticTimeStampForTests());
+    event.SetPositionInWidget(x, y);
+    observer->OnInputEvent(
+        *main_rfh()->GetRenderWidgetHost(), event,
+        content::RenderWidgetHost::InputEventObserver::InputEventSource::kUnknown);
+    task_environment()->RunUntilIdle();
+  };
+
+  // Perform 4 direction changes.
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+}
+
+TEST_F(GlicSelectionObserverTest, ContinuousMoveDoesNotTriggerShake) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{features::kGlicSelectionPrompt,
+                            features::kGlicShakeTrigger},
+      /*disabled_features=*/{});
+  profile()->GetPrefs()->SetBoolean(prefs::kGlicShakeTriggerEnabled, true);
+  NavigateAndCommit(GURL("https://example.com/"));
+
+  auto* observer = GetObserver();
+  ASSERT_TRUE(observer);
+
+  auto simulate_mouse_move = [&](float x, float y) {
+    blink::WebMouseEvent event(
+        blink::WebInputEvent::Type::kMouseMove,
+        blink::WebInputEvent::kNoModifiers,
+        blink::WebInputEvent::GetStaticTimeStampForTests());
+    event.SetPositionInWidget(x, y);
+    observer->OnInputEvent(
+        *main_rfh()->GetRenderWidgetHost(), event,
+        content::RenderWidgetHost::InputEventObserver::InputEventSource::kUnknown);
+    task_environment()->RunUntilIdle();
+  };
+
+  // Move continuously in the positive X direction.
+  simulate_mouse_move(0.0f, 0.0f);
+  simulate_mouse_move(20.0f, 0.0f);
+  simulate_mouse_move(40.0f, 0.0f);
+  simulate_mouse_move(60.0f, 0.0f);
+  simulate_mouse_move(80.0f, 0.0f);
+  simulate_mouse_move(100.0f, 0.0f);
+
+  EXPECT_FALSE(observer->trigger_region_capture_called());
+}
+
+TEST_F(GlicSelectionObserverTest, SelectionWordCountMetrics) {
+  base::HistogramTester histogram_tester;
+
+  std::u16string text = u"   one   two\nthree\t ";
+  GlicSelectionObserver::InvokeGlicFromSelectionAffordance(
+      text, /*is_widget=*/true, web_contents()->GetWeakPtr(),
+      GlicNudgeActivity::kNudgeClicked);
+
+  histogram_tester.ExpectUniqueSample(
+      "Glic.Selection.WidgetClicked.SelectionLength.PreFre", text.length(), 1);
+  histogram_tester.ExpectUniqueSample(
+      "Glic.Selection.WidgetClicked.SelectionWordCount.PreFre", 3, 1);
 }
 
 }  // namespace glic

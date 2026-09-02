@@ -42,7 +42,6 @@
 #include "base/no_destructor.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
@@ -75,6 +74,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "storage/browser/quota/quota_manager_proxy.h"
+#include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -83,10 +83,6 @@
 
 namespace content::indexed_db {
 namespace {
-
-// This flag enables the SQLite backing store for in-memory contexts.
-BASE_FEATURE(kIdbSqliteBackingStoreInMemoryContexts,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<SqliteRolloutStage>::Option
     kIdbSqliteOnDiskRolloutStages[] = {
@@ -202,9 +198,7 @@ SqliteRolloutStage GetSqliteRolloutStage(bool in_memory) {
     return SqliteRolloutStage::kUseSqliteOnly;
   }
   if (in_memory) {
-    return base::FeatureList::IsEnabled(kIdbSqliteBackingStoreInMemoryContexts)
-               ? SqliteRolloutStage::kUseSqliteOnly
-               : SqliteRolloutStage::kUseLevelDbOnly;
+    return SqliteRolloutStage::kUseSqliteOnly;
   }
   if (base::FeatureList::IsEnabled(features::kIdbSqliteOnDiskRollout)) {
     return kIdbSqliteOnDiskRolloutStage.Get();
@@ -425,9 +419,9 @@ BucketContext::StopMetadataRecording() {
          snapshot->databases) {
       for (const storage::mojom::IdbTransactionMetadataPtr& tx :
            db->transactions) {
-        auto key = base::StringPrintf(
-            "%s-%li-%i", base::UTF16ToASCII(db->name).c_str(),
-            static_cast<long>(tx->tid), tx->connection_id);
+        auto key =
+            absl::StrFormat("%s-%li-%i", base::UTF16ToASCII(db->name),
+                            static_cast<long>(tx->tid), tx->connection_id);
         if (storage::mojom::IdbTransactionMetadata* prev_snapshot =
                 base::FindPtrOrNull(transaction_snapshots, key)) {
           // Copy the state from the previous snapshot for this transaction ID.
@@ -1117,19 +1111,17 @@ bool BucketContext::OnMemoryDump(const base::trace_event::MemoryDumpArgs& args,
       }
     }
   }
-  auto* in_flight_dump = pmd->CreateAllocatorDump(base::StringPrintf(
+  auto* in_flight_dump = pmd->CreateAllocatorDump(absl::StrFormat(
       "site_storage/indexed_db/in_flight_0x%" PRIXPTR, identifier));
   in_flight_dump->AddScalar(base::trace_event::MemoryAllocatorDump::kNameSize,
                             base::trace_event::MemoryAllocatorDump::kUnitsBytes,
                             total_memory_in_flight.ValueOrDefault(0));
 
   // TODO(crbug.com/520300216): Add per-bucket origin attribution.
-  backing_store()->ReportMemoryUsage(
+  return backing_store()->ReportMemoryUsage(
       pmd,
-      base::StringPrintf("site_storage/indexed_db/database_engine_0x%" PRIXPTR,
-                         identifier));
-
-  return true;
+      absl::StrFormat("site_storage/indexed_db/database_engine_0x%" PRIXPTR,
+                      identifier));
 }
 
 std::tuple<Status, DatabaseError, IndexedDBDataLossInfo>

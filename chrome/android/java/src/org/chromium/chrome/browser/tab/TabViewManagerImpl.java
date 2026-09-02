@@ -4,9 +4,12 @@
 
 package org.chromium.chrome.browser.tab;
 
+import android.app.Activity;
 import android.graphics.Rect;
+import android.util.Pair;
 import android.util.SparseIntArray;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import androidx.annotation.ColorInt;
@@ -17,7 +20,10 @@ import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.ActivityUtils;
+import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsMarginAdapter;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
@@ -69,8 +75,8 @@ class TabViewManagerImpl implements TabViewManager, Comparator<TabViewProvider> 
     private final PriorityQueue<TabViewProvider> mTabViewProviders;
     private final TabImpl mTab;
     private @Nullable View mCurrentView;
-    private final SettableMonotonicObservableSupplier<Rect> mBrowserControlsMarginsSupplier =
-            ObservableSuppliers.createMonotonic();
+    private final SettableMonotonicObservableSupplier<Pair<Integer, Integer>>
+            mBrowserControlsMarginsSupplier = ObservableSuppliers.createMonotonic();
     private @Nullable Destroyable mMarginsAdapter;
 
     TabViewManagerImpl(TabImpl tab) {
@@ -79,20 +85,26 @@ class TabViewManagerImpl implements TabViewManager, Comparator<TabViewProvider> 
     }
 
     private void initMarginSupplier() {
-        if (mTab.getActivity() == null
-                || mTab.getActivity().isActivityFinishingOrDestroyed()
+        WindowAndroid window = mTab.getWindowAndroid();
+        Activity activity =
+                window != null && window.getActivity() != null ? window.getActivity().get() : null;
+        if (activity == null
+                || ActivityUtils.isActivityFinishingOrDestroyed(activity)
                 || mMarginsAdapter != null) {
             return;
         }
 
-        mMarginsAdapter =
-                BrowserControlsMarginAdapter.create(
-                        mTab.getActivity().getBrowserControlsManager(),
-                        mBrowserControlsMarginsSupplier);
-        // Update margins immediately if available rather than waiting for a posted notification.
-        // Waiting for a posted notification could allow a layout pass to occur before the margins
-        // are set.
-        mBrowserControlsMarginsSupplier.addSyncObserverAndCallIfNonNull(this::updateViewMargins);
+        if (activity instanceof ChromeActivity chromeActivity) {
+            mMarginsAdapter =
+                    BrowserControlsMarginAdapter.create(
+                            chromeActivity.getBrowserControlsManager(),
+                            mBrowserControlsMarginsSupplier);
+            // Update margins immediately if available rather than waiting for a posted
+            // notification. Waiting for a posted notification could allow a layout pass to occur
+            // before the margins are set.
+            mBrowserControlsMarginsSupplier.addSyncObserverAndCallIfNonNull(
+                    this::updateViewMargins);
+        }
     }
 
     /**
@@ -153,10 +165,23 @@ class TabViewManagerImpl implements TabViewManager, Comparator<TabViewProvider> 
         }
     }
 
-    private void updateViewMargins(Rect viewMargins) {
+    private void updateViewMargins(Pair<Integer, Integer> viewMargins) {
         if (viewMargins == null) return;
 
-        mViewMargins.set(viewMargins);
+        int topMargin = viewMargins.first;
+        int bottomMargin = viewMargins.second;
+
+        int leftMargin = 0;
+        int rightMargin = 0;
+        if (mCurrentView != null) {
+            ViewGroup.LayoutParams oldlayoutParams = mCurrentView.getLayoutParams();
+            if (oldlayoutParams instanceof ViewGroup.MarginLayoutParams oldMarginLayoutParams) {
+                leftMargin = oldMarginLayoutParams.leftMargin;
+                rightMargin = oldMarginLayoutParams.rightMargin;
+            }
+        }
+
+        mViewMargins.set(leftMargin, topMargin, rightMargin, bottomMargin);
         updateViewMargins();
     }
 

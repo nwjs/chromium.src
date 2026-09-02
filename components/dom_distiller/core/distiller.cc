@@ -34,16 +34,16 @@ namespace dom_distiller {
 
 DistillerFactoryImpl::DistillerFactoryImpl(
     std::unique_ptr<DistillerURLFetcherFactory> distiller_url_fetcher_factory,
-    const dom_distiller::proto::DomDistillerOptions& dom_distiller_options)
+    const DistillerOptions& options)
     : distiller_url_fetcher_factory_(std::move(distiller_url_fetcher_factory)),
-      dom_distiller_options_(dom_distiller_options) {}
+      options_(options) {}
 
 DistillerFactoryImpl::~DistillerFactoryImpl() = default;
 
 std::unique_ptr<Distiller> DistillerFactoryImpl::CreateDistiller() {
   // This default implementation has the same behavior for all URLs.
-  std::unique_ptr<DistillerImpl> distiller(new DistillerImpl(
-      *distiller_url_fetcher_factory_, dom_distiller_options_));
+  std::unique_ptr<DistillerImpl> distiller(
+      new DistillerImpl(*distiller_url_fetcher_factory_, options_));
   return std::move(distiller);
 }
 
@@ -53,9 +53,9 @@ DistillerImpl::DistilledPageData::~DistilledPageData() = default;
 
 DistillerImpl::DistillerImpl(
     const DistillerURLFetcherFactory& distiller_url_fetcher_factory,
-    const dom_distiller::proto::DomDistillerOptions& dom_distiller_options)
+    const DistillerOptions& options)
     : distiller_url_fetcher_factory_(distiller_url_fetcher_factory),
-      dom_distiller_options_(dom_distiller_options),
+      options_(options),
       max_pages_in_article_(kMaxPagesInArticle),
       destruction_allowed_(true) {}
 
@@ -128,7 +128,7 @@ void DistillerImpl::DistillNextPage() {
     // TODO(gilmanmh): Investigate whether this needs to be
     // base::BindRepeating() or if base::BindOnce() can be used instead.
     distiller_page_->DistillPage(
-        url, dom_distiller_options_,
+        url, options_,
         base::BindRepeating(&DistillerImpl::OnPageDistillationFinished,
                             weak_factory_.GetWeakPtr(), page_num, url));
   }

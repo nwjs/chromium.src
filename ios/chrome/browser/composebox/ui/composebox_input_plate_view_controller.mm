@@ -71,8 +71,9 @@ const CGFloat kInputPlateShadowRadius = 20.0f;
 const CGFloat kCarouselItemSpacing = 6.0f;
 /// The height of the carousel view.
 const CGFloat kCarouselHeight = 44.0f;
-/// The height of the AIM mode button.
-const CGFloat kAIMButtonHeight = 36.0f;
+/// The size of the AIM mode button.
+const CGFloat kAIMButtonSize = 36.0f;
+const CGFloat kCobrowsePlusButtonWidth = 48.0f;
 /// The corner radius of the favicon in attach current tab action.
 const CGFloat kAttachCurrentTabIconRadius = 2.0f;
 /// The width of the AIM mode button.
@@ -92,7 +93,8 @@ const CGFloat kInputPlateStackViewSpacing = 6.0f;
 /// top edge when scrolling (crbug.com/464259064).
 const CGFloat kInputPlateStackViewVerticalPadding = 0.0f;
 /// The top padding with the expanded input plate when there are attachments.
-const CGFloat kInputPlateStackViewExpandedWithAttachmentsTopPadding = 10.0f;
+const CGFloat kInputPlateAttachmentsPadding = 10.0f;
+const CGFloat kInputPlateCobrowseAttachmentsPadding = 12.0f;
 /// The bottom padding with the expanded input plate when AIM is available.
 const CGFloat kInputPlateStackViewExpandedBottomPadding = 10.0f;
 /// The horizontal padding for the input plate stack view.
@@ -102,19 +104,10 @@ const NSDirectionalEdgeInsets kInputPlateStackViewPadding = {.leading = 0.0f,
 /// toolbar).
 const NSDirectionalEdgeInsets kInputPlatePadding = {.leading = 8.0,
                                                     .trailing = 5.0};
+const NSDirectionalEdgeInsets kInputPlateCobrowsePadding = {.leading = 12.0,
+                                                            .trailing = 5.0};
 /// The spacing added after the Lens and Voice buttons in compact mode.
 const CGFloat kShortcutsTrailingPaddingCompact = 3.0f;
-/// The padding of the toolbar.
-///
-/// Note: While padding is offset to visually align the clear button's visual
-/// bounding box, all other UI elements maintain symmetrical centering.
-const UIEdgeInsets kToolbarPadding = {.left = kInputPlatePadding.leading,
-                                      .right = kInputPlatePadding.leading};
-/// The padding of the carousel. Same as
-/// `kInputPlateStackViewExpandedWithAttachmentsTopPadding` to keep symmetry.
-const UIEdgeInsets kCarouselPadding = {
-    .left = kInputPlateStackViewExpandedWithAttachmentsTopPadding,
-    .right = kInputPlateStackViewExpandedWithAttachmentsTopPadding};
 
 /// The font size for the AIM mode button title.
 const CGFloat kAIMButtonFontSize = 14.0f;
@@ -126,7 +119,7 @@ const CGFloat kGenericButtonWidth = 24.0f;
 const CGFloat kGenericButtonHeight = 32.0f;
 /// The dimension of the send button.
 const CGFloat kSendButtonDimension = 36.0f;
-const CGFloat kCobrowseSendButtonDimension = 52.0f;
+const CGFloat kCobrowseSendButtonDimension = 48.0f;
 /// The dimension of the button stack view.
 const CGFloat kButtonStackViewDimension = 36.0f;
 /// Duration of a change in compact mode.
@@ -298,6 +291,9 @@ UIImage* SendButtonImage(BOOL highlighted,
 
   // Whether to trigger a glow effect on appear.
   BOOL _glowOnAppear;
+
+  // Whether to force disable sending.
+  BOOL _disableSending;
 }
 
 /// ComposeboxAnimationContext
@@ -360,8 +356,7 @@ UIImage* SendButtonImage(BOOL highlighted,
 
   AddSameConstraintsToSidesWithInsets(
       _inputPlateStackView, _inputPlateInternalContainerView,
-      (LayoutSides::kLeading | LayoutSides::kTrailing),
-      kInputPlateStackViewPadding);
+      LayoutSides::kHorizontal, kInputPlateStackViewPadding);
 
   [self updateInputPlateStackViewAnimated:NO];
 
@@ -466,11 +461,16 @@ UIImage* SendButtonImage(BOOL highlighted,
 - (void)setEditView:(UIView<TextFieldViewContaining>*)editView {
   _editView = editView;
   _editView.translatesAutoresizingMaskIntoConstraints = NO;
-  _editView.minimumHeight =
-      _theme.inputPlatePosition == ComposeboxInputPlatePosition::kiPad
-          ? kOmniboxIPadMinHeight
-          : kOmniboxMinHeight;
   _editView.accessibilityIdentifier = kComposeboxAccessibilityIdentifier;
+
+  if (_entrypoint == ComposeboxEntrypoint::kCobrowse) {
+    _editView.minimumHeight = kOmniboxCobrowseMinHeight;
+  } else if (_theme.inputPlatePosition == ComposeboxInputPlatePosition::kiPad) {
+    _editView.minimumHeight = kOmniboxIPadMinHeight;
+  } else {
+    _editView.minimumHeight = kOmniboxMinHeight;
+  }
+
   [_omniboxContainer addSubview:_editView];
   [NSLayoutConstraint activateConstraints:@[
     [_editView.leadingAnchor
@@ -481,7 +481,7 @@ UIImage* SendButtonImage(BOOL highlighted,
                                     .trailingAnchor],
   ]];
   AddSameConstraintsToSides(_editView, _omniboxContainer,
-                            LayoutSides::kTop | LayoutSides::kBottom);
+                            LayoutSides::kVertical);
 
   [self.mutator requestUIRefresh];
   [self updatePlaceholderText];
@@ -593,6 +593,11 @@ UIImage* SendButtonImage(BOOL highlighted,
 }
 
 - (void)updateSendButtonStateIfNeeded {
+  if (_disableSending) {
+    [self enableSendButton:NO];
+    return;
+  }
+
   BOOL allLoaded = YES;
   for (ComposeboxInputItem* item in _currentItems) {
     if (item.state != ComposeboxInputItemState::kLoaded) {
@@ -605,17 +610,18 @@ UIImage* SendButtonImage(BOOL highlighted,
 }
 
 - (void)enableSendButton:(BOOL)enableSending {
-  if (enableSending) {
-    _sendButton.alpha = 1;
-    _sendButton.enabled = YES;
-    [_editView forceDisableReturnKey:NO];
-    [_editView setAllowsReturnKeyWithEmptyText:YES];
-  } else {
-    _sendButton.alpha = kSendButtonDisabledOpacity;
-    _sendButton.enabled = NO;
-    [_editView forceDisableReturnKey:YES];
-    [_editView setAllowsReturnKeyWithEmptyText:NO];
-  }
+  _sendButton.enabled = enableSending;
+  _sendButton.alpha = enableSending ? 1 : kSendButtonDisabledOpacity;
+  BOOL isCobrowse = _entrypoint == ComposeboxEntrypoint::kCobrowse;
+  [self enableKeyboardSendButton:enableSending
+      allowsReturnKeyWithEmptyText:!isCobrowse];
+}
+
+// Enables the send button in the keyboard.
+- (void)enableKeyboardSendButton:(BOOL)enabled
+    allowsReturnKeyWithEmptyText:(BOOL)allowsReturnKeyWithEmptyText {
+  [_editView forceDisableReturnKey:!enabled];
+  [_editView setAllowsReturnKeyWithEmptyText:allowsReturnKeyWithEmptyText];
 }
 
 - (void)updateVisibleControls:(ComposeboxInputPlateControls)controls {
@@ -740,6 +746,11 @@ UIImage* SendButtonImage(BOOL highlighted,
 - (void)updatePreferredContentSizeForNewTextFieldHeight {
   // Trigger -viewDidLayoutSubviews that will call -updatePreferredContentSize.
   [_omniboxContainer layoutIfNeeded];
+}
+
+- (void)disableSending:(BOOL)disableSending {
+  _disableSending = disableSending;
+  [self updateSendButtonStateIfNeeded];
 }
 
 #pragma mark - Actions
@@ -1053,8 +1064,7 @@ UIImage* SendButtonImage(BOOL highlighted,
   if (_carouselContainer.hidden) {
     _topPaddingConstraint.constant = kInputPlateStackViewVerticalPadding;
   } else {
-    _topPaddingConstraint.constant =
-        kInputPlateStackViewExpandedWithAttachmentsTopPadding;
+    _topPaddingConstraint.constant = [self inputPlateAttachmentsPadding];
   }
 }
 
@@ -1219,7 +1229,7 @@ UIImage* SendButtonImage(BOOL highlighted,
       [_aimButton.widthAnchor constraintEqualToConstant:kAIMButtonBaseWidth];
 
   [NSLayoutConstraint activateConstraints:@[
-    [_aimButton.heightAnchor constraintEqualToConstant:kAIMButtonHeight],
+    [_aimButton.heightAnchor constraintEqualToConstant:kAIMButtonSize],
     self.aimButtonWidthConstraint
   ]];
 }
@@ -1238,10 +1248,13 @@ UIImage* SendButtonImage(BOOL highlighted,
   plusButton.accessibilityIdentifier =
       kComposeboxPlusButtonAccessibilityIdentifier;
 
+  CGFloat plusButtonWidth = _entrypoint == ComposeboxEntrypoint::kCobrowse
+                                ? kCobrowsePlusButtonWidth
+                                : kAIMButtonSize;
   [NSLayoutConstraint activateConstraints:@[
     [plusButton.heightAnchor
-        constraintGreaterThanOrEqualToConstant:kAIMButtonHeight],
-    [plusButton.widthAnchor constraintEqualToConstant:kAIMButtonHeight],
+        constraintGreaterThanOrEqualToConstant:kAIMButtonSize],
+    [plusButton.widthAnchor constraintEqualToConstant:plusButtonWidth],
   ]];
 
   if (IsComposeboxPlusButtonBottomSheet()) {
@@ -1487,7 +1500,7 @@ UIImage* SendButtonImage(BOOL highlighted,
         constraintEqualToConstant:kButtonStackViewDimension]
   ]];
   buttonsStackView.layoutMarginsRelativeArrangement = YES;
-  buttonsStackView.layoutMargins = kToolbarPadding;
+  buttonsStackView.layoutMargins = [self toolbarPadding];
 
   return buttonsStackView;
 }
@@ -1641,8 +1654,8 @@ UIImage* SendButtonImage(BOOL highlighted,
     UIAction* driveAction = [self
         actionWithTitle:l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_DRIVE_ACTION)
                   image:driveSymbol
-                 hidden:[_state isAttachmentHidden:kFile]
-               disabled:[_state isAttachmentDisabled:kFile]
+                 hidden:[_state isAttachmentHidden:kDrive]
+               disabled:[_state isAttachmentDisabled:kDrive]
                selected:NO
                 handler:^{
                   [weakSelf.delegate
@@ -1677,7 +1690,7 @@ UIImage* SendButtonImage(BOOL highlighted,
     UIAction* regularModelOption = [self
         actionWithTitle:[_state.strings
                             menuLabelForModel:ComposeboxModelOption::kRegular]
-                  image:SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize)
+                  image:SymbolWithPointSize(SymbolAcute, kSymbolActionPointSize)
                  hidden:regularHidden
                disabled:[_state isModelDisabled:ComposeboxModelOption::kRegular]
                selected:_state.activeModel == ComposeboxModelOption::kRegular
@@ -1728,6 +1741,18 @@ UIImage* SendButtonImage(BOOL highlighted,
                                 ComposeboxModelOption::kThinkingNoGenUI];
                 }];
 
+    UIAction* flashModelOption = [self
+        actionWithTitle:[_state.strings
+                            menuLabelForModel:ComposeboxModelOption::kFlash]
+                  image:SymbolWithPointSize(SymbolBolt, kSymbolActionPointSize)
+                 hidden:[_state isModelHidden:ComposeboxModelOption::kFlash]
+               disabled:[_state isModelDisabled:ComposeboxModelOption::kFlash]
+               selected:_state.activeModel == ComposeboxModelOption::kFlash
+                handler:^{
+                  [weakSelf handleModelChangeFromToolsMenuWithOption:
+                                ComposeboxModelOption::kFlash];
+                }];
+
     NSString* modelPickerTitle = [_state.strings modelSectionHeader];
     UIMenu* modelPickerMenu =
         [UIMenu menuWithTitle:modelPickerTitle
@@ -1736,7 +1761,7 @@ UIImage* SendButtonImage(BOOL highlighted,
                       options:UIMenuOptionsDisplayInline
                      children:@[
                        regularModelOption, autoModelOption, thinkingModelOption,
-                       thinkingModelNoGenUIOption
+                       thinkingModelNoGenUIOption, flashModelOption
                      ]];
 
     [sections addObject:modelPickerMenu];
@@ -1776,6 +1801,24 @@ UIImage* SendButtonImage(BOOL highlighted,
   return action;
 }
 
+// The padding for the attachments section of the input plate.
+- (CGFloat)inputPlateAttachmentsPadding {
+  if (_entrypoint == ComposeboxEntrypoint::kCobrowse) {
+    return kInputPlateCobrowseAttachmentsPadding;
+  }
+
+  return kInputPlateAttachmentsPadding;
+}
+
+/// The padding of the carousel. Same as `inputPlateAttachmentsPadding` to keep
+/// symmetry.
+- (UIEdgeInsets)carouselPadding {
+  return {
+      .left = [self inputPlateAttachmentsPadding],
+      .right = [self inputPlateAttachmentsPadding],
+  };
+}
+
 /// Initializes and configures the collection view for the attachment carousel.
 - (void)setupCarouselContainer {
   // Carousel view
@@ -1799,7 +1842,7 @@ UIImage* SendButtonImage(BOOL highlighted,
   // The outer view has minimal padding to allow the carousel space for multiple
   // attachments when they overflow. This ensures that there's still some
   // padding when the carousel is scrolled to either end.
-  _carouselView.contentInset = kCarouselPadding;
+  _carouselView.contentInset = [self carouselPadding];
   _carouselView.showsHorizontalScrollIndicator = NO;
 
   _carouselContainer = [[UIView alloc] init];
@@ -1939,7 +1982,7 @@ UIImage* SendButtonImage(BOOL highlighted,
 
 // Updates the side paddings of the input plate stack view.
 - (void)updateInputPlateStackViewPadding {
-  CGFloat baseTrailingPadding = kInputPlatePadding.trailing;
+  CGFloat baseTrailingPadding = [self inputPlatePadding].trailing;
   if (_theme.inputPlatePosition == ComposeboxInputPlatePosition::kiPad) {
     baseTrailingPadding = 14.0f;
   }
@@ -1957,14 +2000,14 @@ UIImage* SendButtonImage(BOOL highlighted,
 
     _inputPlateStackView.layoutMarginsRelativeArrangement = YES;
     // Ensure we do not lose the margins on the sides when in compact mode.
-    _inputPlateStackView.layoutMargins =
-        UIEdgeInsetsMake(0, kInputPlatePadding.leading, 0, trailingPadding);
+    _inputPlateStackView.layoutMargins = UIEdgeInsetsMake(
+        0, [self inputPlatePadding].leading, 0, trailingPadding);
     // Margins are applied on the input plate, remove the margins on the
     // omnibox.
     _omniboxContainer.directionalLayoutMargins = NSDirectionalEdgeInsetsZero;
   } else {
     _inputPlateStackView.layoutMarginsRelativeArrangement = NO;
-    NSDirectionalEdgeInsets margins = kInputPlatePadding;
+    NSDirectionalEdgeInsets margins = [self inputPlatePadding];
     margins.trailing = baseTrailingPadding;
     _omniboxContainer.directionalLayoutMargins = margins;
   }
@@ -2498,6 +2541,23 @@ UIImage* SendButtonImage(BOOL highlighted,
 
   [self rebuildTabsAccordion];
   _tabsAccordionStackView.alpha = 1;
+}
+
+/// The side padding for the input plate stack view content (e.g. omnibox,
+/// toolbar).
+- (NSDirectionalEdgeInsets)inputPlatePadding {
+  return _entrypoint == ComposeboxEntrypoint::kCobrowse
+             ? kInputPlateCobrowsePadding
+             : kInputPlatePadding;
+}
+
+/// The padding of the toolbar.
+///
+/// Note: While padding is offset to visually align the clear button's visual
+/// bounding box, all other UI elements maintain symmetrical centering.
+- (UIEdgeInsets)toolbarPadding {
+  return {.left = [self inputPlatePadding].leading,
+          .right = [self inputPlatePadding].leading};
 }
 
 @end

@@ -15,17 +15,17 @@ from typing import Optional
 
 from contextlib import AbstractContextManager
 
-from common import get_ffx_isolate_dir,has_ffx_isolate_dir, \
-                        set_ffx_isolate_dir, is_daemon_running
+from common import get_ffx_isolate_dir, has_ffx_isolate_dir, set_ffx_isolate_dir
 from ffx_integration import ScopedFfxConfig
 from modification_waiter import ModificationWaiter
 
 
 class IsolateDaemon(AbstractContextManager):
-    """Sets up the environment for ffx (currently running daemonless)."""
+    """Sets up the isolated environment for ffx."""
 
     class IsolateDir(AbstractContextManager):
         """Sets up the ffx isolate dir to a temporary folder if it's not set."""
+
         def __init__(self):
             if has_ffx_isolate_dir():
                 self._temp_dir = None
@@ -54,6 +54,7 @@ class IsolateDaemon(AbstractContextManager):
         the performance of using the volume based directory, especially on
         arm64 hosts.
         """
+
         def __init__(self):
             # don't try to access the isolate dir at this point, it may not be
             # set up yet.
@@ -61,17 +62,18 @@ class IsolateDaemon(AbstractContextManager):
 
         def __enter__(self):
             self._process_dir_config = ScopedFfxConfig(
-                    'repository.process_dir',
-                    f'{get_ffx_isolate_dir()}/repo_proc')
+                'repository.process_dir', f'{get_ffx_isolate_dir()}/repo_proc'
+            )
             self._process_dir_config.__enter__()
             return self
 
         def __exit__(self, exc_type, exc_value, traceback):
-            return self._process_dir_config.__exit__(exc_type, exc_value,
-                                                     traceback)
+            return self._process_dir_config.__exit__(
+                exc_type, exc_value, traceback
+            )
 
     def __init__(self, logs_dir: Optional[str]):
-        assert not has_ffx_isolate_dir() or not is_daemon_running()
+        assert not has_ffx_isolate_dir()
         self._inits = [
             self.IsolateDir(),
             # The RepoProcess dir must be 'entered' after the IsolateDir, so the
@@ -80,7 +82,6 @@ class IsolateDaemon(AbstractContextManager):
             ModificationWaiter(logs_dir),
             # Keep the alphabetical order.
             ScopedFfxConfig('ffx.isolated', 'true'),
-            ScopedFfxConfig('daemon.autostart', 'false'),
             # fxb/126212: The timeout rate determines the timeout for each file
             # transfer based on the size of the file / this rate (in MB).
             # Decreasing the rate to 1 (from 5) increases the timeout in
@@ -89,7 +90,7 @@ class IsolateDaemon(AbstractContextManager):
             ScopedFfxConfig('fastboot.flash.min_timeout_secs', '600'),
             ScopedFfxConfig('fastboot.reboot.reconnect_timeout', '120'),
             ScopedFfxConfig('fastboot.usb.disabled', 'true'),
-            ScopedFfxConfig('log.level', 'debug')
+            ScopedFfxConfig('log.level', 'debug'),
         ]
         if logs_dir:
             self._inits.append(ScopedFfxConfig('log.dir', logs_dir))

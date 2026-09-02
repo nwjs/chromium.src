@@ -129,6 +129,10 @@ class PLATFORM_EXPORT ResourceResponse final {
   // responded to the request. See the comments for that function.
   KURL ResponseUrl() const;
 
+  // Returns true if this response has a non-empty service worker URL list whose
+  // final URL matches the current request URL.
+  bool HasMatchingServiceWorkerUrl() const;
+
   // Returns true if this response is the result of a service worker
   // effectively calling `evt.respondWith(fetch(evt.request))`.  Specifically,
   // it returns false for synthetic constructed responses, responses fetched
@@ -236,6 +240,10 @@ class PLATFORM_EXPORT ResourceResponse final {
   void SetFromSyntheticResponse(bool value) {
     from_synthetic_response_ = value;
   }
+
+  // See network.mojom.URLResponseHead.intercepted_by_plugin.
+  bool InterceptedByPlugin() const { return intercepted_by_plugin_; }
+  void SetInterceptedByPlugin(bool value) { intercepted_by_plugin_ = value; }
 
   network::mojom::FetchResponseSource GetServiceWorkerResponseSource() const {
     return service_worker_response_source_;
@@ -543,6 +551,10 @@ class PLATFORM_EXPORT ResourceResponse final {
 
   // True if the response is created with the synthetic response.
   bool from_synthetic_response_ : 1;
+
+  // True if a plugin or MIME handler intercepted the response, replacing its
+  // body with a browser-generated document that embeds the handler.
+  bool intercepted_by_plugin_ : 1;
 
   // True if service worker navigation preload was performed due to
   // the request for this resource.

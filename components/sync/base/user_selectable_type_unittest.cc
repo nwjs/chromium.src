@@ -57,7 +57,6 @@ class UserSelectableTypeTest : public ::testing::Test {
     // selectable type or to a new one and remove it from here (unless it's
     // ambiguous).
     data_types.Put(CONTEXTUAL_TASK);
-
     return data_types;
   }
 };

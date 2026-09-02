@@ -18,9 +18,9 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/extension_tab_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
 #include "chrome/browser/ui/extensions/extensions_toolbar_view_model.h"
 #include "chrome/browser/ui/extensions/settings_api_bubble_helpers.h"
@@ -142,8 +142,9 @@ ExtensionsToolbarDesktop::DropInfo::DropInfo(
     size_t index)
     : action_id(action_id), index(index) {}
 
-ExtensionsToolbarDesktop::ExtensionsToolbarDesktop(Browser* browser,
-                                                   DisplayMode display_mode)
+ExtensionsToolbarDesktop::ExtensionsToolbarDesktop(
+    BrowserWindowInterface* browser,
+    DisplayMode display_mode)
     : ToolbarIconContainerView(/*uses_highlight=*/true),
       browser_(browser),
       model_(ToolbarActionsModel::Get(browser_->GetProfile())),
@@ -372,7 +373,7 @@ void ExtensionsToolbarDesktop::ShowPinnedByDefaultIPH(
   }
 
   auto show_iph_closure = base::BindOnce(
-      [](base::WeakPtr<Browser> browser,
+      [](base::WeakPtr<BrowserWindowInterface> browser,
          const extensions::ExtensionId& extension_id) {
         if (!browser) {
           return;
@@ -416,7 +417,7 @@ void ExtensionsToolbarDesktop::ShowPinnedByDefaultIPH(
           extension_view->ClearProperty(views::kElementIdentifierKey);
         }
       },
-      browser_->AsWeakPtr(), extension_id);
+      browser_->GetWeakPtr(), extension_id);
 
   auto run_or_wait_for_active_widget = base::BindOnce(
       [](views::Widget* browser_widget, base::OnceClosure show_iph_closure) {
@@ -834,8 +835,11 @@ void ExtensionsToolbarDesktop::OnActionRemoved(
     UndoPopOut();
   }
 
-  RemoveChildViewT(GetViewForId(action_id));
-  icons_.erase(action_id);
+  ToolbarActionView* action_view = GetViewForId(action_id);
+  if (action_view) {
+    RemoveChildViewT(action_view);
+    icons_.erase(action_id);
+  }
 
   UpdateContainerVisibilityAfterAnimation();
   UpdateControlsVisibility();
@@ -1036,7 +1040,10 @@ views::View::DropCallback ExtensionsToolbarDesktop::GetDropCallback(
 void ExtensionsToolbarDesktop::OnWidgetDestroying(views::Widget* widget) {
   auto iter =
       std::ranges::find(anchored_widgets_, widget, &AnchoredWidget::widget);
-  CHECK(iter != anchored_widgets_.end());
+  if (iter == anchored_widgets_.end()) {
+    ToolbarIconContainerView::OnWidgetDestroying(widget);
+    return;
+  }
   iter->widget->RemoveObserver(this);
   const std::string extension_id = std::move(iter->extension_id);
   anchored_widgets_.erase(iter);
@@ -1313,7 +1320,7 @@ void ExtensionsToolbarDesktop::MaybeShowIPH() {
 
   // The Extensions Zero State promo prompts users without extensions to
   // explore the Chrome Web Store. Only triggered for normal browser types.
-  if (browser_->type() == Browser::TYPE_NORMAL) {
+  if (browser_->GetType() == BrowserWindowInterface::TYPE_NORMAL) {
     if (!g_zero_state_promo_next_show_time_opt.has_value()) {
       g_zero_state_promo_next_show_time_opt =
           base::TimeTicks::Now() + kZeroStatePromoIntervalBetweenLaunchAttempt;

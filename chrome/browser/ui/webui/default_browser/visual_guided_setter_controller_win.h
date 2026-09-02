@@ -62,7 +62,17 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
     kStageTooSmall = 3,
     // The user manually closed the Settings window before flow completion.
     kSettingsWindowClosed = 4,
-    kMaxValue = kSettingsWindowClosed,
+    // Launching the Windows Settings default-apps UI failed, e.g. because the
+    // install mode does not support set-as-default (canary) or registration
+    // failed.
+    kSettingsLaunchFailed = 5,
+    // The user navigated the guide tab away from the guide page before
+    // completing the flow.
+    kNavigatedAway = 6,
+    // The user moved or resized the Settings window, taking over its
+    // placement. The flow stops docking and leaves the window floating.
+    kUserRepositioned = 7,
+    kMaxValue = kUserRepositioned,
   };
   // LINT.ThenChange(//tools/metrics/histograms/metadata/ui/enums.xml:DefaultBrowserVisualGuideOutcome)
 
@@ -85,12 +95,17 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
   void SetWebContents(content::WebContents* web_contents);
   void SetErrorCallback(ErrorCallback callback);
 
+  // content::WebContentsObserver:
+  void OnVisibilityChanged(content::Visibility visibility) override;
+  void PrimaryPageChanged(content::Page& page) override;
+
   bool is_running() const { return is_running_; }
   bool has_anchor_rect() const { return has_anchor_rect_; }
   HWND settings_hwnd_for_testing() const { return settings_hwnd_; }
 
  protected:
   // Virtual for testing.
+  virtual bool IsSettingsWindowAlive() const;
   virtual bool IsSettingsWindowValid() const;
   virtual bool IsSettingsWindowClosed() const;
   virtual std::optional<gfx::Rect> GetAnchorRectScreen() const;
@@ -101,6 +116,32 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
   virtual std::unique_ptr<SettingsWindowFinderWin> CreateSettingsWindowFinder();
   virtual bool IsDpiCompatibleForDocking(HWND hwnd,
                                          const gfx::Rect& target_rect) const;
+  virtual void CloseSettingsWindow();
+  virtual bool IsValidSettingsProcess(HWND hwnd) const;
+
+  // Low-level Win32 window probes backing the predicates above. Virtual for
+  // testing.
+  virtual bool IsWindowAlive(HWND hwnd) const;
+  virtual bool IsWindowOnScreen(HWND hwnd) const;
+  virtual bool IsWindowCloaked(HWND hwnd) const;
+  virtual bool IsWindowMinimized(HWND hwnd) const;
+  // Screen bounds of the latched Settings window, or nullopt when they are
+  // unavailable or empty. Virtual for testing.
+  virtual std::optional<gfx::Rect> GetSettingsWindowScreenRect() const;
+  // Overlay forwarding. Virtual for testing, so tests can observe when the
+  // guidance arrow is shown or hidden.
+  virtual void ShowOverlayArrow(const gfx::Point& start, const gfx::Point& end);
+  virtual void HideOverlayArrow();
+
+  // Called on the UI sequence with the result of the Settings launch posted
+  // by LaunchSettings(). A failed launch tears the flow down immediately with
+  // Outcome::kSettingsLaunchFailed instead of waiting for the finder timeout.
+  void OnLaunchSettingsResult(bool succeeded);
+
+ protected:
+  // Returns the rect to dock the Settings window to, in physical screen
+  // pixels. Virtual for testing.
+  virtual gfx::Rect ComputeDockedSettingsRect() const;
 
  private:
   // views::WidgetObserver:
@@ -112,10 +153,6 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
   void OnWidgetShowStateChanged(views::Widget* widget) override;
   void OnWidgetThemeChanged(views::Widget* widget) override;
 
-  // content::WebContentsObserver:
-  void OnVisibilityChanged(content::Visibility visibility) override;
-  void PrimaryPageChanged(content::Page& page) override;
-
   // Starts the polling and event-hooking logic to find the Settings window.
   void StartFindSettingsWindow();
   void OnSettingsWindowFound(HWND hwnd);
@@ -124,6 +161,9 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
   // Asynchronously spawns the OS Default Apps settings URI.
   void StartRuntimeTimers();
   void StopAllTimers();
+  void PauseLayoutObservation();
+  void ResumeLayoutObservation();
+  void OnWebContentsHidden();
 
   // Synchronizes the docked Settings window to the Chrome anchor.
   void UpdateDockedLayout();
@@ -143,13 +183,21 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
   // Halts the controller, kills timers, and releases OS resources.
   void TearDownInternal();
 
+  // Returns the z-order target for the Settings window, consuming a pending
+  // topmost re-assert. Call once per applied layout.
+  HWND GetSettingsWindowInsertAfter() const;
+
+  // Called when the user starts or finishes dragging or resizing the Settings
+  // window.
+  void OnSettingsWindowMoveSize(bool in_progress);
+
   ErrorCallback error_callback_;
   std::optional<bool> last_reported_error_;
 
   raw_ptr<views::Widget> parent_widget_ = nullptr;
-  raw_ptr<content::WebContents> web_contents_ = nullptr;
   HWND chrome_hwnd_ = nullptr;
   HWND settings_hwnd_ = nullptr;
+  DWORD settings_pid_ = 0;
 
   std::unique_ptr<GuidedSetterOverlayWindowWin> overlay_;
 
@@ -164,7 +212,6 @@ class VisualGuidedSetterControllerWin : public views::WidgetObserver,
   bool is_running_ = false;
   bool is_degraded_ = false;
   bool last_known_chrome_active_ = true;
-  bool has_settings_being_hidden_ = false;
 
   gfx::Rect anchor_rect_in_webui_;
   bool has_anchor_rect_ = false;

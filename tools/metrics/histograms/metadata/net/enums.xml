@@ -647,6 +647,7 @@ historical analysis. -->
   <int value="6" label="Signing exceeded"/>
   <int value="7" label="Refreshed as waiter"/>
   <int value="8" label="Transient signing error"/>
+  <int value="9" label="In-scope refresh not yet needed"/>
 </enum>
 
 <!-- LINT.ThenChange(//net/device_bound_sessions/refresh_result.h:DeviceBoundSessionRefreshResult) -->
@@ -1092,19 +1093,6 @@ historical analysis. -->
 </enum>
 
 <!-- LINT.ThenChange(//net/proxy_resolution/mac/mac_proxy_resolution_status.h:MacProxyResolutionStatus) -->
-
-<!-- LINT.IfChange(MTCResult) -->
-
-<enum name="MTCResult">
-  <int value="0" label="kValidMTC"/>
-  <int value="1" label="kInvalidMTC"/>
-  <int value="2" label="kClassicalCertExpectedMTC"/>
-  <int value="3" label="kClassicalCertOldClient"/>
-  <int value="4" label="kClassicalCertUnknownLandmarkDelta"/>
-  <int value="5" label="Reserved (was kResumption)"/>
-</enum>
-
-<!-- LINT.ThenChange(//net/quic/quic_chromium_client_session.h:MTCResult) -->
 
 <!-- LINT.IfChange(MultiplexedSessionCreationInitiator) -->
 
@@ -2468,6 +2456,30 @@ Called by update_net_trust_anchors.py.-->
       label="de7b6932e9c44582ce0de07abdab7eea90c75d6d2a07331df57bd5cb88553d13"/>
 </enum>
 
+<enum name="NetworkCallbackRegisterResult">
+  <int value="0" label="Success (Initial Try)"/>
+  <int value="1" label="Success (Initial Try - Security Retry)"/>
+  <int value="2" label="Success (Window Focus Self-Heal)"/>
+  <int value="3" label="Success (Window Focus Self-Heal - Security Retry)"/>
+  <int value="4" label="Failure (SecurityException)"/>
+  <int value="5" label="Failure (TooManyRequestsException / Limit Exceeded)"/>
+  <int value="6" label="Failure (IllegalArgumentException)"/>
+  <int value="7" label="Failure (Other RuntimeException)"/>
+</enum>
+
+<enum name="NetworkCallbackRegistrationException">
+  <int value="0" label="SecurityException"/>
+  <int value="1" label="TooManyRequestsException (or Max Requests message)"/>
+  <int value="2" label="IllegalArgumentException"/>
+  <int value="3" label="IllegalStateException"/>
+  <int value="4" label="Other RuntimeException"/>
+</enum>
+
+<enum name="NetworkCallbackSelfHealResult">
+  <int value="0" label="Recovered"/>
+  <int value="1" label="Failed"/>
+</enum>
+
 <enum name="NetworkConnectionCost">
   <int value="0" label="Unknown"/>
   <int value="1" label="Unmetered"/>
@@ -2770,6 +2782,9 @@ Called by update_net_trust_anchors.py.-->
   <int value="13" label="Path degrading before handshake confirmed"/>
   <int value="14" label="Idle migration period exceeded"/>
   <int value="15" label="Migration fails due to lack of connection ID"/>
+  <int value="16" label="Migration Probe received Stateless Reset"/>
+  <int value="17" label="Migration aborted due to session close"/>
+  <int value="18" label="Path validation aborted because of newer validation"/>
 </enum>
 
 <enum name="QuicDisabledReason">
@@ -3162,6 +3177,21 @@ Called by update_net_trust_anchors.py.-->
   <int value="3" label="SETTING_DO_NOT_FRAGMENT"/>
 </enum>
 
+<!-- LINT.IfChange(QuicSessionEstablishmentReason) -->
+
+<enum name="QuicSessionEstablishmentReason">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="No session existed"/>
+  <int value="2"
+      label="Existed in all_sessions_ (draining/going away) no preconnect"/>
+  <int value="3"
+      label="Existed in all_sessions_ (draining/going away) preconnect"/>
+  <int value="4"
+      label="Existed in all_sessions_ (both preconnect and non-preconnect)"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/base/load_timing_internal_info.h:QuicSessionEstablishmentReason) -->
+
 <!-- LINT.IfChange(QuicSessionKeyMismatchedField) -->
 
 <enum name="QuicSessionKeyMismatchedField">
@@ -3201,6 +3231,19 @@ Called by update_net_trust_anchors.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//net/quic/quic_session_pool.cc:QuicSessionKeyPartialMatchResult) -->
+
+<!-- LINT.IfChange(QuicSessionPoolAsyncDnsJobSuccessSource) -->
+
+<enum name="QuicSessionPoolAsyncDnsJobSuccessSource">
+  <int value="0" label="kNone"/>
+  <int value="1" label="kActiveSession"/>
+  <int value="2" label="kIpPooling"/>
+  <int value="3" label="kInitialConnectorFirstAttempt"/>
+  <int value="4" label="kInitialConnectorLaterAttempt"/>
+  <int value="5" label="kSlowTimerConnector"/>
+</enum>
+
+<!-- LINT.ThenChange(//net/quic/quic_session_pool_async_dns_job.h:QuicSessionPoolAsyncDnsJobSuccessSource) -->
 
 <enum name="QuicTransportErrorCodes">
   <int value="0" label="NO_ERROR"/>
@@ -3817,20 +3860,6 @@ Called by update_net_trust_anchors.py.-->
   <int value="113" label="TPM_ALG_XMSS"/>
 </enum>
 
-<!-- LINT.IfChange(TpmCertifyParseResult) -->
-
-<enum name="TpmCertifyParseResult">
-  <int value="0" label="Ok"/>
-  <int value="1" label="BufferTooSmall"/>
-  <int value="2" label="TrailingBytes"/>
-  <int value="3" label="TpmErrorResponse"/>
-  <int value="4" label="BadMagicNumber"/>
-  <int value="5" label="WrongType"/>
-  <int value="6" label="ChallengeMismatch"/>
-</enum>
-
-<!-- LINT.ThenChange(//crypto/tpm_parser.h:TpmCertifyParseResult) -->
-
 <!-- LINT.IfChange(TpmCertifyVerifyResult) -->
 
 <enum name="TpmCertifyVerifyResult">
@@ -3844,6 +3873,20 @@ Called by update_net_trust_anchors.py.-->
 </enum>
 
 <!-- LINT.ThenChange(//crypto/tpm_parser.h:TpmCertifyVerifyResult) -->
+
+<!-- LINT.IfChange(TpmParseResult) -->
+
+<enum name="TpmParseResult">
+  <int value="0" label="Ok"/>
+  <int value="1" label="BufferTooSmall"/>
+  <int value="2" label="TrailingBytes"/>
+  <int value="3" label="TpmErrorResponse"/>
+  <int value="4" label="BadMagicNumber"/>
+  <int value="5" label="WrongType"/>
+  <int value="6" label="ChallengeMismatch"/>
+</enum>
+
+<!-- LINT.ThenChange(//crypto/tpm_parser.h:TpmParseResult) -->
 
 <enum name="TPMSupport">
   <int value="0" label="None"/>

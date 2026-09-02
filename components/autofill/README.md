@@ -320,7 +320,7 @@ and types derived from the autocomplete attribute are represented as [HtmlFieldT
 Several important subsets of FieldTypes exist:
 * Supported types of a [form group](https://source.chromium.org/chromium/chromium/src/+/refs/heads/main:components/autofill/core/browser/data_model/form_group.h):
   Every form group defines which FieldTypes it maintains. For example:
-  * The supported type of [EmailInfo](https://source.chromium.org/chromium/chromium/src/+/refs/heads/main:components/autofill/core/browser/data_model/contact_info.h;l=87;drc=10009f6ff9f3b626979c9422321686f360df7cee) is [EMAIL_ADDRESS](https://source.chromium.org/chromium/chromium/src/+/refs/heads/main:components/autofill/core/browser/data_model/contact_info.cc;l=184;drc=59b1cf76cc21ae34bc99073e963f7d268b0a5c17).
+  * The supported type of [EmailInfo](https://source.chromium.org/chromium/chromium/src/+/refs/heads/main:components/autofill/core/browser/data_model/addresses/email_info.h) is [EMAIL_ADDRESS](https://source.chromium.org/chromium/chromium/src/+/refs/heads/main:components/autofill/core/browser/data_model/addresses/email_info.cc).
   * The supported types of AutofillProfile are all name, address, phone number, etc. types.
 * Stored types of AutofillProfile: The set of types stored in AddressAutofillTable,
   defined by `AutofillProfile::kDatabaseStoredTypes`.
@@ -375,14 +375,14 @@ assessment whether the form submission should be considered successful (meaning
 that the website accepted the submitted values, not that the HTTP request
 succeeded):
 
-* A **regular HTTP form submission** (`FormTracker::WillSubmitForm()`).
+* A **regular HTTP form submission** (`FormSubmissionTracker::WillSubmitForm()`).
   * Triggers `SubmissionSource::FORM_SUBMISSION`.
 * A **main-frame navigation** was initiated in the content area but not triggered by
-  a link click (`FormTracker::DidStartNavigation()`) - only if the frame has a
+  a link click (`FormSubmissionTracker::DidStartNavigation()`) - only if the frame has a
   `last_interacted_form_` or form-less element that the user interacted with.
   * Triggers `SubmissionSource::PROBABLY_FORM_SUBMITTED`.
 * After a **same document navigation**
-  (`FormTracker::DidFinishSameDocumentNavigation()`), the last interacted form
+  (`FormSubmissionTracker::DidFinishSameDocumentNavigation()`), the last interacted form
   is/becomes unfocusable or removed. The former condition is tested via
   `WebNode::IsFocusable()` and considers various styles (e.g. "display: none" on
   the node or a parent, "visibility: hidden") and attributes (e.g. "inert",
@@ -394,7 +394,7 @@ succeeded):
   * Triggers `SubmissionSource::XHR_SUCCEEDED` if the form is already
     inaccessible or removed and the XHR succeeds.
 * The **subframe** or non-primary main frame containing the form was
-  **detached** (`FormTracker::WillDetach()`)
+  **detached** (`FormSubmissionTracker::WillDetach()`)
   * Triggers `SubmissionSource::FRAME_DETACHED`.
 
 ## When are votes uploaded?

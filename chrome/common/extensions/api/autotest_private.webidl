@@ -17,7 +17,6 @@ enum ShelfItemType {
   "PinnedApp",
   "BrowserShortcut",
   "App",
-  "UnpinnedBrowserShortcut",
   "Dialog"
 };
 
@@ -908,17 +907,6 @@ interface AutotestPrivate {
   // |PromiseValue|: canBeAllowed
   static Promise<boolean> couldAllowCrostini();
 
-  // Sets mock Plugin VM policy.
-  // |imageUrl|: URL to the image to install.
-  // |imageHash|: Hash for the provided image.
-  // |licenseKey|: License key for Plugin VM.
-  static undefined setPluginVMPolicy(DOMString imageUrl,
-                                     DOMString imageHash,
-                                     DOMString licenseKey);
-
-  // Shows the Plugin VM installer. Does not start installation.
-  static undefined showPluginVMInstaller();
-
   // Installs Borealis without showing the normal installer UI.
   // |Returns|: Promise that resolves when the operation has completed.
   static Promise<undefined> installBorealis();
@@ -1438,4 +1426,3 @@ interface AutotestPrivate {
 partial interface Browser {
   static attribute AutotestPrivate autotestPrivate;
 };
-

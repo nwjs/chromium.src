@@ -12,11 +12,9 @@
 use alloc::format;
 use core::cmp::max;
 use core::fmt;
-use core::num::NonZeroU32;
 
 use zune_core::bytestream::ZByteReaderTrait;
-use zune_core::colorspace::ColorSpace;
-use zune_core::log::{trace, warn};
+use zune_core::log::trace;
 
 use crate::components::{ComponentID, SampleRatios};
 use crate::errors::DecodeErrors;
@@ -24,31 +22,24 @@ use crate::huffman::HuffmanTable;
 use crate::JpegDecoder;
 
 /// Start of baseline DCT Huffman coding
-
 pub const START_OF_FRAME_BASE: u16 = 0xffc0;
 
 /// Start of another frame
-
 pub const START_OF_FRAME_EXT_SEQ: u16 = 0xffc1;
 
 /// Start of progressive DCT encoding
-
 pub const START_OF_FRAME_PROG_DCT: u16 = 0xffc2;
 
 /// Start of Lossless sequential Huffman coding
-
 pub const START_OF_FRAME_LOS_SEQ: u16 = 0xffc3;
 
 /// Start of extended sequential DCT arithmetic coding
-
 pub const START_OF_FRAME_EXT_AR: u16 = 0xffc9;
 
 /// Start of Progressive DCT arithmetic coding
-
 pub const START_OF_FRAME_PROG_DCT_AR: u16 = 0xffca;
 
 /// Start of Lossless sequential Arithmetic coding
-
 pub const START_OF_FRAME_LOS_SEQ_AR: u16 = 0xffcb;
 
 /// Undo run length encoding of coefficients by placing them in natural order
@@ -103,8 +94,10 @@ where
 /// lossless compression and whether we use Huffman or arithmetic coding schemes
 #[derive(Eq, PartialEq, Copy, Clone)]
 #[allow(clippy::upper_case_acronyms)]
+#[derive(Default)]
 pub enum SOFMarkers {
     /// Baseline DCT markers
+    #[default]
     BaselineDct,
     /// SOF_1 Extended sequential DCT,Huffman coding
     ExtendedSequentialHuffman,
@@ -120,15 +113,9 @@ pub enum SOFMarkers {
     LosslessArithmetic
 }
 
-impl Default for SOFMarkers {
-    fn default() -> Self {
-        Self::BaselineDct
-    }
-}
 
 impl SOFMarkers {
     /// Check if a certain marker is sequential DCT or not
-
     pub fn is_sequential_dct(self) -> bool {
         matches!(
             self,
@@ -139,13 +126,11 @@ impl SOFMarkers {
     }
 
     /// Check if a marker is a Lossles type or not
-
     pub fn is_lossless(self) -> bool {
         matches!(self, Self::LosslessHuffman | Self::LosslessArithmetic)
     }
 
     /// Check whether a marker is a progressive marker or not
-
     pub fn is_progressive(self) -> bool {
         matches!(
             self,
@@ -154,7 +139,6 @@ impl SOFMarkers {
     }
 
     /// Create a marker from an integer
-
     pub fn from_int(int: u16) -> Option<SOFMarkers> {
         match int {
             START_OF_FRAME_BASE => Some(Self::BaselineDct),
@@ -191,43 +175,42 @@ impl fmt::Debug for SOFMarkers {
 ///
 /// This modifies the components in place setting up details needed by other
 /// parts fo the decoder.
+#[allow(clippy::cast_possible_truncation)]
 pub(crate) fn setup_component_params<T: ZByteReaderTrait>(
     img: &mut JpegDecoder<T>
 ) -> Result<(), DecodeErrors> {
     let img_width = img.width();
     let img_height = img.height();
 
-    // in case of adobe app14 being present, zero may indicate
-    // either CMYK if components are 4 or RGB if components are 3,
-    // see https://docs.oracle.com/javase/6/docs/api/javax/imageio/metadata/doc-files/jpeg_metadata.html
-    // so since we may not know how many number of components
-    // we have when decoding app14, we have to defer that check
-    // until now.
-    //
-    // We know adobe app14 was present since it's the only one that can modify
-    // input colorspace to be CMYK
-    if img.components.len() == 3 && img.input_colorspace == ColorSpace::CMYK {
-        img.input_colorspace = ColorSpace::RGB;
+    // h_max contains the maximum horizontal component
+    // v_max contains the maximum vertical component
+    for component in &mut img.components {
+        img.h_max = max(img.h_max, component.horizontal_sample);
+        img.v_max = max(img.v_max, component.vertical_sample);
     }
 
-    for component in &mut img.components {
-        // compute interleaved image info
-        // h_max contains the maximum horizontal component
-        img.h_max = max(img.h_max, component.horizontal_sample);
-        // v_max contains the maximum vertical component
-        img.v_max = max(img.v_max, component.vertical_sample);
-        img.mcu_width = img.h_max * 8;
-        img.mcu_height = img.v_max * 8;
-        // Number of MCU's per width
-        img.mcu_x = usize::from(img.info.width).div_ceil(img.mcu_width);
-        // Number of MCU's per height
-        img.mcu_y = usize::from(img.info.height).div_ceil(img.mcu_height);
+    if img.h_max != 1 || img.v_max != 1 {
+        // interleaved images have horizontal and vertical sampling factors
+        // not equal to 1.
+        img.is_interleaved = true;
+    }
 
-        if img.h_max != 1 || img.v_max != 1 {
-            // interleaved images have horizontal and vertical sampling factors
-            // not equal to 1.
-            img.is_interleaved = true;
-        }
+    img.mcu_width = img.h_max * 8;
+    img.mcu_height = img.v_max * 8;
+
+    // Number of MCU's per width
+    img.mcu_x = usize::from(img.info.width).div_ceil(img.mcu_width);
+    // Number of MCU's per height.
+    // For DNL images info.height is 0, so we use the configured max_height as
+    // a sentinel upper bound. The MCU decode loop will break early once the DNL
+    // marker is intercepted and the real height is stored in info.height.
+    img.mcu_y = if img.expects_dnl {
+        img.options.max_height().div_ceil(img.mcu_height)
+    } else {
+        usize::from(img.info.height).div_ceil(img.mcu_height)
+    };
+
+    for component in &mut img.components {
         // Extract quantization tables from the arrays into components
         let qt_table = *img.qt_tables[component.quantization_table_number as usize]
             .as_ref()
@@ -238,15 +221,15 @@ pub(crate) fn setup_component_params<T: ZByteReaderTrait>(
                 ))
             })?;
 
-        let x = (usize::from(img_width) * component.horizontal_sample + img.h_max - 1) / img.h_max;
+        let x = (usize::from(img_width) * component.horizontal_sample).div_ceil(img.h_max);
         let y = (usize::from(img_height) * component.horizontal_sample + img.h_max - 1) / img.v_max;
         component.x = x;
         component.w2 = img.mcu_x * component.horizontal_sample * 8;
         // probably not needed. :)
         component.y = y;
         component.quantization_table = qt_table;
-        // initially stride contains its horizontal sub-sampling
-        component.width_stride *= img.mcu_x * 8;
+        // Use direct assignment (not *=) so this is idempotent on retry.
+        component.width_stride = component.horizontal_sample * img.mcu_x * 8;
     }
     {
         // Sampling factors are one thing that suck
@@ -290,59 +273,11 @@ pub(crate) fn setup_component_params<T: ZByteReaderTrait>(
     if img.is_mjpeg {
         fill_default_mjpeg_tables(
             img.is_progressive,
-            &mut img.dc_huffman_tables,
-            &mut img.ac_huffman_tables
+            &mut img.entropy_tables.dc_huffman,
+            &mut img.entropy_tables.ac_huffman
         );
     }
 
-    // check colorspace matches
-    if img.input_colorspace.num_components() > img.components.len() {
-        if img.input_colorspace == ColorSpace::YCCK {
-            // Some images may have YCCK format (from adobe app14 segment) which is supposed to be 4 components
-            // but only 3 components, see issue https://github.com/etemesi254/zune-image/issues/275
-            // So this is the behaviour of other decoders
-            // - stb_image: Treats it as YCbCr image
-            // - libjpeg_turbo: Does not know how to parse YCCK images (transform 2 app14) so treats
-            // it as YCbCr
-            // So I will match that to match existing ones
-            warn!("Treating YCCK colorspace as YCbCr as component length does not match");
-            img.input_colorspace = ColorSpace::YCbCr
-        } else {
-            // Note, translated this to a warning to handle valid images of the sort
-            // See https://github.com/etemesi254/zune-image/issues/288 where there
-            // was a CMYK image with two components which would be decoded to 4 components
-            // by the decoder.
-            // So with a warning that becomes supported.
-            //
-            // djpeg fails to render an image from that also probably because it does not
-            // understand the expected format.
-            if !img.options.strict_mode() {
-                warn!(
-                    "Expected {} number of components but found {}",
-                    img.input_colorspace.num_components(),
-                    img.components.len()
-                );
-                warn!("Defaulting to multisample to decode");
-
-                // N/B: We do not post process the color of such, treating it as multiband
-                // is the best option since I am not aware of grayscale+alpha which is the most common
-                // two band format in jpeg.
-                if img.components.len() > 0 {
-                    img.input_colorspace = ColorSpace::MultiBand(
-                        NonZeroU32::new(img.components.len() as u32).unwrap()
-                    );
-                }
-            } else {
-                let msg = format!(
-                    "Expected {} number of components but found {}",
-                    img.input_colorspace.num_components(),
-                    img.components.len()
-                );
-
-                return Err(DecodeErrors::Format(msg));
-            }
-        }
-    }
     Ok(())
 }
 
@@ -363,11 +298,11 @@ pub fn calculate_padded_width(actual_width: usize, sub_sample: SampleRatios) -> 
     match sub_sample {
         SampleRatios::None | SampleRatios::V => {
             // None+V sends one MCU row, so that's a simple calculation
-            ((actual_width + 7) / 8) * 8
+            actual_width.div_ceil(8) * 8
         }
         SampleRatios::H | SampleRatios::HV => {
             // sends two rows, width can be expanded by up to 15 more bytes
-            ((actual_width + 15) / 16) * 16
+            actual_width.div_ceil(16) * 16
         }
         SampleRatios::Generic(h, _) => {
             ((actual_width + ((h * 8).saturating_sub(1))) / (h * 8)) * (h * 8)

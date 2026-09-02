@@ -488,6 +488,14 @@ void RenderWidgetHostViewChildFrame::RequestInputBackForDragAndDrop(
       std::move(bitmap), std::move(cursor_offset_in_dip),
       std::move(drag_obj_rect_in_dip), std::move(event_info));
 }
+
+void RenderWidgetHostViewChildFrame::ReportScrollJankStats(
+    uint32_t total_frames,
+    uint32_t janky_frames) {
+  if (auto* root_view = GetRootView()) {
+    root_view->ReportScrollJankStats(total_frames, janky_frames);
+  }
+}
 #endif
 
 RenderWidgetHostViewBase* RenderWidgetHostViewChildFrame::GetRootView() {
@@ -715,8 +723,9 @@ void RenderWidgetHostViewChildFrame::UpdateInheritedEffectiveTouchAction() {
 }
 
 void RenderWidgetHostViewChildFrame::UpdateRenderThrottlingStatus() {
-  // Do not send throttling status to main frames.
-  if (host() && frame_connector_ && !host()->owner_delegate()) {
+  // Send throttling status to subframes and embedded main frames except fenced
+  // frames.
+  if (host() && frame_connector_ && !host()->frame_tree()->is_fenced_frame()) {
     host_->GetAssociatedFrameWidget()->UpdateRenderThrottlingStatusForSubFrame(
         frame_connector_->IsThrottled(), frame_connector_->IsSubtreeThrottled(),
         frame_connector_->IsDisplayLocked());
@@ -1053,6 +1062,14 @@ void RenderWidgetHostViewChildFrame::CopyFromSurface(
       GetCurrentSurfaceId(), std::move(request),
       /*capture_exact_surface_id=*/false, timeout);
 }
+
+#if BUILDFLAG(IS_ANDROID)
+void RenderWidgetHostViewChildFrame::OnReportScrollJankStats(
+    uint32_t total_frames,
+    uint32_t janky_frames) {
+  ReportScrollJankStats(total_frames, janky_frames);
+}
+#endif
 
 void RenderWidgetHostViewChildFrame::OnFirstSurfaceActivation(
     const viz::SurfaceInfo& surface_info) {}

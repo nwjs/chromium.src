@@ -5,16 +5,25 @@
 package org.chromium.chrome.browser.ui.vertical_tabs;
 
 import android.content.Context;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
+import android.text.style.SuperscriptSpan;
 import android.util.TypedValue;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.StringRes;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.text.SpanApplier;
+import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -30,9 +39,21 @@ public class VerticalTabUtils {
 
     /**
      * Minimum window width threshold in dp required to allow expanding vertical tabs rail and
-     * enable collapse button.
+     * enable collapse button when auto-resize is disabled.
      */
     public static final int MIN_EXPAND_WINDOW_WIDTH_DP = 652;
+
+    /**
+     * Minimum width in dp required for the expanded vertical tabs rail before snapping to collapsed
+     * state.
+     */
+    public static final int MIN_EXPANDED_WIDTH_DP = 90;
+
+    /** The ratio of window width that the vertical tabs rail can consume when expanded. */
+    public static final float EXPANDED_WINDOW_WIDTH_RATIO = 0.33f;
+
+    /** Maximum number of times the "New" badge is shown on the Vertical Tabs entry points. */
+    public static final int NEW_BADGE_MAX_VIEW_COUNT = 3;
 
     @IntDef({
         LayoutSwitchEntryPoint.APP_MENU,
@@ -69,8 +90,23 @@ public class VerticalTabUtils {
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/android/enums.xml:AndroidVerticalTabsLayoutToggleSourceAndDirection)
 
+    /** Feature parameter name for enabling auto-resize. */
+    public static final String AUTO_RESIZE_PARAM = "auto_resize";
+
     /** Feature parameter name for enabling Vertical Tabs by default. */
     public static final String ENABLE_BY_DEFAULT_PARAM = "enable_by_default";
+
+    /** Feature parameter name for enabling external drag. */
+    public static final String EXTERNAL_DRAG_PARAM = "external_drag";
+
+    /** Feature parameter name for enabling tab group hover cards. */
+    public static final String GROUP_HOVER_CARD_PARAM = "group_hover_card";
+
+    /** Feature parameter name for enabling the incognito button in the footer. */
+    public static final String INCOGNITO_BUTTON_PARAM = "incognito_button";
+
+    /** Feature parameter name for enabling multi-select. */
+    public static final String MULTI_SELECT_PARAM = "multi_select";
 
     /**
      * Returns whether Vertical Tabs should be enabled by default for eligible users who have not
@@ -78,6 +114,15 @@ public class VerticalTabUtils {
      */
     public static boolean isVerticalTabsEnabledByDefault() {
         return ChromeFeatureList.sAndroidVerticalTabsEnableByDefault.getValue();
+    }
+
+    /**
+     * Returns whether the current device is a tablet (excluding desktop form factor) for sizing
+     * calculations.
+     */
+    public static boolean isTablet(Context context) {
+        return DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)
+                && !DeviceInfo.isDesktop();
     }
 
     /**
@@ -111,6 +156,10 @@ public class VerticalTabUtils {
      * @param enabled Whether Vertical Tabs should be enabled.
      */
     public static void setVerticalTabsEnabled(boolean enabled) {
+        if (enabled) {
+            // For all 3 entry points, mark as clicked so the "New" badge never shows again.
+            markNewBadgeAsDismissed();
+        }
         ChromeSharedPreferences.getInstance()
                 .writeBoolean(ChromePreferenceKeys.VERTICAL_TABS_ENABLED, enabled);
     }
@@ -148,19 +197,114 @@ public class VerticalTabUtils {
         return outValue.getFloat();
     }
 
-    /** Feature parameter name for enabling external drag. */
-    public static final String EXTERNAL_DRAG_PARAM = "external_drag";
-
     /** Returns whether expand-on-hover behavior is enabled for Vertical Tabs. */
     public static boolean isExpandOnHoverEnabled() {
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                ChromeFeatureList.ANDROID_VERTICAL_TABS, "expand_on_hover", false);
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                "expand_on_hover",
+                /* defaultValue= */ false);
     }
 
     /** Returns whether external drag is enabled for Vertical Tabs. */
     public static boolean isExternalDragEnabled() {
         return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
-                ChromeFeatureList.ANDROID_VERTICAL_TABS, EXTERNAL_DRAG_PARAM, false);
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                EXTERNAL_DRAG_PARAM,
+                /* defaultValue= */ false);
+    }
+
+    /** Returns whether auto-resize behavior is enabled for Vertical Tabs. */
+    public static boolean isAutoResizeEnabled() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                AUTO_RESIZE_PARAM,
+                /* defaultValue= */ false);
+    }
+
+    /** Returns whether tab group hover cards are enabled for Vertical Tabs. */
+    public static boolean isGroupHoverCardEnabled() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                GROUP_HOVER_CARD_PARAM,
+                /* defaultValue= */ false);
+    }
+
+    /** Returns whether multi-select behavior is enabled for Vertical Tabs. */
+    public static boolean isMultiSelectEnabled() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                MULTI_SELECT_PARAM,
+                /* defaultValue= */ false);
+    }
+
+    /** Returns whether the incognito button in the footer is enabled for Vertical Tabs. */
+    public static boolean isIncognitoButtonEnabled() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.ANDROID_VERTICAL_TABS,
+                INCOGNITO_BUTTON_PARAM,
+                /* defaultValue= */ false);
+    }
+
+    /** Reads the current view count for the Vertical Tabs "New" badge from shared preferences. */
+    public static int getNewBadgeViewCount() {
+        return ChromeSharedPreferences.getInstance()
+                .readInt(ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT, 0);
+    }
+
+    /** Increments the view count for the Vertical Tabs "New" badge in shared preferences. */
+    public static void incrementNewBadgeViewCount() {
+        ChromeSharedPreferences.getInstance()
+                .incrementInt(ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT);
+    }
+
+    /**
+     * Returns whether the "New" badge should be shown for the "Show tabs vertically" menu item.
+     *
+     * <p>The badge is shown only on tablets (excluding desktop form factor) and capped at 3
+     * impressions until the user clicks the menu item.
+     */
+    public static boolean shouldShowNewBadgeForVerticalTabs(Context context) {
+        // Show only on tablet devices, not on Desktop.
+        if (!isVerticalTabsEligible(context) || DeviceInfo.isDesktop()) {
+            return false;
+        }
+        return getNewBadgeViewCount() < NEW_BADGE_MAX_VIEW_COUNT;
+    }
+
+    /**
+     * Marks the "New" badge for Vertical Tabs as permanently dismissed across all entry points by
+     * setting the view count directly to the maximum impression limit.
+     */
+    public static void markNewBadgeAsDismissed() {
+        ChromeSharedPreferences.getInstance()
+                .writeInt(
+                        ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT,
+                        NEW_BADGE_MAX_VIEW_COUNT);
+    }
+
+    /**
+     * Returns a formatted title string containing the "New" badge for Vertical Tabs entry points.
+     *
+     * <p>This helper applies visual spans to the string resource and is designed to be reusable
+     * across various Vertical Tabs entry points.
+     *
+     * @param context The active {@link Context}.
+     * @param layoutTitleRes The string resource ID for the layout toggle title (e.g., {@code
+     *     R.string.show_tabs_vertically}).
+     * @return A {@link CharSequence} with styled "New" badge spans attached.
+     */
+    public static CharSequence getTitleWithNewBadge(
+            Context context, @StringRes int layoutTitleRes) {
+        String rawTitle = context.getString(layoutTitleRes);
+        return SpanApplier.applySpans(
+                context.getString(R.string.prefs_new_label, rawTitle),
+                new SpanInfo(
+                        "<new>",
+                        "</new>",
+                        new SuperscriptSpan(),
+                        new RelativeSizeSpan(0.75f),
+                        new ForegroundColorSpan(
+                                SemanticColorUtils.getDefaultTextColorAccent1(context))));
     }
 
     private static @LayoutToggleSourceAndDirection int getLayoutToggleSourceAndDirection(

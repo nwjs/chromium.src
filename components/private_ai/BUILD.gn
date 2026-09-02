@@ -80,6 +80,7 @@ source_set("private_ai") {
   public_deps = [
     ":features",
     "//components/private_ai/mojom",
+    "//components/streaming_client",
   ]
   deps = [
     ":proto",
@@ -184,6 +185,7 @@ source_set("unit_tests") {
     "//components/private_ai/phosphor:unit_tests",
     "//components/private_ai/proto_utils:unit_tests",
     "//mojo/public/cpp/system",
+    "//net/traffic_annotation:test_support",
     "//services/network:test_support",
     "//services/network/public/mojom",
     "//testing/gmock",

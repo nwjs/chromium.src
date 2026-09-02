@@ -5,10 +5,12 @@
 #include "components/payments/core/payment_request_metrics.h"
 
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/views/payments/payment_request_browsertest_base.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view_ids.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/payments/core/features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 
@@ -21,7 +23,7 @@ class PaymentRequestMetricsTest : public PaymentRequestBrowserTestBase {
       delete;
 
  protected:
-  PaymentRequestMetricsTest() = default;
+  PaymentRequestMetricsTest() { SetBypassUserInteractionForTesting(); }
 
   void OpenPaymentRequestDialog() {
     // Installs two apps so that the Payment Request UI will be shown.
@@ -37,13 +39,17 @@ class PaymentRequestMetricsTest : public PaymentRequestBrowserTestBase {
         "buyWithMethods([{supportedMethods:$1}, {supportedMethods:$2}]);",
         a_method_name, b_method_name));
   }
+
+ private:
+  base::test::ScopedFeatureList feature_list_{
+      features::kPaymentRequestMandatoryPaymentAppUi};
 };
 
 IN_PROC_BROWSER_TEST_F(PaymentRequestMetricsTest, Success) {
   base::HistogramTester histogram_tester;
   OpenPaymentRequestDialog();
   ResetEventWaiterForSequence(
-      {DialogEvent::PROCESSING_SPINNER_SHOWN, DialogEvent::DIALOG_CLOSED});
+      {DialogEvent::LOADING_VIEW_SHOWN, DialogEvent::DIALOG_CLOSED});
   ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON,
                            /*wait_for_animation=*/false);
   ASSERT_TRUE(WaitForObservedEvent());
@@ -151,6 +157,21 @@ IN_PROC_BROWSER_TEST_F(PaymentRequestMetricsTest,
   histogram_tester.ExpectUniqueSample(
       "PaymentRequest.Outcome",
       PaymentRequestOutcome::kNotShownNoSupportedPaymentMethod, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(PaymentRequestMetricsTest, TimeToCheckout) {
+  base::HistogramTester histogram_tester;
+  OpenPaymentRequestDialog();
+  ResetEventWaiterForSequence(
+      {DialogEvent::LOADING_VIEW_SHOWN, DialogEvent::DIALOG_CLOSED});
+  ClickOnDialogViewAndWait(DialogViewID::PAY_BUTTON,
+                           /*wait_for_animation=*/false);
+  ASSERT_TRUE(WaitForObservedEvent());
+
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.TimeToCheckout.InitToCompleteSuccessfully", 1);
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.TimeToCheckout.ShowToCompleteSuccessfully", 1);
 }
 
 }  // namespace payments

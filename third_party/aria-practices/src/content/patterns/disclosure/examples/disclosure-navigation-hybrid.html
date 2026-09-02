@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Example Disclosure Navigation Menu with Top-Level Links</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/disclosure-navigation.css" rel="stylesheet">
+    <script src="js/disclosureMenu.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <header class="sample-header">
+            <div class="title" id="id_website_title">Mythical University</div>
+            <div class="tagline">Using a disclosure + link pattern for navigation</div>
+          </header>
+          <nav aria-label="Mythical University">
+            <ul id="exTest" class="disclosure-nav">
+              <li>
+                <a href="#mythical-page-content" class="main-link">About</a>
+                <button type="button" aria-expanded="false" aria-controls="id_about_menu" aria-label="More About pages"></button>
+                <ul id="id_about_menu" style="display: none">
+                  <li>
+                    <a href="#mythical-page-content">Overview</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Administration</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Facts</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Campus Tours</a>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="#mythical-page-content" class="main-link">Admissions</a>
+                <button type="button" aria-expanded="false" aria-controls="id_admissions_menu" aria-label="More Admissions pages"></button>
+                <ul id="id_admissions_menu" style="display: none">
+                  <li>
+                    <a href="#mythical-page-content">Apply</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Tuition</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Sign Up</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Visit</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Photo Tour</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Connect</a>
+                  </li>
+                </ul>
+              </li>
+              <li>
+                <a href="#mythical-page-content" class="main-link">Academics</a>
+                <button type="button" aria-expanded="false" aria-controls="id_academics_menu" aria-label="More Academics pages"></button>
+                <ul id="id_academics_menu" style="display: none">
+                  <li>
+                    <a href="#mythical-page-content">Colleges &amp; Schools</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Programs of Study</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Honors Programs</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Online Courses</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Course Explorer</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Register for Class</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Academic Calendar</a>
+                  </li>
+                  <li>
+                    <a href="#mythical-page-content">Transcripts</a>
+                  </li>
+                </ul>
+              </li>
+            </ul>
+          </nav>
+          <div id="mythical-page-content" class="disclosure-page-content" tabindex="-1" role="region" aria-labelledby="mythical-page-heading">
+            <h3 id="mythical-page-heading">Home</h3>
+            <p>
+              Sample content section.
+              Activating a link above will update and navigate to this region.
+            </p>
+          </div>
+          <footer class="sample-footer">Mythical University footer information</footer>
+        </div>
+  </body>
+</html>

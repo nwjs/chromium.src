@@ -1,0 +1,91 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SiteShortcutsPageElement} from './site_shortcuts_page.js';
+
+export function getHtml(this: SiteShortcutsPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-section page-title="$i18n{searchSiteShortcuts}">
+  <!-- Active site shortcuts -->
+  <cr-expand-button id="activeShortcutsRow"
+      ?expanded="${this.activeShortcutsExpanded_}"
+      @expanded-changed="${this.onActiveShortcutsExpandedChanged_}"
+      class="cr-row first"
+      aria-label="$i18n{searchSiteShortcutsActiveShortcuts} $i18n{searchSiteShortcutsActiveShortcutsExplanation}">
+    <div class="expand-row">
+      <div class="text-content-group">
+        $i18n{searchSiteShortcutsActiveShortcuts}
+        <div class="secondary">
+          $i18n{searchSiteShortcutsActiveShortcutsExplanation}
+        </div>
+      </div>
+      <cr-button id="addSearchEngine"
+          class="secondary-button header-aligned-button"
+          aria-label="$i18n{searchEnginesAddButtonAriaLabel}"
+          @click="${this.onAddSearchEngineClick_}"
+          ?hidden="${!this.activeShortcutsExpanded_}">
+        $i18n{add}
+      </cr-button>
+      <div class="separator"></div>
+    </div>
+  </cr-expand-button>
+  <cr-collapse ?opened="${this.activeShortcutsExpanded_}">
+    <settings-search-engines-list
+        id="activeShortcutsList"
+        ?hidden="${!this.activeShortcuts.length}"
+        .engines="${this.activeShortcuts}" show-shortcut>
+    </settings-search-engines-list>
+    <div id="noActiveShortcutsFound" class="no-shortcuts-found"
+        ?hidden="${this.activeShortcuts.length > 0}">
+      $i18n{searchNoSiteShortcutsFound}
+    </div>
+  </cr-collapse>
+
+  <!-- Inactive site shortcuts -->
+  <cr-expand-button id="inactiveShortcutsRow"
+      ?expanded="${this.inactiveShortcutsExpanded_}"
+      @expanded-changed="${this.onInactiveShortcutsExpandedChanged_}"
+      class="cr-row">
+    <div class="expand-row">
+      <div class="text-content-group">
+        $i18n{searchSiteShortcutsInactiveShortcuts}
+        <div class="secondary">
+          $i18n{searchSiteShortcutsInactiveShortcutsExplanation}
+        </div>
+      </div>
+      <div class="separator"></div>
+    </div>
+  </cr-expand-button>
+  <cr-collapse ?opened="${this.inactiveShortcutsExpanded_}">
+    <settings-search-engines-list
+        id="inactiveShortcutsList"
+        ?hidden="${!this.inactiveShortcuts.length}"
+        .engines="${this.inactiveShortcuts}" show-shortcut>
+    </settings-search-engines-list>
+    <div id="noInactiveShortcutsFound" class="no-shortcuts-found"
+        ?hidden="${this.inactiveShortcuts.length > 0}">
+      $i18n{searchNoSiteShortcutsFound}
+    </div>
+  </cr-collapse>
+</settings-section>
+
+<!-- Dialogs -->
+${this.showEditDialog_ ? html`
+  <settings-search-engine-edit-dialog .model="${this.dialogModel_}"
+      @close="${this.onEditDialogClose_}">
+  </settings-search-engine-edit-dialog>
+` : ''}
+
+${this.showDeleteConfirmationDialog_ ? html`
+  <settings-simple-confirmation-dialog id="deleteConfirmDialog"
+      title-text="$i18n{searchEnginesDeleteConfirmationTitle}"
+      body-text="$i18n{searchEnginesDeleteConfirmationDescriptionForPolicy}"
+      confirm-text="$i18n{delete}"
+      @close="${this.onDeleteConfirmationDialogClose_}">
+  </settings-simple-confirmation-dialog>
+` : ''}
+<!--_html_template_end_-->`;
+}

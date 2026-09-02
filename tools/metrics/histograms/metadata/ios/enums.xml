@@ -155,6 +155,8 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Flow continued in another app"/>
   <int value="9" label="Flow could not launch"/>
   <int value="10" label="Invalid parameters"/>
+  <int value="11"
+      label="Invalid parameters, falling back to opening URL in new tab"/>
 </enum>
 
 <!-- LINT.ThenChange(//ios/chrome/browser/google_one/coordinator/google_one_coordinator.mm:GoogleOneOutcome) -->
@@ -398,6 +400,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Autofill Used"/>
   <int value="4" label="Set Up List"/>
   <int value="5" label="Tips Notification"/>
+  <int value="6" label="Passkey Created"/>
 </enum>
 
 <!-- LINT.IfChange(IOSCrossPlatformPromoType) -->
@@ -476,6 +479,20 @@ chromium-metrics-reviews@google.com.
   <int value="1" label="Dismissed"/>
   <int value="2" label="Displayed"/>
 </enum>
+
+<!-- LINT.IfChange(IOSDefaultBrowserSettingsPassivePromoAction) -->
+
+<enum name="IOSDefaultBrowserSettingsPassivePromoAction">
+  <summary>
+    The action taken by the user on the Default Browser Settings Passive Promo
+    Card.
+  </summary>
+  <int value="0" label="Closed"/>
+  <int value="1" label="Action"/>
+  <int value="2" label="No Action"/>
+</enum>
+
+<!-- LINT.ThenChange(/ios/chrome/browser/settings/ui_bundled/settings_table_view_controller.mm:IOSDefaultBrowserSettingsPassivePromoAction) -->
 
 <enum name="IOSDefaultBrowserVideoPromoAction">
   <int value="0" label="Primary Action Button"/>

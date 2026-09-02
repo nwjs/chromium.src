@@ -10,8 +10,8 @@
 #include "base/memory/ptr_util.h"
 #include "base/notimplemented.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/dictation/features.h"
 #include "chrome/browser/dictation/session_ui_delegate.h"
+#include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -138,10 +138,6 @@ void SessionUiImpl::UpdateAudioLevel(float audio_level) {
 }
 
 void SessionUiImpl::OnStartedStream(content::GlobalDOMNodeId target_id) {
-  if (!kShowCaretBubble.Get()) {
-    return;
-  }
-
   content::RenderFrameHost* target_rfh =
       target_id.document.AsRenderFrameHostIfValid();
   content::WebContents* web_contents =
@@ -151,7 +147,8 @@ void SessionUiImpl::OnStartedStream(content::GlobalDOMNodeId target_id) {
   }
 
   if (!overlay_view_) {
-    gfx::NativeView parent_view = web_contents->GetContentNativeView();
+    gfx::NativeView parent_view = platform_util::GetViewForWindow(
+        web_contents->GetTopLevelNativeWindow());
     overlay_view_ = std::make_unique<DictationOverlayView>(
         parent_view,
         base::BindRepeating(&SessionUiImpl::OnToggleActiveStreamClicked,

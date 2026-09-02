@@ -14,6 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service.h"
 #include "chrome/browser/bookmarks/bookmark_merged_surface_service_observer.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar.h"
@@ -22,7 +23,6 @@
 #include "chrome/browser/ui/views/bookmarks/bookmark_context_menu.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_menu_controller_observer.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_menu_controller_views.h"
-#include "chrome/browser/ui/views/bookmarks/saved_tab_groups/saved_tab_group_bar.h"
 #include "components/bookmarks/browser/bookmark_node_data.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "ui/accessibility/ax_action_data.h"
@@ -33,6 +33,7 @@
 #include "ui/views/accessible_pane_view.h"
 #include "ui/views/animation/animation_delegate_views.h"
 #include "ui/views/context_menu_controller.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/controls/menu/menu_types.h"
 #include "ui/views/drag_controller.h"
 #include "ui/views/view.h"
@@ -43,8 +44,8 @@ class BookmarkBarViewTestHelper;
 class BookmarkContextMenu;
 class BookmarkMergedSurfaceService;
 struct BookmarkParentFolder;
-class Browser;
 class BrowserView;
+class BrowserWindowInterface;
 class Profile;
 
 namespace bookmarks {
@@ -91,7 +92,7 @@ class BookmarkBarView : public views::AccessiblePaneView,
   class ButtonSeparatorView;
 
   // |browser_view| can be NULL during tests.
-  BookmarkBarView(Browser* browser, BrowserView* browser_view);
+  BookmarkBarView(BrowserWindowInterface* browser, BrowserView* browser_view);
   BookmarkBarView(const BookmarkBarView&) = delete;
   BookmarkBarView& operator=(const BookmarkBarView&) = delete;
   ~BookmarkBarView() override;
@@ -101,7 +102,7 @@ class BookmarkBarView : public views::AccessiblePaneView,
   static void DisableAnimationsForTesting(bool disabled);
 
   // Returns the current browser.
-  Browser* browser() const { return browser_; }
+  BrowserWindowInterface* browser() const { return browser_; }
 
   void AddObserver(BookmarkBarViewObserver* observer);
   void RemoveObserver(BookmarkBarViewObserver* observer);
@@ -517,7 +518,7 @@ class BookmarkBarView : public views::AccessiblePaneView,
   raw_ptr<ButtonSeparatorView> bookmarks_separator_view_ = nullptr;
   raw_ptr<ButtonSeparatorView> saved_tab_groups_separator_view_ = nullptr;
 
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
   raw_ptr<BrowserView> browser_view_;
 
   // True if the owning browser is showing an infobar.

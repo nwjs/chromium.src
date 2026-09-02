@@ -17,6 +17,15 @@ BASE_DECLARE_FEATURE(kContextHub);
 // Overrides the timeout of the Context Memory Service FetchContext call.
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kAutoTodosTimeoutSeconds);
 
+// Overrides the inactivity threshold for tab-based todos generation.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kTabBasedTodosInactivityThreshold);
+
+// The interval at which the first-party AutoTodos background job runs.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kFirstPartyAutoTodosInterval);
+
+// The maximum number of items stored in the todo feedback cache.
+BASE_DECLARE_FEATURE_PARAM(size_t, kMaxTodoFeedbackCacheSize);
+
 // The feature flag for the Memory Banks feature in Context Hub.
 BASE_DECLARE_FEATURE(kMemoryBanks);
 

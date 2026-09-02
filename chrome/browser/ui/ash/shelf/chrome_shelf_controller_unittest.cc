@@ -119,6 +119,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
@@ -163,6 +164,7 @@
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/app_service/public/cpp/app_registry_cache.h"
+#include "components/services/app_service/public/cpp/app_service_registry.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/app_update.h"
 #include "components/services/app_service/public/cpp/instance.h"
@@ -170,6 +172,7 @@
 #include "components/services/app_service/public/cpp/package_id.h"
 #include "components/services/app_service/public/cpp/stub_icon_loader.h"
 #include "components/services/app_service/public/cpp/types_util.h"
+#include "components/session_manager/core/session.h"
 #include "components/sync/base/data_type.h"
 #include "components/sync/model/sync_change.h"
 #include "components/sync/protocol/app_list_specifics.pb.h"
@@ -1464,12 +1467,12 @@ class ChromeShelfControllerTest : public ChromeShelfControllerTestBase {
 class V1App {
  public:
   V1App(Profile* profile, const std::string& app_name) {
-    Browser::CreateParams params = Browser::CreateParams::CreateForApp(
+    BrowserWindowCreateParams params = BrowserWindowCreateParams::CreateForApp(
         kCrxAppPrefix + app_name, true /* trusted_source */, gfx::Rect(),
         profile, true);
     auto window = std::make_unique<TestBrowserWindow>();
     params.window = window.release();
-    browser_ = Browser::DeprecatedCreateOwnedForTesting(params);
+    browser_ = DeprecatedCreateOwnedBrowserWindowForTesting(std::move(params));
     chrome::AddTabAt(browser_.get(), GURL(), 0, true);
   }
   V1App(const V1App&) = delete;
@@ -4666,6 +4669,18 @@ class ChromeShelfControllerArcDefaultAppsTest
     ArcDefaultAppList::UseTestAppsDirectory();
     ChromeShelfControllerTestBase::SetUp();
   }
+
+  TestingProfile* CreateProfile(const std::string& profile_name) override {
+    ash::ScopedAccountIdAnnotator annotator(
+        profile_manager()->profile_manager(),
+        session_manager::SessionManager::Get()
+            ->GetPrimarySession()
+            ->account_id());
+    return ChromeShelfControllerTestBase::CreateProfile(profile_name);
+  }
+
+ private:
+  apps::AppServiceRegistry app_service_registry_;
 };
 
 class ChromeShelfControllerPlayStoreAvailabilityTest

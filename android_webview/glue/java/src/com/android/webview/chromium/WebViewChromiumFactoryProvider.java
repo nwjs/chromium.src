@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Looper;
@@ -19,6 +20,9 @@ import android.os.UserManager;
 import android.os.flagging.AconfigPackage;
 import android.provider.DeviceConfig;
 import android.provider.DeviceConfig.Properties;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.GeolocationPermissions;
 import android.webkit.PacProcessor;
@@ -34,22 +38,26 @@ import android.webkit.WebViewDelegate;
 import android.webkit.WebViewFactory;
 import android.webkit.WebViewFactoryProvider;
 import android.webkit.WebViewProvider;
+import android.widget.FrameLayout;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.IntDef;
 import androidx.annotation.RequiresApi;
 
 import com.android.webview.chromium.SharedStatics.ApiCall;
-import com.android.webview.chromium.WebViewChromiumAwInit.CallSite;
 
+import org.chromium.android_webview.AwBrowserContext;
+import org.chromium.android_webview.AwBrowserContextStore;
 import org.chromium.android_webview.AwBrowserMainParts;
 import org.chromium.android_webview.AwBrowserProcess;
 import org.chromium.android_webview.AwClassPreloader;
+import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwContentsStatics;
 import org.chromium.android_webview.AwCookieManager;
 import org.chromium.android_webview.AwSettings;
 import org.chromium.android_webview.DualTraceEvent;
 import org.chromium.android_webview.ManifestMetadataUtil;
+import org.chromium.android_webview.StartupCallSite;
 import org.chromium.android_webview.WebViewChromiumRunQueue;
 import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.AwSwitches;
@@ -62,7 +70,6 @@ import org.chromium.android_webview.common.SafeModeActionIds;
 import org.chromium.android_webview.common.SafeModeController;
 import org.chromium.android_webview.common.WebViewCachedFlags;
 import org.chromium.android_webview.safe_mode.BrowserSafeModeActionList;
-import org.chromium.android_webview.variations.FastVariationsSeedSafeModeAction;
 import org.chromium.base.AconfigFlaggedApiDelegate;
 import org.chromium.base.ApkInfo;
 import org.chromium.base.BaseFeatures;
@@ -256,20 +263,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     private boolean mIsSafeModeEnabled;
     private boolean mIsMultiProcessEnabled;
 
-    public static class InitInfo {
-        // Timestamp of init start and duration, used in the
-        // 'WebView.Startup.CreationTime.Stage1.FactoryInit' trace event.
-        public long mStartTime;
-        public long mDuration;
-
-        // Timestamp of the framework getProvider() method start and elapsed time until init is
-        // finished, used in the 'WebView.Startup.CreationTime.TotalFactoryInitTime'
-        // trace event.
-        public long mTotalFactoryInitStartTime;
-        public long mTotalFactoryInitDuration;
-    }
-
-    private final InitInfo mInitInfo = new InitInfo();
+    private FactoryStartupTimings mStartupTimings;
 
     /** Thread-safe way to set the one and only WebViewChromiumFactoryProvider. */
     private static void setSingleton(WebViewChromiumFactoryProvider provider) {
@@ -366,7 +360,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     @SuppressWarnings({"NoContextGetApplicationContext"})
     private void initialize(WebViewDelegate webViewDelegate) {
         // Capture startup init time before anything else.
-        mInitInfo.mStartTime = SystemClock.uptimeMillis();
+        long startTime = SystemClock.uptimeMillis();
         // Use `ScopedSysTraceEvent` until `EarlyTraceEvent` is potentially enabled further down.
         try (ScopedSysTraceEvent e1 =
                 ScopedSysTraceEvent.scoped("WebViewChromiumFactoryProvider.initialize")) {
@@ -676,9 +670,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
             // This must happen after pref value has been read and SafeMode setup has completed.
             setupStartupTaskExperiments(androidXConfig);
 
-            if (!FastVariationsSeedSafeModeAction.hasRun()) {
-                mAwInit.startVariationsInit();
-            }
+            AwBrowserProcess.startVariationsInit();
 
             if (WebViewCachedFlags.get()
                             .isCachedFeatureEnabled(AwFeatures.WEBVIEW_MOVE_WORK_TO_PROVIDER_INIT)
@@ -718,47 +710,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
             setSingleton(this);
         }
 
-        mInitInfo.mDuration = SystemClock.uptimeMillis() - mInitInfo.mStartTime;
-        RecordHistogram.recordTimesHistogram(
-                "Android.WebView.Startup.CreationTime.Stage1.FactoryInit", mInitInfo.mDuration);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            WebViewFactory.StartupTimestamps startupTimestamps =
-                    mWebViewDelegate.getStartupTimestamps();
-            mInitInfo.mTotalFactoryInitStartTime = startupTimestamps.getWebViewLoadStart();
-            mInitInfo.mTotalFactoryInitDuration =
-                    SystemClock.uptimeMillis() - mInitInfo.mTotalFactoryInitStartTime;
-            RecordHistogram.recordTimesHistogram(
-                    "Android.WebView.Startup.CreationTime.TotalFactoryInitTime",
-                    mInitInfo.mTotalFactoryInitDuration);
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                RecordHistogram.recordTimesHistogram(
-                        "Android.WebView.Startup.CreationTime.TotalFactoryInitTime.MainLooper",
-                        mInitInfo.mTotalFactoryInitDuration);
-            } else {
-                RecordHistogram.recordTimesHistogram(
-                        "Android.WebView.Startup.CreationTime.TotalFactoryInitTime.NotMainLooper",
-                        mInitInfo.mTotalFactoryInitDuration);
-            }
-            RecordHistogram.recordTimesHistogram(
-                    "Android.WebView.Startup.CreationTime.CreateContextTime",
-                    startupTimestamps.getCreateContextEnd()
-                            - startupTimestamps.getCreateContextStart());
-            RecordHistogram.recordTimesHistogram(
-                    "Android.WebView.Startup.CreationTime.AssetsAddTime",
-                    startupTimestamps.getAddAssetsEnd() - startupTimestamps.getAddAssetsStart());
-            RecordHistogram.recordTimesHistogram(
-                    "Android.WebView.Startup.CreationTime.GetClassLoaderTime",
-                    startupTimestamps.getGetClassLoaderEnd()
-                            - startupTimestamps.getGetClassLoaderStart());
-            RecordHistogram.recordTimesHistogram(
-                    "Android.WebView.Startup.CreationTime.NativeLoadTime",
-                    startupTimestamps.getNativeLoadEnd() - startupTimestamps.getNativeLoadStart());
-            RecordHistogram.recordTimesHistogram(
-                    "Android.WebView.Startup.CreationTime.GetProviderClassForNameTime",
-                    startupTimestamps.getProviderClassForNameEnd()
-                            - startupTimestamps.getProviderClassForNameStart());
-        }
+        mStartupTimings = new FactoryStartupTimings(startTime, webViewDelegate);
 
         AconfigFlaggedApiDelegate delegate = AconfigFlaggedApiDelegate.getInstance();
         boolean isNativeWebViewZygoteEnabled =
@@ -896,7 +848,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
         try (DualTraceEvent event =
                 DualTraceEvent.scoped("WebView.APICall.Framework.GET_GEOLOCATION_PERMISSIONS")) {
             SharedStatics.recordStaticApiCall(ApiCall.GET_GEOLOCATION_PERMISSIONS);
-            return mAwInit.getDefaultProfile(CallSite.GET_DEFAULT_GEOLOCATION_PERMISSIONS)
+            return mAwInit.getDefaultProfile(StartupCallSite.GET_DEFAULT_GEOLOCATION_PERMISSIONS)
                     .getGeolocationPermissions();
         }
     }
@@ -908,7 +860,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     @Override
     public ServiceWorkerController getServiceWorkerController() {
-        return mAwInit.getDefaultProfile(CallSite.GET_DEFAULT_SERVICE_WORKER_CONTROLLER)
+        return mAwInit.getDefaultProfile(StartupCallSite.GET_DEFAULT_SERVICE_WORKER_CONTROLLER)
                 .getServiceWorkerController();
     }
 
@@ -924,7 +876,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     @Override
     public WebStorage getWebStorage() {
-        return mAwInit.getDefaultProfile(CallSite.GET_DEFAULT_WEB_STORAGE).getWebStorage();
+        return mAwInit.getDefaultProfile(StartupCallSite.GET_DEFAULT_WEB_STORAGE).getWebStorage();
     }
 
     @Override
@@ -942,8 +894,7 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
 
     @Override
     public TracingController getTracingController() {
-        mAwInit.triggerAndWaitForChromiumStarted(
-                WebViewChromiumAwInit.CallSite.GET_TRACING_CONTROLLER);
+        mAwInit.triggerAndWaitForChromiumStarted(StartupCallSite.GET_TRACING_CONTROLLER);
         synchronized (mAwInit.getLazyInitLock()) {
             if (mTracingController == null) {
                 mTracingController =
@@ -1000,8 +951,10 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
         return GlueApiHelperForR.createPacProcessor();
     }
 
-    public InitInfo getInitInfo() {
-        return mInitInfo;
+    void recordInitTraces() {
+        if (mStartupTimings != null) {
+            mStartupTimings.recordInitTraces();
+        }
     }
 
     private boolean shouldEnableContextExperiment() {
@@ -1104,5 +1057,81 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
                 }
                 break;
         }
+    }
+
+    private AwContents mDestroyedAwContents;
+
+    private static class StubInternalAccessAdapter implements AwContents.InternalAccessDelegate {
+        @Override
+        public boolean super_onKeyUp(int arg0, KeyEvent arg1) {
+            return false;
+        }
+
+        @Override
+        public boolean super_dispatchKeyEvent(KeyEvent event) {
+            return false;
+        }
+
+        @Override
+        public boolean super_onGenericMotionEvent(MotionEvent arg0) {
+            return false;
+        }
+
+        @Override
+        public void super_onConfigurationChanged(Configuration arg0) {}
+
+        @Override
+        public int super_getScrollBarStyle() {
+            return android.view.View.SCROLLBARS_INSIDE_OVERLAY;
+        }
+
+        @Override
+        public void super_startActivityForResult(Intent intent, int requestCode) {}
+
+        @Override
+        public void onScrollChanged(int l, int t, int oldl, int oldt) {}
+
+        @Override
+        public void overScrollBy(
+                int deltaX,
+                int deltaY,
+                int scrollX,
+                int scrollY,
+                int scrollRangeX,
+                int scrollRangeY,
+                int maxOverScrollX,
+                int maxOverScrollY,
+                boolean isTouchEvent) {}
+
+        @Override
+        public void super_scrollTo(int scrollX, int scrollY) {}
+
+        @Override
+        public void setMeasuredDimension(int measuredWidth, int measuredHeight) {}
+    }
+
+    public AwContents getSharedDestroyedAwContents() {
+        if (mDestroyedAwContents == null) {
+            Context appContext = ContextUtils.getApplicationContext();
+            ViewGroup stubView = new FrameLayout(appContext);
+
+            AwBrowserContext defaultContext =
+                    AwBrowserContextStore.getNamedContext(
+                            AwBrowserContext.getDefaultContextName(), true);
+
+            mDestroyedAwContents =
+                    new AwContents(
+                            defaultContext,
+                            stubView,
+                            appContext,
+                            new StubInternalAccessAdapter(),
+                            this.getWebViewDelegate()::drawWebViewFunctor,
+                            awContents ->
+                                    new WebViewContentsClientAdapter(
+                                            awContents, this.getWebViewDelegate()),
+                            new AwContents.DependencyFactory());
+            mDestroyedAwContents.destroy();
+        }
+        return mDestroyedAwContents;
     }
 }

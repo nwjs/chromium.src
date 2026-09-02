@@ -9,7 +9,9 @@
 #import "base/memory/raw_ptr.h"
 #import "base/memory/weak_ptr.h"
 #import "base/scoped_observation.h"
+#import "components/enterprise/common/proto/connectors.pb.h"
 #import "components/enterprise/data_controls/core/browser/verdict.h"
+#import "ios/chrome/browser/enterprise/data_controls/model/data_controls_pasteboard_manager.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_pasteboard_manager_observer.h"
 #import "ios/chrome/browser/enterprise/data_controls/utils/clipboard_utils.h"
 #import "ios/chrome/browser/enterprise/enterprise_dialog/model/warning_dialog.h"
@@ -18,6 +20,11 @@
 #import "url/gurl.h"
 
 @protocol SnackbarCommands;
+
+namespace enterprise_connectors {
+struct RequestHandlerResult;
+class PasteboardContentHandlerIOS;
+}
 
 namespace web {
 class WebState;
@@ -86,19 +93,48 @@ class DataControlsTabHelper
   explicit DataControlsTabHelper(web::WebState* web_state);
 
   // An enum class that keeps track of the state of the current paste event for
-  // each tab. More event states will be added in the future for the Pasted
-  // Content DLP Rules feature.
-  //
-  // TODO(crbug.com/531672160): Add event states for pasted content DLP Rules.
+  // each tab.
   enum class PasteEventState {
     // No ongoing paste event.
     kIdle,
     // Waiting for users to make a decision from Warning Dialog.
     kDisplayingWarningDialog,
+    // Waiting for scan result from WebProtect.
+    kWaitingScanDecision,
+    // User initiated a new copy action while waiting for the scan result for
+    // the paste, making the paste event stale.
+    kPasteEventStale,
   };
 
   // Returns true if clipboard data controls are enabled.
   bool IsClipboardDataControlsEnabled() const;
+
+  // Block the paste if the action outcome of Data Controls is Block, or the
+  // user decides to cancel on Warn. Otherwise, start a Pasted Content Analysis
+  // if it is enabled for either the source profile or destination profile.
+  void PasteIfAllowedByDataControls(
+      const GURL& destination_url,
+      const GURL& source_url,
+      base::WeakPtr<ProfileIOS> destination_profile,
+      base::WeakPtr<ProfileIOS> source_profile,
+      const ui::ClipboardMetadata& metadata,
+      Verdict verdict,
+      base::OnceCallback<void(bool)> callback,
+      bool bypassed);
+
+  // Allow or block the paste or show a warning dialog based on the `result`.
+  void PasteIfAllowedByContentAnalysis(
+      base::OnceCallback<void(bool)> callback,
+      enterprise_connectors::RequestHandlerResult result);
+
+  // Run the pasted content analysis using the `PastedContentHandlerIOS` with
+  // the info from the parameters.
+  void RunPastedContentAnalysis(
+      const GURL& destination_url,
+      base::WeakPtr<ProfileIOS> profile,
+      enterprise_connectors::ContentMetaData::CopiedTextSource copied_source,
+      base::OnceCallback<void(bool)> callback,
+      std::optional<PasteboardContentDLP> pasteboard_content);
 
   // Finalizes the copy action invoking the callback.
   void FinishCopy(const GURL& source_url,
@@ -108,15 +144,12 @@ class DataControlsTabHelper
                   base::OnceCallback<void(bool)> callback,
                   bool bypassed);
 
-  // Finalizes the paste action invoking the callback.
-  void FinishPaste(const GURL& destination_url,
-                   const GURL& source_url,
-                   base::WeakPtr<ProfileIOS> destination_profile,
-                   base::WeakPtr<ProfileIOS> source_profile,
-                   const ui::ClipboardMetadata& metadata,
-                   Verdict verdict,
-                   base::OnceCallback<void(bool)> callback,
-                   bool bypassed);
+  // Restores the pasteboard item to pasteboard if needed and then finalizes the
+  // paste action invoking the callback and resets `paste_event_state_` to
+  // `kIdle`.
+  void FinishPaste(base::OnceCallback<void(bool)> callback,
+                   bool verdict_or_scan_success,
+                   bool analysis_warn_bypassed);
 
   // Finalizes the share action invoking the callback.
   void FinishShare(const GURL& source_url,
@@ -138,8 +171,9 @@ class DataControlsTabHelper
                          std::string_view org_domain,
                          base::OnceCallback<void(bool)> on_bypassed_callback);
 
-  // Shows a snackbar to inform the user that an action was blocked by policy.
-  void ShowRestrictSnackbar(std::string_view org_domain);
+  // Shows a snackbar message to inform the user that an action was blocked by
+  // policy or content analysis.
+  void ShowRestrictSnackbar(NSString* title);
 
   // Returns the management domain for the given `profile`.
   std::string GetManagementDomain(ProfileIOS* profile);
@@ -153,6 +187,10 @@ class DataControlsTabHelper
 
   // The snackbar command handler.
   __weak id<SnackbarCommands> snackbar_handler_ = nil;
+
+  // The handler for pasteboard content analysis.
+  std::unique_ptr<enterprise_connectors::PasteboardContentHandlerIOS>
+      pasteboard_content_handler_;
 
   PasteEventState paste_event_state_ = PasteEventState::kIdle;
 

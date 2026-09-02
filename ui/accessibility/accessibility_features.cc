@@ -213,7 +213,7 @@ BASE_FEATURE(kUiaDisconnectRootProviders, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUiaEventOptimization, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUiaMathMlSupport, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kUiaMathMlSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsUiaMathMlSupportEnabled() {
   return base::FeatureList::IsEnabled(::features::kUiaMathMlSupport);
 }
@@ -323,6 +323,13 @@ bool IsAccessibilityChromeVoxJapaneseBrailleEnabled() {
       ::features::kAccessibilityChromeVoxJapaneseBraille);
 }
 
+BASE_FEATURE(kAccessibilityGoogleTtsAutomaticReconnect,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsAccessibilityGoogleTtsAutomaticReconnectEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kAccessibilityGoogleTtsAutomaticReconnect);
+}
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -338,7 +345,7 @@ BASE_FEATURE(kAccessibilityMagnificationFollowsFocusKeyboardAttached,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAccessibilityMagnificationFollowsFocusNoKeyboard,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAccessibilityAndroidMath, base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsAccessibilityAndroidMathEnabled() {
@@ -425,6 +432,13 @@ GetReadAnythingMenuShuffleExperimentGroup() {
   return kReadAnythingMenuShuffleExperimentParam.Get();
 }
 
+BASE_FEATURE(kReadAnythingReadAloudExperimentalPlaybackUi,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsReadAnythingReadAloudExperimentalPlaybackUiEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kReadAnythingReadAloudExperimentalPlaybackUi);
+}
+
 BASE_FEATURE(kReadAnythingReadAloudPhraseHighlighting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsReadAnythingReadAloudPhraseHighlightingEnabled() {
@@ -454,12 +468,6 @@ bool IsHatsReadingModeSurveyEnabled() {
   return base::FeatureList::IsEnabled(::features::kHatsReadingModeSurvey);
 }
 
-BASE_FEATURE(kReadAnythingImagesViaAlgorithm, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsReadAnythingImagesViaAlgorithmEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kReadAnythingImagesViaAlgorithm);
-}
-
 bool IsReadAnythingDocsIntegrationEnabled() {
   return base::FeatureList::IsEnabled(
       ax::mojom::features::kReadAnythingDocsIntegration);
@@ -472,13 +480,13 @@ bool IsReadAnythingDocsLoadMoreButtonEnabled() {
       ::features::kReadAnythingDocsLoadMoreButton);
 }
 
-BASE_FEATURE(kReadAnythingWithReadability, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kReadAnythingWithReadability, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsReadAnythingWithReadabilityEnabled() {
   return base::FeatureList::IsEnabled(::features::kReadAnythingWithReadability);
 }
 
 BASE_FEATURE(kReadAnythingReadabilitySelectText,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsReadAnythingReadabilitySelectTextEnabled() {
   return base::FeatureList::IsEnabled(
              ::features::kReadAnythingReadabilitySelectText) &&
@@ -490,6 +498,12 @@ BASE_FEATURE(kReadAnythingDistillationQualityEvaluation,
 bool IsReadAnythingDistillationQualityEvaluationEnabled() {
   return base::FeatureList::IsEnabled(
       ::features::kReadAnythingDistillationQualityEvaluation);
+}
+
+BASE_FEATURE(kReadAnythingDistillerRefactor, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsReadAnythingDistillerRefactorEnabled() {
+  return base::FeatureList::IsEnabled(
+      ::features::kReadAnythingDistillerRefactor);
 }
 
 // This feature is only used in tests and must not be enabled by default.

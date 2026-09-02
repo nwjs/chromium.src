@@ -32,6 +32,7 @@
 #include "content/browser/worker_host/worker_script_loader_factory.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/child_process_host.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/network_service_instance.h"
@@ -253,6 +254,7 @@ void WorkerScriptFetcher::CreateAndStart(
     blink::mojom::FetchClientSettingsObjectPtr
         outside_fetch_client_settings_object,
     network::mojom::RequestDestination request_destination,
+    bool file_url_support,
     scoped_refptr<ServiceWorkerContextWrapper> service_worker_context,
     ServiceWorkerMainResourceHandle* service_worker_handle,
     scoped_refptr<network::SharedURLLoaderFactory> blob_url_loader_factory,
@@ -282,9 +284,6 @@ void WorkerScriptFetcher::CreateAndStart(
     return;
   }
 
-  bool constructor_uses_file_url =
-      request_initiator.scheme() == url::kFileScheme;
-
   // TODO(crbug.com/41472712): Filesystem URL support on shared workers
   // are now broken.
   bool filesystem_url_support =
@@ -297,13 +296,13 @@ void WorkerScriptFetcher::CreateAndStart(
   std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
       factory_bundle_for_browser = CreateFactoryBundle(
           LoaderType::kMainResource, worker_process_id, storage_partition,
-          storage_domain, constructor_uses_file_url, filesystem_url_support,
+          storage_domain, file_url_support, filesystem_url_support,
           creator_render_frame_host, request_initiator_storage_key,
           request_destination);
   std::unique_ptr<blink::PendingURLLoaderFactoryBundle>
       subresource_loader_factories = CreateFactoryBundle(
           LoaderType::kSubResource, worker_process_id, storage_partition,
-          storage_domain, constructor_uses_file_url, filesystem_url_support,
+          storage_domain, file_url_support, filesystem_url_support,
           creator_render_frame_host, request_initiator_storage_key,
           request_destination);
 
@@ -621,13 +620,13 @@ WorkerScriptFetcher::CreateFactoryBundle(
   non_network_factories.emplace(url::kDataScheme,
                                 DataURLLoaderFactory::Create());
   if (filesystem_url_support) {
-    // TODO(crbug.com/41471904): Pass ChildProcessHost::kInvalidUniqueID
-    // instead of valid `worker_process_id` for `factory_bundle_for_browser`
-    // once CanCommitURL-like check is implemented in PlzWorker.
+    int process_id = loader_type == LoaderType::kMainResource
+                         ? ChildProcessHost::kInvalidUniqueID
+                         : worker_process_id;
     non_network_factories.emplace(
         url::kFileSystemScheme,
         CreateFileSystemURLLoaderFactory(
-            worker_process_id, FrameTreeNodeId(),
+            process_id, FrameTreeNodeId(),
             storage_partition->GetFileSystemContext(), storage_domain,
             request_initiator_storage_key));
   }

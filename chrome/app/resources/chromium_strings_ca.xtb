@@ -152,6 +152,7 @@
 <translation id="2635452620547538388">Verifica la teva identitat per utilitzar i desar les dades de Chromium al teu compte, <ph name="ACCOUNT_EMAIL" /></translation>
 <translation id="2636783171884046627">Per sortir de Gemini a Chromium o tornar-hi, utilitza les tecles de drecera.</translation>
 <translation id="2637732208198500597">{COUNT,plural, =0{La Protecció avançada requereix que reiniciïs Chromium per aplicar una actualització}=1{La Protecció avançada requereix que reiniciïs Chromium per aplicar una actualització. La finestra d'incògnit no es tornarà a obrir.}other{La Protecció avançada requereix que reiniciïs Chromium per aplicar una actualització. # finestres d'incògnit no es tornaran a obrir.}}</translation>
+<translation id="263863604136125912">Inicia Chromium</translation>
 <translation id="2648074677641340862">Hi ha hagut un error en el sistema operatiu durant la instal·lació. Torneu a baixar Chromium.</translation>
 <translation id="2661879430930417727">Si comparteixes un dispositiu, els amics i els familiars poden navegar per separat i configurar Chromium com vulguin</translation>
 <translation id="2676569452213089702">Accedeix fàcilment a Gemini a Chromium en tot el dispositiu, fins i tot si Chromium està minimitzat.</translation>
@@ -305,7 +306,6 @@
 <translation id="4304713468139749426">Gestor de contrasenyes</translation>
 <translation id="4334241893986177674">Cerca aquesta captura de pantalla</translation>
 <translation id="4384331407722351213">Obre Chromium quan s'iniciï Windows</translation>
-<translation id="4384993550046411228">Accedeix fàcilment a les funcions que coneixes, que tant t'agraden i en què confies establint Chromium com a navegador predeterminat. Chromium es fixarà a la barra de tasques perquè hi puguis accedir ràpidament.</translation>
 <translation id="4400772909124543403">No hi ha cap actualització disponible</translation>
 <translation id="4407044323746248786">Vols sortir de Chromium igualment?</translation>
 <translation id="4413205837991854510">Mostra sempre la drecera de la cerca d'imatges</translation>
@@ -584,7 +584,6 @@ No es poden desar adreces d'interès noves al teu compte fins que no en suprimei
 <translation id="7288567540154601580">Pestanyes i extensions</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium et recomana que la suprimeixis}other{Chromium et recomana que les suprimeixis}}</translation>
 <translation id="7296334833518879294">Per compartir l'àudio del sistema, obre Configuració del sistema i permet l'opció Només gravació d'àudio del sistema per a Chromium. Després hauràs de reiniciar Chromium.</translation>
-<translation id="7309928523159922338">El mesurament d'anuncis permet als llocs web que visites sol·licitar informació de Chromium que els ajudi a mesurar el rendiment dels anuncis. El mesurament d'anuncis restringeix el seguiment entre llocs web transferint la quantitat mínima possible d'informació entre llocs web.</translation>
 <translation id="731795002583552498">S'està actualitzant Chromium</translation>
 <translation id="7318036098707714271">El fitxer de preferències està malmès o no és vàlid.
 
@@ -684,6 +683,7 @@ Chromium no pot recuperar la configuració.</translation>
 <translation id="8286943863733751221"><ph name="BEGIN_LINK" />Chromium t'avisa<ph name="END_LINK" /> sobre baixades i llocs web que no són segurs</translation>
 <translation id="8295827201165805317">No l'has visitat recentment. Chromium ha suprimit <ph name="PERMISSION" />.</translation>
 <translation id="8296236834352487533">Compra, tradueix i identifica el que veus amb la càmera a l'aplicació Chromium per a iOS</translation>
+<translation id="8310603974518734211">Codi QR per iniciar la sessió a Chromium com a <ph name="USER_NAME" /></translation>
 <translation id="8313851650939857356">Error d'arrencada: <ph name="STARTUP_ERROR" />.</translation>
 <translation id="8318772038038596122">La teva organització tanca Chromium quan no s'utilitza durant <ph name="TIMEOUT_DURATION" />.</translation>
 <translation id="8321888067342493336">Desa com a imatge</translation>

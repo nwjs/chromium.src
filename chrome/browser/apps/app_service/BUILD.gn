@@ -48,6 +48,8 @@ source_set("app_service") {
     "//chrome/browser/metrics",
     "//chrome/browser/notifications",
     "//chrome/browser/ui:browser_tab_strip_tracker",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/web_applications:features",
     "//components/app_constants",
@@ -67,10 +69,7 @@ source_set("app_service") {
       "//extensions/browser",
       "//extensions/common",
     ]
-    allow_circular_includes_from += [
-      "//chrome/browser/extensions",
-      "//chrome/browser/web_applications/extensions",
-    ]
+    allow_circular_includes_from += [ "//chrome/browser/extensions" ]
   }
 
   if (is_chromeos) {
@@ -148,7 +147,6 @@ source_set("app_service") {
       "//chrome/browser/ash/fusebox",
       "//chrome/browser/ash/guest_os",
       "//chrome/browser/ash/login/demo_mode",
-      "//chrome/browser/ash/plugin_vm",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/policy/dlp",
       "//chrome/browser/ash/profiles",
@@ -221,11 +219,9 @@ source_set("app_service") {
       "//chrome/browser/ash/app_mode/web_app",
       "//chrome/browser/ash/app_restore",
       "//chrome/browser/ash/apps",
-      "//chrome/browser/ash/arc",
       "//chrome/browser/ash/arc/app_shortcuts",
       "//chrome/browser/ash/arc/nearby_share",
       "//chrome/browser/ash/arc/tracing",
-      "//chrome/browser/ash/boca/on_task",
       "//chrome/browser/ash/borealis",
       "//chrome/browser/ash/calendar",
       "//chrome/browser/ash/child_accounts",
@@ -252,7 +248,6 @@ source_set("app_service") {
       "//chrome/browser/chromeos/extensions/login_screen/login/cleanup",
       "//chrome/browser/ui/ash/shelf",
       "//chrome/browser/ui/ash/shelf/app_service",
-      "//chrome/browser/ui/ash/system_web_apps",
       "//chrome/browser/ui/webui/ash/add_supervision",
     ]
   }
@@ -423,6 +418,7 @@ if (is_chromeos) {
       "//chrome/browser/sync",
       "//chrome/browser/ui/ash/login",
       "//chrome/browser/ui/ash/system_web_apps",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",
       "//chromeos/ash/components/login/login_state:test_support",

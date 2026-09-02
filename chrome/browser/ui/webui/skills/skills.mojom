@@ -6,6 +6,7 @@ module skills.mojom;
 
 import "components/skills/public/skill.mojom";
 import "components/skills/public/skill_metrics.mojom";
+import "url/mojom/url.mojom";
 
 // Initial data needed when opening a dialog.
 struct InitialDialogState {
@@ -131,26 +132,64 @@ interface DialogHandler {
 // V2 skills interfaces.
 // ----------------------------------------------------------------------------
 
-// Types of toasts after user actions on chrome://skills page.
-enum ToastType {
-  // Displays after save. No action button.
-  kSave,
-  // Displays after delete. Action button to undo.
-  kDelete,
+// Holds temporary unsaved data for a skill that is transitioning from
+// a dialog to the full page editor.
+struct PendingEditorData {
+  string name;
+  string description;
+  string instructions;
+  string icon;
+  url.mojom.Url url;
+};
+
+// Called from C++ side of chrome://skills (Browser -> Renderer)
+interface SkillsPageV2 {
+  // Notifies the UI that provided skills changed and need refreshing.
+  LoadProvidedSkills(array<skills.mojom.Skill> skills);
 };
 
 // Called from TS side of chrome://skills (Renderer -> Browser).
 interface SkillsPageHandler {
+  // Sets the page remote for Chrome -> WebUI communication.
+  SetPage(pending_remote<SkillsPageV2> page);
+
+  // Gets the full skill details for the given provided skill id (sent to client
+  // when requested). Returns null if no skill with the given id is found.
+  GetProvidedSkill(string skill_id) => (skills.mojom.Skill? skill);
+
+  // Gets the list of provided skills (sent to client on load).
+  GetProvidedSkills() => (array<skills.mojom.Skill> skills);
+
   // Sync necessary cookies to the webview partition.
   SyncCookies() => (bool success);
 
-  // Shows a toast of `toast_type`.
-  ShowToast(ToastType toast_type);
+  // Shows a save toast.
+  ShowSaveToast();
+
+  // Shows a save and invoke toast.
+  // `skill_id` is a unique identifier. We use a string type (instead of a native
+  // UUID type) to match the proto definition, and to allow potential format
+  // changes in the future, even though it currently contains a UUID.
+  // `skill_icon` is an emoji.
+  ShowSaveAndInvokeToast(string skill_id, string skill_name, string skill_icon);
+
+  // Shows a delete toast. Returns true if the undo button was clicked.
+  ShowDeleteToast(string skill_id) => (bool action_clicked);
 
   // Invokes a skill.
-  InvokeSkill(string skill_id);
+  // skill_name and skill_icon are only forwarded to the
+  // Glic WebUI and not used or stored in the browser.
+  InvokeSkill(string skill_id, string skill_name, string skill_icon);
 
-  // Closes the skills dialog.
-  CloseDialog();
+  // Sends a prompt to the side panel.
+  SendPrompt(string prompt);
+
+  // Closes the skills dialog. If `data` is provided, it stores it and opens
+  // the full page editor.
+  CloseDialog(PendingEditorData? data);
+
+  // Retrieves pending editor data.
+  GetPendingEditorData() => (PendingEditorData? data);
 };
+
 

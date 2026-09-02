@@ -133,6 +133,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="13" label="SAGPC_INVALID_PERMISSION_REQUEST_CONTEXT"/>
   <int value="14" label="TLSAPC_INVALID_PERMISSION_REQUEST_CONTEXT"/>
   <int value="15" label="CCBC_GOOGLE_CHROME_SCHEME"/>
+  <int value="16" label="PWC_BRIDGE_UNQUALIFIED_FRAME"/>
 </enum>
 
 <enum name="BadMessageReasonContent">
@@ -459,7 +460,8 @@ Called by update_bad_message_reasons.py.-->
   <int value="297"
       label="BIBI_BIND_PRESSURE_MANAGER_BLOCKED_BY_PERMISSIONS_POLICY"/>
   <int value="298" label="RFSCI_BROWSER_VALIDATION_BAD_ORIGIN_TRIAL_TOKEN"/>
-  <int value="299" label="RFH_RECEIVED_INVALID_BROWSING_TOPICS_ATTRIBUTE"/>
+  <int value="299"
+      label="OBSOLETE_RFH_RECEIVED_INVALID_BROWSING_TOPICS_ATTRIBUTE"/>
   <int value="300"
       label="OBSOLETE_RFHI_FULLSCREEN_NAV_INVALID_INITIAL_DOCUMENT"/>
   <int value="301"
@@ -469,7 +471,7 @@ Called by update_bad_message_reasons.py.-->
   <int value="304" label="PSI_REQUEST_EMBEDDED_PERMISSION_WITHOUT_FEATURE"/>
   <int value="305" label="RFH_FOCUS_ACROSS_FENCED_BOUNDARY"/>
   <int value="306"
-      label="RFH_RECEIVED_INVALID_SHARED_STORAGE_WRITABLE_ATTRIBUTE"/>
+      label="OBSOLETE_RFH_RECEIVED_INVALID_SHARED_STORAGE_WRITABLE_ATTRIBUTE"/>
   <int value="307"
       label="MSDH_EXCLUDE_MONITORS_BUT_PREFERRED_MONITOR_REQUESTED"/>
   <int value="308" label="PSI_REGISTER_PERMISSION_ELEMENT_WITHOUT_FEATURE"/>
@@ -541,6 +543,15 @@ Called by update_bad_message_reasons.py.-->
   <int value="363" label="RFH_FORM_SUBMISSION_FROM_SANDBOXED_FRAME"/>
   <int value="364" label="RFPH_FORM_SUBMISSION_FROM_SANDBOXED_FRAME"/>
   <int value="365" label="INSTALLED_APP_PROVIDER_FACTORY_INVALID_FRAME"/>
+  <int value="366" label="RFH_INVALID_CONNECTION_ALLOWLIST_ATTRIBUTE"/>
+  <int value="367" label="PMM_UNSUBSCRIBE_IN_FENCED_FRAME"/>
+  <int value="368" label="PMM_GET_SUBSCRIPTION_IN_FENCED_FRAME"/>
+  <int value="369" label="BIBI_BIND_VIBRATION_MANAGER_FOR_FENCED_FRAME"/>
+  <int value="370" label="RFH_BEGIN_NAVIGATION_NO_INITIATOR_TOKENS"/>
+  <int value="371" label="RFHI_INVALID_CLIENT_SIDE_REDIRECT_URL"/>
+  <int value="372" label="RFH_BLOB_URL_STORE_ASSOCIATED_PDF_PROCESS_BLOCKED"/>
+  <int value="373" label="RFH_BLOB_URL_STORE_RECEIVER_PDF_PROCESS_BLOCKED"/>
+  <int value="374" label="RFH_DOWNLOAD_URL_INVALID_REFERRER"/>
 </enum>
 
 <enum name="BadMessageReasonExtensions">
@@ -590,6 +601,8 @@ Called by update_bad_message_reasons.py.-->
   <int value="38" label="EMF_INVALID_MESSAGE_FROM_SANDBOXED_PROCESS"/>
   <int value="39" label="WRA_INVALID_EXTENSION_ID_FOR_PROCESS"/>
   <int value="40" label="WRA_INVALID_LISTENER_REGISTRATION"/>
+  <int value="41" label="WER_UNEXPECTED_EVENT_HANDLING_DONE"/>
+  <int value="42" label="WER_INVALID_EXTENSION_ID"/>
 </enum>
 
 <enum name="BadMessageReasonGuestView">
@@ -640,6 +653,19 @@ Called by update_bad_message_reasons.py.-->
 <enum name="BooleanRebooted">
   <int value="0" label="Has not rebooted"/>
   <int value="1" label="Rebooted"/>
+</enum>
+
+<enum name="CommitLimitTerminatedTabReloadResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Failed: Repeated OOM"/>
+  <int value="2" label="Failed: Other Error"/>
+  <int value="3" label="Failed: Hidden Tab Not Discarded"/>
+</enum>
+
+<enum name="CommitLimitTerminatedTabVisibility">
+  <int value="0" label="Hidden"/>
+  <int value="1" label="Occluded"/>
+  <int value="2" label="Visible"/>
 </enum>
 
 <enum name="CrashpadExceptionCaptureResult">

@@ -16,6 +16,7 @@
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service.h"
 #include "chrome/browser/ash/certificate_provider/certificate_provider_service_factory.h"
+#include "chrome/browser/ash/login/lock/screen_locker_controller.h"
 #include "chrome/browser/ash/login/quick_unlock/pin_backend.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/assistant/assistant_browser_delegate_impl.h"
 #include "chrome/browser/ui/ash/login/login_screen_client_impl.h"
+#include "chrome/browser/ui/ash/login/user_adding_screen.h"
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
 #include "chrome/browser/ui/ash/session/test_session_controller.h"
 #include "chrome/common/chrome_constants.h"
@@ -103,7 +105,10 @@ class ScreenLockerUnitTest : public testing::Test {
         TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
         TestingBrowserProcess::GetGlobal()
             ->platform_part()
-            ->browser_policy_connector_ash());
+            ->browser_policy_connector_ash(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->component_manager_ash());
 
     quick_unlock::PinBackend::Initialize(
         TestingBrowserProcess::GetGlobal()->local_state());
@@ -138,9 +143,22 @@ class ScreenLockerUnitTest : public testing::Test {
 
     // Initialize ScreenLocker dependencies:
     SystemSaltGetter::Initialize();
+    screen_locker_controller_ = std::make_unique<ScreenLockerController>(
+        TestingBrowserProcess::GetGlobal()->local_state(),
+        TestingBrowserProcess::GetGlobal()
+            ->GetFeatures()
+            ->application_locale_storage(),
+        TestingBrowserProcess::GetGlobal()->shared_url_loader_factory(),
+        TestingBrowserProcess::GetGlobal()
+            ->platform_part()
+            ->browser_policy_connector_ash(),
+        SessionManagerClient::Get(), &session_termination_manager_,
+        session_manager_.get(), fake_user_manager_.Get(),
+        UserAddingScreen::Get());
   }
 
   void TearDown() override {
+    screen_locker_controller_.reset();
     assistant_delegate_.reset();
     user_session_manager_->Shutdown();
 
@@ -229,6 +247,7 @@ class ScreenLockerUnitTest : public testing::Test {
   std::unique_ptr<SessionControllerClientImpl> session_controller_client_;
   std::unique_ptr<AssistantBrowserDelegateImpl> assistant_delegate_;
   SessionTerminationManager session_termination_manager_;
+  std::unique_ptr<ScreenLockerController> screen_locker_controller_;
 };
 
 // Chrome notifies Ash when screen is locked. Ash is responsible for suspending

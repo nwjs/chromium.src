@@ -49,7 +49,6 @@ include_rules = [
   "+chrome/browser/ui/ash/system_web_apps",
   "+chrome/browser/ui/browser_tab_strip_tracker.h",
   "+chrome/browser/ui/browser_window/public",
-  "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/dialogs/browser_dialogs.h",
   "+chrome/browser/ui/extensions",
   "+chrome/browser/ui/tabs/tab_strip_model.h",
@@ -78,6 +77,9 @@ specific_include_rules = {
     "+chrome/browser/ui/tabs/tab_model.h",
     "+chrome/browser/ui/test",
     "+chrome/test",
+  ],
+  "chrome_shelf_controller_browsertest\\.cc": [
+    "+chrome/browser/ui/browser_init_state.h",
   ],
   "chrome_shelf_controller_unittest\\.cc": [
     "+chrome/browser/ash/browser_delegate/browser_controller_impl.h",

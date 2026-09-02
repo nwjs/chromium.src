@@ -37,10 +37,10 @@ class WebContents;
 }
 
 namespace password_manager {
-struct CredentialUIEntry;
 class PasswordFeatureManager;
 class PasswordManagerSettingsService;
-}
+struct StoredCredential;
+}  // namespace password_manager
 
 class PrefService;
 
@@ -64,7 +64,9 @@ enum class PasswordChangeAvailability {
   kThrottled = 10,
   kSignupForm = 11,
   kNonPasswordLogin = 12,
-  kMaxValue = kNonPasswordLogin,
+  kInvisiblePasswordField = 13,
+  kDisabledByUser = 14,
+  kMaxValue = kDisabledByUser,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/password/enums.xml:PasswordChangeAvailability)
 
@@ -105,14 +107,11 @@ class ChromePasswordChangeService
 #if !BUILDFLAG(IS_ANDROID)
   // Starts the password change flow from the Password Checkup page for the
   // given `credential`.
-  virtual void StartPasswordChangeFromCheckup(
-      const password_manager::CredentialUIEntry& credential,
+  virtual base::WeakPtr<PasswordChangeFromCheckupDelegate>
+  StartPasswordChangeFromCheckup(
+      password_manager::StoredCredential credential,
       content::WebContents* web_contents,
-      PasswordChangeFromCheckupDelegate::StateChangeCallback callback =
-          base::DoNothing());
-
-  // Stops the password change flow from the Password Checkup page.
-  virtual void StopPasswordChangeFromCheckup();
+      PasswordChangeFromCheckupDelegate::StateChangeCallback callback);
 #endif
 
   // PasswordChangeServiceInterface implementation.
@@ -162,8 +161,8 @@ class ChromePasswordChangeService
   const raw_ptr<autofill::LogRouter> log_router_;
 
 #if !BUILDFLAG(IS_ANDROID)
-  std::unique_ptr<PasswordChangeFromCheckupDelegate>
-      password_change_from_checkup_delegate_;
+  std::vector<std::unique_ptr<PasswordChangeFromCheckupDelegate>>
+      password_change_from_checkup_delegates_;
 #endif
 
   std::vector<GURL> override_urls_;

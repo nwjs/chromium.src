@@ -38,10 +38,14 @@ export interface DiagnosticsAppElement {
 }
 
 export type ShowToastEvent = CustomEvent<{message: string}>;
+export const SHOW_TOAST_EVENT_NAME = 'show-toast' as const;
 
 declare global {
+  interface WindowEventMap {
+    [SHOW_TOAST_EVENT_NAME]: ShowToastEvent;
+  }
   interface HTMLElementEventMap {
-    'show-toast': ShowToastEvent;
+    [SHOW_TOAST_EVENT_NAME]: ShowToastEvent;
   }
 }
 
@@ -99,9 +103,9 @@ export class DiagnosticsAppElement extends DiagnosticsAppElementBase {
   declare protected isLoggedIn: boolean;
   declare private saveSessionLogEnabled: boolean;
   declare private toastText: string;
-  private browserProxy: DiagnosticsBrowserProxyImpl =
+  private readonly browserProxy: DiagnosticsBrowserProxyImpl =
       DiagnosticsBrowserProxyImpl.getInstance();
-  private inputDataProvider: InputDataProviderInterface =
+  private readonly inputDataProvider: InputDataProviderInterface =
       getInputDataProvider();
   private numKeyboards: number = 0;
 
@@ -118,7 +122,7 @@ export class DiagnosticsAppElement extends DiagnosticsAppElementBase {
    * will contain message to display on message property of event found on
    * event found on path `e.detail.message`.
    */
-  private showToastHandler = (e: ShowToastEvent): void => {
+  private readonly showToastHandler = (e: ShowToastEvent): void => {
     assert(e.detail.message);
     this.toastText = e.detail.message;
     this.$.toast.show();
@@ -187,14 +191,12 @@ export class DiagnosticsAppElement extends DiagnosticsAppElementBase {
     ColorChangeUpdater.forDocument().start();
 
     this.createNavigationPanel();
-    window.addEventListener(
-        'show-toast', (e) => this.showToastHandler((e as ShowToastEvent)));
+    window.addEventListener(SHOW_TOAST_EVENT_NAME, this.showToastHandler);
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
-    window.removeEventListener(
-        'show-toast', (e) => this.showToastHandler((e as ShowToastEvent)));
+    window.removeEventListener(SHOW_TOAST_EVENT_NAME, this.showToastHandler);
   }
 
   protected onSessionLogClick(): void {

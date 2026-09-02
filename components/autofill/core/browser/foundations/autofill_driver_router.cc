@@ -11,6 +11,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,7 +29,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
-#include "base/types/zip.h"
 #include "build/buildflag.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/foundations/autofill_driver.h"
@@ -484,12 +484,12 @@ void AutofillDriverRouter::FormWithEmailVerificationTokenSubmitted(
     RoutedCallback<const FormData&, const FieldGlobalId&> callback,
     AutofillDriver& source,
     FormData form,
-    const FieldGlobalId& field_id) {
+    const FieldGlobalId& email_field_id) {
   FormGlobalId form_id = form.global_id();
   form_forest_.UpdateTreeOfRendererForm(std::move(form), source);
 
   const FormData& browser_form = form_forest_.GetBrowserForm(form_id);
-  if (!std::ranges::contains(browser_form.fields(), field_id,
+  if (!std::ranges::contains(browser_form.fields(), email_field_id,
                              &FormFieldData::global_id)) {
     // To avoid very large flattened forms, UpdateTreeOfRendererForm() may have
     // cut the tree into two and, as a result, may have lost some fields. We
@@ -498,7 +498,7 @@ void AutofillDriverRouter::FormWithEmailVerificationTokenSubmitted(
     return;
   }
   auto* target = DriverOfFrame(browser_form.host_frame());
-  callback(CHECK_DEREF(target), browser_form, field_id);
+  callback(CHECK_DEREF(target), browser_form, email_field_id);
 }
 
 void AutofillDriverRouter::DidDetectJavaScriptAutofill(
@@ -701,7 +701,7 @@ void AutofillDriverRouter::SendTypePredictionsToRenderer(
   std::map<FieldGlobalId, FormFieldDataPredictions> field_predictions;
   DCHECK_EQ(browser_fdp.data.fields().size(), browser_fdp.fields.size());
   for (auto [field, field_prediction] :
-       base::zip(browser_fdp.data.fields(), browser_fdp.fields)) {
+       std::views::zip(browser_fdp.data.fields(), browser_fdp.fields)) {
     field_predictions.emplace(field.global_id(), field_prediction);
   }
 
@@ -765,18 +765,28 @@ void AutofillDriverRouter::RendererShouldTriggerSuggestions(
   }
 }
 
-void AutofillDriverRouter::SendEmailVerificationToken(
+void AutofillDriverRouter::GetNonceForEmailVerification(
     RoutedCallback<FieldRendererId,
-                   const std::string&,
-                   FieldRendererId,
-                   const std::string&> callback,
+                   base::OnceCallback<void(const std::optional<std::string>&)>>
+        callback,
+    const FieldGlobalId& field_id,
+    base::OnceCallback<void(const std::optional<std::string>&)>
+        browser_callback) {
+  if (auto* target = DriverOfFrame(field_id.frame_token)) {
+    callback(*target, field_id.renderer_id, std::move(browser_callback));
+  } else {
+    std::move(browser_callback).Run(std::nullopt);
+  }
+}
+
+void AutofillDriverRouter::SendEmailVerificationToken(
+    RoutedCallback<FieldRendererId, const std::string&, const std::string&>
+        callback,
     const FieldGlobalId& email_field_id,
     const std::string& email,
-    const FieldGlobalId& token_field_id,
     const std::string& token) {
-  if (AutofillDriver* target = DriverOfFrame(token_field_id.frame_token)) {
-    callback(*target, email_field_id.renderer_id, email,
-             token_field_id.renderer_id, token);
+  if (auto* target = DriverOfFrame(email_field_id.frame_token)) {
+    callback(*target, email_field_id.renderer_id, email, token);
   }
 }
 

@@ -527,9 +527,7 @@ void MessageService::OpenChannelToExtension(
     // information (so that it's always present, even for extensions that don't
     // have an explicit key); we should.
     const ExternallyConnectableInfo* externally_connectable =
-        static_cast<const ExternallyConnectableInfo*>(
-            target_extension->GetManifestData(
-                manifest_keys::kExternallyConnectable));
+        target_extension->GetManifestData<ExternallyConnectableInfo>();
     bool is_externally_connectable = false;
 
     if (externally_connectable) {
@@ -547,10 +545,8 @@ void MessageService::OpenChannelToExtension(
         // Check that the web page URL matches. Skip error pages, whose last
         // committed URL reflects the failed navigation target rather than a
         // document the source process actually hosts.
-        is_externally_connectable =
-            !source_render_frame_host->IsErrorDocument() &&
-            externally_connectable->matches.MatchesURL(
-                source_render_frame_host->GetLastCommittedURL());
+        is_externally_connectable = externally_connectable->matches.MatchesURL(
+            util::GetURLForExtensionPermissionCheck(source_render_frame_host));
       }
     } else {
       // Default behaviour. Any extension or content script, no webpages.

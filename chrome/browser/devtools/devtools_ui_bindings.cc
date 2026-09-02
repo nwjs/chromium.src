@@ -101,7 +101,6 @@
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_ui_url_loader_factory.h"
-#include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "extensions/buildflags/buildflags.h"
@@ -131,7 +130,6 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
@@ -263,8 +261,7 @@ void DefaultBindingsDelegate::OpenInNewTab(const std::string& url) {
   // TODO(https://crbug.com/403946437): We should definitely understand why this
   // happens.
   if (browser) {
-    browser->GetBrowserForMigrationOnly()->OpenURL(
-        params, /*navigation_handle_callback=*/{});
+    browser->OpenURL(params, /*navigation_handle_callback=*/{});
   }
 #endif
 }
@@ -284,8 +281,7 @@ void DefaultBindingsDelegate::OpenSearchResultsInNewTab(
   content::OpenURLParams params(GURL(url), content::Referrer(),
                                 WindowOpenDisposition::NEW_FOREGROUND_TAB,
                                 ui::PAGE_TRANSITION_LINK, false);
-  browser->GetBrowserForMigrationOnly()->OpenURL(
-      params, /*navigation_handle_callback=*/{});
+  browser->OpenURL(params, /*navigation_handle_callback=*/{});
 #endif
 }
 
@@ -874,7 +870,14 @@ DevToolsUIBindings::DevToolsUIBindings(content::WebContents* web_contents)
   ThemeServiceFactory::GetForProfile(profile_->GetOriginalProfile())
       ->AddObserver(this);
 #endif
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  if (auto* registry = extensions::ExtensionRegistry::Get(profile_)) {
+    extension_registry_observation_.Observe(registry);
+  }
+#endif
   can_access_aida_ = IsAnyAidaPoweredFeatureEnabled();
+  is_local_frontend_ =
+      IsLocalDevToolsFrontendURL(web_contents_->GetLastCommittedURL());
 }
 
 DevToolsUIBindings::~DevToolsUIBindings() {
@@ -1168,6 +1171,14 @@ void DevToolsUIBindings::OnAidaResponse(
 void DevToolsUIBindings::DispatchHttpRequest(
     DispatchCallback callback,
     const DevToolsDispatchHttpRequestParams& params) {
+  if (!is_local_frontend_) {
+    base::DictValue response_dict;
+    response_dict.Set("error", "Request validation failed");
+    base::Value response = base::Value(std::move(response_dict));
+    std::move(callback).Run(&response);
+    return;
+  }
+
   if (params.stream_id.has_value()) {
     int stream_id = *params.stream_id;
     auto stream_writer = base::BindRepeating(
@@ -1319,8 +1330,7 @@ void DevToolsUIBindings::LoadNetworkResource(DispatchCallback callback,
             std::move(pending_remote)));
   } else
   if (gurl.SchemeIsFile()) {
-    GURL frontend_url = web_contents_->GetLastCommittedURL();
-    if (!IsLocalDevToolsFrontendURL(frontend_url)) {
+    if (!is_local_frontend_) {
       if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
               switches::kAllowUnsafeDevToolsRemoteFileLoading)) {
         base::DictValue response_dict;
@@ -1998,15 +2008,15 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
                       std::move(ai_assistance_file_agent_dict));
   }
 
-  response_dict.Set("devToolsAiAssistanceV2",
-                    base::DictValue().Set(
-                        "enabled", base::FeatureList::IsEnabled(
-                                       ::features::kDevToolsAiAssistanceV2)));
-
   response_dict.Set("devToolsAiV2Architecture",
                     base::DictValue().Set(
                         "enabled", base::FeatureList::IsEnabled(
                                        ::features::kDevToolsAiV2Architecture)));
+
+  response_dict.Set(
+      "devToolsComments",
+      base::DictValue().Set("enabled", base::FeatureList::IsEnabled(
+                                           ::features::kDevToolsComments)));
 
   if (base::FeatureList::IsEnabled(::features::kDevToolsAiCodeCompletion)) {
     base::DictValue ai_code_completion_dict;
@@ -2067,8 +2077,7 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
                                      enabled_by_flags, disabled_by_flags)));
 
   base::DictValue devtools_well_known_dict;
-  devtools_well_known_dict.Set(
-      "enabled", base::FeatureList::IsEnabled(::features::kDevToolsWellKnown));
+  devtools_well_known_dict.Set("enabled", true);
   response_dict.Set("devToolsWellKnown", std::move(devtools_well_known_dict));
 
   base::DictValue ve_logging_dict;
@@ -2123,12 +2132,12 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
   response_dict.Set("devToolsAiGeneratedTimelineLabels",
                     std::move(ai_generated_timeline_labels_dict));
 
-  base::DictValue devtools_force_popover_dict;
-  devtools_force_popover_dict.Set(
+  base::DictValue devtools_force_interest_dict;
+  devtools_force_interest_dict.Set(
       "enabled", base::FeatureList::IsEnabled(
-                     blink::features::kDevToolsAllowPopoverForcing));
-  response_dict.Set("devToolsAllowPopoverForcing",
-                    std::move(devtools_force_popover_dict));
+                     blink::features::kDevToolsAllowInterestForcing));
+  response_dict.Set("devToolsAllowInterestForcing",
+                    std::move(devtools_force_interest_dict));
 
   base::DictValue flexible_layout_dict;
   flexible_layout_dict.Set(
@@ -2179,11 +2188,6 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
           prefs::kDevToolsGoogleDeveloperProgramProfileAvailability));
   response_dict.Set("devToolsGdpProfilesAvailability",
                     std::move(gdp_profiles_availability_dict));
-
-  response_dict.Set(
-      "devToolsLiveEdit",
-      base::DictValue().Set("enabled", base::FeatureList::IsEnabled(
-                                           ::features::kDevToolsLiveEdit)));
 
   base::DictValue device_bound_sessions_debugging;
   device_bound_sessions_debugging.Set(
@@ -2246,6 +2250,27 @@ base::DictValue DevToolsUIBindings::GetHostConfigDictionary(Profile* profile) {
           "enabled", GetFeatureStateForDevTools(
                          ::features::kDevToolsInstrumentationBreakpoints,
                          enabled_by_flags, disabled_by_flags)));
+
+  response_dict.Set(
+      "devToolsSourceMapScopesInSourcesPanel",
+      base::DictValue().Set(
+          "enabled",
+          GetFeatureStateForDevTools(
+              ::features::kDevToolsSourceMapScopesInSourcesPanel,
+              enabled_by_flags, disabled_by_flags)));
+
+  response_dict.Set("devToolsAriaLiveRecording",
+                    base::DictValue().Set(
+                        "enabled", GetFeatureStateForDevTools(
+                                       ::features::kDevToolsAriaLiveRecording,
+                                       enabled_by_flags, disabled_by_flags)));
+
+  response_dict.Set(
+      "devToolsMobileSafeAreaEmulation",
+      base::DictValue().Set("enabled",
+                            GetFeatureStateForDevTools(
+                                ::features::kDevToolsMobileSafeAreaEmulation,
+                                enabled_by_flags, disabled_by_flags)));
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   // We check AreExtensionsOnExtensionURLsAllowed() here because this is used to
@@ -2484,9 +2509,10 @@ void DevToolsUIBindings::MaybeStartLogging() {
 
     // Log the frontend location explicitly
     GURL frontend_url = web_contents_->GetVisibleURL();
-    DevToolsFrontendLocation location = IsLocalDevToolsFrontendURL(frontend_url)
-                                            ? DevToolsFrontendLocation::kLocal
-                                            : DevToolsFrontendLocation::kRemote;
+    DevToolsFrontendLocation location =
+        IsLocalDevToolsFrontendURL(frontend_url)
+            ? DevToolsFrontendLocation::kLocal
+            : DevToolsFrontendLocation::kRemote;
     base::UmaHistogramEnumeration("DevTools.FrontendLocation", location);
 
     metrics::structured::StructuredMetricsClient::Record(
@@ -2859,6 +2885,7 @@ void DevToolsUIBindings::AddDevToolsExtensionsToClient() {
             .Set("runtimeAllowedHosts", std::move(runtime_allowed_hosts))
             .Set("runtimeBlockedHosts", std::move(runtime_blocked_hosts)));
     results.Append(std::move(extension_info));
+    devtools_extension_ids_.insert(extension->id());
   }
 
   CallClientMethod("DevToolsAPI", "setOriginsForbiddenForExtensions",
@@ -2867,6 +2894,30 @@ void DevToolsUIBindings::AddDevToolsExtensionsToClient() {
                    base::Value(std::move(results)));
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+void DevToolsUIBindings::OnExtensionUnloaded(
+    content::BrowserContext* browser_context,
+    const extensions::Extension* extension,
+    extensions::UnloadedExtensionReason reason) {
+  // If an extension that had devtools bindings was unloaded, we just close the
+  // devtools window.
+  // This is important, because extensions might be reloaded with different
+  // privileges, and we need to ensure we clear out any old state or bindings.
+  // This is also inline with our behavior for other extension pages, like
+  // tabs, popups, etc.
+  // Extensions aren't unloaded that often (and should only be so when they're
+  // idle or via a direct signal, e.g. from the user), so this shouldn't be too
+  // disruptive.
+  if (devtools_extension_ids_.contains(extension->id())) {
+    CloseWindow();
+  }
+}
+
+void DevToolsUIBindings::OnShutdown(extensions::ExtensionRegistry* registry) {
+  extension_registry_observation_.Reset();
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 void DevToolsUIBindings::RegisterExtensionsAPI(const std::string& origin,
                                                const std::string& script) {
@@ -2913,6 +2964,9 @@ void DevToolsUIBindings::CanShowSurvey(DispatchCallback callback,
 }
 
 bool DevToolsUIBindings::EnsureAidaClientAvailable() {
+  if (!is_local_frontend_) {
+    return false;
+  }
   if (!can_access_aida_ || AidaClient::CanUseAida(profile_).blocked) {
     return false;
   }
@@ -3121,6 +3175,8 @@ void DevToolsUIBindings::DocumentOnLoadCompletedInPrimaryMainFrame() {
 
 void DevToolsUIBindings::PrimaryPageChanged() {
   frontend_loaded_ = false;
+  is_local_frontend_ =
+      IsLocalDevToolsFrontendURL(web_contents_->GetLastCommittedURL());
 }
 
 void DevToolsUIBindings::FrontendLoaded() {

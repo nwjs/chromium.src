@@ -19,9 +19,8 @@
 #include "chrome/browser/apps/app_service/file_utils.h"
 #include "chrome/browser/apps/app_service/intent_util.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
@@ -39,6 +38,7 @@
 #include "extensions/common/constants.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "storage/browser/file_system/file_system_url.h"
+#include "ui/base/base_window.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/events/event_constants.h"
@@ -93,9 +93,10 @@ std::vector<base::FilePath> GetLaunchFilesFromCommandLine(
   return launch_files;
 }
 
-Browser* CreateBrowserWithNewTabPage(Profile* profile) {
-  Browser::CreateParams create_params(profile, /*user_gesture=*/false);
-  Browser* browser = Browser::Create(create_params);
+BrowserWindowInterface* CreateBrowserWithNewTabPage(Profile* profile) {
+  BrowserWindowCreateParams create_params(profile, /*from_user_gesture=*/false);
+  BrowserWindowInterface* browser =
+      CreateBrowserWindow(std::move(create_params));
 
   NavigateParams params(browser, chrome::ChromeUINewTabURLAsGURL(),
                         ui::PAGE_TRANSITION_AUTO_TOPLEVEL);

@@ -49,9 +49,9 @@ inline constexpr char kAutofillAiOptInStatus[] =
 // clicking Ok/Got it.
 inline constexpr char kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp[] =
     "autofill.autofill_ai.private_inference_notice_acknowledged_timestamp";
-// Timestamp when the user first saw the private inference notice UI.
-inline constexpr char kAutofillAiPrivateInferenceNoticeFirstShownTimestamp[] =
-    "autofill.autofill_ai.private_inference_notice_first_shown_timestamp";
+// Timestamp when the user last saw the private inference notice UI.
+inline constexpr char kAutofillAiPrivateInferenceNoticeShownTimestamp[] =
+    "autofill.autofill_ai.private_inference_notice_shown_timestamp";
 // Boolean that is true if the user is opted-in to private inference in Autofill
 // AI.
 inline constexpr char kAutofillAiPrivateInferenceOptInStatus[] =
@@ -268,6 +268,13 @@ inline constexpr char kAutofillSilentUpdatesToHomeAddress[] =
 inline constexpr char kAutofillSilentUpdatesToWorkAddress[] =
     "autofill.silent_updates.work";
 
+// The generation of the label-sensitive Autocomplete table migration.
+// If this is less than the expected migration generation
+// (features::kAutofillLabelSensitiveAutocompleteMigrationGeneration), the
+// migration logic should be run.
+inline constexpr char kAutofillAutocompleteLabelSensitiveMigrationGeneration[] =
+    "autofill.autocomplete.label_sensitive_migration_generation";
+
 // The maximum value for the
 // `kAutofillPaymentMethodsMandatoryReauthPromoShownCounter` pref. If this
 // value is reached, we should not show a mandatory re-auth promo.
@@ -352,6 +359,10 @@ void ClearSyncTransportOptIns(PrefService* prefs);
 void ClearEmailVerificationState(PrefService* prefs,
                                  const base::Time& delete_begin,
                                  const base::Time& delete_end);
+
+// Migrates email verification preferences to lowercase and deduplicates
+// existing entries.
+void DeduplicateEmailVerificationState(PrefService* prefs);
 
 void SetFacilitatedPaymentsEwallet(PrefService* prefs, bool value);
 

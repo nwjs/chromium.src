@@ -7,7 +7,9 @@ include_rules = [
   "+ios/chrome/browser/enterprise/connectors/connectors_service_factory.h",
   "+ios/chrome/browser/find_in_page/model/find_tab_helper.h",
   "+ios/chrome/browser/reader_mode/model/reader_mode_tab_helper.h",
+  "+ios/chrome/browser/reader_mode/model/reader_mode_web_state_utils.h",
   "+ios/chrome/browser/reading_list/model/reading_list_browser_agent.h",
+  "+ios/chrome/browser/signin/model/identity_manager_factory.h",
   "+ios/chrome/browser/snapshots/model/snapshot_tab_helper.h",
   "+ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h",
   "+ios/chrome/browser/tabs/model/tab_title_util.h",
@@ -15,9 +17,3 @@ include_rules = [
   "+ios/components/enterprise/analysis/features.h",
   # keep-sorted end
 ]
-specific_include_rules = {
-  # TODO(crbug.com/532174813): Remove usage of //ios/web internals.
-  "^sharing_coordinator(_unittest)?\\.mm$" : [
-    "+ios/web/download/crw_web_view_download.h",
-  ]
-}

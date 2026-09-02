@@ -34,7 +34,6 @@
 #include "url/gurl.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
@@ -229,10 +228,8 @@ void GlicProfileManager::DidSelectProfile(Profile* profile) {
   GlicKeyedService* service =
       GlicKeyedServiceFactory::GetGlicKeyedService(profile);
 
-  // Toggle glic but prevent close if it is already open for the selected
-  // profile.
-  service->ToggleUI(nullptr, /*prevent_close=*/true,
-                    mojom::InvocationSource::kProfilePicker);
+  // Show glic for the selected profile.
+  service->ShowUI(nullptr, mojom::InvocationSource::kProfilePicker);
 }
 
 void GlicProfileManager::OnProfileAdded(Profile* profile) {

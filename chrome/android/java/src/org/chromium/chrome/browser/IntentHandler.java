@@ -148,9 +148,6 @@ public class IntentHandler {
     public static final String EXTRA_INVOKED_FROM_SHORTCUT =
             "com.android.chrome.invoked_from_shortcut";
 
-    /** An extra to indicate that the intent was triggered from a relaunch/restart. */
-    public static final String EXTRA_FROM_RELAUNCH = "com.android.chrome.from_relaunch";
-
     /** An extra to indicate that the intent was triggered from an app widget. */
     public static final String EXTRA_INVOKED_FROM_APP_WIDGET =
             "com.android.chrome.invoked_from_app_widget";
@@ -326,6 +323,10 @@ public class IntentHandler {
     /** Used to measure the duration of the tab group drag drop reparenting process. */
     public static final String EXTRA_REPARENT_START_TIME =
             "org.chromium.chrome.browser.reparent_start_time";
+
+    /** An extra to disable initialization of the renderer when creating a new tab context. */
+    public static final String EXTRA_DISABLE_INITIALIZE_RENDERER =
+            "org.chromium.chrome.browser.disable_initialize_renderer";
 
     public static final String EXTRA_CCT_EARLY_NAV = "org.chromium.chrome.browser.cct_early_nav";
 

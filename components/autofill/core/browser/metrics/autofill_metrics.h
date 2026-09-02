@@ -37,6 +37,8 @@
 namespace autofill {
 
 class AutofillField;
+class AutofillClient;
+class FormStructure;
 
 namespace autofill_metrics {
 class FormEventLoggerBase;
@@ -80,6 +82,21 @@ class AutofillMetrics {
 
     NUM_AUTOCOMPLETE_EVENTS
   };
+
+  // Outcomes of interaction with an Autofill popup notice.
+  // These values are persisted to logs. Entries should not be renumbered and
+  // numeric values should never be reused.
+  //
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.components.autofill
+  // LINT.IfChange(PopupNoticeInteractions)
+  enum class PopupNoticeInteractions {
+    kShown = 0,
+    kAcknowledged = 1,
+    kDismissed = 2,
+    kLinkButtonClicked = 3,
+    kMaxValue = kLinkButtonClicked,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/personal_context/enums.xml:PopupNoticeInteractions)
 
   // The user action that triggered the deletion of a suggestion entry.
   // These values are used in enums.xml; do not reorder or renumber entries!
@@ -922,6 +939,14 @@ class AutofillMetrics {
 
   // Logs the status of Autofill prompts.
   static void LogAutofillPromptStatus(AutofillPromptStatus status);
+
+  // Logs the user action taken on the Autofill AI private inference notice.
+  static void LogAutofillAiPrivateInferenceNoticeInteraction(
+      PopupNoticeInteractions interaction);
+
+  // Logs metrics about the filling readiness of the submitted form.
+  static void LogFillingReadinessMetrics(const FormStructure& form,
+                                         AutofillClient& client);
 };
 
 #if defined(UNIT_TEST)

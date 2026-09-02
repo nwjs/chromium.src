@@ -34,9 +34,19 @@
   /* We want to position textInput off of us */
   position: relative;
   /* Giving this a width makes flex shrink it to fit available space when this
-   * is too long. The exact value will get replaced by whatever flex computes
+   * is too long. The exact value will get replaced by whatever flex computes,
+   * but it also won't go below this.
    */
-  width: 200px;
+  width: 0;
+}
+
+/* When the popup is expanded, we take control of spacing between us and icons,
+ * so that clicks delivered before the expansion still end up with us.
+ */
+:host-context(.popup-open) #textContainer,
+:host-context(.popup-open) #textInput {
+  padding-inline-start: var(--omnibox-start-padding);
+  margin-inline-start: calc(-1*var(--omnibox-start-padding));
 }
 
 #textContainer {
@@ -192,4 +202,10 @@
       0 0 2px var(--color-textfield-background),
       0 0 2px var(--color-textfield-background);
   white-space: nowrap;
+}
+
+/* Used for accessibility mark up only */
+#announcementDistraction {
+  position: absolute;
+  left: -10000px;
 }

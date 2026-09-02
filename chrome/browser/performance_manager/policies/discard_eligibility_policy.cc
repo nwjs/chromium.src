@@ -233,7 +233,7 @@ DiscardEligibilityPolicy::CanDiscardWithCustomRecentVisibilityWindow(
 
   // Don't discard tabs that don't have a main frame (restored tab which is not
   // loaded yet, discarded tab, crashed tab).
-  if (!page_node->GetMainFrameNode()) {
+  if (!page_node->GetPrimaryMainFrameNode()) {
     add_reason(CannotDiscardReason::kNoMainFrame);
     return CanDiscardResult::kDisallowed;
   }
@@ -328,31 +328,18 @@ DiscardEligibilityPolicy::CanDiscardWithCustomRecentVisibilityWindow(
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 
-  {
-    content::WebContents* web_contents = page_node->GetWebContents().get();
-    // Do not discard pages that are pin-shared with Glic.
-    if (web_contents && is_proactive_or_suggested) {
-      auto* tab_interface =
-          tabs::TabInterface::MaybeGetFromContents(web_contents);
-      if (tab_interface) {
-        auto* glic_service = glic::GlicKeyedServiceFactory::GetGlicKeyedService(
-            web_contents->GetBrowserContext());
-        if (glic_service &&
-            glic_service->instance_coordinator().IsTabPinnedToAnyInstance(
-                tab_interface->GetHandle())) {
-          add_reason_and_update_result(CannotDiscardReason::kGlicShared,
-                                       CanDiscardResult::kProtected);
-        }
-      }
-    }
+  if (live_state_data && is_proactive_or_suggested &&
+      live_state_data->IsGlicPinnedToVisibleInstance()) {
+    add_reason_and_update_result(CannotDiscardReason::kGlicShared,
+                                 CanDiscardResult::kProtected);
   }
 
   // Only discard http(s) pages and internal pages to make sure that we don't
   // discard extensions or other PageNode that don't correspond to a tab.
   //
   // TODO(crbug.com/40910297): Due to a state tracking bug, sometimes there are
-  // two frames marked "current". In that case GetMainFrameNode() returns an
-  // arbitrary one, which may not have the url set correctly. Therefore, use
+  // two frames marked "current". In that case GetPrimaryMainFrameNode() returns
+  // an arbitrary one, which may not have the url set correctly. Therefore, use
   // GetMainFrameUrl() for the url.
   bool is_web_page_or_internal_or_data_page =
       main_frame_url.SchemeIsHTTPOrHTTPS() ||

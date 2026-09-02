@@ -10,17 +10,41 @@
 :host {
   color: var(--cr-primary-text-color);
   display: block;
-  max-width: var(--cr-centered-card-max-width);
+  max-width: 960px;
   margin: 40px auto;
   padding: 0 24px;
 }
 
 h1 {
   font-size: 1.75rem;
+  margin-bottom: 8px;
+}
+
+#learn-more {
+  color: var(--cr-secondary-text-color);
+  font-size: 1rem;
+  margin-bottom: 16px;
+}
+
+#learn-more a {
+  color: var(--cr-link-color);
+  text-decoration: none;
+}
+
+#learn-more a:hover {
+  text-decoration: underline;
+}
+
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
 }
 
 h2 {
   font-size: 1.5rem;
+  margin: 0;
 }
 
 #iwa-list {

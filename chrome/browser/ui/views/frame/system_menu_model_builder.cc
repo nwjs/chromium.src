@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -84,7 +85,7 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(
 
 SystemMenuModelBuilder::SystemMenuModelBuilder(
     ui::AcceleratorProvider* provider,
-    Browser* browser)
+    BrowserWindowInterface* browser)
     : menu_delegate_(provider, browser) {}
 
 SystemMenuModelBuilder::~SystemMenuModelBuilder() = default;
@@ -105,7 +106,7 @@ void SystemMenuModelBuilder::Init() {
 void SystemMenuModelBuilder::BuildMenu(ui::SimpleMenuModel* model) {
   // We add the menu items in reverse order so that insertion_index never needs
   // to change.
-  if (browser()->is_type_normal()) {
+  if (browser()->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL) {
     BuildSystemMenuForBrowserWindow(model);
   } else {
     BuildSystemMenuForAppOrPopupWindow(model);
@@ -150,10 +151,6 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
       model->GetIndexOfCommandId(IDC_RESTORE_TAB).value(),
       kSystemMenuRestoreTabElementId);
 
-  if (features::IsTabGroupMenuMoreEntryPointsEnabled()) {
-    model->AddItemWithStringId(IDC_GROUP_UNGROUPED_TABS,
-                               IDS_GROUP_UNGROUPED_TABS);
-  }
 
 #if BUILDFLAG(IS_MAC)
   model->AddItemWithStringId(IDC_BOOKMARK_ALL_TABS, IDS_BOOKMARK_ALL_TABS);
@@ -285,7 +282,9 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
 #endif
     if (!is_captive_portal_signin) {
       model->AddSeparator(ui::NORMAL_SEPARATOR);
-      if (browser()->is_type_app() || browser()->is_type_app_popup()) {
+      if (browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+          browser()->GetType() ==
+              BrowserWindowInterface::Type::TYPE_APP_POPUP) {
         model->AddItemWithStringId(IDC_NEW_TAB, IDS_APP_MENU_NEW_WEB_PAGE);
       } else {
         model->AddItemWithStringId(IDC_SHOW_AS_TAB, IDS_SHOW_AS_TAB);
@@ -308,7 +307,8 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
   }
 
   bool should_show_task_manager =
-      (browser()->is_type_app() || browser()->is_type_app_popup()) &&
+      (browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP ||
+       browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) &&
       chrome::CanOpenTaskManager();
 #if BUILDFLAG(IS_CHROMEOS)
   // Hide TaskManager option for the app if it is locked for OnTask. Only

@@ -50,7 +50,7 @@ using ::search_engines::SearchEngineChoiceScreenEvents;
 bool g_dialog_disabled_for_testing = false;
 
 bool IsBrowserTypeSupported(const Browser& browser) {
-  switch (browser.type()) {
+  switch (browser.GetType()) {
     case Browser::TYPE_NORMAL:
     case Browser::TYPE_POPUP:
       return true;
@@ -88,14 +88,7 @@ bool SearchEngineChoiceDialogService::BrowserRegistry::RegisterBrowser(
     Browser& browser,
     base::OnceClosure close_dialog_callback) {
   CHECK(close_dialog_callback);
-  if (IsRegistered(browser)) {
-    // TODO(crbug.com/347223092): Investigating whether re-registrations
-    // are a cause of multi-prompts.
-    SCOPED_CRASH_KEY_BOOL("ChoiceService", "browser_has_open_dialog",
-                          HasOpenDialog(browser));
-    NOTREACHED(base::NotFatalUntil::M141);
-    return false;
-  }
+  CHECK(!IsRegistered(browser));
 
   if (registered_browsers_.empty()) {
     // We only need to record that the choice screen was shown once.
@@ -387,10 +380,11 @@ SearchEngineChoiceDialogService::GetSearchEngines() {
 SearchEngineChoiceScreenConditions
 SearchEngineChoiceDialogService::ComputeProfileManagementFlowConditions()
     const {
-  // The profile management flow dialog is not supposed to be triggerable while
-  // there is any browser window open. Ineligibility conditions associated with
-  // browser windows are not relevant here.
-  CHECK(!browser_registry_.HasOpenDialog(), base::NotFatalUntil::M153);
+  if (browser_registry_.HasOpenDialog()) {
+    // Some steps may trigger popup browsers which can show a choice screen, see
+    // https://crbug.com/534214931.
+    return SearchEngineChoiceScreenConditions::kAlreadyBeingShown;
+  }
 
   return search_engine_choice_service_->GetDynamicChoiceScreenConditions(
       *template_url_service_,

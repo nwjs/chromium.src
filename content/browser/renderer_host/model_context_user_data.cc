@@ -162,19 +162,6 @@ void ModelContextUserData::UnregisterScriptTool(const std::string& name) {
     return;
   }
 
-  // Cancel all pending executions of the tool. For now this only include
-  // notifying the caller that tool execution has failed, but see the
-  // documentation above the
-  // `CancelPendingScriptToolExecutionsDueToUnregistration()` declaration about
-  // notifying the tool itself.
-  auto& page = render_frame_host().GetPage();
-  auto* page_data = ModelContextPageUserData::GetForPage(page);
-  if (page_data) {
-    auto& rfh_impl = static_cast<RenderFrameHostImpl&>(render_frame_host());
-    page_data->CancelPendingScriptToolExecutionsDueToUnregistration(
-        rfh_impl.GetDocumentToken(), name);
-  }
-
   std::vector<url::Origin> exposed_origins = (*it)->exposed_origins;
 
   script_tools_.erase(it);
@@ -240,6 +227,11 @@ void ModelContextUserData::GetScriptTools(
                ->GetFrameTokenForSiteInstanceGroup(site_instance_group);
 
       cloned_tool->tool_owner_frame_token = token;
+
+      // Clear `exposed_origins` to prevent leaking the full list of
+      // authorized origins to the calling renderer process.
+      cloned_tool->exposed_origins.clear();
+
       all_tools.push_back(std::move(cloned_tool));
     }
     return RenderFrameHost::FrameIterationAction::kContinue;
@@ -359,6 +351,7 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
   execution.caller_token =
       static_cast<RenderFrameHostImpl&>(render_frame_host()).GetDocumentToken();
   execution.target_token = target_rfh->GetDocumentToken();
+  execution.target_document = target_rfh->GetWeakDocumentPtr();
   execution.tool_name = name;
   execution.callback = std::move(callback);
   page_data->AddPendingScriptToolExecution(invocation_id, std::move(execution));
@@ -375,6 +368,15 @@ void ModelContextUserData::ExecuteRemoteScriptTool(
             }
           },
           page_data->GetWeakPtr(), invocation_id));
+}
+
+void ModelContextUserData::CancelRemoteScriptTool(
+    const base::UnguessableToken& invocation_id) {
+  if (ModelContextPageUserData* page_data =
+          ModelContextPageUserData::GetOrCreateForPage(
+              render_frame_host().GetPage())) {
+    page_data->CancelPendingScriptToolExecution(invocation_id);
+  }
 }
 
 void ModelContextUserData::NotifyToolChange(
@@ -456,33 +458,63 @@ void ModelContextPageUserData::CompletePendingScriptToolExecution(
   pending_script_tool_executions_.erase(it);
 }
 
+void ModelContextPageUserData::SendCancelScriptToolToTarget(
+    WeakDocumentPtr target_document,
+    const base::UnguessableToken& invocation_id) {
+  RenderFrameHost* target_rfh = target_document.AsRenderFrameHostIfValid();
+  // `target_rfh` and `target_data` are always non-null, because they are only
+  // cleared or invalidated during destruction when the tool owner is destroyed,
+  // and in that case `CancelPendingScriptToolExecutionsForDocument()` will not
+  // invoke this method.
+  CHECK(target_rfh);
+  auto* target_data = ModelContextUserData::GetForCurrentDocument(target_rfh);
+  CHECK(target_data);
+  target_data->model_context_remote_->CancelScriptTool(invocation_id);
+}
+
+void ModelContextPageUserData::CancelPendingScriptToolExecution(
+    const base::UnguessableToken& invocation_id) {
+  // We are here because a caller document aborted its execution signal for a
+  // tool. However, it is possible that no pending execution exists for this
+  // `invocation_id` anymore. This can happen in legitimate, non-compromised
+  // renderer races:
+  //   1. The tool execution completed and sent its response IPC
+  //      (`CompletePendingScriptToolExecution()`) before this cancellation
+  //      IPC arrived.
+  //   2. The document hosting the tool was destroyed
+  //      (`CancelPendingScriptToolExecutionsForDocument()`) before this
+  //      cancellation IPC arrived.
+  auto it = pending_script_tool_executions_.find(invocation_id);
+  if (it == pending_script_tool_executions_.end()) {
+    return;
+  }
+  SendCancelScriptToolToTarget(it->second.target_document, invocation_id);
+  std::move(it->second.callback).Run(std::nullopt, false);
+  pending_script_tool_executions_.erase(it);
+}
+
 void ModelContextPageUserData::CancelPendingScriptToolExecutionsForDocument(
     const blink::DocumentToken& document_token) {
   for (auto it = pending_script_tool_executions_.begin();
        it != pending_script_tool_executions_.end();) {
-    if (it->second.caller_token == document_token ||
-        it->second.target_token == document_token) {
-      std::move(it->second.callback).Run(std::nullopt, false);
-      it = pending_script_tool_executions_.erase(it);
-    } else {
+    const bool is_caller = it->second.caller_token == document_token;
+    const bool is_target = it->second.target_token == document_token;
+    if (!is_caller && !is_target) {
       ++it;
+      continue;
     }
-  }
-}
 
-void ModelContextPageUserData::
-    CancelPendingScriptToolExecutionsDueToUnregistration(
-        const blink::DocumentToken& target_document_token,
-        const std::string& tool_name) {
-  for (auto it = pending_script_tool_executions_.begin();
-       it != pending_script_tool_executions_.end();) {
-    if (it->second.target_token == target_document_token &&
-        it->second.tool_name == tool_name) {
-      std::move(it->second.callback).Run(std::nullopt, false);
-      it = pending_script_tool_executions_.erase(it);
-    } else {
-      ++it;
+    // If the now-destructing document represented by `document_token` owns the
+    // tool, then it's too late to send a cancellation IPC to it. During
+    // document destruction, document weak pointers like `target_document` below
+    // are still valid, but they point to a `RenderFrameHostImpl` whose user
+    // data (thus `ModelContextUserData`) has already been cleared. So it's
+    // impossible to grab a remote to the renderer and send the IPC.
+    if (!is_target) {
+      SendCancelScriptToolToTarget(it->second.target_document, it->first);
     }
+    std::move(it->second.callback).Run(std::nullopt, false);
+    it = pending_script_tool_executions_.erase(it);
   }
 }
 

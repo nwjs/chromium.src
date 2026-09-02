@@ -138,6 +138,9 @@ inline constexpr char kImportantSitesDialogHistory[] = "important_sites_dialog";
 // This is the profile creation time.
 inline constexpr char kProfileCreationTime[] = "profile.creation_time";
 
+// Preference which stores randomly generated profile ID for LOM.
+inline constexpr char kLomProfileId[] = "private_metrics.lom.profile_id";
+
 #if BUILDFLAG(IS_WIN)
 // This is a timestamp of the last time this profile was reset by a third party
 // tool. On Windows, a third party tool may set a registry value that will be
@@ -744,6 +747,11 @@ inline constexpr char kPinExtensionsMenuButton[] =
 // extension + named command pair.
 inline constexpr char kExtensionCommands[] = "extensions.commands";
 
+// Boolean pref indicating whether native UI extension review prompts are
+// allowed by enterprise policy.
+inline constexpr char kExtensionReviewPromptsAllowed[] =
+    "extensions.review_prompts_allowed";
+
 // Whether Chrome should use its internal PDF viewer or not.
 inline constexpr char kPluginsAlwaysOpenPdfExternally[] =
     "plugins.always_open_pdf_externally";
@@ -1097,15 +1105,6 @@ inline constexpr char kGCMProductCategoryForSubtypes[] =
 
 // Whether a user is allowed to use Easy Unlock.
 inline constexpr char kEasyUnlockAllowed[] = "easy_unlock.allowed";
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-// Used to indicate whether or not the toolbar redesign bubble has been shown
-// and acknowledged, and the last time the bubble was shown.
-inline constexpr char kToolbarIconSurfacingBubbleAcknowledged[] =
-    "toolbar_icon_surfacing_bubble_acknowledged";
-inline constexpr char kToolbarIconSurfacingBubbleLastShowTime[] =
-    "toolbar_icon_surfacing_bubble_show_time";
-#endif
 
 // Define the IP handling policy override that WebRTC should follow. When not
 // set, it defaults to "default".
@@ -2075,6 +2074,11 @@ inline constexpr char kIsolatedWebAppInstallForceList[] =
 inline constexpr char kIsolatedWebAppUserInstallationEnabled[] =
     "profile.isolated_web_app.install.user_install_enabled";
 
+// Dictionary pref storing policy metadata for Kiosk Isolated Web Apps (IWAs) in
+// bundle cache.
+inline constexpr char kKioskIwaCachePolicyState[] =
+    "kiosk.isolated_web_app_cache_policy_state";
+
 // An integer pref that remembers how many force install initializations are
 // pending. If more than `kIsolatedWebAppForceInstallMaxRetryTreshold`
 // initializations are pending, the initialization is delayed for
@@ -2481,6 +2485,11 @@ inline constexpr char kAppShortcutsVersion[] = "apps.shortcuts_version";
 // from an Intel mac to an ARM mac), then this will cause all shortcuts to be
 // re-created.
 inline constexpr char kAppShortcutsArch[] = "apps.shortcuts_arch";
+
+// A string indicating the OS version under which app shortcuts have been
+// created. If this changes (e.g., due to updating macOS version), then all
+// app shortcuts will be re-created.
+inline constexpr char kAppShortcutsOsVersion[] = "apps.shortcuts_os_version";
 
 // This references a default content setting value which we expose through the
 // preferences extensions API and also used for migration of the old
@@ -3265,6 +3274,11 @@ inline constexpr char kNonMilestoneUpdateToastVersion[] =
 // history entry that is donated to AppSearch.
 inline constexpr char kAuxiliarySearchLastDonatedHistoryEntryVisitTime[] =
     "auxiliary_search.last_donated_history_entry_visit_time";
+
+// Boolean pref indicating whether sharing browsing data with on-device
+// intelligence features is enabled.
+inline constexpr char kAuxiliarySearchBrowsingDataDonationEnabled[] =
+    "auxiliary_search.browsing_data_donation_enabled";
 
 // Boolean pref indicating whether the app rating prompt has been shown.
 inline constexpr char kAppRatingPromptShown[] = "app_rating_prompt_shown";

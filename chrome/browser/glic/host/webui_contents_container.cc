@@ -12,9 +12,9 @@
 #include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/host/host.h"
-#include "chrome/browser/glic/public/glic_actuation_tracker.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
+#include "chrome/browser/glic/public/glic_perf_traits_tracker.h"
 #include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/glic/widget/glic_widget.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
@@ -80,8 +80,7 @@ WebUIContentsContainer::~WebUIContentsContainer() = default;
 
 WebUIContentsContainerImpl::WebUIContentsContainerImpl(Profile* profile,
                                                        bool initially_hidden)
-    : profile_keep_alive_(profile, ProfileKeepAliveOrigin::kGlicView),
-      web_contents_(content::WebContents::Create(
+    : web_contents_(content::WebContents::Create(
           MakeCreateParams(profile, initially_hidden))),
       web_contents_ptr_(web_contents_.get()),
       profile_(profile) {
@@ -249,10 +248,10 @@ void WebUIContentsContainerImpl::UpdateActuationTracker() {
                 ? GlicActuationState::kActuatingOnVisibleTab
                 : GlicActuationState::kActuatingOnBackgroundTab;
   }
-  glic::GlicActuationTracker::GetInstance()->NotifyActuatingChanged(
+  glic::GlicPerfTraitsTracker::GetInstance()->NotifyActuationStateChanged(
       web_contents(), state);
-  glic::GlicActuationTracker::GetInstance()->NotifyActuatingChanged(guest,
-                                                                    state);
+  glic::GlicPerfTraitsTracker::GetInstance()->NotifyActuationStateChanged(
+      guest, state);
 }
 
 std::unique_ptr<content::WebContents>

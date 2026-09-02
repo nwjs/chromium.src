@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Switch Example Using HTML Button</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/switch-button.css" rel="stylesheet">
+    <script src="js/switch-button.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <div role="group" aria-labelledby="id-group-label">
+            <h3 id="id-group-label">Environmental Controls</h3>
+            <button type="button" role="switch" aria-checked="false">
+              <span class="label">Living Room Lights</span>
+              <svg xmlns="http://www.w3.org/2000/svg" height="20" width="36">
+                <rect class="container" x="1" y="1" width="34" height="18" rx="4" />
+                <rect class="off" x="4" y="4" width="12" height="12" rx="4" />
+                <rect class="on" x="20" y="4" width="12" height="12" rx="4" />
+              </svg>
+              <span class="on" aria-hidden="true">On</span>
+              <span class="off" aria-hidden="true">Off</span>
+            </button>
+
+            <button type="button" role="switch" aria-checked="false">
+              <span class="label">Outdoor Lights</span>
+              <svg xmlns="http://www.w3.org/2000/svg" height="20" width="36">
+                <rect class="container" x="1" y="1" width="34" height="18" rx="4" />
+                <rect class="off" x="4" y="4" width="12" height="12" rx="4" />
+                <rect class="on" x="20" y="4" width="12" height="12" rx="4" />
+              </svg>
+              <span class="on" aria-hidden="true">On</span>
+              <span class="off" aria-hidden="true">Off</span>
+            </button>
+          </div>
+        </div>
+  </body>
+</html>

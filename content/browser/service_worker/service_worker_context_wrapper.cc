@@ -140,13 +140,19 @@ void DidStartWorker(
     return;
   }
   EmbeddedWorkerInstance* instance = version->embedded_worker();
-  if (!RenderProcessHost::FromID(instance->process_id())) {
-    // No live RenderProcessHost backs the process id this worker reports, even
-    // though the start resolved successfully. There is no usable process to run
-    // the worker, so reporting success would be wrong. Resolve the start as a
-    // failure instead. This is the proper fix for crbug.com/536945271:
-    // the service worker layer must not deliver a start "success" with a
-    // process that is already gone.
+  const blink::ServiceWorkerToken& token = version->worker_host()->token();
+  base::WeakPtr<ServiceWorkerContextCore> context = version->context();
+  if (!RenderProcessHost::FromID(instance->process_id()) || !context ||
+      !context->wrapper()->IsLiveServiceWorkerWithToken(version->version_id(),
+                                                        token)) {
+    // No live RenderProcessHost backs the process id this worker reports, or
+    // the context no longer tracks the version as a live worker with this
+    // token (proven to happen in production, see crbug.com/541049180), even
+    // though the start resolved successfully. There is no usable worker for
+    // callers, so reporting success would be wrong. Resolve the start as a
+    // failure instead. This is the proper fix for crbug.com/536945271: the
+    // service worker layer must not deliver a start "success" for a worker
+    // that is already unusable.
     std::move(failure_callback)
         .Run(StatusCodeResponse{
             .status_code = blink::ServiceWorkerStatusCode::kErrorAbort});
@@ -154,7 +160,7 @@ void DidStartWorker(
   }
   std::move(info_callback)
       .Run(version->version_id(), instance->process_id(), instance->thread_id(),
-           version->worker_host()->token());
+           token);
 }
 
 void FoundRegistrationForStartWorker(
@@ -1260,7 +1266,8 @@ void ServiceWorkerContextWrapper::FindReadyRegistrationForClientUrl(
       net::SimplifyUrlForRequest(client_url), key,
       base::BindOnce(
           &ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl, this,
-          /*include_installing_version=*/false, std::move(callback)));
+          /*include_installing_version=*/false,
+          /*activate_waiting_version=*/true, std::move(callback)));
 }
 
 void ServiceWorkerContextWrapper::FindReadyRegistrationForScope(
@@ -1278,7 +1285,8 @@ void ServiceWorkerContextWrapper::FindReadyRegistrationForScope(
       net::SimplifyUrlForRequest(scope), key,
       base::BindOnce(
           &ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl, this,
-          include_installing_version, std::move(callback)));
+          include_installing_version,
+          /*activate_waiting_version=*/true, std::move(callback)));
 }
 
 void ServiceWorkerContextWrapper::FindRegistrationForScope(
@@ -1305,7 +1313,26 @@ void ServiceWorkerContextWrapper::FindReadyRegistrationForId(
       registration_id, key,
       base::BindOnce(
           &ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl, this,
-          /*include_installing_version=*/false, std::move(callback)));
+          /*include_installing_version=*/false,
+          /*activate_waiting_version=*/true, std::move(callback)));
+}
+
+void ServiceWorkerContextWrapper::FindRegistrationForIdWithoutActivation(
+    int64_t registration_id,
+    const blink::StorageKey& key,
+    FindRegistrationCallback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  if (!context_core_) {
+    std::move(callback).Run(blink::ServiceWorkerStatusCode::kErrorAbort,
+                            nullptr);
+    return;
+  }
+  context_core_->registry().FindRegistrationForId(
+      registration_id, key,
+      base::BindOnce(
+          &ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl, this,
+          /*include_installing_version=*/true,
+          /*activate_waiting_version=*/false, std::move(callback)));
 }
 
 void ServiceWorkerContextWrapper::FindReadyRegistrationForIdOnly(
@@ -1321,7 +1348,8 @@ void ServiceWorkerContextWrapper::FindReadyRegistrationForIdOnly(
       registration_id,
       base::BindOnce(
           &ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl, this,
-          /*include_installing_version=*/false, std::move(callback)));
+          /*include_installing_version=*/false,
+          /*activate_waiting_version=*/true, std::move(callback)));
 }
 
 void ServiceWorkerContextWrapper::GetAllRegistrations(
@@ -1600,7 +1628,8 @@ void ServiceWorkerContextWrapper::FindRegistrationForScopeImpl(
       net::SimplifyUrlForRequest(scope), key,
       base::BindOnce(
           &ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl, this,
-          include_installing_version, std::move(callback)));
+          include_installing_version,
+          /*activate_waiting_version=*/true, std::move(callback)));
 }
 
 void ServiceWorkerContextWrapper::MaybeProcessPendingWarmUpRequest() {
@@ -1635,6 +1664,7 @@ void ServiceWorkerContextWrapper::MaybeProcessPendingWarmUpRequest() {
 
 void ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl(
     bool include_installing_version,
+    bool activate_waiting_version,
     FindRegistrationCallback callback,
     blink::ServiceWorkerStatusCode status,
     scoped_refptr<ServiceWorkerRegistration> registration) {
@@ -1646,8 +1676,9 @@ void ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl(
 
   // Attempt to activate the waiting version because the registration retrieved
   // from the disk might have only the waiting version.
-  if (registration->waiting_version())
+  if (activate_waiting_version && registration->waiting_version()) {
     registration->ActivateWaitingVersionWhenReady();
+  }
 
   scoped_refptr<ServiceWorkerVersion> active_version =
       registration->active_version();
@@ -1660,6 +1691,12 @@ void ServiceWorkerContextWrapper::DidFindRegistrationForFindImpl(
       return;
     }
     DCHECK_EQ(ServiceWorkerVersion::ACTIVATED, active_version->status());
+    std::move(callback).Run(blink::ServiceWorkerStatusCode::kOk,
+                            std::move(registration));
+    return;
+  }
+
+  if (!activate_waiting_version && registration->waiting_version()) {
     std::move(callback).Run(blink::ServiceWorkerStatusCode::kOk,
                             std::move(registration));
     return;
@@ -1967,7 +2004,8 @@ ServiceWorkerContextWrapper::GetLoaderFactoryForBrowserInitiatedRequest(
       &header_client, &bypass_redirect_checks,
       /*disable_secure_dns=*/nullptr,
       /*factory_override=*/nullptr,
-      /*navigation_response_task_runner=*/nullptr);
+      /*navigation_response_task_runner=*/nullptr,
+      /*is_for_network_service=*/true);
 
   // If we have a version_id, we are fetching a worker main script. We have a
   // DevtoolsAgentHost ready for the worker and we can add the devtools override

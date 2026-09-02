@@ -9,8 +9,8 @@
 #import "ios/chrome/browser/app_bar/ui/app_bar_background_view.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/layout_state_test_passkey_factory.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -52,7 +52,7 @@ class AppBarViewControllerTest : public PlatformTest {
  protected:
   void SetUp() override {
     PlatformTest::SetUp();
-    layout_state_ = [[LayoutState alloc] init];
+    layout_state_ = [[SceneLayoutState alloc] init];
     [layout_state_
         setAppBarPosition:AppBarPosition::kBottom
                   passKey:LayoutStateTestPassKeyFactory::CreateSceneKey()];
@@ -68,7 +68,7 @@ class AppBarViewControllerTest : public PlatformTest {
   }
 
   AppBarViewController* view_controller_;
-  LayoutState* layout_state_;
+  SceneLayoutState* layout_state_;
 
   // Helper to access the private `_openNewTabButton` ivar using KVC.
   UIButton* openNewTabButton() {
@@ -609,6 +609,9 @@ TEST_F(AppBarViewControllerTest, TestNewTabButtonMetrics) {
   EXPECT_EQ(user_action_tester.GetActionCount("MobileToolbarNewTabShortcut"),
             1);
   EXPECT_EQ(
+      user_action_tester.GetActionCount("MobileToolbarNewIncognitoTabShortcut"),
+      0);
+  EXPECT_EQ(
       user_action_tester.GetActionCount("MobileToolbarNewTabShortcutOnNTP"), 1);
   EXPECT_EQ(user_action_tester.GetActionCount("MobileTabNewTab"), 1);
 
@@ -622,8 +625,52 @@ TEST_F(AppBarViewControllerTest, TestNewTabButtonMetrics) {
   EXPECT_EQ(user_action_tester.GetActionCount("MobileToolbarNewTabShortcut"),
             1);
   EXPECT_EQ(
+      user_action_tester.GetActionCount("MobileToolbarNewIncognitoTabShortcut"),
+      0);
+  EXPECT_EQ(
       user_action_tester.GetActionCount("MobileToolbarNewTabShortcutOnNTP"), 1);
   EXPECT_EQ(user_action_tester.GetActionCount("MobileTabNewTab"), 1);
+}
+
+// Tests that the open new tab button logs incognito shortcut metrics in
+// incognito mode.
+TEST_F(AppBarViewControllerTest, TestNewTabButtonMetricsIncognito) {
+  base::UserActionTester user_action_tester;
+
+  // Set tab grid not visible (browsing mode) and incognito mode.
+  [view_controller_ setTabGridVisible:NO];
+  [view_controller_ setIncognito:YES];
+
+  // Trigger tap.
+  UIButton* button = openNewTabButton();
+  [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+
+  EXPECT_EQ(user_action_tester.GetActionCount("MobileToolbarNewTabShortcut"),
+            0);
+  EXPECT_EQ(
+      user_action_tester.GetActionCount("MobileToolbarNewIncognitoTabShortcut"),
+      1);
+  EXPECT_EQ(user_action_tester.GetActionCount("MobileTabNewTab"), 1);
+}
+
+// Tests that updateForFullscreenProgress updates the button title alpha.
+TEST_F(AppBarViewControllerTest,
+       TestUpdateForFullscreenProgressUpdatesTitleAlpha) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(kAppBarHideInFullscreen);
+
+  [view_controller_ updateForFullscreenProgress:0.5];
+  NSNumber* buttonsTitleAlpha =
+      [view_controller_ valueForKey:@"buttonsTitleAlpha"];
+  EXPECT_EQ(buttonsTitleAlpha.doubleValue, 0.5);
+
+  [view_controller_ updateForFullscreenProgress:0.0];
+  buttonsTitleAlpha = [view_controller_ valueForKey:@"buttonsTitleAlpha"];
+  EXPECT_EQ(buttonsTitleAlpha.doubleValue, 0.0);
+
+  [view_controller_ updateForFullscreenProgress:1.0];
+  buttonsTitleAlpha = [view_controller_ valueForKey:@"buttonsTitleAlpha"];
+  EXPECT_EQ(buttonsTitleAlpha.doubleValue, 1.0);
 }
 
 }  // namespace

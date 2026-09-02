@@ -13,7 +13,7 @@ export function getHtml(this: PinnedToolbarActionsElement) {
 ${repeat(
     this.keyedStates,
     (keyedState) => keyedState.key,
-    (keyedState) => html`
+    (keyedState, index) => html`
       ${keyedState.state.action === PinnedToolbarAction.kDivider ? html`
         <toolbar-divider
             class="${keyedState.animateIn ? 'animate-in' : ''}
@@ -23,12 +23,14 @@ ${repeat(
       ` : html`
         <pinned-toolbar-action
             .state="${keyedState.state}"
+            .poppedOut="${this.dividerIndex !== -1 &&
+                          index > this.dividerIndex}"
             class="${keyedState.animateIn ? 'animate-in' : ''}
                    ${keyedState.exiting ? 'exiting' : ''}
                    ${keyedState.dragPlaceholder ? 'drag-placeholder' : ''}"
             data-key="${keyedState.key}"
-            @dragover="${this.onActionDragover_}"
-            @drop="${this.onActionDrop_}">
+            @dragover="${this.onActionDragover}"
+            @drop="${this.onActionDrop}">
         </pinned-toolbar-action>
       `}
     `,

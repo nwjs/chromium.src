@@ -38,7 +38,7 @@
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/model/public/overlay_presenter_observer_bridge.h"
 #import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_service_factory.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -108,7 +108,7 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
   LayoutGuideCenter* _layoutGuideCenter;
   raw_ptr<WebStateList> _webStateList;
   raw_ptr<feature_engagement::Tracker> _engagementTracker;
-  LayoutState* _layoutState;
+  SceneLayoutState* _layoutState;
 
   // Overlay observing.
   raw_ptr<OverlayPresenter> _webContentOverlayPresenter;
@@ -161,7 +161,7 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
                      webStateList:(raw_ptr<WebStateList>)webStateList
              fullscreenController:
                  (raw_ptr<FullscreenController>)fullscreenController
-                      layoutState:(LayoutState*)layoutState
+                      layoutState:(SceneLayoutState*)layoutState
     overlayPresenterForWebContent:
         (raw_ptr<OverlayPresenter>)webContentOverlayPresenter
                     infobarBanner:(raw_ptr<OverlayPresenter>)bannerPresenter
@@ -751,9 +751,8 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
   }
   UILayoutGuide* guide = [[UILayoutGuide alloc] init];
   [self.rootViewController.view addLayoutGuide:guide];
-  AddSameConstraintsToSides(
-      guide, contentAreaGuide,
-      LayoutSides::kLeading | LayoutSides::kTrailing | LayoutSides::kBottom);
+  AddSameConstraintsToSides(guide, contentAreaGuide,
+                            LayoutSides::kBottom | LayoutSides::kHorizontal);
   NSLayoutConstraint* topConstraintForBottomEdgeSwipe = [guide.topAnchor
       constraintEqualToAnchor:self.rootViewController.view.topAnchor];
   NSLayoutConstraint* topConstraintForTopEdgeSwipe =
@@ -976,9 +975,12 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
           base::RecordAction(
               base::UserMetricsAction("MobileGeminiImageRemixIPHTapped"));
           [geminiHandler
-              startGeminiFlowWithStartupState:
+              startGeminiEntryFlowWithStartupState:
                   [[GeminiStartupState alloc]
-                      initWithEntryPoint:gemini::EntryPoint::ImageRemixIPH]];
+                      initWithEntryPoint:gemini::EntryPoint::ImageRemixIPH]
+                                baseViewController:self.rootViewController
+                          showSnackbarOnCompletion:YES
+                                        completion:nil];
         }
       }];
 
@@ -1392,16 +1394,15 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
                                 : UISwipeGestureRecognizerDirectionLeft;
   switch (direction) {
     case UISwipeGestureRecognizerDirectionUp:
-      AddSameConstraintsToSides(
-          boundingSizeGuide, contentAreaGuide,
-          LayoutSides::kLeading | LayoutSides::kTrailing | LayoutSides::kTop);
+      AddSameConstraintsToSides(boundingSizeGuide, contentAreaGuide,
+                                LayoutSides::kTop | LayoutSides::kHorizontal);
       AddSameConstraintsToSides(boundingSizeGuide, safeAreaGuide,
                                 LayoutSides::kBottom);
       break;
     case UISwipeGestureRecognizerDirectionDown:
-      AddSameConstraintsToSides(boundingSizeGuide, contentAreaGuide,
-                                LayoutSides::kLeading | LayoutSides::kTrailing |
-                                    LayoutSides::kBottom);
+      AddSameConstraintsToSides(
+          boundingSizeGuide, contentAreaGuide,
+          LayoutSides::kBottom | LayoutSides::kHorizontal);
       AddSameConstraintsToSides(boundingSizeGuide, safeAreaGuide,
                                 LayoutSides::kTop);
       break;
@@ -1410,13 +1411,13 @@ constexpr CGFloat kAdditionalBorderMargin = 4;
       if (isDirectionLeading) {
         AddSameConstraintsToSides(
             boundingSizeGuide, contentAreaGuide,
-            LayoutSides::kTop | LayoutSides::kBottom | LayoutSides::kLeading);
+            LayoutSides::kLeading | LayoutSides::kVertical);
         AddSameConstraintsToSides(boundingSizeGuide, safeAreaGuide,
                                   LayoutSides::kTrailing);
       } else {
         AddSameConstraintsToSides(
             boundingSizeGuide, contentAreaGuide,
-            LayoutSides::kTop | LayoutSides::kBottom | LayoutSides::kTrailing);
+            LayoutSides::kTrailing | LayoutSides::kVertical);
         AddSameConstraintsToSides(boundingSizeGuide, safeAreaGuide,
                                   LayoutSides::kLeading);
       }

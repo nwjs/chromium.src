@@ -25,6 +25,7 @@ try_.defaults.set(
     execution_timeout = try_constants.DEFAULT_EXECUTION_TIMEOUT,
     experiments = {
         "chromium_tests.resultdb_module": 100,
+        "luci.buildbucket.run_in_turboci": 100,
     },
     orchestrator_cores = 4,
     service_account = try_constants.DEFAULT_SERVICE_ACCOUNT,
@@ -82,7 +83,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
 )
@@ -422,7 +422,6 @@ try_.builder(
     ),
     contact_team_email = "clank-engprod@google.com",
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -490,7 +489,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -550,7 +548,6 @@ try_.builder(
             "minimal_symbols",
             "official_optimize",
             "stable_channel",
-            "v8_release_branch",
             # Allows the bot to measure low-end arm32 and high-end arm64 using
             # a single build.
             "android_low_end_secondary_toolchain",
@@ -657,7 +654,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -691,7 +687,6 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 50,
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
 )
@@ -745,7 +740,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -831,7 +825,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -956,7 +949,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
@@ -1135,7 +1127,6 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -1178,7 +1169,6 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        "luci.buildbucket.run_in_turboci": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
     },
@@ -1269,7 +1259,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
 )
 
@@ -1295,7 +1284,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
 )
 
@@ -1322,7 +1310,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
 )
 
@@ -1349,7 +1336,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
 )
 
@@ -1383,7 +1369,6 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -1440,7 +1425,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
 )
@@ -1480,7 +1464,6 @@ try_.builder(
         ],
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
 )
@@ -1494,114 +1477,30 @@ try_.builder(
     contact_team_email = "chrome-gpu-team@google.com",
 )
 
-gpu.try_.optional_tests_builder(
+gpu.try_.linux_optional_builder(
     name = "android_optional_gpu_tests_rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Runs GPU tests on Pixel 4 devices. Only automatically added to CLs that touch GPU-related files.",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "main_builder",
-            build_config = builder_config.build_config.DEBUG,
-            target_arch = builder_config.target_arch.ARM,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "base_config",
-        ),
-    ),
+    mirrors = [
+        "ci/GPU FYI Android arm Builder",
+        "ci/Android FYI Release (Pixel 4)",
+    ],
     builder_config_settings = builder_config.try_settings(
         retry_failed_shards = False,
     ),
-    gn_args = gn_args.config(
-        configs = [
-            "gpu_tests",
-            "android_builder",
-            "android_with_static_analysis",
-            "release_builder",
-            "remoteexec",
-            "minimal_symbols",
-            "dcheck_always_on",
-            "static_angle",
-            "arm",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "gpu_pixel_04_telemetry_tests",
-            "android_webview_gpu_telemetry_tests",
-        ],
-        mixins = [
-            "has_native_resultdb_integration",
-            "gpu_pixel_4_stable",
-        ],
-        per_test_modifications = {
-            "expected_color_pixel_passthrough_ganesh_test": targets.mixin(
-                args = [
-                    # See Android FYI Release (Pixel 4).
-                    "--extra-browser-args=--disable-wcg-for-test",
-                ],
-            ),
-            "expected_color_pixel_validating_test": targets.mixin(
-                args = [
-                    # See Android FYI Release (Pixel 4).
-                    "--extra-browser-args=--disable-wcg-for-test",
-                ],
-            ),
-            "pixel_skia_gold_passthrough_ganesh_test": targets.mixin(
-                args = [
-                    # See Android FYI Release (Pixel 4).
-                    "--extra-browser-args=--disable-wcg-for-test",
-                ],
-            ),
-            "pixel_skia_gold_validating_test": targets.mixin(
-                args = [
-                    # See Android FYI Release (Pixel 4).
-                    "--extra-browser-args=--disable-wcg-for-test",
-                ],
-            ),
-            "screenshot_sync_passthrough_ganesh_tests": targets.mixin(
-                args = [
-                    # See Android FYI Release (Pixel 4).
-                    "--extra-browser-args=--disable-wcg-for-test",
-                ],
-            ),
-            "screenshot_sync_validating_tests": targets.mixin(
-                args = [
-                    # See Android FYI Release (Pixel 4).
-                    "--extra-browser-args=--disable-wcg-for-test",
-                ],
-            ),
-        },
-    ),
-    targets_settings = targets.settings(
-        browser_config = targets.browser_config.ANDROID_CHROMIUM,
-        os_type = targets.os_type.ANDROID,
-        use_android_merge_script_by_default = False,
-    ),
-    pool = "luci.chromium.gpu.try",
-    builderless = True,
-    ssd = None,
-    free_space = None,
+    gn_args = "ci/GPU FYI Android arm Builder",
     alerts_enabled = False,
     contact_team_email = "chrome-gpu-infra@google.com",
     cq_settings = try_.cq_settings(
         location_filters = gpu.try_.optional_trybot_location_filters.ANDROID,
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     max_concurrent_builds = 10,
 )
 
-gpu.try_.optional_tests_builder(
+gpu.try_.linux_optional_builder(
     name = "gpu-fyi-cq-android-arm64",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     description_html = "Runs GPU tests on Pixel 6/10 devices. Only automatically added to CLs that touch GPU-related files.",
@@ -1614,10 +1513,6 @@ gpu.try_.optional_tests_builder(
         retry_failed_shards = False,
     ),
     gn_args = "ci/GPU FYI Android arm64 Builder",
-    pool = "luci.chromium.gpu.try",
-    builderless = True,
-    ssd = None,
-    free_space = None,
     # Exclude gpu fyi builders.
     alerts_enabled = False,
     contact_team_email = "chrome-gpu-infra@google.com",
@@ -1625,7 +1520,6 @@ gpu.try_.optional_tests_builder(
         location_filters = gpu.try_.optional_trybot_location_filters.ANDROID,
     ),
     experiments = {
-        "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
     max_concurrent_builds = 10,

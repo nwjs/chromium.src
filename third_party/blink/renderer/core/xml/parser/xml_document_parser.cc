@@ -1102,6 +1102,38 @@ void XMLDocumentParser::StartElementNs(
   if (!parsing_fragment_ && is_first_element && local_name == "alert" &&
       IsCAPAlertNamespace(uri)) {
     UseCounter::Count(document_, WebFeature::kXmlCAPAlert);
+    if (document_) {
+      // We set this here so that XSLT processing can be conditionally enabled
+      // for this document, and so the XSLT engine knows to inject the CAP alert
+      // banner and record use counters.
+      document_->SetIsCAPAlert(true);
+      if (RuntimeEnabledFeatures::EnableXSLTForCAPAlertsEnabled(
+              document_->GetExecutionContext())) {
+        for (Node* child = document_->firstChild(); child;
+             child = child->nextSibling()) {
+          if (auto* pi = DynamicTo<ProcessingInstruction>(child)) {
+            if (!pi->IsXSL()) {
+              // The PI was initially inserted into the document before
+              // IsCAPAlert() was set, so IsXSL() returned false and it was
+              // treated as a regular CSS stylesheet. Remove it from the CSS
+              // engine, re-evaluate it, and manually trigger the XSLT
+              // processing logic since it was missed during insertion.
+              document_->GetStyleEngine().RemoveStyleSheetCandidateNode(
+                  *pi, *document_);
+              pi->UpdateStylesheetIfNeeded();
+              if (pi->IsXSL()) {
+                DocumentXSLT::ProcessingInstructionInsertedIntoDocument(
+                    *document_, pi);
+                saw_xsl_transform_ = true;
+                if (!DocumentXSLT::HasTransformSourceDocument(*GetDocument())) {
+                  StopParsing();
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   Vector<Attribute, kAttributePrealloc> prefixed_attributes;
@@ -1150,8 +1182,7 @@ void XMLDocumentParser::StartElementNs(
   for (const auto& attr : prefixed_attributes) {
     if (attr.GetName() == html_names::kIsAttr) {
       is = attr.Value();
-    } else if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-               attr.GetName() == html_names::kCustomelementregistryAttr) {
+    } else if (attr.GetName() == html_names::kCustomelementregistryAttr) {
       has_customelementregistry_attr = true;
     }
   }
@@ -1164,8 +1195,7 @@ void XMLDocumentParser::StartElementNs(
   }
 
   CustomElementRegistry* registry = nullptr;
-  if (RuntimeEnabledFeatures::ScopedCustomElementRegistryEnabled() &&
-      !has_customelementregistry_attr) {
+  if (!has_customelementregistry_attr) {
     // If the element doesn't have the customelementregistry attribute, then
     // it should inherit its registry from its parent.
     if (auto* parent_element = DynamicTo<Element>(current_node_.Get())) {
@@ -1193,11 +1223,17 @@ void XMLDocumentParser::StartElementNs(
     }
   }
 
-  Element* new_element = current_node_->GetDocument().CreateElement(
-      q_name,
+  CreateElementFlags flags =
       parsing_fragment_ ? CreateElementFlags::ByFragmentParser(document_)
-                        : CreateElementFlags::ByParser(document_),
-      is, registry);
+                        : CreateElementFlags::ByParser(document_);
+  if (RuntimeEnabledFeatures::DOMParserXmlScriptAlreadyStartedEnabled() &&
+      document_->IsDOMParserDocument() &&
+      (q_name == html_names::kScriptTag || q_name == svg_names::kScriptTag)) {
+    flags.SetAlreadyStarted(true);
+  }
+
+  Element* new_element =
+      current_node_->GetDocument().CreateElement(q_name, flags, is, registry);
   // Check IsStopped() because custom element constructors may synchronously
   // trigger removal of the document and cancellation of this parser.
   if (IsStopped()) {

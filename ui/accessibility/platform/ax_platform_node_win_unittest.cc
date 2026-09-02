@@ -4142,6 +4142,43 @@ TEST_F(AXPlatformNodeWinTest, UIAGetPropertySimple) {
       L"required=false;hasactions=false");
 }
 
+TEST_F(AXPlatformNodeWinTest, UIAAriaPropertiesForCellIndexText) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kCell;
+  root.AddStringAttribute(ax::mojom::StringAttribute::kAriaCellColumnIndexText,
+                          "A");
+  root.AddStringAttribute(ax::mojom::StringAttribute::kAriaCellRowIndexText,
+                          "10");
+  Init(root);
+
+  ComPtr<IRawElementProviderSimple> root_node =
+      GetRootIRawElementProviderSimple();
+  EXPECT_UIA_BSTR_EQ(
+      root_node, UIA_AriaPropertiesPropertyId,
+      L"colindextext=A;rowindextext=10;readonly=true;expanded=false;"
+      L"multiline=false;multiselectable=false;required=false;hasactions=false");
+}
+
+TEST_F(AXPlatformNodeWinTest, UIAAriaPropertiesForBrailleAttributes) {
+  AXNodeData root;
+  root.id = 1;
+  root.role = ax::mojom::Role::kList;
+  root.AddStringAttribute(ax::mojom::StringAttribute::kAriaBrailleLabel,
+                          "Label");
+  root.AddStringAttribute(
+      ax::mojom::StringAttribute::kAriaBrailleRoleDescription, "Role");
+  Init(root);
+
+  ComPtr<IRawElementProviderSimple> root_node =
+      GetRootIRawElementProviderSimple();
+  EXPECT_UIA_BSTR_EQ(
+      root_node, UIA_AriaPropertiesPropertyId,
+      L"braillelabel=Label;brailleroledescription=Role;readonly=true;"
+      L"expanded=false;multiline=false;multiselectable=false;required=false;"
+      L"hasactions=false");
+}
+
 TEST_F(AXPlatformNodeWinTest, UIAControlContentPropertyForTableElements) {
   AXNodeData root;
   root.id = 1;
@@ -8508,14 +8545,7 @@ TEST_F(AXPlatformNodeWinTest, OwnedNodeSurvivesUnexpectedReleases) {
 // Test for UIA's MathML Implementation.
 TEST_F(AXPlatformNodeWinTest, UiaMathMlFeatureFlag) {
   // Verify flag is disabled by default.
-  EXPECT_FALSE(base::FeatureList::IsEnabled(features::kUiaMathMlSupport));
-
-  // Verify flag can be enabled.
-  {
-    base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(features::kUiaMathMlSupport);
-    EXPECT_TRUE(base::FeatureList::IsEnabled(features::kUiaMathMlSupport));
-  }
+  EXPECT_TRUE(base::FeatureList::IsEnabled(features::kUiaMathMlSupport));
 
   // Verify flag can be explicitly disabled.
   {

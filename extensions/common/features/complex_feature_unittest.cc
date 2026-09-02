@@ -4,13 +4,16 @@
 
 #include "extensions/common/features/complex_feature.h"
 
+#include <array>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "base/test/bind.h"
 #include "content/public/common/content_features.h"
 #include "extensions/common/features/feature.h"
 #include "extensions/common/features/simple_feature.h"
+#include "extensions/common/features/simple_feature_test_constants.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/mojom/context_type.mojom.h"
 #include "extensions/test/test_context_data.h"
@@ -20,26 +23,41 @@ using extensions::mojom::ManifestLocation;
 
 namespace extensions {
 
+namespace {
+
+// Single-element backing arrays for the StaticSpan setters, which bind only to
+// static storage.
+constexpr auto kPrivilegedExtensionOnly = std::to_array<mojom::ContextType>(
+    {mojom::ContextType::kPrivilegedExtension});
+constexpr auto kExtensionOnly =
+    std::to_array<Manifest::Type>({Manifest::Type::kExtension});
+constexpr auto kLegacyPackagedAppOnly =
+    std::to_array<Manifest::Type>({Manifest::Type::kLegacyPackagedApp});
+
+}  // namespace
+
 TEST(ComplexFeatureTest, MultipleRulesAllowlist) {
-  const HashedExtensionId kIdFoo(
-      ExtensionId("fooabbbbccccddddeeeeffffgggghhhh"));
-  const HashedExtensionId kIdBar(
-      ExtensionId("barabbbbccccddddeeeeffffgggghhhh"));
+  const HashedExtensionId kIdFoo{ExtensionId(kFooId)};
+  const HashedExtensionId kIdBar{ExtensionId(kBarId)};
+  static constexpr auto kFooAllowlist =
+      std::to_array<std::string_view>({kHashedFooId});
+  static constexpr auto kBarAllowlist =
+      std::to_array<std::string_view>({kHashedBarId});
   std::vector<Feature*> features;
 
   {
     // Rule: "extension", allowlist "foo".
     std::unique_ptr<SimpleFeature> simple_feature(new SimpleFeature());
-    simple_feature->set_allowlist({kIdFoo.value().c_str()});
-    simple_feature->set_extension_types({Manifest::Type::kExtension});
+    simple_feature->set_allowlist(StaticSpan(kFooAllowlist));
+    simple_feature->set_extension_types(StaticSpan(kExtensionOnly));
     features.push_back(simple_feature.release());
   }
 
   {
     // Rule: "legacy_packaged_app", allowlist "bar".
     std::unique_ptr<SimpleFeature> simple_feature(new SimpleFeature());
-    simple_feature->set_allowlist({kIdBar.value().c_str()});
-    simple_feature->set_extension_types({Manifest::Type::kLegacyPackagedApp});
+    simple_feature->set_allowlist(StaticSpan(kBarAllowlist));
+    simple_feature->set_extension_types(StaticSpan(kLegacyPackagedAppOnly));
     features.push_back(simple_feature.release());
   }
 
@@ -92,14 +110,18 @@ TEST(ComplexFeatureTest, Dependencies) {
     // Rule which depends on an extension-only feature
     // (content_security_policy).
     std::unique_ptr<SimpleFeature> simple_feature(new SimpleFeature());
-    simple_feature->set_dependencies({"manifest:content_security_policy"});
+    static constexpr auto kCspDependency =
+        std::to_array<std::string_view>({"manifest:content_security_policy"});
+    simple_feature->set_dependencies(StaticSpan(kCspDependency));
     features.push_back(simple_feature.release());
   }
 
   {
     // Rule which depends on an platform-app-only feature (videoCapture).
     std::unique_ptr<SimpleFeature> simple_feature(new SimpleFeature());
-    simple_feature->set_dependencies({"permission:videoCapture"});
+    static constexpr auto kVideoCaptureDependency =
+        std::to_array<std::string_view>({"permission:videoCapture"});
+    simple_feature->set_dependencies(StaticSpan(kVideoCaptureDependency));
     features.push_back(simple_feature.release());
   }
 
@@ -181,7 +203,7 @@ TEST(ComplexFeatureTest, RequiresDelegatedAvailabilityCheck) {
     {
       // Feature which doesn't set |requires_delegated_availability_check|.
       auto simple_feature = std::make_unique<SimpleFeature>();
-      simple_feature->set_contexts({mojom::ContextType::kPrivilegedExtension});
+      simple_feature->set_contexts(StaticSpan(kPrivilegedExtensionOnly));
       features.push_back(simple_feature.release());
     }
     // Two features which set |requires_delegated_availability_check| to true.

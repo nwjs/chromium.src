@@ -199,7 +199,6 @@ void StyleAdjuster::AdjustStyleForSvgElement(
       builder.SetTextDecorationStyle(
           ETextDecorationStyle::kSolid);  // crbug.com/1246719
     }
-    builder.SetTextDecorationThickness(TextDecorationThickness(Length::Auto()));
     builder.SetTextEmphasisMark(TextEmphasisMark::kNone);
     builder.SetTextUnderlineOffset(Length());  // crbug.com/1247912
     builder.SetTextUnderlinePosition(TextUnderlinePosition::kAuto);
@@ -667,6 +666,7 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
          builder.OverflowY() != EOverflow::kVisible);
 
   bool single_axis_scroller = false;
+  bool single_axis_scroller_overscroll_behavior = false;
 
   bool overflow_is_clip_or_visible =
       IsOverflowClipOrVisible(builder.OverflowY()) &&
@@ -698,6 +698,8 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
       builder.SetOverflowX(EOverflow::kAuto);
     } else if (builder.OverflowX() == EOverflow::kClip) {
       single_axis_scroller = true;
+      single_axis_scroller_overscroll_behavior =
+          builder.OverscrollBehaviorX() != EOverscrollBehavior::kAuto;
       if (!RuntimeEnabledFeatures::SingleAxisScrollContainersEnabled()) {
         builder.SetOverflowX(EOverflow::kHidden);
       }
@@ -709,6 +711,8 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
       builder.SetOverflowY(EOverflow::kAuto);
     } else if (builder.OverflowY() == EOverflow::kClip) {
       single_axis_scroller = true;
+      single_axis_scroller_overscroll_behavior =
+          builder.OverscrollBehaviorY() != EOverscrollBehavior::kAuto;
       if (!RuntimeEnabledFeatures::SingleAxisScrollContainersEnabled()) {
         builder.SetOverflowY(EOverflow::kHidden);
       }
@@ -717,6 +721,13 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
 
   if (single_axis_scroller) {
     UseCounter::Count(document, WebFeature::kSingleAxisScroller);
+
+    // Count when an overscroll-behavior that is not `auto` overlaps the axis
+    // set to `clip` of a single-axis scroll container.
+    if (single_axis_scroller_overscroll_behavior) {
+      UseCounter::Count(document,
+                        WebFeature::kSingleAxisScrollerOverscrollBehavior);
+    }
   }
 
   if (element && !element->IsPseudoElement() &&
@@ -733,23 +744,6 @@ void StyleAdjuster::AdjustOverflow(ComputedStyleBuilder& builder,
   if (builder.OverflowX() == EOverflow::kOverlay) {
     builder.SetOverflowX(EOverflow::kAuto);
   }
-}
-
-// https://github.com/WICG/html-in-canvas
-// The `layoutsubtree` attribute ... causes the direct children of the <canvas>
-// to have a stacking context and become a containing block for all descendants.
-static bool ForceStackingAndContainingBlockForCanvasLayoutSubtree(
-    const Element* element) {
-  if (element && element->IsCanvasOrInCanvasSubtree() &&
-      RuntimeEnabledFeatures::CanvasDrawElementEnabled(
-          element->GetExecutionContext())) {
-    const Element* parent =
-        FlatTreeTraversal::ParentElementSkippingSlots(*element);
-    if (const auto* canvas = DynamicTo<HTMLCanvasElement>(parent)) {
-      return canvas->layoutSubtree();
-    }
-  }
-  return false;
 }
 
 static bool IsCanvasWithDrawElements(const Element* element) {
@@ -771,11 +765,15 @@ void StyleAdjuster::AdjustStyleForDisplay(
     const ComputedStyle& layout_parent_style,
     const Element* element,
     Document* document) {
-  bool force_canvas_child_layout_subtree_styles =
-      ForceStackingAndContainingBlockForCanvasLayoutSubtree(element);
+  HTMLCanvasElement* canvas_for_drawing =
+      element ? element->CanvasForDrawing() : nullptr;
+  bool is_drawable_canvas_descendant = canvas_for_drawing;
+  bool is_immediate_canvas_child =
+      canvas_for_drawing && FlatTreeTraversal::ParentElementSkippingSlots(
+                                *element) == canvas_for_drawing;
 
   if ((layout_parent_style.BlockifiesChildren() && !HostIsInputFile(element)) ||
-      force_canvas_child_layout_subtree_styles) {
+      is_immediate_canvas_child) {
     builder.SetIsInBlockifyingDisplay();
     if (builder.Display() != EDisplay::kContents) {
       builder.SetDisplay(EquivalentBlockDisplay(builder.Display()));
@@ -787,20 +785,25 @@ void StyleAdjuster::AdjustStyleForDisplay(
         layout_parent_style.IsDisplayWebkitBox() ||
         layout_parent_style.IsDisplayGrid() ||
         layout_parent_style.IsDisplayGridLanes() ||
-        layout_parent_style.IsDisplayMath() ||
-        force_canvas_child_layout_subtree_styles) {
+        layout_parent_style.IsDisplayMath() || is_immediate_canvas_child) {
       builder.SetIsInsideDisplayIgnoringFloatingChildren();
     }
 
-    if (force_canvas_child_layout_subtree_styles) {
+    if (is_immediate_canvas_child) {
       builder.SetPosition(EPosition::kStatic);
-      builder.SetContain(builder.Contain() | kContainsPaint);
     }
+  }
+
+  if (is_drawable_canvas_descendant) {
+    if (!is_immediate_canvas_child && builder.Display() == EDisplay::kInline) {
+      builder.SetDisplay(EDisplay::kInlineBlock);
+    }
+    builder.SetContain(builder.Contain() | kContainsPaint);
   }
 
   if (layout_parent_style.InlinifiesChildren() &&
       !builder.HasOutOfFlowPosition() && ShouldBeInlinified(element) &&
-      !force_canvas_child_layout_subtree_styles) {
+      !is_drawable_canvas_descendant) {
     if (builder.IsFloating()) {
       builder.SetFloating(EFloat::kNone);
       if (document) {
@@ -1237,15 +1240,6 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
         element->GetDocument().IsInMainFrame()) {
       builder.SetBackdropFilter(FilterOperations());
     }
-    if (builder.InternalOverscrollArea() != EInternalOverscrollArea::kNone) {
-      // TODO(crbug.com/467112943): Layout containment is currently forced to
-      // ensure that the container of the overscroll areas actually contains
-      // the overscroll areas. However, requiring layout containment is
-      // overly restrictive to the child content that can be used within
-      // the scroller. We should remove this requirement while ensure they are
-      // layout children of the container element.
-      builder.SetContain(builder.Contain() | kContainsLayout);
-    }
   }
 
   // We don't adjust the first letter style earlier because we may change the
@@ -1255,11 +1249,17 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
 
   builder.SetForcesStackingContext(false);
 
+  // https://github.com/WICG/html-in-canvas
+  // The `layoutsubtree` attribute ... causes descendants of the <canvas> with
+  // the `drawable` attribute to have a stacking context and become a containing
+  // block for all descendants.
+  bool is_drawable_canvas_descendant = element && element->CanvasForDrawing();
+
   // z-index is only applicable if positioned, or if a flex/grid/etc item.
   if (builder.GetPosition() != EPosition::kStatic ||
       LayoutParentStyleForcesZIndexToCreateStackingContext(
           layout_parent_style) ||
-      ForceStackingAndContainingBlockForCanvasLayoutSubtree(element)) {
+      is_drawable_canvas_descendant) {
     builder.SetAllowsZIndex(true);
     if (!builder.HasAutoZIndex()) {
       builder.SetForcesStackingContext(true);
@@ -1276,7 +1276,7 @@ void StyleAdjuster::AdjustComputedStyle(StyleResolverState& state,
       (element && IsA<SVGForeignObjectElement>(*element)) || is_in_top_layer ||
       builder.StyleType() == kPseudoIdBackdrop ||
       builder.StyleType() == kPseudoIdViewTransition ||
-      IsCanvasWithDrawElements(element)) {
+      IsCanvasWithDrawElements(element) || is_drawable_canvas_descendant) {
     builder.SetForcesStackingContext(true);
   }
 

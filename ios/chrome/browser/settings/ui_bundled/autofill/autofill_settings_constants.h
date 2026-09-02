@@ -13,6 +13,7 @@ extern NSString* const kAutofillPaymentMethodsToolbarId;
 extern NSString* const kAutofillAddressSwitchViewId;
 extern NSString* const kAutofillAddressManagedViewId;
 extern NSString* const kEnhancedAutofillTableViewId;
+extern NSString* const kSuggestionsFromGeminiTableViewId;
 extern NSString* const kAutofillVerificationSwitchTableViewId;
 
 extern NSString* const kAutofillCreditCardTableViewId;
@@ -23,6 +24,7 @@ extern NSString* const kAutofillMandatoryReauthSwitchViewId;
 extern NSString* const kAutofillSaveSecurityCodesSwitchViewId;
 extern NSString* const kAutofillSecurityCvcsTableViewId;
 extern NSString* const kEnhancedAutofillSwitchViewId;
+extern NSString* const kSuggestionsFromGeminiSwitchViewId;
 
 // Accessibility identifier for the edit card table view.
 extern NSString* const kAutofillCreditCardEditTableViewId;

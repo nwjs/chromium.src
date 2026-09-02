@@ -61,6 +61,19 @@ export function getHtml(this: PolicyAppElement) {
   </div>
   <main id="policy-ui-container">
     <div id="policy-ui">
+<if expr="not is_ios and not is_android and not is_chromeos">
+      ${this.shouldShowCommandLineArgumentsWarning_ ? html`
+        <div id="command-line-arguments-warning" class="warning-banner" role="alert">
+          <cr-icon icon="cr:warning" class="warning-icon"></cr-icon>
+          <div class="warning-text">
+            <div>$i18n{commandLineFlagsWarning}</div>
+            ${this.commandLineArguments_ ? html`
+              <div id="command-line-arguments">${this.commandLineArguments_}</div>
+            ` : ''}
+          </div>
+        </div>
+      ` : ''}
+</if>
 <if expr="not is_ios and not is_android">
       ${this.shouldShowPromo_ ? html`
         <promotion-banner-section-container

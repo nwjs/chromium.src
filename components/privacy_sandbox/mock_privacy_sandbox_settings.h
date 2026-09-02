@@ -17,40 +17,6 @@ class MockPrivacySandboxSettings
   ~MockPrivacySandboxSettings() override;
 
   // PrivacySandboxSettings:
-  MOCK_METHOD(bool, IsTopicsAllowed, (), (override, const));
-  MOCK_METHOD(bool,
-              IsTopicsAllowedForContext,
-              (const url::Origin&, const GURL&, content::RenderFrameHost*),
-              (override, const));
-  MOCK_METHOD(bool,
-              IsTopicAllowed,
-              (const privacy_sandbox::CanonicalTopic&),
-              (override));
-  MOCK_METHOD(void,
-              SetTopicAllowed,
-              (const privacy_sandbox::CanonicalTopic&, bool),
-              (override));
-  MOCK_METHOD(bool,
-              IsTopicPrioritized,
-              (const privacy_sandbox::CanonicalTopic&),
-              (override));
-  MOCK_METHOD(void, ClearTopicSettings, (base::Time, base::Time), (override));
-  MOCK_METHOD(base::Time, TopicsDataAccessibleSince, (), (override, const));
-  MOCK_METHOD(void,
-              SetFledgeJoiningAllowed,
-              (const std::string&, bool),
-              (override));
-  MOCK_METHOD(void,
-              ClearFledgeJoiningAllowedSettings,
-              (base::Time, base::Time),
-              (override));
-  MOCK_METHOD(bool,
-              IsFledgeAllowed,
-              (const url::Origin&,
-               const url::Origin&,
-               privacy_sandbox::InterestGroupApiOperation,
-               content::RenderFrameHost*),
-              (override, const));
   MOCK_METHOD(
       bool,
       IsEventReportingDestinationAttested,
@@ -69,30 +35,8 @@ class MockPrivacySandboxSettings
               IsSharedStorageSelectURLAllowed,
               (const url::Origin&, const url::Origin&, std::string*, bool*),
               (override, const));
-  MOCK_METHOD(bool,
-              IsPrivateAggregationAllowed,
-              (const url::Origin&, const url::Origin&, bool*),
-              (override, const));
-  MOCK_METHOD(bool,
-              IsPrivateAggregationDebugModeAllowed,
-              (const url::Origin&, const url::Origin&),
-              (override, const));
-  MOCK_METHOD(void, SetAllPrivacySandboxAllowedForTesting, (), (override));
-  MOCK_METHOD(void, SetTopicsBlockedForTesting, (), (override));
-  MOCK_METHOD(bool, IsPrivacySandboxRestricted, (), (override, const));
-  MOCK_METHOD(bool,
-              IsPrivacySandboxCurrentlyUnrestricted,
-              (),
-              (override, const));
-  MOCK_METHOD(bool, IsSubjectToM1NoticeRestricted, (), (override, const));
-  MOCK_METHOD(bool, IsRestrictedNoticeEnabled, (), (override, const));
-  MOCK_METHOD(void, OnCookiesCleared, (), (override));
   MOCK_METHOD(void, AddObserver, (Observer*), (override));
   MOCK_METHOD(void, RemoveObserver, (Observer*), (override));
-  MOCK_METHOD(void,
-              SetDelegateForTesting,
-              (std::unique_ptr<Delegate>),
-              (override));
   MOCK_METHOD(bool, AreRelatedWebsiteSetsEnabled, (), (override, const));
 };
 

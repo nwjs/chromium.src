@@ -8,14 +8,21 @@
 #include <cmath>
 #include <limits>
 
+#include "base/containers/span.h"
+#include "base/functional/callback_helpers.h"
 #include "base/logging.h"
 #include "base/no_destructor.h"
+#include "base/task/thread_pool.h"
+#include "build/build_config.h"
 #include "device/vr/openxr/openxr_interaction_profile_paths.h"
 #include "device/vr/openxr/openxr_platform.h"
 #include "device/vr/openxr/openxr_util.h"
 #include "device/vr/openxr/openxr_view_configuration.h"
 #include "device/vr/public/mojom/vr_service.mojom.h"
+#include "device/vr/test/webxr_test_gamepad_utils.h"
+#include "mojo/public/cpp/bindings/sync_call_restrictions.h"
 #include "third_party/openxr/src/src/common/hex_and_handles.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/gfx/geometry/transform.h"
 #include "ui/gfx/geometry/transform_util.h"
 
@@ -24,29 +31,29 @@ bool PathContainsString(const std::string& path, const std::string& s) {
   return path.contains(s);
 }
 
-device::XrEye GetEyeForIndex(uint32_t index, uint32_t num_views) {
+[[maybe_unused]] device::mojom::XREye GetEyeForIndex(uint32_t index,
+                                                     uint32_t num_views) {
   DCHECK_LE(num_views, 2u);
 
   if (num_views == 1) {
     // Per WebXR spec, the eye for the first person observer view is none.
-    return device::XrEye::kNone;
+    return device::mojom::XREye::kNone;
   }
 
   // Per OpenXR spec, the left eye is at index 0 and the right eye at index 1
   // for the XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO view configuration.
-  return (index == 0) ? device::XrEye::kLeft : device::XrEye::kRight;
+  return (index == 0) ? device::mojom::XREye::kLeft
+                      : device::mojom::XREye::kRight;
 }
 
 int GetOffsetMultiplierForIndex(uint32_t index) {
   return ((index % 2 == 0) ? 1 : -1);
 }
 
-#if BUILDFLAG(IS_ANDROID)
-device::Color GetFirstColor(base::span<char> pixels) {
-  CHECK_GE(pixels.size(), 3u);
-  return device::Color(pixels[0], pixels[1], pixels[2], pixels[3]);
+SkColor GetFirstColor(base::span<const uint8_t> pixels) {
+  CHECK_GE(pixels.size(), 4u);
+  return SkColorSetARGB(pixels[3], pixels[0], pixels[1], pixels[2]);
 }
-#endif
 
 }  // namespace
 
@@ -156,15 +163,46 @@ void OpenXrTestHelper::Reset() {
   action_localized_names_.clear();
   action_set_names_.clear();
   action_set_localized_names_.clear();
+
+  presenting_pose_ = std::nullopt;
+  for (auto& controller : controllers_) {
+    controller = {};
+  }
 }
 
 void OpenXrTestHelper::TestFailure() {
   NOTREACHED();
 }
 
-void OpenXrTestHelper::SetTestHook(device::VRTestHook* hook) {
+// static
+OpenXrTestHelper& OpenXrTestHelper::Get() {
+  static base::NoDestructor<OpenXrTestHelper> test_helper;
+  return *test_helper;
+}
+
+void OpenXrTestHelper::SetTestHook(
+    mojo::PendingRemote<device_test::mojom::XRTestHook> hook) {
   base::AutoLock auto_lock(lock_);
-  test_hook_ = hook;
+  test_hook_.reset();
+  if (hook.is_valid()) {
+    auto task_runner = base::ThreadPool::CreateSequencedTaskRunner({});
+    test_hook_.Bind(std::move(hook), task_runner);
+    test_hook_.set_disconnect_handler(
+        base::BindOnce(&OpenXrTestHelper::OnTestHookDisconnected,
+                       base::Unretained(this)),
+        task_runner);
+  }
+}
+
+void OpenXrTestHelper::OnTestHookDisconnected() {
+  base::AutoLock auto_lock(lock_);
+  test_hook_.reset();
+}
+
+mojo::SharedRemote<device_test::mojom::XRTestHook>
+OpenXrTestHelper::GetTestHook() {
+  base::AutoLock auto_lock(lock_);
+  return test_hook_;
 }
 
 void OpenXrTestHelper::OnPresentedFrame(const XrFrameEndInfo* frame_end_info) {
@@ -262,28 +300,25 @@ void OpenXrTestHelper::OnPresentedFrame(const XrFrameEndInfo* frame_end_info) {
   }
 #endif
 
-  base::AutoLock auto_lock(lock_);
-  if (!test_hook_)
-    return;
-
-  test_hook_->OnFrameSubmitted(submitted_views, submitted_layers);
+  if (auto test_hook = GetTestHook(); test_hook) {
+    mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
+    test_hook->OnFrameSubmitted(submitted_views, submitted_layers);
+  }
 }
 
 #if BUILDFLAG(IS_WIN)
 void OpenXrTestHelper::CopyTextureDataIntoFrameData(uint32_t x_start,
                                                     device::ViewData& data) {
-  constexpr uint32_t buffer_size = sizeof(device::ViewData::raw_buffer);
-  constexpr uint32_t buffer_size_pixels = buffer_size / sizeof(device::Color);
   DCHECK(d3d_device_);
   DCHECK_NE(textures_arr_.size(), 0ull);
   Microsoft::WRL::ComPtr<ID3D11DeviceContext> context;
   d3d_device_->GetImmediateContext(&context);
 
-  // We copy the submitted texture to a new texture, so we can map it, and
-  // read back pixel data.
+  // We copy a 1x1 pixel region from the submitted texture to a staging texture
+  // so we can map it to CPU memory and read back the pixel color.
   auto desc = CD3D11_TEXTURE2D_DESC();
   desc.ArraySize = 1;
-  desc.Width = buffer_size_pixels;
+  desc.Width = 1;
   desc.Height = 1;
   desc.MipLevels = 1;
   desc.SampleDesc.Count = 1;
@@ -297,9 +332,8 @@ void OpenXrTestHelper::CopyTextureDataIntoFrameData(uint32_t x_start,
       d3d_device_->CreateTexture2D(&desc, nullptr, &texture_destination);
   DCHECK_EQ(hr, S_OK);
 
-  // A strip of pixels along the top of the texture, however many will fit into
-  // our buffer.
-  D3D11_BOX box{x_start, 0, 0, x_start + buffer_size_pixels, 1, 1};
+  // Copy the single pixel at (x_start, 0) into our 1x1 staging texture.
+  D3D11_BOX box{x_start, 0, 0, x_start + 1, 1, 1};
   context->CopySubresourceRegion(
       texture_destination.Get(), 0, 0, 0, 0,
       textures_arr_[acquired_swapchain_texture_].Get(), 0, &box);
@@ -307,21 +341,12 @@ void OpenXrTestHelper::CopyTextureDataIntoFrameData(uint32_t x_start,
   D3D11_MAPPED_SUBRESOURCE map_data = {};
   hr = context->Map(texture_destination.Get(), 0, D3D11_MAP_READ, 0, &map_data);
   DCHECK_EQ(hr, S_OK) << " hex value: " << std::hex << hr;
-  // We have a 1-pixel image, so store it in the provided ViewData
-  // along with the raw data.
-  device::Color* color = static_cast<device::Color*>(map_data.pData);
-  data.color = color[0];
-  base::span<char> data_buffer(data.raw_buffer);
-  // SAFETY: Required by `Map` call above, texture_destination (which populates
-  // the map_data), was created to be `buffer_size_pixels` in width, which is
-  // calculated from `buffer_size.
-  static_assert(buffer_size >= buffer_size_pixels * sizeof(device::Color));
-  auto mapped_data_span = UNSAFE_BUFFERS(base::span<const char>(
-      static_cast<const char*>(map_data.pData), buffer_size));
-  // SAFETY: Test-only implementation of a C-Style API that thus has to provide
-  // arrays as a pointer and a size. The sole callers are our own product/test
-  // code.
-  data_buffer.copy_from_nonoverlapping(mapped_data_span);
+
+  // SAFETY: ID3D11DeviceContext::Map guarantees map_data.pData points to
+  // memory for the 1x1 DXGI_FORMAT_R8G8B8A8_UNORM texture (4 bytes).
+  auto mapped_pixels = UNSAFE_BUFFERS(
+      base::span(static_cast<const uint8_t*>(map_data.pData), 4u));
+  data.color = GetFirstColor(mapped_pixels);
 
   context->Unmap(texture_destination.Get(), 0);
 }
@@ -329,15 +354,13 @@ void OpenXrTestHelper::CopyTextureDataIntoFrameData(uint32_t x_start,
 void OpenXrTestHelper::CopyTextureDataIntoFrameData(XrSwapchain swapchain,
                                                     uint32_t x_start,
                                                     device::ViewData& data) {
-  constexpr uint32_t buffer_size = sizeof(device::ViewData::raw_buffer);
-  constexpr uint32_t buffer_size_pixels = buffer_size / sizeof(device::Color);
   DCHECK_NE(opengl_es_textures_arrays_.size(), 0u);
   // In some build environment, XR_NULL_HANDLE is a signed integer
   // while XrSwapchain is unsigned.
   DCHECK_NE(swapchain, static_cast<XrSwapchain>(XR_NULL_HANDLE));
   auto texture_index = acquired_swapchain_textures_[swapchain];
   DCHECK_LT(texture_index, opengl_es_textures_arrays_[swapchain].size());
-  base::span<char> out_buffer(data.raw_buffer);
+  uint8_t pixel[4];
 
   // Generate a framebuffer to read from and attach the current texture to it.
   GLuint fbo = 0;
@@ -349,11 +372,9 @@ void OpenXrTestHelper::CopyTextureDataIntoFrameData(XrSwapchain swapchain,
 
   GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (status == GL_FRAMEBUFFER_COMPLETE) {
-    // Read a horizontal strip of pixels from the start of the texture; however
-    // many will fit.
-    glReadPixels(x_start, 0, buffer_size_pixels, 1, GL_RGBA, GL_UNSIGNED_BYTE,
-                 out_buffer.data());
-    data.color = GetFirstColor(data.raw_buffer);
+    // Read the single pixel at (x_start, 0) into our 4-byte RGBA buffer.
+    glReadPixels(x_start, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+    data.color = GetFirstColor(pixel);
   } else {
     DLOG(ERROR) << "Framebuffer not complete: " << std::hex << status;
   }
@@ -362,9 +383,9 @@ void OpenXrTestHelper::CopyTextureDataIntoFrameData(XrSwapchain swapchain,
   glDeleteFramebuffers(1, &fbo);
 }
 
-device::Color OpenXrTestHelper::ReadTextureColor(
+SkColor OpenXrTestHelper::ReadTextureColor(
     const XrSwapchainSubImage& sub_image) {
-  device::Color color;
+  SkColor color = SK_ColorTRANSPARENT;
   DCHECK_NE(opengl_es_textures_arrays_.size(), 0u);
   auto texture_index = acquired_swapchain_textures_[sub_image.swapchain];
   DCHECK_LT(texture_index,
@@ -380,7 +401,7 @@ device::Color OpenXrTestHelper::ReadTextureColor(
 
   GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
   if (status == GL_FRAMEBUFFER_COMPLETE) {
-    char pixel[4];
+    uint8_t pixel[4];
     glReadPixels(sub_image.imageRect.offset.x, sub_image.imageRect.offset.y, 1,
                  1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
     color = GetFirstColor(pixel);
@@ -393,9 +414,9 @@ device::Color OpenXrTestHelper::ReadTextureColor(
   return color;
 }
 
-std::vector<device::Color> OpenXrTestHelper::ReadCubeMapFirstPixelColor(
+std::vector<SkColor> OpenXrTestHelper::ReadCubeMapFirstPixelColor(
     XrSwapchain swapchain) {
-  std::vector<device::Color> colors;
+  std::vector<SkColor> colors;
   DCHECK_NE(opengl_es_textures_arrays_.size(), 0u);
   auto texture_index = acquired_swapchain_textures_[swapchain];
   DCHECK_LT(texture_index, opengl_es_textures_arrays_[swapchain].size());
@@ -412,7 +433,7 @@ std::vector<device::Color> OpenXrTestHelper::ReadCubeMapFirstPixelColor(
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status == GL_FRAMEBUFFER_COMPLETE) {
-      char pixel[4];
+      uint8_t pixel[4];
       glReadPixels(0, 0, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
       colors.push_back(GetFirstColor(pixel));
     } else {
@@ -1028,94 +1049,109 @@ XrResult OpenXrTestHelper::UpdateAction(XrAction action) {
       "UpdateAction this action has a path that is not supported by test now");
 
   device::ControllerFrameData data = GetControllerDataFromPath(path_string);
+  const device::mojom::GamepadPtr& gamepad = data.gamepad;
 
   switch (cur_action_properties.type) {
     case XR_ACTION_TYPE_FLOAT_INPUT: {
-      if (!(PathContainsString(path_string, "/trigger") ||
-            PathContainsString(path_string, "/squeeze") ||
-            PathContainsString(path_string, "/force") ||
-            PathContainsString(path_string, "/value"))) {
+      device::XrButtonId button_id = device::XrButtonId::kMax;
+      if (PathContainsString(path_string, "/squeeze") ||
+          PathContainsString(path_string, "/grasp_ext")) {
+        button_id = device::XrButtonId::kGrip;
+      } else if (PathContainsString(path_string, "/trigger") ||
+                 PathContainsString(path_string, "/force") ||
+                 PathContainsString(path_string, "/value") ||
+                 PathContainsString(path_string, "/pinch_ext")) {
+        button_id = device::XrButtonId::kAxisTrigger;
+      } else {
         NOTREACHED() << "Found path with unsupported float action: "
                      << path_string;
       }
+
       float_action_states_[action].isActive = data.is_valid;
+      float_action_states_[action].currentState = 0.0f;
+      if (gamepad && data.is_valid) {
+        if (const auto* button =
+                device::GetGamepadButton(gamepad.get(), button_id)) {
+          float_action_states_[action].currentState =
+              static_cast<float>(button->value);
+        }
+      }
       break;
     }
     case XR_ACTION_TYPE_BOOLEAN_INPUT: {
-      device::XrButtonId button_id = device::kMax;
-      if (PathContainsString(path_string, "/trackpad/")) {
-        button_id = device::kAxisTrackpad;
+      device::XrButtonId button_id = device::XrButtonId::kMax;
+      if (PathContainsString(path_string, "/trigger/") ||
+          PathContainsString(path_string, "/select/") ||
+          PathContainsString(path_string, "/pinch_ext/")) {
+        button_id = device::XrButtonId::kAxisTrigger;
+      } else if (PathContainsString(path_string, "/squeeze/") ||
+                 PathContainsString(path_string, "/grasp_ext/")) {
+        button_id = device::XrButtonId::kGrip;
+      } else if (PathContainsString(path_string, "/trackpad/")) {
+        button_id = device::XrButtonId::kAxisTrackpad;
       } else if (PathContainsString(path_string, "/thumbstick/")) {
-        button_id = device::kAxisThumbstick;
-      } else if (PathContainsString(path_string, "/trigger/")) {
-        button_id = device::kAxisTrigger;
-      } else if (PathContainsString(path_string, "/squeeze/")) {
-        button_id = device::kGrip;
+        button_id = device::XrButtonId::kAxisThumbstick;
+      } else if (PathContainsString(path_string, "/a/") ||
+                 PathContainsString(path_string, "/x/")) {
+        button_id = device::XrButtonId::kA;
+      } else if (PathContainsString(path_string, "/b/") ||
+                 PathContainsString(path_string, "/y/")) {
+        button_id = device::XrButtonId::kB;
       } else if (PathContainsString(path_string, "/menu/")) {
-        button_id = device::kMenu;
-      } else if (PathContainsString(path_string, "/select/")) {
-        // for WMR simple controller select is mapped to test type trigger
-        button_id = device::kAxisTrigger;
-      } else if (PathContainsString(path_string, "/thumbrest/")) {
-        button_id = device::kThumbRest;
-      } else if (PathContainsString(path_string, "/a/")) {
-        button_id = device::kA;
-      } else if (PathContainsString(path_string, "/b/")) {
-        button_id = device::kB;
-      } else if (PathContainsString(path_string, "/x/")) {
-        button_id = device::kX;
-      } else if (PathContainsString(path_string, "/y/")) {
-        button_id = device::kY;
-      } else if (PathContainsString(path_string, "/shoulder/")) {
-        button_id = device::kShoulder;
-      } else if (PathContainsString(path_string, "/pinch_ext/")) {
-        button_id = device::kAxisTrigger;
-      } else if (PathContainsString(path_string, "/grasp_ext/")) {
-        button_id = device::kGrip;
+        button_id = device::XrButtonId::kMenu;
+      } else if (PathContainsString(path_string, "/thumbrest/") ||
+                 PathContainsString(path_string, "/shoulder/")) {
+        button_id = device::XrButtonId::kThumbRest;
       } else {
         NOTREACHED() << "Unrecognized boolean button: " << path_string;
       }
-      uint64_t button_mask = XrButtonMaskFromId(button_id);
 
-      // This bool pressed is needed because XrActionStateBoolean.currentState
-      // is XrBool32 which is uint32_t. And XrActionStateBoolean.currentState
-      // won't behave correctly if we try to set it using an uint64_t value like
-      // button_mask, like: boolean_action_states_[].currentState =
-      // data.buttons_pressed & button_mask
       boolean_action_states_[action].isActive = data.is_valid;
-      bool button_supported = data.supported_buttons & button_mask;
+      const auto* button = device::GetGamepadButton(gamepad.get(), button_id);
+      bool button_supported = data.is_valid && (button != nullptr);
 
       if (PathContainsString(path_string, "/value") ||
           PathContainsString(path_string, "/click")) {
-        bool pressed = data.buttons_pressed & button_mask;
         boolean_action_states_[action].currentState =
-            button_supported && pressed;
+            button_supported && button->pressed;
       } else if (PathContainsString(path_string, "/touch")) {
-        bool touched = data.buttons_touched & button_mask;
         boolean_action_states_[action].currentState =
-            button_supported && touched;
+            button_supported && button->touched;
       } else {
         NOTREACHED() << "Boolean actions only supports path string ends with "
-                        "value, click, or touch";
+                        "value, click, or touch: "
+                     << path_string;
       }
       break;
     }
     case XR_ACTION_TYPE_VECTOR2F_INPUT: {
-      device::XrButtonId button_id = device::kMax;
+      device::XrButtonId button_id;
       if (PathContainsString(path_string, "/trackpad")) {
-        button_id = device::kAxisTrackpad;
+        button_id = device::XrButtonId::kAxisTrackpad;
       } else if (PathContainsString(path_string, "/thumbstick")) {
-        button_id = device::kAxisThumbstick;
+        button_id = device::XrButtonId::kAxisThumbstick;
       } else {
-        NOTREACHED() << "Path is " << path_string
-                     << "But only Trackpad and thumbstick has 2d vector action";
+        NOTREACHED()
+            << "Path is " << path_string
+            << " But only Trackpad and thumbstick has 2d vector action";
       }
-      uint64_t axis_mask = XrAxisOffsetFromId(button_id);
-      v2f_action_states_[action].currentState.x = data.axis_data[axis_mask].x;
-      // we have to negate y because webxr has different direction for y than
-      // openxr
-      v2f_action_states_[action].currentState.y = -data.axis_data[axis_mask].y;
+
+      auto axis_start = device::GamepadAxisStartIndexFromButtonId(button_id);
+      auto required_size =
+          device::RequiredGamepadAxesSizeFromButtonId(button_id);
+      CHECK(axis_start && required_size);
+
       v2f_action_states_[action].isActive = data.is_valid;
+      v2f_action_states_[action].currentState = {0.0f, 0.0f};
+
+      if (gamepad && data.is_valid && gamepad->axes.size() >= *required_size) {
+        v2f_action_states_[action].currentState.x =
+            static_cast<float>(gamepad->axes[*axis_start]);
+        // We have to negate y because WebXR has different direction for y
+        // than OpenXR.
+        v2f_action_states_[action].currentState.y =
+            static_cast<float>(-gamepad->axes[*axis_start + 1]);
+      }
       break;
     }
     case XR_ACTION_TYPE_POSE_INPUT: {
@@ -1195,24 +1231,26 @@ XrTime OpenXrTestHelper::NextPredictedDisplayTime() {
 }
 
 void OpenXrTestHelper::UpdateEventQueue() {
-  base::AutoLock auto_lock(lock_);
-  if (test_hook_) {
-    device_test::mojom::EventData data = {};
+  if (auto test_hook = GetTestHook(); test_hook) {
+    mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
+    device_test::mojom::EventDataPtr data;
     do {
-      data = test_hook_->WaitGetEventData();
-      if (data.type == device_test::mojom::EventType::kSessionLost) {
+      if (!test_hook->WaitGetEventData(&data) || !data) {
+        break;
+      }
+      if (data->type == device_test::mojom::EventType::kSessionLost) {
         SetSessionState(XR_SESSION_STATE_STOPPING);
-      } else if (data.type ==
+      } else if (data->type ==
                  device_test::mojom::EventType::kVisibilityVisibleBlurred) {
         // WebXR Visible-Blurred map to OpenXR Visible
         SetSessionState(XR_SESSION_STATE_VISIBLE);
-      } else if (data.type == device_test::mojom::EventType::kInstanceLost) {
+      } else if (data->type == device_test::mojom::EventType::kInstanceLost) {
         XrEventDataBuffer event_data = {
             XR_TYPE_EVENT_DATA_INSTANCE_LOSS_PENDING};
         event_queue_.push(event_data);
-      } else if (data.type ==
+      } else if (data->type ==
                  device_test::mojom::EventType::kInteractionProfileChanged) {
-        UpdateInteractionProfile(data.interaction_profile);
+        UpdateInteractionProfile(data->interaction_profile);
         XrEventDataBuffer event_data;
         XrEventDataInteractionProfileChanged* interaction_profile_changed =
             reinterpret_cast<XrEventDataInteractionProfileChanged*>(
@@ -1221,33 +1259,36 @@ void OpenXrTestHelper::UpdateEventQueue() {
             XR_TYPE_EVENT_DATA_INTERACTION_PROFILE_CHANGED;
         interaction_profile_changed->session = session_;
         event_queue_.push(event_data);
-      } else if (data.type != device_test::mojom::EventType::kNoEvent) {
+      } else if (data->type != device_test::mojom::EventType::kNoEvent) {
         NOTREACHED() << "Event changed event type not implemented for test";
       }
-    } while (data.type != device_test::mojom::EventType::kNoEvent);
+    } while (data && data->type != device_test::mojom::EventType::kNoEvent);
   }
 }
 
 std::optional<gfx::Transform> OpenXrTestHelper::GetPose() {
   base::AutoLock lock(lock_);
-  if (test_hook_) {
-    return test_hook_->WaitGetPresentingPose();
-  }
-  return std::nullopt;
+  return presenting_pose_;
 }
 
 std::optional<device::DeviceConfig> OpenXrTestHelper::GetDeviceConfig() {
-  base::AutoLock lock(lock_);
-  if (test_hook_) {
-    return test_hook_->WaitGetDeviceConfig();
+  if (auto test_hook = GetTestHook(); test_hook) {
+    mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
+    device::DeviceConfig config;
+    if (test_hook->WaitGetDeviceConfig(&config)) {
+      return config;
+    }
   }
   return std::nullopt;
 }
 
 bool OpenXrTestHelper::GetCanCreateSession() {
-  base::AutoLock lock(lock_);
-  if (test_hook_) {
-    return test_hook_->WaitGetCanCreateSession();
+  if (auto test_hook = GetTestHook(); test_hook) {
+    mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
+    bool can_create_session = true;
+    if (test_hook->WaitGetCanCreateSession(&can_create_session)) {
+      return can_create_session;
+    }
   }
 
   // In the absence of a test hook telling us that we can't create a session;
@@ -1257,11 +1298,11 @@ bool OpenXrTestHelper::GetCanCreateSession() {
 
 device::ControllerFrameData OpenXrTestHelper::GetControllerDataFromPath(
     std::string path_string) const {
-  device::ControllerRole role;
+  device::mojom::XRHandedness handedness;
   if (PathContainsString(path_string, "/user/hand/left/")) {
-    role = device::kControllerRoleLeft;
+    handedness = device::mojom::XRHandedness::LEFT;
   } else if (PathContainsString(path_string, "/user/hand/right/")) {
-    role = device::kControllerRoleRight;
+    handedness = device::mojom::XRHandedness::RIGHT;
   } else {
     NOTREACHED()
         << "Currently Path should belong to either left or right, received: "
@@ -1269,8 +1310,11 @@ device::ControllerFrameData OpenXrTestHelper::GetControllerDataFromPath(
   }
   device::ControllerFrameData data;
   for (const auto& controller : controllers_) {
-    if (controller.role == role) {
+    if (controller.handedness == handedness) {
       data = controller;
+      if (controller.is_valid) {
+        break;
+      }
     }
   }
   return data;
@@ -1331,13 +1375,14 @@ void OpenXrTestHelper::LocateJoints(
       left_hand_ == hand_tracker ? "/user/hand/left/" : "/user/hand/right/";
   const auto& controller =
       GetControllerDataFromPath(std::move(controller_string));
-  if (!controller.has_hand_data) {
+  if (!controller.hand_data) {
     return;
   }
 
   // Our test/mojom interface sends the "palm" joint separate from the rest of
   // the finger joints, and thus sends one less joint than we need to populate.
-  if (std::size(controller.hand_data) + 1 > locations->jointCount) {
+  if (controller.hand_data->hand_joint_data.size() + 1 >
+      locations->jointCount) {
     return;
   }
 
@@ -1353,17 +1398,18 @@ void OpenXrTestHelper::LocateJoints(
     palm_location.pose =
         device::GfxTransformToXrPose(controller.pose_data.value());
   }
-  for (const auto& data : controller.hand_data) {
-    if (!data.mojo_from_joint) {
+  for (const auto& data : controller.hand_data->hand_joint_data) {
+    if (!data->mojo_from_joint) {
       // If we're missing the pose, don't fill in any data about this joint.
       continue;
     }
     // The OpenXR joints and mojom joints have the same base number offset by 1.
-    auto& joint_location = out_locations[static_cast<uint32_t>(data.joint) + 1];
+    auto& joint_location =
+        out_locations[static_cast<uint32_t>(data->joint) + 1];
     joint_location.locationFlags = kValidTrackedPoseFlags;
-    joint_location.radius = data.radius;
+    joint_location.radius = data->radius;
     joint_location.pose =
-        device::GfxTransformToXrPose(data.mojo_from_joint.value());
+        device::GfxTransformToXrPose(data->mojo_from_joint.value());
   }
 
   locations->isActive = true;
@@ -1384,10 +1430,10 @@ XrResult OpenXrTestHelper::GetVisibilityMask(
       "xrGetVisibilityMaskKHR visibility_mask_type must be "
       "VISIBLE_TRIANGLE_MESH");
 
-  std::optional<device::VisibilityMaskData> mask;
-  {
-    base::AutoLock auto_lock(lock_);
-    mask = test_hook_->WaitGetVisibilityMask(view_index);
+  device::mojom::XRVisibilityMaskPtr mask;
+  if (auto test_hook = GetTestHook(); test_hook) {
+    mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
+    test_hook->WaitGetVisibilityMask(view_index, &mask);
   }
 
   if (!mask) {
@@ -1396,33 +1442,35 @@ XrResult OpenXrTestHelper::GetVisibilityMask(
     return XR_SUCCESS;
   }
 
-  visibility_mask->vertexCountOutput = mask->vertices.size() / 2;
-  visibility_mask->indexCountOutput = mask->indices.size();
+  visibility_mask->vertexCountOutput = mask->vertices.size();
+  visibility_mask->indexCountOutput = mask->unvalidated_indices.size();
 
   if (visibility_mask->vertexCapacityInput > 0) {
+    RETURN_IF(visibility_mask->vertexCapacityInput <
+                  visibility_mask->vertexCountOutput,
+              XR_ERROR_SIZE_INSUFFICIENT,
+              "xrGetVisibilityMaskKHR vertex buffer too small");
     // SAFETY: Test-only implementation of a C-Style API that thus has to
     // provide arrays as a pointer and a size. The sole callers are our own
     // product/test code.
     auto vertices = UNSAFE_BUFFERS(base::span(
-        visibility_mask->vertices, visibility_mask->vertexCapacityInput));
-    RETURN_IF(vertices.size() < visibility_mask->vertexCountOutput,
-              XR_ERROR_SIZE_INSUFFICIENT,
-              "xrGetVisibilityMaskKHR vertex buffer too small");
-    for (size_t i = 0; i < visibility_mask->vertexCountOutput; i++) {
-      vertices[i] = {mask->vertices[i * 2], mask->vertices[i * 2 + 1]};
-    }
+        visibility_mask->vertices, visibility_mask->vertexCountOutput));
+    std::transform(
+        mask->vertices.begin(), mask->vertices.end(), vertices.begin(),
+        [](const gfx::PointF& pt) { return XrVector2f{pt.x(), pt.y()}; });
   }
 
   if (visibility_mask->indexCapacityInput > 0) {
+    RETURN_IF(
+        visibility_mask->indexCapacityInput < visibility_mask->indexCountOutput,
+        XR_ERROR_SIZE_INSUFFICIENT,
+        "xrGetVisibilityMaskKHR index buffer too small");
     // SAFETY: Test-only implementation of a C-Style API that thus has to
     // provide arrays as a pointer and a size. The sole callers are our own
     // product/test code.
     auto indices = UNSAFE_BUFFERS(base::span(
-        visibility_mask->indices, visibility_mask->indexCapacityInput));
-    RETURN_IF(indices.size() < visibility_mask->indexCountOutput,
-              XR_ERROR_SIZE_INSUFFICIENT,
-              "xrGetVisibilityMaskKHR index buffer too small");
-    indices.copy_from_nonoverlapping(mask->indices);
+        visibility_mask->indices, visibility_mask->indexCountOutput));
+    indices.copy_from_nonoverlapping(mask->unvalidated_indices);
   }
 
   return XR_SUCCESS;
@@ -1478,10 +1526,13 @@ std::string OpenXrTestHelper::PathToString(XrPath path) const {
 }
 
 bool OpenXrTestHelper::UpdateData() {
-  base::AutoLock auto_lock(lock_);
-  if (test_hook_) {
-    for (uint32_t i = 0; i < controllers_.size(); i++) {
-      controllers_[i] = test_hook_->WaitGetControllerData(i);
+  if (auto test_hook = GetTestHook(); test_hook) {
+    mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
+    device_test::mojom::XRTestFrameDataPtr frame_data;
+    if (test_hook->WaitGetFrameData(&frame_data) && frame_data) {
+      base::AutoLock auto_lock(lock_);
+      presenting_pose_ = std::move(frame_data->head_pose);
+      controllers_ = std::move(frame_data->controllers);
     }
     return true;
   }

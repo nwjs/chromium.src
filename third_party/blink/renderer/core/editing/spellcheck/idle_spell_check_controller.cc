@@ -334,17 +334,14 @@ void IdleSpellCheckController::Invoke(IdleDeadline* deadline) {
 
   // If focus node has canonical position null then spellcheck should not
   // be executed.
-  if (RuntimeEnabledFeatures::
-          CheckForCanonicalPositionInIdleSpellCheckEnabled()) {
-    Position selection_focus =
-        GetWindow().GetFrame()->Selection().GetSelectionInDomTree().Focus();
-    if (selection_focus) {
-      GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
-      if (CanonicalPositionOf(EphemeralRange(selection_focus).StartPosition())
-              .IsNull()) {
-        Deactivate();
-        return;
-      }
+  Position selection_focus =
+      GetWindow().GetFrame()->Selection().GetSelectionInDomTree().Focus();
+  if (selection_focus) {
+    GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kEditing);
+    if (CanonicalPositionOf(EphemeralRange(selection_focus).StartPosition())
+            .IsNull()) {
+      Deactivate();
+      return;
     }
   }
 
@@ -433,7 +430,7 @@ const char* IdleSpellCheckController::GetStateAsString() const {
 #undef V
   });
 
-  unsigned index = static_cast<unsigned>(state_);
+  auto index = std::to_underlying(state_);
   if (index < std::size(kTexts)) {
     return kTexts[index];
   }

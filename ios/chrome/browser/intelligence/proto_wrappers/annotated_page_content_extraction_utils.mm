@@ -13,6 +13,7 @@
 #import "components/autofill/core/common/unique_ids.h"
 #import "components/autofill/ios/browser/autofill_client_ios.h"
 #import "components/autofill/ios/form_util/child_frame_registrar.h"
+#import "components/optimization_guide/core/optimization_guide_features.h"
 #import "components/optimization_guide/core/page_content_proto_serializer.h"
 #import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
@@ -487,7 +488,15 @@ void PopulateAutofillData(
   proto_form_control_data->add_coarse_autofill_field_type(
       autofill_metadata->coarse_field_type);
 
-  if (!autofill_context->extract_autofill_credit_card_redactions) {
+  if (autofill_metadata->redaction_reason ==
+          AutofillFieldRedactionReason::kShouldRedactForPayments &&
+      !autofill_context->extract_autofill_credit_card_redactions) {
+    return;
+  }
+
+  if (autofill_metadata->redaction_reason ==
+          AutofillFieldRedactionReason::kShouldRedactForOtp &&
+      !autofill_context->extract_autofill_otp_redactions) {
     return;
   }
 
@@ -886,7 +895,9 @@ void PopulateAPCNodeFromContentTree(
             PopulateIframeData(*iframe_data, destination_node, origin,
                                on_frame_extracted);
             grafter.RegisterPlaceholder(*remote, destination_node);
-            return;
+            // Break rather than return so that the placeholder node's geometry
+            // is populated below
+            break;
           }
         }
 
@@ -899,6 +910,7 @@ void PopulateAPCNodeFromContentTree(
               child_autofill_context.emplace(
                   autofill_context->web_state, local_token,
                   autofill_context->extract_autofill_credit_card_redactions,
+                  autofill_context->extract_autofill_otp_redactions,
                   autofill_context->section_numbers);
             }
           }
@@ -944,6 +956,13 @@ void PopulateAPCNodeFromContentTree(
       if (form_control_data) {
         PopulateFormControlData(*form_control_data, autofill_context,
                                 destination_node);
+        if (destination_node->content_attributes()
+                .form_control_data()
+                .redaction_decision() !=
+            optimization_guide::proto::
+                REDACTION_DECISION_NO_REDACTION_NECESSARY) {
+          grafter.set_has_sensitive_fields_to_redact(true);
+        }
       }
       break;
     }

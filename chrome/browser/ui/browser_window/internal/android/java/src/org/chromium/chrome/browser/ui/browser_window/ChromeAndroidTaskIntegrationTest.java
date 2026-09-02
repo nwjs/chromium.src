@@ -992,7 +992,13 @@ public class ChromeAndroidTaskIntegrationTest {
                 /* activity= */ mFreshCtaTransitTestRule.getActivity());
 
         // Assert.
-        assertTrue(ThreadUtils.runOnUiThreadBlocking(chromeAndroidTask::isFullscreen));
+        // The production code relies on WindowInsetsAnimationListener#onEnd to update the window
+        // state to full screen, so we need to wait for the animation here. Otherwise, the test will
+        // be flaky.
+        CriteriaHelper.pollUiThread(
+                chromeAndroidTask::isFullscreen,
+                /* maxTimeoutMs= */ 5000L,
+                /* checkIntervalMs= */ 1000L);
     }
 
     @Test
@@ -1159,7 +1165,9 @@ public class ChromeAndroidTaskIntegrationTest {
                 () ->
                         newTask.getState() != ChromeAndroidTaskImpl.State.PENDING_CREATE
                                 && !newTask.isActive()
-                                && existingTask.isActive());
+                                && existingTask.isActive(),
+                /* maxTimeoutMs= */ 10_000L,
+                /* checkIntervalMs= */ 1000L);
 
         // Cleanup.
         ThreadUtils.runOnUiThreadBlocking(newTask::close);
@@ -1274,7 +1282,9 @@ public class ChromeAndroidTaskIntegrationTest {
                 () -> {
                     Set<Integer> newTaskIds = getTabbedActivityTaskIds();
                     Criteria.checkThat(newTaskIds.size(), Matchers.is(currentTaskIds.size()));
-                });
+                },
+                /* maxTimeoutMs= */ 10_000L,
+                /* checkIntervalMs= */ 1000L);
     }
 
     private static void assertBoundsCloseEnoughInDp(Rect expected, Rect actual) {

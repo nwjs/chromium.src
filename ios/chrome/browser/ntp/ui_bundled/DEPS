@@ -1,6 +1,7 @@
 include_rules = [
   # keep-sorted start
   "+components/contextual_search/contextual_search_service.h",
+  "+components/subscription_eligibility",
   "+ios/chrome/browser/aim/model",
   "+ios/chrome/browser/authentication/account_menu",
   "+ios/chrome/browser/authentication/ui_bundled",
@@ -15,11 +16,14 @@ include_rules = [
   "+ios/chrome/browser/discover_feed/model",
   "+ios/chrome/browser/drag_and_drop/model/url_drag_drop_handler.h",
   "+ios/chrome/browser/favicon/model/ios_chrome_favicon_loader_factory.h",
+  "+ios/chrome/browser/favicon/model/ios_chrome_large_icon_cache_factory.h",
+  "+ios/chrome/browser/favicon/model/ios_chrome_large_icon_service_factory.h",
   "+ios/chrome/browser/favicon/ui_bundled",
   "+ios/chrome/browser/feature_engagement/model/tracker_factory.h",
   "+ios/chrome/browser/first_run/model/first_run.h",
   "+ios/chrome/browser/first_run/public/first_run_util.h",
   "+ios/chrome/browser/first_run/ui_bundled/ios_first_run_field_trials.h",
+  "+ios/chrome/browser/history/model/history_service_factory.h",
   "+ios/chrome/browser/home_customization/coordinator",
   "+ios/chrome/browser/home_customization/coordinator/home_customization_coordinator.h",
   "+ios/chrome/browser/home_customization/model",
@@ -28,8 +32,10 @@ include_rules = [
   "+ios/chrome/browser/image_fetcher/model",
   "+ios/chrome/browser/lens/ui_bundled",
   "+ios/chrome/browser/location_bar/ui_bundled",
+  "+ios/chrome/browser/menu/ui_bundled",
   "+ios/chrome/browser/metrics/model/constants.h",
   "+ios/chrome/browser/metrics/model/new_tab_page_uma.h",
+  "+ios/chrome/browser/ntp_tiles/model/ios_most_visited_sites_factory.h",
   "+ios/chrome/browser/omnibox/coordinator",
   "+ios/chrome/browser/omnibox/model",
   "+ios/chrome/browser/omnibox/public",
@@ -53,13 +59,17 @@ include_rules = [
   "+ios/chrome/browser/signin/model/authentication_service.h",
   "+ios/chrome/browser/signin/model/authentication_service_factory.h",
   "+ios/chrome/browser/signin/model/authentication_service_observer_bridge.h",
-  "+ios/chrome/browser/signin/model/avatar/avatar_provider.h",
+  "+ios/chrome/browser/signin/model/avatar",
   "+ios/chrome/browser/signin/model/capabilities_types.h",
   "+ios/chrome/browser/signin/model/chrome_account_manager_service.h",
   "+ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h",
+  "+ios/chrome/browser/signin/model/constants.h",
   "+ios/chrome/browser/signin/model/identity_manager_factory.h",
+  "+ios/chrome/browser/signin/model/signin_util.h",
   "+ios/chrome/browser/signin/model/system_identity_manager.h",
+  "+ios/chrome/browser/signin/ui/avatar/ai_tier_avatar_view.h",
   "+ios/chrome/browser/start_surface/ui_bundled",
+  "+ios/chrome/browser/subscription_eligibility/model",
   "+ios/chrome/browser/supervised_user/model/family_link_user_capabilities_observer_bridge.h",
   "+ios/chrome/browser/sync/model/sync_observer_bridge.h",
   "+ios/chrome/browser/sync/model/sync_service_factory.h",
@@ -78,10 +88,3 @@ include_rules = [
   "+third_party/omnibox_proto",
   # keep-sorted end
 ]
-
-specific_include_rules = {
-  # TODO(crbug.com/41259428): Remove this exception.
-  "^new_tab_page_controller\\.mm$": [
-    "+ios/web/web_state/ui/crw_swipe_recognizer_provider.h",
-  ],
-}

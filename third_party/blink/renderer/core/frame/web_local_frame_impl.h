@@ -135,6 +135,7 @@ class CORE_EXPORT WebLocalFrameImpl final
   WebContentCaptureClient* ContentCaptureClient() const override;
   BrowserInterfaceBrokerProxy& GetBrowserInterfaceBroker() override;
   WebDocument GetDocument() const override;
+  base::UnguessableToken GetInitiatorStateToken() const override;
   WebString AssignedName() const override;
   ui::AXTreeID GetAXTreeID() const override;
   void SetName(const WebString&) override;
@@ -201,7 +202,8 @@ class CORE_EXPORT WebLocalFrameImpl final
                             WebScriptExecutionCallback,
                             BackForwardCacheAware back_forward_cache_aware,
                             mojom::blink::WantResultOption,
-                            mojom::blink::PromiseResultOption) override;
+                            mojom::blink::PromiseResultOption,
+                            bool is_injected_extension_script) override;
   bool IsInspectorConnected() override;
   void Alert(const WebString& message) override;
   bool Confirm(const WebString& message) override;
@@ -346,6 +348,7 @@ class CORE_EXPORT WebLocalFrameImpl final
       const override;
   bool IsAdFrame() const override;
   bool IsAdScriptInStack() const override;
+  bool IsExtensionScriptInStack() const override;
   void SetAdEvidence(const FrameAdEvidence& ad_evidence) override;
   const std::optional<blink::FrameAdEvidence>& AdEvidence() override;
   bool IsFrameCreatedByAdScript() override;
@@ -736,7 +739,7 @@ class CORE_EXPORT WebLocalFrameImpl final
   // Oilpan: WebLocalFrameImpl must remain alive until close() is called.
   // Accomplish that by keeping a self-referential Persistent<>. It is
   // cleared upon close().
-  SelfKeepAlive<WebLocalFrameImpl> self_keep_alive_{this};
+  SelfKeepAlive<WebLocalFrameImpl> self_keep_alive_{{}, this};
 
 #if DCHECK_IS_ON()
   // True if DispatchBeforePrintEvent() was called, and

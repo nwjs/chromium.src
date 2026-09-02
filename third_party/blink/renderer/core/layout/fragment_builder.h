@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_FRAGMENT_BUILDER_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_LAYOUT_FRAGMENT_BUILDER_H_
 
+#include "cc/input/scroll_snap_data.h"
 #include "third_party/blink/renderer/core/animation/animation_trigger.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/dom/trigger_scoped_name.h"
@@ -29,11 +30,11 @@
 namespace blink {
 
 class ColumnPseudoElement;
-class ColumnSpannerPath;
 class EarlyBreak;
 class FragmentItemsBuilder;
 class InlineBreakToken;
 class LayoutObject;
+class SnapArea;
 
 class CORE_EXPORT FragmentBuilder {
   STACK_ALLOCATED();
@@ -427,35 +428,6 @@ class CORE_EXPORT FragmentBuilder {
     return is_fragmentation_context_root_;
   }
 
-  // There may be cases where a column spanner was previously found but is no
-  // longer accessible. For example, in simplified OOF layout, we may want to
-  // recreate a spanner break for an existing fragment being relaid out, but
-  // the spanner node is no longer available. In such cases,
-  // |has_column_spanner_| may be true while |column_spanner_path_| is not set.
-  void SetHasColumnSpanner(bool has_column_spanner) {
-    has_column_spanner_ = has_column_spanner;
-  }
-  void SetColumnSpannerPath(const ColumnSpannerPath* spanner_path) {
-    column_spanner_path_ = spanner_path;
-    SetHasColumnSpanner(!!spanner_path);
-  }
-  bool FoundColumnSpanner() const {
-    DCHECK(has_column_spanner_ || !column_spanner_path_);
-    return has_column_spanner_;
-  }
-  void SetIsEmptySpannerParent(bool is_empty_spanner_parent) {
-    DCHECK(FoundColumnSpanner());
-    is_empty_spanner_parent_ = is_empty_spanner_parent;
-  }
-  bool IsEmptySpannerParent() const { return is_empty_spanner_parent_; }
-
-  void SetShouldForceSameFragmentationFlow() {
-    should_force_same_fragmentation_flow_ = true;
-  }
-  bool ShouldForceSameFragmentationFlow() const {
-    return should_force_same_fragmentation_flow_;
-  }
-
   // True if we need to keep some child content in the current fragmentainer
   // before breaking (even that overflows the fragmentainer). We'll do this by
   // refusing last-resort breaks when there's no container separation, and we'll
@@ -543,7 +515,7 @@ class CORE_EXPORT FragmentBuilder {
 
   GCedHeapVector<SplitAxisItem<LayoutBoxModelObject>>&
   EnsureStickyDescendants();
-  GCedHeapVector<Member<Element>>& EnsureSnapAreas();
+  GCedHeapVector<SnapArea>& EnsureSnapAreas();
 
   void PropagateFromLayoutResultAndFragment(
       const LayoutResult&,
@@ -555,6 +527,10 @@ class CORE_EXPORT FragmentBuilder {
   void PropagateScrollInitialTarget(const PhysicalFragment& child);
 
   PhysicalAxes GetOverflowScrollAxes() const;
+
+  PhysicalAxes GetScrollSnapAxes() const;
+
+  SnapArea ResolveSnapArea(const SnapArea& snap_area) const;
 
   void PropagateFromFragment(
       const PhysicalFragment& child,
@@ -601,7 +577,7 @@ class CORE_EXPORT FragmentBuilder {
 
   GCedHeapVector<SplitAxisItem<LayoutBoxModelObject>>* sticky_descendants_ =
       nullptr;
-  GCedHeapVector<Member<Element>>* snap_areas_ = nullptr;
+  GCedHeapVector<SnapArea>* snap_areas_ = nullptr;
   // Animation triggers belonging to the element to which this fragment belongs,
   // or an element in its subtree.
   TriggerScopedNameMap* named_triggers_ = nullptr;
@@ -636,8 +612,6 @@ class CORE_EXPORT FragmentBuilder {
 
   UnpositionedListMarker unpositioned_list_marker_;
 
-  const ColumnSpannerPath* column_spanner_path_ = nullptr;
-
   const EarlyBreak* early_break_ = nullptr;
 
   // The appeal of breaking inside this container.
@@ -671,9 +645,6 @@ class CORE_EXPORT FragmentBuilder {
   bool is_hidden_for_paint_ = false;
   bool is_opaque_ = false;
   bool has_collapsed_borders_ = false;
-  bool has_column_spanner_ = false;
-  bool is_empty_spanner_parent_ = false;
-  bool should_force_same_fragmentation_flow_ = false;
   bool requires_content_before_breaking_ = false;
   bool has_out_of_flow_fragment_child_ = false;
   bool has_out_of_flow_in_fragmentainer_subtree_ = false;

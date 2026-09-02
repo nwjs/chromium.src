@@ -6,7 +6,7 @@ import 'chrome://new-tab-page/strings.m.js';
 import 'chrome://resources/cr_components/searchbox/searchbox_dropdown.js';
 import 'chrome://resources/cr_components/searchbox/searchbox_input.js';
 
-import {createAutocompleteMatch, createAutocompleteResultForTesting, createSearchMatchForTesting, SearchboxBrowserProxy} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import {createAutocompleteMatch, createAutocompleteResultForTesting, createMatchKeywordModelForTesting, createSearchMatchForTesting, SearchboxBrowserProxy} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
 import type {SearchboxDropdownElement} from 'chrome://resources/cr_components/searchbox/searchbox_dropdown.js';
 import type {SearchboxInputElement} from 'chrome://resources/cr_components/searchbox/searchbox_input.js';
 import type {SearchboxMatchElement} from 'chrome://resources/cr_components/searchbox/searchbox_match.js';
@@ -16,7 +16,7 @@ import {isMac} from 'chrome://resources/js/platform.js';
 import {CrLitElement, html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 import {NavigationPredictor} from 'chrome://resources/mojo/components/omnibox/browser/omnibox.mojom-webui.js';
 import type {AutocompleteMatch} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {KeywordType, SelectionLineState} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {$$, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
@@ -55,7 +55,8 @@ class TestSearchboxMixinElement extends TestElementBase {
             .result="${this.result}"
             .selectedMatchIndex="${this.selectedMatchIndex}"
             @match-focusin="${this.onMatchFocusin}"
-            @selected-match-index-changed="${this.onSelectedMatchIndexChanged}">
+            @selected-match-index-changed="${this.onSelectedMatchIndexChanged}"
+            @keyword-click="${this.onKeywordClick}">
         </cr-searchbox-dropdown>
       </div>
     `;
@@ -643,6 +644,59 @@ suite('SearchboxMixinTest', () => {
     assertEquals(0, args.line);
     assertEquals(matches[0]!.destinationUrl, args.url);
   });
+
+  test(
+      'clicking remove button after interaction freeze unfreezes and accepts new results',
+      async () => {
+        const mockInput = element.getInputElement();
+        await simulateUserTextInput(mockInput, 'hello');
+        const queryId = element.activeQueryId;
+
+        const matches = [
+          createUrlMatch(
+              {supportsDeletion: true, destinationUrl: 'https://first.com'}),
+          createUrlMatch(
+              {supportsDeletion: true, destinationUrl: 'https://second.com'}),
+        ];
+        element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+          queryId: queryId,
+          input: 'hello',
+          matches: matches,
+        }));
+        await microtasksFinished();
+        assertEquals(2, element.result!.matches.length);
+
+        // Freeze `activeQueryId` by simulating user interaction. New
+        // autocomplete results for 'hello' will be ignored to avoid clobbering
+        // user actions.
+        const arrowDownEvent = createKeyboardEvent('ArrowDown');
+        mockInput.inputElement.dispatchEvent(arrowDownEvent);
+        await microtasksFinished();
+        assertEquals(-1, element.activeQueryId);
+
+        // Click remove button on the first match.
+        const matchEl = element.getDropdownElement().shadowRoot.querySelector(
+            'cr-searchbox-match')!;
+        matchEl.$.remove.click();
+
+        const args =
+            await testProxy.handler.whenCalled('deleteAutocompleteMatch');
+        assertEquals(0, args.line);
+        assertEquals(matches[0]!.destinationUrl, args.url);
+
+        // Backend sends updated results without the deleted match.
+        element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+          queryId: queryId,
+          input: 'hello',
+          matches: [matches[1]!],
+        }));
+        await microtasksFinished();
+
+        // The new results should be accepted despite the prior freeze.
+        assertEquals(1, element.result!.matches.length);
+        assertEquals(
+            'https://second.com', element.result!.matches[0]!.destinationUrl);
+      });
 
   // TODO(crbug.com/453570027): Test is flaky.
   test.skip('arrow up/down moves selection / focus', async () => {
@@ -1678,4 +1732,295 @@ suite('SearchboxMixinTest', () => {
     assertEquals(removeButton, matchEls[0]!.shadowRoot.activeElement);
     assertFalse(isVisible(focusIndicator));
   });
+
+  test('space-at-end keyword entry', async () => {
+    const mockInput = element.getInputElement();
+    const keyword = 'google.com';
+    await simulateUserTextInput(mockInput, keyword);
+
+    const matches = [createSearchMatchForTesting({
+      allowedToBeDefaultMatch: true,
+      keywordModel: createMatchKeywordModelForTesting({
+        type: KeywordType.kChip,
+        keyword,
+        chipHint: 'Search Google',
+      }),
+    })];
+    element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: element.activeQueryId,
+      input: keyword,
+      matches: matches,
+    }));
+    await microtasksFinished();
+
+    await simulateUserTextInput(mockInput, keyword + ' ');
+
+    assertTrue(element.inputKeywordModel !== null);
+    assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
+    assertEquals('', mockInput.inputElement.value);
+
+    const keywordMatches = [createSearchMatchForTesting({
+      allowedToBeDefaultMatch: true,
+      keywordModel: createMatchKeywordModelForTesting({
+        type: KeywordType.kInKeyword,
+        keyword,
+        chipHint: 'Search Google',
+      }),
+    })];
+    element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: element.activeQueryId,
+      input: '',
+      matches: keywordMatches,
+    }));
+    await microtasksFinished();
+
+    assertTrue(element.inputKeywordModel !== null);
+    assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
+  });
+
+  test('question mark keyword entry', async () => {
+    const mockInput = element.getInputElement();
+
+    await simulateUserTextInput(mockInput, '?');
+
+    assertTrue(element.inputKeywordModel !== null);
+    assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
+    assertEquals('?', element.inputKeywordModel.keyword);
+    assertEquals('', mockInput.inputElement.value);
+
+    const keywordMatches = [createSearchMatchForTesting({
+      keywordModel: createMatchKeywordModelForTesting({
+        type: KeywordType.kInKeyword,
+        keyword: '?',
+        chipHint: 'Search',
+      }),
+    })];
+    element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: element.activeQueryId,
+      input: '',
+      matches: keywordMatches,
+    }));
+    await microtasksFinished();
+
+    assertTrue(element.inputKeywordModel !== null);
+    assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
+  });
+
+  test('chip click keyword entry', async () => {
+    const mockInput = element.getInputElement();
+    const keyword = 'google.com';
+
+    const match = createSearchMatchForTesting({
+      keywordModel: createMatchKeywordModelForTesting({
+        type: KeywordType.kChip,
+        keyword,
+        chipHint: 'Search Google',
+      }),
+    });
+    element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: element.activeQueryId,
+      input: keyword,
+      matches: [match],
+    }));
+    await microtasksFinished();
+
+    const dropdown = element.getDropdownElement();
+    dropdown.dispatchEvent(new CustomEvent('keyword-click', {
+      bubbles: true,
+      composed: true,
+      detail: {match},
+    }));
+
+    assertTrue(element.inputKeywordModel !== null);
+    assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
+    assertEquals(keyword, element.inputKeywordModel.keyword);
+    assertEquals('Search Google', element.inputKeywordModel.displayText);
+    assertEquals('', mockInput.inputElement.value);
+  });
+
+  test(
+      'acceptInlineAutocomplete accepts text and queries autocomplete',
+      async () => {
+        const mockInput = element.getInputElement();
+        mockInput.setInput({
+          text: 'you',
+          inline: 'tube.com',
+        });
+        await microtasksFinished();
+
+        const tabEvent = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          cancelable: true,
+        });
+        const handled = element.acceptInlineAutocomplete(tabEvent);
+        assertTrue(handled);
+        await microtasksFinished();
+
+        assertTrue(tabEvent.defaultPrevented);
+        assertEquals('youtube.com', mockInput.inputElement.value);
+        assertEquals(11, mockInput.inputElement.selectionStart);
+        assertEquals(11, mockInput.inputElement.selectionEnd);
+        assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
+        const args = await testProxy.handler.whenCalled('queryAutocomplete');
+        assertEquals('youtube.com', args.input);
+        assertFalse(args.preventInlineAutocomplete);
+        assertEquals(11, args.cursorPosition);
+        assertFalse(args.isOnFocus);
+      });
+
+  test(
+      'acceptInlineAutocomplete with Shift clears inline text without preventDefault',
+      async () => {
+        const mockInput = element.getInputElement();
+        mockInput.setInput({
+          text: 'you',
+          inline: 'tube.com',
+        });
+        await microtasksFinished();
+
+        const shiftTabEvent = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          cancelable: true,
+        });
+        const handled = element.acceptInlineAutocomplete(shiftTabEvent);
+        assertTrue(handled);
+        await microtasksFinished();
+
+        assertFalse(shiftTabEvent.defaultPrevented);
+        const lastInput = mockInput.lastInput();
+        assertTrue(!!lastInput);
+        assertEquals('', lastInput.inline);
+        assertEquals('you', lastInput.text);
+      });
+
+  test(
+      'acceptInlineAutocomplete returns false when no inline text exists',
+      async () => {
+        const mockInput = element.getInputElement();
+        mockInput.setInput({
+          text: 'youtube.com',
+          inline: '',
+        });
+        await microtasksFinished();
+
+        const tabEvent = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          cancelable: true,
+        });
+        const handled = element.acceptInlineAutocomplete(tabEvent);
+        assertFalse(handled);
+        assertFalse(tabEvent.defaultPrevented);
+        assertEquals(0, testProxy.handler.getCallCount('queryAutocomplete'));
+      });
+
+  test(
+      'Tab key enters keyword mode when default match has keyword model',
+      async () => {
+        const mockInput = element.getInputElement();
+        const keyword = 'google.com';
+
+        const match = createSearchMatchForTesting({
+          allowedToBeDefaultMatch: true,
+          keywordModel: createMatchKeywordModelForTesting({
+            type: KeywordType.kChip,
+            keyword,
+            chipHint: 'Search Google',
+          }),
+        });
+        element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+          queryId: element.activeQueryId,
+          input: 'google',
+          matches: [match],
+        }));
+        await microtasksFinished();
+
+        const event = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          bubbles: true,
+          cancelable: true,
+        });
+        element.handleKeyNavigation(event);
+        await microtasksFinished();
+
+        assertTrue(element.inputKeywordModel !== null);
+        assertEquals(KeywordType.kInKeyword, element.inputKeywordModel.type);
+        assertEquals(keyword, element.inputKeywordModel.keyword);
+        assertEquals('', mockInput.inputElement.value);
+        assertTrue(event.defaultPrevented);
+      });
+
+  test('Tab key on non-default match does not enter keyword mode', async () => {
+    const defaultMatch = createSearchMatchForTesting({
+      allowedToBeDefaultMatch: true,
+      contents: 'google search',
+    });
+    const secondaryMatchWithKeyword = createSearchMatchForTesting({
+      allowedToBeDefaultMatch: false,
+      contents: 'google bookmarks',
+      keywordModel: createMatchKeywordModelForTesting({
+        type: KeywordType.kChip,
+        keyword: 'google.com',
+        chipHint: 'Search Google',
+      }),
+    });
+    element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+      queryId: element.activeQueryId,
+      input: 'google',
+      matches: [defaultMatch, secondaryMatchWithKeyword],
+    }));
+    await microtasksFinished();
+
+    // Select the second (non-default) match.
+    await element.getDropdownElement().selectIndex(1);
+    await microtasksFinished();
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    element.handleKeyNavigation(event);
+    await microtasksFinished();
+
+    assertFalse(
+        element.inputKeywordModel !== null &&
+        element.inputKeywordModel.type === KeywordType.kInKeyword);
+    assertFalse(event.defaultPrevented);
+  });
+
+  test(
+      'Tab key during IME composition does not enter keyword mode',
+      async () => {
+        const keyword = 'google.com';
+
+        const match = createSearchMatchForTesting({
+          allowedToBeDefaultMatch: true,
+          keywordModel: createMatchKeywordModelForTesting({
+            type: KeywordType.kChip,
+            keyword,
+            chipHint: 'Search Google',
+          }),
+        });
+        element.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+          queryId: element.activeQueryId,
+          input: 'google',
+          matches: [match],
+        }));
+        await microtasksFinished();
+
+        const event = new KeyboardEvent('keydown', {
+          key: 'Tab',
+          bubbles: true,
+          cancelable: true,
+          isComposing: true,
+        });
+        element.handleKeyNavigation(event);
+        await microtasksFinished();
+
+        assertFalse(
+            element.inputKeywordModel !== null &&
+            element.inputKeywordModel.type === KeywordType.kInKeyword);
+        assertFalse(event.defaultPrevented);
+      });
 });

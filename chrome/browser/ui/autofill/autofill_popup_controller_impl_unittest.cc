@@ -69,6 +69,13 @@ class AutofillPopupControllerImplTest
     : public AutofillSuggestionControllerTestBase<
           TestAutofillPopupControllerAutofillClient<>> {
  public:
+  AutofillPopupControllerImplTest() {
+    feature_list_.InitWithFeatures(
+        {features::kAutofillAtMemory,
+         features::debug::kAtMemorySkipEnablementChecks},
+        {});
+  }
+
   // Encapsulates the setup required to get the controller and its associated
   // AtMemoryController into a search-ready state for @memory tests.
   void ShowAtMemoryPopup() {
@@ -141,6 +148,9 @@ class AutofillPopupControllerImplTest
                  client().suggestion_controller(manager())))
         .SetSuggestions(std::move(suggestions));
   }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(AutofillPopupControllerImplTest, AcceptSuggestionRespectsTimeout) {
@@ -515,7 +525,8 @@ TEST_F(AutofillPopupControllerImplTest, PopupForwardsSuggestionPosition) {
 TEST_F(AutofillPopupControllerImplTest, DoesNotAcceptUnacceptableSuggestions) {
   Suggestion suggestion(u"Open the pod bay doors, HAL",
                         SuggestionType::kAutocompleteEntry);
-  suggestion.acceptability = Suggestion::Acceptability::kUnacceptable;
+  suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
   ShowSuggestions(manager(), {std::move(suggestion)});
 
   EXPECT_CALL(manager().external_delegate(), DidAcceptSuggestion).Times(0);
@@ -527,7 +538,8 @@ TEST_F(AutofillPopupControllerImplTest, DoesNotAcceptUnacceptableSuggestions) {
 TEST_F(AutofillPopupControllerImplTest, DoesNotSelectUnacceptableSuggestions) {
   Suggestion suggestion(u"I'm sorry, Dave. I'm afraid I can't do that.",
                         SuggestionType::kAutocompleteEntry);
-  suggestion.acceptability = Suggestion::Acceptability::kUnacceptable;
+  suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
   ShowSuggestions(manager(), {std::move(suggestion)});
 
   EXPECT_CALL(manager().external_delegate(), DidSelectSuggestion).Times(0);
@@ -581,7 +593,6 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     AutofillPopupControllerImplTestWithTriggerSource,
     ::testing::Values(
-        AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess,
         AutofillSuggestionTriggerSource::kAtMemoryTriggerString,
         AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut,
         AutofillSuggestionTriggerSource::kAtMemoryContextMenu,
@@ -658,6 +669,43 @@ TEST_F(AutofillPopupControllerImplTest,
   Mock::VerifyAndClearExpectations(client().popup_view());
 }
 
+// Tests that a main frame resize event with an unchanged size does not hide the
+// popup.
+TEST_F(AutofillPopupControllerImplTest,
+       PrimaryMainFrameResizeIgnoredWhenSizeUnchanged) {
+  ShowSuggestions(manager(), {SuggestionType::kAddressEntry});
+
+  AutofillPopupHideHelper* hide_helper =
+      test_api(client().suggestion_controller(manager())).popup_hide_helper();
+  ASSERT_TRUE(hide_helper);
+  content::WebContentsObserver& observer = *hide_helper;
+
+  EXPECT_CALL(*client().popup_view(), Hide).Times(0);
+  observer.PrimaryMainFrameWasResized(/*width_changed=*/false);
+
+  Mock::VerifyAndClearExpectations(client().popup_view());
+}
+
+// Tests that a main frame resize event with a changed size hides the popup.
+TEST_F(AutofillPopupControllerImplTest,
+       PrimaryMainFrameResizeHidesPopupWhenSizeChanged) {
+  ShowSuggestions(manager(), {SuggestionType::kAddressEntry});
+
+  AutofillPopupHideHelper* hide_helper =
+      test_api(client().suggestion_controller(manager())).popup_hide_helper();
+  ASSERT_TRUE(hide_helper);
+  content::WebContentsObserver& observer = *hide_helper;
+
+  const gfx::Size current_size = web_contents()->GetSize();
+  web_contents()->Resize(
+      gfx::Rect(current_size.width() + 10, current_size.height() + 10));
+
+  EXPECT_CALL(*client().popup_view(), Hide);
+  observer.PrimaryMainFrameWasResized(/*width_changed=*/true);
+
+  Mock::VerifyAndClearExpectations(client().popup_view());
+}
+
 // Tests that calling Show() when the popup view has focus but the focused
 // frame is null (e.g. because it was detached) does not cause a crash due to
 // a null pointer dereference.
@@ -679,7 +727,8 @@ TEST_F(AutofillPopupControllerImplTest,
       {Suggestion(u"Search Query", SuggestionType::kAddressEntry)},
       AutofillSuggestionTriggerSource::kFormControlElementClicked,
       AutoselectFirstSuggestion(false),
-      AutofillSuggestionsIgnoreFocusLoss(false));
+      AutofillSuggestionsIgnoreFocusLoss(false),
+      /*search_bar_initial_value=*/{});
 }
 
 TEST_F(AutofillPopupControllerImplTest,
@@ -719,11 +768,6 @@ TEST_F(AutofillPopupControllerImplTest, HideInMainFrameOnZoomChange) {
   // Triggered by OnZoomChanged().
   EXPECT_CALL(client().suggestion_controller(manager()),
               Hide(SuggestionHidingReason::kContentAreaMoved));
-  // Override the default ON_CALL behavior to do nothing to avoid destroying the
-  // hide helper. We want to test ZoomObserver events explicitly.
-  EXPECT_CALL(client().suggestion_controller(manager()),
-              Hide(SuggestionHidingReason::kWidgetChanged))
-      .WillOnce(Return());
   auto* zoom_controller = zoom::ZoomController::FromWebContents(web_contents());
   zoom_controller->SetZoomLevel(zoom_controller->GetZoomLevel() + 1.0);
   // Verify and clear before TearDown() closes the popup.
@@ -892,7 +936,7 @@ TEST_F(AutofillPopupControllerImplTest,
 
   Suggestion footer_suggestion1 = Suggestion(kSeparator);
   footer_suggestion1.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
-  Suggestion footer_suggestion2 = Suggestion(kUndoOrClear);
+  Suggestion footer_suggestion2 = Suggestion(kUndo);
   footer_suggestion2.filtration_policy = Suggestion::FiltrationPolicy::kStatic;
 
   AutofillPopupController& controller =
@@ -911,7 +955,7 @@ TEST_F(AutofillPopupControllerImplTest,
               ElementsAre(Field(&Suggestion::type, kAddressEntry),
                           Field(&Suggestion::type, kAddressEntry),
                           Field(&Suggestion::type, kSeparator),
-                          Field(&Suggestion::type, kUndoOrClear)));
+                          Field(&Suggestion::type, kUndo)));
   EXPECT_THAT(
       controller.GetSuggestionFilterMatches(),
       ElementsAre(std::optional<AutofillPopupController::SuggestionFilterMatch>(
@@ -930,7 +974,7 @@ TEST_F(AutofillPopupControllerImplTest,
   EXPECT_THAT(controller.GetSuggestions(),
               ElementsAre(Field(&Suggestion::type, kAddressEntry),
                           Field(&Suggestion::type, kSeparator),
-                          Field(&Suggestion::type, kUndoOrClear)));
+                          Field(&Suggestion::type, kUndo)));
   EXPECT_THAT(
       controller.GetSuggestionFilterMatches(),
       ElementsAre(std::optional<AutofillPopupController::SuggestionFilterMatch>(
@@ -944,7 +988,7 @@ TEST_F(AutofillPopupControllerImplTest,
   EXPECT_EQ(controller.GetSuggestions().size(), 2u);
   EXPECT_THAT(controller.GetSuggestions(),
               ElementsAre(Field(&Suggestion::type, kSeparator),
-                          Field(&Suggestion::type, kUndoOrClear)));
+                          Field(&Suggestion::type, kUndo)));
   EXPECT_THAT(controller.GetSuggestionFilterMatches(),
               ElementsAre(std::nullopt, std::nullopt));
 }
@@ -1032,8 +1076,12 @@ TEST_F(AutofillPopupControllerImplTest,
        AtMemory_NoFilter_NoSuggestionsMessageNotShown) {
   ShowSuggestions(manager(), {SuggestionType::kAtMemorySearchResult},
                   AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
-  EXPECT_FALSE(client().suggestion_controller(manager())
-                   .ShouldShowNoSuggestionsMessage());
+  EXPECT_FALSE(
+      client().suggestion_controller(manager()).ShouldShowNoSuggestionsMessage(
+          AutofillPopupView::SearchBarConfig{
+              .placeholder = u"Recall from memory",
+              .initial_value = {},
+              .no_results_message = u""}));
 }
 
 // Tests that the "no suggestions" message is not shown when @memory is
@@ -1042,8 +1090,12 @@ TEST_F(AutofillPopupControllerImplTest,
        AtMemory_FilterWithResults_NoSuggestionsMessageNotShown) {
   ShowAtMemoryPopup();
   SimulateAtMemoryQuery(/*query=*/u"res", /*results=*/{u"result"});
-  EXPECT_FALSE(client().suggestion_controller(manager())
-                   .ShouldShowNoSuggestionsMessage());
+  EXPECT_FALSE(
+      client().suggestion_controller(manager()).ShouldShowNoSuggestionsMessage(
+          AutofillPopupView::SearchBarConfig{
+              .placeholder = u"Recall from memory",
+              .initial_value = {},
+              .no_results_message = u""}));
 }
 // Tests that clearing the search query clears the suggestions in an @memory
 // session.
@@ -1070,8 +1122,12 @@ TEST_F(AutofillPopupControllerImplTest,
        AtMemory_FilterWithNoResults_NoSuggestionsMessageNotShown) {
   ShowAtMemoryPopup();
   SimulateAtMemoryQuery(/*query=*/u"abc", /*results=*/{});
-  EXPECT_FALSE(client().suggestion_controller(manager())
-                   .ShouldShowNoSuggestionsMessage());
+  EXPECT_FALSE(
+      client().suggestion_controller(manager()).ShouldShowNoSuggestionsMessage(
+          AutofillPopupView::SearchBarConfig{
+              .placeholder = u"Recall from memory",
+              .initial_value = {},
+              .no_results_message = u""}));
 }
 
 TEST_F(

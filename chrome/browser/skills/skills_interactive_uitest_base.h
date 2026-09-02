@@ -92,10 +92,12 @@ class SkillsInteractiveUiTestBase
   ui::test::InteractiveTestApi::StepBuilder UpdateSkill(
       const std::string* skill_id_ptr);
 
-  // Verifies the skill invocation prompt in the test client matches
-  // `expected_prompt`.
+  // Verifies the skill invocation prompt, name, and icon in the test client
+  // match `expected_prompt`, `expected_name`, and `expected_icon`.
   ui::test::InteractiveTestApi::MultiStep VerifyInvocationInWebUI(
-      const std::string& expected_prompt);
+      const std::string& expected_prompt,
+      const std::string& expected_name = "",
+      const std::string& expected_icon = "");
 
   // Edits the value of an input field in the Skills Dialog at `query` to
   // `value`.
@@ -126,6 +128,12 @@ class SkillsInteractiveUiTestBase
   // Skills list (Observes the getSkillPreviews() API endpoint).
   ui::test::InteractiveTestApi::MultiStep WaitForSkillPreviewShown(
       std::string_view skill_name);
+
+  // Waits for a SkillPreview with `skill_name` and `expected_creation_time`
+  // to be shown in the test client's Skills list.
+  ui::test::InteractiveTestApi::MultiStep WaitForSkillPreviewWithCreationTime(
+      std::string_view skill_name,
+      base::Time expected_creation_time);
 
   // Waits for the SkillPreviews in the test client's Skills list to be in the
   // same order as the given skill names.

@@ -78,7 +78,6 @@
 #import "components/version_info/version_info.h"
 #import "google_apis/google_api_keys.h"
 #import "ios/chrome/browser/crash_report/model/crash_helper.h"
-#import "ios/chrome/browser/first_run/public/features.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
 #import "ios/chrome/browser/metrics/model/demographics_client.h"
 #import "ios/chrome/browser/metrics/model/ios_chrome_default_browser_metrics_provider.h"
@@ -584,6 +583,7 @@ bool IOSChromeMetricsServiceClient::RegisterForProfileEvents(
 
   ObserveServiceForDeletions(history_service);
   StartObserving(sync, profile->GetPrefs());
+  MonitorAdvancedReportingPref(profile->GetPrefs());
   StartObservingBrowserList(browser_list);
   return true;
 }
@@ -629,6 +629,10 @@ void IOSChromeMetricsServiceClient::OnHistoryDeleted() {
 void IOSChromeMetricsServiceClient::OnUkmAllowedStateChanged(
     bool must_purge,
     ukm::UkmConsentState previous_consent_state) {
+  if (metrics::MetricsReportingChoiceService::
+          ShouldUseMetricsConsentRestructure()) {
+    return;
+  }
   const ukm::UkmConsentState consent_state = GetUkmConsentState();
   if (ukm_service_) {
     if (must_purge) {
@@ -690,7 +694,32 @@ void IOSChromeMetricsServiceClient::OnProfileLoaded(ProfileManagerIOS* manager,
 void IOSChromeMetricsServiceClient::OnProfileUnloaded(
     ProfileManagerIOS* manager,
     ProfileIOS* profile) {
-  // Nothing to do.
+  StopMonitoringAdvancedReportingPref(profile->GetPrefs());
+}
+
+void IOSChromeMetricsServiceClient::
+    OnAdvancedReportingEnabledForAllProfilesChanged(bool enabled,
+                                                    bool reset_client_state) {
+  if (!metrics::MetricsReportingChoiceService::
+          ShouldUseMetricsConsentRestructure()) {
+    return;
+  }
+
+  if (ukm_service_) {
+    if (reset_client_state) {
+      ukm_service_->Purge();
+      ukm_service_->ResetClientState(
+          ukm::ResetReason::kOnUkmAllowedStateChanged);
+    }
+
+    ukm_service_->OnUkmAllowedStateChanged(enabled);
+  }
+
+  if (dwa_service_ && reset_client_state) {
+    dwa_service_->Purge();
+  }
+
+  UpdateRunningServices();
 }
 
 void IOSChromeMetricsServiceClient::OnProfileMarkedForPermanentDeletion(
@@ -808,10 +837,18 @@ void IOSChromeMetricsServiceClient::WebStateDestroyed(
 }
 
 bool IOSChromeMetricsServiceClient::IsUkmAllowedForAllProfiles() {
+  if (metrics::MetricsReportingChoiceService::
+          ShouldUseMetricsConsentRestructure()) {
+    return IsAdvancedReportingEnabledForAllProfiles();
+  }
   return UkmConsentStateObserver::IsUkmAllowedForAllProfiles();
 }
 
 bool IOSChromeMetricsServiceClient::IsDwaAllowedForAllProfiles() {
+  if (metrics::MetricsReportingChoiceService::
+          ShouldUseMetricsConsentRestructure()) {
+    return IsAdvancedReportingEnabledForAllProfiles();
+  }
   return UkmConsentStateObserver::IsDwaAllowedForAllProfiles();
 }
 
@@ -827,9 +864,7 @@ std::string IOSChromeMetricsServiceClient::GetUploadSigningKey() {
 }
 
 bool IOSChromeMetricsServiceClient::ShouldStartUpFast() const {
-  return base::FeatureList::IsEnabled(first_run::kManualLogUploadsInTheFRE)
-             ? IsFirstRun()
-             : false;
+  return IsFirstRun();
 }
 
 void IOSChromeMetricsServiceClient::StartObservingBrowserList(

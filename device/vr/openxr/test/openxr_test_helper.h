@@ -16,9 +16,12 @@
 #include "base/synchronization/lock.h"
 #include "device/vr/openxr/openxr_platform.h"
 #include "device/vr/openxr/openxr_view_configuration.h"
-#include "device/vr/test/test_hook.h"
+#include "device/vr/public/mojom/test/xr_test_hook.test-mojom.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/bindings/shared_remote.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/openxr/src/include/openxr/openxr.h"
+#include "third_party/skia/include/core/SkColor.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <wrl.h>
@@ -32,8 +35,10 @@ namespace gfx {
 class Transform;
 }  // namespace gfx
 
-class OpenXrTestHelper : public device::ServiceTestHook {
+class OpenXrTestHelper {
  public:
+  static OpenXrTestHelper& Get();
+
   OpenXrTestHelper();
   ~OpenXrTestHelper();
 
@@ -45,7 +50,7 @@ class OpenXrTestHelper : public device::ServiceTestHook {
   void TestFailure();
 
   // TestHookRegistration
-  void SetTestHook(device::VRTestHook* hook) final;
+  void SetTestHook(mojo::PendingRemote<device_test::mojom::XRTestHook> hook);
 
   // Helper methods called by the mock OpenXR runtime. These methods will
   // call back into the test hook, thus communicating with the test object
@@ -221,8 +226,8 @@ class OpenXrTestHelper : public device::ServiceTestHook {
   void CopyTextureDataIntoFrameData(XrSwapchain swapchain,
                                     uint32_t x_start,
                                     device::ViewData& data);
-  device::Color ReadTextureColor(const XrSwapchainSubImage&);
-  std::vector<device::Color> ReadCubeMapFirstPixelColor(XrSwapchain swapchain);
+  SkColor ReadTextureColor(const XrSwapchainSubImage&);
+  std::vector<SkColor> ReadCubeMapFirstPixelColor(XrSwapchain swapchain);
 #endif
   void AddDimensions(const device::OpenXrViewConfiguration& view_config,
                      uint32_t& width,
@@ -307,11 +312,16 @@ class OpenXrTestHelper : public device::ServiceTestHook {
   std::unordered_map<XrViewConfigurationType, device::OpenXrViewConfiguration>
       secondary_configs_supported_;
 
-  std::array<device::ControllerFrameData, device::kMaxControllers> controllers_;
+  std::vector<device::ControllerFrameData> controllers_;
+  std::optional<gfx::Transform> presenting_pose_;
 
   std::queue<XrEventDataBuffer> event_queue_;
 
-  raw_ptr<device::VRTestHook> test_hook_ GUARDED_BY(lock_) = nullptr;
+  void OnTestHookDisconnected();
+  mojo::SharedRemote<device_test::mojom::XRTestHook> GetTestHook();
+
+  mojo::SharedRemote<device_test::mojom::XRTestHook> test_hook_
+      GUARDED_BY(lock_);
   base::Lock lock_;
 };
 

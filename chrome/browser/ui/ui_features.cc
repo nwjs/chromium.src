@@ -43,8 +43,6 @@ BASE_FEATURE(kAllowEyeDropperWGCScreenCapture,
 
 BASE_FEATURE(kCompositorLoadingThrobber, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kCreateNewTabGroupAppMenuTopLevel,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCtrlTabMru, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -68,6 +66,8 @@ BASE_FEATURE(kMenuSimplification, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kTabGroupColorRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebuiRefresh2026, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kAppMenuGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables the redesigned Settings 2026 refresh features and search UX.
+BASE_FEATURE(kSettingsRefresh2026, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsTabStripDeclutterEnabled() {
   return base::FeatureList::IsEnabled(kDesktopGlowUp) ||
@@ -126,7 +126,13 @@ BASE_FEATURE(kExtensionsPinnedByDefault, base::FEATURE_DISABLED_BY_DEFAULT);
 // isn't the default already.
 BASE_FEATURE(kPdfInfoBar, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSeparateDefaultAndPinPrompt, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSeparateDefaultAndPinPrompt,
+#if BUILDFLAG(IS_WIN)
+             base::FEATURE_ENABLED_BY_DEFAULT
+#else
+             base::FEATURE_DISABLED_BY_DEFAULT
+#endif  // BUILDFLAG(IS_WIN)
+);
 BASE_FEATURE_PARAM(int,
                    kSeparateDefaultAndPinPromptRandSeed,
                    &kSeparateDefaultAndPinPrompt,
@@ -136,12 +142,12 @@ BASE_FEATURE_PARAM(int,
                    kSeparateDefaultAndPinPromptPinMaxCount,
                    &kSeparateDefaultAndPinPrompt,
                    "pin_max_count",
-                   5);
+                   10);
 BASE_FEATURE_PARAM(int,
                    kSeparateDefaultAndPinPromptPinCooldownDays,
                    &kSeparateDefaultAndPinPrompt,
                    "pin_cooldown_days",
-                   21);
+                   7);
 BASE_FEATURE_PARAM(int,
                    kSeparateDefaultAndPinPromptDefaultMaxCount,
                    &kSeparateDefaultAndPinPrompt,
@@ -180,14 +186,6 @@ BASE_FEATURE(kProcessIsolationSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kRealboxVirtualFocusNavigation, base::FEATURE_DISABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_MAC)
-// Add tab group colours when viewing tab groups using the top mac OS menu bar.
-BASE_FEATURE(kShowTabGroupsMacSystemMenu, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsShowTabGroupsMacSystemMenuEnabled() {
-  return base::FeatureList::IsEnabled(kShowTabGroupsMacSystemMenu);
-}
-#endif  // BUILDFLAG(IS_MAC)
 
 BASE_FEATURE(kSplitViewTabDraggingUpdates, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -220,20 +218,10 @@ BASE_FEATURE_PARAM(int,
 
 BASE_FEATURE(kTabDuplicateMetrics, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables tabs to be frozen when collapsed.
-// https://crbug.com/40141996
-BASE_FEATURE(kTabGroupsCollapseFreezing, base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables collapsing a tab group programmatically during a drag.
 BASE_FEATURE(kCollapseTabGroupDuringDrag, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kTabGroupMenuMoreEntryPoints, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsTabGroupMenuMoreEntryPointsEnabled() {
-  return base::FeatureList::IsEnabled(kTabGroupMenuMoreEntryPoints);
-}
-
 BASE_FEATURE(kNewTabButtonContextMenu, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabGroupHoverCards, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -253,8 +241,6 @@ BASE_FEATURE(kTabHoverCardImages,
              base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 );
-
-BASE_FEATURE(kTabStripNewTabButtonFlickerFix, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabModalUsesDesktopWidget, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -318,15 +304,11 @@ BASE_FEATURE(kManagedProfileRequiredInterstitial,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kMigrateManagementPageToWebUIOnMobile,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kViewsJSAppModalDialog, base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-BASE_FEATURE(kUsePortalAccentColor, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kPageSpecificDataDialogRelatedInstalledAppsSection,
@@ -341,15 +323,7 @@ BASE_FEATURE(kLensOverlayHomeworkPageActionFocusOptimization,
 BASE_FEATURE(kPageActionAnchoredMessageEasyDismiss,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kPageActionsMigration, base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kAiModePageActionOptimization, base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE_PARAM(bool,
-                   kPageActionsMigrationEnableAll,
-                   &kPageActionsMigration,
-                   "enable_all",
-                   false);
 
 BASE_FEATURE(kPageActionsPrioritySelector, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -362,11 +336,6 @@ BASE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault,
 
 BASE_FEATURE(kNonMilestoneUpdateToast, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kBookmarkTabGroupConversion, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsBookmarkTabGroupConversionEnabled() {
-  return base::FeatureList::IsEnabled(kBookmarkTabGroupConversion);
-}
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kSessionRestoreInfobar, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -379,11 +348,6 @@ BASE_FEATURE_PARAM(bool,
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kNewTabAddsToActiveGroup, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsNewTabAddsToActiveGroupEnabled() {
-  return base::FeatureList::IsEnabled(kNewTabAddsToActiveGroup);
-}
 
 BASE_FEATURE(kWebUIAvatarButton, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kWebUIMediaButton, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -532,22 +496,19 @@ BASE_FEATURE_PARAM(std::string,
 
 BASE_FEATURE(kTabGroupsFocusing, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE_PARAM(bool,
-                   kTabGroupsFocusingPinnedTabs,
-                   &kTabGroupsFocusing,
-                   "tab_groups_focusing_pinned_tabs",
-                   false);
+BASE_FEATURE_PARAM(bool, kTabGroupsFocusFreezing, &kTabGroupsFocusing, true);
 
+bool IsTabGroupsFocusFreezingEnabled() {
+  return base::FeatureList::IsEnabled(kTabGroupsFocusing) &&
+         kTabGroupsFocusFreezing.Get();
+}
 
-BASE_FEATURE(kVerticalTabsGrabHandleRemoval, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kTabGroupRibbon, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If false, then the grab handle will only be removed when the vertical tab
-// strip is expanded.
-BASE_FEATURE_PARAM(bool,
-                   kVerticalTabsGrabHandleRemovalAlways,
-                   &kVerticalTabsGrabHandleRemoval,
-                   "vertical_tab_grab_handle_remove_always",
-                   true);
+bool IsTabGroupRibbonEnabled() {
+  return base::FeatureList::IsEnabled(kTabGroupsFocusing) &&
+         base::FeatureList::IsEnabled(kTabGroupRibbon);
+}
 
 BASE_FEATURE(kOmniboxResizingPrioritization, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -564,5 +525,13 @@ BASE_FEATURE(kOSCryptAsyncAvailabilityInfoBar,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+
+// Defer layout passes on BrowserView while the main browser window is still
+// invisible during early startup. Asynchronous startup components (like the
+// WebUI Toolbar) trigger multiple redundant layouts via Mojo updates while
+// loading, which blocks the UI thread. Deferring and consolidating these
+// layouts until the window is shown saves significant CPU cycles.
+BASE_FEATURE(kDeferLayoutDuringBrowserStartup,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

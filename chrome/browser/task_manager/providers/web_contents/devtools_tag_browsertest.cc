@@ -3,11 +3,12 @@
 // found in the LICENSE file.
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/run_until.h"
 #include "chrome/browser/devtools/devtools_window_testing.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/task_manager/mock_web_contents_task_manager.h"
 #include "chrome/browser/task_manager/providers/web_contents/web_contents_tags_manager.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -48,7 +49,7 @@ class DevToolsTagTest : public InProcessBrowserTest {
 
   void OpenDevToolsWindow(bool is_docked) {
     devtools_window_ = DevToolsWindowTesting::OpenDevToolsWindowSync(
-        browser()->tab_strip_model()->GetWebContentsAt(0), is_docked);
+        browser()->GetTabStripModel()->GetWebContentsAt(0), is_docked);
   }
 
   void CloseDevToolsWindow() {
@@ -127,6 +128,9 @@ IN_PROC_BROWSER_TEST_F(DevToolsTagTest, DevToolsTaskIsProvided) {
   // WebContents (its js may update its title).
   const int64_t task_id = task->task_id();
   LoadTestPage(kTestPage2);
+  EXPECT_TRUE(base::test::RunUntil([task] {
+    return task->title().find(u"navigate_back.html") != std::u16string::npos;
+  }));
   EXPECT_EQ(2U, tracked_tags_count());
   tasks = task_manager.NonToolTasks();
   if (content::CanSameSiteMainFrameNavigationsChangeRenderFrameHosts()) {

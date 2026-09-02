@@ -7,19 +7,82 @@
 #include <memory>
 #include <string>
 
+#include "base/functional/callback.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
+#include "chrome/browser/ui/android/hats/hats_service_android.h"
+#include "chrome/browser/ui/hats/hats_service_factory.h"
+#include "chrome/browser/ui/hats/survey_config.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "chrome/test/base/testing_browser_process.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/test/history_service_test_util.h"
 #include "components/safe_browsing/content/browser/base_ui_manager.h"
 #include "components/safe_browsing/content/browser/ui_manager.h"
+#include "components/safe_browsing/core/common/features.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_delegate.h"
 #include "content/public/test/test_renderer_host.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/android/window_android.h"
 
 namespace safe_browsing {
+
+namespace {
+
+class MockHatsService : public HatsServiceAndroid {
+ public:
+  explicit MockHatsService(Profile* profile) : HatsServiceAndroid(profile) {}
+  ~MockHatsService() override = default;
+
+  MOCK_METHOD(HatsService::LaunchError,
+              LaunchSurveyForWebContents,
+              (const std::string& trigger,
+               content::WebContents* web_contents,
+               const SurveyBitsData& product_specific_bits_data,
+               const SurveyStringData& product_specific_string_data,
+               base::OnceClosure success_callback,
+               base::OnceClosure failure_callback,
+               const std::optional<std::string>& supplied_trigger_id,
+               const SurveyOptions& survey_options),
+              (override));
+};
+
+std::unique_ptr<KeyedService> BuildMockHatsService(
+    content::BrowserContext* context) {
+  return std::make_unique<MockHatsService>(
+      Profile::FromBrowserContext(context));
+}
+
+std::unique_ptr<KeyedService> BuildTestHistoryService(
+    content::BrowserContext* context) {
+  return history::CreateHistoryService(context->GetPath(), /*create_db=*/true);
+}
+
+class TestWebContentsDelegate : public content::WebContentsDelegate {
+ public:
+  content::WebContents* OpenURLFromTab(
+      content::WebContents* source,
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback) override {
+    opened_url_ = params.url;
+    return source;
+  }
+  const GURL& opened_url() const { return opened_url_; }
+
+ private:
+  GURL opened_url_;
+};
+
+}  // namespace
 
 class SuspiciousSiteControllerAndroidTest
     : public ChromeRenderViewHostTestHarness {
@@ -45,20 +108,69 @@ class SuspiciousSiteControllerAndroidTest
     return SuspiciousSiteControllerAndroid::FromWebContents(web_contents());
   }
 
+  void SetIsSuspended(SuspiciousSiteControllerAndroid* controller,
+                      bool is_suspended) {
+    controller->is_suspended_ = is_suspended;
+  }
+
  private:
   scoped_refptr<SafeBrowsingService> sb_service_;
 };
 
-TEST_F(SuspiciousSiteControllerAndroidTest, OnGoBackButtonClicked) {
+TEST_F(SuspiciousSiteControllerAndroidTest, HandleBackNavigation) {
   base::HistogramTester histogram_tester;
   SuspiciousSiteControllerAndroid* controller = MakeController();
 
-  controller->OnGoBackButtonClicked();
+  controller->HandleBackNavigation(
+      SuspiciousSiteControllerAndroid::UserInteraction::kBackToSafetyButton);
 
   histogram_tester.ExpectUniqueSample(
       "SafeBrowsing.SuspiciousSiteWarning.WarningOutcome",
       SuspiciousSiteControllerAndroid::WarningOutcome::kAdhered,
       /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kBackToSafetyButton,
+      /*expected_bucket_count=*/1);
+
+  EXPECT_FALSE(
+      SuspiciousSiteControllerAndroid::FromWebContents(web_contents()));
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialog_NavigateBack) {
+  NavigateAndCommit(GURL("https://safe.com"));
+  NavigateAndCommit(GURL("https://suspicious.com"));
+
+  base::HistogramTester histogram_tester;
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  window->get()->AddChild(web_contents()->GetNativeView());
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->ShowDialog();
+  SetIsSuspended(controller, false);
+
+  controller->CloseDialog(
+      ui::ModalDialogWrapper::DismissalCause::NAVIGATE_BACK);
+
+  histogram_tester.ExpectUniqueSample(
+      "SafeBrowsing.SuspiciousSiteWarning.WarningOutcome",
+      SuspiciousSiteControllerAndroid::WarningOutcome::kAdhered,
+      /*expected_bucket_count=*/1);
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kShown,
+      /*expected_count=*/1);
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kSystemBack,
+      /*expected_count=*/1);
+
+  EXPECT_EQ(web_contents()->GetController().GetPendingEntry()->GetURL(),
+            GURL("https://safe.com"));
+  EXPECT_FALSE(
+      SuspiciousSiteControllerAndroid::FromWebContents(web_contents()));
 }
 
 TEST_F(SuspiciousSiteControllerAndroidTest, OnContinueButtonClicked) {
@@ -71,16 +183,26 @@ TEST_F(SuspiciousSiteControllerAndroidTest, OnContinueButtonClicked) {
       "SafeBrowsing.SuspiciousSiteWarning.WarningOutcome",
       SuspiciousSiteControllerAndroid::WarningOutcome::kBypassed,
       /*expected_bucket_count=*/1);
+  histogram_tester.ExpectUniqueSample(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kMarkAsSafe,
+      /*expected_bucket_count=*/1);
 }
 
 TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialogOutside) {
   base::HistogramTester histogram_tester;
+  NavigateAndCommit(GURL("https://suspicious.com"));
+
   std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
       ui::WindowAndroid::CreateForTesting();
   window->get()->AddChild(web_contents()->GetNativeView());
 
   SuspiciousSiteControllerAndroid* controller = MakeController();
   controller->ShowDialog();
+  // Un-suspend controller state: in headless unit tests, ShowDialog() calls
+  // Java showDialog() which triggers ACTIVITY_DESTROYED (due to null Activity
+  // in testing WindowAndroid), setting is_suspended_ = true.
+  SetIsSuspended(controller, false);
 
   // TOUCH_OUTSIDE closes the dialog view while keeping the controller active.
   controller->CloseDialog(
@@ -95,6 +217,12 @@ TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialogOutside) {
       "SafeBrowsing.SuspiciousSiteWarning.WarningOutcome",
       SuspiciousSiteControllerAndroid::WarningOutcome::kBypassed,
       /*expected_bucket_count=*/1);
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kShown, 1);
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kDismissed, 1);
 }
 
 TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialogNavigateSameUrl) {
@@ -160,14 +288,18 @@ TEST_F(SuspiciousSiteControllerAndroidTest,
 
 TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialogDismissedBySystem) {
   base::HistogramTester histogram_tester;
+  NavigateAndCommit(GURL("https://suspicious.com"));
+
   std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
       ui::WindowAndroid::CreateForTesting();
   window->get()->AddChild(web_contents()->GetNativeView());
 
   SuspiciousSiteControllerAndroid* controller = MakeController();
-
-  // Mark shown so metrics are logged on teardown.
   controller->ShowDialog();
+  // Un-suspend controller state: in headless unit tests, ShowDialog() calls
+  // Java showDialog() which triggers ACTIVITY_DESTROYED (due to null Activity
+  // in testing WindowAndroid), setting is_suspended_ = true.
+  SetIsSuspended(controller, false);
 
   controller->CloseDialog(ui::ModalDialogWrapper::DismissalCause::UNKNOWN);
 
@@ -260,6 +392,229 @@ TEST_F(SuspiciousSiteControllerAndroidTest,
   EXPECT_TRUE(ui_manager->IsUrlAllowlistedOrPendingForWebContents(
       url2, /*entry=*/nullptr, web_contents(),
       /*allowlist_only=*/false, &threat_type));
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, OnHelpCenterLinkClicked) {
+  base::HistogramTester histogram_tester;
+  MakeController();
+  TestWebContentsDelegate delegate;
+  web_contents()->SetDelegate(&delegate);
+
+  SuspiciousSiteControllerAndroid::FromWebContents(web_contents())
+      ->OnHelpCenterLinkClicked();
+
+  EXPECT_EQ(delegate.opened_url(),
+            GURL(chrome::kUnsafeSiteWarningHelpCenterURL));
+  web_contents()->SetDelegate(nullptr);
+
+  histogram_tester.ExpectUniqueSample(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kLearnMore,
+      /*expected_bucket_count=*/1);
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, HatsSurveyTriggeredOnGoBack) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kSuspiciousSiteWarningSurvey);
+
+  auto* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+
+  EXPECT_CALL(
+      *mock_hats_service,
+      LaunchSurveyForWebContents(
+          kHatsSurveyTriggerSuspiciousSiteWarning, web_contents(),
+          testing::Contains(testing::Pair("did_proceed", false)),
+          testing::Contains(testing::Pair("user_choice", "back_to_safety")),
+          testing::_, testing::_,
+          testing::Optional(std::string("LZD24fmuf0tK1KeaPYj0Z79hw2qC")),
+          testing::_))
+      .Times(1);
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->HandleBackNavigation(
+      SuspiciousSiteControllerAndroid::UserInteraction::kBackToSafetyButton);
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, HatsSurveyTriggeredOnContinue) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kSuspiciousSiteWarningSurvey);
+
+  auto* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+
+  EXPECT_CALL(
+      *mock_hats_service,
+      LaunchSurveyForWebContents(
+          kHatsSurveyTriggerSuspiciousSiteWarning, web_contents(),
+          testing::Contains(testing::Pair("did_proceed", true)),
+          testing::Contains(testing::Pair("user_choice", "mark_as_safe")),
+          testing::_, testing::_,
+          testing::Optional(std::string("HguD8vrc50tK1KeaPYj0R37AzmWa")),
+          testing::_))
+      .Times(1);
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->OnContinueButtonClicked();
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, HatsSurveyTriggeredOnDismiss) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kSuspiciousSiteWarningSurvey);
+
+  auto* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+
+  EXPECT_CALL(
+      *mock_hats_service,
+      LaunchSurveyForWebContents(
+          kHatsSurveyTriggerSuspiciousSiteWarning, web_contents(),
+          testing::Contains(testing::Pair("did_proceed", true)),
+          testing::Contains(testing::Pair("user_choice", "dismiss")),
+          testing::_, testing::_,
+          testing::Optional(std::string("HguD8vrc50tK1KeaPYj0R37AzmWa")),
+          testing::_))
+      .Times(1);
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  window->get()->AddChild(web_contents()->GetNativeView());
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->ShowDialog();
+  // Un-suspend controller state: in headless unit tests, ShowDialog() calls
+  // Java showDialog() which triggers ACTIVITY_DESTROYED (due to null Activity
+  // in testing WindowAndroid), setting is_suspended_ = true.
+  SetIsSuspended(controller, false);
+  controller->CloseDialog(
+      ui::ModalDialogWrapper::DismissalCause::TOUCH_OUTSIDE);
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest,
+       CloseDialog_TabSwitched_SuspendsWithoutSurvey) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kSuspiciousSiteWarningSurvey);
+
+  auto* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+
+  EXPECT_CALL(*mock_hats_service,
+              LaunchSurveyForWebContents(testing::_, testing::_, testing::_,
+                                         testing::_, testing::_, testing::_,
+                                         testing::_, testing::_))
+      .Times(0);
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->CloseDialog(ui::ModalDialogWrapper::DismissalCause::TAB_SWITCHED);
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest,
+       FetchRepeatVisitCount_PopulatesRepeatVisitInSurvey) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kSuspiciousSiteWarningSurvey);
+
+  HistoryServiceFactory::GetInstance()->SetTestingFactory(
+      profile(), base::BindRepeating(&BuildTestHistoryService));
+
+  history::HistoryService* history_service =
+      HistoryServiceFactory::GetForProfile(profile(),
+                                           ServiceAccessType::EXPLICIT_ACCESS);
+  ASSERT_TRUE(history_service);
+
+  GURL url("https://malicious.com");
+  NavigateAndCommit(url);
+  history_service->AddPage(url, base::Time::Now(), history::SOURCE_BROWSED);
+  history_service->AddPage(url, base::Time::Now(), history::SOURCE_BROWSED);
+
+  auto* mock_hats_service = static_cast<MockHatsService*>(
+      HatsServiceFactory::GetInstance()->SetTestingFactoryAndUse(
+          profile(), base::BindRepeating(&BuildMockHatsService)));
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  window->get()->AddChild(web_contents()->GetNativeView());
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->ShowDialog();
+  // Un-suspend controller state: in headless unit tests, ShowDialog() calls
+  // Java showDialog() which triggers ACTIVITY_DESTROYED (due to null Activity
+  // in testing WindowAndroid), setting is_suspended_ = true.
+  SetIsSuspended(controller, false);
+
+  history::BlockUntilHistoryProcessesPendingRequests(history_service);
+
+  EXPECT_CALL(*mock_hats_service,
+              LaunchSurveyForWebContents(
+                  kHatsSurveyTriggerSuspiciousSiteWarning, web_contents(),
+                  testing::Contains(testing::Pair("repeat_visit", true)),
+                  testing::_, testing::_, testing::_, testing::_, testing::_))
+      .Times(1);
+
+  controller->CloseDialog(
+      ui::ModalDialogWrapper::DismissalCause::TOUCH_OUTSIDE);
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialog_ManualNavigation) {
+  base::HistogramTester histogram_tester;
+  NavigateAndCommit(GURL("https://suspicious.com"));
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  window->get()->AddChild(web_contents()->GetNativeView());
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->ShowDialog();
+  SetIsSuspended(controller, false);
+
+  controller->CloseDialog(ui::ModalDialogWrapper::DismissalCause::NAVIGATE);
+
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kShown, 1);
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kManualNavigation, 1);
+
+  // WarningOutcome is logged on destruction of the controller.
+  web_contents()->RemoveUserData(
+      SuspiciousSiteControllerAndroid::UserDataKey());
+  histogram_tester.ExpectUniqueSample(
+      "SafeBrowsing.SuspiciousSiteWarning.WarningOutcome",
+      SuspiciousSiteControllerAndroid::WarningOutcome::kAdhered, 1);
+}
+
+TEST_F(SuspiciousSiteControllerAndroidTest, CloseDialog_CloseTab) {
+  base::HistogramTester histogram_tester;
+  NavigateAndCommit(GURL("https://suspicious.com"));
+
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  window->get()->AddChild(web_contents()->GetNativeView());
+
+  SuspiciousSiteControllerAndroid* controller = MakeController();
+  controller->ShowDialog();
+  SetIsSuspended(controller, false);
+
+  controller->CloseDialog(
+      ui::ModalDialogWrapper::DismissalCause::WEB_CONTENTS_DESTROYED);
+
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kShown, 1);
+  histogram_tester.ExpectBucketCount(
+      "SafeBrowsing.SuspiciousSiteWarning.UserInteraction",
+      SuspiciousSiteControllerAndroid::UserInteraction::kCloseTab, 1);
+
+  // WarningOutcome is logged on destruction of the controller.
+  web_contents()->RemoveUserData(
+      SuspiciousSiteControllerAndroid::UserDataKey());
+  histogram_tester.ExpectUniqueSample(
+      "SafeBrowsing.SuspiciousSiteWarning.WarningOutcome",
+      SuspiciousSiteControllerAndroid::WarningOutcome::kAdhered, 1);
 }
 
 }  // namespace safe_browsing

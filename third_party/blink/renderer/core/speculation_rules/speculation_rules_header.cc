@@ -82,15 +82,23 @@ void SpeculationRulesHeader::ParseSpeculationRulesHeader(
   }
 
   for (auto const& parsed_item : parsed_header.value()) {
+    // Inner lists are not allowed, only individual strings.
+    const std::string* str =
+        (parsed_item.member_is_inner_list || parsed_item.member.size() != 1u)
+            ? nullptr
+            : parsed_item.member.front().item.GetIfString();
+
     // Only strings are valid list members.
-    if (parsed_item.member.size() != 1u ||
-        !parsed_item.member[0].item.is_string()) {
+    if (!str) {
       String message =
           "Only strings are valid in Speculation-Rules header value "
           "and inner lists are ignored.";
-      if (parsed_item.member.size() == 1u &&
-          parsed_item.member[0].item.is_token()) {
-        String token = String::FromUtf8(parsed_item.member[0].item.GetString());
+      const std::string* token_str =
+          (parsed_item.member_is_inner_list || parsed_item.member.size() != 1u)
+              ? nullptr
+              : parsed_item.member.front().item.GetIfToken();
+      if (token_str) {
+        String token = String::FromUtf8(*token_str);
         if (KURL(base_url, token).IsValid()) {
           message = StrCat({message, " However, ", token.EncodeForDebugging(),
                             " appears to be a valid URL. You may need to "
@@ -102,7 +110,7 @@ void SpeculationRulesHeader::ParseSpeculationRulesHeader(
           message));
       continue;
     }
-    const auto& url_str = String(parsed_item.member[0].item.GetString());
+    const auto& url_str = String(*str);
     KURL speculation_rule_url(base_url, url_str);
     if (url_str.empty() || !speculation_rule_url.IsValid()) {
       errors_.push_back(std::pair(

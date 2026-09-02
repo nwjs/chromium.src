@@ -92,11 +92,11 @@ class FakeTabSlotController : public TabSlotController {
   tab_groups::TabGroupColorId GetGroupColorId(
       const tab_groups::TabGroupId& group) const override;
   bool IsGroupCollapsed(const tab_groups::TabGroupId& group) const override;
+  std::optional<tab_groups::TabGroupId> GetFocusedGroup() const override;
   SkColor GetPaintedGroupColor(
       const tab_groups::TabGroupColorId& color_id) const override;
   void ShiftGroupLeft(const tab_groups::TabGroupId& group) override {}
   void ShiftGroupRight(const tab_groups::TabGroupId& group) override {}
-  Browser* GetBrowser() override;
   BrowserWindowInterface* GetBrowserWindowInterface() override;
   TabGroup* GetTabGroup(const tab_groups::TabGroupId& group_id) const override;
 

@@ -11,10 +11,7 @@
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/metrics/field_trial_params.h"
 #include "base/run_loop.h"
-#include "base/strings/strcat.h"
-#include "base/strings/stringprintf.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -85,9 +82,6 @@
 #include "content/public/test/navigation_handle_observer.h"
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_frame_navigation_observer.h"
-#include "content/public/test/test_navigation_observer.h"
-#include "content/public/test/test_utils.h"
-#include "net/base/features.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -95,8 +89,6 @@
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/gfx/geometry/point.h"
-#include "ui/gfx/geometry/point_conversions.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
@@ -180,6 +172,10 @@ class ExecutionEngineBrowserTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
+    embedded_test_server()->ServeFilesFromSourceDirectory(
+        "components/test/data");
+    embedded_https_test_server().ServeFilesFromSourceDirectory(
+        "components/test/data");
     ASSERT_TRUE(embedded_test_server()->Start());
     if (UseCertTestNames()) {
       embedded_https_test_server().SetSSLConfig(
@@ -495,8 +491,8 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest,
 
 // Regression test for https://crbug.com/502819675.
 IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, HistoryBackIsChecked) {
-  // Disable SafeBrowsing so that MayActOnUrl rejects every non-localhost URL
-  // with kSafeBrowsing.
+  // Disable SafeBrowsing so that IsAcceptableNavigationDestination rejects
+  // every non-localhost URL with kSafeBrowsing.
   safe_browsing::SetSafeBrowsingState(
       browser()->GetProfile()->GetPrefs(),
       safe_browsing::SafeBrowsingState::NO_SAFE_BROWSING);
@@ -519,7 +515,7 @@ IN_PROC_BROWSER_TEST_F(ExecutionEngineBrowserTest, HistoryBackIsChecked) {
 
   // A `history.back()` navigation should be classified as renderer-initiated
   // (even though the initiator is std::nullopt), and should be blocked by
-  // MayActOnUrl.
+  // IsAcceptableNavigationDestination.
   content::NavigationHandleObserver navigation_handle_observer(web_contents(),
                                                                first_url);
   content::TestNavigationManager test_navigation_manager(web_contents(),
@@ -1178,13 +1174,7 @@ constexpr char kLookalikeHostWarning[] = "accounts-google.com";
 
 class ExecutionEngineUrlGatingBrowserTest : public InProcessBrowserTest {
  public:
-  ExecutionEngineUrlGatingBrowserTest() {
-    base::FieldTrialParams params;
-    params["allowlist"] = "a.com,b.com";
-    params["allowlist_only"] = "false";
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        kGlicActionAllowlist, std::move(params));
-  }
+  ExecutionEngineUrlGatingBrowserTest() = default;
 
   ~ExecutionEngineUrlGatingBrowserTest() override = default;
 
@@ -1248,7 +1238,6 @@ class ExecutionEngineUrlGatingBrowserTest : public InProcessBrowserTest {
 
  private:
   base::HistogramTester histogram_tester_for_init_;
-  base::test::ScopedFeatureList scoped_feature_list_;
   base::ScopedTempDir temp_dir_;
   // Must outlive any ActorTask created with it as the policy checker.
   MockPolicyChecker policy_checker_{

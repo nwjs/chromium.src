@@ -14,6 +14,7 @@
 #include "chrome/browser/sessions/session_service_lookup.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/tab_list/tab_removed_reason.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -47,12 +48,26 @@ SessionServiceBrowserHelper::SessionServiceBrowserHelper(
     TabStripModel* tab_strip_model,
     SessionID session_id,
     BrowserWindowInterface::Type browser_type,
-    Profile* profile)
+    Profile* profile,
+    const BrowserWindowCreateParams* create_params)
     : tab_strip_model_(CHECK_DEREF(tab_strip_model)),
       session_id_(session_id),
       browser_type_(browser_type),
       profile_(CHECK_DEREF(profile)) {
   tab_strip_model_->AddObserver(this);
+
+#if BUILDFLAG(IS_OZONE)
+  SessionServiceBase* session_service =
+      GetAppropriateSessionServiceForSessionRestore(&*profile_, browser_type_);
+  if (session_service && session_service->GetPlatformSessionId()) {
+    const int32_t restore_id = CHECK_DEREF(create_params).restore_id;
+    platform_session_data_ = ui::PlatformSessionWindowData{
+        .session_id = session_service->GetPlatformSessionId().value(),
+        .window_id = session_id_.id(),
+        .restore_id =
+            restore_id > 0 ? std::optional<int32_t>(restore_id) : std::nullopt};
+  }
+#endif  // BUILDFLAG(IS_OZONE)
 }
 
 SessionServiceBrowserHelper::~SessionServiceBrowserHelper() = default;

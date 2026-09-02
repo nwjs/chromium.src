@@ -95,9 +95,26 @@ try_.builder(
         configs = ["ci/linux-official", "try_builder"],
     ),
     ssd = True,
+    contact_team_email = "chrome-browser-infra-team@google.com",
     # crbug.com/427503493: It produces large amount of dwo files (>700GB).
     # Enabling remote linking without bytes avoids downloading them to the bot.
-    # It also sets no-remote-timeout for long remote linking steps.
+    siso_configs = [
+        "builder",
+    ],
+    siso_remote_linking = True,
+)
+
+try_.builder(
+    name = "linux-arm64-official",
+    branch_selector = branches.selector.LINUX_BRANCHES,
+    mirrors = [
+        "ci/linux-arm64-official",
+    ],
+    gn_args = gn_args.config(
+        configs = ["ci/linux-arm64-official", "try_builder"],
+    ),
+    ssd = True,
+    contact_team_email = "chrome-browser-infra-team@google.com",
     siso_configs = [
         "builder",
         "no-remote-timeout",

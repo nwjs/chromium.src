@@ -21,7 +21,7 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/ntp/shared/metrics/home_metrics.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/tab_grid_commands.h"
@@ -127,7 +127,7 @@ UIColor* AssistantHighlightBackgroundColor() {
 }  // namespace
 
 @interface AppBarViewController () <AppBarViewDelegate,
-                                    LayoutStateObserver,
+                                    SceneLayoutStateObserver,
                                     UIContextMenuInteractionDelegate>
 @end
 
@@ -213,7 +213,7 @@ UIColor* AssistantHighlightBackgroundColor() {
   BOOL _geminiFloatyInvoked;
 }
 
-- (void)setLayoutState:(LayoutState*)layoutState {
+- (void)setLayoutState:(SceneLayoutState*)layoutState {
   if (_layoutState == layoutState) {
     return;
   }
@@ -223,28 +223,51 @@ UIColor* AssistantHighlightBackgroundColor() {
   _geminiFloatyInvoked = layoutState ? layoutState.geminiFloatyInvoked : NO;
 }
 
-#pragma mark - LayoutStateObserver
+#pragma mark - SceneLayoutStateObserver
 
-- (void)layoutState:(LayoutState*)layoutState
+- (void)layoutState:(SceneLayoutState*)layoutState
     didChangeAppBarPosition:(AppBarPosition)appBarPosition {
   // Update the alpha with a duration of 0 as it is already in an animation
   // block.
-  CGFloat targetAlpha =
-      self.layoutState.appBarLockedInFullscreen ? 0.0 : _fullscreenProgress;
-  [self setButtonsTitleAlpha:targetAlpha animationDuration:0];
+  [self setButtonsTitleAlpha:_fullscreenProgress animationDuration:0];
   [self updateTabSwitcherGuide];
   if (appBarPosition != AppBarPosition::kBottom) {
     _backgroundView.cornerRadius = kAppBarCornerRadius;
   }
 }
 
-- (void)layoutState:(LayoutState*)layoutState
-    didChangeAppBarLockedInFullscreen:(BOOL)appBarLockedInFullscreen {
-  CGFloat targetAlpha = appBarLockedInFullscreen ? 0.0 : _fullscreenProgress;
-  [self setButtonsTitleAlpha:targetAlpha animationDuration:0];
+- (void)layoutState:(SceneLayoutState*)layoutState
+    didChangeAssistantContainerInvoked:(BOOL)assistantContainerInvoked {
+  // Synchronize titles (which may set them to nil when labels are hidden).
+  // This replicates the behavior previously handled by
+  // didChangeGeminiFloatyInvoked:.
+  if (IsAppBarHiddenInFullscreen()) {
+    [self updateAssistantButtonTitleIfNeeded];
+    [self updateOpenNewTabButtonTitleIfNeeded];
+    [self updateTabGridButtonTitleIfNeeded];
+
+    // Trigger configurations update for all buttons so that vertical insets
+    // recalculate.
+    [_assistantButton setNeedsUpdateConfiguration];
+    [_openNewTabButton setNeedsUpdateConfiguration];
+    [_tabGridButton setNeedsUpdateConfiguration];
+  }
+
+  [self setButtonsTitleAlpha:_fullscreenProgress animationDuration:0];
+
+  if (IsAppBarHiddenInFullscreen()) {
+    __weak __typeof(self) weakSelf = self;
+    [UIView animateWithDuration:kAppBarAnimationDuration
+                     animations:^{
+                       [weakSelf updateHeightConstraintForCurrentOrientation];
+                     }];
+
+    [self.view setNeedsLayout];
+    [self.view layoutIfNeeded];
+  }
 }
 
-- (void)layoutState:(LayoutState*)layoutState
+- (void)layoutState:(SceneLayoutState*)layoutState
     didChangeGeminiFloatyInvoked:(BOOL)geminiFloatyInvoked {
   if (_geminiFloatyInvoked == geminiFloatyInvoked) {
     return;
@@ -618,16 +641,10 @@ UIColor* AssistantHighlightBackgroundColor() {
 
 - (void)updateForFullscreenProgress:(CGFloat)progress {
   _fullscreenProgress = progress;
-  if (self.layoutState.appBarLockedInFullscreen) {
-    return;
-  }
   [self setButtonsTitleAlpha:_fullscreenProgress animationDuration:0];
 }
 
 - (void)animateFullscreenWithAnimator:(FullscreenAnimator*)animator {
-  if (self.layoutState.appBarLockedInFullscreen) {
-    return;
-  }
   [self setButtonsTitleAlpha:animator.finalProgress
            animationDuration:animator.duration];
 }
@@ -636,9 +653,6 @@ UIColor* AssistantHighlightBackgroundColor() {
 
 - (void)fullscreenWillUpdateState:(FullscreenBrowserAgent*)agent {
   _fullscreenProgress = agent->bottom_progress();
-  if (self.layoutState.appBarLockedInFullscreen) {
-    return;
-  }
   [self setButtonsTitleAlpha:_fullscreenProgress
            animationDuration:agent->animation_duration().InSecondsF()];
 }
@@ -1135,10 +1149,8 @@ UIColor* AssistantHighlightBackgroundColor() {
     _spotlightView.translatesAutoresizingMaskIntoConstraints = NO;
     _spotlightView.userInteractionEnabled = NO;
     [button addSubview:_spotlightView];
-    AddSameConstraintsToSidesWithInsets(
+    AddSameConstraintsWithInsets(
         _spotlightView, button,
-        LayoutSides::kTop | LayoutSides::kTrailing | LayoutSides::kLeading |
-            LayoutSides::kBottom,
         NSDirectionalEdgeInsetsMake(
             kSpotlightViewVerticalInset, kSpotlightViewHorizontalInset,
             kSpotlightViewVerticalInset, kSpotlightViewHorizontalInset));
@@ -1366,8 +1378,12 @@ UIColor* AssistantHighlightBackgroundColor() {
       base::RecordAction(
           base::UserMetricsAction("MobileToolbarNewTabShortcutOnNTP"));
     }
-    [self recordAction:"MobileToolbarNewTabShortcut"
-        withFullscreenAction:"MobileToolbarNewTabShortcutFullscreen"];
+    const char* action = _incognito ? "MobileToolbarNewIncognitoTabShortcut"
+                                    : "MobileToolbarNewTabShortcut";
+    const char* fullscreenAction =
+        _incognito ? "MobileToolbarNewIncognitoTabShortcutFullscreen"
+                   : "MobileToolbarNewTabShortcutFullscreen";
+    [self recordAction:action withFullscreenAction:fullscreenAction];
     base::RecordAction(base::UserMetricsAction("MobileTabNewTab"));
   }
   [self.mutator createNewTabFromView:sender];
@@ -1495,13 +1511,14 @@ UIColor* AssistantHighlightBackgroundColor() {
 }
 
 - (CGFloat)currentAppBarHeightPortrait {
-  return CurrentAppBarHeightPortrait(_geminiFloatyInvoked);
+  return CurrentAppBarHeightPortrait(
+      _geminiFloatyInvoked, self.layoutState.assistantContainerInvoked);
 }
 
 - (BOOL)shouldHideButtonLabels {
   return IsAppBarLabelsHidden() ||
          (_geminiFloatyInvoked && IsAppBarHiddenInFullscreen()) ||
-         self.layoutState.appBarLockedInFullscreen;
+         self.layoutState.assistantContainerInvoked;
 }
 
 @end

@@ -37,6 +37,7 @@ found in the LICENSE file.
   <int value="6" label="MockOtp"/>
   <int value="7" label="(Obsolete) NoCallback"/>
   <int value="8" label="SuccessReceivedMatchFound"/>
+  <int value="9" label="RetrievalTimeout"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/autofill/actor/one_time_tokens/actor_one_time_token_filling_service_metrics.h:ActorOneTimeTokenFillingServiceRetrieveOtp) -->
@@ -65,11 +66,13 @@ found in the LICENSE file.
   <int value="9" label="FormFillingStatusFormNotFound"/>
   <int value="10" label="FormFillingStatusTabNotAvailable"/>
   <int value="11" label="NoTargetFrameWithOtpFound"/>
-  <int value="12" label="NoActorLogin"/>
+  <int value="12" label="(Obsolete) NoActorLogin - Removed in 2026/07"/>
   <int value="13" label="OtpRetrievalError"/>
   <int value="14" label="FormFillingNotSecureBeforeFilling"/>
   <int value="15" label="FillingOtpSuccess"/>
   <int value="16" label="FillingOtpError"/>
+  <int value="17" label="GmailOtpConfirmationResponseNotValid"/>
+  <int value="18" label="GmailOtpConfirmationDeclinedByUser"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/tools/attempt_otp_filling_metrics.h:AttemptOtpFillingEvent) -->
@@ -85,6 +88,17 @@ found in the LICENSE file.
 
 <!-- LINT.ThenChange(//chrome/browser/actor/tools/attempt_otp_filling_tool_request.h:AttemptOtpFillingPredictedOtpType) -->
 
+<!-- LINT.IfChange(GmailOtpConfirmationDialogInteraction) -->
+
+<enum name="GmailOtpConfirmationDialogInteraction">
+  <int value="0" label="ShowDialog"/>
+  <int value="1" label="ErrorResponse"/>
+  <int value="2" label="PermissionDenied"/>
+  <int value="3" label="PermissionGranted"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/actor/tools/attempt_otp_filling_metrics.h:GmailOtpConfirmationDialogInteraction) -->
+
 <!-- LINT.IfChange(GmailOtpOptInCardInteraction) -->
 
 <enum name="GmailOtpOptInCardInteraction">
@@ -95,6 +109,18 @@ found in the LICENSE file.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/tools/attempt_otp_filling_metrics.h:GmailOtpOptInCardInteraction) -->
+
+<!-- LINT.IfChange(GmailOtpSenderDomainMatchRejectionReason) -->
+
+<enum name="GmailOtpSenderDomainMatchRejectionReason">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="NoMatch"/>
+  <int value="2" label="Grouped"/>
+  <int value="3" label="PslMatchDisallowed"/>
+  <int value="4" label="GroupedAndPslMatchDisallowed"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/one_time_tokens/core/browser/gmail_otp_retriever.h:GmailOtpSenderDomainMatchRejectionReason) -->
 
 <!-- LINT.IfChange(VerifyIsActorLoginFlowEvent) -->
 
@@ -109,6 +135,7 @@ found in the LICENSE file.
   <int value="7" label="GroupedOrOtherMismatch"/>
   <int value="8" label="ExactMatchAllowed"/>
   <int value="9" label="AffiliatedMatchAllowed"/>
+  <int value="10" label="MainFrameOriginMismatch"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/actor/tools/attempt_otp_filling_metrics.h:VerifyIsActorLoginFlowEvent) -->

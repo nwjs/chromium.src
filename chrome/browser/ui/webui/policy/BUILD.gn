@@ -19,6 +19,7 @@ source_set("policy") {
     "//chrome/browser:browser_process_platform_part",
     "//chrome/browser/download",
     "//chrome/browser/enterprise",
+    "//chrome/browser/enterprise:browser_launch_reporting",
     "//chrome/browser/lifetime",
     "//chrome/browser/policy",
     "//chrome/browser/profiles:profile",
@@ -66,9 +67,11 @@ if (!is_android) {
     ]
     deps = [
       ":policy",
+      "//chrome/browser/enterprise:browser_launch_reporting",
       "//chrome/browser/lifetime",
       "//chrome/browser/policy",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/ui:ui_features",
       "//chrome/test:test_support",
       "//components/policy/core/common",

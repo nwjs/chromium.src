@@ -205,10 +205,12 @@ source_set("impl") {
     "//chrome/browser/safe_browsing",
     "//chrome/browser/safe_browsing:metrics_collector",
     "//chrome/browser/signin",
+    "//chrome/browser/tab_contents",
     "//chrome/browser/tab_group_sync",
     "//chrome/browser/thumbnail/generator",
     "//chrome/browser/transition_manager",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/select_file_policy",
     "//chrome/common:non_code_constants",
@@ -216,6 +218,7 @@ source_set("impl") {
     "//components/download/content/factory",
     "//components/enterprise/common/proto:connectors_proto_gen",
     "//components/enterprise/connectors/core",
+    "//components/enterprise/obfuscation/core:enterprise_obfuscation",
     "//components/history/content/browser",
     "//components/infobars/content",
     "//components/pdf/common:constants",
@@ -267,6 +270,7 @@ source_set("impl") {
       "//chrome/browser/download/android:jni_headers",
       "//chrome/browser/flags:flags_android",
       "//chrome/browser/offline_pages:impl",
+      "//chrome/browser/permissions",
       "//chrome/browser/ui/android/pdf:pdf_jni_headers",
       "//chrome/browser/ui/android/tab_model",
       "//components/safe_browsing/android:safe_browsing_api_handler",
@@ -326,11 +330,11 @@ source_set("impl") {
       "//chrome/browser/apps/app_service",
       "//chrome/browser/ash/drive",
       "//chrome/browser/ash/file_manager",
-      "//chrome/browser/ash/plugin_vm",
       "//chrome/browser/ash/policy/dlp",
       "//chrome/browser/ash/policy/skyvault",
       "//chrome/browser/chromeos/policy/dlp",
       "//chrome/browser/content_index",
+      "//chrome/browser/enterprise/connectors/analysis:obfuscation_rename_handler",
       "//chrome/browser/ui/ash/system_web_apps",
       "//chrome/browser/ui/webui/ash/cloud_upload",
       "//chromeos/ash/components/browser_context_helper",
@@ -386,7 +390,7 @@ source_set("impl") {
     deps += [ "//components/offline_pages/core" ]
   }
 
-  if (enterprise_content_analysis) {
+  if (enterprise_content_analysis || is_android) {
     deps += [
       "//components/enterprise/connectors/core:cloud_content_scanning",
       "//components/enterprise/obfuscation/core:enterprise_obfuscation",
@@ -443,6 +447,7 @@ source_set("test_support") {
     ]
     public_deps += [ "//chrome/test:test_support" ]
     deps += [
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//content/test:test_support",
     ]
@@ -561,11 +566,11 @@ if (!is_android) {
     ]
 
     deps = [
-    "//chrome/browser/subresource_filter:test_support",
       ":download",
       ":impl",
       ":test_support",
       "//base",
+      "//chrome/browser/subresource_filter:test_support",
       "//chrome/browser/ui:chrome_pages",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",

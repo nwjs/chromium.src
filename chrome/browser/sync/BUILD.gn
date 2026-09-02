@@ -19,8 +19,6 @@ source_set("sync") {
     "chrome_sync_controller_builder.h",
     "cross_device_theme_tracker_factory.cc",
     "cross_device_theme_tracker_factory.h",
-    "data_type_store_service_factory.cc",
-    "data_type_store_service_factory.h",
     "device_info_sync_client_impl.cc",
     "device_info_sync_client_impl.h",
     "device_info_sync_service_factory.cc",
@@ -88,6 +86,7 @@ source_set("sync") {
     "//components/paint_preview/buildflags",
   ]
   deps = [
+    ":data_type_store_service_factory",
     "//chrome/app:branded_strings",
     "//chrome/app:branded_strings_grit",
     "//chrome/app:generated_resources",
@@ -110,7 +109,6 @@ source_set("sync") {
     "//chrome/browser/metrics",
     "//chrome/browser/notebooks",
     "//chrome/browser/password_manager/factories",
-    "//chrome/browser/plus_addresses",
     "//chrome/browser/signin",
     "//chrome/browser/skills",
     "//chrome/browser/subscription_eligibility",
@@ -156,8 +154,6 @@ source_set("sync") {
     "//components/password_manager/core/browser/password_store:password_store_interface",
     "//components/password_manager/core/browser/sharing",
     "//components/performance_manager",
-    "//components/plus_addresses/core/browser/settings",
-    "//components/plus_addresses/core/browser/webdata",
     "//components/privacy_sandbox:privacy_sandbox_prefs",
     "//components/saved_tab_groups/public",
     "//components/send_tab_to_self",
@@ -215,6 +211,7 @@ source_set("sync") {
     deps += [
       "//chrome/android:chrome_jni_headers",
       "//chrome/browser/android:tabs_public",
+      "//chrome/browser/ntp_customization",
       "//chrome/browser/ntp_customization:jni_headers",
       "//chrome/browser/sync/android:jni_headers",
       "//chrome/browser/tab",
@@ -295,19 +292,15 @@ source_set("sync") {
       "//chrome/browser/ash/login/session",
     ]
   }
-
-  allow_circular_includes_from += [ "//chrome/browser/consent_auditor" ]
 }
 
 # Code that depends on this target must be linked into //chrome/browser:browser
 # to pick up the implementations. The reason for this target separation is
 # because KeyedServiceFactories mix the interface and implementation.
 source_set("factories") {
-  sources = [
-    "data_type_store_service_factory.h",
-    "sync_service_factory.h",
-  ]
+  sources = [ "sync_service_factory.h" ]
   public_deps = [
+    ":data_type_store_service_factory",
     "//base",
     "//chrome/browser/profiles",
     "//components/sync/engine",
@@ -353,6 +346,7 @@ source_set("unit_tests") {
     "//google_apis",
     "//testing/gmock",
     "//testing/gtest",
+    "//ui/webui:buildflags",
     "//url",
   ]
 
@@ -428,4 +422,15 @@ if (!is_android) {
       "//testing/gtest",
     ]
   }
+}
+
+source_set("data_type_store_service_factory") {
+  public = [ "data_type_store_service_factory.h" ]
+  sources = [ "data_type_store_service_factory.cc" ]
+  public_deps = [
+    "//base",
+    "//chrome/browser/profiles:profile",
+    "//components/sync/model",
+  ]
+  deps = [ "//components/keyed_service/content" ]
 }

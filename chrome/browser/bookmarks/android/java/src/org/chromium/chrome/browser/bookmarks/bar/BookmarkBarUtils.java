@@ -15,8 +15,13 @@ import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.bookmarks.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.flags.ChromeFeatureMap;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.components.bookmarks.BookmarkBarVisibilityState;
+import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.prefs.PrefChangeRegistrar.PrefObserver;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
@@ -96,15 +101,84 @@ public class BookmarkBarUtils {
 
     // LINT.ThenChange(/tools/metrics/histograms/metadata/bookmarks/enums.xml:BookmarkBarShownReason)
 
-    // Histogram names:
+    // LINT.IfChange(BookmarkBarSettingChangeOrigin)
+    /**
+     * Enum that defines the possible origins from which the bookmark bar visibility setting can be
+     * changed.
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+        BookmarkBarSettingChangeOrigin.KEYBOARD_SHORTCUT,
+        BookmarkBarSettingChangeOrigin.APPEARANCE_SETTINGS,
+        BookmarkBarSettingChangeOrigin.BOOKMARK_BAR_CONTEXT_MENU,
+        BookmarkBarSettingChangeOrigin.APP_MENU,
+    })
+    public @interface BookmarkBarSettingChangeOrigin {
+        int KEYBOARD_SHORTCUT = 0;
+        int APPEARANCE_SETTINGS = 1;
+        int BOOKMARK_BAR_CONTEXT_MENU = 2;
+        int APP_MENU = 3;
+        int NUM_ENTRIES = 4;
+    }
+
+    // LINT.ThenChange(/tools/metrics/histograms/metadata/bookmarks/enums.xml:BookmarkBarSettingChangeOrigin)
+
+    // LINT.IfChange(BookmarkBarVisibilityStateOnStartUpReason)
+    /**
+     * Enum that defines the possible reasons the bookmark bar may be shown or hidden when using the
+     * tri-state visibility preference. These values are persisted to logs. Entries should not be
+     * renumbered and numeric values should never be reused.
+     */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+        BookmarkBarVisibilityStateOnStartUpReason.UNKNOWN,
+        BookmarkBarVisibilityStateOnStartUpReason.ALWAYS_SHOW_BY_USER_PREF,
+        BookmarkBarVisibilityStateOnStartUpReason.ALWAYS_HIDE_BY_USER_PREF,
+        BookmarkBarVisibilityStateOnStartUpReason.ONLY_SHOW_ON_NTP_BY_USER_PREF,
+        BookmarkBarVisibilityStateOnStartUpReason.ALWAYS_SHOW_BY_DEVICE_PREF,
+        BookmarkBarVisibilityStateOnStartUpReason.ALWAYS_HIDE_BY_DEVICE_PREF,
+        BookmarkBarVisibilityStateOnStartUpReason.ONLY_SHOW_ON_NTP_BY_DEVICE_PREF,
+        BookmarkBarVisibilityStateOnStartUpReason.DEFAULT_DEVICE_VALUE,
+    })
+    public @interface BookmarkBarVisibilityStateOnStartUpReason {
+        int UNKNOWN = 0;
+        int ALWAYS_SHOW_BY_USER_PREF = 1;
+        int ALWAYS_HIDE_BY_USER_PREF = 2;
+        int ONLY_SHOW_ON_NTP_BY_USER_PREF = 3;
+        int ALWAYS_SHOW_BY_DEVICE_PREF = 4;
+        int ALWAYS_HIDE_BY_DEVICE_PREF = 5;
+        int ONLY_SHOW_ON_NTP_BY_DEVICE_PREF = 6;
+        int DEFAULT_DEVICE_VALUE = 7;
+        int NUM_ENTRIES = 8;
+    }
+
+    // LINT.ThenChange(/tools/metrics/histograms/metadata/bookmarks/enums.xml:BookmarkBarVisibilityStateOnStartUpReason)
+
+    // [v1] Histogram names:
     public static final String TOGGLED_IN_SETTINGS = "Bookmarks.BookmarkBar.ToggledInSettings";
     public static final String TOGGLED_BY_KEYBOARD_SHORTCUT =
             "Bookmarks.BookmarkBar.ToggledByKeyboardShortcut";
-    public static final String BOOKMARK_BAR_CLICK = "Bookmarks.BookmarkBar.Click";
     public static final String BOOKMARK_BAR_SHOWN_ON_START_UP =
             "Bookmarks.BookmarkBar.Android.ShownOnStartUp";
     public static final String BOOKMARK_BAR_SHOWN_ON_START_UP_REASON =
             "Bookmarks.BookmarkBar.Android.ShownOnStartUpReason";
+
+    // [v2] Histogram names:
+    public static final String TOGGLED_KEYBOARD = "Bookmarks.BookmarkBar.TriState.ToggledKeyboard";
+    public static final String TOGGLED_APPEARANCE_SETTINGS =
+            "Bookmarks.BookmarkBar.TriState.ToggledAppearanceSettings";
+    public static final String TOGGLED_CONTEXT_MENU =
+            "Bookmarks.BookmarkBar.TriState.ToggledContextMenu";
+    public static final String TOGGLED_APP_MENU = "Bookmarks.BookmarkBar.TriState.ToggledAppMenu";
+    public static final String VISIBILITY_STATE_CHANGE_ORIGIN =
+            "Bookmarks.BookmarkBar.TriState.VisibilityStateChangeOrigin";
+    public static final String VISIBILITY_STATE_ON_START_UP =
+            "Bookmarks.BookmarkBar.TriState.VisibilityStateOnStartUp";
+    public static final String VISIBILITY_STATE_ON_START_UP_REASON =
+            "Bookmarks.BookmarkBar.TriState.VisibilityStateOnStartUpReason";
+
+    // Common histogram names:
+    public static final String BOOKMARK_BAR_CLICK = "Bookmarks.BookmarkBar.Click";
 
     /** Whether the bookmark bar feature is forcibly allowed/disallowed for testing. */
     private static @Nullable Boolean sActivityStateBookmarkBarCompatibleForTesting;
@@ -122,6 +196,10 @@ public class BookmarkBarUtils {
     private static @Nullable Collection<PrefObserver> sSettingObserverCacheForTesting;
 
     private BookmarkBarUtils() {}
+
+    // ---------------------------------------------------------------------------------------------
+    // Shared logic for Bookmark Bar compatibility.
+    // ---------------------------------------------------------------------------------------------
 
     /**
      * Returns true if the current state is compatible with the Bookmark Bar. The Bookmark Bar
@@ -187,6 +265,10 @@ public class BookmarkBarUtils {
         return context.getResources().getBoolean(R.bool.bookmark_bar_allowed);
     }
 
+    // ---------------------------------------------------------------------------------------------
+    // Shared logic for Bookmark Bar current visibility state and visibility control.
+    // ---------------------------------------------------------------------------------------------
+
     /**
      * Returns true if the Bookmark Bar currently visible. The feature is visible when it is allowed
      * in the given context, and the show bookmark bar UserPref is enabled for the current user.
@@ -209,8 +291,8 @@ public class BookmarkBarUtils {
 
         // On Desktop, we sync with the UserPrefs.
         // On tablets we use the device preference logic (policy (pref service)  > local pref
-        // (shared pref) > FeatureParam).
-        return DeviceInfo.isDesktop()
+        // (shared pref)).
+        return shouldUseProfileUserPrefs()
                 ? isUserPrefsShowBookmarksBarEnabled(profile)
                 : isDevicePrefShowBookmarksBarEnabled(profile);
     }
@@ -223,82 +305,284 @@ public class BookmarkBarUtils {
      * @param fromKeyboardShortcut True if the change was triggered by a keyboard shortcut.
      */
     public static void toggleShowBookmarksBar(Profile profile, boolean fromKeyboardShortcut) {
-        if (DeviceInfo.isDesktop()) {
+        if (shouldUseProfileUserPrefs()) {
             toggleUserPrefsShowBookmarksBar(profile, fromKeyboardShortcut);
         } else {
             toggleDevicePrefShowBookmarksBar(profile, fromKeyboardShortcut);
         }
     }
 
+    // [v2] (Tri-state) Using the Pref.BOOKMARK_BAR_VISIBILITY_STATE preference or
+    // BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE.
+
     /**
-     * Returns whether the bookmark bar visibility is controlled by enterprise policy.
+     * Returns the current visibility state of the Bookmark Bar. The feature is visible when it is
+     * allowed in the given context, and the bookmark bar visibility state UserPref is set to a
+     * value that allows it to be enabled in the current context (determined by the caller). When on
+     * tablets, we do not use the UserPref and instead use the device preference.
+     *
+     * @param context The context in which compatibility should be assessed.
+     * @param profile The profile for which the user UserPref should be assessed.
+     * @param isXrFullSpaceMode Supplier for whether the device is in XR full space mode.
+     * @return Whether the Bookmark Bar is currently visible.
+     */
+    public static @BookmarkBarVisibilityState int getBookmarkBarVisibilityState(
+            Context context, @Nullable Profile profile, boolean isXrFullSpaceMode) {
+        // This should only be called if the tri-state feature flag is enabled.
+        assert ChromeFeatureMap.isEnabled(ChromeFeatureList.BOOKMARKS_BAR_NTP)
+                : "Tri-state visibility preference should not be used without feature flag.";
+
+        if (sBookmarkBarVisibleForTesting != null) {
+            return sBookmarkBarVisibleForTesting
+                    ? BookmarkBarVisibilityState.ALWAYS_SHOW
+                    : BookmarkBarVisibilityState.ALWAYS_HIDE;
+        }
+
+        // The bookmark bar is never visible in XR, so return a force hide value here.
+        if (isXrFullSpaceMode || !isActivityStateBookmarkBarCompatible(context)) {
+            return BookmarkBarVisibilityState.ALWAYS_HIDE;
+        }
+
+        // On Desktop, we sync with the UserPrefs.
+        // On tablets we use the device preference logic (policy (pref service)  > local pref
+        // (shared pref)).
+        return shouldUseProfileUserPrefs()
+                ? getUserPrefsBookmarkBarVisibilityState(profile)
+                : getDevicePrefBookmarkBarVisibilityState(profile);
+    }
+
+    /**
+     * Sets the visibility state of the bookmarks bar, automatically choosing between UserPrefs
+     * (Desktop) and Device preferences (Tablet) based on the device type.
+     *
+     * @param profile The profile for which the bookmarks bar visibility should be toggled.
+     * @param state The new visibility state for the bookmark bar.
+     * @param origin The origin from which the setting change was triggered.
+     */
+    public static void setBookmarkBarVisibilityState(
+            Profile profile,
+            @BookmarkBarVisibilityState int state,
+            @BookmarkBarSettingChangeOrigin int origin) {
+        // This should only be called if the tri-state feature flag is enabled.
+        assert ChromeFeatureMap.isEnabled(ChromeFeatureList.BOOKMARKS_BAR_NTP)
+                : "Tri-state visibility preference should not be used without feature flag.";
+
+        if (shouldUseProfileUserPrefs()) {
+            setUserPrefsBookmarkBarVisibilityState(profile, state, origin);
+        } else {
+            setDevicePrefBookmarkBarVisibilityState(state, origin);
+        }
+    }
+
+    /**
+     * Returns true if the Bookmark Bar should be visible based on the visibility state and the
+     * current state of the Tab. The feature is visible when it is allowed in the given context, and
+     * the bookmark bar visibility state UserPref or DevicePref is set to a value that allows it to
+     * be enabled in the current context. When set to ONLY_SHOW_ON_NTP, the visibility is evaluated
+     * against the active tab.
+     *
+     * @param context The context in which compatibility should be assessed.
+     * @param profile The profile for which the user UserPref should be assessed.
+     * @param isXrFullSpaceMode Supplier for whether the device is in XR full space mode.
+     * @param activeTab The currently active tab, if any.
+     * @return Whether the Bookmark Bar is currently visible.
+     */
+    public static boolean isBookmarkBarVisibleForState(
+            Context context,
+            @Nullable Profile profile,
+            boolean isXrFullSpaceMode,
+            @Nullable Tab activeTab) {
+        if (sBookmarkBarVisibleForTesting != null) {
+            return sBookmarkBarVisibleForTesting;
+        }
+
+        if (isXrFullSpaceMode || !isActivityStateBookmarkBarCompatible(context)) {
+            return false;
+        }
+
+        // On Desktop, we sync with the UserPrefs.
+        // On tablets we use the device preference logic (policy (pref service) > local pref
+        // (shared pref)).
+        @BookmarkBarVisibilityState
+        int visibilityState =
+                shouldUseProfileUserPrefs()
+                        ? getUserPrefsBookmarkBarVisibilityState(profile)
+                        : getDevicePrefBookmarkBarVisibilityState(profile);
+
+        if (visibilityState == BookmarkBarVisibilityState.ALWAYS_SHOW) {
+            return true;
+        } else if (visibilityState == BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP) {
+            return activeTab != null && UrlUtilities.isNtpUrl(activeTab.getUrl());
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Enterprise policy related methods for Bookmark Bar.
+    // ---------------------------------------------------------------------------------------------
+
+    // [v1] (Boolean) Using the Pref.SHOW_BOOKMARK_BAR preference.
+
+    /**
+     * Returns whether Pref.SHOW_BOOKMARK_BAR is controlled by an enterprise policy.
      *
      * @param profile The profile for which the policy should be assessed.
-     * @return Whether the bookmark bar visibility is managed by the policy.
+     * @return Whether Pref.SHOW_BOOKMARK_BAR is managed by the policy.
      */
-    public static boolean isBookmarkBarManagedByPolicy(@Nullable Profile profile) {
+    public static boolean isUserPrefsShowBookmarkBarManagedByPolicy(@Nullable Profile profile) {
         return profile != null
                 ? getPrefService(profile).isManagedPreference(Pref.SHOW_BOOKMARK_BAR)
                 : false;
     }
 
     /**
-     * Returns the value of the bookmark bar visibility if the bookmark bar visibility is managed by
-     * the enterprise policy.
-     *
-     * @param profile The profile for which the policy value should be retrieved.
-     * @return The policy's value for showing the bookmark bar.
-     */
-    public static boolean isBookmarkBarEnabledByPolicy(@Nullable Profile profile) {
-        assert isBookmarkBarManagedByPolicy(profile);
-        return profile != null ? getPrefService(profile).getBoolean(Pref.SHOW_BOOKMARK_BAR) : false;
-    }
-
-    /**
-     * Returns whether the bookmark bar visibility has a recommended value from a policy.
+     * Returns whether Pref.SHOW_BOOKMARK_BAR has a recommended value from a policy.
      *
      * @param profile The profile for which the policy should be assessed.
-     * @return Whether a recommended value exists for the bookmark bar visibility preference.
+     * @return Whether a recommended value exists for Pref.SHOW_BOOKMARK_BAR.
      */
-    public static boolean isBookmarkBarRecommended(@Nullable Profile profile) {
+    public static boolean isUserPrefsShowBookmarkBarRecommended(@Nullable Profile profile) {
         return profile != null
                 ? getPrefService(profile).hasRecommendation(Pref.SHOW_BOOKMARK_BAR)
                 : false;
     }
 
     /**
+     * Returns the recommended value of the policy for Pref.SHOW_BOOKMARK_BAR if one exists. This
+     * should only be called when the preference has a recommended value set by a policy.
+     *
+     * <p>Note: The recommended value of a policy is not accessible via a direct API call, so we
+     * deduce the value by comparing the UserPref value to whether or not the UserPref value is
+     * following the recommendation. If these values are equal, the recommended policy value is
+     * |true|.
+     *
+     * @param profile The profile for which the policy should be assessed.
+     * @return The recommended value of the policy for Pref.SHOW_BOOKMARK_BAR.
+     */
+    public static boolean getUserPrefsShowBookmarkBarRecommendedValue(@Nullable Profile profile) {
+        assert isUserPrefsShowBookmarkBarRecommended(profile)
+                : "Pref.SHOW_BOOKMARK_BAR has no policy configured with a recommended value";
+        return isUserPrefsShowBookmarksBarEnabled(profile)
+                == isUserPrefsShowBookmarkBarFollowingRecommendation(profile);
+    }
+
+    /**
      * Returns whether the user's current setting matches the recommended policy value. Should only
-     * be called when isBookmarkBarRecommended is true.
+     * be called when isUserPrefsShowBookmarkBarRecommended is true.
      *
      * @param profile The profile for which the policy should be assessed.
      * @return Whether the user's setting matches the recommended value.
      */
-    public static boolean isFollowingBookmarkBarRecommendation(@Nullable Profile profile) {
-        assert isBookmarkBarRecommended(profile);
+    public static boolean isUserPrefsShowBookmarkBarFollowingRecommendation(
+            @Nullable Profile profile) {
+        assert isUserPrefsShowBookmarkBarRecommended(profile);
         return profile != null
                 ? getPrefService(profile).isFollowingRecommendation(Pref.SHOW_BOOKMARK_BAR)
                 : false;
     }
 
+    // [v2] (Tri-state) Using the Pref.BOOKMARK_BAR_VISIBILITY_STATE preference.
+
     /**
-     * Returns whether the preference's value is currently sourced from a recommended policy. This
-     * occurs when a recommendation is active and the user has not set their own overriding value,
-     * effectively making the recommendation the default.
+     * Returns whether Pref.BOOKMARK_BAR_VISIBILITY_STATE is controlled by an enterprise policy.
      *
      * @param profile The profile for which the policy should be assessed.
-     * @return True if the preference is using the recommended value as its default.
+     * @return Whether Pref.BOOKMARK_BAR_VISIBILITY_STATE is managed by the policy.
      */
-    public static boolean isBookmarkBarValueFromRecommendation(@Nullable Profile profile) {
+    public static boolean isUserPrefsBookmarkBarVisibilityStateManagedByPolicy(
+            @Nullable Profile profile) {
         return profile != null
-                ? getPrefService(profile).isRecommendedPreference(Pref.SHOW_BOOKMARK_BAR)
+                ? getPrefService(profile).isManagedPreference(Pref.BOOKMARK_BAR_VISIBILITY_STATE)
                 : false;
     }
 
+    /**
+     * Returns whether Pref.BOOKMARK_BAR_VISIBILITY_STATE has a recommended value from a policy.
+     *
+     * @param profile The profile for which the policy should be assessed.
+     * @return Whether a recommended value exists for Pref.BOOKMARK_BAR_VISIBILITY_STATE.
+     */
+    public static boolean isUserPrefsBookmarkBarVisibilityStateRecommended(
+            @Nullable Profile profile) {
+        return profile != null
+                ? getPrefService(profile).hasRecommendation(Pref.BOOKMARK_BAR_VISIBILITY_STATE)
+                : false;
+    }
+
+    /**
+     * Returns the recommended value of the policy for Pref.BOOKMARK_BAR_VISIBILITY_STATE if one
+     * exists. This should only be called when the preference has a recommended value set by a
+     * policy.
+     *
+     * <p>Note: The recommended value of a policy is not accessible via a direct API call, so we
+     * deduce the value by comparing the UserPref value to whether or not the UserPref value is
+     * following the recommendation. However, this Pref has 3 states but only 2 can be recommended
+     * by the policy. If the profile's UserPref option is set to the |ONLY_SHOW_ON_NTP| option, we
+     * cannot deduce the policy's recommended value, so we return ALWAYS_HIDE for now.
+     *
+     * @param profile The profile for which the policy should be assessed.
+     * @return The recommended value of the policy for Pref.BOOKMARK_BAR_VISIBILITY_STATE.
+     */
+    public static @BookmarkBarVisibilityState int
+            getUserPrefsBookmarkBarVisibilityStateRecommendedValue(@Nullable Profile profile) {
+        assert isUserPrefsBookmarkBarVisibilityStateRecommended(profile)
+                : "Pref.BOOKMARK_BAR_VISIBILITY_STATE has no policy configured with a recommended"
+                        + " value";
+        boolean isFollowing = isUserPrefsBookmarkBarVisibilityStateFollowingRecommendation(profile);
+        @BookmarkBarVisibilityState
+        int currentValue = getUserPrefsBookmarkBarVisibilityState(profile);
+
+        // If the user is following the recommendation, their current value IS the recommended
+        // value.
+        if (isFollowing) {
+            return currentValue;
+        }
+
+        // Since the user is not following the recommendation, the recommended value is the opposite
+        // of whatever they currently have active (since policy only recommends SHOW or HIDE).
+        switch (currentValue) {
+            case BookmarkBarVisibilityState.ALWAYS_HIDE:
+                return BookmarkBarVisibilityState.ALWAYS_SHOW;
+
+            case BookmarkBarVisibilityState.ALWAYS_SHOW:
+                return BookmarkBarVisibilityState.ALWAYS_HIDE;
+
+            case BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP:
+            default:
+                // We can't deduce the policy value here. By definition the user is not following
+                // the recommended value since ONLY_SHOW_ON_NTP is not an option for policy
+                // recommendation, but we can't tell in what way they are not following the
+                // recommendation and will choose to return ALWAYS_HIDE as a default guess.
+                // TODO(crbug.com/544112043): Find alt way to deduce value or add a new Prefs API.
+                return BookmarkBarVisibilityState.ALWAYS_HIDE;
+        }
+    }
+
+    /**
+     * Returns whether the user's current setting matches the recommended policy value. Should only
+     * be called when isUserPrefsBookmarkBarVisibilityStateRecommended is true.
+     *
+     * @param profile The profile for which the policy should be assessed.
+     * @return Whether the user's setting matches the recommended value.
+     */
+    public static boolean isUserPrefsBookmarkBarVisibilityStateFollowingRecommendation(
+            @Nullable Profile profile) {
+        assert isUserPrefsBookmarkBarVisibilityStateRecommended(profile);
+        return profile != null
+                ? getPrefService(profile)
+                        .isFollowingRecommendation(Pref.BOOKMARK_BAR_VISIBILITY_STATE)
+                : false;
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // UserPrefs methods - used on Desktop.
+    // ---------------------------------------------------------------------------------------------
+
+    // [v1] (Boolean) Using the Pref.SHOW_BOOKMARK_BAR preference.
 
     /**
      * Returns whether the bookmark bar should be shown based on the current user's UserPrefs. Note:
-     * This is synced across devices for the user's profile.
+     * This is synced across devices for the user's profile via Pref.SHOW_BOOKMARK_BAR.
      *
      * @param profile The profile for which the UserPref should be assessed.
      * @return The user's current preference for showing the bookmark bar.
@@ -311,10 +595,11 @@ public class BookmarkBarUtils {
     }
 
     /**
-     * Sets whether the bookmark bar user setting is currently enabled.
+     * Sets the value of the UserPref Pref.SHOW_BOOKMARK_BAR for the current user.
      *
      * @param profile The profile for which the user setting should be set.
      * @param enabled Whether the user setting should be set to enabled/disabled.
+     * @param fromKeyboardShortcut True if the change was triggered by a keyboard shortcut.
      */
     public static void setUserPrefsShowBookmarksBar(
             Profile profile, boolean enabled, boolean fromKeyboardShortcut) {
@@ -324,9 +609,10 @@ public class BookmarkBarUtils {
     }
 
     /**
-     * Toggles the value of the show bookmarks bar UserPref for the current user.
+     * Toggles the value of the UserPref Pref.SHOW_BOOKMARK_BAR for the current user.
      *
      * @param profile The profile for which the UserPref should be toggled.
+     * @param fromKeyboardShortcut True if the change was triggered by a keyboard shortcut.
      */
     private static void toggleUserPrefsShowBookmarksBar(
             Profile profile, boolean fromKeyboardShortcut) {
@@ -336,85 +622,116 @@ public class BookmarkBarUtils {
                 fromKeyboardShortcut);
     }
 
+    // [v2] (Tri-state) Using the Pref.BOOKMARK_BAR_VISIBILITY_STATE preference.
+
+    /**
+     * Returns the visibility state of the bookmark bar based on the current user's UserPrefs. Note:
+     * This is synced across devices for the user's profile via Pref.BOOKMARK_BAR_VISIBILITY_STATE.
+     *
+     * @param profile The profile for which the UserPref should be assessed.
+     * @return The user's current preference for the bookmark bar visibility state.
+     */
+    public static @BookmarkBarVisibilityState int getUserPrefsBookmarkBarVisibilityState(
+            @Nullable Profile profile) {
+        return profile != null
+                ? getPrefService(profile).getInteger(Pref.BOOKMARK_BAR_VISIBILITY_STATE)
+                : BookmarkBarVisibilityState.ALWAYS_HIDE;
+    }
+
+    /**
+     * Sets the value of the UserPref Pref.BOOKMARK_BAR_VISIBILITY_STATE for the current user.
+     *
+     * @param profile The profile for which the user setting should be set.
+     * @param state The new state for the visibility state of the bookmarks bar.
+     * @param origin The origin from which the setting change was triggered.
+     */
+    public static void setUserPrefsBookmarkBarVisibilityState(
+            Profile profile,
+            @BookmarkBarVisibilityState int state,
+            @BookmarkBarSettingChangeOrigin int origin) {
+        recordBookmarkBarVisibilityStateToggled(state, origin);
+        getPrefService(profile).setInteger(Pref.BOOKMARK_BAR_VISIBILITY_STATE, state);
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Device preferences methods - used on tablets.
+    // ---------------------------------------------------------------------------------------------
+
+    // [v1] (Boolean) Using BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR key.
 
     /**
      * Returns whether or not the bookmark bar should be shown based on the local device
      * preferences, while respecting enterprise policies. This is only used on tablets, where
-     * bookmarks bar does not sync with the user's desktop preference, but is instead stored locally
-     * on device.
+     * bookmarks bar does not sync with the user's Desktop preference, but is instead stored locally
+     * on device with the key: BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR.
      *
      * <p>This method establishes a priority for which value to return:
      *
      * <ol>
      *   <li>A mandatory enterprise policy.
-     *   <li>A recommended enterprise policy, if the user has not made an explicit choice.
      *   <li>The user's explicit local choice from SharedPreferences.
-     *   <li>The system default (controlled by a feature flag).
+     *   <li>The recommended enterprise policy.
+     *   <li>The system default (false, i.e. bookmark bar hidden).
      * </ol>
      *
      * <p>Note: When a user has not previously set the device preference, the default return value
-     * is currently controlled by a FeatureParam for testing.
+     * is false (i.e. bookmark bar hidden).
      *
      * @param profile The profile for which policies should be assessed.
      * @return Whether or not the bookmarks bar should be shown based on device preference.
      */
     public static boolean isDevicePrefShowBookmarksBarEnabled(@Nullable Profile profile) {
-        // Highest priority: Mandatory policy (checks pref service).
-        if (isBookmarkBarManagedByPolicy(profile)) {
-            return isBookmarkBarEnabledByPolicy(profile);
-        }
-
-        // Returns true if the value is currently set to the recommended value AND and the user has
-        // not yet set an overriding value in PrefService for this session. Note that in the
-        // PrefService hierarchy, the user's overridden value takes priority over the recommended
-        // value.
-        if (isBookmarkBarValueFromRecommendation(profile)) {
+        // 1. Mandatory policy (must be obeyed).
+        if (isUserPrefsShowBookmarkBarManagedByPolicy(profile)) {
             return isUserPrefsShowBookmarksBarEnabled(profile);
         }
 
-        // Fallback: If no policies are active (or the user has overridden the recommendation), then
-        // we respect the user's local choice.
-        // If a user has set the show bookmarks bar setting explicitly, then we will use that value.
-        // If the user has never set the preference, then we will return a default, which is
-        // currently false.
-        return hasUserSetDevicePrefShowBookmarksBar()
-                && ContextUtils.getAppSharedPreferences()
-                        .getBoolean(BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR, false);
+        // 2. Local explicit override (takes precedence over recommendations and defaults).
+        if (hasUserSetDevicePrefShowBookmarksBar()) {
+            return ContextUtils.getAppSharedPreferences()
+                    .getBoolean(BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR, false);
+        }
+
+        // 3. Recommended policy value (if it exists).
+        if (isUserPrefsShowBookmarkBarRecommended(profile)) {
+            return getUserPrefsShowBookmarkBarRecommendedValue(profile);
+        }
+
+        // 4. Default fallback for when there is no policy or explicit user choice.
+        return false;
     }
 
     /**
      * Set whether the bookmark bar should be shown at a device preferences level. This is only used
-     * on tablets, where bookmarks bar does not sync with the user's desktop preference, but is
-     * instead stored locally on the device.
+     * on tablets, where bookmarks bar does not sync with the user's Desktop preference, but is
+     * instead stored locally on the device with the key:
+     * BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR
      *
-     * <p>This writes the value to two places: 1. Locally to SharedPreferences to preserve the
-     * non-syncing behavior for tablets. 2. To the profile's PrefService to ensure the user's choice
-     * correctly overrides any recommended policies.
+     * <p>This writes the value locally to SharedPreferences to preserve the non-syncing behavior
+     * for tablets. Local overrides do not need to be propagated to the profile's PrefService.
      *
-     * @param profile The profile for which the policy system should be updated.
      * @param enabled The new device preference for enabling the bookmark bar.
      * @param fromKeyboardShortcut True if the change was triggered by a keyboard shortcut.
      */
     public static void setDevicePrefShowBookmarksBar(
-            Profile profile, boolean enabled, boolean fromKeyboardShortcut) {
+            boolean enabled, boolean fromKeyboardShortcut) {
+        RecordHistogram.recordBooleanHistogram(
+                fromKeyboardShortcut ? TOGGLED_BY_KEYBOARD_SHORTCUT : TOGGLED_IN_SETTINGS, enabled);
 
-        // Write to SharedPreferences to save the user's local choice.
         ContextUtils.getAppSharedPreferences()
                 .edit()
                 .putBoolean(BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR, enabled)
                 .apply();
-
-        // Also write to PrefService to update the policy system.
-        setUserPrefsShowBookmarksBar(profile, enabled, fromKeyboardShortcut);
     }
 
     /**
      * Returns true when the user has previously set the visibility of the bookmarks bar explicitly
      * at the device preference level. This is only used on tablets, where bookmarks bar does not
-     * sync with the user's desktop preference, but is instead stored locally on the device.
+     * sync with the user's Desktop preference, but is instead stored locally on the device with the
+     * key: BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR.
      *
-     * @return Whether the user has set show bookmarks bar device preference manually.
+     * @return Whether the user has set the BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR
+     *     device preference manually.
      */
     public static boolean hasUserSetDevicePrefShowBookmarksBar() {
         return ContextUtils.getAppSharedPreferences()
@@ -422,16 +739,129 @@ public class BookmarkBarUtils {
     }
 
     /**
-     * Toggles the value of the show bookmarks bar device preference, this is stored locally and
-     * only used on tablets, correctly interacting with enterprise policies.
+     * Toggles the value of the BookmarkBarConstants.BOOKMARK_BAR_SHOW_BOOKMARK_BAR device
+     * preference, this is stored locally and only used on tablets, correctly interacting with
+     * enterprise policies.
+     *
+     * @param profile The profile for which policies should be assessed.
+     * @param fromKeyboardShortcut True if the change was triggered by a keyboard shortcut.
      */
     private static void toggleDevicePrefShowBookmarksBar(
             Profile profile, boolean fromKeyboardShortcut) {
         setDevicePrefShowBookmarksBar(
-                profile, !isDevicePrefShowBookmarksBarEnabled(profile), fromKeyboardShortcut);
+                !isDevicePrefShowBookmarksBarEnabled(profile), fromKeyboardShortcut);
     }
 
+    // [v2] (Tri-state) Using BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE key.
+
+    /**
+     * Returns the visibility state of the bookmark bar based on the local device preferences, while
+     * respecting enterprise policies. This is only used on tablets, where bookmarks bar does not
+     * sync with the user's Desktop preference, but is instead stored locally on device with the
+     * key: BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE.
+     *
+     * <p>This method establishes a priority for which value to return:
+     *
+     * <ol>
+     *   <li>A mandatory enterprise policy.
+     *   <li>The user's explicit local choice from SharedPreferences.
+     *   <li>The recommended enterprise policy.
+     *   <li>The system default (BookmarkBarVisibilityState.ALWAYS_HIDE).
+     * </ol>
+     *
+     * <p>Note: When a user has not previously set the device preference, the default return value
+     * is BookmarkBarVisibilityState.ALWAYS_HIDE.
+     *
+     * @param profile The profile for which policies should be assessed.
+     * @return The visibility state of the bookmarks bar based on device preference.
+     */
+    public static @BookmarkBarVisibilityState int getDevicePrefBookmarkBarVisibilityState(
+            @Nullable Profile profile) {
+        if (isUserPrefsBookmarkBarVisibilityStateManagedByPolicy(profile)) {
+            return getUserPrefsBookmarkBarVisibilityState(profile);
+        }
+
+        if (hasUserSetDevicePrefBookmarkBarVisibilityState()) {
+            return ContextUtils.getAppSharedPreferences()
+                    .getInt(
+                            BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE,
+                            BookmarkBarVisibilityState.ALWAYS_HIDE);
+        }
+
+        if (isUserPrefsBookmarkBarVisibilityStateRecommended(profile)) {
+            return getUserPrefsBookmarkBarVisibilityStateRecommendedValue(profile);
+        }
+
+        return BookmarkBarVisibilityState.ALWAYS_HIDE;
+    }
+
+    /**
+     * Set whether the bookmark bar should be shown at a device preferences level. This is only used
+     * on tablets, where bookmarks bar does not sync with the user's Desktop preference, but is
+     * instead stored locally on the device with the key:
+     * BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE.
+     *
+     * <p>This writes the value locally to SharedPreferences to preserve the non-syncing behavior
+     * for tablets. Local overrides do not need to be propagated to the profile's PrefService.
+     *
+     * @param state The new device preference for the visibility state of the bookmark bar.
+     * @param origin The origin from which the setting change was triggered.
+     */
+    public static void setDevicePrefBookmarkBarVisibilityState(
+            @BookmarkBarVisibilityState int state, @BookmarkBarSettingChangeOrigin int origin) {
+        recordBookmarkBarVisibilityStateToggled(state, origin);
+        ContextUtils.getAppSharedPreferences()
+                .edit()
+                .putInt(BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE, state)
+                .apply();
+    }
+
+    /**
+     * Returns true when the user has previously set the visibility of the bookmarks bar explicitly
+     * at the device preference level. This is only used on tablets, where bookmarks bar does not
+     * sync with the user's Desktop preference, but is instead stored locally on the device with the
+     * key: BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE.
+     *
+     * @return Whether the user has set the
+     *     BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE device preference
+     *     manually.
+     */
+    public static boolean hasUserSetDevicePrefBookmarkBarVisibilityState() {
+        return ContextUtils.getAppSharedPreferences()
+                .contains(BookmarkBarConstants.BOOKMARK_BAR_BOOKMARK_BAR_VISIBILITY_STATE);
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Metrics recording, helper methods, testing methods, etc.
+    // ---------------------------------------------------------------------------------------------
+
     // Histogram recording methods.
+
+    private static void recordBookmarkBarVisibilityStateToggled(
+            @BookmarkBarVisibilityState int state, @BookmarkBarSettingChangeOrigin int origin) {
+        RecordHistogram.recordEnumeratedHistogram(
+                VISIBILITY_STATE_CHANGE_ORIGIN, origin, BookmarkBarSettingChangeOrigin.NUM_ENTRIES);
+        switch (origin) {
+            case BookmarkBarSettingChangeOrigin.KEYBOARD_SHORTCUT:
+                RecordHistogram.recordEnumeratedHistogram(
+                        TOGGLED_KEYBOARD, state, BookmarkBarVisibilityState.MAX_VALUE + 1);
+                break;
+            case BookmarkBarSettingChangeOrigin.APPEARANCE_SETTINGS:
+                RecordHistogram.recordEnumeratedHistogram(
+                        TOGGLED_APPEARANCE_SETTINGS,
+                        state,
+                        BookmarkBarVisibilityState.MAX_VALUE + 1);
+                break;
+            case BookmarkBarSettingChangeOrigin.BOOKMARK_BAR_CONTEXT_MENU:
+                RecordHistogram.recordEnumeratedHistogram(
+                        TOGGLED_CONTEXT_MENU, state, BookmarkBarVisibilityState.MAX_VALUE + 1);
+                break;
+            case BookmarkBarSettingChangeOrigin.APP_MENU:
+                RecordHistogram.recordEnumeratedHistogram(
+                        TOGGLED_APP_MENU, state, BookmarkBarVisibilityState.MAX_VALUE + 1);
+                break;
+        }
+    }
 
     public static void recordClick(@BookmarkBarClickType int clickType) {
         RecordHistogram.recordEnumeratedHistogram(
@@ -477,7 +907,74 @@ public class BookmarkBarUtils {
         }
     }
 
+    public static void recordStartUpMetricsForVisibilityState(@Nullable Profile profile) {
+        @BookmarkBarVisibilityState
+        int settingState =
+                shouldUseProfileUserPrefs()
+                        ? getUserPrefsBookmarkBarVisibilityState(profile)
+                        : getDevicePrefBookmarkBarVisibilityState(profile);
+
+        // Record if the Bookmark Bar is visible, but not in cases of an unselected default state.
+        if (shouldUseProfileUserPrefs() || hasUserSetDevicePrefBookmarkBarVisibilityState()) {
+            RecordHistogram.recordEnumeratedHistogram(
+                    VISIBILITY_STATE_ON_START_UP,
+                    settingState,
+                    BookmarkBarVisibilityState.MAX_VALUE + 1);
+        }
+
+        // Record the reason why the Bookmark Bar is visible (hidden) in this instance.
+        @BookmarkBarVisibilityStateOnStartUpReason int reason;
+        if (shouldUseProfileUserPrefs()) {
+            reason =
+                    switch (settingState) {
+                        case BookmarkBarVisibilityState.ALWAYS_SHOW ->
+                                BookmarkBarVisibilityStateOnStartUpReason.ALWAYS_SHOW_BY_USER_PREF;
+                        case BookmarkBarVisibilityState.ALWAYS_HIDE ->
+                                BookmarkBarVisibilityStateOnStartUpReason.ALWAYS_HIDE_BY_USER_PREF;
+                        case BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP ->
+                                BookmarkBarVisibilityStateOnStartUpReason
+                                        .ONLY_SHOW_ON_NTP_BY_USER_PREF;
+                        default -> BookmarkBarVisibilityStateOnStartUpReason.UNKNOWN;
+                    };
+        } else {
+            if (hasUserSetDevicePrefBookmarkBarVisibilityState()) {
+                reason =
+                        switch (settingState) {
+                            case BookmarkBarVisibilityState.ALWAYS_SHOW ->
+                                    BookmarkBarVisibilityStateOnStartUpReason
+                                            .ALWAYS_SHOW_BY_DEVICE_PREF;
+                            case BookmarkBarVisibilityState.ALWAYS_HIDE ->
+                                    BookmarkBarVisibilityStateOnStartUpReason
+                                            .ALWAYS_HIDE_BY_DEVICE_PREF;
+                            case BookmarkBarVisibilityState.ONLY_SHOW_ON_NTP ->
+                                    BookmarkBarVisibilityStateOnStartUpReason
+                                            .ONLY_SHOW_ON_NTP_BY_DEVICE_PREF;
+                            default -> BookmarkBarVisibilityStateOnStartUpReason.UNKNOWN;
+                        };
+            } else {
+                reason = BookmarkBarVisibilityStateOnStartUpReason.DEFAULT_DEVICE_VALUE;
+            }
+        }
+
+        RecordHistogram.recordEnumeratedHistogram(
+                VISIBILITY_STATE_ON_START_UP_REASON,
+                reason,
+                BookmarkBarVisibilityStateOnStartUpReason.NUM_ENTRIES);
+    }
+
     // Helper methods.
+
+    /**
+     * Returns whether the bookmark bar should use profile user preferences (synced across devices,
+     * e.g. Desktop) rather than local device preferences (e.g. tablet). This method should not be
+     * used in lieu of 'DeviceInfo.isDesktop().' Rather, it should only be used to determine syncing
+     * behavior for the bookmark bar visibility settings.
+     *
+     * @return True when the system should be using profile prefs.
+     */
+    public static boolean shouldUseProfileUserPrefs() {
+        return DeviceInfo.isDesktop();
+    }
 
     private static PrefService getPrefService(Profile profile) {
         return UserPrefs.get(profile.getOriginalProfile());

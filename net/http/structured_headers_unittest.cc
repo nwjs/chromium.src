@@ -44,24 +44,15 @@ TEST_P(StructuredHeadersLenientTest, TrailingDecimal) {
   EXPECT_DOUBLE_EQ(result->item.GetDecimal(), 1.0);
 }
 
-TEST_P(StructuredHeadersLenientTest, ByteSequenceUnpadded) {
-  // Legacy Quiche synthesizes padding if it's missing.
-  // Standard SH requires ":Zm9=:" for "foo" (3 bytes -> 4 chars).
-  // ":Zm9:" is 3 chars, legacy Quiche pads it to 4 and accepts it.
-  std::optional<ParameterizedItem> result = ParseItem(":Zm9:");
-  ASSERT_TRUE(result.has_value());
-  EXPECT_TRUE(result->item.is_byte_sequence());
-  EXPECT_EQ(result->item.GetString(), "fo");
-}
-
 TEST_P(StructuredHeadersLenientTest, ByteSequenceWhitespace) {
   // Legacy Quiche/Abseil skips ASCII whitespace in byte sequences,
   // provided it doesn't interfere with the 4-byte block boundary checks
   // in its synthesized padding logic.
   std::optional<ParameterizedItem> result = ParseItem(": Zm9v   :");
   ASSERT_TRUE(result.has_value());
-  EXPECT_TRUE(result->item.is_byte_sequence());
-  EXPECT_EQ(result->item.GetString(), "foo");
+  const std::string* value = result->item.GetIfByteSequence();
+  ASSERT_TRUE(value);
+  EXPECT_EQ(*value, "foo");
 
   // Replicate Abseil's ascii_isspace behavior, which includes vertical tab
   // (0x0b). The raw length between colons must be a multiple of 4 so that
@@ -78,8 +69,9 @@ TEST_P(StructuredHeadersLenientTest, ByteSequenceDotAsPadding) {
   // Legacy Quiche pads to "Zm9.". Standard SH would require ":Zm9=:".
   std::optional<ParameterizedItem> result = ParseItem(":Zm9.:");
   ASSERT_TRUE(result.has_value());
-  EXPECT_TRUE(result->item.is_byte_sequence());
-  EXPECT_EQ(result->item.GetString(), "fo");
+  const std::string* value = result->item.GetIfByteSequence();
+  ASSERT_TRUE(value);
+  EXPECT_EQ(*value, "fo");
 }
 
 void ParseItemParity(const std::string_view input) {

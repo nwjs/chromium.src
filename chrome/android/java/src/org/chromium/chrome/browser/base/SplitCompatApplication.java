@@ -48,6 +48,7 @@ import org.chromium.components.crash.PureJavaExceptionHandler;
 import org.chromium.components.crash.PureJavaExceptionHandler.JavaExceptionReporter;
 import org.chromium.components.crash.PureJavaExceptionHandler.JavaExceptionReporterFactory;
 import org.chromium.components.module_installer.util.ModuleUtil;
+import org.chromium.components.policy.PolicyCache;
 import org.chromium.ui.base.ResourceBundle;
 
 import java.util.function.Supplier;
@@ -191,30 +192,28 @@ public class SplitCompatApplication extends Application {
                         }
                         throw unsatisfiedLinkError;
                     };
+
+            // These shared preference objects are needed later when we initialize the feature list.
+            // Constructing the objects now will kick start a background thread to read the relevant
+            // file on disk, which will speed up the feature list initialization later.
+            ContextUtils.getAppSharedPreferences();
+            PolicyCache.get().getSharedPreferences();
         }
 
         maybeInitProcessType();
         LibraryLoader.getInstance().setLinkerImplementation(ProductConfig.USE_CHROMIUM_LINKER);
         ResourceBundle.setAvailablePakLocales(ProductConfig.LOCALES);
 
-        // Renderer and GPU processes have command line passed to them via IPC
-        // (see ChildProcessService.java).
-        if (isBrowserProcess && ChromeFeatureList.sLoadNativeEarly.isEnabled()) {
+        if (isBrowserProcess) {
+            // Renderer and GPU processes have command line passed to them via IPC
+            // (see ChildProcessService.java).
             CommandLineInitUtil.initCommandLine(
                     COMMAND_LINE_FILE, SplitCompatApplication::shouldUseDebugFlags);
-        }
-
-        if (isBrowserProcess
-                && ChromeFeatureList.sLoadNativeEarly.isEnabled()
-                && ChromeFeatureList.sInitFeatureListEarly.getValue()) {
             PathUtils.setPrivateDataDirectorySuffix(PRIVATE_DATA_DIRECTORY_SUFFIX);
             // Register for activity lifecycle callbacks. Must be done before any activities are
             // created and is needed only by processes that use the ApplicationStatus api (which
             // for Chrome is just the browser process).
             ApplicationStatus.initialize(this);
-        }
-
-        if (isBrowserProcess) {
             performBrowserProcessPreloading(context);
         }
 
@@ -227,28 +226,8 @@ public class SplitCompatApplication extends Application {
             checkAppBeingReplaced();
             DexFixer.scheduleDexFix();
 
-            if (!ChromeFeatureList.sLoadNativeEarly.isEnabled()
-                    || !ChromeFeatureList.sInitFeatureListEarly.getValue()) {
-                PathUtils.setPrivateDataDirectorySuffix(PRIVATE_DATA_DIRECTORY_SUFFIX);
-            }
-
-            // Renderer and GPU processes have command line passed to them via IPC
-            // (see ChildProcessService.java).
-            if (!ChromeFeatureList.sLoadNativeEarly.isEnabled()) {
-                CommandLineInitUtil.initCommandLine(
-                        COMMAND_LINE_FILE, SplitCompatApplication::shouldUseDebugFlags);
-            }
-
             TraceEvent.maybeEnableEarlyTracing(/* readCommandLine= */ true);
             TraceEvent.begin(ATTACH_BASE_CONTEXT_EVENT);
-
-            // Register for activity lifecycle callbacks. Must be done before any activities are
-            // created and is needed only by processes that use the ApplicationStatus api (which
-            // for Chrome is just the browser process).
-            if (!ChromeFeatureList.sLoadNativeEarly.isEnabled()
-                    || !ChromeFeatureList.sInitFeatureListEarly.getValue()) {
-                ApplicationStatus.initialize(this);
-            }
 
             ColdStartTracker.initialize();
 
@@ -276,16 +255,13 @@ public class SplitCompatApplication extends Application {
         // actually be run for incremental apks, but not normal apks.
         if (!isIsolatedProcess && !isWebViewProcess()) {
             JavaExceptionReporterFactory factory =
-                    new JavaExceptionReporterFactory() {
-                        @Override
-                        public JavaExceptionReporter createJavaExceptionReporter() {
-                            // ChromePureJavaExceptionReporter may be in the chrome module, so load
-                            // by reflection from there.
-                            return (JavaExceptionReporter)
-                                    BundleUtils.newInstance(
-                                            "org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter",
-                                            CHROME_SPLIT_NAME);
-                        }
+                    () -> {
+                        // ChromePureJavaExceptionReporter may be in the chrome module, so load
+                        // by reflection from there.
+                        return (JavaExceptionReporter)
+                                BundleUtils.newInstance(
+                                        "org.chromium.chrome.browser.crash.ChromePureJavaExceptionReporter",
+                                        CHROME_SPLIT_NAME);
                     };
             PureJavaExceptionHandler.installHandler(factory);
             CustomAssertionHandler.installPreNativeHandler(factory);

@@ -110,7 +110,7 @@ bool IsValidCursorThemeName(std::string_view name) {
 }
 
 bool IsValidCursorThemeSize(int size) {
-  return size > 0 && size <= 512;
+  return size >= 0 && size <= 512;
 }
 
 // Returns a cursor name compatible with either X11 or the FreeDesktop.org

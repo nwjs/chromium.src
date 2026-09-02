@@ -33,6 +33,7 @@
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/views/style/platform_style.h"
 #include "ui/webui/resources/grit/webui_resources.h"
 #include "ui/webui/webui_util.h"
@@ -116,6 +117,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
        IDS_READING_MODE_LINE_FOCUS_ON_LABEL_SCREENREADER},
       {"turnHighlightOff", IDS_READING_MODE_TURN_HIGHLIGHT_OFF},
       {"turnHighlightOn", IDS_READING_MODE_TURN_HIGHLIGHT_ON},
+      {"lineFocusShortcutLabel", IDS_READING_MODE_LINE_FOCUS_SHORTCUT_LABEL},
       {"lineSpacingStandardTitle", IDS_READING_MODE_SPACING_COMBOBOX_STANDARD},
       {"lineSpacingLooseTitle", IDS_READING_MODE_SPACING_COMBOBOX_LOOSE},
       {"lineSpacingVeryLooseTitle",
@@ -195,6 +197,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"readingModeVoiceDownloadedMessage",
        IDS_READING_MODE_VOICE_DOWNLOADED_MESSAGE},
       {"menu", IDS_MENU},
+      {"newBadgeLabel", IDS_NEW_BADGE},
       {"selected", IDS_READING_MODE_ITEM_SELECTED},
       {"allocationError", IDS_READING_MODE_LANGUAGE_MENU_NO_SPACE},
       {"allocationErrorHighQuality",
@@ -209,6 +212,8 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"fullPageLabel", IDS_READING_MODE_VIEW_FULL_PAGE_LABEL},
       {"viewLabel", IDS_READING_MODE_VIEW_LABEL},
       {"linksLabel", IDS_READING_MODE_LINKS_LABEL},
+      {"aiPlaybackTurnOn", IDS_READING_MODE_AI_PLAYBACK_TURN_ON},
+      {"aiPlaybackTurnOff", IDS_READING_MODE_AI_PLAYBACK_TURN_OFF},
   };
   for (const auto& str : kLocalizedStrings) {
     webui::AddLocalizedString(source, str.name, str.id);
@@ -248,10 +253,6 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       "connect-src 'self' https://translate.googleapis.com "
       "https://translate.google.com;");
   source->OverrideContentSecurityPolicy(
-      network::mojom::CSPDirectiveName::ScriptSrc,
-      "script-src 'self' chrome-untrusted://resources "
-      "chrome-untrusted://webui-test;");
-  source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::StyleSrc,
       "style-src 'self' chrome-untrusted://resources chrome-untrusted://theme "
       "https://fonts.googleapis.com 'unsafe-inline';");
@@ -265,7 +266,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       "chrome-untrusted://resources;");
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::TrustedTypes,
-      "trusted-types reader-mode-policy lit-html-desktop "
+      "trusted-types goog#html reader-mode-policy lit-html-desktop "
       "static-types "
       "parse-html-subset polymer-html-literal "
       "polymer-template-event-attribute-policy;");

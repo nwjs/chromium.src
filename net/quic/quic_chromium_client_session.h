@@ -33,6 +33,7 @@
 #include "net/base/connection_migration_information.h"
 #include "net/base/ech_mode.h"
 #include "net/base/load_timing_info.h"
+#include "net/base/load_timing_internal_info.h"
 #include "net/base/net_error_details.h"
 #include "net/base/net_export.h"
 #include "net/base/network_handle.h"
@@ -137,6 +138,9 @@ enum QuicConnectionMigrationStatus {
   MIGRATION_STATUS_PATH_DEGRADING_BEFORE_HANDSHAKE_CONFIRMED,
   MIGRATION_STATUS_IDLE_MIGRATION_TIMEOUT,
   MIGRATION_STATUS_NO_UNUSED_CONNECTION_ID,
+  MIGRATION_STATUS_STATELESS_RESET,
+  MIGRATION_STATUS_DISCONNECTING,
+  MIGRATION_STATUS_CANCELED_BY_NEWER_VALIDATION,
   MIGRATION_STATUS_MAX
 };
 
@@ -173,20 +177,6 @@ enum class EcnPermutations {
   kNotEctEct1Ect0Ce = 15,
   kMaxValue = kNotEctEct1Ect0Ce,
 };
-
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-//
-// LINT.IfChange(MTCResult)
-enum class MTCResult {
-  kValidMTC = 0,
-  kInvalidMTC = 1,
-  kClassicalCertExpectedMTC = 2,
-  kClassicalCertOldClient = 3,
-  kClassicalCertUnknownLandmarkDelta = 4,
-  kMaxValue = kClassicalCertUnknownLandmarkDelta,
-};
-// LINT.ThenChange(//tools/metrics/histograms/metadata/net/enums.xml:MTCResult)
 
 class NET_EXPORT_PRIVATE QuicChromiumClientSession
     : public quic::QuicSpdyClientSessionBase,
@@ -311,6 +301,11 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
     // Returns the session's connection migration mode.
     ConnectionMigrationMode connection_migration_mode() const {
       return session_->connection_migration_mode();
+    }
+
+    QuicSessionEstablishmentReason quic_session_establishment_reason() const {
+      return session_ ? session_->quic_session_establishment_reason()
+                      : QuicSessionEstablishmentReason::kUnknown;
     }
 
     // Returns true if the session's connection has sent or received any bytes.
@@ -678,7 +673,8 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
       bool enable_origin_frame,
       bool allow_server_preferred_address,
       MultiplexedSessionCreationInitiator session_creation_initiator,
-      const NetLogWithSource& net_log);
+      const NetLogWithSource& net_log,
+      QuicSessionEstablishmentReason quic_session_establishment_reason);
 
   QuicChromiumClientSession(const QuicChromiumClientSession&) = delete;
   QuicChromiumClientSession& operator=(const QuicChromiumClientSession&) =
@@ -700,6 +696,14 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
   // Returns true if the connection was ever used to create a stream,
   // including cases where the stream creation failed.
   bool was_ever_used_to_create_streams() const;
+
+  QuicSessionEstablishmentReason quic_session_establishment_reason() const {
+    return quic_session_establishment_reason_;
+  }
+
+  MultiplexedSessionCreationInitiator session_creation_initiator() const {
+    return session_creation_initiator_;
+  }
 
   // Waits for the handshake to be confirmed and invokes |callback| when
   // that happens. If the handshake has already been confirmed, returns OK.
@@ -890,10 +894,9 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
     return session_alias_key_;
   }
 
-  // Attempts to migrate session when |writer| encounters a write error.
-  // If |writer| is no longer actively used, abort migration.
-  void MigrateSessionOnWriteError(int error_code,
-                                  quic::QuicPacketWriter* writer);
+  // Attempts to migrate session when writer with `writer_generation` encounters
+  // a write error. If the writer is no longer actively used, abort migration.
+  void MigrateSessionOnWriteError(int error_code, uint64_t writer_generation);
   // Called when the Migrate() call from MigrateSessionOnWriteError completes.
   // Always called asynchronously.
   void FinishMigrateSessionOnWriteError(handles::NetworkHandle new_network,
@@ -1115,6 +1118,7 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
                                        quic::QuicConnectionId connection_id,
                                        const char* reason);
   void HistogramAndLogMigrationSuccess(quic::QuicConnectionId connection_id);
+  void LogPathValidationFailure(QuicChromiumPathValidationContext* context);
 
   // Notifies the factory that this session is going away and no more streams
   // should be created from it.  This needs to be called before closing any
@@ -1202,6 +1206,9 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
 
   int most_recent_write_error_ = 0;
   base::TimeTicks most_recent_write_error_timestamp_;
+  // Generation counter for the packet writer on the connection, incremented
+  // whenever the connection writer changes during socket migration.
+  uint64_t packet_writer_generation_ = 0;
 
   std::unique_ptr<QuicCryptoClientConfigHandle> crypto_config_;
 
@@ -1293,6 +1300,8 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
 
   const MultiplexedSessionCreationInitiator session_creation_initiator_;
 
+  const QuicSessionEstablishmentReason quic_session_establishment_reason_;
+
   quic::QuicTagVector received_connection_options_;
 
   bool connection_migration_disabled_ = false;
@@ -1302,15 +1311,6 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
   bool enable_periodic_ping_ = false;
 
   bool crypto_handshake_complete_ = false;
-
-  // If the server supports MTCs, this is set to true in
-  // OnProofVerifyDetailsAvailable. A server is considered to support MTCs if
-  // either it sends an MTC in its Certificate message or if its trust_anchors
-  // extension (in EncryptedExtensions) contains a trust anchor ID corresponding
-  // to a known Merkle Tree Certificate CA.
-  //
-  // This is only used for metrics.
-  bool server_supports_mtc_tai_ = false;
 
   base::WeakPtrFactory<QuicChromiumClientSession> weak_factory_{this};
 };

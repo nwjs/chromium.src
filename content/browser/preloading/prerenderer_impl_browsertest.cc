@@ -7,6 +7,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "content/browser/preloading/prefetch/prefetch_document_manager.h"
 #include "content/browser/preloading/prefetch/prefetch_features.h"
 #include "content/browser/preloading/prefetch/prefetch_match_resolver.h"
 #include "content/browser/preloading/prefetch/prefetch_service.h"
@@ -20,6 +21,7 @@
 #include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/isolated_world_ids.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/content_browser_test.h"
@@ -227,6 +229,17 @@ class PrerendererImplBrowserTestNoPrefetchAhead
     feature_list_.InitWithFeatures(
         {}, {features::kPrerender2FallbackPrefetchSpecRules,
              blink::features::kLCPTimingPredictorPrerender2});
+  }
+};
+
+class PrerendererBackForwardCacheTest : public PrerendererImplBrowserTestBase {
+ public:
+  PrerendererBackForwardCacheTest() {
+    feature_list_.InitWithFeatures(
+        {features::kBackForwardCache,
+         features::kPrerender2FallbackPrefetchSpecRules},
+        {features::kBackForwardCacheMemoryControls,
+         blink::features::kLCPTimingPredictorPrerender2});
   }
 };
 
@@ -872,10 +885,29 @@ IN_PROC_BROWSER_TEST_P(PrerendererImplBrowserTestPrefetchAhead,
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
       PrerenderFinalStatus::kPrerenderFailedDuringPrefetch, 1);
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
-      "SpeculationRule",
-      PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchMatchResolverUnblockAsync)) {
+    // If `kPrefetchMatchResolverUnblockAsync` is disabled, here is reached just
+    // after `PrefetchMatchResolver::OnDeterminedHead()`. If
+    // `kPrefetchMatchResolverUnblockAsync` is enabled, it allows to invoke
+    // `PrefetchStreamingURLLoader::OnComplete()` (We guess that it depends on
+    // platforms.) and to update prefetch status.
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "Prerender.Experimental.PrefetchAheadOfPrerenderFailed."
+            "PrefetchStatus."
+            "SpeculationRule"),
+        testing::AnyOf(testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchFailedNetError, 1)),
+                       testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchNotFinishedInTime, 1))));
+
+  } else {
+    histogram_tester().ExpectUniqueSample(
+        "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
+        "SpeculationRule",
+        PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  }
 
   histogram_tester().ExpectUniqueSample(
       "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
@@ -963,10 +995,29 @@ IN_PROC_BROWSER_TEST_P(
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
       PrerenderFinalStatus::kPrerenderFailedDuringPrefetch, 1);
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
-      "SpeculationRule",
-      PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchMatchResolverUnblockAsync)) {
+    // If `kPrefetchMatchResolverUnblockAsync` is disabled, here is reached just
+    // after `PrefetchMatchResolver::OnDeterminedHead()`. If
+    // `kPrefetchMatchResolverUnblockAsync` is enabled, it allows to invoke
+    // `PrefetchStreamingURLLoader::OnComplete()` (We guess that it depends on
+    // platforms.) and to update prefetch status.
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "Prerender.Experimental.PrefetchAheadOfPrerenderFailed."
+            "PrefetchStatus."
+            "SpeculationRule"),
+        testing::AnyOf(testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchFailedNetError, 1)),
+                       testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchNotFinishedInTime, 1))));
+
+  } else {
+    histogram_tester().ExpectUniqueSample(
+        "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
+        "SpeculationRule",
+        PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  }
 
   histogram_tester().ExpectUniqueSample(
       "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
@@ -1011,33 +1062,85 @@ IN_PROC_BROWSER_TEST_P(
       "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
       "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaop",
       true, 1);
-  histogram_tester().ExpectUniqueSample(
-      "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
-      "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
-      "PrefetchStatus",
-      PrefetchStatus::kPrefetchNotFinishedInTime, 1);
-  histogram_tester().ExpectUniqueSample(
-      "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
-      "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
-      "ServableStateAndMatcherAction",
-      // 4 = PrefetchServableState::kNotServable
-      // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
-      // 8 =
-      // PrefetchMatchResolverAction::ActionReason::kFailedDeterminedHead
-      // 1 = is_expired == false
-      4181, 1);
-  histogram_tester().ExpectUniqueSample(
-      "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
-      "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
-      "PotentialCandidateServingResultAndServableStateAndMatcherAction",
-      // 12 =
-      // PrefetchPotentialCandidateServingResult::kNotServedLoadFailed
-      // 4 = PrefetchServableState::kNotServable
-      // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
-      // 8 =
-      // PrefetchMatchResolverAction::ActionReason::kFailedDeterminedHead
-      // 1 = is_expired == false
-      124181, 1);
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchMatchResolverUnblockAsync)) {
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
+            "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
+            "PrefetchStatus"),
+        testing::AnyOf(testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchFailedNetError, 1)),
+                       testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchNotFinishedInTime, 1))));
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
+            "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
+            "ServableStateAndMatcherAction"),
+        testing::AnyOf(
+            // 4 = PrefetchServableState::kNotServable
+            // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
+            // 8 =
+            // PrefetchMatchResolverAction::ActionReason::kFailedDeterminedHead
+            // 1 = is_expired == false
+            testing::ElementsAre(base::Bucket(4181, 1)),
+            // 4 = PrefetchServableState::kNotServable
+            // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
+            // 9 =
+            // PrefetchMatchResolverAction::ActionReason::kFailed
+            // 1 = is_expired == false
+            testing::ElementsAre(base::Bucket(4191, 1))));
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
+            "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
+            "PotentialCandidateServingResultAndServableStateAndMatcherAction"),
+        testing::AnyOf(
+            // 12 =
+            // PrefetchPotentialCandidateServingResult::kNotServedLoadFailed
+            // 4 = PrefetchServableState::kNotServable
+            // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
+            // 8 =
+            // PrefetchMatchResolverAction::ActionReason::kFailedDeterminedHead
+            // 1 = is_expired == false
+            testing::ElementsAre(base::Bucket(124181, 1)),
+            // 12 =
+            // PrefetchPotentialCandidateServingResult::kNotServedLoadFailed
+            // 4 = PrefetchServableState::kNotServable
+            // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
+            // 9 =
+            // PrefetchMatchResolverAction::ActionReason::kFailed
+            // 1 = is_expired == false
+            testing::ElementsAre(base::Bucket(124191, 1))));
+  } else {
+    histogram_tester().ExpectUniqueSample(
+        "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
+        "SpeculationRule",
+        PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+    histogram_tester().ExpectUniqueSample(
+        "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
+        "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
+        "ServableStateAndMatcherAction",
+        // 4 = PrefetchServableState::kNotServable
+        // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
+        // 8 =
+        // PrefetchMatchResolverAction::ActionReason::kFailedDeterminedHead
+        // 1 = is_expired == false
+        4181, 1);
+    histogram_tester().ExpectUniqueSample(
+        "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
+        "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen."
+        "PotentialCandidateServingResultAndServableStateAndMatcherAction",
+        // 12 =
+        // PrefetchPotentialCandidateServingResult::kNotServedLoadFailed
+        // 4 = PrefetchServableState::kNotServable
+        // 1 = PrefetchMatchResolverAction::ActionKind::kDrop
+        // 8 =
+        // PrefetchMatchResolverAction::ActionReason::kFailedDeterminedHead
+        // 1 = is_expired == false
+        124181, 1);
+  }
   histogram_tester().ExpectUniqueSample(
       "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
       "FallbackAborted.Match0.PrefetchMatchMetrics.ExistsPaopThen.QueueSize",
@@ -1260,10 +1363,29 @@ IN_PROC_BROWSER_TEST_P(PrerendererImplBrowserTestPrefetchAhead,
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
       PrerenderFinalStatus::kPrerenderFailedDuringPrefetch, 1);
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
-      "SpeculationRule",
-      PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchMatchResolverUnblockAsync)) {
+    // If `kPrefetchMatchResolverUnblockAsync` is disabled, here is reached just
+    // after `PrefetchMatchResolver::OnDeterminedHead()`. If
+    // `kPrefetchMatchResolverUnblockAsync` is enabled, it allows to invoke
+    // `PrefetchStreamingURLLoader::OnComplete()` (We guess that it depends on
+    // platforms.) and to update prefetch status.
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "Prerender.Experimental.PrefetchAheadOfPrerenderFailed."
+            "PrefetchStatus."
+            "SpeculationRule"),
+        testing::AnyOf(testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchFailedNetError, 1)),
+                       testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchNotFinishedInTime, 1))));
+
+  } else {
+    histogram_tester().ExpectUniqueSample(
+        "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
+        "SpeculationRule",
+        PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  }
 
   histogram_tester().ExpectUniqueSample(
       "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
@@ -1405,10 +1527,29 @@ IN_PROC_BROWSER_TEST_P(PrerendererImplBrowserTestPrefetchAhead,
   histogram_tester().ExpectUniqueSample(
       "Prerender.Experimental.PrerenderHostFinalStatus.SpeculationRule",
       PrerenderFinalStatus::kPrerenderFailedDuringPrefetch, 1);
-  histogram_tester().ExpectUniqueSample(
-      "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
-      "SpeculationRule",
-      PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  if (base::FeatureList::IsEnabled(
+          features::kPrefetchMatchResolverUnblockAsync)) {
+    // If `kPrefetchMatchResolverUnblockAsync` is disabled, here is reached just
+    // after `PrefetchMatchResolver::OnDeterminedHead()`. If
+    // `kPrefetchMatchResolverUnblockAsync` is enabled, it allows to invoke
+    // `PrefetchStreamingURLLoader::OnComplete()` (We guess that it depends on
+    // platforms.) and to update prefetch status.
+    EXPECT_THAT(
+        histogram_tester().GetAllSamples(
+            "Prerender.Experimental.PrefetchAheadOfPrerenderFailed."
+            "PrefetchStatus."
+            "SpeculationRule"),
+        testing::AnyOf(testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchFailedNetError, 1)),
+                       testing::ElementsAre(base::Bucket(
+                           PrefetchStatus::kPrefetchNotFinishedInTime, 1))));
+
+  } else {
+    histogram_tester().ExpectUniqueSample(
+        "Prerender.Experimental.PrefetchAheadOfPrerenderFailed.PrefetchStatus."
+        "SpeculationRule",
+        PrefetchStatus::kPrefetchNotFinishedInTime, 1);
+  }
 
   histogram_tester().ExpectUniqueSample(
       "PreloadServingMetrics.ForPrerenderInitialNavigationFailed."
@@ -1643,6 +1784,42 @@ IN_PROC_BROWSER_TEST_P(PrerendererImplBrowserTestPrefetchAhead,
       // Normal navigation.
       {.path = "/title1.html", .sec_purpose_header_value = ""}};
   ASSERT_EQ(expected, GetObservedRequests());
+}
+
+// Tests that PrerendererImpl::MaybePrerender ignores candidates from an
+// inactive frame in the back/forward cache.
+IN_PROC_BROWSER_TEST_F(PrerendererBackForwardCacheTest,
+                       MaybePrerenderIgnoredWhenInactive) {
+  EXPECT_TRUE(NavigateToURL(shell(), GetUrl("/empty.html")));
+  RenderFrameHostImpl* rfh_a = static_cast<RenderFrameHostImpl*>(
+      web_contents_impl().GetPrimaryMainFrame());
+  const GlobalRenderFrameHostId rfh_id = rfh_a->GetGlobalId();
+  PrerendererImpl& prerenderer_a = GetPrerendererImpl();
+
+  // Navigate away so that rfh_a enters the back/forward cache.
+  EXPECT_TRUE(NavigateToURL(shell(), GetCrossSiteUrl("/empty.html")));
+  rfh_a = static_cast<RenderFrameHostImpl*>(RenderFrameHost::FromID(rfh_id));
+  EXPECT_TRUE(rfh_a);
+  if (!rfh_a) {
+    return;
+  }
+  EXPECT_TRUE(rfh_a->IsInLifecycleState(
+      RenderFrameHost::LifecycleState::kInBackForwardCache));
+  EXPECT_FALSE(rfh_a->IsActive());
+
+  const GURL prerender_url = GetCrossSiteUrl("/title1.html");
+  blink::mojom::SpeculationCandidatePtr candidate =
+      CreateSpeculationCandidate(prerender_url);
+
+  PreloadingPredictor enacting_predictor = GetPredictorForPreloadingTriggerType(
+      PreloadingTriggerType::kSpeculationRule);
+  EXPECT_FALSE(prerenderer_a.MaybePrerender(candidate, enacting_predictor,
+                                            PreloadingConfidence{100}));
+
+  RenderFrameHostImpl* rfh_b = static_cast<RenderFrameHostImpl*>(
+      web_contents_impl().GetPrimaryMainFrame());
+  EXPECT_NE(rfh_a, rfh_b);
+  EXPECT_FALSE(PrefetchDocumentManager::GetForCurrentDocument(rfh_b));
 }
 
 }  // namespace

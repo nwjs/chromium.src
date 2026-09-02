@@ -76,6 +76,8 @@ class FastTransitionObserver;
 class FwupdDownloadClientImpl;
 class GnubbyNotification;
 class HatsBluetoothRevampTriggerImpl;
+class IdentityManagerProvider;
+class TemplateURLServiceProvider;
 class IdleActionWarningObserver;
 class KioskController;
 class LoginScreenExtensionsStorageCleaner;
@@ -88,6 +90,7 @@ class NetworkThrottlingObserver;
 class PowerMetricsReporter;
 class RendererFreezer;
 class ReportControllerInitializer;
+class ScreenLockerController;
 class SessionTerminationManager;
 class ShortcutMappingPrefService;
 class ShutdownPolicyForwarder;
@@ -216,6 +219,8 @@ class ChromeBrowserMainPartsAsh : public ChromeBrowserMainPartsLinux {
       doze_mode_power_status_scheduler_;
 
   std::unique_ptr<apps::AppServiceRegistry> app_service_registry_;
+  std::unique_ptr<IdentityManagerProvider> identity_manager_provider_;
+  std::unique_ptr<TemplateURLServiceProvider> template_url_service_provider_;
 
   std::unique_ptr<arc::ArcServiceLauncher> arc_service_launcher_;
   std::unique_ptr<arc::ArcPlatformSupportImpl> arc_platform_support_;
@@ -320,6 +325,8 @@ class ChromeBrowserMainPartsAsh : public ChromeBrowserMainPartsLinux {
 #if BUILDFLAG(USE_CUPS)
   std::unique_ptr<ash::LocalPrinter> local_printer_;
 #endif
+
+  std::unique_ptr<ScreenLockerController> screen_locker_controller_;
 
   base::WeakPtrFactory<ChromeBrowserMainPartsAsh> weak_ptr_factory_{this};
 };

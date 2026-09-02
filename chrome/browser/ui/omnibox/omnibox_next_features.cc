@@ -87,6 +87,9 @@ BASE_FEATURE(kOmniboxEverywhere, DISABLED);
 // OmniboxEverywhere.
 const base::FeatureParam<bool> kOmniboxEverywhereProfilePickerParam{
     &kOmniboxEverywhere, "ProfilePicker", false};
+// Controls showing most visited tiles in OmniboxEverywhere.
+const base::FeatureParam<bool> kOmniboxEverywhereMostVisitedParam{
+    &kOmniboxEverywhere, "MostVisited", true};
 // Enables the WebUI for omnibox suggestions without modifying the popup UI.
 BASE_FEATURE(kWebUIOmniboxPopupDebug, DISABLED);
 // Enables side-by-side comparison omnibox suggestions in WebUI and Views.
@@ -106,7 +109,8 @@ BASE_FEATURE(kEnergyEffectInOmnibox, ENABLED);
 BASE_FEATURE(kWebUIOmniboxDynamicAiModeButton, DISABLED);
 
 // If enabled, prevents closing the AIM popup while file chooser is open.
-BASE_FEATURE(kOmniboxKeepOpenOnFileSelection, ENABLED);
+// Disabled due to focus restoration and popup deactivation issues.
+BASE_FEATURE(kOmniboxKeepOpenOnFileSelection, DISABLED);
 
 // Decodes a proto object from its serialized Base64 string representation.
 // Returns true if decoding and parsing succeed, false otherwise.
@@ -139,7 +143,6 @@ omnibox::NTPComposeboxConfig GetNTPComposeboxConfig() {
   auto* composebox = default_config.mutable_composebox();
 
   auto* image_upload = composebox->mutable_image_upload();
-  image_upload->set_enable_webp_encoding(false);
   image_upload->set_downscale_max_image_size(1500000);
   image_upload->set_downscale_max_image_width(1600);
   image_upload->set_downscale_max_image_height(1600);

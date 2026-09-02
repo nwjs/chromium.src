@@ -116,7 +116,7 @@ class TestWebUIController : public content::WebUIController {
       content::WebUIDataSource::GotDataCallback callback) {
     if (path.empty()) {
       // Main document.
-      std::move(callback).Run(new base::RefCountedString(R"(
+      std::move(callback).Run(base::MakeRefCounted<base::RefCountedString>(R"(
           <!DOCTYPE html>
           <html>
             <body>
@@ -141,9 +141,8 @@ class TestWebUIController : public content::WebUIController {
         test_data_dir.AppendASCII("webui").AppendASCII(url_substr[1]),
         &contents));
 
-    base::RefCountedString* ref_contents = new base::RefCountedString();
-    ref_contents->as_string() = contents;
-    std::move(callback).Run(ref_contents);
+    std::move(callback).Run(
+        base::MakeRefCounted<base::RefCountedString>(std::move(contents)));
   }
 
   WEB_UI_CONTROLLER_TYPE_DECL();
@@ -416,11 +415,13 @@ IN_PROC_BROWSER_TEST_F(WebUIWebViewBrowserTest, AddAndRemoveContentScripts) {
                                        GetTestUrl("empty.html").spec()));
 }
 
-#if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_CHROMEOS) && \
-                          (!defined(NDEBUG) || defined(ADDRESS_SANITIZER)))
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || \
+    (BUILDFLAG(IS_CHROMEOS) &&                  \
+     (!defined(NDEBUG) || defined(ADDRESS_SANITIZER)))
 // TODO(crbug.com/40583245) Fails on CrOS dbg with --enable-features=Mash.
 // TODO(crbug.com/41419648) Flaky on CrOS ASan LSan
 // TODO(crbug.com/454729976): Fails on chromium/ci/win11-arm64-rel-tests.
+// TODO(crbug.com/40287440): Flaky on Linux.
 #define MAYBE_AddContentScriptsWithNewWindowAPI \
   DISABLED_AddContentScriptsWithNewWindowAPI
 #else

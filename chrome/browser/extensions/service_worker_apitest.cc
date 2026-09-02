@@ -79,6 +79,7 @@
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_function_histogram_value.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/process_map.h"
@@ -2721,30 +2722,6 @@ constexpr char kListenerAdded[] = "listener-added";
 using ServiceWorkerWebRequestEarlyListenerTest =
     ServiceWorkerWithEarlyMessageListenerTest<kListenerAdded>;
 
-IN_PROC_BROWSER_TEST_F(ServiceWorkerWebRequestEarlyListenerTest,
-                       PRE_WebRequestAfterRestart) {
-  base::FilePath extension_path = test_data_dir_.AppendASCII("service_worker")
-                                      .AppendASCII("worker_based_background")
-                                      .AppendASCII("web_request_after_restart");
-  const Extension* extension =
-      LoadExtension(extension_path, {.wait_for_registration_stored = true});
-  ASSERT_TRUE(extension);
-  EXPECT_TRUE(WaitForMessage());
-}
-
-// After browser restarts, this test step ensures that navigating a tab fires
-// the webRequest listener.
-IN_PROC_BROWSER_TEST_F(ServiceWorkerWebRequestEarlyListenerTest,
-                       WebRequestAfterRestart) {
-  // Wait for the page to load.
-  EXPECT_TRUE(WaitForMessage());
-  // Navigate and expect the listener in the extension to be triggered.
-  ResultCatcher catcher;
-  ASSERT_TRUE(NavigateToURL(GetActiveWebContents(),
-                            embedded_test_server()->GetURL("/empty.html")));
-  EXPECT_TRUE(catcher.GetNextResult()) << message_;
-}
-
 // Disabled on win due to flakiness: https://crbug.com/40718882.
 #if BUILDFLAG(IS_WIN)
 #define MAYBE_PRE_FilteredEventsAfterRestart \
@@ -2814,10 +2791,6 @@ class ServiceWorkerWebRequestPersistFilteredEventsTest
   WebRequestEventRouter* web_request_router() {
     return WebRequestEventRouter::Get(profile());
   }
-
- private:
-  base::AutoReset<bool> disable_lazy_context_spinup_ =
-      ExtensionRegistrar::DisableLazyContextSpinupForTest();
 };
 
 // Test that persisted webRequest filters are restored after browser restart.
@@ -2934,11 +2907,24 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerWebRequestPersistFilteredEventsTest,
                     profile(), "webRequest.onBeforeRequest"));
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
+
+  // Removing the listener should not leave an empty filter list in prefs.
+  // Regression check for crbug.com/526929792.
+  const base::DictValue* filtered_events =
+      ExtensionPrefs::Get(profile())->ReadPrefAsDict(
+          extension->id(), EventRouter::kFilteredServiceWorkerEvents);
+  // Before restart, `RemoveFilterFromEvent` will empty the preference,
+  // but not delete it.
+  ASSERT_TRUE(filtered_events);
+  EXPECT_TRUE(filtered_events->empty());
 }
 
 // Step 2: test that filters are NOT restored post restart.
 IN_PROC_BROWSER_TEST_F(ServiceWorkerWebRequestPersistFilteredEventsTest,
                        WebRequestAfterRestart_RemoveListener) {
+  const Extension* extension = GetSingleLoadedExtension();
+  ASSERT_TRUE(extension);
+
   // No service worker should be running yet.
   EXPECT_EQ(process_manager()->GetAllWorkersIdsForTesting().size(), 0u);
 
@@ -2947,6 +2933,13 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerWebRequestPersistFilteredEventsTest,
                     profile(), "webRequest.onBeforeRequest"));
   EXPECT_EQ(0u, web_request_router()->GetListenerCountForTesting(
                     profile(), "webRequest.onBeforeRequest"));
+
+  const base::DictValue* filtered_events =
+      ExtensionPrefs::Get(profile())->ReadPrefAsDict(
+          extension->id(), EventRouter::kFilteredServiceWorkerEvents);
+  // After restart, `CleanUpEmptyFilteredEventLists` will have
+  // deleted the empty preference.
+  EXPECT_EQ(nullptr, filtered_events);
 }
 
 // Tests that chrome.action.onClicked sees user gesture.

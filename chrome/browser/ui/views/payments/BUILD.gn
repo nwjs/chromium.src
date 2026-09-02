@@ -82,6 +82,7 @@ source_set("impl") {
     "//chrome/browser/media/webrtc",
     "//chrome/browser/payments",
     "//chrome/browser/permissions",
+    "//chrome/browser/ssl",
     "//chrome/browser/task_manager",
     "//chrome/browser/themes",
     "//chrome/browser/ui:chrome_pages",
@@ -94,6 +95,7 @@ source_set("impl") {
     "//components/payments/content:utils",
     "//components/payments/content/icon",
     "//components/payments/core:currency_formatter",
+    "//components/permissions",
     "//components/variations/service",
   ]
 
@@ -197,6 +199,7 @@ source_set("browser_tests") {
     "//chrome/browser/payments",
     "//chrome/browser/permissions",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/views:bubble_anchor_util_views",
     "//chrome/test:test_support_ui",
     "//chrome/test/payments:test_support",
     "//components/autofill/core/browser:test_support",

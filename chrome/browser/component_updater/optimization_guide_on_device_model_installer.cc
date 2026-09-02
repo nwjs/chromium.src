@@ -10,6 +10,7 @@
 #include <optional>
 #include <ranges>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/byte_size.h"
@@ -27,6 +28,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/system/sys_info.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/values.h"
@@ -114,6 +116,14 @@ base::FilePath GetComponentInstallDirectory() {
 void GetComponentFreeDiskSpace(
     const base::FilePath& path,
     base::OnceCallback<void(std::optional<base::ByteSize>)> callback) {
+#if BUILDFLAG(CHROME_FOR_TESTING)
+  // In Chrome for Testing, the components we will use are explicitly specified
+  // in configuration and are already on disk. Reporting max free space here
+  // will suppress attempts to save space by uninstalling or preventing
+  // installation of model components.
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(std::move(callback), base::ByteSize::Max()));
+#else
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE,
       {base::MayBlock(),
@@ -132,6 +142,7 @@ void GetComponentFreeDiskSpace(
           },
           path),
       std::move(callback));
+#endif
 }
 
 // Legacy Installer policy for the On-Device Base Model.
@@ -594,8 +605,8 @@ void OptimizationGuideOnDeviceModelInstallerPolicy::UpdateOnDemand(
       id, priority, base::BindOnce([](update_client::Error error) {
         if (error != update_client::Error::NONE &&
             error != update_client::Error::UPDATE_IN_PROGRESS) {
-          LOG(ERROR) << "Failed to update on-device model component with error "
-                     << static_cast<int>(error);
+          VLOG(1) << "Failed to update on-device model component with error "
+                     << std::to_underlying(error);
         }
       }));
 }

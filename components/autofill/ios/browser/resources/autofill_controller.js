@@ -6,7 +6,7 @@ import * as fill_constants from '//components/autofill/ios/form_util/resources/f
 import * as inferenceUtil from '//components/autofill/ios/form_util/resources/fill_element_inference_util.js';
 import * as fillUtil from '//components/autofill/ios/form_util/resources/fill_util.js';
 import {fieldWasEditedByUser, unownedFormElementsAndFieldSetsToFormData, wasEditedByUser, webFormElementToFormData} from '//components/autofill/ios/form_util/resources/fill_web_form.js';
-import {getFormControlElements, getFormElementFromIdentifier, getFormElementFromRendererId, getIframeElements} from '//components/autofill/ios/form_util/resources/form_utils.js';
+import {getFormControlElements, getFormElementFromIdentifier, getIframeElements} from '//components/autofill/ios/form_util/resources/form_utils.js';
 import {getElementByUniqueID} from '//components/autofill/ios/form_util/resources/renderer_id.js';
 import {CrWebApi, gCrWeb} from '//ios/web/public/js_messaging/resources/gcrweb.js';
 import {isTextField, sendWebKitMessage, trim} from '//ios/web/public/js_messaging/resources/utils.js';
@@ -74,13 +74,6 @@ const FORM_FILLED_COMMAND = 'formFilled';
  */
 const autofillFormFeaturesApi =
     gCrWeb.getRegisteredApi('autofill_form_features');
-
-/**
- * Returns true if the undo autofill feature is enabled.
- */
-function isAutofillUndoEnabled() {
-  return window.gCrWebPlaceholderAutofillUndo;
-}
 
 /**
  * Determines whether the form is interesting enough to send to the browser for
@@ -302,13 +295,12 @@ function fillForm(data) {
 
     modifiedForms.add(fieldData.hostFormId);
 
-    (function(_element, _value, _section, _isAutofilled, _delay) {
+    (function(_element, _value, _isAutofilled, _delay) {
       window.setTimeout(function() {
         fillUtil.setInputElementValue(_value, _element, function() {
           if (_isAutofilled) {
             _element.setAttribute('chrome-autofilled', '');
             _element.isAutofilled = true;
-            _element.autofillSection = _section;
             _element.addEventListener('input', controlElementInputListener_);
           } else {
             _element.removeAttribute('chrome-autofilled');
@@ -317,8 +309,7 @@ function fillForm(data) {
           }
         });
       }, _delay);
-    })(element, fieldData.value, fieldData.section, fieldData.isAutofilled,
-       delay);
+    })(element, fieldData.value, fieldData.isAutofilled, delay);
     delay += delayBetweenFieldFillingMs;
     filledElements[fillUtil.getUniqueID(element)] = fieldData.value;
   }
@@ -372,74 +363,6 @@ function fillForm(data) {
   }
 
   return fillUtil.stringify(filledElements);
-}
-
-/**
- * Clear autofilled fields of the specified form section. Fields that are not
- * currently autofilled or do not belong to the same section as that of the
- * field with |fieldIdentifier| are not modified. If the field identified by
- * |fieldIdentifier| cannot be found all autofilled form fields get cleared.
- * Field contents are cleared, and Autofill flag and styling are removed.
- * 'change' events are sent for fields whose contents changed.
- *
- * @param {string} formUniqueID Unique ID of the form element.
- * @param {string} fieldUniqueID Unique ID of the field initiating the
- *     clear action.
- * @return {string} JSON encoded list of renderer IDs of cleared elements.
- */
-function clearAutofilledFields(formUniqueID, fieldUniqueID) {
-  const clearedElements = [];
-
-  const form = getFormElementFromRendererId(formUniqueID);
-
-  const controlElements = form ?
-      getFormControlElements(form) :
-      fillUtil.getUnownedAutofillableFormFieldElements(/*fieldsets=*/[]);
-
-  let formField = null;
-  for (let i = 0; i < controlElements.length; ++i) {
-    if (fillUtil.getUniqueID(controlElements[i]) ===
-        fieldUniqueID.toString()) {
-      formField = controlElements[i];
-      break;
-    }
-  }
-
-  for (let i = 0, delay = 0; i < controlElements.length; ++i) {
-    const element = controlElements[i];
-    if (!element.isAutofilled || element.disabled) {
-      continue;
-    }
-
-    if (formField && formField.autofillSection !== element.autofillSection) {
-      continue;
-    }
-
-    let value = null;
-    if (isTextField(element) || inferenceUtil.isTextAreaElement(element)) {
-      value = '';
-    } else if (inferenceUtil.isSelectElement(element)) {
-      // Reset to the first index.
-      // TODO(bondd): Store initial values and reset to the correct one here.
-      value = element.options[0].value;
-    } else if (inferenceUtil.isCheckableElement(element)) {
-      // TODO(crbug.com/40573146): Investigate autofilling checkable elements.
-    }
-    if (value !== null) {
-      (function(_element, _value, _delay) {
-        window.setTimeout(function() {
-          fillUtil.setInputElementValue(_value, _element, function(changed) {
-            _element.removeAttribute('chrome-autofilled');
-            _element.isAutofilled = false;
-            _element.removeEventListener('input', controlElementInputListener_);
-          });
-        }, _delay);
-      })(element, value, delay);
-      delay += delayBetweenFieldFillingMs;
-      clearedElements.push(fillUtil.getUniqueID(element));
-    }
-  }
-  return fillUtil.stringify(clearedElements);
 }
 
 /**
@@ -584,13 +507,19 @@ function fillFormField(data, field) {
       sanitizedValue = data['value'].substr(0, maxLength);
     }
 
-    filled = fillUtil.setInputElementValue(sanitizedValue, field);
-    // If kAutofillUndoIos is enabled, avoid showing the Clear/Undo button.
-    if (isAutofillUndoEnabled()) {
-      wasEditedByUser.set(field, true);
+    if (data['should_insert_at_cursor']) {
+      filled = fillUtil.insertInputElementValueAtCursor(sanitizedValue, field);
     } else {
-      field.isAutofilled = true;
+      filled = fillUtil.setInputElementValue(sanitizedValue, field);
     }
+
+    // This is a hack to avoid showing Undo autofill when a field is filled with
+    // manual fallback sheet, as this path does not path by
+    // `components/autofill/core/browser/` and therefore data required to
+    // correctly Undo is not populated in `FormAutofillHistory`.
+    // TODO(crbug.com/487617428): Remove after fixing the filling paths.
+    wasEditedByUser.set(field, true);
+
   } else if (inferenceUtil.isSelectElement(field)) {
     filled = fillUtil.setInputElementValue(data['value'], field);
   } else if (inferenceUtil.isCheckableElement(field)) {
@@ -688,7 +617,6 @@ function sanitizedFieldIsEmpty(value) {
 
 const autofillAPI = new CrWebApi('autofill');
 
-autofillAPI.addFunction('clearAutofilledFields', clearAutofilledFields);
 autofillAPI.addFunction(
     'extractAutofillableElementsInForm', extractAutofillableElementsInForm);
 autofillAPI.addFunction('extractForms', extractForms);

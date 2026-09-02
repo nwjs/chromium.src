@@ -182,7 +182,7 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerDisabledAutoOpenTest,
                                                        std::move(web_app_info));
   Browser* app_browser =
       web_app::LaunchWebAppBrowser(browser()->GetProfile(), app_id);
-  app_browser->GetBrowserView().Activate();
+  BrowserView::GetBrowserViewForBrowser(app_browser)->Activate();
   WaitUntilBrowserBecomeActiveOrLastActive(app_browser);
 
   SendTabToSelfEntry entry("a", GURL("https://www.example-a.com"), "a site",
@@ -291,8 +291,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerAutoOpenTest,
   EXPECT_EQ(model->activated_call_count(), 1);
 
   EXPECT_EQ(browser()
-                ->browser_window_features()
-                ->toast_service()
+                ->GetFeatures()
+                .toast_service()
                 ->toast_controller()
                 ->GetCurrentToastId(),
             ToastId::kSendTabToSelfTabOpened);
@@ -346,8 +346,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerAutoOpenTest,
                                       AutoOpenOutcome::kUnopenedImmediately, 2);
 
   EXPECT_FALSE(browser()
-                   ->browser_window_features()
-                   ->toast_service()
+                   ->GetFeatures()
+                   .toast_service()
                    ->toast_controller()
                    ->IsShowingToast());
 
@@ -370,8 +370,8 @@ IN_PROC_BROWSER_TEST_F(SendTabToSelfToolbarIconControllerAutoOpenTest,
       AutoOpenOutcome::kTabsOpenedInBackgroundUponActivation, 2);
 
   EXPECT_EQ(browser()
-                ->browser_window_features()
-                ->toast_service()
+                ->GetFeatures()
+                .toast_service()
                 ->toast_controller()
                 ->GetCurrentToastId(),
             ToastId::kSendTabToSelfTabsOpenedInBackground);
@@ -422,8 +422,8 @@ IN_PROC_BROWSER_TEST_F(
   const SendTabToSelfEntry* entry_1 = entries[0];
 
   ASSERT_FALSE(browser()
-                   ->browser_window_features()
-                   ->toast_service()
+                   ->GetFeatures()
+                   .toast_service()
                    ->toast_controller()
                    ->IsShowingToast());
 
@@ -438,8 +438,8 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
 
   ASSERT_EQ(browser()
-                ->browser_window_features()
-                ->toast_service()
+                ->GetFeatures()
+                .toast_service()
                 ->toast_controller()
                 ->GetCurrentToastId(),
             ToastId::kSendTabToSelfTabsOpenedInBackground);
@@ -497,8 +497,8 @@ IN_PROC_BROWSER_TEST_F(
                               .shared_time = now + base::Seconds(1)}});
 
   ASSERT_FALSE(browser()
-                   ->browser_window_features()
-                   ->toast_service()
+                   ->GetFeatures()
+                   .toast_service()
                    ->toast_controller()
                    ->IsShowingToast());
 
@@ -516,8 +516,8 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(url_3, browser()->tab_strip_model()->GetWebContentsAt(3)->GetURL());
 
   ASSERT_EQ(browser()
-                ->browser_window_features()
-                ->toast_service()
+                ->GetFeatures()
+                .toast_service()
                 ->toast_controller()
                 ->GetCurrentToastId(),
             ToastId::kSendTabToSelfTabsOpenedInBackground);
@@ -575,8 +575,8 @@ IN_PROC_BROWSER_TEST_F(
                               .shared_time = now + base::Seconds(1)}});
 
   ASSERT_FALSE(browser()
-                   ->browser_window_features()
-                   ->toast_service()
+                   ->GetFeatures()
+                   .toast_service()
                    ->toast_controller()
                    ->IsShowingToast());
 
@@ -591,8 +591,8 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_EQ(0, browser()->tab_strip_model()->active_index());
 
   ASSERT_EQ(browser()
-                ->browser_window_features()
-                ->toast_service()
+                ->GetFeatures()
+                .toast_service()
                 ->toast_controller()
                 ->GetCurrentToastId(),
             ToastId::kSendTabToSelfTabsOpenedInBackground);

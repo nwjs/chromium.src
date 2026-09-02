@@ -46,9 +46,9 @@ class InclusionPathCheckerTest(unittest.TestCase):
             printf(str);
         }'''
     bads = [((code + normal_code).split('\n'),
-             SRC_PATH + '/' + path) for code, path in bads]
+             os.path.join(SRC_PATH, path)) for code, path in bads]
     goods = [((code + normal_code).split('\n'),
-              SRC_PATH + '/' + path) for code, path in goods]
+              os.path.join(SRC_PATH, path)) for code, path in goods]
 
     mock_input = PRESUBMIT_test_mocks.MockInputApi()
     mock_input.presubmit_local_path = SRC_IOS_WEB_VIEW_PATH

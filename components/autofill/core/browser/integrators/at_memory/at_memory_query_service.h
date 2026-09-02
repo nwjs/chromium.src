@@ -18,6 +18,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/personal_context/core/context_memory_error.h"
 #include "components/personal_context/core/personal_context_types.h"
+#include "components/personal_context/proto/features/at_memory.pb.h"
 #include "url/gurl.h"
 
 namespace personal_context {
@@ -109,6 +110,8 @@ class AtMemoryQueryService : public KeyedService {
       base::RepeatingCallback<void(MemorySearchResults)> callback,
       std::vector<MemorySearchResult> remote_results,
       base::flat_set<std::u16string> filter_words,
+      std::vector<personal_context::proto::AutofillFetchSpecification>
+          fetch_specifications,
       std::string server_request_id,
       std::vector<MemorySearchResult> local_results);
 

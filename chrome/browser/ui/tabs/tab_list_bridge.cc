@@ -13,12 +13,14 @@
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
@@ -156,9 +158,8 @@ tabs::TabInterface* TabListBridge::OpenTab(const GURL& url,
   }
   CHECK(index == TabStripModel::kNoTab || tab_strip_->ContainsIndex(index));
 
-  // TODO(crbug.com/460650221): It's a bit of a code smell to reach in and grab
-  // the delegate from TabStripModel, but it avoids introducing new dependencies
-  // here.
+  // It's a bit of a code smell to reach in and grab the delegate from
+  // TabStripModel, but it avoids introducing new dependencies here.
   TabStripModelDelegate* delegate = tab_strip_->delegate();
   delegate->AddTabAt(url, index, foreground);
   int index_to_retrieve =
@@ -213,9 +214,8 @@ tabs::TabInterface* TabListBridge::DuplicateTab(tabs::TabHandle tab) {
   const int index = GetIndexOfTab(tab);
   CHECK_NE(index, TabStripModel::kNoTab);
 
-  // TODO(crbug.com/460650221): It's a bit of a code smell to reach in and grab
-  // the delegate from TabStripModel, but it avoids introducing new dependencies
-  // here.
+  // It's a bit of a code smell to reach in and grab the delegate from
+  // TabStripModel, but it avoids introducing new dependencies here.
   TabStripModelDelegate* delegate = tab_strip_->delegate();
   if (!delegate->CanDuplicateContentsAt(index)) {
     return nullptr;
@@ -270,11 +270,8 @@ void TabListBridge::MoveTab(tabs::TabHandle tab, int index) {
 }
 
 void TabListBridge::CloseTab(tabs::TabHandle tab) {
-  const int index = GetIndexOfTab(tab);
-  CHECK_NE(index, TabStripModel::kNoTab)
-      << "Trying to close a tab that doesn't exist in this tab list.";
-  tab_strip_->CloseWebContentsAt(index,
-                                 TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
+  tab_strip_->CloseWebContents(tab.Get()->GetContents(),
+                               TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB);
 }
 
 std::unique_ptr<content::WebContents> TabListBridge::DetachWebContents(
@@ -376,6 +373,23 @@ std::optional<tab_groups::TabGroupId> TabListBridge::CreateTabGroup(
   return tab_strip_->AddToNewGroup(std::move(tab_indices));
 }
 
+std::optional<split_tabs::SplitTabId> TabListBridge::CreateSplit(
+    const std::vector<tabs::TabHandle>& tabs) {
+  std::vector<int> tab_indices;
+  tab_indices.reserve(tabs.size());
+  for (const auto& tab_handle : tabs) {
+    int index = GetIndexOfTab(tab_handle);
+    CHECK_NE(index, TabStripModel::kNoTab)
+        << "Trying to add a non-existent tab to a split.";
+    tab_indices.push_back(index);
+  }
+  return tab_strip_->AddToNewSplit(
+      // TODO(https://crbug.com/545736199): Update visual data to support either
+      // vertical or horizontal splits layout.
+      std::move(tab_indices), split_tabs::SplitTabVisualData(),
+      split_tabs::SplitTabCreatedSource::kExtensionsApi);
+}
+
 void TabListBridge::SetTabGroupVisualData(
     tab_groups::TabGroupId group_id,
     const tab_groups::TabGroupVisualData& visual_data) {
@@ -429,6 +443,10 @@ void TabListBridge::Ungroup(const std::set<tabs::TabHandle>& tabs) {
 
   std::sort(tab_indices.begin(), tab_indices.end());
   tab_strip_->RemoveFromGroup(tab_indices);
+}
+
+void TabListBridge::Unsplit(split_tabs::SplitTabId split_id) {
+  tab_strip_->RemoveSplit(split_id);
 }
 
 void TabListBridge::MoveGroupTo(tab_groups::TabGroupId group_id, int index) {

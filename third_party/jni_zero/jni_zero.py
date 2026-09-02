@@ -96,6 +96,8 @@ def _add_io_args(parser, *, is_final=False, is_javap=False):
     outputs.add_argument('--jni-pickle',
                          help='Path to write intermediate .jni.pickle file.')
   if is_final:
+    outputs.add_argument('--impl-path',
+                         help='Path to output C++ implementation file.')
     outputs.add_argument(
         '--depfile', help='Path to depfile (for use with ninja build system)')
 
@@ -141,21 +143,25 @@ def _add_codegen_args(parser, *, is_final=False, is_javap=False):
     group.add_argument('--include-test-only',
                        action='store_true',
                        help='Whether to maintain ForTesting JNI methods.')
-  else:
+  elif not is_javap:
     group.add_argument(
         '--split-name',
         help='Split name that the Java classes should be loaded from.')
+    group.add_argument('--allow-private-called-by-natives',
+                       action='store_true',
+                       help='Whether to allow private @CalledByNative symbols.')
     mode_group.add_argument(
         '--per-file-natives',
         action='store_true',
         help='Generate .srcjar and .h such that a final generate-final '
         'step is not necessary')
-    group.add_argument('--use-std-primitive-types',
-                       action='store_true',
-                       help='Use e.g.: int32_t rather than jint in codegen')
-    group.add_argument('--allow-private-called-by-natives',
-                       action='store_true',
-                       help='Whether to allow private @CalledByNative symbols.')
+    group.add_argument(
+        '--weak-called-by-natives',
+        action='store_true',
+        help='When using --enable-jni-multiplexing, emit weak definitions for '
+        '@CalledByNative methods, so that they will function even if no '
+        'generate_final_jni() exists.')
+
 
   if is_javap:
     group.add_argument('--unchecked-exceptions',

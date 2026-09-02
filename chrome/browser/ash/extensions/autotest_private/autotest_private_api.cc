@@ -113,10 +113,6 @@
 #include "chrome/browser/ash/lobster/lobster_service_provider.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
 #include "chrome/browser/ash/login/wizard_context.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_installer.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_installer_factory.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_pref_names.h"
-#include "chrome/browser/ash/plugin_vm/plugin_vm_util.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/core/user_cloud_policy_manager_ash.h"
 #include "chrome/browser/ash/power/ml/smart_dim/ml_agent.h"
@@ -131,9 +127,9 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/component_updater/smart_dim_component_installer.h"
 #include "chrome/browser/extensions/component_loader.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/policy/chrome_policy_conversions_client.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service.h"
 #include "chrome/browser/ui/ash/holding_space/holding_space_keyed_service_factory.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
@@ -144,7 +140,6 @@
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/views/bruschetta/bruschetta_installer_view.h"
 #include "chrome/browser/ui/views/crostini/crostini_uninstaller_view.h"
-#include "chrome/browser/ui/views/plugin_vm/plugin_vm_installer_view.h"
 #include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/ui/webui/ash/crostini_installer/crostini_installer_dialog.h"
 #include "chrome/browser/ui/webui/ash/crostini_installer/crostini_installer_ui.h"
@@ -152,12 +147,14 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/extensions/api/autotest_private.h"
 #include "chrome/common/pref_names.h"
+#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/default_pinned_apps/default_pinned_apps.h"
 #include "chromeos/ash/components/metrics/login_event_recorder.h"
 #include "chromeos/ash/components/settings/cros_settings.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
+#include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/ash/experiences/arc/metrics/arc_metrics_constants.h"
 #include "chromeos/ash/experiences/arc/mojom/power.mojom.h"
@@ -364,8 +361,6 @@ api::autotest_private::ShelfItemType GetShelfItemType(ash::ShelfItemType type) {
       return api::autotest_private::ShelfItemType::kBrowserShortcut;
     case ash::TYPE_APP:
       return api::autotest_private::ShelfItemType::kApp;
-    case ash::TYPE_UNPINNED_BROWSER_SHORTCUT:
-      return api::autotest_private::ShelfItemType::kUnpinnedBrowserShortcut;
     case ash::TYPE_DIALOG:
       return api::autotest_private::ShelfItemType::kDialog;
     case ash::TYPE_UNDEFINED:
@@ -555,12 +550,6 @@ std::string SetAllowedPref(Profile* profile,
     DCHECK(value.is_bool());
   } else if (pref_name == ash::prefs::kLanguagePreloadEngines) {
     DCHECK(value.is_string());
-  } else if (pref_name == plugin_vm::prefs::kPluginVmCameraAllowed) {
-    DCHECK(value.is_bool());
-  } else if (pref_name == plugin_vm::prefs::kPluginVmMicAllowed) {
-    DCHECK(value.is_bool());
-  } else if (pref_name == plugin_vm::prefs::kPluginVmDataCollectionAllowed) {
-    DCHECK(value.is_bool());
   } else if (pref_name == prefs::kPrintingAPIExtensionsAllowlist) {
     DCHECK(value.is_list());
   } else if (pref_name == quick_answers::prefs::kQuickAnswersEnabled) {
@@ -2487,7 +2476,7 @@ AutotestPrivateRunCrostiniInstallerFunction::Run() {
   // we call RestartCrostini and we will be put in the pending restarters
   // queue and be notified on success/otherwise of installation.
   ash::CrostiniInstallerDialog::Show(
-      profile,
+      profile, /*ui_surface=*/std::nullopt,
       base::BindOnce([](base::WeakPtr<ash::CrostiniInstallerUI> installer_ui) {
         installer_ui->ClickInstallForTesting();
       }));
@@ -2673,45 +2662,6 @@ void AutotestPrivateImportCrostiniFunction::CrostiniImported(
   } else {
     Respond(Error("Error importing crostini"));
   }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AutotestPrivateSetPluginVMPolicyFunction
-///////////////////////////////////////////////////////////////////////////////
-
-AutotestPrivateSetPluginVMPolicyFunction::
-    ~AutotestPrivateSetPluginVMPolicyFunction() = default;
-
-ExtensionFunction::ResponseAction
-AutotestPrivateSetPluginVMPolicyFunction::Run() {
-  std::optional<api::autotest_private::SetPluginVMPolicy::Params> params =
-      api::autotest_private::SetPluginVMPolicy::Params::Create(args());
-  EXTENSION_FUNCTION_VALIDATE(params);
-  DVLOG(1) << "AutotestPrivateSetPluginVMPolicyFunction " << params->image_url
-           << ", " << params->image_hash << ", " << params->license_key;
-
-  Profile* profile = Profile::FromBrowserContext(browser_context());
-  plugin_vm::SetFakePluginVmPolicy(profile, params->image_url,
-                                   params->image_hash, params->license_key);
-
-  return RespondNow(NoArguments());
-}
-
-///////////////////////////////////////////////////////////////////////////////
-// AutotestPrivateShowPluginVMInstallerFunction
-///////////////////////////////////////////////////////////////////////////////
-
-AutotestPrivateShowPluginVMInstallerFunction::
-    ~AutotestPrivateShowPluginVMInstallerFunction() = default;
-
-ExtensionFunction::ResponseAction
-AutotestPrivateShowPluginVMInstallerFunction::Run() {
-  DVLOG(1) << "AutotestPrivateShowPluginVMInstallerFunction";
-
-  Profile* profile = Profile::FromBrowserContext(browser_context());
-  plugin_vm::ShowPluginVmInstallerView(profile);
-
-  return RespondNow(NoArguments());
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -2910,7 +2860,9 @@ ExtensionFunction::ResponseAction AutotestPrivateGetPrinterListFunction::Run() {
   DVLOG(1) << "AutotestPrivateGetPrinterListFunction";
 
   Profile* profile = Profile::FromBrowserContext(browser_context());
-  printers_manager_ = ash::CupsPrintersManager::Create(profile);
+  printers_manager_ = ash::CupsPrintersManager::Create(
+      CHECK_DEREF(g_browser_process->local_state()),
+      g_browser_process->GetFeatures()->application_locale_storage(), profile);
   printers_manager_->AddObserver(this);
 
   // Set up a timer to finish waiting after 10 seconds
@@ -5791,9 +5743,9 @@ ExtensionFunction::ResponseAction AutotestPrivateGetAccessTokenFunction::Run() {
           &AutotestPrivateGetAccessTokenFunction::RespondWithTimeoutError,
           this));
 
-  Profile* profile = Profile::FromBrowserContext(browser_context());
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
+      ash::IdentityManagerProvider::Get().Find(
+          CHECK_DEREF(ash::AnnotatedAccountId::Get(browser_context())));
   OAuth2AccessTokenManager::ScopeSet scopes(
       params->access_token_params.scopes.begin(),
       params->access_token_params.scopes.end());

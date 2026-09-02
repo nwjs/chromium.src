@@ -19,6 +19,7 @@
 #include "content/public/browser/scoped_accessibility_mode.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "third_party/abseil-cpp/absl/container/node_hash_map.h"
+#include "ui/accessibility/platform/ax_android_constants.h"
 #include "ui/accessibility/platform/ax_node_id_delegate.h"
 #include "ui/accessibility/platform/ax_unique_id.h"
 #include "ui/gfx/geometry/rect.h"
@@ -158,10 +159,6 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   bool IsEditableText(JNIEnv* env, int32_t id);
   bool IsFocused(JNIEnv* env, int32_t id);
   bool IsTextSelectable(JNIEnv* env, int32_t id);
-  // Returns ui::kAXAndroidUndefinedSelectionIndex if no selection.
-  int32_t GetEditableTextSelectionStart(JNIEnv* env, int32_t id);
-  // Returns ui::kAXAndroidUndefinedSelectionIndex if no selection.
-  int32_t GetEditableTextSelectionEnd(JNIEnv* env, int32_t id);
   base::android::ScopedJavaLocalRef<jintArray> GetAbsolutePositionForNode(
       JNIEnv* env,
       int32_t unique_id);
@@ -181,17 +178,50 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
                                   int32_t event_type);
 
   // Perform actions.
-  void Click(JNIEnv* env, int32_t id);
-  void Focus(JNIEnv* env, int32_t id);
-  void Blur(JNIEnv* env);
+
+  // Request that Blink perform a click action on node `id`. Returns false and
+  // does not make the request if the node does not exist, is disabled, or is a
+  // child of a disabled control.
+  bool Click(JNIEnv* env, int32_t id);
+
+  // Request the Blink focus node `id`. Returns false and does not make the
+  // request if the node does not exist.
+  bool Focus(JNIEnv* env, int32_t id);
+
+  // Request the Blink un-focus node `id`. Returns false and does not make the
+  // request if the node does not exist.
+  bool Blur(JNIEnv* env);
+
   int32_t GetFocus(JNIEnv* env);
-  void Expand(JNIEnv* env, int32_t id);
-  void Collapse(JNIEnv* env, int32_t id);
-  void ScrollToMakeNodeVisible(JNIEnv* env, int32_t id);
-  void SetTextFieldValue(JNIEnv* env,
+
+  // Request the Blink expand node `id`. Returns false and does not make the
+  // request if the node does not exist.
+  bool Expand(JNIEnv* env, int32_t id);
+
+  // Request the Blink collapse node `id`. Returns false and does not make the
+  // request if the node does not exist.
+  bool Collapse(JNIEnv* env, int32_t id);
+
+  // Request the Blink scroll node `id` into view. Returns false and does not
+  // make the request if the node does not exist.
+  bool ScrollToMakeNodeVisible(JNIEnv* env, int32_t id);
+
+  // Request the Blink set the text of node `id` to `value`. Returns false and
+  // does not make the request if the node does not exist.
+  bool SetTextFieldValue(JNIEnv* env,
                          int32_t id,
                          const base::android::JavaRef<jstring>& value);
-  void SetSelection(JNIEnv* env, int32_t id, int32_t start, int32_t end);
+
+  // Request the Blink select the contents of node `id` between `start` and
+  // `end`. Returns false and does not make the request if the node does not
+  // exist.
+  bool SetSelection(JNIEnv* env, int32_t id, int32_t start, int32_t end);
+
+  // Request that Blink set an extended selection from `start_node_offset` in
+  // `start_node_id` to `end_node_offset` in `end_node_id`. Returns false and
+  // does not make the request if node `id` does not exist, either of the
+  // `(node_id, node_offset, offset_type)` triples is not a valid selection
+  // position, or if the range they form is invalid.
   bool SetExtendedSelection(JNIEnv* env,
                             int32_t id,
                             int32_t start_node_id,
@@ -200,9 +230,19 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
                             int32_t end_node_id,
                             int32_t end_node_offset,
                             int32_t end_offset_type);
-  void ClearExtendedSelection(JNIEnv* env, int32_t id);
+
+  // Request that Blink clear an extended selection on node `id`. Returns false
+  // and does not make the request if the node does not exist.
+  bool ClearExtendedSelection(JNIEnv* env, int32_t id);
+
+  // Request that Blink adjust the slider on node `id`, incrementing or
+  // decrementing according to `increment`. Returns false and does not make the
+  // request if the node does not exist, is disabled, or is not a slider.
   bool AdjustSlider(JNIEnv* env, int32_t id, bool increment);
-  void ShowContextMenu(JNIEnv* env, int32_t id);
+
+  // Request the Blink show the context menu on node `id`. Returns false and
+  // does not make the request if the node does not exist.
+  bool ShowContextMenu(JNIEnv* env, int32_t id);
 
   // Programmatically show tooltip for the AXNode with the given ID; return true
   // if request is passed on to browser accessibility manager, false if node is
@@ -260,7 +300,7 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   // Sets the sequential focus starting point. This sends a message to the
   // renderer. The sequential focus starting point sets the node on which
   // tab/shift tab should continue without actually changing input focus.
-  void SetSequentialFocusStartingPoint(JNIEnv* env, int32_t unique_id);
+  bool SetSequentialFocusStartingPoint(JNIEnv* env, int32_t unique_id);
 
   // Returns true if the object is a slider.
   bool IsSlider(JNIEnv* env, int32_t id);
@@ -430,6 +470,7 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   void HandleSortDirectionChanged(int32_t unique_id);
   void HandleScrolledToAnchor(int32_t unique_id);
   void HandlePaneOpened(int32_t unique_id);
+  void HandlePaneClosed(int32_t unique_id);
   // Dispatches events for atomic live region changes over the JNI Bridge.
   void HandleAtomicLiveRegionChanged(int32_t unique_id);
   // Dispatches LIVE_REGION_NODE_CHANGED AxGeneratedEvents over the JNI Bridge.
@@ -473,6 +514,10 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
       int32_t unique_id);
 
   base::android::ScopedJavaLocalRef<jintArray> GetExtendedSelection(
+      JNIEnv* env,
+      int32_t unique_id);
+
+  base::android::ScopedJavaLocalRef<jintArray> GetSelectionRangeAsTextOffsets(
       JNIEnv* env,
       int32_t unique_id);
 
@@ -641,6 +686,8 @@ class CONTENT_EXPORT WebContentsAccessibilityAndroid
   std::unique_ptr<ScopedAccessibilityMode> scoped_accessibility_mode_;
 
   int32_t tooltip_showing_node_id_ = 0;
+
+  int32_t active_dialog_unique_id_ = ui::kAXAndroidInvalidViewId;
 
   bool should_announce_full_text_ = false;
 

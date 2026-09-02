@@ -21,6 +21,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Looper;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -670,6 +671,59 @@ public class WebAppHeaderLayoutCoordinatorTest {
     }
 
     @Test
+    public void testStandaloneWindow_DuplicateMenuButtonWrapper_BindsToCorrectView() {
+        when(mIntentDataProvider.getActivityType()).thenReturn(ActivityType.TRUSTED_WEB_ACTIVITY);
+        // Add a MenuButton with ID R.id.menu_button_wrapper to the Activity before the
+        // coordinator is created to simulate the CustomTabToolbar view containing the same ID.
+        LayoutInflater.from(mActivity).inflate(R.layout.menu_button, mContentView, true);
+
+        setupDesktopWindowing(/* isInDesktopWindow= */ true);
+        setupDisplayMode(DisplayMode.STANDALONE);
+        createCoordinator();
+        mShadowLooper.idle();
+
+        // Emulate minimizing window so controls do not fit.
+        int flexibleAreaWidth =
+                getMinButtonWidth(DisplayMode.STANDALONE) + HEADER_CONTROL_BUTTON_DP - 1;
+        setupDesktopWindowing(
+                new Rect(0, 0, LEFT_INSET + flexibleAreaWidth + RIGHT_INSET, SCREEN_HEIGHT),
+                new Rect(LEFT_INSET, 0, LEFT_INSET + flexibleAreaWidth, SYS_APP_HEADER_HEIGHT),
+                /* isInDesktopWindow= */ true);
+        notifyHeaderStateChanged();
+        mShadowLooper.idle();
+
+        var headerLayout = mCoordinator.getWebAppHeaderLayout();
+        assertNotNull("WebAppHeaderLayout should be initialized", headerLayout);
+        var headerMenuContainer = headerLayout.findViewById(R.id.web_app_menu_button_wrapper);
+        var headerMenuButton = headerLayout.findViewById(R.id.menu_button);
+        assertNotNull("Menu button should exist in header", headerMenuButton);
+
+        // In minimized window, header controls do not fit and whole header is draggable.
+        assertEquals(
+                "Header menu button container should be gone when controls do not fit",
+                View.GONE,
+                headerMenuContainer.getVisibility());
+        verifyWholeHeaderIsDraggable();
+
+        // Maximize window so controls fit.
+        setupDesktopWindowing(/* isInDesktopWindow= */ true);
+        notifyHeaderStateChanged();
+        mShadowLooper.idle();
+
+        // Menu button in header should become visible, enabled, and excluded from drag.
+        assertEquals(
+                "Header menu button container should be visible when controls fit",
+                View.VISIBLE,
+                headerMenuContainer.getVisibility());
+        assertEquals(
+                "Header menu button should be visible",
+                View.VISIBLE,
+                headerMenuButton.getVisibility());
+        assertTrue("Header menu button should be enabled", headerMenuButton.isEnabled());
+        verifyHeaderContainsNonDraggableAreas(mCoordinator.collectControlPositions());
+    }
+
+    @Test
     public void testControlsVisibilityChangeUMA() {
         // Emulate minimizing window.
         int flexibleAreaWidth = getMinButtonWidth(DisplayMode.MINIMAL_UI) - 1;
@@ -792,5 +846,18 @@ public class WebAppHeaderLayoutCoordinatorTest {
                 "Tint change should be propagated to the toggle button",
                 mCoordinator.getToggleButtonImageTintList(),
                 tint);
+    }
+
+    @Test
+    public void testTintObserverRegisteredOnCreationAndRemovedOnDestroy() {
+        setupDesktopWindowing(/* isInDesktopWindow= */ true);
+        setupDisplayMode(DisplayMode.STANDALONE);
+        setupTab(/* isLoading= */ false, /* canGoBack= */ false);
+        createCoordinator();
+
+        verify(mThemeColorProvider).addTintObserver(mCoordinator);
+
+        mCoordinator.destroy();
+        verify(mThemeColorProvider).removeTintObserver(mCoordinator);
     }
 }

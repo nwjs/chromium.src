@@ -51,6 +51,27 @@
           }
         ]
       },
+      "Android FYI Release (Pixel 4)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
       "Android FYI Release (Pixel 6)": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
@@ -576,7 +597,49 @@
           }
         ]
       },
+      "GPU FYI Android arm Builder": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
       "GPU FYI Android arm64 Builder": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "GPU FYI Linux Builder": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
@@ -619,6 +682,27 @@
         ]
       },
       "GPU FYI Win arm64 Builder": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "GPU FYI Win x64 Builder": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
@@ -851,6 +935,69 @@
       },
       "Linux Builder (dbg)": {
         "contact_team_email": "chrome-linux-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Linux FYI Release (AMD RX 5500 XT)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Linux FYI Release (Intel UHD 630)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Linux FYI Release (NVIDIA)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
@@ -1166,6 +1313,48 @@
       },
       "Win x64 Builder": {
         "contact_team_email": "chrome-desktop-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Win10 FYI x64 Release (Intel)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Win10 FYI x64 Release (NVIDIA)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",
@@ -2109,6 +2298,34 @@
           }
         ]
       },
+      "linux-arm64-official": {
+        "contact_team_email": "chrome-browser-infra-team@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "build_time": {
+                "p50_mins": 240
+              },
+              "fail_rate": {},
+              "infra_fail_rate": {},
+              "pending_time": {}
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "fail_rate": {
+                "average": 0.99
+              }
+            }
+          }
+        ]
+      },
       "linux-cast-arm-rel": {
         "contact_team_email": "cast-eng@google.com",
         "problem_specs": [
@@ -2256,6 +2473,7 @@
         ]
       },
       "linux-official": {
+        "contact_team_email": "chrome-browser-infra-team@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",

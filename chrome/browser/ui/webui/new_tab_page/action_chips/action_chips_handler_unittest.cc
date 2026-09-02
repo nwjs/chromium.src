@@ -35,6 +35,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/contextual_search/pref_names.h"
 #include "components/omnibox/browser/fusebox_action.mojom.h"
+#include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/search/ntp_features.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
@@ -50,6 +51,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 namespace {
@@ -250,11 +252,11 @@ class TabStripModelFixture {
     return ptr;
   }
 
-  std::unique_ptr<content::WebContents> DiscardWebContentsAt(
-      int index,
+  std::unique_ptr<content::WebContents> DiscardWebContents(
+      content::WebContents* contents,
       std::unique_ptr<content::WebContents> new_contents) {
-    return tab_strip_model_->DiscardWebContentsAt(index,
-                                                  std::move(new_contents));
+    return tab_strip_model_->DiscardWebContents(contents,
+                                                std::move(new_contents));
   }
 
   void Activate(int index) { tab_strip_model_->ActivateTabAt(index); }
@@ -644,9 +646,10 @@ TEST_F(ActionChipsHandlerTest, DiscardWebContentsDoesNotCrash) {
   // handled correctly, because the old_contents (which is the one handler is
   // watching) loses its UserData during discard.
   EXPECT_THAT(tab_strip_model_fixture_
-                  ->DiscardWebContentsAt(
-                      0, content::WebContentsTester::CreateTestWebContents(
-                             profile_.get(), nullptr))
+                  ->DiscardWebContents(
+                      web_ui_->GetWebContents(),
+                      content::WebContentsTester::CreateTestWebContents(
+                          profile_.get(), nullptr))
                   .get(),
               Eq(web_ui_->GetWebContents()));
 }
@@ -772,7 +775,8 @@ TEST_F(ActionChipsHandlerTest, NavigateToAimOpensCorrectUrl) {
       template_url_service->Add(std::make_unique<TemplateURL>(data));
   template_url_service->SetUserSelectedDefaultSearchProvider(turl);
 
-  handler().NavigateToAim(u"test query");
+  handler().NavigateToAim("test query", 0,
+                          searchbox::mojom::ActionModifiers::New());
 
   ASSERT_TRUE(delegate.last_open_url_params());
   EXPECT_EQ(WindowOpenDisposition::CURRENT_TAB,
@@ -790,5 +794,29 @@ TEST_F(ActionChipsHandlerTest, NavigateToAimOpensCorrectUrl) {
   web_contents()->SetDelegate(nullptr);
 }
 
+TEST_F(ActionChipsHandlerTest, NavigateToAimWithDisposition) {
+  TestWebContentsDelegate delegate;
+  web_contents()->SetDelegate(&delegate);
+
+  TemplateURLService* template_url_service =
+      TemplateURLServiceFactory::GetForProfile(profile_.get());
+  TemplateURLData data;
+  data.SetShortName(u"foo.com");
+  data.SetURL("http://foo.com/url?bar={searchTerms}");
+  TemplateURL* turl =
+      template_url_service->Add(std::make_unique<TemplateURL>(data));
+  template_url_service->SetUserSelectedDefaultSearchProvider(turl);
+
+  // Simulate a middle click.
+  handler().NavigateToAim("test query", 1,
+                          searchbox::mojom::ActionModifiers::New());
+
+  ASSERT_TRUE(delegate.last_open_url_params());
+  // A middle click without modifiers maps to NEW_BACKGROUND_TAB.
+  EXPECT_EQ(WindowOpenDisposition::NEW_BACKGROUND_TAB,
+            delegate.last_open_url_params()->disposition);
+
+  web_contents()->SetDelegate(nullptr);
+}
 
 }  // namespace

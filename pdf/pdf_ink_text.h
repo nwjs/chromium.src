@@ -55,21 +55,7 @@ std::string TextTypefaceToString(TextTypeface typeface);
 std::string TextAlignmentToString(TextAlignment alignment);
 
 struct InkTextBoxAttributes {
-  InkTextBoxAttributes(gfx::RectF rect,
-                       SkColor color,
-                       float css_font_size,
-                       TextTypeface typeface,
-                       TextAlignment alignment,
-                       int orientation,
-                       PageOrientation viewport_orientation,
-                       bool is_bold,
-                       bool is_italic,
-                       const std::string& text);
-  InkTextBoxAttributes(const InkTextBoxAttributes&) = delete;
-  InkTextBoxAttributes& operator=(const InkTextBoxAttributes&) = delete;
-  InkTextBoxAttributes(InkTextBoxAttributes&&) noexcept;
-  InkTextBoxAttributes& operator=(InkTextBoxAttributes&&) noexcept;
-  ~InkTextBoxAttributes();
+  bool operator==(const InkTextBoxAttributes& other) const = default;
 
   // `rect` is in CSS screen coordinates.
   gfx::RectF rect;

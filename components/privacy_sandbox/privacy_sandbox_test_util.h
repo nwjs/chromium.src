@@ -9,7 +9,6 @@
 #include <string>
 #include <variant>
 
-#include "components/browsing_topics/test_util.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/test/content_settings_mock_provider.h"
@@ -30,14 +29,6 @@ namespace privacy_sandbox_test_util {
 
 class PrivacySandboxServiceTestInterface {
  public:
-  virtual void TopicsToggleChanged(bool new_value) const = 0;
-  virtual void SetTopicAllowed(privacy_sandbox::CanonicalTopic topic,
-                               bool allowed) = 0;
-  virtual bool TopicsHasActiveConsent() const = 0;
-  virtual privacy_sandbox::TopicsConsentUpdateSource
-  TopicsConsentLastUpdateSource() const = 0;
-  virtual base::Time TopicsConsentLastUpdateTime() const = 0;
-  virtual std::string TopicsConsentLastUpdateText() const = 0;
   virtual void ForceChromeBuildForTests(bool force_chrome_build) const = 0;
 };
 
@@ -52,10 +43,6 @@ class PrivacySandboxSettingsTestPeer {
 
   using Status = privacy_sandbox::PrivacySandboxSettingsImpl::Status;
 
-  static bool IsAllowed(Status status);
-
-  bool IsFledgeJoiningAllowed(const url::Origin& top_frame_origin) const;
-
  private:
   raw_ptr<privacy_sandbox::PrivacySandboxSettingsImpl> pss_impl_;
 };
@@ -65,56 +52,7 @@ class MockPrivacySandboxObserver
  public:
   MockPrivacySandboxObserver();
   ~MockPrivacySandboxObserver();
-  MOCK_METHOD(void, OnTopicsDataAccessibleSinceUpdated, (), (override));
   MOCK_METHOD1(OnRelatedWebsiteSetsEnabledChanged, void(bool));
-};
-
-class MockPrivacySandboxSettingsDelegate
-    : public privacy_sandbox::PrivacySandboxSettings::Delegate {
- public:
-  MockPrivacySandboxSettingsDelegate();
-  ~MockPrivacySandboxSettingsDelegate() override;
-  void SetUpIsPrivacySandboxRestrictedResponse(bool restricted) {
-    ON_CALL(*this, IsPrivacySandboxRestricted).WillByDefault([=]() {
-      return restricted;
-    });
-  }
-
-  void SetUpIsPrivacySandboxCurrentlyUnrestrictedResponse(bool unrestricted) {
-    ON_CALL(*this, IsPrivacySandboxCurrentlyUnrestricted).WillByDefault([=]() {
-      return unrestricted;
-    });
-  }
-
-  void SetUpIsIncognitoProfileResponse(bool incognito) {
-    ON_CALL(*this, IsIncognitoProfile).WillByDefault([=]() {
-      return incognito;
-    });
-  }
-
-  void SetUpHasAppropriateTopicsConsentResponse(bool has_appropriate_consent) {
-    ON_CALL(*this, HasAppropriateTopicsConsent).WillByDefault([=]() {
-      return has_appropriate_consent;
-    });
-  }
-
-  void SetUpIsSubjectToM1NoticeRestrictedResponse(
-      bool is_subject_to_restricted_notice) {
-    ON_CALL(*this, IsSubjectToM1NoticeRestricted).WillByDefault([=]() {
-      return is_subject_to_restricted_notice;
-    });
-  }
-
-  MOCK_METHOD(bool, IsPrivacySandboxRestricted, (), (const, override));
-  MOCK_METHOD(bool,
-              IsPrivacySandboxCurrentlyUnrestricted,
-              (),
-              (const, override));
-
-  MOCK_METHOD(bool, IsIncognitoProfile, (), (const, override));
-  MOCK_METHOD(bool, HasAppropriateTopicsConsent, (), (const, override));
-  MOCK_METHOD(bool, IsSubjectToM1NoticeRestricted, (), (const, override));
-  MOCK_METHOD(bool, IsRestrictedNoticeEnabled, (), (const, override));
 };
 
 // A declarative test case is a collection of key value pairs, which each define
@@ -131,21 +69,10 @@ enum class StateKey {
   kIsIncognito = 7,
   kIsRestrictedAccount = 8,
   kHasCurrentTopics = 9,
-  kHasBlockedTopics = 10,
   kAdvanceClockBy = 11,
-  kActiveTopicsConsent = 12,
-  kTrialsConsentDecisionMade = 14,
-  kTrialsNoticeDisplayed = 15,
-  kM1ConsentDecisionPreviouslyMade = 16,
-  kM1EEANoticePreviouslyAcknowledged = 17,
-  kM1RowNoticePreviouslyAcknowledged = 18,
-  kM1PromptPreviouslySuppressedReason = 19,
-  kM1PromptDisabledByPolicy = 20,
   kM1TopicsDisabledByPolicy = 21,
   kM1FledgeDisabledByPolicy = 22,
   kM1AdMesaurementDisabledByPolicy = 23,
-  kHasAppropriateTopicsConsent = 24,
-  kM1RestrictedNoticePreviouslyAcknowledged = 25,
   kAttestationsMap = 26,
   kBlockFledgeJoiningForEtldplus1 = 27,
 };
@@ -157,7 +84,6 @@ enum class InputKey {
   kFledgeAuctionPartyOrigin = 3,
   kAdMeasurementReportingOrigin = 4,
   kAccessingOrigin = 7,
-  kTopicsToggleNewValue = 8,
   kForceChromeBuild = 9,
   // kPromptAction is Obsolete.
   // TODO(crbug.com/474716334): Remove this enum.
@@ -167,57 +93,25 @@ enum class InputKey {
   kOutSharedStorageSelectURLDebugMessage = 13,
   kOutSharedStorageBlockIsSiteSettingSpecific = 14,
   kOutSharedStorageSelectURLBlockIsSiteSettingSpecific = 15,
-  kOutPrivateAggregationBlockIsSiteSettingSpecific = 16,
 };
 
 // Defines the expected output of the functions under test, when the profile is
 // setup as per defined state, and they are provided the defined inputs.
 enum class OutputKey {
-  kIsTopicsAllowed = 1,
-  kIsTopicsAllowedForContext = 2,
   kIsSharedStorageAllowed = 6,
   kIsSharedStorageSelectURLAllowed = 7,
-  kIsPrivateAggregationAllowed = 8,
-  kIsTopicsAllowedMetric = 9,
-  kIsTopicsAllowedForContextMetric = 10,
   kIsSharedStorageAllowedMetric = 14,
   kIsSharedStorageSelectURLAllowedMetric = 15,
-  kIsPrivateAggregationAllowedMetric = 16,
-  kTopicsConsentGiven = 17,
-  kTopicsConsentLastUpdateReason = 18,
-  kTopicsConsentLastUpdateTime = 19,
-  kTopicsConsentStringIdentifiers = 20,
   // kPromptType and kM1PromptSuppressedReason are Obsolete.
   // TODO(crbug.com/474716334): Remove obsolete enums.
   kPromptType = 21,
-  kM1PromptSuppressedReason = 22,
-  kM1ConsentDecisionMade = 23,
-  kM1EEANoticeAcknowledged = 24,
-  kM1RowNoticeAcknowledged = 25,
   kM1TopicsEnabled = 26,
   kM1FledgeEnabled = 27,
   kM1AdMeasurementEnabled = 28,
-  kM1RestrictedNoticeAcknowledged = 31,
-  kIsEventReportingDestinationAttestedForFledge = 32,
-  kIsEventReportingDestinationAttestedForSharedStorage = 33,
-  kIsEventReportingDestinationAttestedForFledgeMetric = 34,
-  kIsEventReportingDestinationAttestedForSharedStorageMetric = 35,
-  kIsFledgeJoinAllowed = 36,
-  kIsFledgeLeaveAllowed = 37,
-  kIsFledgeUpdateAllowed = 38,
-  kIsFledgeSellAllowed = 39,
-  kIsFledgeBuyAllowed = 40,
-  kIsFledgeJoinAllowedMetric = 41,
-  kIsFledgeLeaveAllowedMetric = 42,
-  kIsFledgeUpdateAllowedMetric = 43,
-  kIsFledgeSellAllowedMetric = 44,
-  kIsFledgeBuyAllowedMetric = 45,
-  kIsPrivateAggregationDebugModeAllowed = 47,
   kIsSharedStorageAllowedDebugMessage = 48,
   kIsSharedStorageSelectURLAllowedDebugMessage = 49,
   kIsSharedStorageBlockSiteSettingSpecific = 50,
   kIsSharedStorageSelectURLBlockSiteSettingSpecific = 51,
-  kIsPrivateAggregationBlockSiteSettingSpecific = 52,
 };
 
 // To allow multiple input keys to map to the same value, without having to
@@ -254,7 +148,6 @@ using TestCaseItemValue =
                  int,
                  base::Time,
                  base::TimeDelta,
-                 privacy_sandbox::TopicsConsentUpdateSource,
                  std::vector<int>,
                  std::optional<privacy_sandbox::PrivacySandboxAttestationsMap>>;
 
@@ -279,8 +172,6 @@ void RunTestCase(
     content::BrowserTaskEnvironment* task_environment,
     sync_preferences::TestingPrefServiceSyncable* testing_pref_service,
     HostContentSettingsMap* host_content_settings_map,
-    MockPrivacySandboxSettingsDelegate* mock_delegate,
-    browsing_topics::MockBrowsingTopicsService* mock_browsing_topics_service,
     privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
     PrivacySandboxServiceTestInterface* privacy_sandbox_service,
     content_settings::MockProvider* user_content_setting_provider,
@@ -296,9 +187,7 @@ void ApplyTestState(
     content::BrowserTaskEnvironment* task_environment,
     sync_preferences::TestingPrefServiceSyncable* testing_pref_service,
     HostContentSettingsMap* map,
-    MockPrivacySandboxSettingsDelegate* mock_delegate,
     PrivacySandboxServiceTestInterface* privacy_sandbox_service,
-    browsing_topics::MockBrowsingTopicsService* mock_browsing_topics_service,
     privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
     content_settings::MockProvider* user_content_setting_provider,
     content_settings::MockProvider* managed_content_setting_provider);

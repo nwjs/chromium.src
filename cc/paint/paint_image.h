@@ -403,6 +403,12 @@ class CC_PAINT_EXPORT PaintImage {
 
   const gfx::HDRMetadata& GetHDRMetadata() const { return hdr_metadata_; }
 
+  // Returns the maximum HDR headroom in log2 space required to render this
+  // image at full HDR brightness, taking into account gainmap ratio max
+  // metadata or the image's color space. Returns 0.0f if the image is SDR (e.g.
+  // 0.5f corresponds to 2^0.5 ~= 1.41x SDR white).
+  float GetMaximumRenderedHdrHeadroom() const;
+
   std::string ToString() const;
 
  private:
@@ -516,9 +522,8 @@ class CC_PAINT_EXPORT AnimatedImageFrameIndexMap
       public base::flat_map<PaintImage::Id, size_t> {
  public:
   AnimatedImageFrameIndexMap();
-  AnimatedImageFrameIndexMap(
-      base::sorted_unique_t sorted_unique,
-      const std::vector<std::pair<PaintImage::Id, size_t>>& entries);
+  AnimatedImageFrameIndexMap(base::sorted_unique_t sorted_unique,
+                             container_type entries);
 
  private:
   friend class base::RefCountedThreadSafe<AnimatedImageFrameIndexMap>;

@@ -111,7 +111,6 @@
 #import "ios/chrome/browser/share_extension/model/share_extension_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_delegate.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state_options.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_util.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -159,7 +158,7 @@
 #import "ui/base/device_form_factor.h"
 
 #if BUILDFLAG(IOS_CREDENTIAL_PROVIDER_ENABLED)
-#import "ios/chrome/app/credential_provider_migrator_app_agent.h"
+#import "ios/chrome/browser/credential_provider/model/credential_provider_migrator_app_agent.h"
 #endif
 
 #if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
@@ -1829,7 +1828,7 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
            attributesStorage:(ProfileAttributesStorageIOS*)storage
                   localState:(PrefService*)localState {
   // Determine the identifier for the SceneState.
-  std::string sceneStateID = SessionIdentifierForScene(sceneState.scene);
+  const std::string sceneStateID = SessionIdentifierForScene(sceneState.scene);
 
   // Determine which profile to use. The logic is to take the first valid
   // profile (i.e. the value is set and the profile is known) amongst the
@@ -1884,9 +1883,8 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
   DCHECK(iterator->second.state != nil);
 
   // Connects the SceneState to the ProfileState.
-  [sceneState.controller
-      connectWithOptions:{.profile_state = iterator->second.state,
-                          .identifier = std::move(sceneStateID)}];
+  [sceneState.controller connectWithProfileState:iterator->second.state
+                                  sceneSessionID:sceneStateID];
 }
 
 // Drops all unused profile controllers. This will cause the corresponding

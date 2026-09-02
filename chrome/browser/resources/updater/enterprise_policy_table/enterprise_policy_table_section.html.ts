@@ -33,7 +33,7 @@ export function getHtml(this: EnterprisePolicyTableSectionElement) {
         </div>
         <div class="column-warning" role="cell">
           ${item.hasConflict ? html`
-            <cr-icon class="warning-icon" icon="cr:warning" role="img"
+            <cr-icon class="warning-icon" icon="cr:warning-filled" role="img"
                 aria-label="$i18n{policyConflictWarning}"
                 title="$i18n{policyConflictWarning}">
             </cr-icon>
@@ -47,8 +47,8 @@ export function getHtml(this: EnterprisePolicyTableSectionElement) {
           ${this.canExpand(item) ? html`
             <cr-icon-button class="expand-icon"
                 data-index="${index}"
-                iron-icon="${item.isExpanded ? 'cr:expand-less' :
-                    'cr:expand-more'}"
+                iron-icon="${item.isExpanded ? 'cr:keyboard-arrow-up' :
+                    'cr:keyboard-arrow-down'}"
                 aria-expanded="${item.isExpanded}"
                 aria-controls="expanded-section-${index}"
                 @click="${this.onExpandButtonClick}">

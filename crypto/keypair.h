@@ -54,6 +54,9 @@ class CRYPTO_EXPORT PrivateKey {
   // Generates a fresh, random ML-DSA-44 key.
   static PrivateKey GenerateMldsa44();
 
+  // Generates a fresh, random ML-KEM-768 key.
+  static PrivateKey GenerateMlkem768();
+
   // Imports a PKCS#8 PrivateKeyInfo block. Returns nullopt if the passed-in
   // buffer is not a valid PrivateKeyInfo block, or if there is trailing data in
   // it after the PrivateKeyInfo block.
@@ -79,6 +82,11 @@ class CRYPTO_EXPORT PrivateKey {
   static std::optional<PrivateKey> FromEcP256PrivateKey(
       base::span<const uint8_t> key);
 
+  // Imports a "raw" EC P-256 private scalar, from a big-endian encoded
+  // bignum. This can fail if the given scalar is not of the right order.
+  static std::optional<PrivateKey> FromEcP256PrivateScalar(
+      base::span<const uint8_t> key);
+
   // Imports an RFC 8032-encoded Ed25519 private key.
   //
   // The encoding used doesn't allow for importing to fail (all input bit
@@ -87,6 +95,9 @@ class CRYPTO_EXPORT PrivateKey {
 
   // Imports an X25519 private key.
   static PrivateKey FromX25519PrivateKey(base::span<const uint8_t, 32> key);
+
+  // Imports an ML-KEM-768 private key seed.
+  static PrivateKey FromMlkem768PrivateKey(base::span<const uint8_t, 64> key);
 
   // Deliberately not present in this API:
   // ECPrivateKey::CreateFromEncryptedPrivateKeyInfo(): imports a PKCS#8
@@ -115,12 +126,19 @@ class CRYPTO_EXPORT PrivateKey {
   // talk to an owner of this class.
   std::vector<uint8_t> ToEcP256PrivateKey() const;
 
+  // Exports an EC P-256 private key as a private scalar value, encoded as a
+  // big-endian bignum. It is illegal to call this if !IsEcP256().
+  std::array<uint8_t, 32> ToEcP256PrivateScalar() const;
+
   // Exports an Ed25519 private key in RFC 8032 format. It is illegal to call
   // this if !IsEd25519().
   std::array<uint8_t, 32> ToEd25519PrivateKey() const;
 
   // Exports an X25519 private key.
   std::array<uint8_t, 32> ToX25519PrivateKey() const;
+
+  // Exports an ML-KEM-768 private key seed.
+  std::array<uint8_t, 64> ToMlkem768PrivateKey() const;
 
   // Computes and exports an X.509 SubjectPublicKeyInfo block corresponding to
   // this key.
@@ -137,6 +155,9 @@ class CRYPTO_EXPORT PrivateKey {
   // Exports an X25519 public key.
   std::array<uint8_t, 32> ToX25519PublicKey() const;
 
+  // Exports an ML-KEM-768 public key.
+  std::array<uint8_t, 1184> ToMlkem768PublicKey() const;
+
   EVP_PKEY* key() { return key_.get(); }
   const EVP_PKEY* key() const { return key_.get(); }
 
@@ -145,6 +166,7 @@ class CRYPTO_EXPORT PrivateKey {
   bool IsEd25519() const;
   bool IsX25519() const;
   bool IsMldsa44() const;
+  bool IsMlkem768() const;
 
   bool IsEcP256() const;
   bool IsEcP384() const;
@@ -216,6 +238,10 @@ class CRYPTO_EXPORT PublicKey {
   // Imports an X25519 public key.
   static PublicKey FromX25519PublicKey(base::span<const uint8_t, 32> key);
 
+  // Imports an ML-KEM-768 public key. Returns nullopt if the input is invalid.
+  static std::optional<PublicKey> FromMlkem768PublicKey(
+      base::span<const uint8_t, 1184> key);
+
   // Exports a PublicKey as an X.509 SubjectPublicKeyInfo.
   std::vector<uint8_t> ToSubjectPublicKeyInfo() const;
 
@@ -237,6 +263,9 @@ class CRYPTO_EXPORT PublicKey {
   // Exports an X25519 public key.
   std::array<uint8_t, 32> ToX25519PublicKey() const;
 
+  // Exports an ML-KEM-768 public key.
+  std::array<uint8_t, 1184> ToMlkem768PublicKey() const;
+
   // Export the components (e, n) of an RSA public key, as big-endian integers.
   // It is illegal to call these on a non-RSA PublicKey.
   std::vector<uint8_t> GetRsaExponent() const;
@@ -250,6 +279,7 @@ class CRYPTO_EXPORT PublicKey {
   bool IsEd25519() const;
   bool IsX25519() const;
   bool IsMldsa44() const;
+  bool IsMlkem768() const;
 
   bool IsEcP256() const;
   bool IsEcP384() const;

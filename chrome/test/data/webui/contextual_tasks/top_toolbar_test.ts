@@ -8,6 +8,7 @@ import 'chrome://contextual-tasks/sources_menu.js';
 import {BrowserProxyImpl} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
 import type {ContextualTasksFaviconGroupElement} from 'chrome://contextual-tasks/favicon_group.js';
 import type {TopToolbarElement} from 'chrome://contextual-tasks/top_toolbar.js';
+import type {UnboundedDialog} from 'chrome://contextual-tasks/utils.js';
 import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import type {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
@@ -402,12 +403,66 @@ suite('TopToolbarTest', () => {
       loadTimeData.overrideValues({
         enablePinButton: true,
         isAiPage: true,
+        isCobrowseEligible: true,
         pinTooltip: 'Pin side panel',
         unpinTooltip: 'Unpin side panel',
       });
       topToolbar = document.createElement('top-toolbar');
+      topToolbar.isHandshakeComplete = true;
       document.body.appendChild(topToolbar);
       await microtasksFinished();
+    });
+
+    test('hides pin button when handshake is not complete', async () => {
+      topToolbar.isHandshakeComplete = false;
+      await microtasksFinished();
+
+      const moreButton =
+          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+              '#overflowMenuButton');
+      assertTrue(!!moreButton);
+      moreButton.click();
+      await microtasksFinished();
+
+      const menu = topToolbar.$.overflowMenu.get();
+      const pinButton =
+          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
+      assertFalse(!!pinButton);
+    });
+
+
+    test('hides pin button when not on AI page', async () => {
+      topToolbar.isAiPage = false;
+      await microtasksFinished();
+
+      const moreButton =
+          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+              '#overflowMenuButton');
+      assertTrue(!!moreButton);
+      moreButton.click();
+      await microtasksFinished();
+
+      const menu = topToolbar.$.overflowMenu.get();
+      const pinButton =
+          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
+      assertFalse(!!pinButton);
+    });
+
+    test('hides pin button when not cobrowse eligible', async () => {
+      topToolbar.isCobrowseEligible = false;
+      await microtasksFinished();
+
+      const moreButton =
+          topToolbar.shadowRoot.querySelector<CrIconButtonElement>(
+              '#overflowMenuButton');
+      assertTrue(!!moreButton);
+      moreButton.click();
+      await microtasksFinished();
+
+      const menu = topToolbar.$.overflowMenu.get();
+      const pinButton =
+          menu.shadowRoot.querySelector<HTMLElement>('#pinButton');
+      assertFalse(!!pinButton);
     });
 
     test('handles pin button click', async () => {
@@ -455,6 +510,26 @@ suite('TopToolbarTest', () => {
       pinButton.click();
       await proxy.handler.whenCalled('unpinSidePanel');
     });
+
+    test('resets handshake complete when leaving AI page', async () => {
+      assertTrue(topToolbar.isHandshakeComplete);
+
+      topToolbar.isAiPage = false;
+      await microtasksFinished();
+
+      assertFalse(topToolbar.isHandshakeComplete);
+      assertFalse(topToolbar.isAiPage);
+    });
+
+    test('sets handshake complete on callback', async () => {
+      topToolbar.isHandshakeComplete = false;
+      await microtasksFinished();
+
+      proxy.callbackRouterRemote.onHandshakeComplete();
+      await microtasksFinished();
+
+      assertTrue(topToolbar.isHandshakeComplete);
+    });
   });
 
   suite('Expand button and menu for lens flows disabled', () => {
@@ -489,6 +564,12 @@ suite('TopToolbarTest', () => {
       topToolbar.isAiPage = false;
       await microtasksFinished();
       assertFalse(moreButton.hidden);
+    });
+
+    test('close button does not have rounded-corner attribute', () => {
+      const closeButton = topToolbar.$.closeButton;
+      assertTrue(!!closeButton);
+      assertFalse(closeButton.hasAttribute('rounded-corner'));
     });
 
     (isPhone ? test.skip : test)(
@@ -808,7 +889,7 @@ suite('TopToolbarTest', () => {
     const menu = topToolbar.$.overflowMenu.get();
     let showUnboundedCalled = false;
     let hideUnboundedCalled = false;
-    const dialogEl = menu.$.menu.getDialog() as any;
+    const dialogEl = menu.$.menu.getDialog() as UnboundedDialog;
     dialogEl.showUnboundedElement = () => {
       showUnboundedCalled = true;
       return Promise.resolve();
@@ -834,4 +915,138 @@ suite('TopToolbarTest', () => {
     assertTrue(hideUnboundedCalled);
     assertFalse(dialogEl.hasAttribute('unbounded'));
   });
+
+  // <if expr="not is_android">
+  suite('Permission Dashboard Integration', () => {
+    setup(async () => {
+      loadTimeData.overrideValues({
+        contextualTasksSidePanelRearchitectureEnabled: true,
+      });
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      topToolbar = document.createElement('top-toolbar');
+      document.body.appendChild(topToolbar);
+      await microtasksFinished();
+    });
+
+    function createFakeChip(overrides = {}) {
+      return {
+        isVisible: false,
+        isFullyCollapsed: false,
+        theme: 0,
+        promptStyle: 0,
+        userDecision: 0,
+        shouldShowBlockedIcon: false,
+        iconName: '',
+        message: '',
+        tooltip: '',
+        accessibilityName: '',
+        ...overrides,
+      };
+    }
+
+    test(
+        'hides and shows permission-dashboard, and hides and shows logo' +
+            ' container based on state of request chip',
+        async () => {
+          const topRow = topToolbar.shadowRoot.querySelector('#top-row');
+          assertTrue(!!topRow);
+          const logoContainer =
+              topRow.querySelector<HTMLElement>('.top-toolbar-logo-container');
+          assertHTMLElement(logoContainer);
+
+          // Initial state: `G` logo shows.
+          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertFalse(logoContainer.hidden);
+
+          // Create request chip.
+          const fakeState = {
+            indicatorChip: createFakeChip(),
+            requestChip:
+                createFakeChip({isVisible: true, iconName: 'kMicIcon'}),
+            isDividerVisible: false,
+          };
+
+          // Verify `topToolbar` DOM (dashboard rendered, logo container hidden)
+          // when request chip shows.
+          topToolbar.permissionDashboardState = fakeState;
+          await microtasksFinished();
+
+          assertTrue(!!topRow.querySelector('permission-dashboard'));
+          assertTrue(logoContainer.hidden);
+
+          // Remove the visible chip, so that the permission dashboard no longer
+          // shows and the `G` logo is restored.
+          topToolbar.permissionDashboardState = {
+            indicatorChip: createFakeChip(),
+            requestChip: createFakeChip(),
+            isDividerVisible: false,
+          };
+          await microtasksFinished();
+
+          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertFalse(logoContainer.hidden);
+
+          // Set state to dashboard to null. It should no longer show.
+          topToolbar.permissionDashboardState = null;
+          await microtasksFinished();
+
+          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertFalse(logoContainer.hidden);
+        });
+
+    test(
+        'hides and shows permission-dashboard, and hides and shows logo' +
+            ' container based on state of indicator chip',
+        async () => {
+          const topRow = topToolbar.shadowRoot.querySelector('#top-row');
+          assertTrue(!!topRow);
+          const logoContainer =
+              topRow.querySelector<HTMLElement>('.top-toolbar-logo-container');
+          assertHTMLElement(logoContainer);
+
+          // Initial state: `G` logo shows.
+          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertFalse(logoContainer.hidden);
+
+          // Create indicator chip.
+          const fakeState = {
+            indicatorChip:
+                createFakeChip({isVisible: true, iconName: 'kCameraIcon'}),
+            requestChip: createFakeChip(),
+            isDividerVisible: false,
+          };
+
+          // Verify `topToolbar` DOM (dashboard rendered, logo container hidden)
+          // when indicator chip shows.
+          topToolbar.permissionDashboardState = fakeState;
+          await microtasksFinished();
+
+          assertTrue(!!topRow.querySelector('permission-dashboard'));
+          assertTrue(logoContainer.hidden);
+
+          // Remove the visible chip, so that the permission dashboard no longer
+          // shows and the `G` logo is restored.
+          topToolbar.permissionDashboardState = {
+            indicatorChip: createFakeChip(),
+            requestChip: createFakeChip(),
+            isDividerVisible: false,
+          };
+          await microtasksFinished();
+
+          assertFalse(!!topRow.querySelector('permission-dashboard'));
+          assertFalse(logoContainer.hidden);
+        });
+
+    test(
+        'registers super G button help bubble anchor only when logo is shown',
+        () => {
+          const anchorStatuses = topToolbar.getSortedAnchorStatusesForTesting();
+          const gButtonStatus = anchorStatuses.find(
+              ([id]: [string, boolean]) =>
+                  id === 'kContextualTasksSuperGButtonElementId');
+          assertTrue(!!gButtonStatus);
+          assertTrue(gButtonStatus[1]);
+        });
+  });
+  // </if>
 });

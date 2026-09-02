@@ -2,81 +2,58 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
-import '../../controls/settings_checkbox_list_entry.js';
-import '../../settings_shared.css.js';
+import 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import '../../site_favicon.js';
 
-import type {PrefsMixinInterface} from '/shared/settings/prefs/prefs_mixin.js';
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
-import type {ListPropertyUpdateMixinInterface} from 'chrome://resources/cr_elements/list_property_update_mixin.js';
-import {ListPropertyUpdateMixin} from 'chrome://resources/cr_elements/list_property_update_mixin.js';
+import {PrefService} from '/shared/settings/prefs2/pref_service.js';
+import type {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import {assert} from 'chrome://resources/js/assert.js';
-import type {IronListElement} from 'chrome://resources/polymer/v3_0/iron-list/iron-list.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
-import type {ScrollableMixinInterface} from '../../scrollable_mixin.js';
-import {ScrollableMixin} from '../../scrollable_mixin.js';
 import {convertDateToWindowsEpoch} from '../../time.js';
 import type {PerformanceBrowserProxy} from '../performance_browser_proxy.js';
 import {PerformanceBrowserProxyImpl} from '../performance_browser_proxy.js';
 import type {PerformanceMetricsProxy} from '../performance_metrics_proxy.js';
 import {MemorySaverModeExceptionListAction, PerformanceMetricsProxyImpl} from '../performance_metrics_proxy.js';
 
-import {getTemplate} from './exception_current_sites_list.html.js';
+import {getCss} from './exception_current_sites_list.css.js';
+import {getHtml} from './exception_current_sites_list.html.js';
 import {TAB_DISCARD_EXCEPTIONS_PREF} from './exception_validation_mixin.js';
 
 export interface ExceptionCurrentSitesListElement {
   $: {
-    list: IronListElement,
+    list: HTMLElement,
   };
 }
 
 type Site = string;
 
-type Constructor<T> = new (...args: any[]) => T;
-const ExceptionCurrentSitesListElementBase =
-    ListPropertyUpdateMixin(ScrollableMixin(PrefsMixin(PolymerElement))) as
-    Constructor<ListPropertyUpdateMixinInterface&ScrollableMixinInterface&
-                PrefsMixinInterface&PolymerElement>;
-
-export class ExceptionCurrentSitesListElement extends
-    ExceptionCurrentSitesListElementBase {
+export class ExceptionCurrentSitesListElement extends CrLitElement {
   static get is() {
     return 'tab-discard-exception-current-sites-list';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      currentSites_: {type: Array, value: []},
-
-      selectedSites_: {
-        type: Array,
-        value() {
-          return new Set();
-        },
-      },
-
+      currentSites_: {type: Array},
+      selectedSites_: {type: Object},
       submitDisabled: {
         type: Boolean,
         notify: true,
       },
-
-      updateIntervalMS_: {
-        type: Number,
-        value: 1000,
-      },
+      updateIntervalMS_: {type: Number},
 
       // whether the current sites list is visible according to its parent
-      visible: {
-        type: Boolean,
-        value: true,
-        observer: 'onVisibilityChanged_',
-      },
+      visible: {type: Boolean},
     };
   }
 
@@ -85,11 +62,11 @@ export class ExceptionCurrentSitesListElement extends
   private metricsProxy_: PerformanceMetricsProxy =
       PerformanceMetricsProxyImpl.getInstance();
 
-  declare private currentSites_: Site[];
-  declare private selectedSites_: Set<Site>;
-  declare private submitDisabled: boolean;
-  declare private updateIntervalMS_: number;
-  declare visible: boolean;
+  protected accessor currentSites_: Site[] = [];
+  private accessor selectedSites_: Set<Site> = new Set();
+  accessor submitDisabled: boolean = false;
+  private accessor updateIntervalMS_: number = 1000;
+  accessor visible: boolean = true;
 
   private onVisibilityChangedListener_: () => void;
   private updateIntervalID_: number|undefined = undefined;
@@ -109,15 +86,18 @@ export class ExceptionCurrentSitesListElement extends
   }
 
   override disconnectedCallback() {
+    super.disconnectedCallback();
     document.removeEventListener(
         'visibilitychange', this.onVisibilityChangedListener_);
     this.stopUpdatingCurrentSites_();
   }
 
-  // Notifies the iron-list child that it should resize (generally because this
-  // element's visibility has changed).
-  notifyResize() {
-    this.$.list.notifyResize();
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+
+    if (changedProperties.has('visible')) {
+      this.onVisibilityChanged_();
+    }
   }
 
   private onVisibilityChanged_() {
@@ -155,8 +135,10 @@ export class ExceptionCurrentSitesListElement extends
   }
 
   private async updateCurrentSites_() {
+    await PrefService.getInstance().whenInitialized();
     const existingSites = new Set(Object.keys(
-        this.getPref<Record<string, unknown>>(TAB_DISCARD_EXCEPTIONS_PREF)
+        PrefService.getInstance()
+            .getPref<Record<string, unknown>>(TAB_DISCARD_EXCEPTIONS_PREF)
             .value));
     const currentSites = (await this.browserProxy_.getCurrentOpenSites())
                              .filter(rule => !existingSites.has(rule));
@@ -166,41 +148,36 @@ export class ExceptionCurrentSitesListElement extends
         new Set(currentSites.filter(this.isSelectedSite_.bind(this)));
     this.computeSubmitDisabled_();
 
-    this.updateList('currentSites_', x => x, currentSites);
-    if (this.currentSites_.length) {
-      this.updateScrollableContents();
-    }
+    this.currentSites_ = currentSites;
   }
 
   private computeSubmitDisabled_() {
     this.submitDisabled = !this.selectedSites_.size;
   }
 
-  // Convert iron-list index (0-indexed) to aria-posinset (1-indexed).
-  private getAriaPosinset_(index: number): number {
-    return index + 1;
-  }
-
   // Called to recalculate checked status of entries when the site changes due
   // to list updates.
-  private isSelectedSite_(site: Site) {
+  protected isSelectedSite_(site: Site) {
     return this.selectedSites_.has(site);
   }
 
-  private onToggleSelection_(e: {model: {item: Site}, detail: boolean}) {
-    if (e.detail) {
-      this.selectedSites_.add(e.model.item);
+  protected onSelectionChange_(e: Event) {
+    const checkbox = e.currentTarget as CrCheckboxElement;
+    const site = checkbox.dataset['site']!;
+    if (checkbox.checked) {
+      this.selectedSites_.add(site);
     } else {
-      this.selectedSites_.delete(e.model.item);
+      this.selectedSites_.delete(site);
     }
     this.computeSubmitDisabled_();
   }
 
   submit() {
     assert(!this.submitDisabled);
+    const epoch = convertDateToWindowsEpoch();
     this.selectedSites_.forEach(rule => {
-      this.setPrefDictEntry(
-          TAB_DISCARD_EXCEPTIONS_PREF, rule, convertDateToWindowsEpoch());
+      PrefService.getInstance().setPrefDictEntry(
+          TAB_DISCARD_EXCEPTIONS_PREF, rule, epoch);
     });
     this.metricsProxy_.recordExceptionListAction(
         MemorySaverModeExceptionListAction.ADD_FROM_CURRENT);

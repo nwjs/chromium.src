@@ -25,7 +25,7 @@ source_set("skills") {
     "//chrome/browser/optimization_guide",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin",
-    "//chrome/browser/sync:factories",
+    "//chrome/browser/sync:data_type_store_service_factory",
     "//chrome/common:channel_info",
     "//components/keyed_service/core",
     "//components/skills:features",
@@ -53,6 +53,7 @@ source_set("public") {
     deps += [
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
+      "//components/prefs",
     ]
   }
 }
@@ -95,11 +96,13 @@ source_set("ui") {
   if (!is_android) {
     deps += [
       "//chrome/browser/ui/browser_window",
+      "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/toasts",
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/webui",
       "//chrome/browser/ui/webui/skills",
       "//components/constrained_window",
+      "//components/prefs",
       "//components/web_modal",
     ]
   }
@@ -111,6 +114,7 @@ source_set("browser_tests") {
   sources = []
   if (!is_android) {
     sources += [
+      "enterprise_skills_provider_browsertest.cc",
       "skills_api_functional_browsertest.cc",
       "skills_dialog_launcher_browsertest.cc",
       "skills_functional_browsertest.cc",
@@ -128,6 +132,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//components/skills:features",
+    "//components/skills/internal",
     "//components/skills/public",
     "//components/skills/public:mojo_bindings",
   ]
@@ -137,6 +142,12 @@ source_set("browser_tests") {
       "//chrome/browser/ui/toasts/api:toasts",
       "//chrome/browser/ui/webui",
       "//chrome/browser/ui/webui/skills",
+    ]
+  }
+  if (is_chromeos) {
+    deps += [
+      "//chrome/browser/chromeos/policy/dlp",
+      "//chrome/browser/chromeos/policy/dlp/test:test_support",
     ]
   }
 }

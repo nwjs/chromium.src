@@ -4,6 +4,7 @@
 
 /* #css_wrapper_metadata_start
  * #type=style-lit
+ * #import=/shared/webui_toolbar_shared_vars.css.js
  * #scheme=relative
  * #css_wrapper_metadata_end */
 
@@ -11,30 +12,42 @@
   display: flex;
   align-items: center;
   width: auto;
+
+  /* Matches the C++ slide duration in PageActionView. */
+  --chip-slide-duration: 600ms;
 }
 
-/* TODO: crbug.com/501449027 - migrate these to icons.html.ts and icon_table.cc.
- */
-.icon-password-manager {
-  --cr-icon-image: url(shared/rhs_icons/password_manager.svg);
+/* Target the toolbar-chip-button directly to apply layout variables.
+ * These must be applied to the child element from the outside rather than
+ * on :host, because toolbar-chip-button's own :host block defines default
+ * values that would override any values inherited from page-action-icon. */
+#button {
+  /* TODO(crbug.com/501449027): Add a different background color when expanded
+   * as a chip to match C++ views (e.g. for PWA install icons). */
+  --toolbar-chip-height: calc(
+      var(--location-bar-trailing-icon-size) +
+      var(--location-bar-page-action-icon-padding-top) +
+      var(--location-bar-page-action-icon-padding-bottom));
+  --toolbar-chip-icon-size: var(--location-bar-trailing-icon-size);
+  --toolbar-chip-padding-start: calc(
+      var(--location-bar-page-action-icon-padding-start) +
+      var(--location-bar-icon-interior-padding-start));
+  --toolbar-chip-padding-end: calc(
+      var(--location-bar-page-action-icon-padding-end) +
+      var(--location-bar-icon-interior-padding-end));
+  /* The 4px manually mirrors the SetExpandedLabelAdditionalInsets(4, 8) gap
+   * added dynamically in Native C++ PageActionView::PageActionView(). */
+  --toolbar-chip-icon-label-gap:
+      calc(var(--location-bar-child-internal-spacing) + 4px);
+  --toolbar-chip-expand-duration: var(--chip-slide-duration);
 }
 
-.icon-performance-speedometer {
-  --cr-icon-image: url(shared/rhs_icons/performance_speedometer.svg);
-}
-
-.icon-translate {
-  --cr-icon-image: url(shared/rhs_icons/translate.svg);
-}
-
-.icon-bookmark {
-  --cr-icon-image: url(shared/rhs_icons/star_chrome_refresh.svg);
-}
-
-.icon-screen-record {
-  --cr-icon-image: url(shared/rhs_icons/screen_record.svg);
-}
-
-.icon-placeholder {
-  --cr-icon-image: url(shared/rhs_icons/insert_drive_file_outline.svg);
+#text {
+  display: inline-block;
+  font-family: var(--omnibox-primary-body-3-emphasis-font-family);
+  font-size: var(--omnibox-primary-body-3-emphasis-font-size);
+  font-weight: var(--omnibox-primary-body-3-emphasis-font-weight);
+  line-height: var(--omnibox-primary-body-3-emphasis-line-height, inherit);
+  text-overflow: clip;
+  white-space: nowrap;
 }

@@ -15,6 +15,10 @@
 #include "chrome/browser/actor/actor_script_tool_receiver.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/dom_distiller/dom_distiller_service_factory.h"
+#include "chrome/browser/geic/geic_host.h"
+#include "chrome/browser/glic/host/glic_page_handler.h"
+#include "chrome/browser/glic/host/guest_util.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
@@ -25,8 +29,10 @@
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/chrome_no_state_prefetch_processor_impl_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/pwc/pwc_api_binder.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/speech/on_device_speech_recognition_impl.h"
+#include "chrome/browser/ssl/chrome_security_state_util.h"
 #include "chrome/browser/translate/translate_frame_binder.h"
 #include "chrome/browser/ui/search_engines/search_engine_tab_helper.h"
 #include "chrome/common/buildflags.h"
@@ -49,7 +55,6 @@
 #include "components/performance_manager/embedder/performance_manager_registry.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_state/content/content_utils.h"
-#include "components/security_state/content/security_state_tab_helper.h"
 #include "components/security_state/core/security_state.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/spellcheck/spellcheck_buildflags.h"
@@ -102,14 +107,14 @@
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/payments/payment_request_factory.h"
 #include "chrome/browser/prefs/persistent_renderer_prefs_manager.h"
-#include "chrome/browser/ui/views/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/web_applications/web_install_service_impl.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/apps/digital_goods/digital_goods_factory_impl.h"
 #include "chrome/browser/speech/cros_speech_recognition_service_factory.h"
-#include "chromeos/ash/experiences/isolated_web_app/isolated_web_app_api_bridge_impl.h"
+#include "chromeos/ash/experiences/isolated_web_app/set_shape_service_impl.h"
+#include "third_party/blink/public/mojom/set_shape/set_shape.mojom.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \
@@ -211,10 +216,9 @@ void BindDistillabilityService(
   }
   driver->SetIsSecureCallback(
       base::BindRepeating([](content::WebContents* contents) {
-        // SecurityStateTabHelper uses chrome-specific
-        // GetVisibleSecurityState to determine if a page is SECURE.
-        return SecurityStateTabHelper::FromWebContents(contents)
-                   ->GetSecurityLevel() ==
+        // Uses the chrome-specific visible security state to determine
+        // whether the page is SECURE.
+        return chrome_security_state::GetSecurityLevel(contents) ==
                security_state::SecurityLevel::SECURE;
       }));
   driver->CreateDistillabilityService(std::move(receiver));
@@ -451,6 +455,15 @@ void BindCredentialManager(
 void PopulateChromeFrameBinders(
     mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
     content::RenderFrameHost* render_frame_host) {
+  map->Add<glic::mojom::WebClientHandler>(&glic::BindGlicWebClientHandler);
+  // Defense in depth: privileged capability interfaces are not even registered
+  // for a frame outside a privileged process, so a non-PWC frame cannot
+  // request them at all. The bind-time gate (pwc::EnforceCapabilityGate)
+  // remains the security boundary for frames that do get the binders.
+  if (render_frame_host->GetProcess()->IsPrivileged()) {
+    map->Add<pwc::mojom::PrivilegedBridge>(&pwc::BindPrivilegedBridge);
+    map->Add<geic::mojom::GeicApi>(&geic::BindGeicApi);
+  }
   map->Add<image_annotation::mojom::Annotator>(&BindImageAnnotator);
 
   map->Add<blink::mojom::ScriptToolHost>(
@@ -531,8 +544,7 @@ void PopulateChromeFrameBinders(
 #if BUILDFLAG(IS_CHROMEOS)
   map->Add<payments::mojom::DigitalGoodsFactory>(
       &apps::DigitalGoodsFactoryImpl::BindDigitalGoodsFactory);
-  map->Add<blink::mojom::IsolatedWebAppApiBridge>(
-      &ash::IsolatedWebAppApiBridgeImpl::Create);
+  map->Add<blink::mojom::SetShapeService>(&ash::SetShapeServiceImpl::Create);
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)

@@ -27,6 +27,7 @@ import org.chromium.base.MathUtils;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
@@ -50,8 +51,10 @@ public class LocationBarLayout extends ConstraintLayout {
     protected ImageButton mZoomButton;
     protected ImageButton mInstallButton;
     protected final View mNavigateButton;
+    protected final View mActivationChip;
     protected UrlBar mUrlBar;
     protected final View mLocationBarStatusView;
+    protected final View mFocusThief;
 
     protected UrlBarCoordinator mUrlCoordinator;
     protected AutocompleteCoordinator mAutocompleteCoordinator;
@@ -101,7 +104,12 @@ public class LocationBarLayout extends ConstraintLayout {
         mZoomButton = findViewById(R.id.zoom_button);
         mInstallButton = findViewById(R.id.install_button);
         mNavigateButton = findViewById(R.id.navigate_button);
+        mActivationChip = findViewById(R.id.fusebox_activation_chip);
+        // TODO(crbug.com/544731730): Remove this once ChipView#updateLayoutDirection is cleaned up
+        // and its render tests are updated to set layout direction on their test containers.
+        mActivationChip.setLayoutDirection(LAYOUT_DIRECTION_INHERIT);
         mMarginSpacer = findViewById(R.id.margin_spacer);
+        mFocusThief = findViewById(R.id.focus_thief);
 
         Resources res = getResources();
         mUrlActionContainerEndMargin =
@@ -125,7 +133,6 @@ public class LocationBarLayout extends ConstraintLayout {
     protected void onFinishInflate() {
         super.onFinishInflate();
 
-        mUrlBar.setAccessibilityTraversalBefore(R.id.omnibox_suggestions_dropdown);
         setLayoutTransition(null);
 
         StatusView statusView = findViewById(R.id.location_bar_status);
@@ -454,8 +461,14 @@ public class LocationBarLayout extends ConstraintLayout {
                         && mSearchEngineService != null
                         && mSearchEngineService.doesDefaultSearchEngineHaveLogo();
         if (isInSingleUrlBarMode) {
+            int fakeSearchBoxStartPadding =
+                    getResources()
+                            .getDimensionPixelSize(
+                                    ChromeFeatureList.sNtpAurora.isEnabled()
+                                            ? R.dimen.fake_search_box_start_padding
+                                            : R.dimen.fake_search_box_start_padding_legacy);
             translationX +=
-                    (getResources().getDimensionPixelSize(R.dimen.fake_search_box_start_padding)
+                    (fakeSearchBoxStartPadding
                             - getResources()
                                     .getDimensionPixelSize(
                                             R.dimen.location_bar_status_icon_holding_space_size));
@@ -596,11 +609,8 @@ public class LocationBarLayout extends ConstraintLayout {
         mLocationBarStatusView.setVisibility(visibility);
     }
 
-    /**
-     * Informs the location bar whether the autocomplete system is in "standby" i.e. accepting input
-     * but not showing suggestions until input is received.
-     */
-    void setShowStandbyRing(boolean showStandbyRing) {}
+    /** Informs the location bar whether the focus ring should be shown. */
+    void setShowFocusRing(boolean showFocusRing) {}
 
     View getUrlBar() {
         return mUrlBar;
@@ -614,7 +624,15 @@ public class LocationBarLayout extends ConstraintLayout {
         return mNavigateButton;
     }
 
+    View getActivationChip() {
+        return mActivationChip;
+    }
+
     View getDeleteButton() {
         return mDeleteButton;
+    }
+
+    View getFocusThief() {
+        return mFocusThief;
     }
 }

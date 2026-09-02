@@ -5,13 +5,29 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
 
 #include "base/metrics/histogram_functions.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/history_clusters/history_clusters_tab_helper.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "components/omnibox/browser/omnibox_popup_selection.h"
+#include "content/public/browser/browser_context.h"
+#include "third_party/metrics_proto/omnibox_event.pb.h"
+#include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/models/menu_model.h"
+
+namespace {
+
+void LogHistogramMediumTimes(const std::string& histogram_name,
+                             base::TimeDelta elapsed) {
+  base::UmaHistogramCustomTimes(histogram_name, elapsed, base::Milliseconds(10),
+                                base::Minutes(3), 50);
+}
+
+}  // namespace
 
 OmniboxPopupHandler::OmniboxPopupHandler(
     mojo::PendingReceiver<omnibox_popup::mojom::PageHandler> receiver,
@@ -56,6 +72,15 @@ void OmniboxPopupHandler::OnSelectionChanged(const gfx::Range& selection,
   }
   latest_selection_ = selection;
   show_full_url_ = show_full_url;
+
+  // Update the selection range of the native view so that when keyboard focus
+  // is transferred to the native view upon click on top container, that typed
+  // text is entered at the correct place.
+  if (controller_) {
+    if (auto* view = controller_->edit_model()->view()) {
+      view->SetSelectionBounds(selection);
+    }
+  }
 }
 
 void OmniboxPopupHandler::Revert(uint32_t sequence_number) {
@@ -63,7 +88,13 @@ void OmniboxPopupHandler::Revert(uint32_t sequence_number) {
     return;
   }
   if (controller_) {
+    if (auto* popup_view = controller_->edit_model()->popup_view()) {
+      popup_view->SetIsReverting(true);
+    }
     controller_->edit_model()->Revert();
+    if (auto* popup_view = controller_->edit_model()->popup_view()) {
+      popup_view->SetIsReverting(false);
+    }
   }
   latest_selection_ = gfx::Range(0, 0);
 }
@@ -158,7 +189,8 @@ void OmniboxPopupHandler::SetInputState(
     bool is_focused,
     const std::string& permanent_display_text,
     bool show_full_url,
-    bool query_zps) {
+    bool query_zps,
+    searchbox::mojom::InputKeywordModelPtr keyword_model) {
   latest_selection_ = selection;
   show_full_url_ = show_full_url;
   current_sequence_number_++;
@@ -173,11 +205,20 @@ void OmniboxPopupHandler::SetInputState(
   state->permanent_display_text = permanent_display_text;
   state->show_full_url = show_full_url;
   state->query_zps = query_zps;
+  state->keyword_model = std::move(keyword_model);
   page_->SetInputState(std::move(state));
 }
 
 void OmniboxPopupHandler::SetFocus(bool is_focused) {
   page_->SetFocus(is_focused);
+}
+
+void OmniboxPopupHandler::ClearAutocompleteMatches() {
+  page_->ClearAutocompleteMatches();
+}
+
+void OmniboxPopupHandler::ClearPopup(base::OnceClosure callback) {
+  page_->ClearPopup(std::move(callback));
 }
 
 void OmniboxPopupHandler::LogEscapeAction(
@@ -192,4 +233,127 @@ void OmniboxPopupHandler::OpenAimPopup(bool via_keyboard) {
                               OmniboxPopupSelection::FOCUSED_BUTTON_AIM),
         via_keyboard);
   }
+}
+
+void OmniboxPopupHandler::OnCutOrCopy(uint32_t sequence_number,
+                                      bool is_cut,
+                                      const std::string& full_text,
+                                      const gfx::Range& selection) {
+  if (sequence_number < current_sequence_number_) {
+    return;
+  }
+  gfx::Range prev_selection = latest_selection_;
+  latest_selection_ =
+      is_cut ? gfx::Range(selection.GetMin(), selection.GetMin()) : selection;
+
+  if (!controller_ || !controller_->edit_model()) {
+    return;
+  }
+
+  std::u16string u16_old_text = base::UTF8ToUTF16(full_text);
+  size_t sel_min = selection.GetMin();
+  size_t sel_max = std::min(selection.GetMax(), u16_old_text.length());
+  if (sel_min > sel_max) {
+    sel_min = sel_max;
+  }
+  std::u16string u16_selected_text =
+      u16_old_text.substr(sel_min, sel_max - sel_min);
+  bool is_select_all = (sel_min == 0 && sel_max == u16_old_text.length() &&
+                        !u16_old_text.empty());
+
+  GURL url;
+  bool write_url = false;
+  controller_->edit_model()->AdjustTextForCopy(sel_min, &u16_selected_text,
+                                               &url, &write_url);
+
+  if (is_select_all) {
+    base::UmaHistogramCounts1M(OmniboxEditModel::kCutOrCopyAllTextHistogram, 1);
+
+    const auto last_omnibox_focus =
+        controller_->edit_model()->last_omnibox_focus();
+    if (!last_omnibox_focus.is_null()) {
+      const base::TimeDelta elapsed =
+          base::TimeTicks::Now() - last_omnibox_focus;
+      bool is_zero_suggest =
+          controller_->autocomplete_controller() &&
+          controller_->autocomplete_controller()->input().IsZeroSuggest();
+      auto page_classification =
+          controller_->edit_model()->GetPageClassification();
+
+      LogHistogramMediumTimes("Omnibox.FocusToCutOrCopyAllTextTime", elapsed);
+
+      const std::string page_context =
+          metrics::OmniboxEventProto::PageClassification_Name(
+              page_classification);
+      LogHistogramMediumTimes(
+          base::StrCat({"Omnibox.FocusToCutOrCopyAllTextTime.ByPageContext.",
+                        page_context}),
+          elapsed);
+
+      if (is_zero_suggest) {
+        LogHistogramMediumTimes(
+            "Omnibox.FocusToCutOrCopyAllTextTime.ZeroSuggest", elapsed);
+        LogHistogramMediumTimes(
+            base::StrCat({"Omnibox.FocusToCutOrCopyAllTextTime.ZeroSuggest."
+                          "ByPageContext.",
+                          page_context}),
+            elapsed);
+      } else {
+        LogHistogramMediumTimes(
+            "Omnibox.FocusToCutOrCopyAllTextTime.TypedSuggest", elapsed);
+        LogHistogramMediumTimes(
+            base::StrCat({"Omnibox.FocusToCutOrCopyAllTextTime.TypedSuggest."
+                          "ByPageContext.",
+                          page_context}),
+            elapsed);
+      }
+    }
+
+    if (web_contents_) {
+      if (auto* clusters_helper =
+              HistoryClustersTabHelper::FromWebContents(web_contents_)) {
+        clusters_helper->OnOmniboxUrlCopied();
+      }
+    }
+  }
+
+  // TODO(b/522957982): Update this variable to also reflect IME state (to
+  // better align with `TextfieldModel::CutOrCopyAllowed()` logic).
+  bool is_cut_or_copy_allowed = !selection.is_empty();
+  if (is_cut_or_copy_allowed) {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kCopyPaste);
+    if (web_contents_ && web_contents_->GetBrowserContext()->IsOffTheRecord()) {
+      writer.MarkAsOffTheRecord();
+    }
+    writer.WriteText(u16_selected_text);
+  }
+
+  std::u16string u16_new_text =
+      is_cut ? (u16_old_text.substr(0, sel_min) + u16_old_text.substr(sel_max))
+             : u16_old_text;
+  gfx::Range new_selection = is_cut ? gfx::Range(sel_min, sel_min) : selection;
+
+  OmniboxView::StateChanges state_changes;
+  state_changes.old_text = &u16_old_text;
+  state_changes.new_text = &u16_new_text;
+  state_changes.new_selection = new_selection;
+  state_changes.selection_differs =
+      (!prev_selection.is_empty() || !new_selection.is_empty()) &&
+      !prev_selection.EqualsIgnoringDirection(new_selection);
+  state_changes.text_differs = is_cut && (u16_old_text != u16_new_text);
+  state_changes.keyword_differs = false;
+  state_changes.just_deleted_text = is_cut && !u16_selected_text.empty();
+
+  bool something_changed = controller_->edit_model()->OnAfterPossibleChange(
+      state_changes, /*allow_keyword_ui_change=*/true);
+
+  if (something_changed &&
+      (state_changes.text_differs || state_changes.keyword_differs)) {
+    controller_->edit_model()->OnChanged();
+  }
+}
+
+void OmniboxPopupHandler::SetEditHistoryState(bool can_undo, bool can_redo) {
+  can_undo_ = can_undo;
+  can_redo_ = can_redo;
 }

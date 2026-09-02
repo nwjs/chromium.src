@@ -13,6 +13,7 @@ import android.view.View.OnKeyListener;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
+import androidx.fragment.app.Fragment;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
@@ -25,6 +26,7 @@ import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarTextContextMenuDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarProperties.AutocompleteText;
 import org.chromium.chrome.browser.omnibox.UrlBarProperties.UrlBarTextState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
+import org.chromium.chrome.browser.search_engines.settings.SearchEngineSettings;
 import org.chromium.chrome.browser.search_engines.settings.SiteSearchSettings;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
@@ -84,11 +86,9 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         mModel.set(UrlBarProperties.RICH_TEXT_CHANGE_LISTENER, this::onRichTextChanged);
         mModel.set(UrlBarProperties.KEY_DOWN_LISTENER, keyDownListener);
         mModel.set(UrlBarProperties.SHOW_HINT_TEXT, true);
-        if (OmniboxFeatures.sOmniboxSiteSearch.isEnabled()) {
-            mModel.set(
-                    UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK,
-                    this::onManageSiteSearchClicked);
-        }
+        mModel.set(
+                UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK,
+                this::onManageSearchEnginesClicked);
         setBrandedColorScheme(BrandedColorScheme.APP_DEFAULT);
         pushTextToModel(/* originChanged= */ false);
     }
@@ -100,8 +100,8 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
     }
 
     /** Signals that the Omnibox input session has begun. */
-    void beginInput(AutocompleteInput input) {
-        mCurrentInput = input;
+    void beginInput(FuseboxSessionState sessionState) {
+        mCurrentInput = sessionState.getAutocompleteInput();
         pushCurrentInputToModel();
     }
 
@@ -119,6 +119,18 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         assert delegate != null;
         UrlBarData data = delegate.getUrlBarDataForCurrentInput();
         setUrlBarData(data, ScrollType.SCROLL_TO_BEGINNING, mCurrentInput.getSelection());
+        if (mCurrentInput.hasPreviewText()) {
+            String userText = mCurrentInput.getUserText();
+            String previewText = mCurrentInput.getPreviewText();
+            if (previewText.startsWith(userText)) {
+                String inlineAutocomplete = previewText.substring(userText.length());
+                setAutocompleteText(
+                        userText,
+                        inlineAutocomplete,
+                        /* additionalText= */ null,
+                        /* siteSearchLabel= */ null);
+            }
+        }
     }
 
     @EnsuresNonNullIf("mCurrentInput")
@@ -127,6 +139,16 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
     }
 
     private void onTextChanged(String text) {
+        // Keep mUrlBarData synchronized with user-typed text during an active input session.
+        // This ensures mUrlBarData accurately reflects the current editor content so that
+        // setUrlBarData() can safely deduplicate redundant updates without incorrectly dropping
+        // legitimate changes (e.g. when tapping the Delete button to clear typed text).
+        if (isInInputSession()) {
+            UrlBarData typedData = UrlBarData.forNonUrlText(text);
+            if (!isNewTextEquivalentToExistingText(mUrlBarData, typedData)) {
+                mUrlBarData = typedData;
+            }
+        }
         if (mTextChangeListener != null) {
             mTextChangeListener.onResult(text);
         }
@@ -145,9 +167,12 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         mModel.set(UrlBarProperties.SHOW_HINT_TEXT, showHintText);
     }
 
-    private void onManageSiteSearchClicked() {
-        SettingsNavigationFactory.createSettingsNavigation()
-                .startSettings(mContext, SiteSearchSettings.class);
+    private void onManageSearchEnginesClicked() {
+        Class<? extends Fragment> fragment =
+                OmniboxFeatures.sOmniboxSiteSearch.isEnabled()
+                        ? SiteSearchSettings.class
+                        : SearchEngineSettings.class;
+        SettingsNavigationFactory.createSettingsNavigation().startSettings(mContext, fragment);
     }
 
     /**
@@ -176,9 +201,14 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
             }
         }
 
-        if (!isInInputSession()
-                && isNewTextEquivalentToExistingText(mUrlBarData, data)
-                && mScrollType == scrollType) {
+        boolean textEquivalent = isNewTextEquivalentToExistingText(mUrlBarData, data);
+        boolean scrollTypeEquivalent =
+                (mScrollType == scrollType)
+                        || (TextUtils.isEmpty(data.displayText)
+                                && TextUtils.isEmpty(mUrlBarData.displayText));
+        boolean selectionEquivalent = !isInInputSession() || mSelection.equals(selection);
+
+        if (textEquivalent && scrollTypeEquivalent && selectionEquivalent) {
             return false;
         }
 
@@ -248,19 +278,24 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         if (TextUtils.isEmpty(newCharSequence)) return true;
 
         // When not focused, compare the emphasis spans applied to the text to determine
-        // equality.  Internally, TextView applies many additional spans that need to be
+        // equality. Internally, TextView applies many additional spans that need to be
         // ignored for this comparison to be useful, so this is scoped to only the span types
         // applied by our UI.
-        if (!(newCharSequence instanceof Spanned) || !(existingCharSequence instanceof Spanned)) {
-            return false;
-        }
+        UrlEmphasisSpan[] currentSpans =
+                existingCharSequence instanceof Spanned
+                        ? ((Spanned) existingCharSequence)
+                                .getSpans(0, existingCharSequence.length(), UrlEmphasisSpan.class)
+                        : new UrlEmphasisSpan[0];
+        UrlEmphasisSpan[] newSpans =
+                newCharSequence instanceof Spanned
+                        ? ((Spanned) newCharSequence)
+                                .getSpans(0, newCharSequence.length(), UrlEmphasisSpan.class)
+                        : new UrlEmphasisSpan[0];
+        if (currentSpans.length != newSpans.length) return false;
+        if (currentSpans.length == 0) return true;
 
         Spanned currentText = (Spanned) existingCharSequence;
         Spanned newText = (Spanned) newCharSequence;
-        UrlEmphasisSpan[] currentSpans =
-                currentText.getSpans(0, currentText.length(), UrlEmphasisSpan.class);
-        UrlEmphasisSpan[] newSpans = newText.getSpans(0, newText.length(), UrlEmphasisSpan.class);
-        if (currentSpans.length != newSpans.length) return false;
         for (int i = 0; i < currentSpans.length; i++) {
             UrlEmphasisSpan currentSpan = currentSpans[i];
             UrlEmphasisSpan newSpan = newSpans[i];
@@ -271,6 +306,7 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -330,16 +366,6 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
     /** Sets whether the view allows user focus. */
     public void setAllowFocus(boolean allowFocus) {
         mModel.set(UrlBarProperties.ALLOW_FOCUS, allowFocus);
-    }
-
-    /**
-     * Sets whether the view should *permit* multiline input.
-     *
-     * <p>The perimitted/allowed wrapping doesn't imply the wrapping will be applied. Only eligible
-     * input in focused state can wrap. This setting controls only whether wrapping is permitted.
-     */
-    public void setAllowMultilineInput(boolean allowMultilineInput) {
-        mModel.set(UrlBarProperties.ALLOW_MULTILINE_INPUT, allowMultilineInput);
     }
 
     /** Set the listener to be notified for URL direction changes. */

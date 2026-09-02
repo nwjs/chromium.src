@@ -212,6 +212,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
         bool proceed,
         bool* proceed_to_fire_unload) = 0;
     virtual void CancelModalDialogsForRenderManager() = 0;
+    virtual void NotifyPrimaryPageWillBeDeactivated(PageImpl& page) = 0;
     virtual void NotifySwappedFromRenderManager(
         RenderFrameHostImpl* old_frame,
         RenderFrameHostImpl* new_frame) = 0;
@@ -467,6 +468,10 @@ class CONTENT_EXPORT RenderFrameHostManager {
       const scoped_refptr<BrowsingContextState>& browsing_context_state,
       const std::optional<base::UnguessableToken>& navigation_metrics_token,
       BatchedProxyIPCSender* batched_proxy_ipc_sender = nullptr);
+
+  // Similar to `CreateRenderFrameProxy` but also creates the minimal ancestor
+  // chain of proxies in `group` to support a subframe.
+  void CreateRenderFrameProxyAndAncestorChainIfNeeded(SiteInstanceGroup* group);
 
   // Creates proxies for a new child frame at FrameTreeNode |child| in all
   // SiteInstances for which the current frame has proxies.  This method is

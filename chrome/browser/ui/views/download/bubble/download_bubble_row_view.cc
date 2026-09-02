@@ -330,7 +330,7 @@ DownloadBubbleRowView::DownloadBubbleRowView(
     const DownloadBubbleRowViewInfo& info,
     base::WeakPtr<DownloadBubbleUIController> bubble_controller,
     base::WeakPtr<DownloadBubbleNavigationHandler> navigation_handler,
-    base::WeakPtr<Browser> browser,
+    base::WeakPtr<BrowserWindowInterface> browser,
     int fixed_width)
     : info_(info),
       context_menu_(std::make_unique<DownloadUiContextMenuView>(
@@ -978,6 +978,9 @@ void DownloadBubbleRowView::OnOcclusionStateChanged(bool occluded) {
   for (auto& [command, action_button] : quick_actions_) {
     action_button->SetEnabled(!occluded);
   }
+  for (auto& [command, main_page_button] : main_page_buttons_) {
+    main_page_button->SetEnabled(!occluded);
+  }
 }
 
 std::u16string_view DownloadBubbleRowView::GetSecondaryLabelTextForTesting() {
@@ -1050,6 +1053,13 @@ views::ImageButton* DownloadBubbleRowView::GetQuickActionButtonForTesting(
     DownloadCommands::Command command) {
   auto it = quick_actions_.find(command);
   CHECK(it != quick_actions_.end());
+  return it->second;
+}
+
+views::MdTextButton* DownloadBubbleRowView::GetMainPageButtonForTesting(
+    DownloadCommands::Command command) {
+  auto it = main_page_buttons_.find(command);
+  CHECK(it != main_page_buttons_.end());
   return it->second;
 }
 

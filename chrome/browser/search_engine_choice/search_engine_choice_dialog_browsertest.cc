@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
@@ -277,9 +278,9 @@ class SearchEngineChoiceDialogBrowserTest : public InProcessBrowserTest {
   // Unlike `CreateGuestBrowser()` which opens a blank tab, this opens a guest
   // profile and shows the Guest NTP.
   Browser* CreateGuestBrowserAndLoadNTP() {
-    base::test::TestFuture<Browser*> browser_future;
+    base::test::TestFuture<BrowserWindowInterface*> browser_future;
     profiles::SwitchToGuestProfile(browser_future.GetCallback());
-    Browser* guest_browser = browser_future.Get();
+    Browser* guest_browser = browser_future.Get()->GetBrowserForMigrationOnly();
     CHECK(guest_browser);
     EXPECT_TRUE(guest_browser->GetProfile()->IsGuestSession());
     content::WebContents* ntp_contents =
@@ -380,6 +381,28 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
   CloseBrowserSynchronously(new_browser);
   QuitAndRestoreBrowser(browser());
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 2u);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SearchEngineChoiceDialogBrowserTest,
+    ComputeProfileManagementFlowConditions_AlreadyBeingShown) {
+  Profile* profile = browser()->GetProfile();
+  SearchEngineChoiceDialogService* service =
+      SearchEngineChoiceDialogServiceFactory::GetForProfile(profile);
+  ASSERT_TRUE(service);
+
+  EXPECT_EQ(
+      regional_capabilities::SearchEngineChoiceScreenConditions::kEligible,
+      service->ComputeProfileManagementFlowConditions());
+
+  // Register a dialog for `browser()`.
+  EXPECT_TRUE(service->RegisterDialog(*browser(), base::DoNothing()));
+
+  // With an open dialog registered, ComputeProfileManagementFlowConditions
+  // should return kAlreadyBeingShown instead of crashing.
+  EXPECT_EQ(regional_capabilities::SearchEngineChoiceScreenConditions::
+                kAlreadyBeingShown,
+            service->ComputeProfileManagementFlowConditions());
 }
 
 IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
@@ -645,10 +668,13 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
       static_cast<MockSearchEngineChoiceDialogService*>(
           SearchEngineChoiceDialogServiceFactory::GetForProfile(profile));
 
-  Browser* app_browser = Browser::Create(Browser::CreateParams::CreateForApp(
-      "Test", false /* trusted_source */, gfx::Rect(), profile, true));
+  Browser* app_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
+                              "Test", /*trusted_source=*/false, gfx::Rect(),
+                              profile, /*user_gesture=*/true))
+          ->GetBrowserForMigrationOnly();
   chrome::AddTabAt(app_browser, GURL(), -1, true);
-  EXPECT_TRUE(app_browser->is_type_app());
+  EXPECT_EQ(app_browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
 
   GURL url = GURL("https://www.google.com/");
   content::TestNavigationObserver observer(url);
@@ -664,7 +690,8 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
 
   // Navigate() should have opened a new `TYPE_APP_POPUP` window.
   Browser* app_popup_browser = params.browser->GetBrowserForMigrationOnly();
-  EXPECT_TRUE(app_popup_browser->is_type_app_popup());
+  EXPECT_EQ(app_popup_browser->GetType(),
+            BrowserWindowInterface::Type::TYPE_APP_POPUP);
 
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(
       browser(), chrome::ChromeUINewTabPageURLAsGURL(),

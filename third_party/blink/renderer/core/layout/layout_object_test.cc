@@ -596,7 +596,7 @@ TEST_F(LayoutObjectTest, MutableForPaintingClearPaintFlags) {
   object->SetNeedsPaintPropertyUpdate();
   EXPECT_TRUE(object->NeedsPaintPropertyUpdate());
   EXPECT_TRUE(object->Parent()->DescendantNeedsPaintPropertyUpdate());
-  object->bitfields_.SetDescendantNeedsPaintPropertyUpdate(true);
+  object->descendant_needs_paint_property_update_ = true;
   EXPECT_TRUE(object->DescendantNeedsPaintPropertyUpdate());
 
   GetDocument().Lifecycle().AdvanceTo(DocumentLifecycle::kInPrePaint);
@@ -1510,10 +1510,11 @@ TEST_F(LayoutObjectTest, LocalToAncestoRectIgnoreAncestorScroll) {
   PhysicalRect rect(0, 0, 100, 100);
 
   EXPECT_EQ(PhysicalRect(0, 2000, 100, 100),
-            target->LocalToAncestorRect(rect, ancestor, kIgnoreScrollOffset));
+            target->LocalToAncestorRect(
+                rect, ancestor, {MapCoordinatesMode::kIgnoreScrollOffset}));
 
   EXPECT_EQ(PhysicalRect(0, 1900, 100, 100),
-            target->LocalToAncestorRect(rect, ancestor, 0));
+            target->LocalToAncestorRect(rect, ancestor));
 }
 
 TEST_F(LayoutObjectTest, LocalToAncestoRectViewIgnoreAncestorScroll) {
@@ -1532,10 +1533,11 @@ TEST_F(LayoutObjectTest, LocalToAncestoRectViewIgnoreAncestorScroll) {
   PhysicalRect rect(0, 0, 100, 100);
 
   EXPECT_EQ(PhysicalRect(0, 2000, 100, 100),
-            target->LocalToAncestorRect(rect, nullptr, kIgnoreScrollOffset));
+            target->LocalToAncestorRect(
+                rect, nullptr, {MapCoordinatesMode::kIgnoreScrollOffset}));
 
   EXPECT_EQ(PhysicalRect(0, 1900, 100, 100),
-            target->LocalToAncestorRect(rect, nullptr, 0));
+            target->LocalToAncestorRect(rect, nullptr));
 }
 
 TEST_F(LayoutObjectTest,
@@ -1565,10 +1567,11 @@ TEST_F(LayoutObjectTest,
   PhysicalRect rect(0, 0, 100, 100);
 
   EXPECT_EQ(PhysicalRect(0, 2000, 100, 100),
-            target->LocalToAncestorRect(rect, ancestor, kIgnoreScrollOffset));
+            target->LocalToAncestorRect(
+                rect, ancestor, {MapCoordinatesMode::kIgnoreScrollOffset}));
 
   EXPECT_EQ(PhysicalRect(0, 1800, 100, 100),
-            target->LocalToAncestorRect(rect, ancestor, 0));
+            target->LocalToAncestorRect(rect, ancestor));
 }
 
 TEST_F(LayoutObjectTest,
@@ -1595,10 +1598,11 @@ TEST_F(LayoutObjectTest,
   PhysicalRect rect(0, 0, 100, 100);
 
   EXPECT_EQ(PhysicalRect(0, 2000, 100, 100),
-            target->LocalToAncestorRect(rect, nullptr, kIgnoreScrollOffset));
+            target->LocalToAncestorRect(
+                rect, nullptr, {MapCoordinatesMode::kIgnoreScrollOffset}));
 
   EXPECT_EQ(PhysicalRect(0, 1800, 100, 100),
-            target->LocalToAncestorRect(rect, nullptr, 0));
+            target->LocalToAncestorRect(rect, nullptr));
 }
 
 // crbug.com/1246619
@@ -1868,12 +1872,12 @@ TEST_F(LayoutObjectTest, ScrollOffsetMapping) {
 
   // Test with scroll offsets excluded:
   offset = gfx::PointF();
-  offset = inner->LocalToAncestorPoint(offset, /*ancestor=*/nullptr,
-                                       kIgnoreScrollOffset);
+  offset = inner->LocalToAncestorPoint(
+      offset, /*ancestor=*/nullptr, {MapCoordinatesMode::kIgnoreScrollOffset});
   EXPECT_EQ(offset, gfx::PointF(58, 58));
   // And back again:
-  offset = inner->AncestorToLocalPoint(/*ancestor=*/nullptr, offset,
-                                       kIgnoreScrollOffset);
+  offset = inner->AncestorToLocalPoint(
+      /*ancestor=*/nullptr, offset, {MapCoordinatesMode::kIgnoreScrollOffset});
   EXPECT_EQ(offset, gfx::PointF());
 }
 
@@ -1929,7 +1933,8 @@ TEST_F(LayoutObjectTest, QuadsInAncestor_Block) {
 
   // Relative to #scroller, ignoring scroll offset:
   quads = Vector<gfx::QuadF>();
-  target->QuadsInAncestor(quads, scroller, kIgnoreScrollOffset);
+  target->QuadsInAncestor(quads, scroller,
+                          {MapCoordinatesMode::kIgnoreScrollOffset});
   ASSERT_EQ(quads.size(), 4u);
   EXPECT_EQ(quads[0].BoundingBox(), gfx::RectF(110, 390, 50, 30));
   EXPECT_EQ(quads[1].BoundingBox(), gfx::RectF(160, 370, 50, 50));
@@ -1984,7 +1989,8 @@ TEST_F(LayoutObjectTest, QuadsInAncestor_Inline) {
 
   // Relative to #scroller, ignoring scroll offset:
   quads = Vector<gfx::QuadF>();
-  target->QuadsInAncestor(quads, scroller, kIgnoreScrollOffset);
+  target->QuadsInAncestor(quads, scroller,
+                          {MapCoordinatesMode::kIgnoreScrollOffset});
   ASSERT_EQ(quads.size(), 3u);
   EXPECT_EQ(quads[0].BoundingBox(), gfx::RectF(210, 240, 60, 20));
   EXPECT_EQ(quads[1].BoundingBox(), gfx::RectF(110, 260, 180, 20));
@@ -2163,6 +2169,39 @@ TEST_F(LayoutObjectTest, InCanvasSubtree) {
   EXPECT_TRUE(subframe_span->IsInCanvasSubtree());
   EXPECT_TRUE(subframe_span->SlowFirstChild()->IsCanvasOrInCanvasSubtree());
   EXPECT_TRUE(subframe_span->SlowFirstChild()->IsInCanvasSubtree());
+}
+
+// This test uses a lot of stack. Not all platforms behave the same, just run as
+// linux only.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_Depth Depth
+#else
+#define MAYBE_Depth DISABLED_Depth
+#endif
+TEST_F(LayoutObjectTest, MAYBE_Depth) {
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_EQ(0u, GetDocument().GetLayoutView()->Depth());
+
+  {
+    Element* curr = GetDocument().body();
+    for (unsigned i = 0; i < LayoutObject::kMaxLayoutObjectDepth + 5; ++i) {
+      Element* next =
+          MakeGarbageCollected<Element>(html_names::kDivTag, &GetDocument());
+      curr->AppendChild(next);
+      curr = next;
+    }
+  }
+  UpdateAllLifecyclePhasesForTest();
+
+  // Start at the <body> and go through all the layout objects.
+  LayoutObject* object = GetDocument().body()->GetLayoutObject();
+  unsigned depth = object->Depth();
+  while (object) {
+    EXPECT_EQ(object->Depth(), depth);
+    object = object->SlowFirstChild();
+    ++depth;
+  }
 }
 
 }  // namespace blink

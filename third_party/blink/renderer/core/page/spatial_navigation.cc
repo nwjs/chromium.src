@@ -602,6 +602,12 @@ bool BothOnTopmostPaintLayerInStackingContext(
     return false;
 
   const LayoutObject* origin = current_interest.visible_node->GetLayoutObject();
+  // An <area> uses its associated <img> as the visible node, and that image may
+  // have no layout object when it isn't rendered.
+  if (!origin) {
+    return false;
+  }
+
   const PaintLayer* focused_layer = origin->PaintingLayer();
   if (!focused_layer || focused_layer->IsRootLayer())
     return false;
@@ -862,7 +868,8 @@ PhysicalRect SearchOriginFragment(const PhysicalRect& visible_part,
   // entire bounding rect which is a union of all fragments) as search origin.
   Vector<gfx::QuadF> fragments;
   fragmented.AbsoluteQuads(
-      fragments, kTraverseDocumentBoundaries | kApplyRemoteMainFrameTransform);
+      fragments, {MapCoordinatesMode::kTraverseDocumentBoundaries,
+                  MapCoordinatesMode::kApplyRemoteMainFrameTransform});
   switch (direction) {
     case SpatialNavigationDirection::kLeft:
     case SpatialNavigationDirection::kDown:

@@ -32,20 +32,16 @@ include_rules = [
   "+chrome/browser/ui/ash/session",
   "+chrome/browser/ui/ash/user_education",
   "+chrome/browser/ui/ash/wm",
-  "+chrome/browser/ui/browser.h",
-  "+chrome/browser/ui/browser_command_controller.h",
   "+chrome/browser/ui/browser_commands.h",
   "+chrome/browser/ui/browser_element_identifiers.h",
   "+chrome/browser/ui/browser_tabstrip.h",
-  "+chrome/browser/ui/browser_window.h",
   "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
-  "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/immersive",
-  "+chrome/browser/ui/scoped_tabbed_browser_displayer.h",
   "+chrome/browser/ui/tabs/tab_strip_model.h",
   "+chrome/browser/ui/views/frame",
   "+chrome/browser/ui/views/tabs",
   "+chrome/browser/ui/webui/ash/diagnostics_dialog/diagnostics_dialog.h",
+  "+chrome/browser/ui/window_feature_controller/window_feature_controller.h",
   "+chrome/browser/web_applications",
   "+chrome/common",
 ]
@@ -54,7 +50,6 @@ specific_include_rules = {
   # TODO(crbug.com/403153076): This should be removed along with browser_process.h.
   "chrome_shell_delegate\\.cc": [
     "+chrome/browser/global_features.h",
-    "+chrome/browser/ui/unload_controller.h",
   ],
 
   ".*browsertest\\.cc": [

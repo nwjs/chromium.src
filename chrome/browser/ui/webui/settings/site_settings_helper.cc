@@ -16,7 +16,6 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
-#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/json/values_util.h"
 #include "base/logging.h"
@@ -616,10 +615,6 @@ std::vector<ContentSettingsType> GetVisiblePermissionCategories(
   if (!initialized) {
     // The permission categories in this block are only shown when running with
     // certain flags/switches.
-    if (base::FeatureList::IsEnabled(features::kGlicSelectionPrompt)) {
-      base_types->push_back(ContentSettingsType::INLINE_CUE_MENU);
-    }
-
     if (base::CommandLine::ForCurrentProcess()->HasSwitch(
             ::switches::kEnableExperimentalWebPlatformFeatures)) {
       base_types->push_back(ContentSettingsType::BLUETOOTH_SCANNING);

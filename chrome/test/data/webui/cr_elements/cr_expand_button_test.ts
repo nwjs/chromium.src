@@ -43,12 +43,12 @@ suite('cr-expand-button', function() {
     assertFalse(button.expanded);
     assertEquals(expandTitle, button.title);
     assertEquals('false', icon.getAttribute('aria-expanded'));
-    assertEquals('cr:expand-more', icon.ironIcon);
+    assertEquals('cr:keyboard-arrow-down', icon.ironIcon);
     button.expanded = true;
     await button.updateComplete;
     assertEquals(collapseTitle, button.title);
     assertEquals('true', icon.getAttribute('aria-expanded'));
-    assertEquals('cr:expand-less', icon.ironIcon);
+    assertEquals('cr:keyboard-arrow-up', icon.ironIcon);
   });
 
   test('expanded-changed event fires', async () => {
@@ -126,4 +126,16 @@ suite('cr-expand-button', function() {
     assertEquals('', button.title);
   });
 
+  test('tabIndex propagation', async () => {
+    assertEquals(0, button.tabIndex);
+    assertEquals('0', icon.getAttribute('tabindex'));
+
+    button.tabIndex = -1;
+    await button.updateComplete;
+    assertEquals('-1', icon.getAttribute('tabindex'));
+
+    button.tabIndex = 0;
+    await button.updateComplete;
+    assertEquals('0', icon.getAttribute('tabindex'));
+  });
 });

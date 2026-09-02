@@ -154,7 +154,8 @@ pub mod ffi {
         DecoderError,
         /// The requested codec is not supported by the bridge.
         UnsupportedCodec,
-        /// Failed to unpack Xiph lacing for Vorbis extradata.
+        /// Deprecated: Vorbis extradata unpacking is now handled internally by
+        /// Symphonia.
         XiphVorbisUnpackError,
         /// Symphonia returned an 'Unsupported' error during initialization.
         SymphoniaUnsupported,
@@ -378,11 +379,20 @@ struct DecoderImpl {
     /// The boxed trait object for the `symphonia` decoder.
     decoder: Box<dyn AudioDecoder>,
 
+    /// The parameters used to configure the decoder.
+    codec_params: AudioCodecParameters,
+
+    /// The current codec ID of the active decoder instance.
+    current_codec_id: symphonia::core::codecs::audio::AudioCodecId,
+
     /// Expected bytes per sample.
     bytes_per_sample: u8,
 
     /// The codec of the audio stream.
     codec: ffi::SymphoniaAudioCodec,
+
+    /// Tracks whether the MPEG layer has already been detected and configured.
+    has_detected_layer: bool,
 }
 
 /// The opaque Rust decoder type exposed to C++ through the FFI bridge.
@@ -432,82 +442,6 @@ impl<'a> From<&ffi::SymphoniaPacket<'a>> for Packet {
             value.data.to_vec(),
         )
     }
-}
-
-const XIPH_LACING_MAX_VALUE: u8 = 255;
-const VORBIS_NUM_HEADERS: u8 = 3;
-const VORBIS_NUM_LACED_HEADERS: u8 = VORBIS_NUM_HEADERS - 1;
-
-/// Unpacks Vorbis extradata packed in the Xiph lacing format.
-///
-/// WebM and Matroska containers use the Xiph lacing format for Vorbis
-/// extradata, where a single `CodecPrivate` buffer contains all three Vorbis
-/// headers: the Identification, Comment, and Setup headers.
-///
-/// Symphonia's `symphonia-codec-vorbis` decoder does not understand the Xiph
-/// packaging layer. It expects only the raw Identification and Setup headers
-/// laid out sequentially. This function unpacks the Xiph format and returns
-/// a new vector containing only those two required headers.
-pub fn unpack_xiph_vorbis_extradata(extradata: &[u8]) -> Result<Vec<u8>, String> {
-    // The first byte of the data block specifies the number of headers minus one.
-    if extradata.is_empty() {
-        return Err("extradata is empty".into());
-    }
-    if extradata[0] != VORBIS_NUM_LACED_HEADERS {
-        return Err(format!(
-            "expected {} headers but found {}",
-            VORBIS_NUM_LACED_HEADERS + 1,
-            extradata[0] + 1
-        ));
-    }
-
-    let mut offset = 1;
-    let mut lengths = Vec::new();
-
-    // The Identification and Comment headers have their lengths laced. The length
-    // of the Setup header is inferred from the remaining buffer size.
-    for _ in 0..VORBIS_NUM_LACED_HEADERS {
-        let mut length = 0;
-        let mut reached_end = false;
-        while offset < extradata.len() {
-            let val = extradata[offset];
-            offset += 1;
-            length += val as usize;
-
-            // Reached the final segment.
-            if val < XIPH_LACING_MAX_VALUE {
-                reached_end = true;
-                break;
-            }
-        }
-        if !reached_end {
-            return Err("truncated length lacing".into());
-        }
-        lengths.push(length);
-    }
-
-    if offset >= extradata.len() {
-        return Err("no data remains after reading lacing".into());
-    }
-
-    let ident_len = lengths[0];
-    let comment_len = lengths[1];
-    // Header contained invalid length.
-    if offset + ident_len + comment_len > extradata.len() {
-        return Err("header lengths exceed buffer size".into());
-    }
-
-    let setup_len = extradata.len() - offset - ident_len - comment_len;
-
-    let ident_start = offset;
-    let comment_start = ident_start + ident_len;
-    let setup_start = comment_start + comment_len;
-
-    let mut unpacked = Vec::with_capacity(ident_len + setup_len);
-    unpacked.extend_from_slice(&extradata[ident_start..ident_start + ident_len]);
-    unpacked.extend_from_slice(&extradata[setup_start..setup_start + setup_len]);
-
-    Ok(unpacked)
 }
 
 /// Trims FLAC extradata that may contain a "fLaC" marker and/or a metadata
@@ -562,7 +496,6 @@ pub fn get_streaminfo_payload(extradata: &[u8]) -> &[u8] {
 #[derive(Debug, Clone)]
 pub enum SymphoniaInitError {
     UnsupportedCodec(String),
-    XiphVorbisUnpackError(String),
     SymphoniaError(ffi::SymphoniaInitStatus, String),
 }
 
@@ -571,9 +504,6 @@ impl From<SymphoniaInitError> for (ffi::SymphoniaInitStatus, String) {
         match err {
             SymphoniaInitError::UnsupportedCodec(s) => {
                 (ffi::SymphoniaInitStatus::UnsupportedCodec, s)
-            }
-            SymphoniaInitError::XiphVorbisUnpackError(s) => {
-                (ffi::SymphoniaInitStatus::XiphVorbisUnpackError, s)
             }
             SymphoniaInitError::SymphoniaError(status, s) => (status, s),
         }
@@ -596,8 +526,6 @@ fn to_symphonia_init_status(err: &Error) -> ffi::SymphoniaInitStatus {
 /// and Symphonia's decoders. Different codecs have different requirements for
 /// initialization:
 ///
-/// * **Vorbis**: Unpacks Xiph-laced extradata into raw identification and setup
-///   headers.
 /// * **FLAC**: Extracts the verified STREAMINFO payload from potentially
 ///   wrapped or marker-prefixed data.
 /// * **Others**: Returns a simple copy of the non-empty raw data.
@@ -610,26 +538,6 @@ fn get_extra_data(
     raw_extra_data: &[u8],
 ) -> Result<Option<Box<[u8]>>, SymphoniaInitError> {
     match codec {
-        // Chromium's demuxers often pack Vorbis extradata using the Xiph format, which
-        // is a byproduct of using FFmpeg. We unpack the Xiph format here if we detect it, dropping
-        // the comment header, as Symphonia expects only the raw identification and setup
-        // headers.
-        ffi::SymphoniaAudioCodec::Vorbis => match unpack_xiph_vorbis_extradata(raw_extra_data) {
-            Ok(unpacked) => Ok(Some(unpacked.into_boxed_slice())),
-            Err(err) => {
-                // It could be that this stream is not Xiph packed at all (which is fine,
-                // Symphonia might handle it natively if it's already unwrapped). We only log
-                // an error if we actually attempted to parse it as Xiph but failed.
-                if !raw_extra_data.is_empty() && raw_extra_data[0] == VORBIS_NUM_LACED_HEADERS {
-                    return Err(SymphoniaInitError::XiphVorbisUnpackError(format!(
-                        "failed to unpack xiph vorbis extradata: {}",
-                        err
-                    )));
-                }
-                Ok((!raw_extra_data.is_empty()).then(|| Box::from(raw_extra_data)))
-            }
-        },
-
         // Depending on what demuxer implementation was used (and in the case of WebCodecs we may
         // have no idea), the extra data may need to be stripped of the FLAC magic marker
         // and / or the metadata block header.
@@ -711,11 +619,16 @@ fn init_symphonia_decoder_impl(config: &ffi::SymphoniaDecoderConfig) -> InitResu
             SymphoniaInitError::SymphoniaError(to_symphonia_init_status(&e), e.to_string())
         })?;
 
+    let current_codec_id = codec_params.codec;
+
     Ok(SymphoniaDecoder {
         decoder_impl: Some(DecoderImpl {
             decoder,
+            codec_params,
+            current_codec_id,
             bytes_per_sample: config.bytes_per_sample,
             codec: config.codec,
+            has_detected_layer: false,
         }),
     })
 }
@@ -735,7 +648,11 @@ impl From<&Error> for ffi::SymphoniaDecodeStatus {
     fn from(err: &Error) -> Self {
         match err {
             Error::DecodeError(_) => ffi::SymphoniaDecodeStatus::DecodeError,
-            Error::IoError(io_err) if io_err.kind() == std::io::ErrorKind::UnexpectedEof => {
+            Error::IoError(io_err)
+                if io_err.kind() == std::io::ErrorKind::UnexpectedEof
+                    || (io_err.kind() == std::io::ErrorKind::Other
+                        && io_err.to_string() == "unexpected end of bitstream") =>
+            {
                 ffi::SymphoniaDecodeStatus::UnexpectedEndOfStream
             }
             Error::IoError(_) => ffi::SymphoniaDecodeStatus::IoError,
@@ -761,26 +678,6 @@ pub fn create_audio_buffer(
         Channels::Positioned(pos) => pos.bits(),
         _ => 0,
     };
-
-    // If there are no frames, avoid passing the buffer to Symphonia's
-    // `copy_interleaved_ref`. There is a bug in Symphonia's
-    // `copy_interleaved_typed` where if `n_channels > 2` and `n_frames == 0`,
-    // it will panic trying to slice a zero-length destination buffer with
-    // `dst_buf[ch..]`.
-    //
-    // Tracked upstream in https://github.com/pdeljanov/Symphonia/issues/455.
-    // When resolved upstream and a release is issued with the fix, we can
-    // remove this workaround.
-    if num_frames == 0 {
-        return Ok(ffi::SymphoniaAudioBuffer {
-            data: Vec::new(),
-            sample_format: sample_buffer.sample_format(),
-            sample_rate,
-            num_frames,
-            channel_count,
-            channel_mask: channel_mask.try_into().unwrap(),
-        });
-    }
 
     // Populate the sample byte buffer.
     sample_buffer.copy_from_buffer(buffer_ref);
@@ -845,6 +742,75 @@ impl From<DecodeResult> for ffi::SymphoniaDecodeResult {
     }
 }
 
+/// Detects the MPEG audio layer (Layer 1, Layer 2, or Layer 3) from the
+/// packet's 4-byte frame header, and returns the corresponding Symphonia
+/// AudioCodecId.
+pub fn detect_mpeg_audio_codec_id(
+    data: &[u8],
+) -> Option<symphonia::core::codecs::audio::AudioCodecId> {
+    use symphonia::core::codecs::audio::well_known::*;
+    if data.len() < 4 {
+        return None;
+    }
+    // MPEG audio sync word: 11 consecutive 1 bits (0xFFE0 mask across first 2
+    // bytes).
+    if data[0] != 0xFF || (data[1] & 0xE0) != 0xE0 {
+        return None;
+    }
+    let version_bits = (data[1] >> 3) & 0x03;
+    let layer_bits = (data[1] >> 1) & 0x03;
+    // Version 01 is reserved; Layer 00 is reserved.
+    if version_bits == 0x01 || layer_bits == 0x00 {
+        return None;
+    }
+    match layer_bits {
+        3 => Some(CODEC_ID_MP1),
+        2 => Some(CODEC_ID_MP2),
+        1 => Some(CODEC_ID_MP3),
+        _ => None,
+    }
+}
+
+impl DecoderImpl {
+    /// In Chromium, all MPEG audio layers (MP1, MP2, MP3) are mapped to
+    /// AudioCodec::kMP3. Symphonia's own native demuxer (`MpaReader`) reads
+    /// the first frame header during probe and configures track params with
+    /// CODEC_ID_MP1, CODEC_ID_MP2, or CODEC_ID_MP3. However, Chromium's
+    /// demuxers (such as `EsParserMpeg1Audio` for HLS/MPEG2-TS) only know
+    /// AudioCodec::kMP3, so `SymphoniaAudioDecoder` is always initialized with
+    /// CODEC_ID_MP3.
+    ///
+    /// Symphonia's `MpaDecoder` creates a static layer-specific state based on
+    /// the initial codec ID. If incoming packets contain Layer 1 or Layer 2
+    /// (MP2) audio, `MpaDecoder` returns an invalid layer error. Ideally,
+    /// Symphonia's `MpaDecoder` could support dynamic layer switching
+    /// internally; until then, we detect the MPEG layer header and
+    /// re-instantiate the decoder for that layer to achieve full parity
+    /// with FFmpeg. TODO(crbug.com/544919881): Consider contributing
+    /// dynamic layer switching upstream to Symphonia's MpaDecoder.
+    fn maybe_update_mpeg_decoder(&mut self, packet_data: &[u8]) {
+        if !matches!(self.codec, ffi::SymphoniaAudioCodec::Mp3) || self.has_detected_layer {
+            return;
+        }
+        let Some(target_codec_id) = detect_mpeg_audio_codec_id(packet_data) else {
+            return;
+        };
+        self.has_detected_layer = true;
+        if target_codec_id == self.current_codec_id {
+            return;
+        }
+        let mut new_params = self.codec_params.clone();
+        new_params.for_codec(target_codec_id);
+        if let Ok(new_decoder) =
+            symphonia::default::get_codecs().make_audio_decoder(&new_params, &Default::default())
+        {
+            self.decoder = new_decoder;
+            self.codec_params = new_params;
+            self.current_codec_id = target_codec_id;
+        }
+    }
+}
+
 impl SymphoniaDecoder {
     /// Internal method to decode an audio packet.
     ///
@@ -857,6 +823,8 @@ impl SymphoniaDecoder {
             ffi::SymphoniaDecodeStatus::InvalidDecoderState,
             "invalid decoder state".to_string(),
         ))?;
+
+        decoder_impl.maybe_update_mpeg_decoder(packet.data);
 
         let symphonia_packet = Packet::from(packet);
         let buffer = decoder_impl

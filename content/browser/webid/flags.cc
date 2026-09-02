@@ -70,10 +70,6 @@ bool IsNonceInParamsEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmNonceInParams);
 }
 
-bool IsNonStringTokenEnabled() {
-  return base::FeatureList::IsEnabled(features::kFedCmNonStringToken);
-}
-
 bool IsWellKnownEndpointValidationEnabled() {
   return base::FeatureList::IsEnabled(
       features::kFedCmWellKnownEndpointValidation);
@@ -81,10 +77,6 @@ bool IsWellKnownEndpointValidationEnabled() {
 
 bool IsPreservePortsForTestingEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmPreservePortsForTesting);
-}
-
-bool IsErrorAttributeEnabled() {
-  return base::FeatureList::IsEnabled(features::kFedCmErrorAttribute);
 }
 
 bool IsNavigationInterceptionEnabled() {

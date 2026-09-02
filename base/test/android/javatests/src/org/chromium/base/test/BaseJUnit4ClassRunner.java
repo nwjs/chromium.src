@@ -27,12 +27,15 @@ import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
 
+import org.chromium.base.BaseSwitches;
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ResettersForTesting.State;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.LibraryLoader;
+import org.chromium.base.library_loader.LibraryProcessType;
 import org.chromium.base.lifetime.LifetimeAssert;
 import org.chromium.base.metrics.UmaRecorderHolder;
 import org.chromium.base.task.AsyncTask;
@@ -47,6 +50,7 @@ import org.chromium.base.test.util.RestrictionSkipCheck;
 import org.chromium.base.test.util.SkipCheck;
 import org.chromium.base.test.util.TestAnimations;
 import org.chromium.base.test.util.TestLocale;
+import org.chromium.build.NativeLibraries;
 import org.chromium.build.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -68,7 +72,7 @@ import java.util.ServiceLoader;
 public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
     private static final String TAG = "BaseJUnit4ClassRunnr";
 
-    // Arbirary int that must not overlap with status codes defined by
+    // Arbitrary int that must not overlap with status codes defined by
     // https://developer.android.com/reference/android/test/InstrumentationTestRunner.html#REPORT_VALUE_ID
     private static final int STATUS_CODE_TEST_DURATION = 1337;
     private static final String DURATION_BUNDLE_ID = "duration_ms";
@@ -102,7 +106,7 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
 
     /**
      * An interface for classes that have some code to run before (or after) the class is
-     * instantiated. They run after {@Link BeforeClass} (or before @AfterClass) methods are called.
+     * instantiated. They run after {@link BeforeClass} (or before @AfterClass) methods are called.
      * Provides access to the test class (and the annotations defined for it) and the
      * instrumentation context.
      *
@@ -118,12 +122,12 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
     }
 
     /**
-     * An interface for classes that have some code to run before a test. They run after
-     * {@link SkipCheck}s and before {@Link Before} (or after @After). Provides access to the test
-     * method (and the annotations defined for it) and the instrumentation context.
+     * An interface for classes that have some code to run before a test. They run after {@link
+     * SkipCheck}s and before {@link Before} (or after @After). Provides access to the test method
+     * (and the annotations defined for it) and the instrumentation context.
      *
-     * Do not use TestHooks unless you also require ClassHooks. Otherwise, you should use TestRules
-     * and {@link #getDefaultTestRules}.
+     * <p>Do not use TestHooks unless you also require ClassHooks. Otherwise, you should use
+     * TestRules and {@link #getDefaultTestRules}.
      */
     public interface TestHook {
         /**
@@ -541,6 +545,19 @@ public class BaseJUnit4ClassRunner extends AndroidJUnit4ClassRunner {
         Annotation[] testMethodAnnotations = getTestMethodAnnotations();
         CommandLineFlags.reset(testClass.getAnnotations(), testMethodAnnotations);
         TestAnimations.reset(testClass, null);
+
+        LibraryLoader libraryLoader = LibraryLoader.getInstance();
+        if (NativeLibraries.LIBRARIES.length > 0
+                && !libraryLoader.isInitialized()
+                && libraryLoader.getLibraryProcessType() != LibraryProcessType.PROCESS_UNINITIALIZED
+                && !CommandLine.getInstance()
+                        .hasSwitch(BaseSwitches.DISABLE_NATIVE_INITIALIZATION)) {
+            libraryLoader.ensureInitialized();
+            // Make code that checks LibraryLoader.isInitialized() return false, while still
+            // allowing unguarded JNI to succeed. This would ideally be removed, but some tests
+            // currently rely on it.
+            libraryLoader.resetForTesting();
+        }
 
         // Allows tests to set the locale before the feature list is initialized.
         applyTestLocale();

@@ -13,13 +13,19 @@
 #import "base/types/strong_alias.h"
 #import "components/actor/core/aggregated_journal.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_browser_agent.h"
 #import "ios/chrome/browser/intelligence/actor/model/actor_tab_helper.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_task_updates_observer.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_factory.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_tool_request.h"
 #import "ios/chrome/browser/intelligence/actor/util/actor_test_utils.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
+#import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
+#import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -160,9 +166,10 @@ class ActorTaskTest : public PlatformTest {
     profile_ = TestProfileIOS::Builder().Build();
     journal_ = std::make_unique<AggregatedJournal>();
     tool_factory_ = std::make_unique<ActorToolFactory>(profile_.get());
-    task_ = std::make_unique<ActorTask>(ActorTaskId(1), "Test Task",
-                                        /*allow_incognito_web_states=*/false,
-                                        journal_.get(), tool_factory_.get());
+    task_ = std::make_unique<ActorTask>(
+        ActorTaskId(1), "Test Task",
+        /*allow_incognito_web_states=*/false, journal_.get(),
+        tool_factory_.get(), BrowserListFactory::GetForProfile(profile_.get()));
   }
 
   void TearDown() override {
@@ -669,38 +676,87 @@ TEST_F(ActorTaskTest, ActorTabHelperActuatingState) {
   EXPECT_FALSE(helper->IsActuating());
 }
 
-// Tests that PromptToSelectCredential saves the credential locally, and runs
-// the callback with a valid credential and should_store_permission = false.
-TEST_F(ActorTaskTest,
-       PromptToSelectCredentialWillSaveCredentialsAndInvokeCallback) {
-  url::Origin origin = url::Origin::Create(GURL("https://example.com"));
-  actor_login::Credential cred;
-  cred.id = actor_login::Credential::Id(42);
-  cred.request_origin = origin;
+TEST_F(ActorTaskTest, WindowIdAndInsertWebState) {
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
 
-  // There is only one available credential for the user to choose from, so it
-  // will be selected.
-  std::vector<actor_login::Credential> credentials = {cred};
+  // Create a regular browser and register it.
+  auto browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(browser.get());
+  ActorBrowserAgent::CreateForBrowser(browser.get());
+  TabInsertionBrowserAgent::CreateForBrowser(browser.get());
+  ActorBrowserAgent* agent = ActorBrowserAgent::FromBrowser(browser.get());
+  int32_t window_id = agent->browser_id().id();
+
+  // Test that we can validate the window ID.
+  ToolDelegate* tool_delegate = task_.get();
+  EXPECT_TRUE(tool_delegate->IsWindowIdValid(window_id));
+  EXPECT_FALSE(tool_delegate->IsWindowIdValid(999));
+
+  // Test that we can insert a WebState.
+  EXPECT_EQ(0, browser->GetWebStateList()->count());
+  web::NavigationManager::WebLoadParams load_params(GURL("chrome://newtab"));
+
+  web::WebState* web_state = tool_delegate->InsertWebState(
+      window_id, load_params, false /* in_background */);
+  ASSERT_NE(nullptr, web_state);
+  EXPECT_EQ(1, browser->GetWebStateList()->count());
+  EXPECT_EQ(web_state, browser->GetWebStateList()->GetWebStateAt(0));
+
+  // Test that inserting WebState with invalid window ID returns nullptr.
+  EXPECT_EQ(nullptr, tool_delegate->InsertWebState(999, load_params,
+                                                   false /* in_background */));
+
+  // Test that inserting WebState when TabInsertionBrowserAgent is missing
+  // returns nullptr.
+  auto browser_no_agent = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(browser_no_agent.get());
+  ActorBrowserAgent::CreateForBrowser(browser_no_agent.get());
+  int32_t window_id_no_agent =
+      ActorBrowserAgent::FromBrowser(browser_no_agent.get())->browser_id().id();
+  EXPECT_EQ(nullptr,
+            tool_delegate->InsertWebState(window_id_no_agent, load_params,
+                                          false /* in_background */));
+}
+
+// Tests that InsertWebState places the new tab immediately next to the
+// prompting tab (which is the first controlled WebState of the task).
+TEST_F(ActorTaskTest, InsertWebState_AdjacentPlacement) {
+  BrowserList* browser_list = BrowserListFactory::GetForProfile(profile_.get());
+  auto browser = std::make_unique<TestBrowser>(profile_.get());
+  browser_list->AddBrowser(browser.get());
+  ActorBrowserAgent::CreateForBrowser(browser.get());
+  TabInsertionBrowserAgent::CreateForBrowser(browser.get());
+  int32_t window_id =
+      ActorBrowserAgent::FromBrowser(browser.get())->browser_id().id();
 
   ToolDelegate* tool_delegate = task_.get();
-  base::test::TestFuture<std::optional<actor_login::Credential>, bool> future;
 
-  tool_delegate->PromptToSelectCredential(credentials, future.GetCallback());
+  // 1. Insert WebState A (controlled) at index 0.
+  auto web_state_a = std::make_unique<web::FakeWebState>();
+  web::WebState* a_ptr = web_state_a.get();
+  browser->GetWebStateList()->InsertWebState(std::move(web_state_a));
+  AddControlledWebState(a_ptr->GetWeakPtr());
 
-  // Extract the values from the callback parameters.
-  const auto& callback_result = future.Get();
-  const std::optional<actor_login::Credential>& selected_credential =
-      std::get<0>(callback_result);
-  ASSERT_TRUE(selected_credential.has_value());
-  EXPECT_EQ(selected_credential->id, cred.id);
-  EXPECT_FALSE(std::get<1>(callback_result));
+  // 2. Insert WebState B (uncontrolled) at index 1.
+  auto web_state_b = std::make_unique<web::FakeWebState>();
+  web::WebState* b_ptr = web_state_b.get();
+  browser->GetWebStateList()->InsertWebState(std::move(web_state_b));
 
-  // Verify that `GetUserSelectedCredential` returns the selected credential.
-  std::optional<ToolDelegate::CredentialWithPermission> stored_result =
-      tool_delegate->GetUserSelectedCredential(origin);
-  ASSERT_TRUE(stored_result.has_value());
-  EXPECT_EQ(stored_result->credential.id, cred.id);
-  EXPECT_FALSE(stored_result->always_allow);
+  EXPECT_EQ(2, browser->GetWebStateList()->count());
+  EXPECT_EQ(a_ptr, browser->GetWebStateList()->GetWebStateAt(0));
+  EXPECT_EQ(b_ptr, browser->GetWebStateList()->GetWebStateAt(1));
+
+  // 3. Insert WebState C via InsertWebState.
+  web::NavigationManager::WebLoadParams load_params(GURL("chrome://newtab"));
+  web::WebState* web_state_c = tool_delegate->InsertWebState(
+      window_id, load_params, false /* in_background */);
+  ASSERT_NE(nullptr, web_state_c);
+
+  // The new tab C should be placed next to A (the prompting tab) at index 1.
+  EXPECT_EQ(3, browser->GetWebStateList()->count());
+  EXPECT_EQ(a_ptr, browser->GetWebStateList()->GetWebStateAt(0));
+  EXPECT_EQ(web_state_c, browser->GetWebStateList()->GetWebStateAt(1));
+  EXPECT_EQ(b_ptr, browser->GetWebStateList()->GetWebStateAt(2));
 }
 
 }  // namespace actor

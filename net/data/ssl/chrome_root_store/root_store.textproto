@@ -8,7 +8,7 @@
 
 # Version # should always be incremented up whenever this (or any pem file that
 # it references) is changed.
-version_major: 36
+version_major: 38
 
 # When allocating new crs_root_id values, always start from the value in
 # NEXT_UNUSED_CRS_ROOT_ID.txt (which may not exist in the Chromium repository),
@@ -28,18 +28,26 @@ trust_anchors {
 
 # CN=Amazon Root CA 3, O=Amazon, C=US
 # https://good.sca3a.amazontrust.com/
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "18ce6cfe7bf14e60b2e347b8dfe868cb31d02ebb3ada271569f50343b46db3a4"
   crs_root_id: 4
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # CN=Amazon Root CA 2, O=Amazon, C=US
 # https://good.sca2a.amazontrust.com/
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "1ba5b2aa8c65401a82960118f80bec4f62304d83cec4713a19c39c011ea46db4"
   crs_root_id: 5
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # CN=Amazon Root CA 1, O=Amazon, C=US
@@ -60,18 +68,26 @@ trust_anchors {
 
 # CN=Certum Trusted Network CA, OU=Certum Certification Authority, O=Unizeto Technologies S.A., C=PL
 # https://juice.certum.pl/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "5c58468d55f58e497e743982d2b50010b6d165374acf83a7d4a32db768c4408e"
   crs_root_id: 8
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=Autoridad de Certificacion Firmaprofesional CIF A62634068, C=ES
 # https://publifirma.firmaprofesional.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "57de0583efd2b26e0361da99da9df4648def7ee8441c3b728afa9bcde0f9b26a"
   crs_root_id: 10
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=Buypass Class 2 Root CA, O=Buypass AS-983163327, C=NO
@@ -110,20 +126,6 @@ trust_anchors {
   sha256_hex: "5cc3d78e4e1d5e45547a04e6873e64f90cf9536d1ccc2ef800f355c4c5fd70fd"
   crs_root_id: 14
   ev_policy_oids: "2.23.140.1.1"
-}
-
-# OU=ePKI Root Certification Authority, O=Chunghwa Telecom Co., Ltd., C=TW
-# Constraint date: Thu, Jul 31, 2025 23:59:59 GMT+0000
-trust_anchors {
-  sha256_hex: "c0a6f4dc63a24bfdcf54ef2a6a082a0a72de35803e2ff5ff527ae5d87206dfd5"
-  crs_root_id: 15
-  constraints: {
-    sct_not_after_sec: 1754006399
-    min_version: "139"
-  }
-  constraints: {
-    max_version_exclusive: "139"
-  }
 }
 
 # CN=D-TRUST Root Class 3 CA 2 2009, O=D-Trust GmbH, C=DE
@@ -184,20 +186,28 @@ trust_anchors {
 
 # CN=DigiCert Global Root G3, OU=www.digicert.com, O=DigiCert Inc, C=US
 # https://global-root-g3.chain-demos.digicert.com/
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "31ad6648f8104138c738f39ea4320133393e3a18cc02296ef97c2ac9ef6731d0"
   crs_root_id: 21
   ev_policy_oids: "2.23.140.1.1"
   trust_anchor_id: "\x83\x9a\x64\x8c\x9b\x2d\x01\x0a"  # 52580.200109.1.10
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # CN=DigiCert Global Root G2, OU=www.digicert.com, O=DigiCert Inc, C=US
 # https://global-root-g2.chain-demos.digicert.com/
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "cb3ccbb76031e5e0138f8dd39a23f9de47ffc35e43c1144cea27d46a5ab1cb5f"
   crs_root_id: 25
   ev_policy_oids: "2.23.140.1.1"
   trust_anchor_id: "\x83\x9a\x64\x8c\x9b\x2d\x01\x09"  # 52580.200109.1.9
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # CN=CA Disig Root R2, O=Disig a.s., L=Bratislava, C=SK
@@ -228,25 +238,37 @@ trust_anchors {
 
 # CN=GlobalSign, O=GlobalSign, OU=GlobalSign ECC Root CA - R5
 # https://2038r5.globalsign.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "179fbc148a3dd00fd24ea13458cc43bfa7f59c8182d783a513f6ebec100c8924"
   crs_root_id: 30
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=GlobalSign, O=GlobalSign, OU=GlobalSign Root CA - R6
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "2cabeafe37d06ca22aba7391c0033d25982952c453647349763a3ab5ad6ccf69"
   crs_root_id: 31
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=GlobalSign, O=GlobalSign, OU=GlobalSign Root CA - R3
 # https://2029.globalsign.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "cbb522d7b7f127ad6a0113865bdf1cd4102e7d0759af635a7cf4720dc963c53b"
   crs_root_id: 32
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=Starfield Root Certificate Authority - G2, O=Starfield Technologies, Inc., L=Scottsdale, ST=Arizona, C=US
@@ -265,13 +287,6 @@ trust_anchors {
   ev_policy_oids: "2.23.140.1.1"
 }
 
-# CN=GTS Root R3, O=Google Trust Services LLC, C=US
-trust_anchors {
-  sha256_hex: "34d8a73ee208d9bcdb0d956520934b4e40e69482596e8b6f73c8426b010a6f48"
-  crs_root_id: 35
-  trust_anchor_id: "\xd6\x79\x09\x03"  # 11129.9.3
-}
-
 # CN=GTS Root R1, O=Google Trust Services LLC, C=US
 trust_anchors {
   sha256_hex: "d947432abde7b7fa90fc2e6b59101b1280e0e1c7e4e40fa3c6887fff57a7f4cf"
@@ -287,16 +302,13 @@ trust_anchors {
 }
 
 # CN=GlobalSign, O=GlobalSign, OU=GlobalSign ECC Root CA - R4
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "b085d70b964f191a73e4af0d54ae7a0e07aafdaf9b71dd0862138ab7325a24a2"
   crs_root_id: 38
-}
-
-# CN=GTS Root R2, O=Google Trust Services LLC, C=US
-trust_anchors {
-  sha256_hex: "8d25cd97229dbf70356bda4eb3cc734031e24cf00fafcfd32dc76eb5841c7ea8"
-  crs_root_id: 39
-  trust_anchor_id: "\xd6\x79\x09\x02"  # 11129.9.2
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # CN=Hongkong Post Root CA 3, O=Hongkong Post, L=Hong Kong, ST=Hong Kong, C=HK
@@ -362,15 +374,23 @@ trust_anchors {
 }
 
 # emailAddress=info@e-szigno.hu, CN=Microsec e-Szigno Root CA 2009, O=Microsec Ltd., L=Budapest, C=HU
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "3c5f81fea5fab82c64bfa2eaecafcde8e077fc8620a7cae537163df36edbf378"
   crs_root_id: 48
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=e-Szigno Root CA 2017, organizationIdentifier=VATHU-23584497, O=Microsec Ltd., L=Budapest, C=HU
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "beb00b30839b9bc32c32e4447905950641f26421b15ed089198b518ae2ea1b99"
   crs_root_id: 49
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=Microsoft ECC Root Certificate Authority 2017, O=Microsoft Corporation, C=US
@@ -385,50 +405,50 @@ trust_anchors {
   crs_root_id: 51
 }
 
-# CN=NetLock Arany (Class Gold) Főtanúsítvány, OU=Tanúsítványkiadók (Certification Services), O=NetLock Kft., L=Budapest, C=HU
-# https://valid.ev.tanusitvany.hu
-# Constraint date: Thu, Jul 31, 2025 23:59:59 GMT+0000
-trust_anchors {
-  sha256_hex: "6c61dac3a2def031506be036d2a6fe401994fbd13df9c8d466599274c446ec98"
-  crs_root_id: 52
-  ev_policy_oids: "2.23.140.1.1"
-  constraints: {
-    sct_not_after_sec: 1754006399
-    min_version: "139"
-  }
-  constraints: {
-    max_version_exclusive: "139"
-  }
-}
-
 # CN=OISTE WISeKey Global Root GB CA, OU=OISTE Foundation Endorsed, O=WISeKey, C=CH
 # https://goodevssl.wisekey.com
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "6b9c08e86eb0f767cfad65cd98b62149e5494a67f5845e7bd1ed019f27b86bd6"
   crs_root_id: 53
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=OISTE WISeKey Global Root GC CA, OU=OISTE Foundation Endorsed, O=WISeKey, C=CH
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "8560f91c3624daba9570b5fea0dbe36ff11a8323be9486854fb3f34a5571198d"
   crs_root_id: 54
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=QuoVadis Root CA 3 G3, O=QuoVadis Limited, C=BM
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "88ef81de202eb018452e43f864725cea5fbd1fc2d9d205730709c5d8b8690f46"
   crs_root_id: 55
   trust_anchor_id: "\x83\x9a\x64\x8c\x9b\x2d\x01\x08"  # 52580.200109.1.8
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # CN=QuoVadis Root CA 2 G3, O=QuoVadis Limited, C=BM
 # https://evsslicag3-v.quovadisglobal.com/
+# Constraint date: Mon, Sept 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "8fe4fb0af93a4d0d67db0bebb23e37c71bf325dcbcdd240ea04daf58b47e1840"
   crs_root_id: 56
   ev_policy_oids: "2.23.140.1.1"
   trust_anchor_id: "\x83\x9a\x64\x8c\x9b\x2d\x01\x07"  # 52580.200109.1.7
+  constraints: {
+    sct_not_after_sec: 1820966399
+  }
 }
 
 # OU=Security Communication RootCA2, O=SECOM Trust Systems CO.,LTD., C=JP
@@ -443,34 +463,50 @@ trust_anchors {
 
 # CN=COMODO ECC Certification Authority, O=COMODO CA Limited, L=Salford, ST=Greater Manchester, C=GB
 # https://comodoecccertificationauthority-ev.comodoca.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "1793927a0614549789adce2f8f34f7f0b66d0f3ae3a3b84d21ec15dbba4fadc7"
   crs_root_id: 59
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=USERTrust ECC Certification Authority, O=The USERTRUST Network, L=Jersey City, ST=New Jersey, C=US
 # https://usertrustecccertificationauthority-ev.comodoca.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "4ff460d54b9c86dabfbcfc5712e0400d2bed3fbc4d4fbdaa86e06adcd2a9ad7a"
   crs_root_id: 60
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=COMODO RSA Certification Authority, O=COMODO CA Limited, L=Salford, ST=Greater Manchester, C=GB
 # https://comodorsacertificationauthority-ev.comodoca.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "52f0e1c4e58ec629291b60317f074671b85d7ea80d5b07273463534b32b40234"
   crs_root_id: 61
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=USERTrust RSA Certification Authority, O=The USERTRUST Network, L=Jersey City, ST=New Jersey, C=US
 # https://usertrustrsacertificationauthority-ev.comodoca.com/
+# Constraint date: Wed, Sept 30, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "e793c9b02fd8aa13e21c31228accb08119643b749c898964b1746d46c3d4cbd2"
   crs_root_id: 62
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1790812799
+  }
 }
 
 # CN=UCA Global G2 Root, O=UniTrust, C=CN
@@ -679,9 +715,13 @@ trust_anchors {
 }
 
 # CN=ANF Secure Server Root CA, OU=ANF CA Raiz, O=ANF Autoridad de Certificacion, C=ES, serialNumber=G63287510
+# Constraint date: Thu, Jan 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "fb8fec759169b9106b1e511644c618c51304373f6c0643088d8beffd1b997599"
   crs_root_id: 87
+  constraints: {
+    sct_not_after_sec: 1799971199
+  }
 }
 
 # CN=Security Communication ECC RootCA1, O=SECOM Trust Systems CO.,LTD., C=JP
@@ -698,18 +738,26 @@ trust_anchors {
 
 # CN=vTrus ECC Root CA, O=iTrusChina Co.,Ltd., C=CN
 # https://eccevtest.itrus.cn/
+# Constraint date: Thu, Jan 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "30fbba2c32238e2a98547af97931e550428b9b3f1c8eeb6633dcfa86c5b27dd3"
   crs_root_id: 90
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1799971199
+  }
 }
 
 # CN=vTrus Root CA, O=iTrusChina Co.,Ltd., C=CN
 # https://evtest.itrus.cn/
+# Constraint date: Thu, Jan 14, 2027, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "8a71de6559336f426c26e53880d00d88a18da4c6a91f0dcb6194e206c5c96387"
   crs_root_id: 91
   ev_policy_oids: "2.23.140.1.1"
+  constraints: {
+    sct_not_after_sec: 1799971199
+  }
 }
 
 # C=DE, O=Atos, CN=Atos TrustedRoot Root CA ECC TLS 2021
@@ -865,14 +913,14 @@ trust_anchors {
 
 # CN=DigiCert Trusted Root G4, OU=www.digicert.com, O=DigiCert Inc, C=US
 # https://trusted-root-g4.chain-demos.digicert.com/
-# Constraint date: Tues, Jun 30, 2026 23:59:59 GMT+0000
+# Constraint date: Mon, Sept 14, 2026, 23:59:59 GMT+0000
 trust_anchors {
   sha256_hex: "552f7bdcf1a7af9e6ce672017f4f12abf77240c78e761ac203d1d9d20ac89988"
   crs_root_id: 22
   ev_policy_oids: "2.23.140.1.1"
   trust_anchor_id: "\x83\x9a\x64\x8c\x9b\x2d\x01\x0b"  # 52580.200109.1.11
   constraints: {
-    sct_not_after_sec: 1782863999
+    sct_not_after_sec: 1789430399
   }
 }
 
@@ -988,18 +1036,6 @@ additional_certs {
   eutl: true
 }
 
-# "SERIALNUMBER=NTRSK-36061701,CN=SNCA3,OU=SEP,O=Narodny bezpecnostny urad,L=Bratislava,C=SK"
-additional_certs {
-  sha256_hex: "f230becb27b1ee22eb4b83e84b548904af2e55a529f06d5b315a42a7f9af5e1b"
-  eutl: true
-}
-
-# "SERIALNUMBER=NTRSK-35975946,CN=CA Disig QCA3,OU=ACA-307-2007-2,O=Disig a.s.,L=Bratislava,C=SK"
-additional_certs {
-  sha256_hex: "c30b32e75f8277a7f28e6adfd9ebe48c2ca50564f4dfa899ceefcb886c1a3572"
-  eutl: true
-}
-
 # "CN=CA Disig QCA4,O=Disig a.s.,L=Bratislava,C=SK,2.5.4.97=#130e4e5452534b2d3335393735393436"
 additional_certs {
   sha256_hex: "8ebc96106efef27fd369d5d85e736e4c4e31ddac22e316892355c53b282ec137"
@@ -1045,12 +1081,6 @@ additional_certs {
 # "CN=Centrum Kwalifikowane EuroCert,O=EuroCert Sp. z o.o.,C=PL,2.5.4.97=#1310564154504c2d39353132333532333739"
 additional_certs {
   sha256_hex: "b043295f0124d40f8677fdf2edad0b34812a469d4286c9239730649530100de2"
-  eutl: true
-}
-
-# "CN=Fina RDC 2015,O=Financijska agencija,C=HR"
-additional_certs {
-  sha256_hex: "857bfce43b1bb4601ff4543b46d3fb2e213bf9b4feeb6f13be9ef45c04ff6f8b"
   eutl: true
 }
 
@@ -1312,12 +1342,6 @@ additional_certs {
   eutl: true
 }
 
-# "CN=ATHEX Qualified WEB Certificates CA G3 R20,O=HELLENIC EXCHANGES - ATHENS STOCK EXCHANGE SA,L=Athens,C=GR,2.5.4.97=#130f564154454c2d303939373535313038"
-additional_certs {
-  sha256_hex: "7eef7e3caf48620728ccb1181593bbe28a152ab40e90abd7d821e647b3429720"
-  eutl: true
-}
-
 # "CN=MULTICERT SSL Certification Authority 001,OU=Certification Authority,O=MULTICERT - Serviços de Certificação Electrónica S.A.,C=PT"
 additional_certs {
   sha256_hex: "ff453a5413ea558fe7062ab6fe831073e7f30fe6ba75b82ead5209db0775cad0"
@@ -1327,12 +1351,6 @@ additional_certs {
 # "CN=MULTICERT QWAC Certification Authority 005,OU=Certification Authority,O=MULTICERT - Serviços de Certificação Electrónica S.A.,C=PT"
 additional_certs {
   sha256_hex: "35a1faa8c81125666d26f0a6e864ddeaa70431cc1570dc883cf147cd196e4ab6"
-  eutl: true
-}
-
-# "CN=Global Trusted Sign Certification Authority 01,OU=Global Trusted Sign,O=ACIN iCloud Solutions\\, Lda,C=PT"
-additional_certs {
-  sha256_hex: "097538169f89d9ecf770e116270ec7e12007ad155052820220f4b38e5c0b1181"
   eutl: true
 }
 
@@ -1360,18 +1378,6 @@ additional_certs {
   eutl: true
 }
 
-# "CN=Evrotrust RSA Operational CA,OU=Qualified Operational CA,O=Evrotrust Technologies JSC,C=BG,2.5.4.97=#130f4e545242472d323033333937333536"
-additional_certs {
-  sha256_hex: "6b2a9fd517a78af2a62185f33457764fc91ebee84a55f63f186278dcfde68a75"
-  eutl: true
-}
-
-# "CN=AC DGP 004,OU=CNP,O=DIRECCION GENERAL DE LA POLICIA,C=ES,2.5.4.97=#130f56415445532d533238313630313548"
-additional_certs {
-  sha256_hex: "6ad43c815cd847af82b180a2a0bd3902b3520e19cf0ed210d80099e597429900"
-  eutl: true
-}
-
 # "OU=AC Componentes Informáticos,O=FNMT-RCM,C=ES"
 additional_certs {
   sha256_hex: "f038421f07f20d63a20d3691e5a178ab8459ebe570c1647b7690554ef23876ab"
@@ -1381,12 +1387,6 @@ additional_certs {
 # "CN=AC SERVIDORES SEGUROS TIPO1,OU=Ceres,O=FNMT-RCM,C=ES,2.5.4.97=#130f56415445532d51323832363030344a"
 additional_certs {
   sha256_hex: "1edb6bd91274882db795bfc514f8aabe10ad955cbccfd3fd5a5b5febb2ce5b68"
-  eutl: true
-}
-
-# "SERIALNUMBER=G63287510,CN=ANF High Assurance EV CA1,OU=ANF Autoridad Intermedia Tecnicos,O=ANF Autoridad de Certificacion,C=ES"
-additional_certs {
-  sha256_hex: "1c28a8c009f25850b9155533d4a9a14c534b24da84756e82d6150b5062d63704"
   eutl: true
 }
 
@@ -1414,27 +1414,9 @@ additional_certs {
   eutl: true
 }
 
-# "CN=AC Firmaprofesional - Secure Web 2022,OU=Security Services,O=Firmaprofesional S.A.,C=ES,2.5.4.97=#130f56415445532d413632363334303638"
-additional_certs {
-  sha256_hex: "c068d776784255772bbc6ae9f70a536a410ad688a50ddeafbf66bcc5254796f6"
-  eutl: true
-}
-
 # "CN=FIRMAPROFESIONAL ICA A01 QWAC 2022,O=Firmaprofesional SA,C=ES,2.5.4.97=#130f56415445532d413632363334303638"
 additional_certs {
   sha256_hex: "cc1b9f9e4370fb68141d28a115eaa863f8eadb7a04e2bd23b3c62f9d9f17c263"
-  eutl: true
-}
-
-# "CN=AC Firmaprofesional - Secure Web 2024,OU=Security Services,O=Firmaprofesional S.A.,C=ES,2.5.4.97=#130f56415445532d413632363334303638"
-additional_certs {
-  sha256_hex: "c3f5326537db6477c4d7bf830ff5b401a7adb29707702add98e62461f9ee67c7"
-  eutl: true
-}
-
-# "CN=SIA SSL SUB01 CA,OU=QUALIFIED CA,O=SISTEMAS INFORMATICOS ABIERTOS SOCIEDAD ANONIMA,C=ES,2.5.4.97=#130f56415445532d413832373333323632"
-additional_certs {
-  sha256_hex: "b1023e844180a7254f7c0f1ad6c65c2dccd59def388001c4380bca73dbf4f338"
   eutl: true
 }
 
@@ -1604,16 +1586,6 @@ additional_certs {
   trust_anchor_id: "\xd6\x79\x09\x08"  # 11129.9.8
 }
 
-# "CN=WR5, O=Google Trust Services, C=US"
-additional_certs {
-  sha256_hex: "ae0fc852280f1b87cedaf73cfb84cf106efec88e8294253af352ed4034460d7b"
-  crs_root_id: 39
-  enforce_anchor_constraints: true
-  enforce_anchor_expiry: true
-  tls_trust_anchor: true
-  trust_anchor_id: "\xd6\x79\x09\x09"  # 11129.9.9
-}
-
 # "CN=WE1, O=Google Trust Services, C=US"
 additional_certs {
   sha256_hex: "1dfc1605fbad358d8bc844f76d15203fac9ca5c1a79fd4857ffaf2864fbebf96"
@@ -1652,16 +1624,6 @@ additional_certs {
   enforce_anchor_expiry: true
   tls_trust_anchor: true
   trust_anchor_id: "\xd6\x79\x09\x0d"  # 11129.9.13
-}
-
-# "CN=WE5, O=Google Trust Services, C=US"
-additional_certs {
-  sha256_hex: "847409e63526f162753ac49f75218efaafa7d5c94ade9095ce72e7f6b6e3ac99"
-  crs_root_id: 35
-  enforce_anchor_constraints: true
-  enforce_anchor_expiry: true
-  tls_trust_anchor: true
-  trust_anchor_id: "\xd6\x79\x09\x0e"  # 11129.9.14
 }
 
 # "CN=AE1, O=Google Trust Services, C=US"
@@ -1733,3 +1695,268 @@ additional_certs {
   tls_trust_anchor: true
   trust_anchor_id: "\x82\xdf\x13\x02\x14"  # 44947.2.20
 }
+
+# "CN=Evrotrust RSA QOperational CA 2024,OU=Qualified Operational CA,O=Evrotrust Technologies JSC,C=BG,2.5.4.97=NTRBG-203397356"
+additional_certs {
+  sha256_hex: "fcba8818597d593bf2d57b04cbd12de5d232ad4640602de44714b3128ffce663"
+  eutl: true
+}
+
+# "CN=Telekom Security OV ECC qualified CA 25,O=Deutsche Telekom Security GmbH,C=DE,2.5.4.97=NTRDE-DER3201.HRB15241"
+additional_certs {
+  sha256_hex: "378875a179c6a20ecd2e202f21bb2ccef5f057fcd745ed4495cff8286b3dd1eb"
+  eutl: true
+}
+
+# "CN=Telekom Security OV qualified CA 25,O=Deutsche Telekom Security GmbH,C=DE,2.5.4.97=NTRDE-DER3201.HRB15241"
+additional_certs {
+  sha256_hex: "ac2930b9d77a3f0d253374fa01cd3f44e80184d60c5693637dfa2cc427c3e92b"
+  eutl: true
+}
+
+# "CN=Telekom Security OV RSA qualified CA 25,O=Deutsche Telekom Security GmbH,C=DE,2.5.4.97=NTRDE-DER3201.HRB15241"
+additional_certs {
+  sha256_hex: "af33778a2215533739b9fb3a2e38d9b66d44785b6c0803d2c1e2ceb54503dd61"
+  eutl: true
+}
+
+# "CN=Centrum Kwalifikowane EuroCert,O=EuroCert Sp. z o.o.,C=PL,2.5.4.97=VATPL-9512352379"
+additional_certs {
+  sha256_hex: "8e886cfa83280e34a28f9fc1e136049925fce51d15d920ec206b163fa6f1672d"
+  eutl: true
+}
+
+# "CN=Ardaco QSCA,O=Ardaco a.s.,C=SK,2.5.4.97=NTRSK-35829036"
+additional_certs {
+  sha256_hex: "cf0b62656f403fb4958d5e3d83c0cafc342dab518fe6aa8d6d24a71fa3bd0d75"
+  eutl: true
+}
+
+# "CN=e-Szigno RSA Qualified QCP CA 2025,O=Microsec Ltd.,L=Budapest,C=HU,2.5.4.97=VATHU-23584497"
+additional_certs {
+  sha256_hex: "8474513f02221abda47cc3fda9314ccfde0af281bb45daa781cccde7f4524c53"
+  eutl: true
+}
+
+# "CN=e-Szigno Qualified TLS CA 2026,O=Microsec Ltd.,L=Budapest,C=HU,2.5.4.97=VATHU-23584497"
+additional_certs {
+  sha256_hex: "cbba5afbb7e493c2d1edfbb3b162394bfcec0345a66dc1a167b203d534fbc15f"
+  eutl: true
+}
+
+# "CN=e-Szigno RSA Qualified TLS CA 2026,O=Microsec Ltd.,L=Budapest,C=HU,2.5.4.97=VATHU-23584497"
+additional_certs {
+  sha256_hex: "399cc6d3d41b81f582139244b6b5d8f09e95e571030a6277f8f4051b2e17af66"
+  eutl: true
+}
+
+# "CN=a-sign-SSL-EV-10,O=A-Trust GmbH,C=AT"
+additional_certs {
+  sha256_hex: "997d1e997512a8a320cda2c24db9d2aab468d283c8a430136507a49fbebcc705"
+  eutl: true
+}
+
+# "CN=Halcom CA web 2,O=Halcom d.d.,C=SI,2.5.4.97=VATSI-43353126"
+additional_certs {
+  sha256_hex: "cf4334aa7269188407450c4db00ff3b1f93a6f151077e55a4bd8896f2dcfb0cd"
+  eutl: true
+}
+
+# "CN=Halcom CA web 1 G2,O=Halcom d.d.,C=SI,2.5.4.97=VATSI-43353126"
+additional_certs {
+  sha256_hex: "9185f4736720060e3fa8fea6d3bf4dbfe5818acec10eb8dd3f378c028704880f"
+  eutl: true
+}
+
+# "CN=Halcom Root CA G2,O=Halcom d.d.,C=SI,2.5.4.97=VATSI-43353126"
+additional_certs {
+  sha256_hex: "d6954e3a0d9eb5f1220ab985997f4710f366a7c7395da1bf8d845160c6618adf"
+  eutl: true
+}
+
+# "CN=Halcom CA web 1 G3,O=Halcom d.d.,C=SI,2.5.4.97=VATSI-43353126"
+additional_certs {
+  sha256_hex: "384a024691b7d20ee7485bf3ff20a8a1a15d560cc06851af582b25076470a130"
+  eutl: true
+}
+
+# "CN=Halcom Root CA G3,O=Halcom d.d.,C=SI,2.5.4.97=VATSI-43353126"
+additional_certs {
+  sha256_hex: "cce37feb23e82b0177056d695ab677bdb0616cbfad5ec0b2309a34436457754a"
+  eutl: true
+}
+
+# "CN=Certinomis - Safe CA G2,O=DOCAPOSTE CERTINOMIS,C=FR,2.5.4.97=NTRFR-433998903"
+additional_certs {
+  sha256_hex: "d6cf02a21db3e6cc71d605c921192df42858940a0c8d726fb8d4adad44b145be"
+  eutl: true
+}
+
+# "CN=Certinomis - Safe CA G3,O=DOCAPOSTE CERTINOMIS,C=FR,2.5.4.97=NTRFR-433998903"
+additional_certs {
+  sha256_hex: "757a70c7db99be1a87249a78a3af21421a1603d7bb1af917e7d74811cb79f084"
+  eutl: true
+}
+
+# "CN=ChamberSign France CA3 NG Qualified eID,OU=0002 433702479,O=ChamberSign France,C=FR,2.5.4.97=NTRFR-433702479"
+additional_certs {
+  sha256_hex: "4193c75b6804c21c413093a774f38da874927c50c5f6951fe7f5c534d7264eb5"
+  eutl: true
+}
+
+# "CN=ChamberSign France CA3 NG2 Qualified eID,OU=0002 433702479,O=ChamberSign France,C=FR,2.5.4.97=NTRFR-433702479"
+additional_certs {
+  sha256_hex: "1344b1e4e0f998cc4413bb4704bc1becd80533c9935b24c6fef3e3b8ab61fefd"
+  eutl: true
+}
+
+# "CN=Certigna Server Authentication Auto QCP CA,O=Certigna,C=FR,2.5.4.97=NTRFR-48146308100036"
+additional_certs {
+  sha256_hex: "54483ca2eaeb99897052bd7527bd0cfd097413ec2dfd7f5b5490bccad2f294b8"
+  eutl: true
+}
+
+# "CN=Certigna Server Authentication QCP CA,O=Certigna,C=FR,2.5.4.97=NTRFR-48146308100036"
+additional_certs {
+  sha256_hex: "4be7aca4f318c52fea84b2ed7fb08e45c425c7de9ad7c2e775dd0ccd9f8dd0e2"
+  eutl: true
+}
+
+# "CN=ACCV RSA1 TLS,O=ISTEC,L=BURJASSOT,ST=VALENCIA,C=ES,2.5.4.97=VATES-A40573396"
+additional_certs {
+  sha256_hex: "346440cf7674a529305545563322fcfb38f5a4b3f1e7e852dff8a4b7a5ef72d1"
+  eutl: true
+}
+
+# "CN=ACCV ECC1 TLS,O=ISTEC,L=BURJASSOT,ST=VALENCIA,C=ES,2.5.4.97=VATES-A40573396"
+additional_certs {
+  sha256_hex: "93c087ab9331b74c0fccce11bc61fb9fa6d432077d8f1018194fa4cca664d781"
+  eutl: true
+}
+
+# "CN=SUBCA SSL 2024,O=IZENPE S.A.,C=ES,2.5.4.97=VATES-A01337260"
+additional_certs {
+  sha256_hex: "b87f2ca5ad30259ff3e5588de131c3626d5727cae24f9bc9b007026dbcc2d652"
+  eutl: true
+}
+
+# "CN=AC Firmaprofesional - Secure Web 2025,O=Firmaprofesional S.A.,C=ES,2.5.4.97=VATES-A62634068"
+additional_certs {
+  sha256_hex: "b78c7f63e24583c7d40c1d33d8dbe116b382b4beb9ebc41a1a068d519baf4bad"
+  eutl: true
+}
+
+# "CN=EAD Trust ECC 256 SubCA For Qualified Web DV/OV Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "459e0f12a7723f40c718a3721862747c9a2894a8721d50fe6ba4e22bec49313c"
+  eutl: true
+}
+
+# "CN=EAD Trust ECC 256 SubCA For Qualified Web EV/PSD2 Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "6284c3d2bb5e4a6a5551135e8f54c62585445c1a562724c7c0d507389ba557c2"
+  eutl: true
+}
+
+# "CN=EAD Trust ECC 384 SubCA For Qualified Web DV/OV Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "1485b4a7ded010281402a543deb64e77f6655de08ffde38b6616e26b2025fa1f"
+  eutl: true
+}
+
+# "CN=EAD Trust ECC 384 SubCA For Qualified Web EV/PSD2 Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "3845f56e3f6c150e2fb572d62f8c61ba7d9a164e45677eb71998c471b758c39f"
+  eutl: true
+}
+
+# "CN=EAD Trust RSA 4096 SubCA For Qualified Web DV/OV Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "f56a99f8a7b4dc807f23c723eb620ac296d980bde143e317e18eb64eb56ff6ce"
+  eutl: true
+}
+
+# "CN=EAD Trust RSA 4096 SubCA For Qualified Web EV/PSD2 Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "c3b28ba9153823bde198a665eb35c3ddf8d3dffaf73710951ce3af97ba8d1b3a"
+  eutl: true
+}
+
+# "CN=EAD Trust RSA 8192 SubCA For Qualified Web DV/OV Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "4b4c8eac327760e87fc92566c9065a7cc6109fdde02ba1726621ce3730132080"
+  eutl: true
+}
+
+# "CN=EAD Trust RSA 8192 SubCA For Qualified Web EV/PSD2 Cert 2024,O=EAD Trust,C=ES"
+additional_certs {
+  sha256_hex: "8f540ab3e89d71e9d2f71286f5d8404526f4fe41ebfee54d18b5e02df0d388da"
+  eutl: true
+}
+
+# "CN=Sectigo Qualified Website Authentication CA E39,O=Sectigo (Europe) SL,C=ES"
+additional_certs {
+  sha256_hex: "05461634195849a1bccc99264912054fdeb987a52e661312ae9cca3e3ed8d318"
+  eutl: true
+}
+
+# "CN=Sectigo Qualified Website Authentication CA R39,O=Sectigo (Europe) SL,C=ES"
+additional_certs {
+  sha256_hex: "ac8c7ef96eb4b535fbfb4e7521f130536198a60dff716312b22d4acc4afe9a7d"
+  eutl: true
+}
+
+# "CN=Sectigo Qualified Website Authentication CA Natural E39,O=Sectigo (Europe) SL,C=ES"
+additional_certs {
+  sha256_hex: "00c367a774b7ce9a0f791342383f865f2af6cd37674b85167e6f239e313d60bb"
+  eutl: true
+}
+
+# "CN=Sectigo Qualified Website Authentication CA Natural R39,O=Sectigo (Europe) SL,C=ES"
+additional_certs {
+  sha256_hex: "3ccf0306bed8c910b327a15f2159fdd1e414474f77696c3d98781b1160277bca"
+  eutl: true
+}
+
+# "CN=certSIGN ROOT CA G4,O=CERTSIGN S.A.,C=RO"
+additional_certs {
+  sha256_hex: "da45c759287024d825e94e7964b80d0557bc84ccbcb4bac8267066f2aed48725"
+  eutl: true
+}
+
+# "CN=certSIGN Web CA G4 EV,O=CERTSIGN SA,C=RO,2.5.4.97=VATRO-18288250"
+additional_certs {
+  sha256_hex: "a8bcffb66a517c68442a5e2ead033584db58ca5ab09b19b17c822e82d39ed1b2"
+  eutl: true
+}
+
+# "CN=certSIGN Web CA G2,O=CERTSIGN SA,C=RO,2.5.4.97=VATRO-18288250"
+additional_certs {
+  sha256_hex: "0e49bedbd09341d646eb65cee9f2f1ee6c8f88beaa906979a49d1616fc9c03ea"
+  eutl: true
+}
+
+# "CN=GlobalSign GCC R46 EV QWAC CA 2025,O=GlobalSign nv-sa,C=BE,2.5.4.97=NTRBE-0459134256"
+additional_certs {
+  sha256_hex: "c12fe52a74d33b88439feafbdce47eaeeb881a3ca42078fdf13c0ff4e39b8161"
+  eutl: true
+}
+
+# "CN=AC SERVIDORES SEGUROS TIPO2 G2R,O=FNMT-RCM,C=ES,2.5.4.97=VATES-Q2826004J"
+additional_certs {
+  sha256_hex: "b45ab8e079025df9783535a720862129c9b2d22672b9be8dfe7cd2eda33f62a3"
+  eutl: true
+}
+
+# "CN=AC SERVIDORES SEGUROS TIPO1 G2,O=FNMT-RCM,C=ES,2.5.4.97=VATES-Q2826004J"
+additional_certs {
+  sha256_hex: "9993d183292afc4165abcd272b4454321459183ac7b4191139503372bccc28a9"
+  eutl: true
+}
+
+# "CN=AC SERVIDORES SEGUROS TIPO2 G2,O=FNMT-RCM,C=ES,2.5.4.97=VATES-Q2826004J"
+additional_certs {
+  sha256_hex: "7feb6f8c9c847a449e0b702386c2319aa1191f38df02d03be64b3f1ae1971f94"
+  eutl: true
+}
+

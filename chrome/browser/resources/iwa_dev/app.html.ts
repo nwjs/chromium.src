@@ -10,6 +10,12 @@ export function getHtml(this: IwaDevAppElement) {
   // clang-format off
   return html`
 <h1>Isolated Web App Developer Tool</h1>
+<div id="learn-more">
+  Install and test Isolated Web Apps during development.
+  <a href="https://developer.chrome.com/docs/iwa/introduction"
+      target="_blank" rel="noopener"
+      aria-label="Learn more about Isolated Web Apps">Learn more</a>
+</div>
 ${!this.devModeEnabled_ ? html`
   <div id="error-message">
     <p>Isolated Web App Developer Mode is disabled.</p>
@@ -22,9 +28,15 @@ ${!this.devModeEnabled_ ? html`
 ` : html`
   <div id="content">
     ${!this.hasFetchedApps_ ? '' : html`
-      <h2>
-        Installed Applications (${this.installedApps_.length})
-      </h2>
+      <div class="header-row">
+        <h2 class="title">
+          Installed Applications (${this.installedApps_.length})
+        </h2>
+        <cr-button class="action-button" id="installButton"
+            @click="${this.onOpenInstallDialogClick_}">
+          Install IWA
+        </cr-button>
+      </div>
       ${this.installedApps_.length === 0 ? html`
         <div id="iwa-list-message">
           No Isolated Web Apps installed in developer mode.
@@ -34,12 +46,27 @@ ${!this.devModeEnabled_ ? html`
         ${this.installedApps_.map(item => html`
           <installed-app-list-item
               .app="${item}"
+              .isUpdating="${this.updatingAppIds_.includes(item.appId)}"
               role="listitem"
-              @request-uninstall="${this.onRequestUninstall}">
+              @request-update="${this.onRequestUpdate_}"
+              @request-uninstall="${this.onRequestUninstall_}">
           </installed-app-list-item>
         `)}
         </div>
       `}
+      <iwa-dev-install-dialog id="installDialog"
+          @request-install-from-dev-proxy="${
+            this.onRequestInstallFromDevProxy_}"
+          @request-install-from-local-bundle="${
+            this.onRequestInstallFromLocalBundle_}"
+          @request-parse-update-manifest-from-url="${
+            this.onRequestParseUpdateManifestFromUrl_}"
+          @request-install-from-update-manifest="${
+            this.onRequestInstallFromUpdateManifest_}">
+      </iwa-dev-install-dialog>
+      <cr-toast id="toast" duration="3000">
+        <div>${this.toastMessage_}</div>
+      </cr-toast>
     `}
   </div>
 `}

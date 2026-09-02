@@ -63,8 +63,6 @@ namespace blink {
 // static
 float ExternalPopupMenu::GetDprForSizeAdjustment(const Element& owner_element) {
   float dpr = 1.0f;
-  // Android doesn't need these adjustments and it makes tests fail.
-#ifndef OS_ANDROID
   LocalFrame* frame = owner_element.GetDocument().GetFrame();
   const Page* page = frame ? frame->GetPage() : nullptr;
   // DevTools devicePixelRatio emulation only applies to the outermost
@@ -79,7 +77,6 @@ float ExternalPopupMenu::GetDprForSizeAdjustment(const Element& owner_element) {
   } else {
     dpr = page->GetChromeClient().GetScreenInfo(*frame).device_scale_factor;
   }
-#endif
   return dpr;
 }
 
@@ -134,12 +131,6 @@ bool ExternalPopupMenu::ShowInternal() {
                                     ->LocalRootFrameWidget()
                                     ->GetEmulatorScale();
 
-    // rect_in_viewport needs to be in CSS pixels.
-    float dpr = GetDprForSizeAdjustment(*owner_element_);
-    if (dpr != 1.0) {
-      rect_in_viewport = gfx::ScaleToRoundedRect(rect_in_viewport, 1 / dpr);
-    }
-
     // Adjust anchor position to stay within web contents, otherwise the popup
     // could be rendered entirely outside of the web contents. If this select
     // is in a cross-origin iframe, then the anchor will be confined to the
@@ -148,13 +139,24 @@ bool ExternalPopupMenu::ShowInternal() {
     // the picker won't be opened.
     if (RuntimeEnabledFeatures::SelectAnchorInViewportEnabled() &&
         local_frame_->GetPage()) {
-      gfx::Rect viewport_rect(
-          local_frame_->GetPage()->GetVisualViewport().Size());
+      gfx::Rect viewport_rect =
+          local_frame_->LocalFrameRoot().IsOutermostMainFrame()
+              ? gfx::Rect(local_frame_->GetPage()->GetVisualViewport().Size())
+              : local_frame_->LocalFrameRoot().RemoteViewportIntersection();
       if (!viewport_rect.Intersects(rect_in_viewport)) {
         DidCancel();
         return false;
       }
       rect_in_viewport.Intersect(viewport_rect);
+    }
+
+    // The browser process expects the popup bounds in DIPs, so convert
+    // rect_in_viewport here. This must happen after the viewport intersection
+    // check above because viewport_rect and rect_in_viewport are both in Blink
+    // visual viewport CSS pixels before DPR scaling.
+    float dpr = GetDprForSizeAdjustment(*owner_element_);
+    if (dpr != 1.0) {
+      rect_in_viewport = gfx::ScaleToRoundedRect(rect_in_viewport, 1 / dpr);
     }
 
     gfx::Rect bounds =

@@ -35,16 +35,13 @@ DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(
     kWebHidAttributeAllowsBackForwardCache);
 #if BUILDFLAG(IS_WIN)
-DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kWinSystemLocationPermission);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(
     kWinSystemLocationPermissionEventBased);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kHidGetFeatureReportFix);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kSafeUsbDeviceHandleWinClose);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kSafeHidConnectionWinClose);
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kSafeSerialPortImplWinClose);
-
-extern const DEVICE_FEATURES_EXPORT base::FeatureParam<int>
-    kWinSystemLocationPermissionPollingParam;
+DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kSerialUsbDisplayNameWin);
 #endif  // BUILDFLAG(IS_WIN)
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kLocationProviderManager);
 
@@ -64,6 +61,12 @@ extern const DEVICE_FEATURES_EXPORT
         kLocationProviderManagerParam;
 
 DEVICE_FEATURES_EXPORT bool IsOsLevelGeolocationPermissionSupportEnabled();
+
+// Returns the mode `LocationProviderManager` should operate in. This is
+// normally `kLocationProviderManagerParam`, but platforms that cannot support
+// the platform location provider are forced to `kNetworkOnly`.
+DEVICE_FEATURES_EXPORT device::mojom::LocationProviderManagerMode
+GetLocationProviderManagerMode();
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 DEVICE_FEATURES_EXPORT BASE_DECLARE_FEATURE(kAutomaticUsbDetach);

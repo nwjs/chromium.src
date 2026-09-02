@@ -99,14 +99,7 @@ void AutofillBubbleControllerBase::UpdatePageActionIcon() {
 
   std::optional<actions::ActionId> action_id = GetActionIdForPageAction();
 
-  // Legacy path for unmigrated page actions or when migration disabled by
-  // feature flag.
-  if (!action_id.has_value() || !IsPageActionMigrated(*icon_type)) {
-    if (BrowserWindowInterface* browser =
-            GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
-                web_contents())) {
-      BrowserWindow::FromBrowser(browser)->UpdatePageActionIcon(*icon_type);
-    }
+  if (!action_id.has_value()) {
     return;
   }
 
@@ -174,25 +167,27 @@ bool AutofillBubbleControllerBase::IsMouseHovered() const {
   return IsShowingBubble() && bubble_view_->IsMouseHovered();
 }
 
+bool AutofillBubbleControllerBase::IsBubbleManagerEnabled() const {
+#if BUILDFLAG(IS_ANDROID)
+  return false;
+#else
+  return BubbleManager::GetForWebContents(web_contents()) != nullptr;
+#endif
+}
+
 bool AutofillBubbleControllerBase::MaySetUpBubble() {
 #if BUILDFLAG(IS_ANDROID)
   return true;
 #else  // BUILDFLAG(IS_ANDROID)
-  if (!IsBubbleManagerEnabled()) {
-    return true;
-  }
-
   auto* manager = BubbleManager::GetForWebContents(web_contents());
-  return manager && !manager->HasConflictingPendingBubble(GetBubbleType());
+  return !manager || !manager->HasConflictingPendingBubble(GetBubbleType());
 #endif
 }
 
 void AutofillBubbleControllerBase::QueueOrShowBubble(bool force_show) {
 #if !BUILDFLAG(IS_ANDROID)
-  if (IsBubbleManagerEnabled()) {
-    if (auto* manager = BubbleManager::GetForWebContents(web_contents())) {
-      manager->RequestShowController(*this, force_show);
-    }
+  if (auto* manager = BubbleManager::GetForWebContents(web_contents())) {
+    manager->RequestShowController(*this, force_show);
     return;
   }
 #endif
@@ -213,8 +208,7 @@ void AutofillBubbleControllerBase::ResetBubbleViewAndInformBubbleManager() {
   bubble_view_ = nullptr;
 
 #if !BUILDFLAG(IS_ANDROID)
-  if (was_showing && base::FeatureList::IsEnabled(
-                         features::kAutofillShowBubblesBasedOnPriorities)) {
+  if (was_showing) {
     if (auto* manager = BubbleManager::GetForWebContents(web_contents())) {
       manager->OnBubbleHiddenByController(*this,
                                           allow_bubble_manager_to_show_next_);

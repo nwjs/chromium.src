@@ -162,20 +162,20 @@ PartitionRoot::GetDirectMapMetadataAndGuardPagesSize() {
 
 PA_ALWAYS_INLINE PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR size_t
 PartitionRoot::GetDirectMapSlotSize(size_t raw_size) {
-  // Caller must check that the size is not above the MaxDirectMapped()
+  // Caller must check that the size is not above the MaxAllocationSize()
   // limit before calling. This also guards against integer overflow in the
   // calculation here.
-  PA_DCHECK(raw_size <= internal::MaxDirectMapped());
+  PA_DCHECK(raw_size <= MaxAllocationSize());
   return partition_alloc::internal::base::bits::AlignUp(
       raw_size, internal::SystemPageSize());
 }
 
 PA_ALWAYS_INLINE size_t
 PartitionRoot::GetDirectMapReservationSize(size_t padded_raw_size) {
-  // Caller must check that the size is not above the MaxDirectMapped()
+  // Caller must check that the size is not above the MaxAllocationSize()
   // limit before calling. This also guards against integer overflow in the
   // calculation here.
-  PA_DCHECK(padded_raw_size <= internal::MaxDirectMapped());
+  PA_DCHECK(padded_raw_size <= MaxAllocationSize());
   return partition_alloc::internal::base::bits::AlignUp(
       padded_raw_size + GetDirectMapMetadataAndGuardPagesSize(),
       internal::DirectMapAllocationGranularity());
@@ -262,7 +262,7 @@ PA_ALWAYS_INLINE bool PartitionRoot::IsDirectMappedBucket(
 }
 template <AllocFlags flags>
 PA_ALWAYS_INLINE bool PartitionRoot::AllocWithMemoryToolProlog(size_t size) {
-  if (size > partition_alloc::internal::MaxDirectMapped()) {
+  if (size > MaxAllocationSize()) {
     if constexpr (ContainsFlags(flags, AllocFlags::kReturnNull)) {
       // Early return indicating not to proceed with allocation
       return false;
@@ -575,27 +575,23 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeInlineInternal(
   PA_PREFETCH_FOR_WRITE(object);
   auto [slot_start, slot_span] = GetSlotStartAndSlotSpanFromAddress(object);
 
-  if constexpr (ContainsFlags(flags, FreeFlags::kWithAlignmentHint) &&
-                ContainsFlags(flags, FreeFlags::kWithSizeHint)) {
-    if (settings_.enable_free_with_size) {
-      auto adjusted_size =
-          GetAdjustedSizeForAlignment(hint.alignment, hint.size);
-      // Overflow check. adjusted_size must be larger or equal to the original
-      // size.
-      PA_CHECK(adjusted_size >= hint.size);
-
-      FreeHintType<FreeHintFlags(flags)> new_hint = hint;
-      new_hint.size = adjusted_size;
-      FreeNoHooksImmediate<flags>(slot_start, slot_span, new_hint);
-      return;
-    }
-  }
-
   // We are going to read from |*slot_span| in all branches, but haven't
   // done it yet.
-  if constexpr (!ContainsFlags(flags, FreeFlags::kWithSizeHint)) {
-    PA_PREFETCH(slot_span);
+  PA_PREFETCH(slot_span);
+
+  if constexpr (ContainsFlags(flags, FreeFlags::kWithAlignmentHint) &&
+                ContainsFlags(flags, FreeFlags::kWithSizeHint)) {
+    auto adjusted_size = GetAdjustedSizeForAlignment(hint.alignment, hint.size);
+    // Overflow check. adjusted_size must be larger or equal to the original
+    // size.
+    PA_CHECK(adjusted_size >= hint.size);
+
+    FreeHintType<FreeHintFlags(flags)> new_hint = hint;
+    new_hint.size = adjusted_size;
+    FreeNoHooksImmediate<flags>(slot_start, slot_span, new_hint);
+    return;
   }
+
   FreeNoHooksImmediate<flags>(slot_start, slot_span, hint);
 }
 
@@ -658,6 +654,14 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeNoHooksImmediateInternal(
       QuarantineForBrp(slot_span, slot_start);
     }
 
+    if constexpr (ContainsFlags(flags, FreeFlags::kSchedulerLoopQuarantine)) {
+      // This flag is read in `FreeAfterBRPQuarantine()`. It must be set before
+      // calling ReleaseFromAllocator(); once allocator ownership is released,
+      // concurrent raw_ptr destructors may trigger FreeAfterBRPQuarantine and
+      // re-tag or re-allocate the slot immediately.
+      ref_count->SetQuarantineRequest();
+    }
+
     if (!(ref_count->ReleaseFromAllocator(slot_start.Untag(), slot_span)))
         [[unlikely]] {
       PA_CHECK(was_zapped);
@@ -669,11 +673,6 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeNoHooksImmediateInternal(
           slot_span->GetSlotSizeForBookkeeping(), std::memory_order_relaxed);
       cumulative_count_of_brp_quarantined_slots_.fetch_add(
           1, std::memory_order_relaxed);
-
-      if constexpr (ContainsFlags(flags, FreeFlags::kSchedulerLoopQuarantine)) {
-        // This flag is to be read on `FreeAfterBRPQuarantine()`.
-        ref_count->SetQuarantineRequest();
-      }
       return;
     }
   }
@@ -736,14 +735,10 @@ PA_ALWAYS_INLINE void PartitionRoot::FreeNoHooksImmediate(
     FreeHintType<FreeHintFlags(flags)> hint) {
   internal::BucketSizeDetails size_details;
   if constexpr (ContainsFlags(flags, FreeFlags::kWithSizeHint)) {
-    if (settings_.enable_free_with_size) {
-      size_details = SizeToBucketSizeDetails(hint.size, slot_span);
-      FreeNoHooksImmediateInternal<flags>(slot_start, slot_span, hint,
-                                          size_details);
-      return;
-    }
+    size_details = SizeToBucketSizeDetails(hint.size, slot_span);
+  } else {
+    size_details = SlotSpanToBucketSizeDetails(slot_span);
   }
-  size_details = SlotSpanToBucketSizeDetails(slot_span);
 
   FreeNoHooksImmediateInternal<flags>(slot_start, slot_span, hint,
                                       size_details);
@@ -1231,19 +1226,9 @@ PartitionRoot::SizeToBucketSizeDetails(size_t requested_size,
     auto bucket_index =
         SizeToBucketIndex(raw_size, this->GetBucketDistribution());
     auto slot_size = BucketIndexLookup::GetBucketSize(bucket_index);
-    if (settings_.enable_strict_free_size_check) {
-      // TODO(crbug.com/410190984): Remove this prefetch & CHECKS once the
-      // PA_CHECK of the given size against the slot span metadata is replaced
-      // with a PA_DCHECK.
-      PA_PREFETCH(slot_span);
-      PA_CHECK(bucket_index ==
-               static_cast<uint16_t>(slot_span->bucket - this->buckets_));
-      PA_CHECK(slot_size == slot_span->bucket->slot_size);
-    } else {
-      PA_DCHECK(bucket_index ==
-                static_cast<uint16_t>(slot_span->bucket - this->buckets_));
-      PA_DCHECK(slot_size == slot_span->bucket->slot_size);
-    }
+    PA_CHECK(bucket_index ==
+             static_cast<uint16_t>(slot_span->bucket - this->buckets_));
+    PA_CHECK(slot_size == slot_span->bucket->slot_size);
     return internal::BucketSizeDetails{
         .bucket_index = bucket_index,
         .slot_size = slot_size,
@@ -1598,14 +1583,20 @@ PartitionRoot::GetAdjustedSizeForAlignment(size_t alignment,
       // PartitionAlloc only guarantees alignment for power-of-two sized
       // allocations. To make sure this applies here, round up the allocation
       // size.
-      raw_size =
-          static_cast<size_t>(1)
-          << (int{sizeof(size_t) * 8} -
-              partition_alloc::internal::base::bits::CountlZero(raw_size - 1));
+      raw_size = static_cast<size_t>(1)
+                 << (int{sizeof(size_t) * 8} - std::countl_zero(raw_size - 1));
     }
     PA_DCHECK(std::has_single_bit(raw_size));
     // Adjust back, because AllocInternalNoHooks/Alloc will adjust it again.
     adjusted_size = AdjustSizeForExtrasSubtract(raw_size);
+    // TODO(crbug.com/491627887): Remove this metric once we've confirmed the
+    // impact.
+    //
+    // Note: raw_size is always >= requested_size depending on the size
+    // of Extras.
+    size_t wasted_bytes = raw_size - requested_size;
+    total_aligned_alloc_wasted_bytes_.fetch_add(wasted_bytes,
+                                                std::memory_order_relaxed);
   }
   return adjusted_size;
 }
@@ -1667,7 +1658,7 @@ void* PartitionRoot::ReallocInline(void* ptr,
     return nullptr;
   }
 
-  if (new_size > internal::MaxDirectMapped()) {
+  if (new_size > MaxAllocationSize()) {
     if constexpr (ContainsFlags(alloc_flags, AllocFlags::kReturnNull)) {
       return nullptr;
     }

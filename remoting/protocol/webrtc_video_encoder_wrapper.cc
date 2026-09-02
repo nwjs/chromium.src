@@ -118,7 +118,7 @@ WebrtcVideoEncoderWrapper::WebrtcVideoEncoderWrapper(
       std::optional<webrtc::VP9Profile> sdp_profile =
           webrtc::ParseSdpForVP9Profile(format.parameters);
       auto profile = sdp_profile.value_or(webrtc::VP9Profile::kProfile0);
-      std::optional<int> speed = session_options.GetInt("Vp9-Encoder-Speed");
+      std::optional<int> speed = session_options.vp9_encoder_speed;
 
       VLOG(0) << "Creating VP9 encoder - Profile: "
               << webrtc::VP9ProfileToString(profile) << ", Speed: "
@@ -137,9 +137,8 @@ WebrtcVideoEncoderWrapper::WebrtcVideoEncoderWrapper(
       std::optional<webrtc::AV1Profile> sdp_profile =
           webrtc::ParseSdpForAV1Profile(format.parameters);
       auto profile = sdp_profile.value_or(webrtc::AV1Profile::kProfile0);
-      std::optional<bool> active_map =
-          session_options.GetBool("Av1-Active-Map");
-      std::optional<int> speed = session_options.GetInt("Av1-Encoder-Speed");
+      std::optional<bool> active_map = session_options.av1_active_map;
+      std::optional<int> speed = session_options.av1_encoder_speed;
 
       VLOG(0) << "Creating AV1 encoder - Profile: "
               << webrtc::AV1ProfileToString(profile) << ", Speed: "
@@ -591,12 +590,6 @@ void WebrtcVideoEncoderWrapper::EncodeDesktopFrame(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(!encode_pending_);
 
-  if (keep_alive_timer_.IsRunning()) {
-    keep_alive_timer_.Reset();
-  } else {
-    keep_alive_timer_.Start(FROM_HERE, kKeepAliveInterval, this,
-                            &WebrtcVideoEncoderWrapper::ExtrapolateFrame);
-  }
   if (top_off_active_) {
     top_off_timer_.Reset();
   }
@@ -682,11 +675,6 @@ void WebrtcVideoEncoderWrapper::ExtrapolateFrame() {
   }
 
   EncodeDesktopFrame(last_capturer_fed_frame_->Share());
-}
-
-// static
-base::TimeDelta WebrtcVideoEncoderWrapper::GetKeepAliveIntervalForTesting() {
-  return kKeepAliveInterval;
 }
 
 }  // namespace remoting::protocol

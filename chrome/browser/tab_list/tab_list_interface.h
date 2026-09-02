@@ -12,6 +12,7 @@
 
 #include "base/scoped_observation_traits.h"
 #include "build/android_buildflags.h"
+#include "components/split_tabs/split_tab_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
@@ -165,6 +166,11 @@ class TabListInterface {
   virtual std::optional<tab_groups::TabGroupId> CreateTabGroup(
       const std::vector<tabs::TabHandle>& tabs) = 0;
 
+  // Creates a new split view with the given `tabs` and returns the split ID.
+  // Returns nullopt on error.
+  virtual std::optional<split_tabs::SplitTabId> CreateSplit(
+      const std::vector<tabs::TabHandle>& tabs) = 0;
+
   // Sets the visual data for a tab group. Implementations may choose to notify
   // observers of the change.
   virtual void SetTabGroupVisualData(
@@ -184,6 +190,9 @@ class TabListInterface {
   // Ungroups all `tabs`. Tabs will be moved to an index adjacent to the group
   // they were in.
   virtual void Ungroup(const std::set<tabs::TabHandle>& tabs) = 0;
+
+  // Unsplits all the tabs that are part of the split with `split_id`.
+  virtual void Unsplit(split_tabs::SplitTabId split_id) = 0;
 
   // Moves the tab group to `index`. The nearest valid index will be used.
   // The index assumes the group has already been removed from the tab strip.

@@ -102,7 +102,6 @@ extern const base::FeatureParam<std::string>
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayTranslateButtonFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLiveCaptionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSavePrimingPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSaveRecoveryPromoFeature);
@@ -117,6 +116,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfGlicSummarizeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfInkSignaturesFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfSearchifyFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfTextAnnotationsFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPdfTranslateBubbleFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPerformanceInterventionDialogFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPowerBookmarksSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPriceInsightsPageActionIconLabelFeature);
@@ -135,6 +135,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSmartTabSharingTryItFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideBySidePinnableFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSideBySideTabSwitchFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSplitViewHorizontalIndirectAccessFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVerticalTabsExpandOnHoverFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVerticalTabstripTutorialFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSidePanelGenericPinnableFeature);
@@ -305,6 +306,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHVideoTutorialTryNowFeature);
 
 #if BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHBottomToolbarTipFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHSendTabToSelfOmnibox);
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
@@ -358,6 +360,10 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSSwipeBackForwardFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSSwipeToolbarToChangeTabFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPostDefaultAbandonmentPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPromoGenericDefaultBrowserFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSPromoSettingsCardDefaultBrowserFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSPromoSettingsCellDefaultBrowserFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSOverflowMenuCustomizationFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPageInfoRevampFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
@@ -493,10 +499,14 @@ COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionExtensionId);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionInstructionsUrl);
+COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
+BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionMinPehVersion);
 
 inline constexpr char kSearchPromotionArmDefault[] = "disabled";
 inline constexpr char kSearchPromotionArmA[] = "arm_a";
 inline constexpr char kSearchPromotionArmB[] = "arm_b";
+inline constexpr char kSearchPromotionArmC[] = "arm_c";
+inline constexpr char kSearchPromotionArmD[] = "arm_d";
 #endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace feature_engagement

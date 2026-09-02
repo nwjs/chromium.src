@@ -243,15 +243,12 @@ AdjustBackwardPositionToAvoidCrossingEditingBoundariesTemplate(
   // Return first position in the anchor's text node if |pos| is not somewhere
   // inside the editable region containing this position.
   if (highest_root && !highest_root->contains(pos.AnchorNode())) {
-    if (RuntimeEnabledFeatures::
-            ClampWordBoundaryToContentEditableScopeEnabled()) {
-      const Node* first_editable = anchor.ComputeContainerNode();
-      if (first_editable->IsTextNode()) {
-        PositionTemplate<Strategy> first_position =
-            PositionTemplate<Strategy>::FirstPositionInNode(*first_editable);
-        if (anchor != first_position) {
-          return PositionWithAffinityTemplate<Strategy>(first_position);
-        }
+    if (const Node* first_editable = anchor.ComputeContainerNode();
+        first_editable->IsTextNode()) {
+      const PositionTemplate<Strategy> first_position =
+          PositionTemplate<Strategy>::FirstPositionInNode(*first_editable);
+      if (anchor != first_position) {
+        return PositionWithAffinityTemplate<Strategy>(first_position);
       }
     }
     return PositionWithAffinityTemplate<Strategy>();
@@ -824,7 +821,7 @@ static PositionTemplate<Strategy> MostBackwardCaretPosition(
     const auto* const text_layout_object = To<LayoutText>(layout_object);
     if (!text_layout_object->HasNonCollapsedText())
       continue;
-    const unsigned text_start_offset = text_layout_object->TextStartOffset();
+    const wtf_size_t text_start_offset = text_layout_object->TextStartOffset();
     if (current_node != start_node) {
       // This assertion fires in web tests in the case-transform.html test
       // because of a mix-up between offsets in the text in the DOM tree with
@@ -1008,7 +1005,7 @@ PositionTemplate<Strategy> MostForwardCaretPosition(
     const auto* const text_layout_object = To<LayoutText>(layout_object);
     if (!text_layout_object->HasNonCollapsedText())
       continue;
-    const unsigned text_start_offset = text_layout_object->TextStartOffset();
+    const wtf_size_t text_start_offset = text_layout_object->TextStartOffset();
     if (current_node != start_node) {
       DCHECK(current_pos.AtStartOfNode() ||
              HasInvisibleFirstLetter(current_node));
@@ -1166,8 +1163,8 @@ static UChar32 CharacterAfterAlgorithm(
   auto* text_node = DynamicTo<Text>(pos.ComputeContainerNode());
   if (!text_node)
     return 0;
-  unsigned offset = static_cast<unsigned>(pos.OffsetInContainerNode());
-  unsigned length = text_node->length();
+  wtf_size_t offset = pos.OffsetInContainerNode();
+  wtf_size_t length = text_node->length();
   if (offset >= length)
     return 0;
 
@@ -1354,11 +1351,11 @@ Vector<gfx::QuadF> ComputeTextBounds(
     if (!layout_object || !layout_object->IsText())
       continue;
     const auto* layout_text = To<LayoutText>(layout_object);
-    unsigned start_offset =
+    wtf_size_t start_offset =
         node == start_container ? start_position.OffsetInContainerNode() : 0;
-    unsigned end_offset = node == end_container
-                              ? end_position.OffsetInContainerNode()
-                              : std::numeric_limits<unsigned>::max();
+    wtf_size_t end_offset = node == end_container
+                                ? end_position.OffsetInContainerNode()
+                                : std::numeric_limits<wtf_size_t>::max();
     layout_text->AbsoluteQuadsForRange(result, start_offset, end_offset);
   }
   return result;

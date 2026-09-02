@@ -15,7 +15,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.tab.Tab;
-import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.security_state.ConnectionMaliciousContentStatus;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
 import org.chromium.content_public.browser.WebContents;
@@ -121,14 +121,6 @@ public interface LocationBarDataProvider {
     @Nullable Tab getTab();
 
     /**
-     * Returns the default request type for this provider. This allows the omnibox to maintain a
-     * specialized state even when not focused.
-     */
-    default @AutocompleteRequestType int getDefaultRequestType() {
-        return AutocompleteRequestType.SEARCH;
-    }
-
-    /**
      * Returns the FuseboxSessionState linked to the current tab (if present) or context
      * (otherwise).
      */
@@ -174,8 +166,9 @@ public interface LocationBarDataProvider {
      * Returns the current page classification.
      *
      * @param prefetch whether retrieving page class in prefetch context.
-     * @return Integer value representing the {@code OmniboxEventProto.PageClassification}.
+     * @return Integer value representing the {@code PageClassification}.
      */
+    @PageClassification
     int getPageClassification(boolean prefetch);
 
     /**

@@ -11,6 +11,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
+#include "chrome/browser/actor/actor_actions_runner.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_keyed_service_browsertest.h"
 #include "chrome/browser/actor/actor_proto_conversion.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/actor/tools/navigate_tool_request.h"
 #include "chrome/browser/optimization_guide/browser_test_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
@@ -98,6 +100,9 @@ void ActorKeyedServiceBrowserTest::SetUpOnMainThread() {
 #endif
   PlatformBrowserTest::SetUpOnMainThread();
   host_resolver()->AddRule("*", "127.0.0.1");
+  embedded_test_server()->ServeFilesFromSourceDirectory("components/test/data");
+  embedded_https_test_server().ServeFilesFromSourceDirectory(
+      "components/test/data");
   ASSERT_TRUE(embedded_test_server()->Start());
   ASSERT_TRUE(embedded_https_test_server().Start());
 
@@ -411,7 +416,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
       /*script_tool_response=*/nullptr,
       /*execution_end_time=*/base::TimeTicks::Now(),
       mojom::ScreenshotPolicy::kRequested,
-      mojom::PageContentExtractionPolicy::kRequested);
+      mojom::PageContentExtractionPolicy::kRequested,
+      /*attempt_login_status=*/std::nullopt);
   action_results.emplace_back(base::TimeTicks::Now(), base::TimeTicks::Now(),
                               std::move(fail_result));
 
@@ -458,7 +464,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   Profile& profile2 =
       profiles::testing::CreateProfileSync(profile_manager, profile_path);
 
-  Browser* browser2 = Browser::Create(Browser::CreateParams(&profile2, true));
+  BrowserWindowInterface* browser2 = CreateBrowserWindow(
+      BrowserWindowCreateParams(&profile2, /*from_user_gesture=*/true));
   chrome::NewTab(browser2, NewTabTypes::kNoUserAction);
   tabs::TabInterface* tab2 = browser2->GetActiveTabInterface();
 
@@ -486,7 +493,8 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   Profile& profile2 =
       profiles::testing::CreateProfileSync(profile_manager, profile_path);
 
-  Browser* browser2 = Browser::Create(Browser::CreateParams(&profile2, true));
+  BrowserWindowInterface* browser2 = CreateBrowserWindow(
+      BrowserWindowCreateParams(&profile2, /*from_user_gesture=*/true));
   chrome::NewTab(browser2, NewTabTypes::kNoUserAction);
   tabs::TabInterface* tab2 = browser2->GetActiveTabInterface();
 
@@ -500,5 +508,30 @@ IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
   browser2->GetWindow()->Close();
 }
 #endif
+
+IN_PROC_BROWSER_TEST_F(ActorKeyedServiceBrowserTest,
+                       ActorActionsRunnerExecuteWaitAction) {
+  optimization_guide::proto::Actions actions;
+  auto* action = actions.add_actions();
+  auto* wait = action->mutable_wait();
+  wait->set_wait_time_ms(10);
+  actions.set_skip_async_observation_collection(true);
+
+  base::RunLoop run_loop;
+  auto runner = std::make_unique<ActorActionsRunner>(
+      *GetProfile(), TestTaskSourceInfo(), std::move(actions),
+      run_loop.QuitClosure());
+
+  EXPECT_EQ(runner->result(), nullptr);
+  runner->Start();
+  run_loop.Run();
+
+  std::unique_ptr<optimization_guide::proto::ActionsResult> result =
+      runner->TakeResult();
+  ASSERT_TRUE(result != nullptr);
+  EXPECT_EQ(result->action_result(), 0);
+  EXPECT_EQ(runner->TakeResult(), nullptr);
+}
+
 }  // namespace
 }  // namespace actor

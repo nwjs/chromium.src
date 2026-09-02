@@ -22,10 +22,12 @@ def _run_checkstyle_in_worker(content):
     with tempfile.NamedTemporaryFile(mode='w', suffix='.java') as f:
         f.write(content)
         f.flush()
-        result = subprocess.run([sys.executable, _CHECKSTYLE_PATH, f.name],
-                                capture_output=True,
-                                text=True,
-                                cwd=_SRC_ROOT)
+        result = subprocess.run(
+            [sys.executable, _CHECKSTYLE_PATH, f.name],
+            capture_output=True,
+            text=True,
+            cwd=_SRC_ROOT,
+        )
         return result.stdout + result.stderr
 
 
@@ -52,7 +54,8 @@ class CheckstyleTest(unittest.TestCase):
             if hasattr(method, '_java_content'):
                 content = method._java_content
                 cls._results[name] = cls._executor.submit(
-                    _run_checkstyle_in_worker, content)
+                    _run_checkstyle_in_worker, content
+                )
 
     @classmethod
     def tearDownClass(cls):
@@ -406,6 +409,32 @@ class A {
         self._check('Avoid android.app.AlertDialog')
 
     @java("""
+import org.chromium.base.Log;
+class A {
+    private static final String TAG = "Test";
+    void test(String var) {
+        Log.d(TAG, "message: " + var);
+    }
+}
+""")
+    def test_LogStringConcatenationCheck_catchesConcatenation(self):
+        self._check(
+            'String concatenation (+) inside Log.d or Log.v is discouraged'
+        )
+
+    @java("""
+import org.chromium.base.Log;
+class A {
+    private static final String TAG = "Test";
+    void test() {
+        Log.v("a + b = %d", 3);
+    }
+}
+""")
+    def test_LogStringConcatenationCheck_ignoresFormatString(self):
+        self._check()
+
+    @java("""
 import android.content.Context;
 import android.preference.PreferenceManager;
 class A {
@@ -555,8 +584,7 @@ class A {
 }
 """)
     def test_ParamComments_1(self):
-        self._check(
-            'Parameter comments should use the ErrorProne-aware syntax')
+        self._check('Parameter comments should use the ErrorProne-aware syntax')
 
     @java("""
 class A {
@@ -564,8 +592,7 @@ class A {
 }
 """)
     def test_ParamComments_2(self):
-        self._check(
-            'Parameter comments should use the ErrorProne-aware syntax')
+        self._check('Parameter comments should use the ErrorProne-aware syntax')
 
     @java("""
 class A {
@@ -573,8 +600,7 @@ class A {
 }
 """)
     def test_ParamComments_3(self):
-        self._check(
-            'Parameter comments should use the ErrorProne-aware syntax')
+        self._check('Parameter comments should use the ErrorProne-aware syntax')
 
     @java("""
 class A {
@@ -582,8 +608,7 @@ class A {
 }
 """)
     def test_ParamComments_4(self):
-        self._check(
-            'Parameter comments should use the ErrorProne-aware syntax')
+        self._check('Parameter comments should use the ErrorProne-aware syntax')
 
     @java("""
 class A {
@@ -593,8 +618,7 @@ class A {
 }
 """)
     def test_ParamComments_5(self):
-        self._check(
-            'Parameter comments should use the ErrorProne-aware syntax')
+        self._check('Parameter comments should use the ErrorProne-aware syntax')
 
     @java("""
 class A {
@@ -707,7 +731,8 @@ class A {
 """)
     def test_VisibleForTestingForTesting(self):
         self._check(
-            'There is no need to add @VisibleForTesting to test-only methods')
+            'There is no need to add @VisibleForTesting to test-only methods'
+        )
 
     @java("""
 import android.content.Context;
@@ -739,7 +764,8 @@ class A {}
 """)
     def test_RobolecticMinSdk(self):
         self._check(
-            '@Config(minSdk=...) parameterizes tests across every SDK level')
+            '@Config(minSdk=...) parameterizes tests across every SDK level'
+        )
 
     @java("""
 import androidx.annotation.Nullable;
@@ -769,6 +795,7 @@ class MarkImportsAsUsed<T extends @NonNull Object> {}
 """)
     def test_NonNull(self):
         self._check('Values are @NonNull by default. Use @NonNull')
+
 
 if __name__ == '__main__':
     # Only Chromium Linux checkouts have a Java runtime.

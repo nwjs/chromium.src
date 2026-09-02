@@ -186,6 +186,13 @@ class CORE_EXPORT CSSMathExpressionNode
   static CSSMathExpressionNode* Create(PixelsAndPercent pixels_and_percent);
   static CSSMathExpressionNode* Create(const CalculationExpressionNode& node);
 
+  // Returns |node| with its sum/product operations simplified, per
+  // "simplify a calculation tree". Used when building the internal
+  // representation of a CSSMathValue (which is otherwise unsimplified),
+  // per the resolution of csswg-drafts#9451.
+  static const CSSMathExpressionNode* SimplifyCalculationTree(
+      const CSSMathExpressionNode* node);
+
   enum class Flag : uint8_t {
     AllowPercent,
     AllowCalcSize,
@@ -1270,15 +1277,11 @@ class CORE_EXPORT CSSMathExpressionRandomFunction final
   bool MayHaveRelativeUnit() const final;
   CSSPrimitiveValue::UnitType ResolvedUnitType() const final;
   const CSSMathExpressionNode& PopulateWithTreeScope(
-      const TreeScope*) const final {
-    NOTREACHED();
-  }
+      const TreeScope*) const final;
   const CSSMathExpressionNode* TransformAnchors(
       LogicalAxis,
       const TryTacticTransform&,
-      const WritingDirectionMode&) const final {
-    NOTREACHED();
-  }
+      const WritingDirectionMode&) const final;
   bool HasInvalidAnchorFunctions(const CSSLengthResolver&) const final;
   const RandomCacheKey* GetRandomCacheKey() const { return random_cache_key_; }
   const CSSMathExpressionNode* Min() const { return min_; }

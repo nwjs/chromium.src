@@ -40,7 +40,7 @@ LayoutQuote::LayoutQuote(LayoutObject& owner, QuoteType quote)
       type_(quote),
       depth_(0),
       owning_pseudo_(DynamicTo<PseudoElement>(owner.GetNode())) {
-  SetDocumentForAnonymous(&owner.GetDocument());
+  SetDocumentForAnonymous(owner.GetDocument());
 }
 
 LayoutQuote::~LayoutQuote() {
@@ -80,9 +80,11 @@ void LayoutQuote::WillBeRemovedFromTree() {
 void LayoutQuote::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutInline::StyleDidChange(diff, old_style, style_change_context);
+  LayoutInline::StyleDidChange(diff, old_style, new_style,
+                               style_change_context);
   UpdateText();
 }
 

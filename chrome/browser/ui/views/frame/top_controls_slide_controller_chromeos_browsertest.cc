@@ -26,6 +26,7 @@
 #include "cc/base/math_util.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -579,14 +580,14 @@ IN_PROC_BROWSER_TEST_F(TopControlsSlideControllerTest, DisabledForHostedApps) {
   browser()->GetWindow()->Close();
 
   // Open a new app window.
-  Browser::CreateParams params = Browser::CreateParams::CreateForApp(
-      "test_browser_app", true /* trusted_source */, gfx::Rect(),
-      browser()->GetProfile(), true);
+  BrowserWindowCreateParams params = BrowserWindowCreateParams::CreateForApp(
+      "test_browser_app", /*trusted_source=*/true, gfx::Rect(),
+      browser()->GetProfile(), /*user_gesture=*/true);
   params.initial_show_state = ui::mojom::WindowShowState::kDefault;
-  Browser* browser = Browser::Create(params);
+  BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
   AddBlankTabAndShow(browser);
 
-  ASSERT_TRUE(browser->is_type_app());
+  ASSERT_EQ(browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
 
   // No slide controller gets created for hosted apps.
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);

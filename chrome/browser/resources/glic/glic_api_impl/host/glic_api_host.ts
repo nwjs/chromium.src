@@ -9,13 +9,12 @@ import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 
 import type {BrowserProxy} from '../../browser_proxy.js';
-import {ActorClientReceiver, ActorHandlerRemote, AnnotationHandlerRemote, ExperimentalTriggeringClientReceiver, SkillsClientReceiver, SkillsHandlerRemote, WebClientHandlerRemote} from '../../glic.mojom-webui.js';
+import {ActorClientReceiver, ActorHandlerRemote, AnnotationHandlerRemote, ExperimentalTriggeringClientReceiver, SkillsClientReceiver, SkillsHandlerRemote, WebClientHandlerRemote, ZeroStateSuggestionsHandlerRemote} from '../../glic.mojom-webui.js';
 import type {ExperimentalTriggeringUpdatesHandlerRemote, WebClientInitialState} from '../../glic.mojom-webui.js';
 import type {ClientCapabilities} from '../../glic_api/glic_api.js';
 import {ObservableValue} from '../../observable.js';
 import type {ObservableValueReadOnly} from '../../observable.js';
 import {TaskQueue} from '../../task_queue.js';
-import {OneShotTimer} from '../../timer.js';
 import {ActorClientImpl, ActorHostMessageHandler} from '../actor/actor_host.js';
 import {ActorClientDef, ActorHostDef} from '../actor/actor_types.js';
 import {AnnotationHostMessageHandler} from '../annotation/annotation_host.js';
@@ -29,9 +28,11 @@ import {SkillsClientDef, SkillsHostDef} from '../skills/skills_types.js';
 import type {ResponseExtras} from '../transport/messaging.js';
 import type {InterfaceDef, PendingReceiver, PendingRemote, PostMessageHandler, PostMessageLifecycleObserver, PostMessageReceiver, PostMessageRemote, PostMessageRequestReceiver, PostMessageRequestSender, PostMessageRouter} from '../transport/post_message_transport.js';
 import {createBidirectionalPostMessageTransport} from '../transport/post_message_transport.js';
+import {ZeroStateSuggestionsHostMessageHandler} from '../zero_state_suggestions/zero_state_suggestions_host.js';
+import {ZeroStateSuggestionsHostDef} from '../zero_state_suggestions/zero_state_suggestions_types.js';
 
 import {ERROR_CODEC, getHostRequestHistogramInfo, MAX_REQUEST_ID, WebClientDef, WebClientHostDef} from './../request_types.js';
-import type {ActorClient, ActorHost, SkillsClient, SkillsHost, WebClient, WebClientHost} from './../request_types.js';
+import type {ActorClient, ActorHost, SkillsClient, SkillsHost, WebClient, WebClientHost, ZeroStateSuggestionsHost} from './../request_types.js';
 import {urlFromClient} from './conversions.js';
 import {HostMessageHandler} from './host_from_client.js';
 import type {CaptureRegionObserverImpl, PinCandidatesObserverImpl} from './host_from_client.js';
@@ -55,11 +56,11 @@ export enum DetailedWebClientState {
   WEB_CLIENT_NOT_CREATED = 1,
   WEB_CLIENT_INITIALIZE_FAILED = 2,
   WEB_CLIENT_NOT_INITIALIZED = 3,
-  TEMPORARY_UNRESPONSIVE = 4,
-  PERMANENT_UNRESPONSIVE = 5,
+  // OBSOLETE: TEMPORARY_UNRESPONSIVE = 4,
+  // OBSOLETE: PERMANENT_UNRESPONSIVE = 5,
   RESPONSIVE = 6,
-  RESPONSIVE_INACTIVE = 7,
-  UNRESPONSIVE_INACTIVE = 8,
+  // OBSOLETE: RESPONSIVE_INACTIVE = 7,
+  // OBSOLETE: UNRESPONSIVE_INACTIVE = 8,
   // OBSOLETE: MOJO_PIPE_CLOSED_UNEXPECTEDLY = 9,
   MOJO_PIPE_CLOSED_UNEXPECTEDLY_BEFORE_INITIALIZE = 10,
   MOJO_PIPE_CLOSED_UNEXPECTEDLY_AFTER_INITIALIZE = 11,
@@ -201,7 +202,6 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
   panelIsActive = false;
 
   private handler: WebClientHandlerRemote;
-  private webClientErrorTimer: OneShotTimer;
   private webClientState =
       ObservableValue.withValue<WebClientState>(WebClientState.UNINITIALIZED);
   openCloseTasks = new TaskQueue();
@@ -214,7 +214,6 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
   // processing is async.
   private panelOpenState = PanelOpenState.CLOSED;
   private instanceIsActive = true;
-  private hasShownDebuggerAttachedWarning = false;
   detailedWebClientState = DetailedWebClientState.BOOTSTRAP_PENDING;
   // Present while the client is monitoring pin candidates.
   pinCandidatesObserver?: PinCandidatesObserverImpl;
@@ -224,6 +223,7 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
   annotationHandler?: AnnotationHandlerRemote;
   skillsHandler?: SkillsHandlerRemote;
 
+  zeroStateSuggestionsHandler?: ZeroStateSuggestionsHandlerRemote;
   private isSubscribedToZoomLevel = false;
   private experimentalTriggeringUpdatesHandler =
       new Map<number, ExperimentalTriggeringUpdatesHandlerRemote>();
@@ -253,8 +253,6 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
         this.handler.$.bindNewPipeAndPassReceiver());
     this.hostMessageHandler =
         new HostMessageHandler(this.handler, embedder, this);
-    this.webClientErrorTimer = new OneShotTimer(
-        loadTimeData.getInteger('clientUnresponsiveUiMaxTimeMs'));
 
     communicator.setHost(this);
   }
@@ -262,7 +260,6 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
   destroy() {
     this.webClientState = ObservableValue.withValue<WebClientState>(
         WebClientState.ERROR);  // Final state
-    this.webClientErrorTimer.reset();
     this.hostMessageHandler.destroy();
     this.pinCandidatesObserver?.disconnectFromSource();
     this.captureRegionObserver?.destroy();
@@ -291,6 +288,7 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
     skillsReceiver?: PendingReceiver<SkillsClient>,
     experimentalTriggeringReceiver?: PendingReceiver<
                                       ExperimentalTriggeringClient>,
+    zeroStateSuggestionsRemote?: PendingRemote<ZeroStateSuggestionsHost>,
   } {
     this.panelIsActive = initialState.panelIsActive;
 
@@ -314,25 +312,19 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
       actorReceiver = receiverVal;
     }
 
-    let skillsRemote: PendingRemote<SkillsHost>|undefined;
-    let skillsReceiver: PendingReceiver<SkillsClient>|undefined;
-
-    if (initialState.enableSkills) {
-      this.skillsHandler = new SkillsHandlerRemote();
-      const {remote: clientRemote, receiver: receiverVal} =
-          this.communicator.router.newPipeWithRemote(SkillsClientDef);
-      const skillsClientReceiver =
-          new SkillsClientReceiver(new SkillsClientImpl(clientRemote));
-      this.handler.createSkillsHandler(
-          this.skillsHandler.$.bindNewPipeAndPassReceiver(),
-          skillsClientReceiver.$.bindNewPipeAndPassRemote());
-      const skillsHostMessageHandler =
-          new SkillsHostMessageHandler(this.skillsHandler);
-      const {remote: hostRemote} = this.communicator.router.newPipeWithReceiver(
-          skillsHostMessageHandler, SkillsHostDef);
-      skillsRemote = hostRemote;
-      skillsReceiver = receiverVal;
-    }
+    this.skillsHandler = new SkillsHandlerRemote();
+    const {remote: skillsClientRemote, receiver: skillsReceiver} =
+        this.communicator.router.newPipeWithRemote(SkillsClientDef);
+    const skillsClientReceiver =
+        new SkillsClientReceiver(new SkillsClientImpl(skillsClientRemote));
+    this.handler.createSkillsHandler(
+        this.skillsHandler.$.bindNewPipeAndPassReceiver(),
+        skillsClientReceiver.$.bindNewPipeAndPassRemote());
+    const skillsHostMessageHandler =
+        new SkillsHostMessageHandler(this.skillsHandler);
+    const {remote: hostRemote} = this.communicator.router.newPipeWithReceiver(
+        skillsHostMessageHandler, SkillsHostDef);
+    const skillsRemote = hostRemote;
 
     const {remote: clientRemote, receiver: experimentalTriggeringReceiver} =
         this.communicator.router.newPipeWithRemote(
@@ -343,12 +335,30 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
     this.handler.createExperimentalTriggeringClient(
         experimentalTriggeringClientReceiver.$.bindNewPipeAndPassRemote());
 
+    let zeroStateSuggestionsRemote: PendingRemote<ZeroStateSuggestionsHost>|
+        undefined;
+    if (initialState.enableZeroStateSuggestions) {
+      this.zeroStateSuggestionsHandler =
+          new ZeroStateSuggestionsHandlerRemote();
+      this.handler.createZeroStateSuggestionsHandler(
+          this.zeroStateSuggestionsHandler.$.bindNewPipeAndPassReceiver());
+      const zeroStateSuggestionsHostMessageHandler =
+          new ZeroStateSuggestionsHostMessageHandler(
+              this.zeroStateSuggestionsHandler, this.communicator.router);
+      const {remote: zeroStateSuggestionsRemoteVal} =
+          this.communicator.router.newPipeWithReceiver(
+              zeroStateSuggestionsHostMessageHandler,
+              ZeroStateSuggestionsHostDef);
+      zeroStateSuggestionsRemote = zeroStateSuggestionsRemoteVal;
+    }
+
     return {
       actorRemote,
       actorReceiver,
       skillsRemote,
       skillsReceiver,
       experimentalTriggeringReceiver,
+      zeroStateSuggestionsRemote,
     };
   }
 
@@ -419,7 +429,6 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
   webClientInitialized() {
     this.detailedWebClientState = DetailedWebClientState.RESPONSIVE;
     this.setWebClientState(WebClientState.RESPONSIVE);
-    this.responsiveCheckLoop();
   }
 
   webClientInitializeFailed() {
@@ -439,121 +448,6 @@ export class GlicApiHost implements PostMessageLifecycleObserver {
 
   getDetailedWebClientState(): DetailedWebClientState {
     return this.detailedWebClientState;
-  }
-
-  async responsiveCheckLoop() {
-    if (!loadTimeData.getBoolean('isClientResponsivenessCheckEnabled')) {
-      return;
-    }
-
-    // Timeout duration for waiting for a response. Increased in dev mode.
-    const timeoutMs: number =
-        loadTimeData.getInteger('clientResponsivenessCheckTimeoutMs') *
-        (loadTimeData.getBoolean('devMode') ? 1000 : 1);
-    // Interval in between the consecutive checks.
-    const checkIntervalMs: number =
-        loadTimeData.getInteger('clientResponsivenessCheckIntervalMs');
-
-    while (this.webClientState.getCurrentValue() !== WebClientState.ERROR) {
-      if (!this.isClientActive()) {
-        if (this.webClientState.getCurrentValue() ===
-            WebClientState.UNRESPONSIVE) {
-          this.detailedWebClientState =
-              DetailedWebClientState.UNRESPONSIVE_INACTIVE;
-          // Prevent unresponsive overlay showing forever while checking is
-          // paused.
-          this.setWebClientState(WebClientState.RESPONSIVE);
-          this.webClientErrorTimer.reset();
-        } else {
-          this.detailedWebClientState =
-              DetailedWebClientState.RESPONSIVE_INACTIVE;
-        }
-        await this.clientActiveObs.waitUntil((active) => active);
-      }
-      const SMALL_QUEUE_SIZE = 50;
-      const hostSendMessageQueueLength =
-          this.sender.rawSender().messageQueueLength() +
-          this.sender.rawSender().inFlightRequestCount();
-      if (hostSendMessageQueueLength >= SMALL_QUEUE_SIZE) {
-        chrome.histograms.recordMediumCount(
-            'Glic.Host.HostSendMessageQueueLength', hostSendMessageQueueLength);
-      }
-
-      let gotResponse = false;
-      const responsePromise =
-          this.sender.requestWithResponse('checkResponsive', undefined)
-              .then((response: {clientSendMessageQueueLength: number}) => {
-                gotResponse = true;
-                if (response.clientSendMessageQueueLength >= SMALL_QUEUE_SIZE) {
-                  chrome.histograms.recordMediumCount(
-                      'Glic.Host.ClientSendMessageQueueLength',
-                      response.clientSendMessageQueueLength);
-                }
-              });
-      const responseTimeout = sleep(timeoutMs);
-
-      await Promise.race([responsePromise, responseTimeout]);
-      if (this.webClientState.getCurrentValue() === WebClientState.ERROR) {
-        return;  // ERROR state is final.
-      }
-
-      if (gotResponse) {  // Success
-        this.webClientErrorTimer.reset();
-        this.setWebClientState(WebClientState.RESPONSIVE);
-        this.detailedWebClientState = DetailedWebClientState.RESPONSIVE;
-
-        await sleep(checkIntervalMs);
-        continue;
-      }
-
-      // Failed, not responsive.
-      if (this.webClientState.getCurrentValue() === WebClientState.RESPONSIVE) {
-        const ignoreUnresponsiveClient =
-            await this.shouldAllowUnresponsiveClient();
-        if (!ignoreUnresponsiveClient) {
-          console.warn('GlicApiHost: web client is unresponsive');
-          this.detailedWebClientState =
-              DetailedWebClientState.TEMPORARY_UNRESPONSIVE;
-          this.setWebClientState(WebClientState.UNRESPONSIVE);
-          this.startWebClientErrorTimer();
-        }
-      }
-
-      // Crucial: Wait for the original (late) response promise to settle before
-      // the next check cycle starts.
-      await responsePromise;
-    }
-  }
-
-  private async shouldAllowUnresponsiveClient(): Promise<boolean> {
-    if (loadTimeData.getBoolean(
-            'clientResponsivenessCheckIgnoreWhenDebuggerAttached')) {
-      const isDebuggerAttached: boolean =
-          await this.handler.isDebuggerAttached()
-              .then(result => result.isAttachedToWebview)
-              .catch(() => false);
-
-      if (isDebuggerAttached) {
-        if (!this.hasShownDebuggerAttachedWarning) {
-          console.warn(
-              'GlicApiHost: ignoring unresponsive client because ' +
-              'a debugger (likely DevTools) is attached');
-          this.hasShownDebuggerAttachedWarning = true;
-        }
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  startWebClientErrorTimer() {
-    this.webClientErrorTimer.start(() => {
-      console.warn('GlicApiHost: web client is permanently unresponsive');
-      this.detailedWebClientState =
-          DetailedWebClientState.PERMANENT_UNRESPONSIVE;
-      this.setWebClientState(WebClientState.ERROR);
-    });
   }
 
   openLinkInPopup(url: string, initialWidth: number, initialHeight: number) {
@@ -691,8 +585,3 @@ enum GlicRequestEvent {
   MAX_VALUE = REQUEST_RECEIVED_WHILE_INACTIVE,
 }
 // LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicRequestEvent)
-
-// Returns a Promise resolving after 'ms' milliseconds
-function sleep(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}

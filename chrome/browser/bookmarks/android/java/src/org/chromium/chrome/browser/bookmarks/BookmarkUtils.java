@@ -306,23 +306,34 @@ public class BookmarkUtils {
             return;
         }
 
+        ShoppingService shoppingService = ShoppingServiceFactory.getForProfile(profile);
+
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_POPUP)
                 && DeviceInfo.isDesktop()) {
             View anchor = activity.findViewById(R.id.bookmark_button);
-            if (anchor == null) {
+
+            // When the bookmark button isn't visible, fallback to the 3-dot menu.
+            if (anchor == null || !anchor.isShown()) {
+                anchor = activity.findViewById(R.id.menu_button_wrapper);
+            }
+
+            // As a last resort, anchor to the content view. This should be rare/never happen.
+            if (anchor == null || !anchor.isShown()) {
                 anchor = activity.findViewById(android.R.id.content);
             }
-            // TODO(crbug.com/536095968): Support anchor-less invocation, and anchoring on the app
-            // menu for small screen sizes.
-            if (anchor == null) return;
+            assert anchor != null && anchor.isShown() : "Unable to find anchor for bookmark popup.";
 
             BookmarkPopupCoordinator popupCoordinator =
-                    new BookmarkPopupCoordinator(activity, profile, anchor, bookmarkManagerOpener);
+                    new BookmarkPopupCoordinator(
+                            activity,
+                            profile,
+                            anchor,
+                            bookmarkManagerOpener,
+                            shoppingService,
+                            priceDropNotificationManager);
             popupCoordinator.show(bookmarkId, isNewBookmark);
             return;
         }
-
-        ShoppingService shoppingService = ShoppingServiceFactory.getForProfile(profile);
         UserEducationHelper userEducationHelper =
                 new UserEducationHelper(
                         activity, profile, new Handler(assumeNonNull(Looper.myLooper())));
@@ -933,7 +944,7 @@ public class BookmarkUtils {
      * @return Whether the desktop bookmarks layout is enabled.
      */
     public static boolean isDesktopBookmarksLayoutEnabled() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.BOOKMARKS_DESKTOP_LAYOUT)
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
                 && DeviceInfo.isDesktop();
     }
 
@@ -950,5 +961,23 @@ public class BookmarkUtils {
     public static void setReadingListSupportedForTesting(Boolean supported) {
         sReadingListSupportedForTesting = supported;
         ResettersForTesting.register(() -> sReadingListSupportedForTesting = null);
+    }
+
+    /** Returns the number of non-folder bookmarks in the given list of bookmark IDs. */
+    public static int getNonFolderBookmarkCount(BookmarkModel bookmarkModel, List<BookmarkId> ids) {
+        int count = 0;
+        for (BookmarkId id : ids) {
+            BookmarkItem item = bookmarkModel.getBookmarkById(id);
+            if (item != null && !item.isFolder()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Returns the number of non-folder bookmarks that are direct children of the given folder. */
+    public static int getChildNonFolderBookmarkCountForFolder(
+            BookmarkModel bookmarkModel, BookmarkId folderId) {
+        return getNonFolderBookmarkCount(bookmarkModel, bookmarkModel.getChildIds(folderId));
     }
 }

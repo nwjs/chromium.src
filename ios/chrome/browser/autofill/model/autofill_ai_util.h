@@ -14,6 +14,8 @@ class ProfileIOS;
 
 namespace autofill {
 
+class AutofillClient;
+
 // Returns the country code from the variations service.
 // If the variations service is not available, an empty string is returned.
 const std::string GetCountryCodeFromVariations();
@@ -27,14 +29,33 @@ bool CanPerformAutofillAiAction(
     AutofillAiAction action,
     std::optional<EntityType> entity_type = std::nullopt);
 
-// Returns whether Ambient Autofill is enabled.
-bool IsAmbientAutofillEnabled();
+// Returns whether Ambient Autofill is enabled for the given profile.
+// Required to be called with a non-nil profile.
+bool IsAmbientAutofillEnabled(ProfileIOS* profile);
+
+// Returns whether the Ambient Autofill feature flag is enabled.
+bool IsAmbientAutofillFeatureEnabled();
+
+// Returns whether Autofill order and shipment entities are supported.
+bool IsAutofillShoppingEnabled();
 
 // Returns whether Autofill AI (AtMemory) is enabled.
 bool IsAutofillAtMemoryEnabled();
 
+// Returns whether Autofill AI (AtMemory) Search UI is enabled for the given
+// client.
+bool IsAutofillAtMemorySearchUIEnabled(const AutofillClient* client);
+
 // Returns whether Enhanced Autofill is enabled.
 bool IsEnhancedAutofillEnabled(ProfileIOS* profile);
+
+// Returns the preference name to use for checking the Autofill AI opt-in
+// status.
+const char* GetAutofillAiOptInPreferenceKeyName();
+
+// Returns whether the Personal Context Autofill setting should be shown.
+// Required to be called with a non-nil profile.
+bool ShouldShowPersonalContextAutofillSetting(ProfileIOS* profile);
 
 // Enables or disables Enhanced Autofill.
 void SetEnhancedAutofillEnabled(ProfileIOS* profile, bool enabled);

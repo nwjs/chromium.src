@@ -44,7 +44,7 @@
 }
 
 :host(:not([is-collapsible])[should-remain-folded_]) #composebox {
-  max-height: 56px;
+  max-height: var(--cr-searchbox-height);
 }
 
 #inputContainer {
@@ -78,6 +78,7 @@ cr-composebox-submit::part(submit) {
 }
 
 #contextEntrypoint::part(context-menu-entrypoint-icon) {
+  inset-inline-start: var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start, 8px);
   position: absolute;
   top: 10px;
   --cr-icon-button-icon-size: 24px;
@@ -85,9 +86,11 @@ cr-composebox-submit::part(submit) {
   --cr-icon-button-size: 36px;
 }
 
-:host-context([energy-effect-enabled_]) #contextEntrypoint::part(context-menu-entrypoint-icon) {
-  inset-inline-start: calc(var(--contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start, 8px) + 1px);
-  top: 11px;
+#inputContainer:has(.has-tabs)
+    #contextEntrypoint::part(context-menu-entrypoint-icon) {
+  inset-inline-start: unset;
+  position: relative;
+  top: unset;
 }
 
 #voiceSearchButton {
@@ -128,6 +131,19 @@ cr-composebox-submit::part(submit) {
   padding-block-end: var(--ntp-composebox-carousel-padding-block-end);
 }
 
+:host([show-file-carousel]:not([in-tool-mode])) #carousel {
+  --context-non-top-carousel-bottom-margin: 0px;
+}
+
+/* When both attachment and tool chip/tab context are present, spacing between
+ * carousel and action row container is 18px (12px carousel margin-bottom +
+ * 6px container padding-top). */
+:host([searchbox-next-enabled][show-file-carousel][in-tool-mode]) #carousel,
+:host([searchbox-next-enabled][show-file-carousel])
+    #inputContainer:has(.has-tabs) #carousel {
+  --context-non-top-carousel-bottom-margin: 12px;
+}
+
 .carousel-container-inner {
   margin-block-end: var(--ntp-composebox-carousel-inner-margin-block-end);
 }
@@ -135,6 +151,14 @@ cr-composebox-submit::part(submit) {
 #toolChipsContainer,
 #voiceToolChipsContainer {
   padding-block-end: var(--ntp-composebox-tool-chip-padding-block-end);
+}
+
+:host([searchbox-next-enabled])
+    #inputContainer:has(.has-tabs) #contextMenuContainer,
+:host([searchbox-next-enabled]) #toolChipsContainer,
+:host([searchbox-next-enabled]) #voiceToolChipsContainer {
+  padding-block-end: 0;
+  padding-block-start: 6px;
 }
 
 :host([submit-enabled][searchbox-next-enabled]) cr-composebox-submit::part(submit) {
@@ -166,10 +190,6 @@ cr-composebox-submit::part(submit) {
   --color-composebox-input-plate-outline: #CCCFD9;
 }
 
-:host([is-dark]):host-context([energy-effect-enabled_][energy-effect-variant_='pre-energy-effect-with-border']) {
-  --color-composebox-input-plate-outline: #4D5263;
-}
-
 :host-context([energy-effect-enabled_][energy-effect-variant_='energy-effect-fusebox']) {
   --box-shadow-energy-effect: 0 2px 6px 0 rgba(60, 64, 67, 0.16);
 }
@@ -178,15 +198,11 @@ cr-composebox-submit::part(submit) {
   --color-composebox-input-plate-outline: #DADCE0;
 }
 
-:host([is-dark]):host-context([energy-effect-enabled_]:not([energy-effect-variant_='pre-energy-effect-with-border'])) {
-  --color-composebox-input-plate-outline: #4E5059;
-}
-
 :host-context([energy-effect-enabled_]) search-animated-glow {
-  inset: 1px;
+  inset: 0;
   z-index: -1;
 }
 
 :host-context([energy-effect-enabled_]) search-animated-glow::part(composebox-background) {
-  inset: 1px;
+  inset: 0;
 }

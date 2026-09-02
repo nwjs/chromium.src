@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/json/json_string_value_serializer.h"
 #include "base/json/json_writer.h"
 #include "base/strings/stringprintf.h"
@@ -26,6 +27,7 @@
 #include "components/embedder_support/user_agent_utils.h"
 #include "components/grit/policy_resources.h"
 #include "components/grit/policy_resources_map.h"
+#include "components/policy/core/browser/webui/policy_webui_constants.h"
 #include "components/policy/core/common/features.h"
 #include "components/policy/core/common/management/management_service.h"
 #include "components/policy/core/common/policy_loader_common.h"
@@ -46,6 +48,12 @@
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/webui/webui_util.h"
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+#include "base/command_line.h"
+#include "chrome/browser/enterprise/reporting/browser_launch/scoped_initial_command_line.h"
+#include "chrome/common/chrome_switches.h"
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 
 // LINT.IfChange
 
@@ -83,6 +91,36 @@ base::DictValue GetVersionInfo() {
 
   return version_info;
 }
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+namespace {
+
+// List of command-line switches that are not considered user-specified,
+// even when present on the command line.
+constexpr const char* kIgnoredCommandLineArguments[] = {
+    // Gets added automatically via profile shortcuts.
+    switches::kProfileDirectory,
+};
+
+}  // namespace
+
+std::string GetCustomCommandLineArguments(
+    const base::CommandLine& command_line) {
+  std::string arguments;
+  for (const auto& switch_pair : command_line.GetSwitches()) {
+    if (std::ranges::contains(kIgnoredCommandLineArguments,
+                              switch_pair.first)) {
+      continue;
+    }
+    if (!arguments.empty()) {
+      arguments += ", ";
+    }
+    arguments += switch_pair.first;
+  }
+
+  return arguments;
+}
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 
 void CreateAndAddPolicyUIHtmlSource(Profile* profile) {
   content::WebUIDataSource* source = content::WebUIDataSource::CreateAndAdd(
@@ -159,6 +197,7 @@ void CreateAndAddPolicyUIHtmlSource(Profile* profile) {
 #endif  // !BUILDFLAG(IS_CHROMEOS)
       {"viewLogs", IDS_VIEW_POLICY_LOGS},
 #if !BUILDFLAG(IS_ANDROID)
+      {"commandLineFlagsWarning", IDS_POLICY_COMMAND_LINE_FLAGS_WARNING},
       {"promotionBannerTitle", IDS_POLICY_BANNER_PROMOTION_TITLE},
       {"promotionBannerDesc", IDS_POLICY_BANNER_PROMOTION_DESC},
       {"promotionBannerBtn", IDS_POLICY_BANNER_PROMOTION_BTN},
@@ -260,6 +299,14 @@ void CreateAndAddPolicyUIHtmlSource(Profile* profile) {
       base::FeatureList::IsEnabled(policy::features::kPolicyPageMojoMigration));
 
   source->AddBoolean("hideUploadReportButton", profile->IsOffTheRecord());
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+  std::string custom_arguments =
+      GetCustomCommandLineArguments(GetInitialBrowserCommandLine());
+  source->AddBoolean(policy::kHasCustomCommandLineArguments,
+                     !custom_arguments.empty());
+  source->AddString(policy::kCustomCommandLineArguments, custom_arguments);
+#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
 }
 
 }  // namespace

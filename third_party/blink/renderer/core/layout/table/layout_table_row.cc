@@ -21,7 +21,7 @@ LayoutTableRow* LayoutTableRow::CreateAnonymousWithParent(
       parent.GetDocument().GetStyleResolver().CreateAnonymousStyleWithDisplay(
           parent.StyleRef(), EDisplay::kTableRow);
   auto* new_row = MakeGarbageCollected<LayoutTableRow>(nullptr);
-  new_row->SetDocumentForAnonymous(&parent.GetDocument());
+  new_row->SetDocumentForAnonymous(parent.GetDocument());
   new_row->SetStyle(new_style);
   return new_row;
 }
@@ -140,16 +140,17 @@ void LayoutTableRow::WillBeRemovedFromTree() {
 void LayoutTableRow::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
   if (LayoutTable* table = Table()) {
-    if ((old_style && !old_style->BorderVisuallyEqual(StyleRef())) ||
-        (old_style && old_style->GetWritingDirection() !=
-                          StyleRef().GetWritingDirection())) {
+    if (old_style &&
+        (!old_style->BorderVisuallyEqual(new_style) ||
+         old_style->GetWritingDirection() != new_style.GetWritingDirection())) {
       table->GridBordersChanged();
     }
   }
-  LayoutBlock::StyleDidChange(diff, old_style, style_change_context);
+  LayoutBlock::StyleDidChange(diff, old_style, new_style, style_change_context);
 }
 
 LayoutBox* LayoutTableRow::CreateAnonymousBoxWithSameTypeAs(

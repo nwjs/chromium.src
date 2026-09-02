@@ -84,8 +84,7 @@ class FirstRunCoordinatorMetricsHelper final {
                             screenProvider:(ScreenProvider*)screenProvider {
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
-    CHECK_EQ(browser->type(), Browser::Type::kRegular,
-             base::NotFatalUntil::M145);
+    CHECK_EQ(browser->type(), Browser::Type::kRegular);
     _screenProvider = screenProvider;
     _navigationController =
         [[UINavigationController alloc] initWithNavigationBarClass:nil
@@ -139,16 +138,14 @@ class FirstRunCoordinatorMetricsHelper final {
   [self stopChildCoordinator];
   [self presentScreen:[self.screenProvider nextScreenType]];
 
-  if (base::FeatureList::IsEnabled(first_run::kManualLogUploadsInTheFRE)) {
-    // Trigger a metrics log upload with the MetricsService.
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(^{
-          std::unique_ptr<first_run::FirstRunCoordinatorMetricsHelper>
-              metricsHelper = std::make_unique<
-                  first_run::FirstRunCoordinatorMetricsHelper>();
-          metricsHelper->StartOutOfBandUploadIfPossible();
-        }));
-  }
+  // Trigger a metrics log upload with the MetricsService.
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, base::BindOnce(^{
+        std::unique_ptr<first_run::FirstRunCoordinatorMetricsHelper>
+            metricsHelper =
+                std::make_unique<first_run::FirstRunCoordinatorMetricsHelper>();
+        metricsHelper->StartOutOfBandUploadIfPossible();
+      }));
 }
 
 #pragma mark - Helper
@@ -172,30 +169,32 @@ class FirstRunCoordinatorMetricsHelper final {
     WriteFirstRunSentinel();
     [self.delegate didFinishFirstRun];
 
-    if (self.browser == nullptr) {
-      // Speculative fix for some of the crashes in crbug.com/474279386. There
-      // is most likely an underlying issue somewhere in the cleanup logic, but
-      // null checking here should at least prevent some crashes.
-      return;
-    }
+    if (!first_run::IsPostFREIphInProfileAgentEnabled()) {
+      if (self.browser == nullptr) {
+        // Speculative fix for some of the crashes in crbug.com/474279386. There
+        // is most likely an underlying issue somewhere in the cleanup logic,
+        // but null checking here should at least prevent some crashes.
+        return;
+      }
 
-    if (IsAppStoreInAppEventsEnabled() && self.profile &&
-        self.profile->GetPrefs() &&
-        self.profile->GetPrefs()->GetBoolean(
-            prefs::kAppStoreGeminiPromoTriggered)) {
-      // If first run started due to app store external action, do not show
-      // any follow up IPH.
-      return;
-    }
+      if (IsAppStoreInAppEventsEnabled() && self.profile &&
+          self.profile->GetPrefs() &&
+          self.profile->GetPrefs()->GetBoolean(
+              prefs::kAppStoreGeminiPromoTriggered)) {
+        // If first run started due to app store external action, do not show
+        // any follow up IPH.
+        return;
+      }
 
-    if (IsBestOfAppLensAnimatedPromoEnabled()) {
-      // Present the Lens entrypoint IPH.
-      [HandlerForProtocol(self.browser->GetCommandDispatcher(),
-                          NewTabPageCommands) presentLensIconBubble];
-    } else {
-      // Present feed swipe IPH.
-      [HandlerForProtocol(self.browser->GetCommandDispatcher(),
-                          NewTabPageCommands) presentFeedSwipeFirstRunBubble];
+      if (IsBestOfAppLensAnimatedPromoEnabled()) {
+        // Present the Lens entrypoint IPH.
+        [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                            NewTabPageCommands) presentLensIconBubble];
+      } else {
+        // Present feed swipe IPH.
+        [HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                            NewTabPageCommands) presentFeedSwipeFirstRunBubble];
+      }
     }
 
     return;

@@ -8,6 +8,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <variant>
@@ -26,6 +27,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -33,7 +35,6 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/types/optional_ref.h"
-#include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_ai_form_rationalization.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
@@ -66,6 +67,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_internals/log_message.h"
 #include "components/autofill/core/common/autofill_internals/logging_scope.h"
+#include "components/autofill/core/common/autofill_prefs.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
@@ -171,10 +173,22 @@ EntityInstance GetMergedEntity(
   new_attributes.insert_range(observed_entity.attributes());
   // Add the remaining attributes from the saved entity.
   new_attributes.insert_range(saved_entity.attributes());
+  auto record_type_data = [&] -> EntityInstance::RecordTypeData {
+    switch (target_record_type) {
+      case EntityInstance::RecordType::kLocal:
+        return EntityInstance::LocalRecordTypePayload{};
+      case EntityInstance::RecordType::kServerWallet:
+        return EntityInstance::WalletRecordTypePayload{};
+      case EntityInstance::RecordType::kPersonalContext:
+        // pContext entities are read-only.
+        NOTREACHED();
+    }
+    NOTREACHED();
+  }();
   return EntityInstance(saved_entity.type(), std::move(new_attributes),
                         saved_entity.guid(), saved_entity.nickname(),
                         base::Time::Now(), saved_entity.use_count(),
-                        base::Time::Now(), target_record_type,
+                        base::Time::Now(), std::move(record_type_data),
                         EntityInstance::AreAttributesReadOnly(false),
                         /*frecency_override=*/"");
 }
@@ -311,6 +325,15 @@ void AutofillAiManager::OnAutofillAiSuggestionsShown(
           .accepted_entity_record_type = std::nullopt,
           .autofill_ai_field_types = field.Type().GetAutofillAiTypes()}});
   }
+
+  if (std::ranges::contains(shown_suggestions,
+                            SuggestionType::kAutofillAiPrivateInferenceNotice,
+                            &Suggestion::type)) {
+    if (PrefService* const prefs = client_->GetPrefs()) {
+      prefs->SetTime(prefs::kAutofillAiPrivateInferenceNoticeShownTimestamp,
+                     base::Time::Now());
+    }
+  }
 }
 
 void AutofillAiManager::OnFormSeen(const FormStructure& form) {
@@ -342,6 +365,7 @@ void AutofillAiManager::OnFormInteracted(const FormStructure& form,
           client_->GetAutofillAiPersonalContextAccessManager();
       if (access_manager) {
         LogPersonalContextCacheReadinessOnFirstInteraction(
+            *supported_type,
             GetCacheReadinessState(*access_manager,
                                    client_->GetEntityDataManager(),
                                    *supported_type));
@@ -402,7 +426,8 @@ void AutofillAiManager::OnEditedAutofilledField(const FormStructure& form,
 }
 
 void AutofillAiManager::OnAfterLoadedServerPredictions(
-    AutofillManager& manager) {
+    AutofillManager& manager,
+    base::span<const FormGlobalId> forms) {
   if (MayPerformAutofillAiAction(*client_,
                                  AutofillAiAction::kAmbientAutofill)) {
     PrefetchAmbientAutofillContext(*client_, manager);
@@ -499,7 +524,8 @@ bool AutofillAiManager::MaybeImportForm(const FormStructure& form,
     prompt_shown = true;
     AutofillClient::EntityImportPromptResultCallback prompt_result_callback =
         base::BindOnce(&AutofillAiManager::HandlePromptResult, GetWeakPtr(),
-                       form.ToFormData(), candidate_entity, ukm_source_id, prompt_type);
+                       form.ToFormData(), candidate_entity, ukm_source_id,
+                       prompt_type);
 
     std::optional<EntityInstance> old_entity;
     if (prompt_type == AutofillClient::AutofillAiImportPromptType::kUpdate) {
@@ -854,7 +880,7 @@ AutofillAiManager::GetSavePromptCandidates(
         entities_mergeabilities) const {
   std::vector<EntityImportPromptCandidate> save_candidates;
   for (const auto [observed_entity, mergeabilities] :
-       base::zip(observed_entities, entities_mergeabilities)) {
+       std::views::zip(observed_entities, entities_mergeabilities)) {
     // Discard `observed_entity` if it is a subset of some saved entity.
     if (std::ranges::any_of(
             mergeabilities,
@@ -869,7 +895,7 @@ AutofillAiManager::GetSavePromptCandidates(
     // here because they cannot be updated.
     bool has_non_readonly_mergeable_entity = false;
     for (auto [mergeability, saved_entity] :
-         base::zip(mergeabilities, saved_entities)) {
+         std::views::zip(mergeabilities, saved_entities)) {
       if (mergeability && !mergeability->mergeable_attributes.empty()) {
         // Read-only entities cannot be updated, so they do not block saving the
         // observed entity as a new entity. However, this save-promoting
@@ -903,7 +929,7 @@ AutofillAiManager::GetUpdatePromptCandidates(
         entities_mergeabilities) const {
   std::vector<EntityImportPromptCandidate> update_candidates;
   for (const auto [observed_entity, mergeabilities] :
-       base::zip(observed_entities, entities_mergeabilities)) {
+       std::views::zip(observed_entities, entities_mergeabilities)) {
     // Discard `observed_entity` if it is a subset of some saved entity.
     if (std::ranges::any_of(
             mergeabilities,
@@ -917,7 +943,7 @@ AutofillAiManager::GetUpdatePromptCandidates(
     // For each saved entity that is mergeable with `observed_entity`, we should
     // add an update prompt candidate.
     for (auto [mergeability, saved_entity] :
-         base::zip(mergeabilities, saved_entities)) {
+         std::views::zip(mergeabilities, saved_entities)) {
       if (!mergeability || mergeability->mergeable_attributes.empty() ||
           saved_entity.are_attributes_read_only() ||
           IsUpdateBlockedByStrikeDatabase(saved_entity.guid())) {

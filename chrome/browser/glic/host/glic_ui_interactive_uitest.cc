@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/glic/host/glic_ui.h"
+
 #include <sstream>
 #include <utility>
 
@@ -14,13 +16,13 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
-#include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
 #include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/optimization_guide/core/feature_registry/feature_registration.h"
@@ -326,10 +328,12 @@ IN_PROC_BROWSER_TEST_F(GlicUiConnectedUiTest, CanAttachWithBrowserWindow) {
 // TODO(crbug.com/454087646): Not reliable yet.
 IN_PROC_BROWSER_TEST_F(GlicUiConnectedUiTest,
                        CanNotAttachWithMinimizedBrowser) {
-  RunTestSequence(OpenGlic(GlicInstrumentMode::kHostAndContents), Detach(),
-                  WaitForMockElementChecked({"#canAttachCheckbox"}, true),
-                  Do([&]() { browser()->GetBrowserView().Minimize(); }),
-                  WaitForMockElementChecked({"#canAttachCheckbox"}, false));
+  RunTestSequence(
+      OpenGlic(GlicInstrumentMode::kHostAndContents), Detach(),
+      WaitForMockElementChecked({"#canAttachCheckbox"}, true), Do([&]() {
+        BrowserView::GetBrowserViewForBrowser(browser())->Minimize();
+      }),
+      WaitForMockElementChecked({"#canAttachCheckbox"}, false));
 }
 
 IN_PROC_BROWSER_TEST_F(GlicUiConnectedUiTest,
@@ -664,7 +668,7 @@ class GlicWithMultipleProfilesTest : public GlicUiInteractiveUiTestBase {
   GlicWithMultipleProfilesTest() : GlicUiInteractiveUiTestBase({}) {}
   ~GlicWithMultipleProfilesTest() override = default;
 
-  Browser* CreateBrowserWithNewProfile() {
+  BrowserWindowInterface* CreateBrowserWithNewProfile() {
     ProfileManager* profile_manager = g_browser_process->profile_manager();
     base::FilePath new_path =
         profile_manager->GenerateNextProfileDirectoryPath();
@@ -682,8 +686,8 @@ IN_PROC_BROWSER_TEST_F(GlicWithMultipleProfilesTest, OpenGlicInEachProfile) {
     // TODO(b/453696965): Broken in multi-instance.
     GTEST_SKIP() << "Skipping for kGlicMultiInstance";
   }
-  Browser* first_browser = browser();
-  Browser* second_browser = CreateBrowserWithNewProfile();
+  BrowserWindowInterface* first_browser = browser();
+  BrowserWindowInterface* second_browser = CreateBrowserWithNewProfile();
   SetActiveBrowser(second_browser);
 
   RunTestSequence(

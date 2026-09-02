@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/enterprise/connectors/device_trust/attestation/browser/browser_attestation_service.h"
+#include "components/enterprise/device_trust/core/attestation/browser_attestation_service.h"
 
 #include <memory>
 #include <set>
@@ -19,7 +19,7 @@
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/enterprise/connectors/device_trust/attestation/ash/flex_attester.h"
-#include "chrome/browser/enterprise/connectors/device_trust/attestation/common/attestation_utils.h"
+#include "components/enterprise/device_trust/core/attestation/attestation_utils.h"
 // #include
 // "chrome/browser/enterprise/connectors/device_trust/attestation/common/proto/device_trust_attestation_ca.pb.h"
 #include "chrome/test/base/testing_browser_process.h"

@@ -25,7 +25,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/test/metrics/histogram_tester.h"
-#include "base/test/scoped_feature_list.h"
 #include "base/test/simple_test_clock.h"
 #include "base/test/with_feature_override.h"
 #include "base/time/clock.h"
@@ -71,7 +70,6 @@
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/web_contents_tester.h"
-#include "services/device/public/cpp/device_features.h"
 #include "services/device/public/cpp/geolocation/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
@@ -240,16 +238,14 @@ class GeolocationPermissionContextTestsBase
   raw_ptr<ContentSettingsPattern> expected_secondary_pattern_ = nullptr;
   std::vector<std::string> events_;
 
-  base::test::ScopedFeatureList feature_list_;
+#if BUILDFLAG(IS_ANDROID)
+  base::AutoReset<bool> enable_all_android_permissions_for_testing_ =
+      EnableAllAndroidPermissionsForTesting();
+#endif
 };
 
-GeolocationPermissionContextTestsBase::GeolocationPermissionContextTestsBase() {
-  feature_list_.InitWithFeatureStates({
-#if BUILDFLAG(IS_WIN)
-      {::features::kWinSystemLocationPermission, true},
-#endif  // BUILDFLAG(IS_WIN)
-  });
-}
+GeolocationPermissionContextTestsBase::GeolocationPermissionContextTestsBase() =
+    default;
 
 class GeolocationPermissionContextTests
     : public base::test::WithFeatureOverride,

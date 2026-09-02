@@ -792,7 +792,10 @@ Response TargetHandler::Disable() {
   SetDiscoverTargets(false, {});
   hidden_target_manager_.Clear();
   auto_attached_sessions_.clear();
-  attached_sessions_.clear();
+  // Destroying a session may synchronously close attached targets which can
+  // try to detach sibling sessions, so move the map aside before releasing.
+  auto attached_sessions = std::move(attached_sessions_);
+  attached_sessions.clear();
 
   DevToolsManagerDelegate* delegate =
       DevToolsManager::GetInstance()->delegate();
@@ -801,14 +804,15 @@ Response TargetHandler::Disable() {
   }
 
   if (dispose_on_detach_context_ids_.size()) {
-    for (auto* context : delegate->GetBrowserContexts()) {
-      if (!dispose_on_detach_context_ids_.contains(context->UniqueId())) {
-        continue;
-      }
-      delegate->DisposeBrowserContext(context, base::DoNothing());
-    }
+    auto context_ids = std::move(dispose_on_detach_context_ids_);
     dispose_on_detach_context_ids_.clear();
+    for (const std::string& id : context_ids) {
+      if (auto* context = delegate->GetBrowserContext(id)) {
+        delegate->DisposeBrowserContext(context, base::DoNothing());
+      }
+    }
   }
+
   contexts_with_overridden_proxy_.clear();
   return Response::Success();
 }
@@ -1608,16 +1612,19 @@ protocol::Response TargetHandler::GetBrowserContexts(
     return Response::ServerError(
         "Browser context management is not supported.");
   }
-  std::vector<BrowserContext*> contexts = delegate->GetBrowserContexts();
+  std::vector<base::WeakPtr<BrowserContext>> contexts =
+      delegate->GetBrowserContexts();
   *browser_context_ids = std::make_unique<protocol::Array<protocol::String>>();
-  for (auto* context : contexts) {
-    (*browser_context_ids)->emplace_back(context->UniqueId());
+  for (const auto& context : contexts) {
+    if (context) {
+      (*browser_context_ids)->emplace_back(context->UniqueId());
+    }
   }
 
-  BrowserContext* default_context = delegate->GetDefaultBrowserContext();
-  if (default_context) {
+  if (BrowserContext* default_context = delegate->GetDefaultBrowserContext()) {
     *default_browser_context_id = default_context->UniqueId();
   }
+
   return Response::Success();
 }
 
@@ -1635,17 +1642,21 @@ void TargetHandler::DisposeBrowserContext(
         Response::ServerError("Browser context management is not supported."));
     return;
   }
-  std::vector<BrowserContext*> contexts = delegate->GetBrowserContexts();
-  auto context_it =
-      std::ranges::find(contexts, context_id, &BrowserContext::UniqueId);
-  if (context_it == contexts.end()) {
+  BrowserContext* context = delegate->GetBrowserContext(context_id);
+  if (!context) {
     callback->sendFailure(
         Response::ServerError("Failed to find context with id " + context_id));
     return;
   }
+  if (context == delegate->GetDefaultBrowserContext()) {
+    callback->sendFailure(
+        Response::ServerError("Cannot dispose default browser context."));
+    return;
+  }
   dispose_on_detach_context_ids_.erase(context_id);
   delegate->DisposeBrowserContext(
-      *context_it,
+      context,
+
       base::BindOnce(
           [](std::unique_ptr<DisposeBrowserContextCallback> callback,
              bool success, const std::string& error) {

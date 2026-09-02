@@ -4108,6 +4108,57 @@ auto GraphBuilderTflite::InsertPadOperation(const TensorInfo& input_tensor_info,
   return output_tensor_index;
 }
 
+auto GraphBuilderTflite::SerializeTransposedConstant2D(OperandId operand_id)
+    -> base::expected<TensorIndex, std::string> {
+  const mojom::Operand& operand = GetOperand(operand_id);
+  const OperandDescriptor& descriptor = operand.descriptor;
+  const std::vector<uint32_t>& shape = descriptor.shape();
+  CHECK_EQ(shape.size(), 2u);
+
+  // TODO(crbug.com/428232161): Support sub-byte transposes.
+  const size_t bit_size =
+      OperandDescriptor::GetBitsPerElement(descriptor.data_type());
+  CHECK_GE(bit_size, 8u);
+
+  auto it = constant_operands_->find(operand_id);
+  CHECK(it != constant_operands_->end());
+
+  static constexpr std::array<uint32_t, 2> kPermutation = {1u, 0u};
+  const base::HeapArray<uint8_t> transposed = TransposeConstantData(
+      it->second->ByteSpan(), shape, kPermutation, bit_size / 8);
+
+  const std::array<int32_t, 2> transposed_shape = {
+      base::checked_cast<int32_t>(shape[1]),
+      base::checked_cast<int32_t>(shape[0])};
+
+  ASSIGN_OR_RETURN(
+      const BufferInfo buffer_info,
+      SerializeBuffer(base::span<const uint8_t>(transposed.as_span())));
+  const TensorIndex constant_tensor_index =
+      base::checked_cast<TensorIndex>(tensors_.size());
+  const ::tflite::TensorType tensor_type =
+      OperandDataTypeToTFLite(descriptor.data_type());
+  tensors_.emplace_back(CreateTensor(
+      buffer_info, builder_.CreateVector<int32_t>(transposed_shape),
+      tensor_type));
+
+  if (tensor_type != ::tflite::TensorType_FLOAT16) {
+    return constant_tensor_index;
+  }
+
+  // Mirror SerializeInputTensorInfo(): unpack the float16 constant
+  // with the CAST that LiteRT delegates recognise and skip when
+  // evaluating at float16 precision.
+  ASSIGN_OR_RETURN(const TensorIndex float32_tensor_index,
+                   SerializeTemporaryTensorWithByteSizeCheck(
+                       transposed_shape, ::tflite::TensorType_FLOAT32));
+  operators_.emplace_back(SerializeCastOperation(
+      constant_tensor_index, ::tflite::TensorType_FLOAT16, float32_tensor_index,
+      ::tflite::TensorType_FLOAT32,
+      /*constant_input_tensor=*/true));
+  return float32_tensor_index;
+}
+
 auto GraphBuilderTflite::InsertTransposeOperation(
     const TensorInfo& input_tensor_info,
     base::span<const uint32_t> permutation)
@@ -4646,8 +4697,17 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
     auto checked_output_width = base::CheckedNumeric<int32_t>(output_shape[2]);
     auto checked_indirection_buffer_size =
         base::CheckedNumeric<int32_t>(sizeof(void*));
-    if (webnn::IsDepthwiseConv2d(input_channels, output_channels,
-                                 conv2d.groups)) {
+    // XNNPACK only takes the dwconv path when a dwconv ukernel exists for
+    // the kernel size, i.e. kernel_size <= max(primary_tile). Otherwise it
+    // falls back to igemm path even for depthwise convolutions, so the igemm
+    // formulas must be used to bound the indirection and packed weights
+    // buffer sizes.
+    const bool uses_dwconv_path =
+        webnn::IsDepthwiseConv2d(input_channels, output_channels,
+                                 conv2d.groups) &&
+        checked_kernel_size.ValueOrDefault(
+            std::numeric_limits<int32_t>::max()) <= kMaxPrimaryTile;
+    if (uses_dwconv_path) {
       // dwconv path: sizeof(void*) * (primary_tile - kernel_size +
       //     output_height * (kernel_size + (output_width - 1) * step_width *
       //     kernel_height))
@@ -4682,8 +4742,7 @@ auto GraphBuilderTflite::SerializeConv2d(const mojom::Conv2d& conv2d)
 
     // Check XNNPACK packed weights buffer size to prevent overflow.
     // See third_party/xnnpack/src/src/operators/convolution-nhwc.c.
-    if (webnn::IsDepthwiseConv2d(input_channels, output_channels,
-                                 conv2d.groups)) {
+    if (uses_dwconv_path) {
       // dwconv path: aligned_total_weights_size = round_up_po2(
       //   (primary_tile * filter_element_size + bias_element_size +
       //   extra_weights_bytes) * c_stride, XNN_ALLOCATION_ALIGNMENT)
@@ -5189,6 +5248,18 @@ auto GraphBuilderTflite::SerializeElementWiseBinary(
           const std::vector<int32_t> output_dims,
           ToSignedDimensions(
               GetOperand(op.output_operand_id).descriptor.shape()));
+      // Emit SQUARE for pow(x, 2), only when the exponent does not
+      // broadcast the base, since SQUARE cannot change the shape of
+      // its input.
+      if ((lhs_tensor_info.data_type == ::tflite::TensorType_FLOAT32 ||
+           lhs_tensor_info.data_type == ::tflite::TensorType_INT32) &&
+          lhs_tensor_info.data_type == output_tensor_type &&
+          lhs_tensor_info.dimensions == output_dims &&
+          GetFloatScalarConstant(op.rhs_operand_id) == 2.0f) {
+        return SerializeSquareOperation(lhs_tensor_info.index,
+                                        lhs_tensor_info.data_type,
+                                        output_tensor_index);
+      }
       // Use the actual TFLite tensor types of the (possibly float16->float32
       // cast) inputs and output rather than the WebNN-level data types, so
       // any temporary tensors created during rank reduction match.
@@ -6127,15 +6198,36 @@ auto GraphBuilderTflite::SerializeGemm(const mojom::Gemm& gemm)
   // N] by default options, but Tflite Fully Connected's input and filter
   // shapes are [batch, input_channels] and [output_channels,
   // input_channels], so the Transpose operator need to be inserted before
-  // Gemm When bTranspose option is false.
+  // Gemm When bTranspose option is false. When B is a constant, apply
+  // the transpose here instead of emitting a TRANSPOSE operator. A
+  // TRANSPOSE whose inputs are all constant is rejected by GPU
+  // delegates (e.g. ml_drift).
+  const mojom::Operand& b_operand = GetOperand(gemm.b_operand_id);
+  CHECK_EQ(b_operand.descriptor.shape().size(), 2u);
+  const OperandDataType b_data_type = b_operand.descriptor.data_type();
+  const bool fold_b_transpose =
+      !gemm.b_transpose && !fuse_dequantize &&
+      b_operand.kind == mojom::Operand::Kind::kConstant &&
+      (b_data_type == OperandDataType::kFloat32 ||
+       b_data_type == OperandDataType::kFloat16);
+
   // Serialize the B operand whether or not it is used because the final model
   // must include all of the expected input tensors.
-  ASSIGN_OR_RETURN(const TensorInfo& b_tensor_info,
-                   SerializeInputTensorInfo(
-                       gemm.b_operand_id,
-                       /*quantize_params=*/0,
-                       /*operation_supports_float16=*/false, fuse_dequantize));
-  TensorIndex b_tensor_index = b_tensor_info.index;
+  TensorIndex b_tensor_index;
+  std::optional<TensorInfo> b_tensor_info;
+  if (fold_b_transpose) {
+    ASSIGN_OR_RETURN(b_tensor_index,
+                     SerializeTransposedConstant2D(gemm.b_operand_id));
+  } else {
+    ASSIGN_OR_RETURN(
+        const TensorInfo& serialized_b,
+        SerializeInputTensorInfo(gemm.b_operand_id,
+                                 /*quantize_params=*/0,
+                                 /*operation_supports_float16=*/false,
+                                 fuse_dequantize));
+    b_tensor_info = serialized_b;
+    b_tensor_index = serialized_b.index;
+  }
 
   // Avoid executing alpha * A * B if gemm.alpha == 0.0f.
   if (gemm.alpha == 0.0f) {
@@ -6177,9 +6269,9 @@ auto GraphBuilderTflite::SerializeGemm(const mojom::Gemm& gemm)
     a_tensor_index = output_tensor_index_of_mul;
   }
 
-  if (!gemm.b_transpose) {
+  if (!gemm.b_transpose && !fold_b_transpose) {
     ASSIGN_OR_RETURN(b_tensor_index,
-                     InsertTransposeOperation(b_tensor_info, permutation));
+                     InsertTransposeOperation(*b_tensor_info, permutation));
   }
   std::vector<TensorIndex> fully_connected_inputs = {a_tensor_index,
                                                      b_tensor_index};
@@ -8287,6 +8379,24 @@ base::FixedArray<int64_t> GraphBuilderTflite::GetConstantInt64Value(
       NOTREACHED() << "This data type is not supported.";
   }
   return typed_value;
+}
+
+std::optional<float> GraphBuilderTflite::GetFloatScalarConstant(
+    OperandId operand_id) {
+  const mojom::Operand& operand = GetOperand(operand_id);
+  if (operand.kind != mojom::Operand::Kind::kConstant ||
+      operand.descriptor.NumberOfElements() != 1) {
+    return std::nullopt;
+  }
+  switch (operand.descriptor.data_type()) {
+    case OperandDataType::kFloat32:
+      return GetConstantValue<float>(operand_id)[0];
+    case OperandDataType::kFloat16:
+      return fp16_ieee_to_fp32_value(
+          GetConstantValue<Float16>(operand_id)[0].data);
+    default:
+      return std::nullopt;
+  }
 }
 
 base::FixedArray<float> GraphBuilderTflite::GetQuantizeScaleValue(

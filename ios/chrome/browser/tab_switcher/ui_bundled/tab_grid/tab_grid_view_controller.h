@@ -29,11 +29,11 @@ class GURL;
 @protocol IncognitoReauthConsumer;
 enum class IPHDismissalReasonType;
 @class LayoutGuideCenter;
-@class LayoutState;
 @class PinnedTabsViewController;
 @protocol PriceCardDataSource;
 @class RegularGridViewController;
 @protocol SceneCommands;
+@class SceneLayoutState;
 @protocol TabCollectionConsumer;
 @protocol TabCollectionDragDropHandler;
 @protocol TabContextMenuProvider;
@@ -157,7 +157,7 @@ enum class TabGridPageConfiguration {
 @property(nonatomic, strong) LayoutGuideCenter* layoutGuideCenter;
 
 // The layout state of the scene.
-@property(nonatomic, weak) LayoutState* layoutState;
+@property(nonatomic, weak) SceneLayoutState* layoutState;
 
 // Top and bottom toolbars. Those must be set before -viewDidLoad is called.
 @property(nonatomic, strong) TabGridTopToolbar* topToolbar;
@@ -165,6 +165,9 @@ enum class TabGridPageConfiguration {
 
 // Whether the primary signed-in account is subject to parental controls.
 @property(nonatomic, assign) BOOL isSubjectToParentalControls;
+
+// Whether the Swipe to Incognito IPH should be presented when the view appears.
+@property(nonatomic, assign) BOOL shouldShowSwipeToIncognitoIPH;
 
 // Disabled tab view controllers only available when a certain browser mode is
 // disabled.
@@ -220,6 +223,10 @@ enum class TabGridPageConfiguration {
 // while the active browser is being displayed, which prevents any visual
 // glitches or TabGrid leakage when the grid should not be visible.
 - (void)setContentVisible:(BOOL)visible;
+
+// Presents the Swipe to Incognito IPH if the user is eligible.
+- (void)maybeShowSwipeToIncognitoIPH;
+
 @end
 
 #endif  // IOS_CHROME_BROWSER_TAB_SWITCHER_UI_BUNDLED_TAB_GRID_TAB_GRID_VIEW_CONTROLLER_H_

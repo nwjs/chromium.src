@@ -133,6 +133,7 @@
 ../../web_tests/external/wpt/fonts/noto/NotoSansDevanagari-Regular.ttf
 ../../web_tests/external/wpt/fonts/noto/NotoSansMongolian-regular.woff2
 ../../web_tests/external/wpt/fonts/noto/NotoSansNko-regular-webfont.woff2
+../../web_tests/external/wpt/fonts/noto/cjk-kr/NotoSansCJKkr-Regular-subset.otf
 ../../web_tests/external/wpt/fonts/noto/cjk/NotoSansCJKjp-Regular-subset-chws.otf
 ../../web_tests/external/wpt/fonts/noto/cjk/NotoSansCJKjp-Regular-subset-halt-3002.otf
 ../../web_tests/external/wpt/fonts/noto/cjk/NotoSansCJKjp-Regular-subset-halt-300C.otf
@@ -150,6 +151,7 @@
 ../../web_tests/external/wpt/jpegxl/resources/3x3a_srgb_lossless.jxl
 ../../web_tests/external/wpt/jpegxl/resources/3x3a_srgb_lossy.jxl
 ../../web_tests/external/wpt/jpegxl/resources/8x8_noise.jxl
+../../web_tests/external/wpt/jpegxl/resources/animated-red-green.jxl
 ../../web_tests/external/wpt/jpegxl/resources/animation-1loop.jxl
 ../../web_tests/external/wpt/jpegxl/resources/animation-2loops.jxl
 ../../web_tests/external/wpt/jpegxl/resources/animation-infiniteloop.jxl

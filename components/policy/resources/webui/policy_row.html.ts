@@ -14,7 +14,7 @@ export function getHtml(this: PolicyRowElement) {
     <a class="link" target="_blank" href="${this.policy?.link || '#'}" title="${
       this.getLearnMoreTooltip()}">
       <span id="name">${this.policy?.name || ''}</span>
-      <img src="chrome://resources/images/open_in_new.svg" alt="">
+      <img src="${this.getOpenInNewIconSrc()}" alt="">
     </a>
   </div>
   <div class="value" role="cell">${this.getTruncatedValue()}</div>
@@ -24,7 +24,7 @@ export function getHtml(this: PolicyRowElement) {
   <div class="messages" role="cell">${this.getMessagesText()}</div>
   <div class="toggle" role="cell" @click="${this.onToggleExpandedClick}">
     <cr-icon-button
-        iron-icon="${this.expanded ? 'cr:expand-less' : 'cr:expand-more'}"
+        iron-icon="${this.expanded ? 'cr:keyboard-arrow-up' : 'cr:keyboard-arrow-down'}"
         aria-label="${this.getShowMoreLessLabel()}">
     </cr-icon-button>
   </div>
@@ -36,7 +36,7 @@ export function getHtml(this: PolicyRowElement) {
     <a is="action-link" class="copy-value link" role="button" @click="${
       this.onCopyClick}" title="${this.getCopyLabel()}" aria-label="${
       this.getCopyLabel()}">
-      <img src="chrome://resources/images/icon_copy_content.svg"
+      <img src="${this.getCopyIconSrc()}"
           alt="" aria-hidden="true">
     </a>
   </div>

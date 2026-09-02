@@ -29,6 +29,11 @@ const base::FilePath& TestStoragePartition::GetPath() const {
 network::mojom::NetworkContext* TestStoragePartition::GetNetworkContext() {
   return network_context_;
 }
+
+bool TestStoragePartition::IsNetworkContextInitialized() {
+  return network_context_ != nullptr;
+}
+
 cert_verifier::mojom::CertVerifierServiceUpdater*
 TestStoragePartition::GetCertVerifierServiceUpdater() {
   return nullptr;
@@ -148,9 +153,11 @@ TestStoragePartition::GetDeviceBoundSessionManager() {
   return device_bound_session_manager_;
 }
 
-BrowsingTopicsSiteDataManager*
-TestStoragePartition::GetBrowsingTopicsSiteDataManager() {
-  return browsing_topics_site_data_manager_;
+void TestStoragePartition::OverrideDeviceBoundSessionManagerForTesting(
+    std::unique_ptr<network::mojom::DeviceBoundSessionManager>
+        device_bound_session_manager) {
+  device_bound_session_manager_owned_ = std::move(device_bound_session_manager);
+  device_bound_session_manager_ = device_bound_session_manager_owned_.get();
 }
 
 DevToolsBackgroundServicesContext*

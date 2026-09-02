@@ -14,6 +14,10 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,27 +31,39 @@ import java.util.function.BiFunction;
  */
 @NullMarked
 public class MediaNotificationManager {
-    // Maps the notification ids to their corresponding notification managers.
+    /**
+     * Annotation for media type IDs (e.g. R.id.media_playback_notification) to distinguish them
+     * from unique notification IDs.
+     */
+    @Target({ElementType.TYPE_USE})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface MediaTypeId {}
+
+    // Maps notification IDs to their corresponding MediaNotificationController instances.
+    // When multiple media notifications are enabled, each (tabId, mediaTypeId) pair is assigned
+    // a dynamically generated unique integer notification ID. In legacy single-notification mode,
+    // the notification ID is the static mediaTypeId (e.g. R.id.media_playback_notification).
     private static final SparseArray<MediaNotificationController> sControllers;
 
     // Maps (tabId, mediaTypeId) to a unique notification ID.
     // The mediaTypeId (e.g. R.id.media_playback_notification) represents the TYPE of media
     // notification (playback, cast, presentation) and corresponds to the specific
     // Foreground Service class that manages it.
-    // When multiple notifications are enabled, we generate a uniqueId for each tab's
+    // When multiple notifications are enabled, we generate a unique notification ID for each tab's
     // notification of the same type, so they don't overwrite each other in the UI.
     private static final Map<Pair<Integer, Integer>, Integer> sUniqueIdMap = new HashMap<>();
 
     // Seeded with currentTimeMillis.
     private static int sIdCounter = (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
 
-    // Maps mediaTypeId to the notification ID currently associated with its foreground service.
+    // Maps mediaTypeId to the unique notification ID currently associated with its foreground
+    // service.
     private static final SparseIntArray sActiveNotificationIds = new SparseIntArray();
 
     // Maps mediaTypeId to its foreground service reference.
     private static final SparseArray<WeakReference<Service>> sServices = new SparseArray<>();
 
-    public static void setService(int mediaTypeId, @Nullable Service service) {
+    public static void setService(@MediaTypeId int mediaTypeId, @Nullable Service service) {
         if (service == null) {
             sServices.remove(mediaTypeId);
         } else {
@@ -55,7 +71,7 @@ public class MediaNotificationManager {
         }
     }
 
-    public static @Nullable Service getService(int mediaTypeId) {
+    public static @Nullable Service getService(@MediaTypeId int mediaTypeId) {
         WeakReference<Service> ref = sServices.get(mediaTypeId);
         return ref == null ? null : ref.get();
     }
@@ -93,7 +109,7 @@ public class MediaNotificationManager {
                 == notificationId;
     }
 
-    private static synchronized int getOrCreateUniqueId(int tabId, int mediaTypeId) {
+    private static synchronized int getOrCreateUniqueId(int tabId, @MediaTypeId int mediaTypeId) {
         Pair<Integer, Integer> key = Pair.create(tabId, mediaTypeId);
         Integer uniqueId = sUniqueIdMap.get(key);
         if (uniqueId == null) {
@@ -106,13 +122,13 @@ public class MediaNotificationManager {
     }
 
     @VisibleForTesting
-    public static int getUniqueId(int tabId, int mediaTypeId) {
+    public static int getUniqueId(int tabId, @MediaTypeId int mediaTypeId) {
         Pair<Integer, Integer> key = Pair.create(tabId, mediaTypeId);
         Integer uniqueId = sUniqueIdMap.get(key);
         return uniqueId != null ? uniqueId : mediaTypeId;
     }
 
-    private static int getFallbackPlayingControllerId(int mediaTypeId, int excludeId) {
+    private static int getFallbackPlayingControllerId(@MediaTypeId int mediaTypeId, int excludeId) {
         for (int i = 0; i < sControllers.size(); i++) {
             int id = sControllers.keyAt(i);
             if (id == excludeId || getMediaTypeId(id) != mediaTypeId) continue;
@@ -124,7 +140,7 @@ public class MediaNotificationManager {
         return MediaNotificationInfo.INVALID_ID;
     }
 
-    private static boolean tryFallbackPromotion(int mediaTypeId, int excludeId) {
+    private static boolean tryFallbackPromotion(@MediaTypeId int mediaTypeId, int excludeId) {
         // Explicitly detach the old controller from FGS before searching for/promoting a new one
         // to prevent the OS from archiving the old notification.
         MediaNotificationController oldController = sControllers.get(excludeId);
@@ -153,9 +169,9 @@ public class MediaNotificationManager {
     private static void handleFallbackOnPause(
             MediaNotificationController controller,
             MediaNotificationInfo notificationInfo,
-            int mediaTypeId,
-            int targetId) {
-        if (tryFallbackPromotion(mediaTypeId, targetId)) {
+            @MediaTypeId int mediaTypeId,
+            int notificationId) {
+        if (tryFallbackPromotion(mediaTypeId, notificationId)) {
             return;
         }
 
@@ -166,7 +182,7 @@ public class MediaNotificationManager {
         } else {
             // Non-swipeable media (e.g. Cast) must stay in FGS even when paused to prevent
             // process termination, so restore the active ID and re-promote to FGS.
-            sActiveNotificationIds.put(mediaTypeId, targetId);
+            sActiveNotificationIds.put(mediaTypeId, notificationId);
             controller.promote();
         }
     }
@@ -185,24 +201,26 @@ public class MediaNotificationManager {
             MediaNotificationInfo notificationInfo,
             BiFunction<Integer, Integer, MediaNotificationController.Delegate> delegateFactory) {
         MediaNotificationInfo infoToShow = notificationInfo;
-        int targetId = notificationInfo.id;
+        int notificationId = notificationInfo.id;
 
         if (isMultipleMediaNotificationsEnabled()) {
-            targetId = getOrCreateUniqueId(notificationInfo.instanceId, notificationInfo.id);
+            notificationId = getOrCreateUniqueId(notificationInfo.instanceId, notificationInfo.id);
             infoToShow =
-                    new MediaNotificationInfo.Builder(notificationInfo).setId(targetId).build();
+                    new MediaNotificationInfo.Builder(notificationInfo)
+                            .setId(notificationId)
+                            .build();
         }
 
-        // Create the final delegate with the resolved targetId and mediaTypeId.
+        // Create the final delegate with the resolved notificationId and mediaTypeId.
         MediaNotificationController.Delegate delegate =
-                delegateFactory.apply(targetId, notificationInfo.id);
+                delegateFactory.apply(notificationId, notificationInfo.id);
 
-        MediaNotificationController controller = sControllers.get(targetId);
+        MediaNotificationController controller = sControllers.get(notificationId);
         boolean wasPaused = (controller == null) || controller.isPaused();
 
         if (controller == null) {
             controller = new MediaNotificationController(delegate);
-            sControllers.put(targetId, controller);
+            sControllers.put(notificationId, controller);
         }
 
         int mediaTypeId = notificationInfo.id;
@@ -225,10 +243,10 @@ public class MediaNotificationManager {
             }
             if (shouldPromote) {
                 int previousActiveId = activeNotificationId;
-                sActiveNotificationIds.put(mediaTypeId, targetId);
+                sActiveNotificationIds.put(mediaTypeId, notificationId);
                 // Demote the previous active FGS if it is different.
                 if (previousActiveId != MediaNotificationInfo.INVALID_ID
-                        && previousActiveId != targetId) {
+                        && previousActiveId != notificationId) {
                     MediaNotificationController previousController =
                             sControllers.get(previousActiveId);
                     if (previousController != null) {
@@ -236,9 +254,9 @@ public class MediaNotificationManager {
                     }
                 }
             }
-        } else if (targetId == activeNotificationId) {
+        } else if (notificationId == activeNotificationId) {
             // Active controller is pausing. Look for another playing controller.
-            handleFallbackOnPause(controller, notificationInfo, mediaTypeId, targetId);
+            handleFallbackOnPause(controller, notificationInfo, mediaTypeId, notificationId);
         }
 
         controller.queueNotification(infoToShow);
@@ -250,9 +268,9 @@ public class MediaNotificationManager {
      * @param tabId the id of the tab that showed the notification or invalid tab id.
      * @param mediaTypeId the media type ID of the notification.
      */
-    public static void hide(int tabId, int mediaTypeId) {
-        int targetId = getUniqueId(tabId, mediaTypeId);
-        MediaNotificationController controller = getController(targetId);
+    public static void hide(int tabId, @MediaTypeId int mediaTypeId) {
+        int notificationId = getUniqueId(tabId, mediaTypeId);
+        MediaNotificationController controller = getControllerByNotificationId(notificationId);
         if (controller == null) return;
 
         // In single-notification mode, multiple tabs share the same controller. Only hide
@@ -264,14 +282,22 @@ public class MediaNotificationManager {
 
         controller.hideNotification(tabId);
 
-        sControllers.remove(targetId);
+        sControllers.remove(notificationId);
         Pair<Integer, Integer> mapKey = Pair.create(tabId, mediaTypeId);
         sUniqueIdMap.remove(mapKey);
 
-        // Clear the active ID; tryFallbackPromotion will set sActiveNotificationIds correctly if
-        // there is a fallback playing controller that already is or becomes promoted to FGS.
+        // Only trigger fallback promotion if the tab being hidden was the active FGS owner,
+        // or if there is currently no active foreground controller.
+        int activeId = sActiveNotificationIds.get(mediaTypeId, MediaNotificationInfo.INVALID_ID);
+        MediaNotificationController activeController = sControllers.get(activeId);
+        if (notificationId != activeId
+                && activeController != null
+                && activeController.isForeground()) {
+            return;
+        }
+
         sActiveNotificationIds.delete(mediaTypeId);
-        tryFallbackPromotion(mediaTypeId, targetId);
+        tryFallbackPromotion(mediaTypeId, notificationId);
     }
 
     /**
@@ -279,7 +305,7 @@ public class MediaNotificationManager {
      *
      * @param mediaTypeId the media type ID of the notification.
      */
-    public static void hideForAllTabs(int mediaTypeId) {
+    public static void hideForAllTabs(@MediaTypeId int mediaTypeId) {
         // Clear all unique (tab-specific) controllers of this media type.
         List<Pair<Integer, Integer>> keysToRemove = new ArrayList<>();
         for (Map.Entry<Pair<Integer, Integer>, Integer> entry : sUniqueIdMap.entrySet()) {
@@ -317,7 +343,7 @@ public class MediaNotificationManager {
      *
      * @param mediaTypeId the media type ID of the notification.
      */
-    public static void onServiceDestroyed(int mediaTypeId) {
+    public static void onServiceDestroyed(@MediaTypeId int mediaTypeId) {
         sServices.remove(mediaTypeId);
         for (Map.Entry<Pair<Integer, Integer>, Integer> entry : sUniqueIdMap.entrySet()) {
             if (entry.getKey().second == mediaTypeId) {
@@ -343,16 +369,16 @@ public class MediaNotificationManager {
      * @param tabId the id of the tab requesting to reactivate the Android MediaSession.
      * @param mediaTypeId the media type ID of the notification.
      */
-    public static void activateAndroidMediaSession(int tabId, int mediaTypeId) {
-        int targetId = getUniqueId(tabId, mediaTypeId);
-        MediaNotificationController controller = getController(targetId);
+    public static void activateAndroidMediaSession(int tabId, @MediaTypeId int mediaTypeId) {
+        int notificationId = getUniqueId(tabId, mediaTypeId);
+        MediaNotificationController controller = getControllerByNotificationId(notificationId);
         if (controller == null) return;
         controller.activateAndroidMediaSession(tabId);
     }
 
-    public static int getMediaTypeId(int uniqueId) {
-        MediaNotificationController controller = sControllers.get(uniqueId);
-        return controller != null ? controller.getMediaTypeId() : uniqueId;
+    public static @MediaTypeId int getMediaTypeId(int notificationId) {
+        MediaNotificationController controller = sControllers.get(notificationId);
+        return controller != null ? controller.getMediaTypeId() : notificationId;
     }
 
     /**
@@ -360,17 +386,17 @@ public class MediaNotificationManager {
      * specified media type, excluding a specific controller.
      *
      * @param mediaTypeId The media type ID of the service to check.
-     * @param excludeUniqueId The unique ID of the controller to exclude from the check (usually the
-     *     one that is being paused or destroyed).
+     * @param excludeNotificationId The unique notification ID of the controller to exclude from the
+     *     check (usually the one that is being paused or destroyed).
      * @return True if there is at least one other non-paused controller of the same media type,
      *     false otherwise.
      */
-    public static boolean isServiceNeeded(int mediaTypeId, int excludeUniqueId) {
-        return getFallbackPlayingControllerId(mediaTypeId, excludeUniqueId)
+    public static boolean isServiceNeeded(@MediaTypeId int mediaTypeId, int excludeNotificationId) {
+        return getFallbackPlayingControllerId(mediaTypeId, excludeNotificationId)
                 != MediaNotificationInfo.INVALID_ID;
     }
 
-    public static boolean hasPlayingController(int mediaTypeId) {
+    public static boolean hasPlayingController(@MediaTypeId int mediaTypeId) {
         return getFallbackPlayingControllerId(mediaTypeId, MediaNotificationInfo.INVALID_ID)
                 != MediaNotificationInfo.INVALID_ID;
     }
@@ -382,8 +408,49 @@ public class MediaNotificationManager {
         sServices.clear();
     }
 
-    public static @Nullable MediaNotificationController getController(int notificationId) {
+    public static @Nullable MediaNotificationController getControllerByNotificationId(
+            int notificationId) {
         return sControllers.get(notificationId);
+    }
+
+    /**
+     * Gets the active {@link MediaNotificationController} for the specified media type ID.
+     *
+     * <p>This method is used when handling external system Intents (e.g., Bluetooth/headset media
+     * keys dispatched directly to the Service) where no {@code EXTRA_NOTIFICATION_ID} or {@code
+     * tabId} is available.
+     *
+     * <p>1. If a controller of this media type is currently promoted to the foreground service, its
+     * unique notification ID is retrieved from {@link #sActiveNotificationIds} and its controller
+     * is returned.
+     *
+     * <p>2. If multiple media notifications are disabled (single-notification mode), the controller
+     * is keyed directly by {@code mediaTypeId}.
+     *
+     * <p>3. If multiple media notifications are enabled and no controller is currently promoted, it
+     * falls back to returning any remaining controller matching this {@code mediaTypeId}.
+     *
+     * @param mediaTypeId The media type ID of the notification.
+     * @return The active {@link MediaNotificationController}, or null if none exist.
+     */
+    public static @Nullable MediaNotificationController getActiveOrFallbackControllerByMediaTypeId(
+            @MediaTypeId int mediaTypeId) {
+        int activeNotificationId =
+                sActiveNotificationIds.get(mediaTypeId, MediaNotificationInfo.INVALID_ID);
+        if (activeNotificationId != MediaNotificationInfo.INVALID_ID) {
+            MediaNotificationController controller = sControllers.get(activeNotificationId);
+            if (controller != null) return controller;
+        }
+        if (!isMultipleMediaNotificationsEnabled()) {
+            return sControllers.get(mediaTypeId);
+        }
+        for (int i = 0; i < sControllers.size(); i++) {
+            MediaNotificationController c = sControllers.valueAt(i);
+            if (c != null && c.getMediaTypeId() == mediaTypeId) {
+                return c;
+            }
+        }
+        return null;
     }
 
     public static void setControllerForTesting(

@@ -88,6 +88,8 @@ class MultipleRequestPaymentsNetworkInterface;
 class PaymentsNetworkInterface;
 class PaymentsWindowManager;
 class SaveAndFillManager;
+class WalletReminderNoticeManager;
+class WalletReminderNoticeUiDelegate;
 
 // A payments-specific client interface that handles dependency injection, and
 // its implementations serve as the integration for platform-specific code. One
@@ -180,7 +182,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
     kScanCardSaveAndFill,
   };
 
-  // Used for options of upload prompt.
+  // Used for options of card and CVC save prompts.
   struct SaveCreditCardOptions {
     SaveCreditCardOptions& with_should_request_name_from_user(bool b) {
       should_request_name_from_user = b;
@@ -200,6 +202,11 @@ class PaymentsAutofillClient : public RiskDataLoader {
 
     SaveCreditCardOptions& with_has_multiple_legal_lines(bool b = true) {
       has_multiple_legal_lines = b;
+      return *this;
+    }
+
+    SaveCreditCardOptions& with_legal_lines_mention_personalization(bool b) {
+      legal_lines_mention_personalization = b;
       return *this;
     }
 
@@ -234,6 +241,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
     bool should_request_expiration_date_from_user = false;
     bool show_prompt = false;
     bool has_multiple_legal_lines = false;
+    bool legal_lines_mention_personalization = false;
     bool has_same_last_four_as_server_card_but_different_expiration_date =
         false;
     std::optional<int> num_strikes;
@@ -658,7 +666,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // possible, and returns `true` on success. `delegate` will be notified of
   // events. `suggestions` are generated using the `cards_to_suggest` data and
   // include fields such as `main_text`, `minor_text`, and
-  // `HasDeactivatedStyle` member function. Should be called only if the feature
+  // `IsSelectable` member function. Should be called only if the feature
   // is supported by the platform. This function is implemented on all
   // platforms so this should be a pure virtual function to enforce the override
   // implementation.
@@ -813,6 +821,14 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // UI in the BNPL flow depending on the platform.
   virtual BnplUiDelegate* GetBnplUiDelegate() = 0;
 
+  // Gets the `WalletReminderNoticeUiDelegate` instance associated with the
+  // client. Handles the UI for the Wallet Reminder Notice.
+  virtual WalletReminderNoticeUiDelegate* GetWalletReminderNoticeUiDelegate();
+
+  // Gets the `WalletReminderNoticeManager` instance associated with the
+  // client.
+  virtual WalletReminderNoticeManager* GetWalletReminderNoticeManager();
+
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   // Gets the `OmniboxAutofillDelegate` instance associated with the client, or
   // nullptr on unsupported platforms. Handles the Autofill flow where the
@@ -842,7 +858,7 @@ class PaymentsAutofillClient : public RiskDataLoader {
   // Shows the Payments Churned Users UI. This UI is responsible for providing
   // users that have turned off autofill with a value prop to turn autofill back
   // on.
-  // TODO(crbug.com/524740910): Rename to ShowPaymentsChurnedUsersUi().
+  // TODO(crbug.com/524740910): Rename to MaybeShowPaymentsChurnedUsersUi().
   virtual void ShowPaymentsChurnedUsersUI(base::OnceClosure accept_callback,
                                           base::OnceClosure cancel_callback,
                                           base::OnceClosure closed_callback) {}

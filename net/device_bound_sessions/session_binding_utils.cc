@@ -11,6 +11,7 @@
 #include "base/containers/span.h"
 #include "base/json/json_writer.h"
 #include "base/logging.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_view_util.h"
 #include "base/time/time.h"
@@ -31,7 +32,7 @@ namespace {
 
 // Source: JSON Web Signature and Encryption Algorithms
 // https://www.iana.org/assignments/jose/jose.xhtml
-std::string SignatureAlgorithmToString(
+std::string_view SignatureAlgorithmToString(
     crypto::SignatureVerifier::SignatureAlgorithm algorithm) {
   switch (algorithm) {
     case crypto::SignatureVerifier::ECDSA_SHA256:
@@ -101,6 +102,51 @@ std::optional<std::string> CreateHeaderAndPayload(
 
 }  // namespace
 
+base::DictValue CreateAttestationValue(
+    const crypto::AttestationStatement& attestation_statement) {
+  std::string_view format;
+  switch (attestation_statement.format) {
+    case crypto::AttestationStatement::Format::kTpm:
+      format = "TPM";
+      break;
+    case crypto::AttestationStatement::Format::kSecureEnclave:
+      format = "SECURE_ENCLAVE";
+      break;
+  }
+  return base::DictValue()
+      .Set("fmt", format)
+      .Set("stmt", Base64UrlEncode(
+                       base::as_string_view(attestation_statement.statement)))
+      .Set("sig", Base64UrlEncode(
+                      base::as_string_view(attestation_statement.signature)));
+}
+
+std::optional<std::string> CreateOuterRegistrationHeaderAndPayload(
+    std::string_view inner_jws,
+    crypto::SignatureVerifier::SignatureAlgorithm aik_algorithm,
+    base::span<const uint8_t> aik_pubkey_spki,
+    std::string_view aud,
+    const crypto::AttestationStatement& attestation_stmt) {
+  base::DictValue jwk = ConvertPkeySpkiToJwk(aik_algorithm, aik_pubkey_spki);
+  if (jwk.empty()) {
+    DVLOG(1) << "Unexpected error when converting the SPKI to a JWK";
+    return std::nullopt;
+  }
+
+  auto header = base::DictValue()
+                    .Set("alg", SignatureAlgorithmToString(aik_algorithm))
+                    .Set("typ", "dbsc+aik")
+                    .Set("cty", "jwt")
+                    .Set("jwk", std::move(jwk));
+
+  auto payload = base::DictValue()
+                     .Set("aud", aud)
+                     .Set("jti", inner_jws)
+                     .Set("att", CreateAttestationValue(attestation_stmt));
+
+  return CombineHeaderAndPayload(header, payload);
+}
+
 std::optional<std::string> CreateKeyRegistrationHeaderAndPayload(
     std::optional<std::string> challenge,
     crypto::SignatureVerifier::SignatureAlgorithm algorithm,
@@ -147,8 +193,26 @@ std::optional<std::string> AppendSignatureToHeaderAndPayload(
       {header_and_payload, ".", Base64UrlEncode(as_string_view(signature))});
 }
 
+const char kSecFetchSiteHeaderName[] = "Sec-Fetch-Site";
+const char kSecFetchModeHeaderName[] = "Sec-Fetch-Mode";
+const char kSecFetchDestHeaderName[] = "Sec-Fetch-Dest";
+
 bool IsSecure(const GURL& url) {
   return url.SchemeIsCryptographic() || IsLocalhost(url);
+}
+
+std::string_view SecFetchSiteForReferringOrigin(
+    const url::Origin& referring_origin,
+    const GURL& target_url) {
+  switch (GetOriginRelation(target_url, referring_origin)) {
+    case OriginRelation::kSameOrigin:
+      return "same-origin";
+    case OriginRelation::kSameSite:
+      return "same-site";
+    case OriginRelation::kCrossSite:
+      return "cross-site";
+  }
+  NOTREACHED();
 }
 
 }  // namespace net::device_bound_sessions

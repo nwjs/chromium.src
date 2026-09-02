@@ -113,6 +113,11 @@ inline constexpr char kOnDeviceEncryptionLearnMoreURL[] =
 inline constexpr char kPageInfoHelpCenterURL[] =
     "https://support.google.com/chrome?p=ui_security_indicator&ios=1";
 
+// Help Center URL for the Assistant AIM / Cobrowse feature.
+inline constexpr char kAssistantAIMHelpCenterURL[] =
+    "https://support.google.com/websearch/answer/"
+    "16011537?hl=en&co=GENIE.Platform%3DiOS&oco=0";
+
 // "Learn more" URL for "Aw snap" page when showing "Reload" button.
 inline constexpr char kCrashReasonURL[] =
     "https://support.google.com/chrome/answer/95669?p=e_awsnap&ios=1";
@@ -228,6 +233,10 @@ inline constexpr char kGeminiExtensionsURL[] = "https://gemini.google.com/apps";
 // URL navigated to after the Gemini App Store External Actions event.
 inline constexpr char kGeminiAppStorePromoURL[] =
     "https://www.google.com/chrome/mobile/#scrollable-gemini-in-chrome-slide-1";
+
+// URL for the Connected Apps Settings row.
+inline constexpr char kConnectedAppsURL[] =
+    "https://myactivity.google.com/search-services/apps?pli=1";
 
 // Gets the hosts/domains that are shown in chrome://chrome-urls.
 inline constexpr auto kChromeHostURLs = std::to_array<std::string_view>({

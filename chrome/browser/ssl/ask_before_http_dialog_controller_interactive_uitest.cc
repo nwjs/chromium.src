@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ssl/ask_before_http_dialog_controller.h"
+
 #include <algorithm>
 #include <memory>
 #include <vector>
@@ -11,12 +13,14 @@
 #include "chrome/browser/interstitials/security_interstitial_page_test_utils.h"
 #include "chrome/browser/preloading/scoped_prewarm_feature_list.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ssl/ask_before_http_dialog_controller.h"
 #include "chrome/browser/ssl/https_upgrades_interceptor.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -213,7 +217,7 @@ class AskBeforeHttpDialogControllerUiTest
   // Incognito testing support
   //
   // Returns the active Browser for the test type being run.
-  Browser* GetBrowser() const {
+  BrowserWindowInterface* GetBrowser() const {
     return incognito_browser_ ? incognito_browser_.get() : browser();
   }
   // Call to use an Incognito browser rather than the default.
@@ -262,7 +266,8 @@ class AskBeforeHttpDialogControllerUiTest
     std::unique_ptr<content::WebContents> new_contents =
         content::WebContents::Create(
             content::WebContents::CreateParams(GetBrowser()->GetProfile()));
-    return tab_strip->DiscardWebContentsAt(index, std::move(new_contents));
+    return tab_strip->DiscardWebContents(tab_strip->GetWebContentsAt(index),
+                                         std::move(new_contents));
   }
 
  private:
@@ -562,7 +567,8 @@ IN_PROC_BROWSER_TEST_P(AskBeforeHttpDialogControllerUiTest,
 class CrashTriggerView : public views::View {
   METADATA_HEADER(CrashTriggerView, views::View)
  public:
-  explicit CrashTriggerView(Browser* browser) : browser_(browser) {
+  explicit CrashTriggerView(BrowserWindowInterface* browser)
+      : browser_(browser) {
     SetFocusBehavior(FocusBehavior::ALWAYS);
     GetViewAccessibility().SetRole(ax::mojom::Role::kButton);
     GetViewAccessibility().SetName(u"Crash Trigger");
@@ -570,7 +576,7 @@ class CrashTriggerView : public views::View {
 
   void OnFocus() override {
     if (auto* tab = tabs::TabInterface::MaybeGetFromContents(
-            browser_->tab_strip_model()->GetActiveWebContents())) {
+            browser_->GetTabStripModel()->GetActiveWebContents())) {
       if (auto* controller = AskBeforeHttpDialogController::From(tab)) {
         controller->CloseDialog();
       }
@@ -579,7 +585,7 @@ class CrashTriggerView : public views::View {
   }
 
  private:
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
 };
 
 BEGIN_METADATA(CrashTriggerView)
@@ -667,4 +673,38 @@ IN_PROC_BROWSER_TEST_P(AskBeforeHttpDialogControllerUiTest,
             .LoadURLWithParams(params);
       }),
       WaitForWebContentsNavigation(kBackgroundTab, http_url));
+}
+
+// Tests that reparenting a tab with an open Ask-before-HTTP dialog into another
+// browser window preserves the dialog. Regression test for crbug.com/513637237.
+IN_PROC_BROWSER_TEST_P(AskBeforeHttpDialogControllerUiTest,
+                       ReparentTabPreservesDialog) {
+  GURL http_url = http_server()->GetURL("bad-https.com", "/simple.html");
+
+  auto* contents = GetBrowser()->tab_strip_model()->GetActiveWebContents();
+  content::NavigationController::LoadURLParams params(http_url);
+  params.transition_type = ui::PAGE_TRANSITION_LINK;
+  content::NavigateToURLBlockUntilNavigationsComplete(contents, params, 1);
+  EXPECT_EQ(http_url, contents->GetLastCommittedURL());
+
+  RunTestSequence(
+      InAnyContext(
+          WaitForShow(AskBeforeHttpDialogController::kContinueButtonId)),
+      Do([&]() {
+        // Add a placeholder tab to prevent the original browser from closing
+        // when its active tab is detached.
+        chrome::AddTabAt(GetBrowser(), GURL("about:blank"), 1,
+                         /*foreground=*/false);
+
+        // Create a second browser window and move the tab to it.
+        Browser* second_browser = CreateBrowser(GetBrowser()->GetProfile());
+        std::unique_ptr<tabs::TabModel> detached_tab =
+            GetBrowser()->tab_strip_model()->DetachTabAtForInsertion(0);
+        second_browser->tab_strip_model()->AppendTab(
+            std::move(detached_tab), /*foreground=*/true);
+      }),
+      // Verify that after reparenting, the dialog's continue button is still
+      // present and visible in the second browser window.
+      InAnyContext(
+          WaitForShow(AskBeforeHttpDialogController::kContinueButtonId)));
 }

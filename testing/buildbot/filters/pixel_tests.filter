@@ -33,6 +33,7 @@ ChromeLabs*UiTest.*
 ChromeSignoutConfirmationPromptPixelTest.*
 ChromeSignoutConfirmationPromptWithExtensionsPixelTest.*
 ConfirmBubbleTest.*
+ComposeboxDriveSignInPromoViewPixelTest.*
 ContentAnalysysDialogUiTest.*
 ContentSettingBubbleDialogTest.*
 CookieClearOnExitMigrationNoticePixelTest.*
@@ -52,6 +53,8 @@ DeleteAddressProfileDialogControllerImplTest.InvokeUi_*
 DesktopBnplUiDelegateBrowserTest.*
 DesktopMediaPickerViewsBrowserTest.*
 DesktopPaymentsWindowManagerInteractiveUiTest*
+*DeviceSignalsDisclaimerModalPixelTest.*
+*DeviceSignalsDisclaimerProfilePickerPixelTest.*
 DocumentPictureInPicturePixelTest.*
 EditAddressProfileDialogControllerImplTest.InvokeUi_*
 *EmbeddedPermissionPromptUiTest.InvokeUi_*
@@ -124,6 +127,7 @@ PasswordBubbleInteractiveUiTest.NavigateToManagementDetailsViewAndTakeScreenshot
 PasswordBubbleInteractiveUiTest.NavigateToManagementDetailsViewWithMoveFooterVisibleAndTakeScreenshot
 *PasswordBubbleWithManagePasswordButtonInteractiveUiTest.*
 PasswordReuseModalWarningTest.*
+*PaymentsChurnedUsersBubbleViewsBrowserTest*
 PaymentsWindowUserConsentDialogBrowserTest*
 PerformanceInterventionInteractiveTest.InterventionToolbarButton
 PermissionChipKombuchaInteractiveUITest.PermissionChipClickTest

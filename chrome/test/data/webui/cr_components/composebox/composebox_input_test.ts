@@ -80,7 +80,7 @@ suite('ComposeboxInputTest', () => {
       });
 
   test('Events are forwarded from input', () => {
-    const textArea = inputElement.$.input;
+    const textArea = inputElement.$.input as HTMLTextAreaElement;
 
     let inputFired = false;
     inputElement.addEventListener('input-input', () => {
@@ -338,7 +338,7 @@ suite('ComposeboxScrollCaret', () => {
         document.body.style.height = '600px';
 
         const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
-        const input = inputElement.$.input;
+        const input = inputElement.$.input as HTMLTextAreaElement;
 
         // Initially minHeight is empty.
         assertEquals('', wrapper.style.minHeight);
@@ -373,7 +373,7 @@ suite('ComposeboxScrollCaret', () => {
     document.body.style.height = '600px';
 
     const wrapper = inputElement.shadowRoot.getElementById('inputWrapper')!;
-    const input = inputElement.$.input;
+    const input = inputElement.$.input as HTMLTextAreaElement;
 
     // Type some text to make the textarea grow.
     input.value = 'line 1\nline 2\nline 3\nline 4\nline 5';
@@ -401,7 +401,7 @@ suite('ComposeboxScrollCaret', () => {
 
     const wrapper =
         inputElement.shadowRoot.querySelector<HTMLElement>('#inputWrapper');
-    const input = inputElement.$.input;
+    const input = inputElement.$.input as HTMLTextAreaElement;
     assertTrue(!!wrapper);
 
     // 1. Lock the wrapper's height by entering multiline text.
@@ -588,6 +588,7 @@ suite('ComposeboxCaretGeometry', () => {
     assertTrue(!!mirror);
 
     // Type text and move cursor to the middle.
+    input.focus();
     input.value = 'Hello world';
     input.dispatchEvent(new Event('input', {bubbles: true}));
     input.setSelectionRange(5, 5);
@@ -609,5 +610,32 @@ suite('ComposeboxCaretGeometry', () => {
 
     // The mid span should no longer be the anchor.
     assertEquals('', midSpan.style.anchorName);
+  });
+
+  test('CaretPlacedAtEndWhenSkillsEnabledAndInputChanges', async () => {
+    inputElement.composeboxSkillsEnabled = true;
+    await inputElement.updateComplete;
+
+    const input = inputElement.$.input;
+    const caret = inputElement.shadowRoot.querySelector<HTMLElement>('#caret');
+    const mirror =
+        inputElement.shadowRoot.querySelector<HTMLElement>('#mirror');
+    assertTrue(!!input);
+    assertTrue(!!caret);
+    assertTrue(!!mirror);
+
+    input.focus();
+    await inputElement.updateComplete;
+
+    inputElement.input = 'hello world';
+    await inputElement.updateComplete;
+    await microtasksFinished();
+
+    assertEquals(11, inputElement.getSelectionEnd());
+
+    const lastSpan = mirror.childNodes[10] as HTMLElement;
+    assertTrue(!!lastSpan);
+    assertEquals('--cursor-char', lastSpan.style.anchorName);
+    assertFalse(caret.classList.contains('at-start'));
   });
 });

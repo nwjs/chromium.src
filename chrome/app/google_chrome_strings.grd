@@ -303,6 +303,9 @@ chromium_strings.grd. -->
           Welcome to Chrome; new browser window opened
         </message>
       </if>
+      <message name="IDS_APP_MENU_YOUR_CHROME_HEADER" desc="Header title for the Your Chrome section in the main App Menu">
+        Your Chrome
+      </message>
       <if expr="is_macosx or is_linux">
         <message name="IDS_FIRST_RUN_DIALOG_WINDOW_TITLE" desc="Window title of First Run dialog on Mac and Linux, displayed in title bar">
           Welcome to Google Chrome
@@ -775,6 +778,64 @@ Google Chrome is unable to recover your settings.
           Keep in Dock
         </message>
       </if>
+
+      <!-- Pin InfoBar Experimental strings -->
+      <if expr="is_win">
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_1" translateable="false" desc="Message text for the experimental pin infobar version 1 on Windows">
+          Open Chrome with one click. Pin it for faster access.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_2" translateable="false" desc="Message text for the experimental pin infobar version 2 on Windows">
+          Launch the web faster. Pin Chrome to your taskbar.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_3" translateable="false" desc="Message text for the experimental pin infobar version 3 on Windows">
+          Keep Chrome within reach anytime you browse.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_BUTTON_3" translateable="false" desc="Button text for the experimental pin infobar version 3 on Windows">
+          Pin Chrome Now
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_4" translateable="false" desc="Message text for the experimental pin infobar version 4 on Windows">
+          Optimize your workflow. Add Chrome to your taskbar.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_6" translateable="false" desc="Message text for the experimental pin infobar version 6 on Windows">
+          Simplify your startup. Pin Chrome to your taskbar.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_BUTTON_8" translateable="false" desc="Button text for the experimental pin infobar version 8 on Windows">
+          Pin Chrome
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_9" translateable="false" desc="Message text for the experimental pin infobar version 9 on Windows">
+          For a better desktop experience, pin Chrome to your taskbar.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_MESSAGE_10" translateable="false" desc="Message text for the experimental pin infobar version 10 on Windows">
+          Start browsing instantly. Pin Chrome to your taskbar.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_BUTTON_10" translateable="false" desc="Button text for the experimental pin infobar version 10 on Windows">
+          Pin Chrome
+        </message>
+      </if>
+      <if expr="is_macosx">
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_1" translateable="false" desc="Message text for the experimental pin infobar version 1 on Mac">
+          Open Chrome with one click. Keep it in your Dock for faster access.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_2" translateable="false" desc="Message text for the experimental pin infobar version 2 on Mac">
+          Launch the web faster. Keep Chrome in your Dock.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_3" translateable="false" desc="Message text for the experimental pin infobar version 3 on Mac">
+          Keep Chrome within reach anytime you browse.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_4" translateable="false" desc="Message text for the experimental pin infobar version 4 on Mac">
+          Optimize your workflow. Add Chrome to your Dock.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_6" translateable="false" desc="Message text for the experimental pin infobar version 6 on Mac">
+          Simplify your startup. Keep Chrome in your Dock.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_9" translateable="false" desc="Message text for the experimental pin infobar version 9 on Mac">
+          For a better desktop experience, keep Chrome in your Dock.
+        </message>
+        <message name="IDS_PIN_INFOBAR_EXPERIMENTAL_DOCK_MESSAGE_10" translateable="false" desc="Message text for the experimental pin infobar version 10 on Mac">
+          Start browsing instantly. Keep Chrome in your Dock.
+        </message>
+      </if>
+
       <message name="IDS_DEFAULT_BROWSER_INFOBAR_TEXT" desc="Text to show in an infobar when Google Chrome is not the current default browser.">
         Google Chrome isn't your default browser
       </message>
@@ -795,10 +856,10 @@ Google Chrome is unable to recover your settings.
           Set Google Chrome as your default browser
         </message>
         <message name="IDS_DEFAULT_BROWSER_MODAL_BODY_WITHOUT_SETTINGS_ILLUSTRATION" desc="Body text of the default browser modal without settings illustration.">
-          Get easy access to the features you know, love, and trust by setting Chrome as your default browser.
+          Keep your passwords, bookmarks, and history perfectly synced across devices. Easily access the features you know and love by updating your default browser to Chrome.
         </message>
         <message name="IDS_DEFAULT_BROWSER_MODAL_BODY_WITHOUT_SETTINGS_ILLUSTRATION_UNPINNED" desc="Body text of the default browser modal without settings illustration when Chrome is not pinned to the taskbar.">
-          Get easy access to the features you know, love, and trust by setting Chrome as your default browser. Chrome will be pinned to your taskbar for quick access.
+          Keep your passwords, bookmarks, and history perfectly synced across devices. Easily access the features you know and love by updating your default browser to Chrome. Chrome will be pinned to your taskbar for quick access.
         </message>
         <message name="IDS_DEFAULT_BROWSER_BUBBLE_DIALOG_TITLE" desc="Title of the dialog prompting the user to set Chrome as the default browser.">
           Set Google Chrome as your default browser
@@ -1345,6 +1406,25 @@ Google Chrome is unable to recover your settings.
         <message name="IDS_SIGNIN_DICE_WEB_INTERCEPT_CREATE_BUBBLE_DESC" desc="Body of the web signin interception bubble. It is shown when the user signs in on the web while they already have another account present in the current profile.">
           <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in.  To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>foo@gmail.com</ex></ph>.
         </message>
+        <!-- Account Preview Multi-User / Profile Separation Intercept Promo Subtitles -->
+        <message name="IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_PASSWORDS_WITH_DEVICE" desc="Body of the web signin interception bubble with account preview, informing the user they can keep accounts separate and access passwords from their other device.">
+          <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in. To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>bob.beckett@gmail.com</ex></ph>. You’ll also get your passwords and more from <ph name="DEVICE">$3<ex>your phone</ex></ph>.
+        </message>
+        <message name="IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_BOOKMARKS_WITH_DEVICE" desc="Body of the web signin interception bubble with account preview, informing the user they can keep accounts separate and access bookmarks from their other device.">
+          <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in. To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>bob.beckett@gmail.com</ex></ph>. You’ll also get your bookmarks and more from <ph name="DEVICE">$3<ex>your phone</ex></ph>.
+        </message>
+        <message name="IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_SAVED_INFO_WITH_DEVICE" desc="Body of the web signin interception bubble with account preview, informing the user they can keep accounts separate and access saved info (such as autofill data, addresses, and payment methods) from their other device.">
+          <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in. To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>bob.beckett@gmail.com</ex></ph>. You’ll also get your saved info and more from <ph name="DEVICE">$3<ex>your phone</ex></ph>.
+        </message>
+        <message name="IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_PASSWORDS" desc="Body of the web signin interception bubble with account preview, informing the user they can keep accounts separate and access passwords on all their devices.">
+          <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in. To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>bob.beckett@gmail.com</ex></ph>. You’ll also get your passwords and more on all your devices.
+        </message>
+        <message name="IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_BOOKMARKS" desc="Body of the web signin interception bubble with account preview, informing the user they can keep accounts separate and access bookmarks on all their devices.">
+          <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in. To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>bob.beckett@gmail.com</ex></ph>. You’ll also get your bookmarks and more on all your devices.
+        </message>
+        <message name="IDS_ACCOUNT_PREVIEW_PROFILE_SEPARATION_SUBTITLE_SAVED_INFO" desc="Body of the web signin interception bubble with account preview, informing the user they can keep accounts separate and access saved info (such as autofill data, addresses, and payment methods) on all their devices.">
+          <ph name="EXISTING_USER">$1<ex>Elisa</ex></ph> is already signed in. To keep your browsing separate, sign in to Chrome in your own profile as <ph name="USER_EMAIL_ADDRESS">$2<ex>bob.beckett@gmail.com</ex></ph>. You’ll also get your saved info and more on all your devices.
+        </message>
         <message name="IDS_SIGNIN_DICE_WEB_INTERCEPT_BUBBLE_CHROME_SIGNIN_SUBTITLE" desc="Subtitle of the Chrome Signin Bubble intercept that is shown when a signed out user signs in on the web with it's first account.">
           To get your passwords and more on all your devices, sign in to Chrome
         </message>
@@ -1524,6 +1604,9 @@ Google Chrome is unable to recover your settings.
       <!-- Sign in on your phone (QR code) strings  -->
       <message name="IDS_QR_CODE_BUBBLE_SIGNIN_ON_PHONE_TITLE" desc="Title of the QR Code bubble showing a code for the user to sign in on their phone.">
         Sign in to Chrome on your phone
+      </message>
+      <message name="IDS_QR_CODE_BUBBLE_SIGNIN_ON_PHONE_QR_CODE_ALT_TEXT" desc="Accessibility label for the QR code image in the cross-device sign-in promo bubble.">
+        QR code to sign in to Chrome as <ph name="USER_NAME">$1<ex>Elisa Beckett</ex></ph>
       </message>
 
       <!-- App list -->
@@ -2235,6 +2318,16 @@ Google Chrome is unable to recover your settings.
         </message>
       </if>
 
+      <!-- Lens Protected Page Error -->
+      <message name="IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE"
+          desc="Text shown on the side panel for the Lens feature when there is are no results being loaded due to the page being protected. The texts informs the user the panel can not be loaded.">
+        This page is protected
+      </message>
+      <message name="IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE"
+          desc="Text shown on the side panel for the Lens feature when there is are no results being loaded due to the page being protected. The text suggests the user try a different page since the current one can not be read.">
+        Protected pages can't be read. Try a different page.
+      </message>
+
       <if expr="not is_android">
         <!-- Lens Side Panel Error Page -->
         <message name="IDS_SIDE_PANEL_LENS_OVERLAY_GENERIC_ERROR_PAGE_FIRST_LINE"
@@ -2245,15 +2338,6 @@ Google Chrome is unable to recover your settings.
             desc="Text shown on the side panel for the Lens feature when there is a network or other server error. The texts informs the user the panel can not be loaded.">
           Couldn't load this panel, try again
         </message>
-        <message name="IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_FIRST_LINE"
-            desc="Text shown on the side panel for the Lens feature when there is are no results being loaded due to the page being protected. The texts informs the user the panel can not be loaded.">
-          This page is protected
-        </message>
-        <message name="IDS_SIDE_PANEL_LENS_OVERLAY_PROTECTED_PAGE_ERROR_SECOND_LINE"
-            desc="Text shown on the side panel for the Lens feature when there is are no results being loaded due to the page being protected. The text suggests the user try a different page since the current one can not be read.">
-          Protected pages can't be read. Try a different page.
-        </message>
-
         <!-- Lens Permission Bubble Dialog-->
         <message name="IDS_LENS_PERMISSION_BUBBLE_DIALOG_CANCEL_BUTTON"
           desc="Text on the cancel button in the dialog for choosing not to allow the sending of the Lens screenshot to Google.">
@@ -2573,6 +2657,10 @@ Google Chrome is unable to recover your settings.
         </message>
 
         <!-- First Run Experience -->
+        <message name="IDS_FRE_WELCOME_START_BUTTON_LABEL" desc="This string is found on a primary button that takes the user into the main browser experience. It is a verb-based call to action. (CHAR LIMIT = 20)">
+          Start Chrome
+        </message>
+
         <message name="IDS_FRE_SIGN_IN_TITLE_0" meaning="Title"
           desc="This string appears as a heading on a full-page screen that asks the user to sign in to Chrome with their Google Account. It appears when the user launches Chrome for the first time. When they sign in, they can personalize and customize Chrome and remember their settings in their Google Account. The tone should be inviting and alluring.">
           Sign in to Chrome
@@ -3099,6 +3187,10 @@ Google Chrome is unable to recover your settings.
       <message name="IDS_GLIC_STATUS_ICON_MENU_TOGGLE" desc="This is the menu item for toggling the Gemini UI.">
         Toggle Gemini in Chrome
       </message>
+      <!-- TODO(crbug.com/532187976): Make strings translateable once finalized. -->
+      <message name="IDS_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_TOGGLE" desc="Label for the toggle item in the Omnibox Everywhere status tray context menu." translateable="false">
+        Toggle Search in Chrome
+      </message>
       <message name ="IDS_GLIC_INELIGIBLE_PROFILE_NOTICE" desc="This is the text of the Gemini ineligible profile notice.">
         To use Gemini in Chrome, sign in with a different Google Account
       </message>
@@ -3226,13 +3318,13 @@ Google Chrome is unable to recover your settings.
         </if>
 
         <message name="IDS_DICTATION_ONBOARDING_TITLE" desc="The title string in the onboarding dialog for the dictation feature." translateable="false">
-          Turn your spoken thoughts into polished text with Gemini
+          Allow voice typing to use your microphone and page content to generate polished text?
         </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_MICROPHONE" desc="The first paragraph in the onboarding dialog describing how the microphone is used." translateable="false">
-          Gemini will use your microphone to capture your voice and fill in text fields with cleaned up content.
+          Your microphone will be used to capture your voice.
         </message>
         <message name="IDS_DICTATION_ONBOARDING_BULLET_DISCLAIMER" desc="The disclaimer text in the onboarding dialog describing the use of AI and potential for mistakes and providing a link for more details." translateable="false">
-          Gemini is AI and can make mistakes. <ph name="LEARN_MORE_LINK">$1<ex>Learn more</ex></ph>
+          Gemini models can make mistakes. <ph name="LEARN_MORE_LINK">$1<ex>Learn more</ex></ph>
         </message>
       </if>
 

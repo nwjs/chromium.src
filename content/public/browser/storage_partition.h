@@ -67,7 +67,6 @@ namespace content {
 class BackgroundSyncContext;
 class BrowserContext;
 class BrowsingDataFilterBuilder;
-class BrowsingTopicsSiteDataManager;
 class CdmStorageDataModel;
 class ContentIndexContext;
 class DedicatedWorkerService;
@@ -102,6 +101,10 @@ class CONTENT_EXPORT StoragePartition {
   // or restarts, the raw pointer will not be valid or safe to use. Therefore,
   // caller should not hold onto this pointer beyond the same message loop task.
   virtual network::mojom::NetworkContext* GetNetworkContext() = 0;
+
+  // Returns true if the NetworkContext for this partition has already been
+  // initialized.
+  virtual bool IsNetworkContextInitialized() = 0;
 
   virtual cert_verifier::mojom::CertVerifierServiceUpdater*
   GetCertVerifierServiceUpdater() = 0;
@@ -159,12 +162,14 @@ class CONTENT_EXPORT StoragePartition {
   virtual HostZoomLevelContext* GetHostZoomLevelContext() = 0;
   virtual ZoomLevelDelegate* GetZoomLevelDelegate() = 0;
   virtual PlatformNotificationContext* GetPlatformNotificationContext() = 0;
-  virtual BrowsingTopicsSiteDataManager* GetBrowsingTopicsSiteDataManager() = 0;
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   virtual CdmStorageDataModel* GetCdmStorageDataModel() = 0;
 #endif  // BUILDFLAG(ENABLE_LIBRARY_CDMS)
   virtual network::mojom::DeviceBoundSessionManager*
   GetDeviceBoundSessionManager() = 0;
+  virtual void OverrideDeviceBoundSessionManagerForTesting(
+      std::unique_ptr<network::mojom::DeviceBoundSessionManager>
+          device_bound_session_manager) = 0;
 
   // This clears stale session cookies/storage from the current profile. This
   // must only be called after session restore has completed to ensure active
@@ -367,7 +372,7 @@ class CONTENT_EXPORT StoragePartition {
   static void SetDefaultQuotaSettingsForTesting(
       const storage::QuotaSettings* settings);
 
-  virtual void OverrideDeleteStaleSessionOnlyCookiesDelayForTesting(
+  virtual void OverrideDeleteStaleSessionCleanupDelayForTesting(
       const base::TimeDelta& delay) = 0;
 
  protected:

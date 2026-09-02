@@ -32,6 +32,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/i18n/legacy_language_tag_helpers.h"
 #include "base/lazy_instance.h"
 #include "base/linux_util.h"
 #include "base/logging.h"
@@ -64,6 +65,8 @@
 #include "chrome/browser/ash/bluetooth/hats_bluetooth_revamp_trigger_impl.h"
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/identity_manager_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/template_url_service_provider_impl.h"
 #include "chrome/browser/ash/camera/camera_general_survey_handler.h"
 #include "chrome/browser/ash/certs/system_token_cert_db_initializer.h"
 #include "chrome/browser/ash/child_accounts/parent_access_code/parent_access_service.h"
@@ -88,7 +91,6 @@
 #include "chrome/browser/ash/dbus/screen_lock_service_provider.h"
 #include "chrome/browser/ash/dbus/smb_fs_service_provider.h"
 #include "chrome/browser/ash/dbus/virtual_file_request_service_provider.h"
-#include "chrome/browser/ash/dbus/vm/plugin_vm_service_provider.h"
 #include "chrome/browser/ash/dbus/vm/vm_applications_service_provider.h"
 #include "chrome/browser/ash/dbus/vm/vm_launch_service_provider.h"
 #include "chrome/browser/ash/dbus/vm/vm_management_service_provider.h"
@@ -110,6 +112,7 @@
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/login/helper.h"
 #include "chrome/browser/ash/login/lock/screen_locker.h"
+#include "chrome/browser/ash/login/lock/screen_locker_controller.h"
 #include "chrome/browser/ash/login/login_screen_extensions_storage_cleaner.h"
 #include "chrome/browser/ash/login/login_wizard.h"
 #include "chrome/browser/ash/login/osauth/chrome_auth_parts.h"
@@ -184,6 +187,7 @@
 #include "chrome/browser/tracing/chrome_tracing_delegate.h"
 #include "chrome/browser/ui/ash/assistant/assistant_browser_delegate_impl.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
+#include "chrome/browser/ui/ash/login/user_adding_screen.h"
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_ui.h"
 #include "chrome/common/chrome_constants.h"
@@ -394,14 +398,6 @@ class DBusServices {
         CrosDBusService::CreateServiceProviderList(
             std::make_unique<KioskInfoService>()));
 
-    plugin_vm_service_ = CrosDBusService::Create(
-        system_bus, chromeos::kPluginVmServiceName,
-        dbus::ObjectPath(chromeos::kPluginVmServicePath),
-        CrosDBusService::CreateServiceProviderList(
-            std::make_unique<PluginVmServiceProvider>(
-                g_browser_process->platform_part()
-                    ->browser_policy_connector_ash())));
-
     screen_lock_service_ = CrosDBusService::Create(
         system_bus, chromeos::kScreenLockServiceName,
         dbus::ObjectPath(chromeos::kScreenLockServicePath),
@@ -603,7 +599,6 @@ class DBusServices {
     arc_tracing_service_.reset();
     proxy_resolution_service_.reset();
     kiosk_info_service_.reset();
-    plugin_vm_service_.reset();
     printers_service_.reset();
     virtual_file_request_service_.reset();
     component_updater_service_.reset();
@@ -637,7 +632,6 @@ class DBusServices {
  private:
   std::unique_ptr<CrosDBusService> proxy_resolution_service_;
   std::unique_ptr<CrosDBusService> kiosk_info_service_;
-  std::unique_ptr<CrosDBusService> plugin_vm_service_;
   std::unique_ptr<CrosDBusService> printers_service_;
   std::unique_ptr<CrosDBusService> screen_lock_service_;
   std::unique_ptr<CrosDBusService> virtual_file_request_service_;
@@ -949,9 +943,14 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
       g_browser_process->local_state(),
       g_browser_process->GetFeatures()->application_locale_storage(),
       g_browser_process->shared_url_loader_factory(),
-      g_browser_process->platform_part()->browser_policy_connector_ash());
+      g_browser_process->platform_part()->browser_policy_connector_ash(),
+      g_browser_process->platform_part()->component_manager_ash());
 
+  // List of instances providing KeyedService related services.
   app_service_registry_ = std::make_unique<apps::AppServiceRegistry>();
+  identity_manager_provider_ = std::make_unique<IdentityManagerProviderImpl>();
+  template_url_service_provider_ =
+      std::make_unique<TemplateURLServiceProviderImpl>();
 
   token_handle_store_factory_ = std::make_unique<TokenHandleStoreFactory>(
       g_browser_process->local_state());
@@ -975,7 +974,14 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   // Enable per-user metrics support as soon as user_manager is created.
   g_browser_process->metrics_service()->InitPerUserMetrics();
 
-  ScreenLocker::InitClass();
+  screen_locker_controller_ = std::make_unique<ScreenLockerController>(
+      g_browser_process->local_state(),
+      g_browser_process->GetFeatures()->application_locale_storage(),
+      g_browser_process->shared_url_loader_factory(),
+      g_browser_process->platform_part()->browser_policy_connector_ash(),
+      SessionManagerClient::Get(), session_termination_manager_.get(),
+      session_manager::SessionManager::Get(), user_manager::UserManager::Get(),
+      UserAddingScreen::Get());
 
   // This forces the ProfileManager to be created and register for the
   // notification it needs to track the logged in user.
@@ -1128,8 +1134,9 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   // CoralController depends on machine_learning::ServiceConnection, so needs to
   // be initialized after it.
   if (features::IsCoralFeatureEnabled()) {
-    Shell::Get()->coral_controller()->Initialize(std::string(
-        l10n_util::GetLanguage(g_browser_process->GetApplicationLocale())));
+    Shell::Get()->coral_controller()->Initialize(
+        base::i18n::GetLanguageSubtagUsingLanguageTag(
+            g_browser_process->GetApplicationLocale()));
   }
 
   metrics::structured::ChromeStructuredMetricsDelegate::Get()->Initialize();
@@ -1682,9 +1689,7 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   renderer_freezer_.reset();
   fast_transition_observer_.reset();
   network_throttling_observer_.reset();
-  if (pre_profile_init_called_) {
-    ScreenLocker::ShutDownClass();
-  }
+  screen_locker_controller_.reset();
   low_disk_notification_.reset();
   smart_charging_manager_.reset();
   adaptive_screen_brightness_manager_.reset();
@@ -1861,6 +1866,8 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
 
   bluetooth_log_controller_.reset();
 
+  template_url_service_provider_.reset();
+  identity_manager_provider_.reset();
   app_service_registry_.reset();
   user_session_manager_.reset();
 

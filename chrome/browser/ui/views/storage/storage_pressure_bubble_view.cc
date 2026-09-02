@@ -4,9 +4,7 @@
 
 #include "chrome/browser/ui/views/storage/storage_pressure_bubble_view.h"
 
-#include "base/auto_reset.h"
 #include "base/feature_list.h"
-#include "base/metrics/histogram_functions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
@@ -27,19 +25,6 @@ namespace {
 
 const char kAllSitesContentSettingsUrl[] =
     "chrome://settings/content/all?sort=data-stored";
-
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
-enum class StoragePressureBubbleHistogramValue {
-  kShown = 0,
-  kIgnored = 1,
-  kOpenedAllSites = 2,
-  kMaxValue = kOpenedAllSites,
-};
-
-void RecordBubbleHistogramValue(StoragePressureBubbleHistogramValue value) {
-  base::UmaHistogramEnumeration("Storage.StoragePressure.Bubble", value);
-}
 
 }  // namespace
 
@@ -63,8 +48,6 @@ void StoragePressureBubbleView::ShowBubble(const url::Origin& origin) {
   StoragePressureBubbleView* bubble =
       new StoragePressureBubbleView(anchor, bwi, origin);
   views::BubbleDialogDelegateView::CreateBubble(bubble)->Show();
-
-  RecordBubbleHistogramValue(StoragePressureBubbleHistogramValue::kShown);
 }
 
 StoragePressureBubbleView::StoragePressureBubbleView(
@@ -73,8 +56,7 @@ StoragePressureBubbleView::StoragePressureBubbleView(
     const url::Origin& origin)
     : BubbleDialogDelegateView(anchor, views::BubbleBorder::TOP_RIGHT),
       bwi_(bwi),
-      origin_(origin),
-      ignored_(true) {
+      origin_(origin) {
   SetButtons(static_cast<int>(ui::mojom::DialogButton::kOk));
   SetTitle(IDS_SETTINGS_STORAGE_PRESSURE_BUBBLE_VIEW_TITLE);
   SetButtonLabel(ui::mojom::DialogButton::kOk,
@@ -85,28 +67,9 @@ StoragePressureBubbleView::StoragePressureBubbleView(
   set_close_on_deactivate(false);
 }
 
-StoragePressureBubbleView::~StoragePressureBubbleView() {
-  CHECK(!in_accept_);
-  if (ignored_) {
-    RecordBubbleHistogramValue(StoragePressureBubbleHistogramValue::kIgnored);
-  }
-}
+StoragePressureBubbleView::~StoragePressureBubbleView() = default;
 
 void StoragePressureBubbleView::OnDialogAccepted() {
-  base::AutoReset reset_in_accept(&in_accept_, true);
-  auto weak_this = weak_ptr_factory_.GetWeakPtr();
-
-  ignored_ = false;
-  RecordBubbleHistogramValue(
-      StoragePressureBubbleHistogramValue::kOpenedAllSites);
-  // TODO(ellyjones): What is this doing here? The widget's about to close
-  // anyway?
-  GetWidget()->Close();
-
-  CHECK(weak_this);
-  CHECK(bwi_);
-  CHECK(bwi_->GetProfile());
-
   const GURL all_sites_gurl(kAllSitesContentSettingsUrl);
   NavigateParams params(bwi_->GetBrowserForMigrationOnly(), all_sites_gurl,
                         ui::PAGE_TRANSITION_AUTO_TOPLEVEL);

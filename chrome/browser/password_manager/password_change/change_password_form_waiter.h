@@ -24,6 +24,15 @@ namespace content {
 class WebContents;
 }
 
+// Returns whether the field with `renderer_id` in `form_data` is focusable.
+bool FieldFocusable(autofill::FieldRendererId renderer_id,
+                    const autofill::FormData& form_data);
+
+// Returns whether the field with `renderer_id` in `form_data` is enabled and
+// not readonly.
+bool FieldEnabled(autofill::FieldRendererId renderer_id,
+                  const autofill::FormData& form_data);
+
 // Helper object which waits for change password parsing, invokes callback on
 // completion. If form isn't found withing
 // `kChangePasswordFormWaitingTimeout` after WebContents finished loading
@@ -35,6 +44,10 @@ class ChangePasswordFormWaiter
   // Timeout for change password form await time after the page is loaded.
   static constexpr base::TimeDelta kChangePasswordFormWaitingTimeout =
       base::Seconds(3);
+
+  // Timeout for local ML model availability before falling back to Init().
+  static constexpr base::TimeDelta kLocalMLModelDownloadTimeout =
+      base::Seconds(10);
 
   using PasswordFormFoundCallback =
       base::OnceCallback<void(password_manager::PasswordFormManager*)>;
@@ -69,6 +82,9 @@ class ChangePasswordFormWaiter
 
   void Init();
 
+  // Rechecks all forms in the cache periodically with exponential backoff.
+  void RecheckForms();
+
   // Delays invoking Init() until the model is fully downloaded. Model has a
   // superior performance in classifying change password forms compared to
   // existing password manager capabilities.
@@ -83,6 +99,7 @@ class ChangePasswordFormWaiter
   void DidStopLoading() override;
 
   void OnTimeout();
+  void OnLocalMLModelDownloadTimeout();
 
   static password_manager::PasswordFormManager* GetCorrespondingFormManager(
       base::WeakPtr<ChangePasswordFormWaiter> waiter,
@@ -98,6 +115,7 @@ class ChangePasswordFormWaiter
   const raw_ptr<password_manager::PasswordManagerClient> client_ = nullptr;
   PasswordFormFoundCallback callback_;
 
+  base::TimeDelta forms_recheck_delay_ = base::Seconds(1);
   base::TimeDelta timeout_ = base::TimeDelta::Max();
   base::OneShotTimer timeout_timer_;
   base::OnceClosure timeout_callback_;

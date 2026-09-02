@@ -233,145 +233,6 @@ BASE_FEATURE(kBoostRenderBlockingStyleLoadingTaskPriority,
 BASE_FEATURE(kBoostNonRenderBlockingStyleLoadingTaskPriority,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// If enabled, the check for whether the IP address is publicly routable will be
-// bypassed when determining the eligibility for a page to be included in topics
-// calculation. This is useful for developers to test in local environment.
-BASE_FEATURE(kBrowsingTopicsBypassIPIsPubliclyRoutableCheck,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables calling the Topics API through Javascript (i.e.
-// document.browsingTopics()). For this feature to take effect, the main Topics
-// feature has to be enabled first (i.e. `kBrowsingTopics` is enabled, and,
-// either a valid Origin Trial token exists or `kPrivacySandboxAdsAPIsOverride`
-// is enabled.)
-BASE_FEATURE(kBrowsingTopicsDocumentAPI, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Decoupled with the main `kBrowsingTopics` feature, so it allows us to
-// decouple the server side configs.
-BASE_FEATURE(kBrowsingTopicsParameters, base::FEATURE_ENABLED_BY_DEFAULT);
-// The periodic topics calculation interval.
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kBrowsingTopicsTimePeriodPerEpoch,
-                   &kBrowsingTopicsParameters,
-                   "time_period_per_epoch",
-                   base::Days(7));
-// The number of epochs from where to calculate the topics to give to a
-// requesting contexts.
-BASE_FEATURE_PARAM(int,
-                   kBrowsingTopicsNumberOfEpochsToExpose,
-                   &kBrowsingTopicsParameters,
-                   "number_of_epochs_to_expose",
-                   3);
-// The number of top topics to derive and to keep for each epoch (week).
-BASE_FEATURE_PARAM(int,
-                   kBrowsingTopicsNumberOfTopTopicsPerEpoch,
-                   &kBrowsingTopicsParameters,
-                   "number_of_top_topics_per_epoch",
-                   5);
-// The probability (in percent number) to return the random topic to a site. The
-// "random topic" is per-site, and is selected from the full taxonomy uniformly
-// at random, and each site has a
-// `kBrowsingTopicsUseRandomTopicProbabilityPercent`% chance to see their random
-// topic instead of one of the top topics.
-BASE_FEATURE_PARAM(int,
-                   kBrowsingTopicsUseRandomTopicProbabilityPercent,
-                   &kBrowsingTopicsParameters,
-                   "use_random_topic_probability_percent",
-                   5);
-// Maximum delay between the calculation of the latest epoch and when a site
-// starts seeing that epoch's topics. Each site transitions to the latest epoch
-// at a per-site, per-epoch random time within
-// [calculation time, calculation time + max delay).
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kBrowsingTopicsMaxEpochIntroductionDelay,
-                   &kBrowsingTopicsParameters,
-                   "max_epoch_introduction_delay",
-                   base::Days(2));
-// The duration an epoch is retained before deletion.
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kBrowsingTopicsEpochRetentionDuration,
-                   &kBrowsingTopicsParameters,
-                   "epoch_retention_duration",
-                   base::Days(28));
-// Maximum time offset between when a site stops seeing an epoch's topics and
-// when the epoch is actually deleted. Each site transitions away from the
-// epoch at a per-site, per-epoch random time within
-// [deletion time - max offset, deletion time].
-//
-// Note: The actual phase-out time can be influenced by the
-// 'kBrowsingTopicsNumberOfEpochsToExpose' setting. If this setting enforces a
-// more restrictive phase-out, that will take precedence.
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kBrowsingTopicsMaxEpochPhaseOutTimeOffset,
-                   &kBrowsingTopicsParameters,
-                   "max_epoch_phase_out_time_offset",
-                   base::Days(2));
-// How many epochs (weeks) of API usage data (i.e. topics observations) will be
-// based off for the filtering of topics for a calling context.
-BASE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsNumberOfEpochsOfObservationDataToUseForFiltering,
-    &kBrowsingTopicsParameters,
-    "number_of_epochs_of_observation_data_to_use_for_filtering",
-    3);
-// The max number of observed-by context domains to keep for each top topic
-// during the epoch topics calculation. The final number of domains associated
-// with each topic may be larger than this threshold, because that set of
-// domains will also include all domains associated with the topic's descendant
-// topics. The intent is to cap the in-use memory.
-BASE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsMaxNumberOfApiUsageContextDomainsToKeepPerTopic,
-    &kBrowsingTopicsParameters,
-    "max_number_of_api_usage_context_domains_to_keep_per_topic",
-    1000);
-// The max number of entries allowed to be retrieved from the
-// `BrowsingTopicsSiteDataStorage` database for each query for the API usage
-// contexts. The query will occur once per epoch (week) at topics calculation
-// time. The intent is to cap the peak memory usage.
-BASE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsMaxNumberOfApiUsageContextEntriesToLoadPerEpoch,
-    &kBrowsingTopicsParameters,
-    "max_number_of_api_usage_context_entries_to_load_per_epoch",
-    100000);
-// The max number of API usage context domains allowed to be stored per page
-// load.
-BASE_FEATURE_PARAM(
-    int,
-    kBrowsingTopicsMaxNumberOfApiUsageContextDomainsToStorePerPageLoad,
-    &kBrowsingTopicsParameters,
-    "max_number_of_api_usage_context_domains_to_store_per_page_load",
-    30);
-// The taxonomy version. This only affects the topics classification that occurs
-// during this browser session, and doesn't affect the pre-existing epochs.
-BASE_FEATURE_PARAM(int,
-                   kBrowsingTopicsTaxonomyVersion,
-                   &kBrowsingTopicsParameters,
-                   "taxonomy_version",
-                   kBrowsingTopicsTaxonomyVersionDefault);
-// Comma separated Topic IDs to be blocked. Descendant topics of each blocked
-// topic will be blocked as well.
-BASE_FEATURE_PARAM(std::string,
-                   kBrowsingTopicsDisabledTopicsList,
-                   &kBrowsingTopicsParameters,
-                   "disabled_topics_list",
-                   "");
-// Comma separated list of Topic IDs. Prioritize these topics and their
-// descendants during top topic selection.
-BASE_FEATURE_PARAM(std::string,
-                   kBrowsingTopicsPrioritizedTopicsList,
-                   &kBrowsingTopicsParameters,
-                   "prioritized_topics_list",
-                   "57,86,126,149,172,180,196,207,239,254,263,272,289,299,332");
-// When a topics calculation times out for the first time, the duration to wait
-// before starting a new one.
-BASE_FEATURE_PARAM(base::TimeDelta,
-                   kBrowsingTopicsFirstTimeoutRetryDelay,
-                   &kBrowsingTopicsParameters,
-                   "first_timeout_retry_delay",
-                   base::Minutes(1));
-
 // When enabled allows the header name used in the blink
 // CacheStorageCodeCacheHint runtime feature to be modified.  This runtime
 // feature disables generating full code cache for responses stored in
@@ -699,7 +560,7 @@ BASE_FEATURE(kDevToolsImprovedNetworkError, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDevToolsWebMCPSupport, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kDevToolsAdsPanel, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kDevToolsAdsPanel, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDirectCompositorThreadIpc,
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
@@ -715,11 +576,6 @@ BASE_FEATURE(kDisableArrayBufferSizeLimitsForTesting,
 
 BASE_FEATURE(kDiscardInputEventsToRecentlyMovedFrames,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Drop input events at the browser process until the process receives the first
-// signal that the renderer has sent a frame to cc (https://crbug.com/40057499).
-BASE_FEATURE(kDropInputEventsWhilePaintHolding,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Extends console.timestamp to support adding deep-links into the DevTools
 // Performance Panel, which (when clicked) call into a DevTools extension.
@@ -821,9 +677,6 @@ BASE_FEATURE(kFetchDestinationJsonCssModules,
              "kFetchDestinationJsonCssModules",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// File handling icons. https://crbug.com/1218213
-BASE_FEATURE(kFileHandlingIcons, base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kFileSystemUrlNavigation, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFilteringScrollPrediction,
@@ -882,7 +735,7 @@ BASE_FEATURE_PARAM(int,
 
 BASE_FEATURE(kFrameMetadataObserver, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kFreezeSharedWorker, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kFreezeSharedWorker, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the frequency capping for detecting large sticky ads.
 // Large-sticky-ads are those ads that stick to the bottom of the page
@@ -1945,7 +1798,7 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 // non-immediate candidates on the renderer side (see the declaration in
 // features.h for details).
 BASE_FEATURE(kSpeculationRulesRendererSideHeuristics,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kPreloadingHeuristicsMLModel, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(int,
@@ -1988,6 +1841,11 @@ BASE_FEATURE(kPreloadingModerateViewportHeuristics,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
+BASE_FEATURE_PARAM(bool,
+                   kPreloadingModerateViewportHeuristicsEnactCandidates,
+                   &kPreloadingModerateViewportHeuristics,
+                   "enact_candidates",
+                   BUILDFLAG(IS_ANDROID));
 
 BASE_FEATURE(kPreloadingEligibilityCheckOnRenderer,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2038,9 +1896,6 @@ BASE_FEATURE_PARAM(bool,
 BASE_FEATURE(kForceProduceCompileHints, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kLocalCompileHints, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kQuoteEmptySecChUaStringHeadersConsistently,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Reduce the amount of information in the default 'referer' header for
 // cross-origin requests.
@@ -2125,6 +1980,8 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE(kRustyBmpFeature, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kRustyIcoFeature, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUnrestrictSpellingAndGrammarForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2422,6 +2279,12 @@ BASE_FEATURE_PARAM(int,
                    "large_frame_size_percent_threshold",
                    75);
 
+// Enables throttling of the active (visible) page's throttleable task queues
+// (JS timers) to 1 Hz while it contains an effectively-fullscreen video, to
+// reduce CPU/power usage during fullscreen video playback.
+BASE_FEATURE(kThrottleFullscreenVideoActiveTab,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Changes behavior of User-Agent Client Hints to send blank headers when the
 // User-Agent string is overridden, instead of disabling the headers altogether.
 BASE_FEATURE(kUACHOverrideBlank, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2434,8 +2297,8 @@ BASE_FEATURE(kEmulateLoadStartedForInspectorOncePerResource,
              "kEmulateLoadStartedForInspectorOncePerResource",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Whether force-showing popovers is enabled.
-BASE_FEATURE(kDevToolsAllowPopoverForcing, base::FEATURE_ENABLED_BY_DEFAULT);
+// Whether force-showing interest is enabled.
+BASE_FEATURE(kDevToolsAllowInterestForcing, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable the 'unframed' display override for IWAs. go/unframed-explainer-doc.
 BASE_FEATURE(kUnframedIwa, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2510,6 +2373,8 @@ BASE_FEATURE(kVisualRectMappingApplyLocalVisualViewportTransform,
 
 BASE_FEATURE(kWebBluetoothCancelConnect,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebUIBypassMojoConnections, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRtcUseCaptureBeginTimestamp, base::FEATURE_ENABLED_BY_DEFAULT);
 

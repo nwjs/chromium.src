@@ -106,4 +106,18 @@ public interface HubColorMixer {
 
     /** Gets the observer for overview mode alpha changes. */
     OverviewModeAlphaObserver getOverviewModeAlphaObserver();
+
+    /** Data object representing an active color scheme blend transition. */
+    class ColorBlendProgress {
+        public final @HubColorScheme int startScheme;
+        public final @HubColorScheme int endScheme;
+        public final float fraction;
+
+        public ColorBlendProgress(
+                @HubColorScheme int startScheme, @HubColorScheme int endScheme, float fraction) {
+            this.startScheme = startScheme;
+            this.endScheme = endScheme;
+            this.fraction = fraction;
+        }
+    }
 }

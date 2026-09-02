@@ -6,7 +6,9 @@
 #define CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_UI_SERVICE_H_
 
 #include <map>
-#include <set>
+#include <memory>
+#include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -17,13 +19,10 @@
 #include "base/observer_list.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_types.h"
-#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_delegate.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
-#include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/keyed_service/core/keyed_service.h"
+#include "components/lens/lens_overlay_invocation_source.h"
 #include "content/public/browser/page_navigator.h"
 #include "net/base/backoff_entry.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
@@ -42,25 +41,30 @@ class Uuid;
 }  // namespace base
 
 namespace content {
-struct OpenURLParams;
-class WebContents;
 class RenderFrameHost;
+class WebContents;
 struct GlobalRenderFrameHostToken;
+struct OpenURLParams;
 }  // namespace content
+
+namespace contextual_search {
+class ContextualSearchSessionHandle;
+enum class ContextualSearchSource;
+}  // namespace contextual_search
+
+namespace lens {
+class LensMediaLinkHandler;
+}  // namespace lens
 
 namespace signin {
 class AccessTokenFetcher;
-struct AccessTokenInfo;
 class IdentityManager;
+struct AccessTokenInfo;
 }  // namespace signin
 
 namespace tabs {
 class TabInterface;
 }  // namespace tabs
-
-namespace lens {
-class LensMediaLinkHandler;
-}  // namespace lens
 
 namespace contextual_tasks {
 
@@ -68,8 +72,10 @@ inline constexpr char kTaskQueryParam[] = "chrome_task_id";
 inline constexpr char kChromeHostParam[] = "chrome_host";
 
 class ContextualTasksCookieSynchronizer;
+class ContextualTasksEligibilityManager;
 class ContextualTasksService;
 class ContextualTasksUIInterface;
+class ContextualTasksUiServiceDelegate;
 class ContextualTasksWindowTracker;
 class ContextualTasksWindowTrackerManager;
 
@@ -79,6 +85,7 @@ struct StartTaskUiOptions {
       omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT;
   bool use_mstk_for_task_association = false;
   bool use_no_animation = false;
+  std::optional<base::TimeTicks> open_time_ticks = std::nullopt;
 };
 
 // A service used to coordinate all of the side panel instances showing an AI
@@ -247,16 +254,6 @@ class ContextualTasksUiService : public KeyedService {
                              const std::optional<base::Uuid>& new_task_id,
                              bool is_shown_in_tab);
 
-  // Called when the WebUI is ready.
-  virtual void OnWebUIReady(BrowserWindowInterface* browser_window_interface,
-                            const base::Uuid& task_id,
-                            content::WebContents* web_contents);
-
-  // Called when the WebUI controller is destroyed.
-  virtual void OnWebUIDestroyed(
-      BrowserWindowInterface* browser_window_interface,
-      const std::optional<base::Uuid>& task_id);
-
   // Turns on smart tab sharing in the specified browser window's active WebUI.
   virtual void TurnOnSmartTabSharing(BrowserWindowInterface* browser);
 
@@ -293,6 +290,11 @@ class ContextualTasksUiService : public KeyedService {
 
   // Returns whether the provided URL is to an AI page.
   virtual bool IsAiUrl(const GURL& url);
+
+  // Returns whether the contextual tasks side panel is open and the given
+  // WebContents is inside the side panel.
+  virtual bool IsSidePanelOpenAndRequestInSidePanel(
+      content::WebContents* web_contents);
 
   // Returns whether the provided task ID is for a task that should show the
   // error page on load.
@@ -426,6 +428,13 @@ class ContextualTasksUiService : public KeyedService {
       std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
           session_handle);
 
+  // Applies required side panel URL modifications (e.g. forced host override,
+  // gsc=2, hl, cs, theme, country overrides) to the given URL for side panel
+  // load.
+  static GURL AddRequiredSidePanelUrlChanges(
+      const GURL& url,
+      content::WebContents* source_contents);
+
  protected:
   virtual void StartTaskUiInSidePanelImpl(
       BrowserWindowInterface* browser_window_interface,
@@ -449,6 +458,42 @@ class ContextualTasksUiService : public KeyedService {
       const std::optional<content::GlobalRenderFrameHostToken>&
           initiator_frame_token,
       const blink::mojom::WindowFeatures& window_features);
+
+  // Post-rearchitecture navigation handler called when
+  // kContextualTasksRearchitecture is enabled.
+  virtual bool HandleNavigationImplPostRearchitecture(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents,
+      tabs::TabInterface* tab,
+      bool is_from_embedded_page,
+      bool from_can_create_window,
+      bool is_same_site_or_from_ui,
+      bool is_mobile_ua,
+      const std::optional<url::Origin>& initiator_origin,
+      const std::optional<content::GlobalRenderFrameHostToken>&
+          initiator_frame_token,
+      const blink::mojom::WindowFeatures& window_features);
+
+  // Determines if a navigation in the side panel requires URL modifications
+  // (e.g. forced host override, gsc=2, hl, cs) to be applied.
+  // Only applies when source_contents is explicitly the side panel WebContents.
+  virtual bool ShouldAddRequiredSidePanelUrlChanges(
+      const content::OpenURLParams& url_params,
+      content::WebContents* source_contents);
+
+  // Handles side panel navigation by applying required side panel URL
+  // modifications (forced host override, gsc=2, hl, cs, theme, country
+  // overrides) and reloading the URL in the side panel WebContents. Returns
+  // true if the navigation was handled.
+  virtual bool AddRequiredSidePanelUrlChanges(
+      content::OpenURLParams url_params,
+      content::WebContents* source_contents);
+
+  // Helper to build the common search parameters map for Contextual Tasks,
+  // matching what was previously provided to app.ts via GetCommonSearchParams.
+  static std::map<std::string, std::string>
+  GetCommonSearchParamsMapForContextualTasks(
+      content::WebContents* source_contents);
 
   // Used primarily for debugging - loads a URL in the specified WebContents.
   virtual void LoadUrlInWebContents(

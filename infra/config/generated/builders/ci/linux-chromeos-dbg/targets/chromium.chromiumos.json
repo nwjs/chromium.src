@@ -271,6 +271,9 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
       },
       {
+        "args": [
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -805,6 +808,9 @@
         "test_id_prefix": "ninja://components/gwp_asan:gwp_asan_unittests/"
       },
       {
+        "args": [
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },
@@ -975,6 +981,40 @@
         },
         "test": "midi_unittests",
         "test_id_prefix": "ninja://media/midi:midi_unittests/"
+      },
+      {
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//chromeos/ash/components/mojo_proxy/mojo_core:mojo_legacy_unittests",
+        "module_scheme": "gtest",
+        "name": "mojo_legacy_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "mojo_legacy_unittests",
+        "test_id_prefix": "ninja://chromeos/ash/components/mojo_proxy/mojo_core:mojo_legacy_unittests/"
+      },
+      {
+        "merge": {
+          "script": "//testing/merge_scripts/standard_gtest_merge.py"
+        },
+        "module_name": "//chromeos/ash/components/mojo_proxy/service:mojo_proxy_unittests",
+        "module_scheme": "gtest",
+        "name": "mojo_proxy_unittests",
+        "swarming": {
+          "dimensions": {
+            "cpu": "x86-64",
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "mojo_proxy_unittests",
+        "test_id_prefix": "ninja://chromeos/ash/components/mojo_proxy/service:mojo_proxy_unittests/"
       },
       {
         "merge": {
@@ -1304,6 +1344,9 @@
         "test_id_prefix": "ninja://storage:storage_unittests/"
       },
       {
+        "args": [
+          "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup"
+        ],
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
         },

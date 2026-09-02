@@ -10,7 +10,6 @@
 #include "base/observer_list.h"
 #include "base/observer_list_types.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/personal_context/first_run/personal_context_first_run_types.h"
 
 namespace personal_context {
 
@@ -30,12 +29,18 @@ class PersonalContextFirstRunService : public KeyedService {
   // TODO(b:517579158): Wire the notice UIs into this function.
   virtual bool ShouldShowPersonalContextAmbientAutofillNotice() const = 0;
 
+  // Records an impression for the Ambient Autofill notice.
+  virtual void RecordAmbientAutofillNoticeImpression(uint32_t session_id) = 0;
+
   // Called when the user has acknowledged the Personal Context notice in
   // At Memory.
   virtual void MarkPersonalContextInAtMemoryNoticeAsAcknowledged() = 0;
 
   // Returns true if the Personal Context notice should be shown in At Memory.
   virtual bool ShouldShowPersonalContextAtMemoryNotice() const = 0;
+
+  // Records an impression for the AtMemory notice.
+  virtual void RecordAtMemoryNoticeImpression(uint32_t session_id) = 0;
 };
 
 }  // namespace personal_context

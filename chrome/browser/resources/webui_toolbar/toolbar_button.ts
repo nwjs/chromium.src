@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {MenuSourceType} from '//resources/mojo/ui/base/mojom/menu_source_type.mojom-webui.js';
@@ -357,6 +358,9 @@ export function getClickSourceType(e: Event): MenuSourceType {
   // KeyboardEvent. Need to check e.detail instead, which is 0 for
   // KeyboardEvent. Note: Keyboard activations on `<cr-icon-button>` (Space or
   // Enter) programmatically synthesize standard `click` events with `detail` 0.
+  // TODO(crbug.com/543376027): Handle pointer events correctly. Physical
+  // pointer events can have detail === 0, which incorrectly classifies them as
+  // keyboard events.
   if (e instanceof MouseEvent && e.detail === 0) {
     return MenuSourceType.kKeyboard;
   }
@@ -410,4 +414,21 @@ export function getEventDispositionFlags(
 
 export function roundedIconsEnabled() {
   return loadTimeData.getBoolean('roundedIconsEnabled');
+}
+
+/**
+ * Triggers programmatic SMIL animations within the shadow root of a cr-icon
+ * that is nested inside the given button. Filtering by begin="indefinite"
+ * ensures that sequentially chained or auto-running timed animations are not
+ * inadvertently force-started simultaneously.
+ */
+export function playIconAnimation(button: CrLitElement) {
+  const crIcon = button.shadowRoot.querySelector('cr-icon');
+  assert(crIcon);
+  const animates = crIcon.shadowRoot.querySelectorAll<
+      SVGAnimateElement|SVGAnimateTransformElement|SVGAnimateMotionElement>(
+      'animate[begin="indefinite"], ' +
+      'animateTransform[begin="indefinite"], ' +
+      'animateMotion[begin="indefinite"]');
+  animates.forEach(animate => animate.beginElement());
 }

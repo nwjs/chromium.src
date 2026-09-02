@@ -9,6 +9,7 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decision.h"
@@ -66,9 +67,7 @@ SkillsUpdateObserver* SkillsUpdateObserver::From(tabs::TabInterface* tab) {
 
 void SkillsUpdateObserver::DidFinishNavigation(
     content::NavigationHandle* navigation_handle) {
-  Profile* profile =
-      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
-  if (!skills::IsSkillsEnabled(profile->GetPrefs())) {
+  if (!base::FeatureList::IsEnabled(features::kSkillsEnabled)) {
     return;
   }
 
@@ -106,6 +105,11 @@ void SkillsUpdateObserver::OnOptimizationGuideDecision(
 }
 
 void SkillsUpdateObserver::MaybeUpdateContextualSkills() {
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
+  if (!skills::SkillsServiceFactory::IsSkillsEnabledForProfile(profile)) {
+    return;
+  }
   glic::GlicKeyedService* glic_keyed_service = glic::GlicKeyedService::Get(
       Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext()));
   if (!glic_keyed_service) {
@@ -119,6 +123,11 @@ void SkillsUpdateObserver::MaybeUpdateContextualSkills() {
 
 std::vector<glic::mojom::SkillPreviewPtr>
 SkillsUpdateObserver::GetContextualSkillPreviews() const {
+  Profile* profile =
+      Profile::FromBrowserContext(tab_->GetContents()->GetBrowserContext());
+  if (!skills::SkillsServiceFactory::IsSkillsEnabledForProfile(profile)) {
+    return {};
+  }
   return ConvertSkillsListToSkillPreviews(contextual_skills_.get());
 }
 

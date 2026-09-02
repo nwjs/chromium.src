@@ -4,13 +4,15 @@
 
 #include "third_party/blink/renderer/core/html/media/media_source_attachment.h"
 
+#include "base/check.h"
 #include "third_party/blink/renderer/core/html/media/media_source_registry.h"
+#include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/wtf.h"
 
 namespace blink {
 
 // static
-URLRegistry* MediaSourceAttachment::registry_ = nullptr;
+MediaSourceRegistry* MediaSourceAttachment::registry_ = nullptr;
 
 // static
 void MediaSourceAttachment::SetRegistry(MediaSourceRegistry* registry) {
@@ -28,11 +30,12 @@ scoped_refptr<MediaSourceAttachment> MediaSourceAttachment::LookupMediaSource(
   if (!registry_ || url.empty())
     return nullptr;
 
-  // This cast is safe because the only setter of |registry_| is SetRegistry().
-  MediaSourceRegistry* ms_registry =
-      static_cast<MediaSourceRegistry*>(registry_);
+  return registry_->LookupMediaSource(url);
+}
 
-  return ms_registry->LookupMediaSource(url);
+MediaSourceRegistry& MediaSourceAttachment::Registry() const {
+  CHECK(registry_);
+  return *registry_;
 }
 
 MediaSourceAttachment::MediaSourceAttachment() = default;

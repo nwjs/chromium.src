@@ -89,6 +89,7 @@ ResourceResponse::ResourceResponse()
       was_fetched_via_spdy_(false),
       was_fetched_via_service_worker_(false),
       from_synthetic_response_(false),
+      intercepted_by_plugin_(false),
       did_service_worker_navigation_preload_(false),
       did_use_shared_dictionary_(false),
       async_revalidation_requested_(false),
@@ -160,10 +161,13 @@ KURL ResourceResponse::ResponseUrl() const {
   return CurrentRequestUrl();
 }
 
+bool ResourceResponse::HasMatchingServiceWorkerUrl() const {
+  return !url_list_via_service_worker_.empty() &&
+         url_list_via_service_worker_.back() == current_request_url_;
+}
+
 bool ResourceResponse::IsServiceWorkerPassThrough() const {
-  return cache_storage_cache_name_.empty() &&
-         !url_list_via_service_worker_.empty() &&
-         ResponseUrl() == CurrentRequestUrl();
+  return cache_storage_cache_name_.empty() && HasMatchingServiceWorkerUrl();
 }
 
 const AtomicString& ResourceResponse::MimeType() const {

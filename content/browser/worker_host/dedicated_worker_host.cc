@@ -10,6 +10,7 @@
 #include <utility>
 #include <variant>
 
+#include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/safety_checks.h"
@@ -28,6 +29,7 @@
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/local_network_access_util.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
+#include "content/browser/security/cpsp/child_process_security_policy_impl.h"
 #include "content/browser/service_worker/service_worker_client.h"
 #include "content/browser/service_worker/service_worker_context_core.h"
 #include "content/browser/service_worker/service_worker_main_resource_handle.h"
@@ -39,6 +41,7 @@
 #include "content/browser/worker_host/dedicated_worker_hosts_for_document.h"
 #include "content/browser/worker_host/dedicated_worker_service_impl.h"
 #include "content/browser/worker_host/worker_script_fetcher.h"
+#include "content/browser/worker_host/worker_util.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/network_service_util.h"
@@ -48,6 +51,7 @@
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/common/child_process_id_util.h"
 #include "content/public/common/content_client.h"
+#include "content/public/common/content_switches.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "net/base/isolation_info.h"
@@ -64,6 +68,7 @@
 #include "third_party/blink/public/common/service_worker/service_worker_scope_match.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
+#include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/back_forward_cache_not_restored_reasons.mojom.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/loader/fetch_client_settings_object.mojom.h"
@@ -360,7 +365,13 @@ void DedicatedWorkerHost::StartScriptLoad(
   // initiator origin to keep consistency with WorkerScriptFetcher, but probably
   // this should be calculated based on the worker origin as the factories be
   // used for subresource loading on the worker.
-  file_url_support_ = creator_origin_.scheme() == url::kFileScheme;
+  std::optional<blink::web_pref::WebPreferences> web_preferences;
+  if (creator_render_frame_host) {
+    web_preferences = creator_render_frame_host->GetOrCreateWebPreferences();
+  }
+  file_url_support_ = DoesCreatorAllowFileUrlSupport(
+      creator_origin_, web_preferences ? &*web_preferences : nullptr,
+      creator_worker ? creator_worker->file_url_support() : false);
 
   // For blob URL workers, inherit the controller from the worker's parent.
   // See https://w3c.github.io/ServiceWorker/#control-and-use-worker-client
@@ -409,7 +420,7 @@ void DedicatedWorkerHost::StartScriptLoad(
       nearest_ancestor_render_frame_host->GetIsolationInfoForSubresources(),
       std::move(client_security_state), credentials_mode,
       std::move(outside_fetch_client_settings_object),
-      network::mojom::RequestDestination::kWorker,
+      network::mojom::RequestDestination::kWorker, file_url_support_,
       storage_partition_impl->GetServiceWorkerContext(),
       service_worker_handle_.get(), std::move(blob_url_loader_factory), nullptr,
       storage_partition_impl, partition_domain,
@@ -444,8 +455,25 @@ void DedicatedWorkerHost::DidStartScriptLoad(
     return;
   }
 
-  // TODO(crbug.com/41471904): Check if the main script's final response
-  // URL is committable.
+  // The final response URL is derived from data that may have been supplied by
+  // a renderer (e.g., via the URL list of a service worker provided response),
+  // so make sure the worker process is allowed to commit it before adopting it
+  // as this worker's URL.
+  //
+  // Only grant commit permissions if the URL is same-origin with the worker's
+  // expected origin (e.g. for Isolated Web Apps or extensions).
+  if (url::Origin::Create(result->final_response_url)
+          .IsSameOriginWith(worker_storage_key_.origin())) {
+    ChildProcessSecurityPolicyImpl::GetInstance()->GrantCommitURL(
+        worker_process_host_->GetDeprecatedID(), result->final_response_url);
+  }
+  if (!ChildProcessSecurityPolicyImpl::GetInstance()->CanCommitURL(
+          worker_process_host_->GetDeprecatedID(),
+          result->final_response_url)) {
+    ScriptLoadStartFailed(network::URLLoaderCompletionStatus(net::ERR_ABORTED));
+    return;
+  }
+
   final_response_url_ = result->final_response_url;
   service_->NotifyWorkerFinalResponseURLDetermined(token_,
                                                    result->final_response_url);
@@ -487,18 +515,11 @@ void DedicatedWorkerHost::DidStartScriptLoad(
     worker_client_security_state_->is_web_secure_context =
         network::IsUrlPotentiallyTrustworthy(result->final_response_url) &&
         creator_client_security_state_->is_web_secure_context;
-    // Deprecation trial status allowing LNA requests on non-http
-    bool allow_non_secure_local_network_access =
-        ancestor_render_frame_host->policy_container_host() &&
-        ancestor_render_frame_host->policy_container_host()
-            ->policies()
-            .allow_non_secure_local_network_access;
 
     worker_client_security_state_->local_network_access_request_policy =
         DeriveLocalNetworkAccessRequestPolicy(
             worker_client_security_state_->ip_address_space,
             worker_client_security_state_->is_web_secure_context,
-            allow_non_secure_local_network_access,
             LocalNetworkAccessRequestContext::kWorker);
 
     // Check for policy overrides on LNA. For dedicated workers, we apply

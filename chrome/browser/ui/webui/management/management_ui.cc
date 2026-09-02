@@ -7,19 +7,17 @@
 #include <memory>
 
 #include "base/feature_list.h"
+#include "base/memory/ref_counted_memory.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/android_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/browser/enterprise/browser_management/management_identity.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/webui/current_channel_logo.h"
 #include "chrome/browser/ui/webui/management/management_ui_constants.h"
 #include "chrome/browser/ui/webui/management/management_ui_handler.h"
-#if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/webui/theme_source.h"
-#endif
 #include "chrome/common/url_constants.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
@@ -35,6 +33,10 @@
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/webui/webui_util.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/webui/theme_source.h"
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/strings/grit/ash_strings.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
@@ -47,6 +49,7 @@
 #else  // BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
+#include "chrome/browser/ui/managed_ui.h"  // nogncheck crbug.com/40147906
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 namespace {
@@ -81,10 +84,6 @@ content::WebUIDataSource* CreateAndAddManagementUIHtmlSource(Profile* profile) {
   source->AddString(kManagementReportDlpEvents,
                     l10n_util::GetPluralStringFUTF16(
                         IDS_MANAGEMENT_REPORT_DLP_EVENTS, dlp_events_count));
-  source->AddString("pluginVmDataCollection",
-                    l10n_util::GetStringFUTF16(
-                        IDS_MANAGEMENT_REPORT_PLUGIN_VM,
-                        l10n_util::GetStringUTF16(IDS_PLUGIN_VM_APP_NAME)));
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
@@ -105,7 +104,7 @@ content::WebUIDataSource* CreateAndAddManagementUIHtmlSource(Profile* profile) {
 }  // namespace
 
 // static
-base::RefCountedMemory* ManagementUI::GetFaviconResourceBytes(
+scoped_refptr<base::RefCountedMemory> ManagementUI::GetFaviconResourceBytes(
     ui::ResourceScaleFactor scale_factor) {
   return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
       IDR_MANAGEMENT_FAVICON, scale_factor);

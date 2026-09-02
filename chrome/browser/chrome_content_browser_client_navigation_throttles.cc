@@ -28,6 +28,7 @@
 #include "chrome/browser/preloading/prerender/dse_prewarm_navigation_throttle.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/pwc/pwc_navigation_throttle.h"
 #include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
 #include "chrome/browser/ssl/https_defaulted_callbacks.h"
 #include "chrome/browser/ssl/https_upgrades_navigation_throttle.h"
@@ -89,6 +90,7 @@
 #endif  // BUILDFLAG(DFMIFY_DEV_UI)
 
 #else  // BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/background/background_contents_navigation_throttle.h"
 #include "chrome/browser/devtools/devtools_navigation_throttle.h"
 #include "chrome/browser/page_info/web_view_side_panel_throttle.h"
 #include "chrome/browser/themes/theme_service_factory.h"
@@ -100,6 +102,7 @@
 #include "chrome/browser/ui/web_applications/webui_web_app_navigation_throttle.h"
 #include "chrome/browser/ui/webui/image/image_navigation_throttle.h"
 #include "chrome/browser/ui/webui/ntp_microsoft_auth/ntp_microsoft_auth_response_capture_navigation_throttle.h"
+#include "chrome/browser/ui/webui/skills/skills_navigation_throttle.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_throttle.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -489,6 +492,7 @@ void CreateAndAddChromeThrottlesForNavigation(
   web_app::WebUIWebAppNavigationThrottle::MaybeCreateAndAdd(registry);
 
   ImageNavigationThrottle::MaybeCreateAndAdd(registry);
+  SkillsNavigationThrottle::MaybeCreateAndAdd(registry);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
@@ -600,6 +604,7 @@ void CreateAndAddChromeThrottlesForNavigation(
   data_sharing::DataSharingNavigationThrottle::MaybeCreateAndAdd(registry);
 
 #if !BUILDFLAG(IS_ANDROID)
+  BackgroundContentsNavigationThrottle::MaybeCreateAndAdd(registry);
   web_app::IsolatedWebAppThrottle::MaybeCreateAndAdd(registry);
   DevToolsNavigationThrottle::MaybeCreateAndAdd(registry);
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -612,4 +617,14 @@ void CreateAndAddChromeThrottlesForNavigation(
   dom_distiller::DistillerReferrerThrottle::MaybeCreateAndAdd(registry);
 
   glic::GlicNavigationThrottle::MaybeCreateAndAdd(registry);
+
+  pwc::PwcNavigationThrottle::MaybeCreateAndAdd(registry);
+}
+
+void CreateAndAddChromeThrottlesForCommitWithoutUrlLoader(
+    content::NavigationThrottleRegistry& registry) {
+  // PwcNavigationThrottle must also cancel off-allowlist main-frame
+  // navigations that commit without a URL loader (e.g. a subframe navigating
+  // the main frame to about:blank), which never reach WillStartRequest().
+  pwc::PwcNavigationThrottle::MaybeCreateAndAdd(registry);
 }

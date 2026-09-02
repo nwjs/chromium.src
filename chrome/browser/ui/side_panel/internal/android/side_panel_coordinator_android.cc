@@ -31,7 +31,7 @@
 #include "third_party/jni_zero/jni_zero.h"
 
 // Must come after headers that provide symbols used by @JniType.
-#include "chrome/browser/ui/side_panel/internal/android/jni_headers/SidePanelCoordinatorAndroidImpl_jni.h"
+#include "chrome/browser/ui/side_panel/internal/android/jni_headers/SidePanelCoordinatorAndroidBridge_jni.h"
 
 #define LOG_TAG "SidePanelCoordinatorAndroid"
 #define SPLOG(message)                                     \
@@ -89,8 +89,9 @@ SidePanelCoordinatorAndroid::SidePanelCoordinatorAndroid(
 
 SidePanelCoordinatorAndroid::~SidePanelCoordinatorAndroid() {
   SPLOG("SidePanelCoordinatorAndroid Destructor");
-  Java_SidePanelCoordinatorAndroidImpl_clearNativePtr(AttachCurrentThread(),
-                                                      java_coordinator());
+  ClearCachedEntryViews(/*include_active_entry=*/true);
+  Java_SidePanelCoordinatorAndroidBridge_clearNativePtr(AttachCurrentThread(),
+                                                        java_coordinator());
 }
 
 void SidePanelCoordinatorAndroid::Destroy() {
@@ -420,7 +421,7 @@ SidePanelCoordinatorAndroid::GetWebContentsForTest(  // IN-TEST
 
 void SidePanelCoordinatorAndroid::DisableAnimationsForTesting() {  // IN-TEST
   if (java_coordinator()) {
-    Java_SidePanelCoordinatorAndroidImpl_disableAnimationsForTesting(  // IN-TEST
+    Java_SidePanelCoordinatorAndroidBridge_disableAnimationsForTesting(  // IN-TEST
         AttachCurrentThread(), java_coordinator());
   }
 }
@@ -435,26 +436,26 @@ SidePanelState SidePanelCoordinatorAndroid::GetStateForTesting() {  // IN-TEST
 }
 
 int SidePanelCoordinatorAndroid::GetContainerWidthForTesting() {  // IN-TEST
-  return Java_SidePanelCoordinatorAndroidImpl_getContainerWidthForTesting(  // IN-TEST
+  return Java_SidePanelCoordinatorAndroidBridge_getContainerWidthForTesting(  // IN-TEST
       AttachCurrentThread(), java_coordinator());
 }
 
 void SidePanelCoordinatorAndroid::
     ConfigDeferredViewReplacementForTesting(  // IN-TEST
         bool enable) {
-  Java_SidePanelCoordinatorAndroidImpl_configDeferredViewReplacementForTesting(  // IN-TEST
+  Java_SidePanelCoordinatorAndroidBridge_configDeferredViewReplacementForTesting(  // IN-TEST
       AttachCurrentThread(), java_coordinator(), enable);
 }
 
 void SidePanelCoordinatorAndroid::
     SimulateAutoCloseConditionForTesting() {  // IN-TEST
-  Java_SidePanelCoordinatorAndroidImpl_simulateAutoCloseConditionForTesting(  // IN-TEST
+  Java_SidePanelCoordinatorAndroidBridge_simulateAutoCloseConditionForTesting(  // IN-TEST
       AttachCurrentThread(), java_coordinator());
 }
 
 void SidePanelCoordinatorAndroid::
     SimulateAutoRestoreConditionForTesting() {  // IN-TEST
-  Java_SidePanelCoordinatorAndroidImpl_simulateAutoRestoreConditionForTesting(  // IN-TEST
+  Java_SidePanelCoordinatorAndroidBridge_simulateAutoRestoreConditionForTesting(  // IN-TEST
       AttachCurrentThread(), java_coordinator());
 }
 
@@ -487,7 +488,7 @@ void SidePanelCoordinatorAndroid::Show(
   // to a narrow window.
   //
   // So we call into Java to update `has_insufficient_space_`.
-  has_insufficient_space_ = !Java_SidePanelCoordinatorAndroidImpl_canShow(
+  has_insufficient_space_ = !Java_SidePanelCoordinatorAndroidBridge_canShow(
       AttachCurrentThread(), java_coordinator());
   if (has_insufficient_space_) {
     SPLOG("Show - insufficient space, skipping.");
@@ -610,7 +611,7 @@ void SidePanelCoordinatorAndroid::StartOpeningPanel(
   std::u16string_view title = SidePanelUtil::GetTitleText(entry, browser());
 
   JNIEnv* env = AttachCurrentThread();
-  Java_SidePanelCoordinatorAndroidImpl_startOpeningPanel(
+  Java_SidePanelCoordinatorAndroidBridge_startOpeningPanel(
       env, java_coordinator(), native_view->view(), title,
       entry->should_show_header(), start_bounds.x(), start_bounds.y(),
       start_bounds.width(), start_bounds.height(), suppress_animations);
@@ -635,7 +636,35 @@ void SidePanelCoordinatorAndroid::StartClosingPanel(
   SidePanelEntry* entry = GetEntryForCurrentKeyNonNull();
   entry->OnEntryWillHide(hide_reason);
   pending_hide_reason_ = hide_reason;
-  Java_SidePanelCoordinatorAndroidImpl_startClosingPanel(
+
+  // We need to explicitly reset the active entry for the "close side panel"
+  // case.
+  //
+  // Context as of Apr 15, 2026:
+  //
+  // `SidePanelRegistry` observes all its `SidePanelEntries` via
+  // `SidePanelEntryObserver`.
+  //
+  // For the "open side panel" case, the active entry is set via
+  // `SidePanelEntry::OnEntryShown()` -> `SidePanelRegistry::OnEntryShown()`.
+  //
+  // For the "close side panel" case, `SidePanelRegistry` doesn't implement
+  // `SidePanelEntryObserver::OnEntryHidden()` or
+  // `SidePanelEntryObserver::OnEntryHiddenWithReason()`, so
+  // `SidePanelEntry::OnEntryHidden()` and
+  // `SidePanelEntry::OnEntryHiddenWithReason()` can't reset the active entry.
+  //
+  // TODO(crbug.com/503113522): Consider having `SidePanelRegistry` _reset_
+  // the active entry so it's consistent with how the active entry is _set_.
+  if (auto* contextual_registry = GetActiveContextualRegistry()) {
+    contextual_registry->ResetActiveEntry();
+  }
+  if (auto* window_registry = SidePanelRegistry::From(browser())) {
+    window_registry->ResetActiveEntry();
+  }
+  ClearCachedEntryViews();
+
+  Java_SidePanelCoordinatorAndroidBridge_startClosingPanel(
       AttachCurrentThread(), java_coordinator(), suppress_animations);
 }
 
@@ -654,33 +683,6 @@ void SidePanelCoordinatorAndroid::FinishClosingPanel() {
     entry->OnEntryHidden();
     entry->OnEntryHiddenWithReason(*pending_hide_reason_);
     pending_hide_reason_ = std::nullopt;
-
-    // We need to explicitly reset the active entry for the "close side panel"
-    // case.
-    //
-    // Context as of Apr 15, 2026:
-    //
-    // `SidePanelRegistry` observes all its `SidePanelEntries` via
-    // `SidePanelEntryObserver`.
-    //
-    // For the "open side panel" case, the active entry is set via
-    // `SidePanelEntry::OnEntryShown()` -> `SidePanelRegistry::OnEntryShown()`.
-    //
-    // For the "close side panel" case, `SidePanelRegistry` doesn't implement
-    // `SidePanelEntryObserver::OnEntryHidden()` or
-    // `SidePanelEntryObserver::OnEntryHiddenWithReason()`, so
-    // `SidePanelEntry::OnEntryHidden()` and
-    // `SidePanelEntry::OnEntryHiddenWithReason()` can't reset the active entry.
-    //
-    // TODO(crbug.com/503113522): Consider having `SidePanelRegistry` _reset_
-    // the active entry so it's consistent with how the active entry is _set_.
-    if (auto* contextual_registry = GetActiveContextualRegistry()) {
-      contextual_registry->ResetActiveEntry();
-    }
-    if (auto* window_registry = SidePanelRegistry::From(browser())) {
-      window_registry->ResetActiveEntry();
-    }
-    ClearCachedEntryViews();
 
     SidePanelMetrics::RecordSidePanelClosed(opened_timestamp());
   }
@@ -702,7 +704,7 @@ void SidePanelCoordinatorAndroid::StartReplacingPanelContent(
   // OnEntryHidden() on the NEW pending_replaced_entry_ instead of the OLD one,
   // permanently breaking state!
   if (pending_replaced_entry_) {
-    Java_SidePanelCoordinatorAndroidImpl_completePendingContentReplacement(
+    Java_SidePanelCoordinatorAndroidBridge_completePendingContentReplacement(
         AttachCurrentThread(), java_coordinator());
   }
 
@@ -769,15 +771,15 @@ void SidePanelCoordinatorAndroid::StartReplacingPanelContent(
   std::u16string_view title = SidePanelUtil::GetTitleText(new_entry, browser());
 
   JNIEnv* env = AttachCurrentThread();
-  Java_SidePanelCoordinatorAndroidImpl_startReplacingPanelContent(
+  Java_SidePanelCoordinatorAndroidBridge_startReplacingPanelContent(
       env, java_coordinator(), native_view->view(), title,
       new_entry->should_show_header());
   new_entry->CacheView(std::move(native_view));
 }
 
 void SidePanelCoordinatorAndroid::EndAnimations() {
-  Java_SidePanelCoordinatorAndroidImpl_endAnimations(AttachCurrentThread(),
-                                                     java_coordinator());
+  Java_SidePanelCoordinatorAndroidBridge_endAnimations(AttachCurrentThread(),
+                                                       java_coordinator());
   CHECK(state_ == SidePanelState::kClosed || state_ == SidePanelState::kShown)
       << "Side panel should be in a stable state after ending all animations.";
 }
@@ -787,7 +789,7 @@ void SidePanelCoordinatorAndroid::CompletePendingContentReplacementForTab(
   if (auto* registry = SidePanelRegistry::From(tab)) {
     if (pending_replaced_entry_ &&
         registry->GetActiveEntry() == pending_replaced_entry_) {
-      Java_SidePanelCoordinatorAndroidImpl_completePendingContentReplacement(
+      Java_SidePanelCoordinatorAndroidBridge_completePendingContentReplacement(
           AttachCurrentThread(), java_coordinator());
     }
   }
@@ -873,15 +875,16 @@ void SidePanelCoordinatorAndroid::MaybeShowEntryOnTabStripModelChanged(
   }
 }
 
-void SidePanelCoordinatorAndroid::ClearCachedEntryViews() {
+void SidePanelCoordinatorAndroid::ClearCachedEntryViews(
+    bool include_active_entry) {
   if (auto* window_registry = SidePanelRegistry::From(browser())) {
-    window_registry->ClearCachedEntryViews();
+    window_registry->ClearCachedEntryViews(include_active_entry);
   }
 
   if (auto* tab_list = TabListInterface::From(browser())) {
     for (tabs::TabInterface* tab : tab_list->GetAllTabs()) {
       if (auto* registry = SidePanelRegistry::From(tab)) {
-        registry->ClearCachedEntryViews();
+        registry->ClearCachedEntryViews(include_active_entry);
       }
     }
   }
@@ -929,19 +932,19 @@ SidePanelEntry* SidePanelCoordinatorAndroid::GetEntryForCurrentKeyNonNull()
 }
 
 // ----------------------------------------------------------------------------
-// Methods called from Java via SidePanelCoordinatorAndroidImpl.Natives:
+// Methods called from Java via SidePanelCoordinatorAndroidBridge.Natives:
 // ----------------------------------------------------------------------------
 
 // static
-static int64_t JNI_SidePanelCoordinatorAndroidImpl_Create(
+static int64_t JNI_SidePanelCoordinatorAndroidBridge_Create(
     JNIEnv* env,
     const JavaRef<jobject>& caller,
     int64_t nativeBrowserWindowPtr) {
-  SPLOG("JNI_SidePanelCoordinatorAndroidImpl_Create - ptr: "
+  SPLOG("JNI_SidePanelCoordinatorAndroidBridge_Create - ptr: "
         << nativeBrowserWindowPtr);
   return reinterpret_cast<intptr_t>(new SidePanelCoordinatorAndroid(
       env, caller,
       reinterpret_cast<BrowserWindowInterface*>(nativeBrowserWindowPtr)));
 }
 
-DEFINE_JNI(SidePanelCoordinatorAndroidImpl)
+DEFINE_JNI(SidePanelCoordinatorAndroidBridge)

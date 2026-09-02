@@ -65,6 +65,8 @@ source_set("internal") {
       "//chrome/browser/collaboration",
       "//chrome/browser/contextual_tasks:ui",
       "//chrome/browser/devtools",
+      "//chrome/browser/geic",
+      "//chrome/browser/geic:ui",
       "//chrome/browser/glic",
       "//chrome/browser/glic/browser_ui",
       "//chrome/browser/lens/region_search",
@@ -76,6 +78,8 @@ source_set("internal") {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/animation",
       "//chrome/browser/ui/bookmarks",
+      "//chrome/browser/ui/browser_active_state_manager",
+      "//chrome/browser/ui/browser_ui_controller",
       "//chrome/browser/ui/browser_web_contents_delegate",
       "//chrome/browser/ui/call_to_action",
       "//chrome/browser/ui/commerce",
@@ -124,6 +128,7 @@ source_set("internal") {
       "//chrome/browser/ui/views/tabs/organizer",
       "//chrome/browser/ui/views/toolbar",
       "//chrome/browser/ui/views/translate",
+      "//chrome/browser/ui/views/user_education",
       "//chrome/browser/ui/waap:manager",
       "//chrome/browser/ui/waap:window_metrics_manager",
       "//chrome/browser/ui/web_applications",
@@ -169,10 +174,14 @@ source_set("internal") {
     if (is_chromeos) {
       deps += [
         "//chrome/browser/ash/boca/on_task",
+        "//chrome/browser/ui/chromeos/locked_state",
         "//components/session_manager/core",
       ]
     } else {
       deps += [ "//chrome/browser/download/bubble" ]
+    }
+    if (toolkit_views) {
+      deps += [ "//chrome/browser/ui/views/extensions:extensions_views_utils" ]
     }
 
     if (use_aura) {
@@ -201,6 +210,7 @@ source_set("unit_tests") {
     ":internal",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
   ]

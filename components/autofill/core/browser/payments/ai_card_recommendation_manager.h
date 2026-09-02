@@ -5,14 +5,18 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_AI_CARD_RECOMMENDATION_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_PAYMENTS_AI_CARD_RECOMMENDATION_MANAGER_H_
 
+#include <vector>
+
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "components/autofill/core/browser/foundations/autofill_manager.h"
+#include "components/autofill/core/browser/payments/amount_extraction_manager.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 
 namespace autofill {
 class BrowserAutofillManager;
+class CreditCard;
 }  // namespace autofill
 
 namespace autofill::payments {
@@ -20,6 +24,8 @@ namespace autofill::payments {
 // Owned by `BrowserAutofillManager`. This class manages the flow of AI card
 // recommendation, which uses Gemini to recommend and reorder card
 // suggestions based on the cards' benefits.
+// This class is initialized when the user accepts the "Maximize rewards"
+// suggestion, and is destroyed on user navigation or page refresh.
 class AiCardRecommendationManager : public AutofillManager::Observer {
  public:
   explicit AiCardRecommendationManager(
@@ -29,6 +35,11 @@ class AiCardRecommendationManager : public AutofillManager::Observer {
       delete;
   ~AiCardRecommendationManager() override;
 
+  // Returns whether the "Maximize rewards" suggestion should be shown.
+  static bool ShouldShowMaximizeCreditCardBenefitsSuggestion(
+      const std::vector<CreditCard>& cards_to_suggest,
+      bool is_card_number_field_empty);
+
   // Initializes the AI-based card recommendation flow, which includes calling
   // AI amount extraction and calling Gemini via `RemoteModelExecutor`.
   virtual void MaximizeCreditCardBenefits();
@@ -36,6 +47,11 @@ class AiCardRecommendationManager : public AutofillManager::Observer {
   // AutofillManager::Observer:
   void OnSuggestionsHidden(AutofillManager& manager,
                            SuggestionHidingReason reason) override;
+
+  // Invoked once the AI-based amount extraction process completes, and
+  // notifies AiCardRecommendationManager of the result.
+  virtual void OnAmountExtractionReturnedFromAi(
+      const AiAmountExtractionResult::ResultType result);
 
  private:
   // The owner, BrowserAutofillManager.

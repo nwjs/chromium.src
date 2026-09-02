@@ -2,15 +2,28 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import {isMac} from '//resources/js/platform.js';
 import {OmniboxEscapeAction, omniboxPopupBrowserProxyFactory, OmniboxPopupPageHandlerRemote, sanitizeTextForPaste, SearchboxBrowserProxy, stripJavascriptSchemas} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import type {OmniboxInputState, OmniboxPopupPageRemote, OmniboxPopupSearchboxElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
-import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
-import {RenderType, SelectionLineState, SideType} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {OmniboxInputState, OmniboxPopupContextualEntrypointButtonElement, OmniboxPopupPageRemote, OmniboxPopupSearchboxElement} from 'chrome://omnibox-popup.top-chrome/omnibox_popup.js';
+import {createAutocompleteResultForTesting, createMatchKeywordModelForTesting, createSearchMatchForTesting} from 'chrome://resources/cr_components/searchbox/searchbox_browser_proxy.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {KeywordType, RenderType, SelectionLineState, SideType} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {TabInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {$$, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {TestSearchboxBrowserProxy} from './test_searchbox_browser_proxy.js';
+import {createDefaultInputState, TestSearchboxBrowserProxy} from './test_searchbox_browser_proxy.js';
+
+function getContextualEntrypointButton(searchbox: OmniboxPopupSearchboxElement):
+    OmniboxPopupContextualEntrypointButtonElement|null {
+  const popupEntrypoint = $$(searchbox, 'omnibox-popup-contextual-entrypoint');
+  if (!popupEntrypoint) {
+    return null;
+  }
+  return $$<OmniboxPopupContextualEntrypointButtonElement>(
+      popupEntrypoint, 'omnibox-popup-contextual-entrypoint-button');
+}
 
 function createDefaultOmniboxInputState(overrides?: Partial<OmniboxInputState>):
     OmniboxInputState {
@@ -24,6 +37,7 @@ function createDefaultOmniboxInputState(overrides?: Partial<OmniboxInputState>):
     permanentDisplayText: '',
     showFullUrl: false,
     queryZps: false,
+    keywordModel: null,
     ...overrides,
   };
 }
@@ -37,6 +51,14 @@ suite('OmniboxPopupSearchboxTest', function() {
 
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    loadTimeData.overrideValues({
+      hideClassicContextButton: false,
+      composeboxShowContextMenuDescription: false,
+      omniboxShowContextButtonSuggestionLabel: false,
+      addContext: 'Add tabs and more',
+      contextButtonShapeIsOblong: false,
+      contextualMenuUsePecApi: false,
+    });
     testProxy = new TestSearchboxBrowserProxy();
     SearchboxBrowserProxy.setInstance(testProxy);
     handler = TestMock.fromClass(OmniboxPopupPageHandlerRemote);
@@ -68,6 +90,33 @@ suite('OmniboxPopupSearchboxTest', function() {
     assertEquals(-1, searchbox.selectedMatchIndex);
     assertFalse(searchbox.dropdownIsVisible);
     assertEquals(1, testProxy.handler.getCallCount('stopAutocomplete'));
+  });
+
+  test('EnterKeySubmitsVerbatimMatchWhenNoMatchSelected', async () => {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      text: 'chrome://version',
+    }));
+    await microtasksFinished();
+
+    assertEquals(-1, searchbox.selectedMatchIndex);
+
+    await searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      cancelable: true,
+    }));
+    await microtasksFinished();
+
+    const [line, url, areMatchesShowing, mouseButton, modifiers, viaKeyboard] =
+        await testProxy.handler.whenCalled('openAutocompleteMatch');
+    assertEquals(-1, line);
+    assertEquals('', url);
+    assertFalse(areMatchesShowing);
+    assertEquals(0, mouseButton);
+    assertFalse(modifiers.altKey);
+    assertFalse(modifiers.ctrlKey);
+    assertFalse(modifiers.metaKey);
+    assertFalse(modifiers.shiftKey);
+    assertTrue(viaKeyboard);
   });
 
   test('HandlesSelectionChange', async () => {
@@ -472,6 +521,140 @@ suite('OmniboxPopupSearchboxTest', function() {
     assertEquals('https://example.com', searchbox.$.input.inputElement.value);
   });
 
+  test('HandlesPasteAtEndScrollsToEnd', async () => {
+    const longText = 'a'.repeat(200);
+    const dataTransfer = new DataTransfer();
+    dataTransfer.setData('text/plain', longText);
+    const pasteEvent = new ClipboardEvent('paste', {
+      clipboardData: dataTransfer,
+      cancelable: true,
+    });
+
+    const inputElement = searchbox.$.input.inputElement;
+    searchbox.$.input.dispatchEvent(pasteEvent);
+    await microtasksFinished();
+
+    assertTrue(pasteEvent.defaultPrevented);
+    assertEquals(longText, inputElement.value);
+    assertEquals(longText.length, inputElement.selectionStart);
+    assertEquals(longText.length, inputElement.selectionEnd);
+    // Verify scroll position was adjusted to show cursor at the end.
+    // The browser clamps scrollLeft to max (scrollWidth - clientWidth).
+    assertEquals(
+        inputElement.scrollWidth - inputElement.clientWidth,
+        inputElement.scrollLeft);
+  });
+
+  test('HandlesCopy', async () => {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 7,
+      text: 'hello world',
+      selection: {start: 0, end: 11},
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    handler.reset();
+
+    const copyEvent = new ClipboardEvent('copy', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+
+    searchbox.$.input.dispatchEvent(copyEvent);
+    await microtasksFinished();
+
+    assertTrue(copyEvent.defaultPrevented);
+    assertEquals(1, handler.getCallCount('onCutOrCopy'));
+    const [sequenceNumber, isCut, fullText, selection] =
+        handler.getArgs('onCutOrCopy')[0];
+    assertEquals(7, sequenceNumber);
+    assertFalse(isCut);
+    assertEquals('hello world', fullText);
+    assertEquals(0, selection.start);
+    assertEquals(11, selection.end);
+  });
+
+  test('HandlesCut', async () => {
+    callbackRouter.setInputState(createDefaultOmniboxInputState({
+      sequenceNumber: 8,
+      text: 'hello world',
+      selection: {start: 0, end: 5},
+      isFocused: true,
+    }));
+    await microtasksFinished();
+    handler.reset();
+
+    const cutEvent = new ClipboardEvent('cut', {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
+
+    searchbox.$.input.dispatchEvent(cutEvent);
+    await microtasksFinished();
+
+    assertTrue(cutEvent.defaultPrevented);
+    assertEquals(1, handler.getCallCount('onCutOrCopy'));
+    const [sequenceNumber, isCut, fullText, selection] =
+        handler.getArgs('onCutOrCopy')[0];
+    assertEquals(8, sequenceNumber);
+    assertTrue(isCut);
+    assertEquals('hello world', fullText);
+    assertEquals(0, selection.start);
+    assertEquals(5, selection.end);
+
+    // Verify local input element was updated to remaining text (" world")
+    // and caret moved to start of cut position (0, 0).
+    const input = searchbox.$.input.inputElement;
+    assertEquals(' world', input.value);
+    assertEquals(0, input.selectionStart);
+    assertEquals(0, input.selectionEnd);
+  });
+
+  test('WordDeletionUndoRedo', async () => {
+    searchbox.$.input.focus();
+    const inputEl = searchbox.$.input.inputElement;
+
+    // Baseline text: "hello world" with caret at index 11.
+    inputEl.value = 'hello world';
+    inputEl.setSelectionRange(11, 11);
+    searchbox.$.input.dispatchEvent(
+        new CustomEvent('searchbox-input-text-updated', {
+          detail: {value: 'hello world', isComposing: false},
+          bubbles: true,
+          composed: true,
+        }));
+    await microtasksFinished();
+
+    // User performs word deletion (Alt/Ctrl + Backspace): text becomes "hello
+    // ", cursor moves to 6.
+    inputEl.value = 'hello ';
+    inputEl.selectionStart = 6;
+    inputEl.selectionEnd = 6;
+    searchbox.$.input.dispatchEvent(
+        new CustomEvent('searchbox-input-text-updated', {
+          detail: {value: 'hello ', isComposing: false},
+          bubbles: true,
+          composed: true,
+        }));
+    await microtasksFinished();
+    assertEquals('hello ', inputEl.value);
+
+    // Trigger Undo. The deleted word "world" should be restored AND selected
+    // (6..11).
+    inputEl.dispatchEvent(new InputEvent('beforeinput', {
+      inputType: 'historyUndo',
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    }));
+    await microtasksFinished();
+    assertEquals('hello world', inputEl.value);
+    assertEquals(6, inputEl.selectionStart);
+    assertEquals(11, inputEl.selectionEnd);
+  });
+
   test('StripSchemasUnsafeForPaste', () => {
     const testCases: Array<{input: string, expected: string}> = [
       // Safe query.
@@ -737,14 +920,25 @@ suite('OmniboxPopupSearchboxTest', function() {
    mockInput.inputElement.value = 'test';
    mockInput.inputElement.dispatchEvent(new Event('test', {bubbles: true}));
 
-   // Simulate autocomplete results to open the dropdown.
+   // Simulate autocomplete results.
+   searchbox.lastQueriedInput = 'test';
    searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
      queryId: searchbox.activeQueryId,
      input: 'test',
-     matches: [createSearchMatchForTesting(), createSearchMatchForTesting()],
+     matches: [
+       createSearchMatchForTesting({
+         allowedToBeDefaultMatch: true,
+         inlineAutocompletion: 'ing',
+         fillIntoEdit: 'testing',
+       }),
+       createSearchMatchForTesting(),
+     ],
    }));
    await microtasksFinished();
    assertTrue(searchbox.dropdownIsVisible);
+   assertEquals('testing', searchbox.getInputElement().getInputValue());
+   assertEquals('test', searchbox.getInputElement().lastInput()?.text);
+   assertEquals('ing', searchbox.getInputElement().lastInput()?.inline);
 
    // Simulate `Enter` with Alt + Shift keys (background tab).
    searchbox.navigateToMatch(
@@ -753,6 +947,9 @@ suite('OmniboxPopupSearchboxTest', function() {
            'keydown', {key: 'Enter', altKey: true, shiftKey: true}));
    await microtasksFinished();
    assertTrue(searchbox.dropdownIsVisible);
+   assertEquals('testing', searchbox.getInputElement().getInputValue());
+   assertEquals('test', searchbox.getInputElement().lastInput()?.text);
+   assertEquals('ing', searchbox.getInputElement().lastInput()?.inline);
 
    // Simulate `Enter` with Meta key and without Shift key (background tab).
    searchbox.navigateToMatch(
@@ -761,6 +958,9 @@ suite('OmniboxPopupSearchboxTest', function() {
            'keydown', {key: 'Enter', metaKey: true, shiftKey: false}));
    await microtasksFinished();
    assertTrue(searchbox.dropdownIsVisible);
+   assertEquals('testing', searchbox.getInputElement().getInputValue());
+   assertEquals('test', searchbox.getInputElement().lastInput()?.text);
+   assertEquals('ing', searchbox.getInputElement().lastInput()?.inline);
 
    // Simulate a normal Enter key (foreground tab).
    searchbox.navigateToMatch(0, new KeyboardEvent('keydown', {key: 'Enter'}));
@@ -768,30 +968,30 @@ suite('OmniboxPopupSearchboxTest', function() {
 
    // Dropdown should now be closed.
    assertFalse(searchbox.dropdownIsVisible);
-   test('IgnoreOutOfBoundsMatchIndexChange', async () => {
-     assertEquals(-1, searchbox.selectedMatchIndex);
+ });
 
-     searchbox.activeQueryId = 0;
-     searchbox.lastQueriedInput = '';
-     testProxy.page.autocompleteResultChanged(
-         createAutocompleteResultForTesting({
-           queryId: 0,
-           input: '',
-           matches: [
-             createSearchMatchForTesting(),
-           ],
-         }));
-     await microtasksFinished();
+ test('IgnoreOutOfBoundsMatchIndexChange', async () => {
+   assertEquals(-1, searchbox.selectedMatchIndex);
 
-     testProxy.handler.reset();
+   searchbox.activeQueryId = 0;
+   searchbox.lastQueriedInput = '';
+   testProxy.page.autocompleteResultChanged(createAutocompleteResultForTesting({
+     queryId: 0,
+     input: '',
+     matches: [
+       createSearchMatchForTesting(),
+     ],
+   }));
+   await microtasksFinished();
 
-     // Set an out-of-bounds index.
-     searchbox.selectedMatchIndex = 5;
-     await microtasksFinished();
+   testProxy.handler.reset();
 
-     // Verify handler was not notified because index is out of bounds.
-     assertEquals(0, testProxy.handler.getCallCount('setPopupSelection'));
-   });
+   // Set an out-of-bounds index.
+   searchbox.selectedMatchIndex = 5;
+   await microtasksFinished();
+
+   // Verify handler was not notified because index is out of bounds.
+   assertEquals(0, testProxy.handler.getCallCount('setPopupSelection'));
  });
 
  test('InputWrapperFocusout_NullRelatedTarget', async () => {
@@ -1191,7 +1391,7 @@ suite('OmniboxPopupSearchboxTest', function() {
    assertEquals('https://example.com', pastedText);
    assertEquals(19, selection.start);
    assertEquals(19, selection.end);
-   assertEquals(searchbox['currentSequenceNum_'], sequenceNum);
+   assertEquals(0, sequenceNum);
 
    assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
    const [_queryId, queryText, preventInline, _cursorPos, _inventory, isOnFocus] =
@@ -1199,5 +1399,762 @@ suite('OmniboxPopupSearchboxTest', function() {
    assertEquals('https://example.com', queryText);
    assertTrue(preventInline);
    assertFalse(isOnFocus);
+ });
+
+ test('UndoRedoInsertions', async () => {
+   const inputEl = searchbox.getInputElement().inputElement;
+   inputEl.focus();
+   callbackRouter.setInputState(createDefaultOmniboxInputState({
+     text: '',
+     isFocused: true,
+   }));
+   await microtasksFinished();
+
+   // Type 't', 'e', 's', 't' sequentially as individual character input events.
+   let currentText = '';
+   for (const char of 'test') {
+     currentText += char;
+     inputEl.value = currentText;
+     const cursorPos = currentText.length;
+     inputEl.setSelectionRange(cursorPos, cursorPos);
+     inputEl.dispatchEvent(
+         new InputEvent('input', {bubbles: true, composed: true}));
+     await microtasksFinished();
+   }
+
+   assertEquals('test', inputEl.value);
+
+   // Trigger Undo shortcut (Ctrl+Z / Cmd+Z)
+   inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+     key: 'z',
+     ctrlKey: !isMac,
+     metaKey: isMac,
+     bubbles: true,
+     composed: true,
+   }));
+   await microtasksFinished();
+
+   // A single Undo should revert all merged typed characters back to ""
+   assertEquals('', inputEl.value);
+
+   // Trigger Redo shortcut (Ctrl+Shift+Z / Cmd+Shift+Z)
+   inputEl.dispatchEvent(new KeyboardEvent('keydown', {
+     key: 'z',
+     shiftKey: true,
+     ctrlKey: !isMac,
+     metaKey: isMac,
+     bubbles: true,
+     composed: true,
+   }));
+   await microtasksFinished();
+
+   // A single Redo should restore "test"
+   assertEquals('test', inputEl.value);
+ });
+
+ test('UndoRedoBeforeInput', async () => {
+   const inputEl = searchbox.getInputElement().inputElement;
+   inputEl.focus();
+   callbackRouter.setInputState(createDefaultOmniboxInputState({
+     text: '',
+     isFocused: true,
+   }));
+   await microtasksFinished();
+
+   // Type 'hello'
+   inputEl.value = 'hello';
+   inputEl.setSelectionRange(5, 5);
+   inputEl.dispatchEvent(
+       new InputEvent('input', {bubbles: true, composed: true}));
+   await microtasksFinished();
+   assertEquals('hello', inputEl.value);
+
+   // Dispatch beforeinput with inputType 'historyUndo' (simulates Context Menu
+   // / Edit Menu Undo)
+   inputEl.dispatchEvent(new InputEvent('beforeinput', {
+     inputType: 'historyUndo',
+     bubbles: true,
+     composed: true,
+     cancelable: true,
+   }));
+   await microtasksFinished();
+   assertEquals('', inputEl.value);
+
+   // Dispatch beforeinput with inputType 'historyRedo' (simulates Context Menu
+   // / Edit Menu Redo)
+   inputEl.dispatchEvent(new InputEvent('beforeinput', {
+     inputType: 'historyRedo',
+     bubbles: true,
+     composed: true,
+     cancelable: true,
+   }));
+   await microtasksFinished();
+   assertEquals('hello', inputEl.value);
+ });
+
+ test('BlockInsertionNonMergeable', async () => {
+   const inputEl = searchbox.getInputElement().inputElement;
+   inputEl.focus();
+   callbackRouter.setInputState(createDefaultOmniboxInputState({
+     text: '',
+     isFocused: true,
+   }));
+   await microtasksFinished();
+
+   // Insert a multi-character block 'hello' (length > 1 -> non-mergeable).
+   inputEl.value = 'hello';
+   inputEl.setSelectionRange(5, 5);
+   inputEl.dispatchEvent(
+       new InputEvent('input', {bubbles: true, composed: true}));
+   await microtasksFinished();
+   assertEquals('hello', inputEl.value);
+
+   // Type a single character '!' (length 1 -> mergeable).
+   inputEl.value = 'hello!';
+   inputEl.setSelectionRange(6, 6);
+   searchbox.$.input.dispatchEvent(
+       new CustomEvent('searchbox-input-text-updated', {
+         detail: {value: 'hello!', isComposing: false},
+         bubbles: true,
+         composed: true,
+       }));
+   await microtasksFinished();
+   assertEquals('hello!', inputEl.value);
+
+   // First Undo reverts '!' back to 'hello' (because 'hello' was
+   // non-mergeable).
+   inputEl.dispatchEvent(new InputEvent('beforeinput', {
+     inputType: 'historyUndo',
+     bubbles: true,
+     composed: true,
+     cancelable: true,
+   }));
+   await microtasksFinished();
+   assertEquals('hello', inputEl.value);
+
+   // Second Undo reverts 'hello' back to ''.
+   inputEl.dispatchEvent(new InputEvent('beforeinput', {
+     inputType: 'historyUndo',
+     bubbles: true,
+     composed: true,
+     cancelable: true,
+   }));
+   await microtasksFinished();
+   assertEquals('', inputEl.value);
+ });
+
+ test('SelectionReplacementUndoRedo', async () => {
+   searchbox.$.input.focus();
+   const inputEl = searchbox.$.input.inputElement;
+
+   // Step 1: User types 'world'.
+   inputEl.value = 'world';
+   inputEl.setSelectionRange(5, 5);
+   searchbox.$.input.dispatchEvent(
+       new CustomEvent('searchbox-input-text-updated', {
+         detail: {value: 'world', isComposing: false},
+         bubbles: true,
+         composed: true,
+       }));
+   await microtasksFinished();
+
+   // Step 2: User selects all text 'world' (0..5).
+   inputEl.setSelectionRange(0, 5);
+   document.dispatchEvent(new Event('selectionchange'));
+   await microtasksFinished();
+
+   // Step 3: User replaces selected 'world' with 'universe'.
+   inputEl.value = 'universe';
+   inputEl.setSelectionRange(8, 8);
+   searchbox.$.input.dispatchEvent(
+       new CustomEvent('searchbox-input-text-updated', {
+         detail: {value: 'universe', isComposing: false},
+         bubbles: true,
+         composed: true,
+       }));
+   await microtasksFinished();
+   assertEquals('universe', inputEl.value);
+
+   inputEl.dispatchEvent(new InputEvent('beforeinput', {
+     inputType: 'historyUndo',
+     bubbles: true,
+     composed: true,
+     cancelable: true,
+   }));
+   await microtasksFinished();
+   assertEquals('world', inputEl.value);
+   assertEquals(0, inputEl.selectionStart);
+   assertEquals(5, inputEl.selectionEnd);
+
+   inputEl.dispatchEvent(new InputEvent('beforeinput', {
+     inputType: 'historyRedo',
+     bubbles: true,
+     composed: true,
+     cancelable: true,
+   }));
+   await microtasksFinished();
+   assertEquals('universe', inputEl.value);
+ });
+
+ test(
+     'arrow up to default URL match restores typed text without https scheme',
+     async () => {
+       // Setup initial input state.
+       searchbox.getInputElement().inputElement.value = 'hello';
+       searchbox.lastQueriedInput = 'hello';
+       searchbox.activeQueryId = 0;
+
+       // Simulate autocomplete results.
+       const matches = [
+         createSearchMatchForTesting({
+           allowedToBeDefaultMatch: true,
+           isSearchType: false,
+           fillIntoEdit: 'https://helloworld.com',
+           inlineAutocompletion: 'world.com',
+         }),
+         createSearchMatchForTesting({
+           fillIntoEdit: 'hello second',
+         }),
+       ];
+       testProxy.page.autocompleteResultChanged(
+           createAutocompleteResultForTesting({
+             queryId: searchbox.activeQueryId,
+             input: 'hello',
+             matches: matches,
+           }));
+       await microtasksFinished();
+
+       assertTrue(searchbox.dropdownIsVisible);
+       assertEquals(
+           'helloworld.com', searchbox.getInputElement().inputElement.value);
+
+       // Arrow down to second match.
+       searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+         bubbles: true,
+         cancelable: true,
+         key: 'ArrowDown',
+       }));
+       await microtasksFinished();
+
+       assertEquals(1, searchbox.selectedMatchIndex);
+       assertEquals(
+           'hello second', searchbox.getInputElement().inputElement.value);
+
+       // Arrow up back to default match.
+       searchbox.handleKeyNavigation(new KeyboardEvent('keydown', {
+         bubbles: true,
+         cancelable: true,
+         key: 'ArrowUp',
+       }));
+       await microtasksFinished();
+
+       assertEquals(0, searchbox.selectedMatchIndex);
+       assertEquals(
+           'helloworld.com', searchbox.getInputElement().inputElement.value);
+
+       // Check that internal state matches original query, meaning slicing
+       // worked properly and https:// wasn't prepended.
+       assertEquals('hello', searchbox.getInputElement().lastInput()?.text);
+       assertEquals(
+           'world.com', searchbox.getInputElement().lastInput()?.inline);
+     });
+
+ suite('ContextEntrypoint', () => {
+   test('CurrentTabChipShown', async () => {
+     loadTimeData.overrideValues({
+       composeboxShowCurrentTabChip: true,
+       composeboxShowLensSearchChip: true,
+     });
+
+     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+     searchbox = document.createElement('omnibox-popup-searchbox');
+     document.body.appendChild(searchbox);
+     searchbox.dropdownIsVisible = true;
+     testProxy.initVisibilityPrefs();
+     await microtasksFinished();
+
+     const mockTab: TabInfo = {
+       tabId: 1,
+       title: 'Tab 1',
+       url: 'https://tab1.com/',
+       showInCurrentTabChip: true,
+       showInPreviousTabChip: false,
+       lastActive: {internalValue: 1n},
+     };
+
+     testProxy.handler.setPromiseResolveFor('getRecentTabs', {tabs: [mockTab]});
+     testProxy.page.updateLensSearchEligibility(true);
+     testProxy.page.updateContentSharingPolicy(true);
+
+     const result = createAutocompleteResultForTesting({
+       input: '',
+       matches: [],
+     });
+     testProxy.page.autocompleteResultChanged(result);
+     await microtasksFinished();
+
+     callbackRouter.onShow();
+     await testProxy.handler.whenCalled('getRecentTabs');
+     await microtasksFinished();
+
+     const popupEntrypoint =
+         $$(searchbox, 'omnibox-popup-contextual-entrypoint');
+     assertTrue(!!popupEntrypoint);
+     const chip = $$(popupEntrypoint, 'composebox-current-tab-chip');
+     assertTrue(!!chip);
+     assertTrue(isVisible(chip));
+   });
+
+   test('LensIconShown', async () => {
+     loadTimeData.overrideValues({
+       composeboxShowLensIcon: true,
+     });
+
+     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+     searchbox = document.createElement('omnibox-popup-searchbox');
+     document.body.appendChild(searchbox);
+     searchbox.dropdownIsVisible = true;
+     testProxy.initVisibilityPrefs();
+     await microtasksFinished();
+
+     testProxy.page.updateLensSearchEligibility(true);
+
+     const result = createAutocompleteResultForTesting({
+       input: '',
+       matches: [],
+     });
+     testProxy.page.autocompleteResultChanged(result);
+     await microtasksFinished();
+
+     callbackRouter.onShow();
+     await microtasksFinished();
+
+     const popupEntrypoint =
+         $$(searchbox, 'omnibox-popup-contextual-entrypoint');
+     assertTrue(!!popupEntrypoint);
+     assertTrue(isVisible($$(popupEntrypoint, '#lensSearchIcon')));
+   });
+
+   suite('TallSearchbox', () => {
+     let localSearchbox: OmniboxPopupSearchboxElement;
+
+     setup(async () => {
+       document.body.innerHTML = window.trustedTypes!.emptyHTML;
+       loadTimeData.overrideValues({
+         omniboxAimPopupEnabled: true,
+         omniboxShowContextButtonSuggestionLabel: false,
+         hideClassicContextButton: false,
+         contextualMenuUsePecApi: false,
+         searchboxLayoutMode: 'TallBottomContext',
+       });
+
+       localSearchbox = document.createElement('omnibox-popup-searchbox');
+       localSearchbox.dropdownIsVisible = true;
+       document.body.appendChild(localSearchbox);
+       await microtasksFinished();
+       testProxy.initVisibilityPrefs();
+       await microtasksFinished();
+     });
+
+     test('ContextMenuEntrypointHiddenWhenDisabled', async () => {
+       testProxy.page.updateAimPopupEligibility(false);
+       await microtasksFinished();
+       assertFalse(!!getContextualEntrypointButton(localSearchbox));
+     });
+
+     test('ShowContextButtonText', async () => {
+       const contextualEntrypoint =
+           getContextualEntrypointButton(localSearchbox);
+       assertTrue(!!contextualEntrypoint);
+       if (contextualEntrypoint) {
+         const innerEntrypoint =
+             $$(contextualEntrypoint,
+                'cr-composebox-contextual-entrypoint-button');
+         assertTrue(!!innerEntrypoint);
+         assertFalse(!!$$(innerEntrypoint, '#description'));
+       }
+
+       document.body.innerHTML = window.trustedTypes!.emptyHTML;
+       loadTimeData.overrideValues({
+         omniboxAimPopupEnabled: true,
+         omniboxShowContextButtonSuggestionLabel: false,
+         hideClassicContextButton: false,
+         contextualMenuUsePecApi: false,
+         composeboxShowContextMenuDescription: true,
+         searchboxLayoutMode: 'TallBottomContext',
+       });
+       localSearchbox = document.createElement('omnibox-popup-searchbox');
+       localSearchbox.dropdownIsVisible = true;
+       document.body.appendChild(localSearchbox);
+       await microtasksFinished();
+
+       testProxy.initVisibilityPrefs();
+       testProxy.page.updateAimPopupEligibility(true);
+       await microtasksFinished();
+
+       const contextualEntrypoint2 =
+           getContextualEntrypointButton(localSearchbox);
+       assertTrue(!!contextualEntrypoint2);
+       if (contextualEntrypoint2) {
+         const newInnerEntrypoint =
+             $$(contextualEntrypoint2,
+                'cr-composebox-contextual-entrypoint-button');
+         assertTrue(!!newInnerEntrypoint);
+         const description = $$(newInnerEntrypoint, '#description');
+         assertTrue(!!description);
+         assertEquals('Add tabs and more', description.textContent.trim());
+       }
+     });
+
+     test('HideClassicContextButton', async () => {
+       const contextualEntrypoint =
+           getContextualEntrypointButton(localSearchbox);
+       assertTrue(!!contextualEntrypoint);
+       assertTrue(isVisible(contextualEntrypoint));
+
+       document.body.innerHTML = window.trustedTypes!.emptyHTML;
+       loadTimeData.overrideValues({
+         omniboxShowContextButtonSuggestionLabel: false,
+         hideClassicContextButton: true,
+         contextualMenuUsePecApi: false,
+       });
+       localSearchbox = document.createElement('omnibox-popup-searchbox');
+       localSearchbox.dropdownIsVisible = true;
+       document.body.appendChild(localSearchbox);
+       await microtasksFinished();
+
+       testProxy.initVisibilityPrefs();
+       testProxy.page.updateAimPopupEligibility(true);
+       await microtasksFinished();
+
+       assertFalse(!!getContextualEntrypointButton(localSearchbox));
+     });
+   });
+
+   suite('AimEligibility', () => {
+     let localSearchbox: OmniboxPopupSearchboxElement;
+
+     setup(async () => {
+       document.body.innerHTML = window.trustedTypes!.emptyHTML;
+       loadTimeData.overrideValues({
+         hideClassicContextButton: false,
+         contextualMenuUsePecApi: false,
+         searchboxLayoutMode: 'TallBottomContext',
+       });
+       localSearchbox = document.createElement('omnibox-popup-searchbox');
+       localSearchbox.dropdownIsVisible = true;
+       document.body.appendChild(localSearchbox);
+       await microtasksFinished();
+
+       testProxy.initVisibilityPrefs();
+       await microtasksFinished();
+     });
+
+     test('AimEligibility', async () => {
+       testProxy.page.updateAimPopupEligibility(false);
+       await microtasksFinished();
+       let contextualEntrypoint = getContextualEntrypointButton(localSearchbox);
+       assertFalse(!!contextualEntrypoint);
+
+       testProxy.page.updateAimPopupEligibility(true);
+       await microtasksFinished();
+       contextualEntrypoint = getContextualEntrypointButton(localSearchbox);
+       assertTrue(!!contextualEntrypoint);
+       assertTrue(isVisible(contextualEntrypoint));
+
+       testProxy.page.updateAimPopupEligibility(false);
+       await microtasksFinished();
+       contextualEntrypoint = getContextualEntrypointButton(localSearchbox);
+       assertFalse(!!contextualEntrypoint);
+     });
+
+     test('DisallowedInputsHidesEntrypoint', async () => {
+       document.body.innerHTML = window.trustedTypes!.emptyHTML;
+       loadTimeData.overrideValues({
+         hideClassicContextButton: false,
+         contextualMenuUsePecApi: true,
+         searchboxLayoutMode: 'TallBottomContext',
+       });
+       localSearchbox = document.createElement('omnibox-popup-searchbox');
+       document.body.appendChild(localSearchbox);
+       localSearchbox.dropdownIsVisible = true;
+
+       testProxy.initVisibilityPrefs();
+       testProxy.page.updateAimPopupEligibility(true);
+       await microtasksFinished();
+
+       testProxy.page.onInputStateChanged({
+         ...createDefaultInputState(),
+         allowedModels: [],
+         allowedTools: [],
+         allowedInputTypes: [],
+       });
+       await microtasksFinished();
+
+       const popupEntrypoint =
+           $$(localSearchbox, 'omnibox-popup-contextual-entrypoint');
+       assertTrue(!!popupEntrypoint);
+       const contextualEntrypoint =
+           $$(popupEntrypoint, 'omnibox-popup-contextual-entrypoint-button');
+       assertFalse(!!contextualEntrypoint);
+     });
+   });
+ });
+
+ test('HandlesClearPopup', async () => {
+   // Populate autocomplete result to show dropdown.
+   searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+     queryId: searchbox.activeQueryId,
+     sequenceId: 123,
+     input: 'test',
+     matches: [createSearchMatchForTesting()],
+   }));
+   await microtasksFinished();
+   assertTrue(searchbox.dropdownIsVisible);
+
+   // Trigger clearPopup callback from Mojo.
+   callbackRouter.clearPopup();
+   await microtasksFinished();
+
+   // Ensure result is null, dropdown is closed, and input text is cleared.
+   assertFalse(searchbox.dropdownIsVisible);
+   assertFalse(!!searchbox.result);
+   assertEquals('', searchbox.$.input.lastInput()?.text ?? '');
+ });
+
+ test('ClearsAutocompleteMatchesOnSetInputState', async () => {
+   // Populate autocomplete result to show dropdown.
+   searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+     queryId: searchbox.activeQueryId,
+     sequenceId: 123,
+     input: 'test',
+     matches: [createSearchMatchForTesting()],
+   }));
+   await microtasksFinished();
+   assertTrue(searchbox.dropdownIsVisible);
+
+   // Update input state via Mojo (simulating tab switch / state reset).
+   callbackRouter.setInputState(createDefaultOmniboxInputState({
+     text: 'new tab input',
+     isFocused: true,
+   }));
+   await microtasksFinished();
+
+   // Ensure matches and dropdown are cleared for the new input state.
+   assertFalse(searchbox.dropdownIsVisible);
+   assertFalse(!!searchbox.result);
+ });
+
+ suite('InputIconState', () => {
+   test('InputMatchUpdatesWithSelectedMatch', async () => {
+     const navMatch = createSearchMatchForTesting({
+       contents: 'example.com',
+       destinationUrl: 'https://example.com/',
+       isSearchType: false,
+       type: 'history-url',
+     });
+     const searchMatch = createSearchMatchForTesting({
+       contents: 'example query',
+       destinationUrl: 'https://www.google.com/search?q=example',
+       isSearchType: true,
+       type: 'search-what-you-typed',
+     });
+
+     searchbox.activeQueryId = 0;
+     const result = createAutocompleteResultForTesting({
+       input: 'example',
+       matches: [navMatch, searchMatch],
+       queryId: 0,
+     });
+     testProxy.page.autocompleteResultChanged(result);
+     await microtasksFinished();
+
+     // With selectedMatchIndex === -1 while typing, input's selectedMatch
+     // should be null.
+     assertEquals(-1, searchbox.selectedMatchIndex);
+     assertEquals(null, searchbox.$.input.selectedMatch);
+
+     // When navigating to match 1, input's selectedMatch should be match 1.
+     searchbox.selectedMatchIndex = 1;
+     await microtasksFinished();
+     assertEquals(
+         searchbox.result!.matches[1], searchbox.$.input.selectedMatch);
+     assertEquals('example query', searchbox.$.input.selectedMatch?.contents);
+
+     // When navigating to match 0, input's selectedMatch should be match 0.
+     searchbox.selectedMatchIndex = 0;
+     await microtasksFinished();
+     assertEquals(
+         searchbox.result!.matches[0], searchbox.$.input.selectedMatch);
+     assertEquals('example.com', searchbox.$.input.selectedMatch?.contents);
+
+     // When navigating back to unselected, input's selectedMatch should return
+     // to null.
+     searchbox.selectedMatchIndex = -1;
+     await microtasksFinished();
+     assertEquals(null, searchbox.$.input.selectedMatch);
+   });
+
+   test('UneditedPageUrlProvidesPageUrl', async () => {
+     // When input is unedited on a regular webpage URL (e.g. badssl or initial
+     // page focus):
+     callbackRouter.setInputState(createDefaultOmniboxInputState({
+       userInputInProgress: false,
+       permanentDisplayText: 'https://expired.badssl.com/',
+       fullUrl: 'https://expired.badssl.com/',
+     }));
+     await microtasksFinished();
+
+     // pageUrl should be passed to input element while selectedMatch is null.
+     assertEquals('https://expired.badssl.com/', searchbox.$.input.pageUrl);
+     assertEquals(null, searchbox.$.input.selectedMatch);
+
+     // On NTP, pageUrl should be empty (to show Super G default icon).
+     callbackRouter.setInputState(createDefaultOmniboxInputState({
+       userInputInProgress: false,
+       permanentDisplayText: 'chrome://newtab',
+       fullUrl: 'chrome://newtab/',
+     }));
+     await microtasksFinished();
+     assertEquals('', searchbox.$.input.pageUrl);
+     assertEquals(null, searchbox.$.input.selectedMatch);
+
+     // When the user starts typing (userInputInProgress becomes true), pageUrl
+     // becomes empty.
+     callbackRouter.setInputState(createDefaultOmniboxInputState({
+       userInputInProgress: true,
+       text: 'search query',
+     }));
+     await microtasksFinished();
+     assertEquals('', searchbox.$.input.pageUrl);
+     assertEquals(null, searchbox.$.input.selectedMatch);
+   });
+ });
+
+ test('TabKeyAcceptsInlineAutocomplete', async () => {
+   searchbox.focusInput();
+   searchbox.getInputElement().setInput({
+     text: 'you',
+     inline: 'tube.com',
+   });
+   await microtasksFinished();
+
+   const tabEvent = new KeyboardEvent('keydown', {
+     key: 'Tab',
+     cancelable: true,
+     bubbles: true,
+   });
+   await searchbox.handleKeyNavigation(tabEvent);
+   await microtasksFinished();
+
+   assertTrue(tabEvent.defaultPrevented);
+   assertEquals('youtube.com', searchbox.getInputElement().inputElement.value);
+   assertEquals(11, searchbox.getInputElement().inputElement.selectionStart);
+   assertEquals(11, searchbox.getInputElement().inputElement.selectionEnd);
+   assertEquals(1, testProxy.handler.getCallCount('queryAutocomplete'));
+   const [_queryId, queryText, preventInline, cursorPos, _inventory, isOnFocus] =
+       testProxy.handler.getArgs('queryAutocomplete')[0];
+   assertEquals('youtube.com', queryText);
+   assertFalse(preventInline);
+   assertEquals(11, cursorPos);
+   assertFalse(isOnFocus);
+ });
+
+ test('ShiftTabClearsInlineAutocompleteWithoutPreventDefault', async () => {
+   searchbox.focusInput();
+   searchbox.getInputElement().setInput({
+     text: 'you',
+     inline: 'tube.com',
+   });
+   await microtasksFinished();
+
+   const shiftTabEvent = new KeyboardEvent('keydown', {
+     key: 'Tab',
+     shiftKey: true,
+     cancelable: true,
+     bubbles: true,
+   });
+   await searchbox.handleKeyNavigation(shiftTabEvent);
+   await microtasksFinished();
+
+   assertFalse(shiftTabEvent.defaultPrevented);
+   const lastInput = searchbox.getInputElement().lastInput();
+   assertTrue(!!lastInput);
+   assertEquals('', lastInput.inline);
+   assertEquals('you', lastInput.text);
+ });
+
+ test('TabKeyPrioritizesKeywordEntryOverInlineAutocomplete', async () => {
+   const keyword = 'youtube.com';
+   const match = createSearchMatchForTesting({
+     allowedToBeDefaultMatch: true,
+     contents: 'youtube',
+     keywordModel: createMatchKeywordModelForTesting({
+       type: KeywordType.kChip,
+       keyword,
+       chipHint: 'Search YouTube',
+     }),
+   });
+   searchbox.activeQueryId = 0;
+   searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+     queryId: 0,
+     input: 'you',
+     matches: [match],
+   }));
+   await microtasksFinished();
+
+   searchbox.focusInput();
+   searchbox.getInputElement().setInput({
+     text: 'you',
+     inline: 'tube.com',
+   });
+   await microtasksFinished();
+
+   const tabEvent = new KeyboardEvent('keydown', {
+     key: 'Tab',
+     cancelable: true,
+     bubbles: true,
+   });
+   await searchbox.handleKeyNavigation(tabEvent);
+   await microtasksFinished();
+
+   assertTrue(tabEvent.defaultPrevented);
+   assertTrue(searchbox.inputKeywordModel !== null);
+   assertEquals(KeywordType.kInKeyword, searchbox.inputKeywordModel.type);
+   assertEquals(keyword, searchbox.inputKeywordModel.keyword);
+   assertEquals('', searchbox.getInputElement().inputElement.value);
+ });
+
+ test('TabKeyFallsBackToInlineAutocompleteWhenNoKeywordChip', async () => {
+   const match = createSearchMatchForTesting({
+     allowedToBeDefaultMatch: true,
+     contents: 'youtube.com',
+   });
+   searchbox.activeQueryId = 0;
+   searchbox.onAutocompleteResultChanged(createAutocompleteResultForTesting({
+     queryId: 0,
+     input: 'you',
+     matches: [match],
+   }));
+   await microtasksFinished();
+
+   searchbox.focusInput();
+   searchbox.getInputElement().setInput({
+     text: 'you',
+     inline: 'tube.com',
+   });
+   await microtasksFinished();
+
+   const tabEvent = new KeyboardEvent('keydown', {
+     key: 'Tab',
+     cancelable: true,
+     bubbles: true,
+   });
+   await searchbox.handleKeyNavigation(tabEvent);
+   await microtasksFinished();
+
+   assertTrue(tabEvent.defaultPrevented);
+   assertEquals(null, searchbox.inputKeywordModel);
+   assertEquals('youtube.com', searchbox.getInputElement().inputElement.value);
  });
 });

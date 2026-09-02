@@ -20,7 +20,7 @@
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_history.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/browsing_data/core/browsing_data_utils.h"
 #include "components/browsing_data/core/pref_names.h"
@@ -48,7 +48,6 @@ class DownloadsCounterTest : public InProcessBrowserTest,
     time_ = base::Time::Now();
     items_count_ = 0;
     manager_ = browser()->GetProfile()->GetDownloadManager();
-    WaitForInitialization(manager_);
     DownloadCoreService* service =
         DownloadCoreServiceFactory::GetForBrowserContext(
             browser()->GetProfile());
@@ -56,6 +55,7 @@ class DownloadsCounterTest : public InProcessBrowserTest,
       service->InitializeHistory();
       history_ = service->GetDownloadHistory();
     }
+    WaitForInitialization(manager_);
     if (history_) {
       history_->AddObserver(this);
     }

@@ -10,9 +10,11 @@
 #include <string>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/command_line.h"
 #include "base/component_export.h"
 #include "base/containers/flat_map.h"
+#include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation_traits.h"
@@ -128,6 +130,14 @@ class COMPONENT_EXPORT(LINUX_UI) LinuxUi {
   void AddPrimaryPastePrefObserver(PrimaryPastePrefObserver* observer);
 
   void RemovePrimaryPastePrefObserver(PrimaryPastePrefObserver* observer);
+
+  // Registers a callback to be invoked when the LinuxUi instance's animation
+  // setting changes or when the active LinuxUi instance changes.
+  static base::CallbackListSubscription RegisterAnimationsEnabledCallback(
+      base::RepeatingClosure callback);
+
+  // Notifies registered callbacks that the animation setting has changed.
+  void NotifyAnimationsEnabledChanged();
 
   // Returns details about the default UI font.
   FontSettings GetDefaultFontDescription();
@@ -316,6 +326,15 @@ class COMPONENT_EXPORT(LINUX_UI) LinuxUiTheme {
   // Override the toolkit's dark mode preference.  Used when the dark mode
   // setting is provided by org.freedesktop.appearance instead of the toolkit.
   virtual void SetDarkTheme(bool dark) = 0;
+
+  // Route the org.freedesktop.appearance color-scheme preference into the
+  // toolkit's `OsSettingsProvider`, which sources the web
+  // `NativeTheme::preferred_color_scheme()`. `std::nullopt` means "no
+  // preference" and falls back to the toolkit-derived scheme; otherwise the
+  // value selects dark (true) or light (false). (A plain tri-state is used
+  // rather than `NativeTheme::PreferredColorScheme` to avoid a //ui/linux ->
+  // //ui/native_theme dependency cycle.)
+  virtual void SetColorScheme(std::optional<bool> prefer_dark) = 0;
 
   // Override the toolkit's accent color.
   virtual void SetAccentColor(std::optional<SkColor> accent_color) = 0;

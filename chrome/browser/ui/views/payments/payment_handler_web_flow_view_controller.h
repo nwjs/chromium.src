@@ -64,6 +64,11 @@ class PaymentHandlerWebFlowViewController
       PaymentHandlerOpenWindowCallback first_navigation_complete_callback);
   ~PaymentHandlerWebFlowViewController() override;
 
+  static PaymentHandlerWebFlowViewController* FromWebContents(
+      content::WebContents* web_contents);
+
+  views::View* GetLocationIconView();
+
  private:
   class RoundedCornerViewClipper;
 
@@ -107,6 +112,7 @@ class PaymentHandlerWebFlowViewController
   void TitleWasSet(content::NavigationEntry* entry) override;
   void DidGetUserInteraction(const blink::WebInputEvent& event) override;
   void DidStopLoading() override;
+  void DidChangeThemeColor() override;
 
   void AbortPayment();
   void SetHeaderColorsAndOriginLabelText();

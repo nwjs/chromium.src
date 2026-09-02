@@ -70,7 +70,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.DeletedUserProfiles" units="profiles"
-    expires_after="2026-11-22">
+    expires_after="2027-01-24">
   <owner>simmonsjosh@google.com</owner>
   <owner>src/ui/file_manager/OWNERS</owner>
   <summary>
@@ -81,7 +81,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.DiskCleanupProgress"
-    enum="CryptohomeDiskCleanupProgress" expires_after="2026-12-06">
+    enum="CryptohomeDiskCleanupProgress" expires_after="2027-02-07">
   <owner>vsavu@google.com</owner>
   <owner>chromeos-disk-cleanup@google.com</owner>
   <summary>
@@ -133,7 +133,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.Errors" enum="CryptohomeError"
-    expires_after="2026-11-29">
+    expires_after="2027-01-31">
   <owner>apronin@chromium.org</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>Cryptohome errors.</summary>
@@ -415,7 +415,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToAuthSessionRemoveAuthFactorUSS" units="ms"
-    expires_after="2026-10-18">
+    expires_after="2027-03-31">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -427,7 +427,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToCreatePersistentUser" units="ms"
-    expires_after="2026-12-27">
+    expires_after="2027-03-31">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -440,7 +440,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToGenerateEccAuthValue" units="ms"
-    expires_after="2026-11-29">
+    expires_after="2027-01-31">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>
@@ -484,7 +484,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToPerformEphemeralMount" units="ms"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>sarthakkukreti@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -526,7 +526,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToUSSLoadPersisted" units="ms"
-    expires_after="2026-08-13">
+    expires_after="2027-03-31">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -539,7 +539,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToUSSPersist" units="ms"
-    expires_after="2026-10-18">
+    expires_after="2027-03-31">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -614,7 +614,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.{AuthBlockType}.RevokeCredentialResult"
-    enum="HwsecRetryActionEnum" expires_after="2026-09-24">
+    enum="HwsecRetryActionEnum" expires_after="2027-09-24">
   <owner>jadmanski@chromium.org</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -626,7 +626,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.{AuthSessionLifetime}.{Type}" units="ms"
-    expires_after="2026-08-13">
+    expires_after="2027-03-31">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-security-cryptohome+uma@google.com</owner>
   <summary>
@@ -683,7 +683,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Cryptohome.{ErrorOperation}{AuthFactorType}.DevUnexpectedState"
-    enum="CryptohomeErrorLocation" expires_after="2026-11-29">
+    enum="CryptohomeErrorLocation" expires_after="2027-01-31">
   <owner>zuan@chromium.org</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>
@@ -755,7 +755,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.{ErrorOperation}{AuthFactorType}.LeafErrorWithTPM"
-    enum="CryptohomeErrorLocationWithTPMError" expires_after="2026-11-29">
+    enum="CryptohomeErrorLocationWithTPMError" expires_after="2027-01-31">
   <owner>zuan@chromium.org</owner>
   <owner>cros-hwsec+uma@google.com</owner>
   <summary>

@@ -39,10 +39,12 @@
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/preloading/bookmarkbar_preload/bookmarkbar_preload_pipeline_manager.h"
 #include "chrome/browser/preloading/new_tab_page_preload/new_tab_page_preload_pipeline_manager.h"
+#include "chrome/browser/preloading/prefetch/zero_suggest_prefetch/zero_suggest_prefetch_tab_helper.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ssl/ask_before_http_dialog_controller.h"
+#include "chrome/browser/ssl/security_state_event_observer.h"
 #include "chrome/browser/sync/sessions/sync_sessions_router_tab_helper.h"
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -55,11 +57,13 @@
 #include "chrome/browser/ui/autofill/payments/omnibox_autofill_page_action_controller.h"
 #include "chrome/browser/ui/autofill/payments/payments_churned_users_bubble_controller.h"
 #include "chrome/browser/ui/autofill/payments/payments_churned_users_page_action_controller.h"
+#include "chrome/browser/ui/autofill/payments/wallet_reminder_notice_bubble_controller.h"
+#include "chrome/browser/ui/autofill/payments/wallet_reminder_notice_page_action_controller.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/commerce/commerce_ui_tab_helper.h"
 #include "chrome/browser/ui/context_highlight/context_highlight_tab_feature.h"
-#include "chrome/browser/ui/cookie_controls/roll_back_mode_b_infobar_controller.h"
+#include "chrome/browser/ui/focus_tab_after_navigation_helper.h"
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
@@ -71,6 +75,7 @@
 #include "chrome/browser/ui/performance_controls/tab_resource_usage_tab_helper.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/read_anything/read_anything_side_panel_controller.h"
+#include "chrome/browser/ui/search_engine_choice/search_engine_choice_tab_helper.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
@@ -120,6 +125,7 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include "chrome/browser/metrics/oom/commit_limit_oom_recovery_tracker.h"
 #include "chrome/browser/ui/search_promotion/search_promotion_navigation_observer.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #endif
@@ -140,7 +146,6 @@
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "components/autofill/core/common/autofill_features.h"
-#include "components/browsing_topics/browsing_topics_service.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/image_fetcher/core/image_fetcher_service.h"
@@ -217,8 +222,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
             *page_action_controller_);
   }
 
-  if (IsPageActionMigrated(PageActionIconType::kIntentPicker) &&
-      page_action_controller_->ActionExists(kActionShowIntentPicker)) {
+  if (page_action_controller_->ActionExists(kActionShowIntentPicker)) {
     intent_picker_view_page_action_controller_ =
         std::make_unique<IntentPickerViewPageActionController>(tab);
   }
@@ -228,7 +232,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         std::make_unique<FileSystemAccessPageActionController>(tab);
   }
 
-  if (page_action_controller_->ActionExists(kActionZoomNormal)) {
+  if (page_action_controller_->ActionExists(kActionShowZoomBubble)) {
     zoom_view_controller_ = std::make_unique<zoom::ZoomViewController>(
         tab, *page_action_controller_);
   }
@@ -246,31 +250,27 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                 tab, tab, *page_action_controller_);
   }
 
-  if (IsPageActionMigrated(PageActionIconType::kManagePasswords) &&
-      page_action_controller_->ActionExists(kActionShowPasswordsBubbleOrPage)) {
+  if (page_action_controller_->ActionExists(kActionShowPasswordsBubbleOrPage)) {
     manage_passwords_page_action_controller_ =
         std::make_unique<ManagePasswordsPageActionController>(
             *page_action_controller_);
   }
 
-  if (IsPageActionMigrated(PageActionIconType::kCookieControls) &&
-      page_action_controller_->ActionExists(kActionShowCookieControls)) {
+  if (page_action_controller_->ActionExists(kActionShowCookieControls)) {
     cookie_controls_page_action_controller_ =
         GetUserDataFactory().CreateInstance<CookieControlsPageActionController>(
             tab, tab, *profile, *page_action_controller_);
     cookie_controls_page_action_controller_->Init();
   }
 
-  if (IsPageActionMigrated(PageActionIconType::kLensOverlayHomework) &&
-      page_action_controller_->ActionExists(kActionLensOverlayHomework)) {
+  if (page_action_controller_->ActionExists(kActionLensOverlayHomework)) {
     lens_overlay_homework_page_action_controller_ =
         GetUserDataFactory()
             .CreateInstance<LensOverlayHomeworkPageActionController>(
                 tab, tab, *profile, *page_action_controller_);
   }
 
-  if (IsPageActionMigrated(PageActionIconType::kBookmarkStar) &&
-      tab.GetBrowserWindowInterface()->GetType() ==
+  if (tab.GetBrowserWindowInterface()->GetType() ==
           BrowserWindowInterface::TYPE_NORMAL &&
       page_action_controller_->ActionExists(kActionBookmarkThisTab)) {
     bookmark_page_action_controller_ =
@@ -318,25 +318,16 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                   ->GetImageFetcher(
                       image_fetcher::ImageFetcherConfig::kNetworkOnly),
               side_panel_registry_.get());
-
-      roll_back_mode_b_infobar_controller_ =
-          std::make_unique<RollBackModeBInfoBarController>(tab.GetContents());
     }
 
-    glic::ContextualCueingHelper::MaybeCreateForWebContents(tab.GetContents());
-    glic::GlicCueTabState::CreateForWebContents(tab.GetContents());
+    contextual_cueing_helper_ = glic::ContextualCueingHelper::MaybeCreate(&tab);
+    glic_cue_tab_state_ = std::make_unique<glic::GlicCueTabState>(tab);
 
     if (tab_groups::TabGroupSyncService* tab_group_sync_service =
             tab_groups::TabGroupSyncServiceFactory::GetForProfile(profile)) {
       saved_tab_group_web_contents_listener_ =
           std::make_unique<tab_groups::SavedTabGroupWebContentsListener>(
               tab_group_sync_service, &tab);
-
-      if (features::IsTabGroupMenuMoreEntryPointsEnabled()) {
-        saved_tab_group_on_close_helper_ =
-            std::make_unique<tab_groups::SavedTabGroupOnCloseHelper>(
-                tab_group_sync_service, &tab);
-      }
     }
 
     if (tab_groups::SavedTabGroupUtils::SupportsSharedTabGroups()) {
@@ -432,10 +423,7 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
                 tab, tab, *page_action_controller_, *commerce_ui_tab_helper_);
   }
 
-  if (base::FeatureList::IsEnabled(
-          autofill::features::kAutofillShowBubblesBasedOnPriorities)) {
-    autofill_bubble_manager_ = autofill::BubbleManager::Create(&tab);
-  }
+  autofill_bubble_manager_ = autofill::BubbleManager::Create(&tab);
 
   if (base::FeatureList::IsEnabled(
           autofill::features::kAutofillEnableOmniboxAutofill) &&
@@ -457,6 +445,17 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
     payments_churned_users_bubble_controller_ =
         GetUserDataFactory()
             .CreateInstance<autofill::PaymentsChurnedUsersBubbleController>(
+                tab, tab, tab.GetContents());
+  }
+
+  if (page_action_controller_->ActionExists(kActionWalletReminderNotice)) {
+    wallet_reminder_notice_page_action_controller_ =
+        GetUserDataFactory()
+            .CreateInstance<autofill::WalletReminderNoticePageActionController>(
+                tab, tab, *page_action_controller_);
+    wallet_reminder_notice_bubble_controller_ =
+        GetUserDataFactory()
+            .CreateInstance<autofill::WalletReminderNoticeBubbleController>(
                 tab, tab, tab.GetContents());
   }
 
@@ -488,12 +487,15 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
 
   // Create the HttpAuthCacheStatus to start observing resource load
   // completions.
-  HttpAuthCacheStatus::HttpAuthCacheStatus::CreateForWebContents(
-      tab.GetContents());
+  http_auth_cache_status_ =
+      std::make_unique<HttpAuthCacheStatus>(tab.GetContents());
 
   if (web_app::AreWebAppsEnabled(profile)) {
     web_app::WebAppTabHelper::Create(&tab, tab.GetContents());
   }
+
+  security_state_event_observer_ =
+      std::make_unique<SecurityStateEventObserver>(tab.GetContents());
 
   sync_sessions_router_ =
       std::make_unique<sync_sessions::SyncSessionsRouterTabHelper>(
@@ -503,8 +505,19 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
           ChromeTranslateClient::FromWebContents(tab.GetContents()),
           favicon::ContentFaviconDriver::FromWebContents(tab.GetContents()));
 
+  focus_tab_after_navigation_helper_ =
+      std::make_unique<FocusTabAfterNavigationHelper>(tab.GetContents());
+
+  zero_suggest_prefetch_tab_helper_ =
+      std::make_unique<ZeroSuggestPrefetchTabHelper>(tab.GetContents());
+
+  if (SearchEngineChoiceTabHelper::IsHelperNeeded()) {
+    search_engine_choice_tab_helper_ =
+        std::make_unique<SearchEngineChoiceTabHelper>(tab.GetContents());
+  }
+
   from_gws_navigation_and_keep_alive_request_observer_ =
-      FromGWSNavigationAndKeepAliveRequestObserver::MaybeCreateForWebContents(
+      FromGWSNavigationAndKeepAliveRequestObserver::MaybeCreate(
           tab.GetContents());
 
   resource_usage_helper_ =
@@ -548,6 +561,9 @@ void TabFeatures::Init(TabInterface& tab, Profile* profile) {
         GetUserDataFactory().CreateInstance<SearchPromotionNavigationObserver>(
             tab, tab);
   }
+  commit_limit_oom_recovery_tracker_ =
+      GetUserDataFactory().CreateInstance<CommitLimitOOMRecoveryTracker>(tab,
+                                                                         tab);
 #endif
 
   if (base::FeatureList::IsEnabled(net::features::kVerifyQWACs)) {
@@ -691,6 +707,20 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     web_app::WebAppTabHelper::Create(tab, new_contents);
   }
 
+  focus_tab_after_navigation_helper_ =
+      std::make_unique<FocusTabAfterNavigationHelper>(new_contents);
+
+  zero_suggest_prefetch_tab_helper_ =
+      std::make_unique<ZeroSuggestPrefetchTabHelper>(new_contents);
+
+  security_state_event_observer_ =
+      std::make_unique<SecurityStateEventObserver>(new_contents);
+
+  if (search_engine_choice_tab_helper_) {
+    search_engine_choice_tab_helper_ =
+        std::make_unique<SearchEngineChoiceTabHelper>(new_contents);
+  }
+
   sync_sessions_router_.reset();
   sync_sessions_router_ =
       std::make_unique<sync_sessions::SyncSessionsRouterTabHelper>(
@@ -704,12 +734,6 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     permission_indicators_tab_data_ =
         std::make_unique<permissions::PermissionIndicatorsTabData>(
             new_contents);
-  }
-
-  if (roll_back_mode_b_infobar_controller_) {
-    roll_back_mode_b_infobar_controller_.reset();
-    roll_back_mode_b_infobar_controller_ =
-        std::make_unique<RollBackModeBInfoBarController>(new_contents);
   }
 
   if (bookmarkbar_preload_pipeline_manager_) {
@@ -742,6 +766,14 @@ void TabFeatures::WillDiscardContents(tabs::TabInterface* tab,
     payments_churned_users_bubble_controller_ =
         GetUserDataFactory()
             .CreateInstance<autofill::PaymentsChurnedUsersBubbleController>(
+                *tab, *tab, new_contents);
+  }
+
+  if (wallet_reminder_notice_bubble_controller_) {
+    wallet_reminder_notice_bubble_controller_.reset();
+    wallet_reminder_notice_bubble_controller_ =
+        GetUserDataFactory()
+            .CreateInstance<autofill::WalletReminderNoticeBubbleController>(
                 *tab, *tab, new_contents);
   }
 }

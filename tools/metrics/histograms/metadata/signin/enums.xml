@@ -219,6 +219,8 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="PeriodicRefresh"/>
   <int value="1" label="RefreshTokenUpdated"/>
   <int value="2" label="RefreshTokenRemoved"/>
+  <int value="3" label="RefreshTokenInvalidated"/>
+  <int value="4" label="ExternalAppAccountUpdated"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/core/browser/account_preview_data_service_impl.h:FetchTriggerCause) -->
@@ -743,6 +745,17 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//ios/chrome/browser/signin/model/authentication_service.h:IOSProfileInitializationOutcome) -->
 
+<!-- LINT.IfChange(IOSResizedAvatarCacheGetAvatarResult) -->
+
+<enum name="IOSResizedAvatarCacheGetAvatarResult">
+  <int value="0" label="Success"/>
+  <int value="1" label="Missing (Fetch triggered)"/>
+  <int value="2" label="Invalid dimensions (Fetch triggered)"/>
+  <int value="3" label="Resize failed"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/signin/model/avatar/resized_avatar_cache.h:IOSResizedAvatarCacheGetAvatarResult) -->
+
 <!-- LINT.IfChange(LaunchWebAuthFlowResult) -->
 
 <enum name="LaunchWebAuthFlowResult">
@@ -866,7 +879,7 @@ chromium-metrics-reviews@google.com.
   <int value="55" label="Arc Background Auth Code Fetcher"/>
   <int value="56" label="GCM Account Tracker"/>
   <int value="57" label="Policy Token Forwarder"/>
-  <int value="58" label="Plugin Vm License Checker"/>
+  <int value="58" label="Plugin Vm License Checker (deprecated 07/2026)"/>
   <int value="59" label="Drivefs Auth"/>
   <int value="60" label="Nearby Presence Server Client"/>
   <int value="61" label="Crypt Auth Client"/>
@@ -916,6 +929,8 @@ chromium-metrics-reviews@google.com.
   <int value="105" label="Remote Actor Login Credentials Service"/>
   <int value="106" label="Browser Actuator"/>
   <int value="107" label="Tab Context Containers Service"/>
+  <int value="108" label="Site Token Provider"/>
+  <int value="109" label="Device Authorization Request"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/signin/public/base/oauth_consumer_id.h:OAuthConsumerId) -->
@@ -1155,6 +1170,7 @@ chromium-metrics-reviews@google.com.
   <int value="106" label="Overflow Menu (iOS only)"/>
   <int value="107" label="Level Up (iOS only)"/>
   <int value="108" label="Undo button from the signout snackbar (iOS only)"/>
+  <int value="109" label="Composebox Drive context menu option (Desktop only)"/>
 </enum>
 
 <enum name="SigninAccountReconcilorState">
@@ -1774,6 +1790,23 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/signin/WebSigninRedirectCoordinator.java:DialogState) -->
+
+<!-- LINT.IfChange(WebSigninWaitOutcome) -->
+
+<enum name="WebSigninWaitOutcome">
+  <int value="0" label="CompletedWithoutDialog"/>
+  <int value="1" label="CompletedWithDialog"/>
+  <int value="2" label="AbortedWithoutDialog"/>
+  <int value="3" label="AbortedWithDialogCancelButton"/>
+  <int value="4" label="AbortedWithDialogTouchOutside"/>
+  <int value="5" label="AbortedWithDialogOther"/>
+  <int value="6" label="AuthErrorWithoutDialog"/>
+  <int value="7" label="AuthErrorWithDialog"/>
+  <int value="8" label="OtherErrorWithoutDialog"/>
+  <int value="9" label="OtherErrorWithDialog"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/signin/WebSigninRedirectCoordinator.java:WaitOutcome) -->
 
 </enums>
 

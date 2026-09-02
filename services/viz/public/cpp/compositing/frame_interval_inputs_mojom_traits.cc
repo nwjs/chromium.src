@@ -42,40 +42,42 @@ viz::ContentFrameIntervalType EnumTraits<viz::mojom::ContentFrameIntervalType,
   NOTREACHED();
 }
 
-bool StructTraits<viz::mojom::ContentFrameIntervalInfoDataView,
-                  viz::ContentFrameIntervalInfo>::
+base::expected<void, DeserializationError>
+StructTraits<viz::mojom::ContentFrameIntervalInfoDataView,
+             viz::ContentFrameIntervalInfo>::
     Read(viz::mojom::ContentFrameIntervalInfoDataView info,
          viz::ContentFrameIntervalInfo* out) {
   if (!info.ReadType(&out->type)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
   if (!info.ReadFrameInterval(&out->frame_interval)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
   out->duplicate_count = info.duplicate_count();
-  return true;
+  return base::ok();
 }
 
-bool StructTraits<viz::mojom::FrameIntervalInputsDataView,
-                  viz::FrameIntervalInputs>::
-    Read(viz::mojom::FrameIntervalInputsDataView inputs,
-         viz::FrameIntervalInputs* out) {
+base::expected<void, DeserializationError> StructTraits<
+    viz::mojom::FrameIntervalInputsDataView,
+    viz::FrameIntervalInputs>::Read(viz::mojom::FrameIntervalInputsDataView
+                                        inputs,
+                                    viz::FrameIntervalInputs* out) {
   if (!inputs.ReadFrameTime(&out->frame_time)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
   out->has_user_input = inputs.has_user_input();
   out->has_input = inputs.has_input();
   out->major_scroll_speed_in_pixels_per_second =
       inputs.major_scroll_speed_in_pixels_per_second();
   if (out->major_scroll_speed_in_pixels_per_second < 0.f) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
   if (!inputs.ReadContentIntervalInfo(&out->content_interval_info)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
   out->has_only_content_frame_interval_updates =
       inputs.has_only_content_frame_interval_updates();
-  return true;
+  return base::ok();
 }
 
 }  // namespace mojo

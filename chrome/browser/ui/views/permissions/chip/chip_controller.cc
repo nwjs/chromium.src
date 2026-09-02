@@ -15,12 +15,14 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
+#include "chrome/browser/ui/content_settings/content_setting_image_view_delegate.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/page_info/page_info_dialog.h"
 #include "chrome/browser/ui/views/content_setting_bubble_contents.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_specification.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_constants.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_controller.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_prompt_chip_model.h"
@@ -44,12 +46,6 @@
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/button_controller.h"
 #include "ui/views/widget/widget.h"
-
-namespace {
-
-constexpr auto kConfirmationDisplayDuration = base::Seconds(4);
-
-}  // namespace
 
 ChipController::ChipController(
     LocationBar* location_bar,
@@ -159,8 +155,8 @@ void ChipController::RestartTimersOnMouseHover() {
   }
 
   if (is_confirmation_showing_) {
-    collapse_timer_.Start(FROM_HERE, kConfirmationDisplayDuration, this,
-                          &ChipController::CollapseConfirmation);
+    collapse_timer_.Start(FROM_HERE, kPermissionConfirmationDisplayDuration,
+                          this, &ChipController::CollapseConfirmation);
   } else if (chip_->IsFullyCollapsed()) {
     // Quiet chip can collapse from a verbose state to an icon state. After it
     // is collapsed, it should be dismissed.
@@ -355,7 +351,12 @@ void ChipController::ShowPermissionUi(
 
   chip_->SetBubbleOwner(this);
   chip_->SetPressedCallback(base::BindRepeating(
-      &ChipController::OnRequestChipButtonPressed, weak_factory_.GetWeakPtr()));
+      // base::Unretained() is safe here because the ChipController and the
+      // chip object are both owned by the LocationBarView (or similar UI
+      // container) which shares their lifecycles, and no ui events are
+      // fired during teardown.
+      [](ChipController* self, bool) { self->OnRequestChipButtonPressed(); },
+      base::Unretained(this)));
   chip_->ResetAnimation(PermissionChipInterface::AnimationState::kCollapsed);
   ObservePromptBubble();
 
@@ -403,7 +404,7 @@ void ChipController::RemoveBubbleObserverAndResetTimersAndChipCallbacks() {
   }
 
   // Reset button click callback
-  chip_->SetPressedCallback(base::RepeatingClosure());
+  chip_->SetPressedCallback(base::RepeatingCallback<void(bool)>());
 
   ResetTimers();
 }
@@ -543,13 +544,18 @@ void ChipController::HandleConfirmation(
     }
 
     chip_->SetPressedCallback(base::BindRepeating(
-        &ChipController::ShowPageInfoDialog, weak_factory_.GetWeakPtr()));
+        // base::Unretained() is safe here because the ChipController and the
+        // chip object are both owned by the LocationBarView (or similar UI
+        // container) which shares their lifecycles, and no ui events are
+        // fired during teardown.
+        [](ChipController* self, bool) { self->ShowPageInfoDialog(); },
+        base::Unretained(this)));
     AnnouncePermissionRequestForAccessibility(
         permission_prompt_model_->GetAccessibilityChipText());
 
     if (!do_no_collapse_for_testing_) {
-      collapse_timer_.Start(FROM_HERE, kConfirmationDisplayDuration, this,
-                            &ChipController::CollapseConfirmation);
+      collapse_timer_.Start(FROM_HERE, kPermissionConfirmationDisplayDuration,
+                            this, &ChipController::CollapseConfirmation);
     }
   } else {
     ResetPermissionPromptChip();
@@ -660,7 +666,7 @@ void ChipController::OpenPermissionPromptBubble() {
               std::make_unique<ContentSettingQuietRequestBubbleModel>(
                   content_settings_image_delegate_
                       ->GetContentSettingBubbleModelDelegate(),
-                  web_contents);
+                  web_contents->GetPrimaryPage());
       ui::TrackedElement* anchor = location_bar_->GetAnchorOrNull();
       DCHECK(anchor);  // We should get here only if location bar is visible.
       ContentSettingBubbleContents* quiet_request_bubble =

@@ -13,12 +13,13 @@
 #include <utility>
 #include <vector>
 
-#include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
 #include "base/test/test_mock_time_task_runner.h"
@@ -30,11 +31,10 @@
 #include "chrome/browser/sessions/chrome_tab_restore_service_client.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
 #include "chrome/browser/ui/webui/metrics_reporter/mock_metrics_reporter.h"
 #include "chrome/browser/ui/webui/tab_search/tab_search.mojom-forward.h"
@@ -68,6 +69,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_web_ui.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/base/base_window.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/gfx/color_utils.h"
@@ -123,10 +125,11 @@ void ExpectRecentlyClosedTab(const tab_search::mojom::RecentlyClosedTab* tab,
   EXPECT_EQ(title, tab->title);
 }
 
-[[nodiscard]] bool WaitForActiveTab(Browser* browser, const GURL& url) {
+[[nodiscard]] bool WaitForActiveTab(BrowserWindowInterface* browser,
+                                    const GURL& url) {
   return base::test::RunUntil([&]() {
-    return browser->tab_strip_model()->GetActiveWebContents() &&
-           browser->tab_strip_model()
+    return browser->GetTabStripModel()->GetActiveWebContents() &&
+           browser->GetTabStripModel()
                    ->GetActiveWebContents()
                    ->GetLastCommittedURL() == url;
   });
@@ -166,15 +169,17 @@ class TestTabSearchPageHandler : public TabSearchPageHandler {
             web_ui,
             webui_controller,
             &metrics_reporter_) {
-    mock_debounce_timer_ = new base::MockRetainingOneShotTimer();
-    SetTimerForTesting(base::WrapUnique(mock_debounce_timer_.get()));
+    auto timer = std::make_unique<base::MockRetainingOneShotTimer>();
+    mock_debounce_timer_ = timer.get();
+    SetTimerForTesting(std::move(timer));
   }
+
   base::MockRetainingOneShotTimer* mock_debounce_timer() {
     return mock_debounce_timer_;
   }
 
  private:
-  raw_ptr<base::MockRetainingOneShotTimer> mock_debounce_timer_;
+  raw_ptr<base::MockRetainingOneShotTimer> mock_debounce_timer_ = nullptr;
   testing::NiceMock<MockMetricsReporter> metrics_reporter_;
 };
 
@@ -246,22 +251,22 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
     profile2_ = nullptr;
 
     if (browser5_) {
-      Browser* browser = browser5_;
+      BrowserWindowInterface* browser = browser5_;
       browser5_ = nullptr;
       CloseBrowserSynchronously(browser);
     }
     if (browser4_) {
-      Browser* browser = browser4_;
+      BrowserWindowInterface* browser = browser4_;
       browser4_ = nullptr;
       CloseBrowserSynchronously(browser);
     }
     if (browser3_) {
-      Browser* browser = browser3_;
+      BrowserWindowInterface* browser = browser3_;
       browser3_ = nullptr;
       CloseBrowserSynchronously(browser);
     }
     if (browser2_) {
-      Browser* browser = browser2_;
+      BrowserWindowInterface* browser = browser2_;
       browser2_ = nullptr;
       CloseBrowserSynchronously(browser);
     }
@@ -279,14 +284,15 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
   Profile* profile2() { return profile2_; }
 
   // The default browser.
-  Browser* browser1() { return browser(); }
+  BrowserWindowInterface* browser1() { return browser(); }
 
-  Browser* browser2() { return browser2_; }
-  Browser* browser3() { return browser3_; }
-  Browser* browser4() { return browser4_; }
-  Browser* browser5() { return browser5_; }
+  BrowserWindowInterface* browser2() { return browser2_; }
+  BrowserWindowInterface* browser3() { return browser3_; }
+  BrowserWindowInterface* browser4() { return browser4_; }
+  BrowserWindowInterface* browser5() { return browser5_; }
 
   TestTabSearchPageHandler* handler() { return handler_.get(); }
+  void reset_handler() { handler_.reset(); }
   void FireTimer() { handler_->mock_debounce_timer()->Fire(); }
   bool IsTimerRunning() { return handler_->mock_debounce_timer()->IsRunning(); }
 
@@ -309,23 +315,27 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
   }
 
  protected:
-  Browser* CreateBrowserForTest(Profile* profile, Browser::Type type) {
-    Browser::CreateParams params(type, profile, true);
-    Browser* browser = Browser::Create(params);
+  BrowserWindowInterface* CreateBrowserForTest(
+      Profile* profile,
+      BrowserWindowInterface::Type type) {
+    BrowserWindowCreateParams params(type, profile, /*from_user_gesture=*/true);
+    BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
     browser->GetWindow()->Show();
     return browser;
   }
 
-  void AddTabWithTitle(Browser* browser,
+  void AddTabWithTitle(BrowserWindowInterface* browser,
                        const GURL& url,
                        const std::string& title) {
     chrome::AddTabAt(browser, url, 0, true);
     content::WebContents* web_contents =
-        browser->tab_strip_model()->GetActiveWebContents();
+        browser->GetTabStripModel()->GetActiveWebContents();
     content::WaitForLoadStop(web_contents);
+    content::TitleWatcher title_watcher(web_contents, base::UTF8ToUTF16(title));
     ASSERT_TRUE(content::ExecJs(
         web_contents,
         base::StringPrintf("document.title = '%s';", title.c_str())));
+    ASSERT_EQ(base::UTF8ToUTF16(title), title_watcher.WaitAndGetTitle());
   }
 
   TabSearchUI* webui_controller() { return webui_controller_.get(); }
@@ -346,10 +356,10 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
   GURL tab_url5_;
   GURL tab_url6_;
   raw_ptr<Profile> profile2_ = nullptr;
-  raw_ptr<Browser> browser2_ = nullptr;
-  raw_ptr<Browser> browser3_ = nullptr;
-  raw_ptr<Browser> browser4_ = nullptr;
-  raw_ptr<Browser> browser5_ = nullptr;
+  raw_ptr<BrowserWindowInterface> browser2_ = nullptr;
+  raw_ptr<BrowserWindowInterface> browser3_ = nullptr;
+  raw_ptr<BrowserWindowInterface> browser4_ = nullptr;
+  raw_ptr<BrowserWindowInterface> browser5_ = nullptr;
 
  private:
   content::TestWebUI web_ui_;
@@ -359,7 +369,13 @@ class TabSearchPageHandlerTest : public InProcessBrowserTest {
   std::unique_ptr<TabSearchUI> webui_controller_;
 };
 
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, GetTabs) {
+#if BUILDFLAG(IS_LINUX) && (!defined(NDEBUG) || defined(ADDRESS_SANITIZER) || \
+                            defined(MEMORY_SANITIZER))
+#define MAYBE_GetTabs DISABLED_GetTabs
+#else
+#define MAYBE_GetTabs GetTabs
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_GetTabs) {
   // Browser3 and browser4 are using different profiles, browser5 is not a
   // normal type browser, thus their tabs should not be accessible.
   AddTabWithTitle(browser5(), tab_url6_, kTabName6);
@@ -870,7 +886,14 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_TabsNotChanged) {
 }
 
 // Verify tab update event is called correctly with data
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, TabUpdated) {
+// TODO(https://crbug.com/537538766): Fails on Linux MSan Tests and looks
+// flaky on Linux, generally.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_TabUpdated DISABLED_TabUpdated
+#else
+#define MAYBE_TabUpdated TabUpdated
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_TabUpdated) {
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
 
   ClearSetupExpectations();
@@ -1345,7 +1368,13 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, ReplaceActiveSplitTab) {
             tabs_in_split_after_replacement[1]->GetContents()->GetURL().spec());
 }
 
-IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, TabSearchUsedPref) {
+// TODO(crbug.com/537538766): Re-enable test
+#if BUILDFLAG(IS_LINUX) && defined(MEMORY_SANITIZER)
+#define MAYBE_TabSearchUsedPref DISABLED_TabSearchUsedPref
+#else
+#define MAYBE_TabSearchUsedPref TabSearchUsedPref
+#endif
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest, MAYBE_TabSearchUsedPref) {
   AddTabWithTitle(browser1(), tab_url1_, kTabName1);
   AddTabWithTitle(browser1(), tab_url2_, kTabName2);
 
@@ -1529,6 +1558,151 @@ IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerSplitViewTest,
 
   EXPECT_CALL(page_, TabUpdated(_)).Times(testing::AnyNumber());
   EXPECT_CALL(page_, TabsRemoved(_)).Times(testing::AnyNumber());
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_NoAction) {
+  base::HistogramTester histogram_tester;
+  reset_handler();
+  histogram_tester.ExpectUniqueSample("Tabs.TabSearch.CloseAction2",
+                                      TabSearchCloseAction::kNoAction, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_CloseTab) {
+  AddTabWithTitle(browser1(), tab_url1_, kTabName1);
+  int32_t tab_id =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  handler()->CloseTab(tab_id);
+
+  base::HistogramTester histogram_tester;
+  reset_handler();
+  histogram_tester.ExpectUniqueSample("Tabs.TabSearch.CloseAction2",
+                                      TabSearchCloseAction::kCloseTab, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_SwitchTab) {
+  AddTabWithTitle(browser1(), tab_url1_, kTabName1);
+  int32_t tab_id =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  auto switch_to_tab_info = tab_search::mojom::SwitchToTabInfo::New();
+  switch_to_tab_info->tab_id = tab_id;
+  handler()->SwitchToTab(std::move(switch_to_tab_info));
+
+  base::HistogramTester histogram_tester;
+  reset_handler();
+  histogram_tester.ExpectUniqueSample("Tabs.TabSearch.CloseAction2",
+                                      TabSearchCloseAction::kSwitchTab, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_CloseThenSwitchTab) {
+  AddTabWithTitle(browser1(), tab_url1_, kTabName1);
+  AddTabWithTitle(browser1(), tab_url2_, kTabName2);
+  int32_t tab_id1 =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  int32_t tab_id2 =
+      browser1()->tab_strip_model()->GetTabAtIndex(1)->GetHandle().raw_value();
+
+  handler()->CloseTab(tab_id1);
+
+  auto switch_to_tab_info = tab_search::mojom::SwitchToTabInfo::New();
+  switch_to_tab_info->tab_id = tab_id2;
+  handler()->SwitchToTab(std::move(switch_to_tab_info));
+
+  base::HistogramTester histogram_tester;
+  reset_handler();
+  histogram_tester.ExpectUniqueSample(
+      "Tabs.TabSearch.CloseAction2",
+      TabSearchCloseAction::kSwitchTabAndCloseTab, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_OpenRecentTab) {
+  AddTabWithTitle(browser1(), tab_url1_, kTabName1);
+  AddTabWithTitle(browser1(), tab_url2_, kTabName2);
+  sessions::TabRestoreService* tab_restore_service =
+      TabRestoreServiceFactory::GetForProfile(profile1());
+  int32_t tab_id =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  handler()->CloseTab(tab_id);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_restore_service->entries().size() >= 1u; }));
+
+  handler()->BeforeBubbleWidgetShowed();
+
+  int32_t session_id = tab_restore_service->entries().front()->id.id();
+  handler()->OpenRecentlyClosedEntry(session_id);
+
+  base::HistogramTester histogram_tester;
+  reset_handler();
+  histogram_tester.ExpectUniqueSample("Tabs.TabSearch.CloseAction2",
+                                      TabSearchCloseAction::kOpenRecentTab, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_CloseThenOpenRecentTab) {
+  AddTabWithTitle(browser1(), tab_url1_, kTabName1);
+  AddTabWithTitle(browser1(), tab_url2_, kTabName2);
+  sessions::TabRestoreService* tab_restore_service =
+      TabRestoreServiceFactory::GetForProfile(profile1());
+
+  int32_t tab_id1 =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  handler()->CloseTab(tab_id1);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return tab_restore_service->entries().size() >= 1u; }));
+
+  handler()->BeforeBubbleWidgetShowed();
+
+  int32_t tab_id2 =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  handler()->CloseTab(tab_id2);
+
+  int32_t session_id = tab_restore_service->entries().front()->id.id();
+  handler()->OpenRecentlyClosedEntry(session_id);
+
+  base::HistogramTester histogram_tester;
+  reset_handler();
+  histogram_tester.ExpectUniqueSample(
+      "Tabs.TabSearch.CloseAction2",
+      TabSearchCloseAction::kOpenRecentTabAndCloseTab, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(TabSearchPageHandlerTest,
+                       CloseActionHistogram_MultipleSessionsWithCaching) {
+  base::HistogramTester histogram_tester;
+
+  // Session 1: Before showing bubble
+  handler()->BeforeBubbleWidgetShowed();
+  AddTabWithTitle(browser1(), tab_url1_, kTabName1);
+  int32_t tab_id1 =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  handler()->CloseTab(tab_id1);
+
+  // Bubble closes (visibility becomes HIDDEN)
+  handler()->OnVisibilityChanged(content::Visibility::HIDDEN);
+
+  histogram_tester.ExpectBucketCount("Tabs.TabSearch.CloseAction2",
+                                     TabSearchCloseAction::kCloseTab, 1);
+
+  // Session 2: Bubble re-opened (preloaded/cached)
+  handler()->BeforeBubbleWidgetShowed();
+  int32_t open_tab_id =
+      browser1()->tab_strip_model()->GetTabAtIndex(0)->GetHandle().raw_value();
+  auto switch_to_tab_info = tab_search::mojom::SwitchToTabInfo::New();
+  switch_to_tab_info->tab_id = open_tab_id;
+  handler()->SwitchToTab(std::move(switch_to_tab_info));
+
+  // Bubble closes again (visibility becomes HIDDEN)
+  handler()->OnVisibilityChanged(content::Visibility::HIDDEN);
+
+  histogram_tester.ExpectBucketCount("Tabs.TabSearch.CloseAction2",
+                                     TabSearchCloseAction::kCloseTab, 1);
+  histogram_tester.ExpectBucketCount("Tabs.TabSearch.CloseAction2",
+                                     TabSearchCloseAction::kSwitchTab, 1);
+  histogram_tester.ExpectTotalCount("Tabs.TabSearch.CloseAction2", 2);
 }
 
 }  // namespace

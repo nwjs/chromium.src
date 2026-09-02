@@ -21,12 +21,13 @@
 #include "base/types/optional_util.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/navigation_handle_user_data_forwarder.h"
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
@@ -36,7 +37,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/window_management/isolated_web_apps_window_open_permission_service.h"
 #include "chrome/browser/web_applications/isolated_web_apps/window_management/isolated_web_apps_window_open_permission_service_factory.h"
 #include "chrome/browser/web_applications/link_capturing_features.h"
-#include "chrome/browser/web_applications/navigation_capturing_log.h"
 #include "chrome/browser/web_applications/navigation_capturing_metrics.h"
 #include "chrome/browser/web_applications/navigation_capturing_settings.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
@@ -47,6 +47,7 @@
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "components/webapps/browser/navigation_capturing_log.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_contents.h"
@@ -126,15 +127,15 @@ bool IsAuxiliaryBrowsingContext(const NavigateParams& nav_params) {
   return false;
 }
 
-Browser* CreateWebAppWindowFromNavigationParams(
+BrowserWindowInterface* CreateWebAppWindowFromNavigationParams(
     const webapps::AppId& app_id,
     const NavigateParams& navigate_params) {
-  Browser::CreateParams app_browser_params = CreateParamsForApp(
+  BrowserWindowCreateParams app_browser_params = CreateParamsForApp(
       app_id, /*is_popup=*/false,
       /*trusted_source=*/true, navigate_params.window_features.bounds,
       navigate_params.initiating_profile, navigate_params.user_gesture);
-  Browser* created_browser =
-      CreateWebAppWindowMaybeWithHomeTab(app_id, app_browser_params);
+  BrowserWindowInterface* created_browser =
+      CreateWebAppWindowMaybeWithHomeTab(app_id, std::move(app_browser_params));
   return created_browser;
 }
 
@@ -179,9 +180,10 @@ void ReparentToAppBrowser(content::WebContents* old_web_contents,
   CHECK(old_web_contents);
 }
 
-void ReparentWebContentsToTabbedBrowser(content::WebContents* old_web_contents,
-                                        WindowOpenDisposition disposition,
-                                        Browser* navigate_params_browser) {
+void ReparentWebContentsToTabbedBrowser(
+    content::WebContents* old_web_contents,
+    WindowOpenDisposition disposition,
+    BrowserWindowInterface* navigate_params_browser) {
   tabs::TabInterface* tab =
       tabs::TabInterface::GetFromContents(old_web_contents);
   BrowserWindowInterface* source_browser = tab->GetBrowserWindowInterface();
@@ -207,8 +209,8 @@ void ReparentWebContentsToTabbedBrowser(content::WebContents* old_web_contents,
   BrowserWindowInterface* target_browser_window =
       (disposition == WindowOpenDisposition::NEW_WINDOW ||
        !existing_browser_window)
-          ? Browser::Create(Browser::CreateParams(
-                source_browser->GetProfile(), /*user_gesture=*/true))
+          ? CreateBrowserWindow(BrowserWindowCreateParams(
+                source_browser->GetProfile(), /*from_user_gesture=*/true))
           : existing_browser_window;
 
   ReparentWebContentsIntoBrowserImpl(
@@ -280,6 +282,37 @@ void LaunchIsolatedWebAppInNewWindow(web_app::WebAppProvider* provider,
                                                   base::DoNothing());
 }
 
+bool IsCrossIwaNavigation(
+    const web_app::WebAppRegistrar& registrar,
+    const NavigateParams& params,
+    const webapps::AppId& iwa_id,
+    const std::optional<webapps::AppId>& source_browser_app_id) {
+  // Service worker `clients.openWindow()` arrives with no source browser and a
+  // non-link transition, so the link-based source check below does not apply.
+  // Use the initiator origin to enforce the same cross-IWA restriction.
+  if (params.is_service_worker_open_window && params.initiator_origin &&
+      !params.initiator_origin->IsSameOriginWith(params.url)) {
+    return true;
+  }
+
+  // Any links: window.open(), anchor link, meta tag redirect. Cancel
+  // navigations that do not originate from a browser belonging to the target
+  // app's family (the app itself, its parent app, or a sibling sub-app),
+  // regardless of disposition, before falling through to the
+  // disposition-specific handling. With sub-apps, navigations are allowed in
+  // all directions as long as both apps are in the same family.
+  if (ui::PageTransitionCoreTypeIs(params.transition,
+                                   ui::PAGE_TRANSITION_LINK) &&
+      (!source_browser_app_id ||
+       registrar.GetParentAppId(*source_browser_app_id)
+               .value_or(*source_browser_app_id) !=
+           registrar.GetParentAppId(iwa_id).value_or(iwa_id))) {
+    return true;
+  }
+
+  return false;
+}
+
 }  // namespace
 
 NavigationCapturingOverride::~NavigationCapturingOverride() = default;
@@ -287,7 +320,7 @@ NavigationCapturingOverride::~NavigationCapturingOverride() = default;
 // static
 NavigationCapturingOverride NavigationCapturingOverride::CreateForNavigateNew(
     base::PassKey<NavigationCapturingProcess>,
-    Browser* browser) {
+    BrowserWindowInterface* browser) {
   CHECK(browser);
   return NavigationCapturingOverride(browser);
 }
@@ -312,14 +345,14 @@ NavigationCapturingOverride NavigationCapturingOverride::CreateForFocusExisting(
 NavigationCapturingOverride
 NavigationCapturingOverride::CreateForNavigateExisting(
     base::PassKey<NavigationCapturingProcess>,
-    Browser* browser,
+    BrowserWindowInterface* browser,
     int tab_index) {
-  CHECK(browser->tab_strip_model()->GetWebContentsAt(tab_index));
+  CHECK(browser->GetTabStripModel()->GetWebContentsAt(tab_index));
   return NavigationCapturingOverride(browser, tab_index);
 }
 
 NavigationCapturingOverride::NavigationCapturingOverride(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     std::optional<int> tab_index)
     : browser_(browser), tab_index_(std::move(tab_index)) {}
 
@@ -348,8 +381,8 @@ NavigationCapturingProcess::MaybeHandleAppNavigation(
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   if (!AreWebAppsUserInstallable(profile) ||
-      Browser::GetCreationStatusForProfile(profile) !=
-          Browser::CreationStatus::kOk ||
+      GetBrowserWindowCreationStatusForProfile(*profile) !=
+          BrowserWindowInterface::CreationStatus::kOk ||
       !params.url.is_valid()) {
     RecordInitialNavigationCapturingResult(
         NavigationCapturingInitialResult::kNotHandled);
@@ -398,9 +431,7 @@ NavigationCapturingProcess::NavigationCapturingProcess(
                              : std::nullopt),
       navigation_params_url_(params.url),
       disposition_(params.disposition),
-      navigation_params_browser_(
-          params.browser ? params.browser->GetBrowserForMigrationOnly()
-                         : nullptr) {
+      navigation_params_browser_(params.browser.get()) {
   CHECK(AreWebAppsUserInstallable(&*profile_));
   CHECK(params.url.is_valid());
 
@@ -433,15 +464,6 @@ NavigationCapturingProcess::NavigationCapturingProcess(
     CHECK(registrar.GetAppById(*first_navigation_app_id_));
     first_navigation_app_display_mode_ =
         registrar.GetAppEffectiveDisplayMode(*first_navigation_app_id_);
-
-    first_navigation_parent_app_id_ =
-        registrar.GetAppById(*first_navigation_app_id_)->parent_app_id();
-
-    CHECK(
-        !first_navigation_parent_app_id_ ||
-        url::IsSameOriginWith(
-            params.url, registrar.GetAppById(*first_navigation_parent_app_id_)
-                            ->start_url()));
   }
 
   isolated_web_app_navigation_ =
@@ -594,7 +616,7 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
             !(registrar.AppMatches(*app_id,
                                    WebAppFilter::IsIsolatedApp() |
                                        WebAppFilter::IsIsolatedSubApp())));
-      Browser* host_window =
+      BrowserWindowInterface* host_window =
           CreateWebAppWindowFromNavigationParams(*app_id, params);
       return NoCapturingOverrideBrowser(host_window);
     }
@@ -625,10 +647,7 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
     return CapturingDisabled();
   }
   bool is_for_new_browser =
-      params.browser &&
-      params.browser->GetBrowserForMigrationOnly()
-              ->tab_strip_model()
-              ->count() == 0 &&
+      params.browser && params.browser->GetTabStripModel()->count() == 0 &&
       (disposition_ == WindowOpenDisposition::NEW_FOREGROUND_TAB ||
        disposition_ == WindowOpenDisposition::NEW_BACKGROUND_TAB);
   if (is_for_new_browser) {
@@ -690,8 +709,9 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
         return CapturingDisabled();
       }
 
-      Browser* app_window = CreateWebAppWindowFromNavigationParams(
-          *source_browser_app_id_, params);
+      BrowserWindowInterface* app_window =
+          CreateWebAppWindowFromNavigationParams(*source_browser_app_id_,
+                                                 params);
 
       return AuxiliaryContextInAppWindow(app_window);
     }
@@ -734,10 +754,10 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
     }
     // Case: Shift-clicks with a new top level browsing context.
     if (disposition_ == WindowOpenDisposition::NEW_WINDOW) {
-      Browser* app_host_window;
+      BrowserWindowInterface* app_host_window;
       if (app_display_mode == DisplayMode::kBrowser) {
-        app_host_window = Browser::Create(
-            Browser::CreateParams(&*profile_, params.user_gesture));
+        app_host_window = CreateBrowserWindow(
+            BrowserWindowCreateParams(&*profile_, params.user_gesture));
       } else {
         if (is_target_iwa_with_https_url) {
           LaunchIsolatedWebAppInNewWindow(provider, app_id, params.url);
@@ -765,11 +785,10 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
         if (!app_controller->ShouldHideNewTabButton()) {
           // Apps that support tabbed mode can open a new tab in the current app
           // browser itself.
-          return ForcedNewAppContext(
-              app_display_mode, params.browser->GetBrowserForMigrationOnly());
+          return ForcedNewAppContext(app_display_mode, params.browser);
         }
       }
-      Browser* app_host_window;
+      BrowserWindowInterface* app_host_window;
       if (app_display_mode == DisplayMode::kBrowser) {
         // For a 'new tab' with the 'browser' requested display mode, use
         // the originating browser to ensure the new tab pops under in the
@@ -780,8 +799,8 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
         } else if (client_mode_and_browser->browser) {
           app_host_window = client_mode_and_browser->browser.get();
         } else {
-          app_host_window = Browser::Create(
-              Browser::CreateParams(&*profile_, params.user_gesture));
+          app_host_window = CreateBrowserWindow(
+              BrowserWindowCreateParams(&*profile_, params.user_gesture));
         }
       } else {
         if (is_target_iwa_with_https_url) {
@@ -843,14 +862,14 @@ NavigationCapturingProcess::GetInitialNavigationParamsOverride(
     return CapturedNewIwaClientWithScopeExtendedUrl(app_display_mode);
   }
 
-  Browser* host_window = nullptr;
+  BrowserWindowInterface* host_window = nullptr;
   switch (app_display_mode) {
     case blink::mojom::DisplayMode::kBrowser:
       if (client_mode_and_browser->browser) {
         host_window = client_mode_and_browser->browser;
       } else {
-        host_window = Browser::Create(
-            Browser::CreateParams(&*profile_, params.user_gesture));
+        host_window = CreateBrowserWindow(
+            BrowserWindowCreateParams(&*profile_, params.user_gesture));
       }
       break;
     case blink::mojom::DisplayMode::kMinimalUi:
@@ -893,12 +912,22 @@ NavigationCapturingProcess::HandleIsolatedWebAppNavigation(
   const webapps::AppId& iwa_id = *first_navigation_app_id_;
   const DisplayMode& app_display_mode = *first_navigation_app_display_mode_;
 
+  WebAppProvider* provider = WebAppProvider::GetForWebApps(&*profile_);
+  CHECK(provider);
+  web_app::WebAppRegistrar& registrar = provider->registrar_unsafe();
+
+  if (IsCrossIwaNavigation(registrar, params, iwa_id, source_browser_app_id_)) {
+    // TODO(crbug.com/424422466): Support cross-IWA navigations to start_url.
+    return CancelInitialNavigation(
+        NavigationCapturingInitialResult::kNavigationCanceled);
+  }
+
   // Prefer `params.browser` if it's a compatible IWA browser.
   bool iwa_browser =
       params.browser &&
       (web_app::AppBrowserController::IsForWebApp(params.browser, iwa_id) ||
        web_app::AppBrowserController::IsForIsolatedSubApp(
-           params.browser, first_navigation_parent_app_id_));
+           params.browser, registrar.GetParentAppId(iwa_id)));
 
   bool capturing_disabled = [&]() {
     switch (disposition_) {
@@ -911,9 +940,7 @@ NavigationCapturingProcess::HandleIsolatedWebAppNavigation(
       case WindowOpenDisposition::NEW_BACKGROUND_TAB:
         // If the browser window does not yet have any tabs, and we are
         // attempting to add the first tab to it, allow for it to be reused.
-        return iwa_browser && params.browser->GetBrowserForMigrationOnly()
-                                  ->tab_strip_model()
-                                  ->empty();
+        return iwa_browser && params.browser->GetTabStripModel()->empty();
       case WindowOpenDisposition::CURRENT_TAB:
         return iwa_browser;
       case WindowOpenDisposition::NEW_WINDOW:
@@ -934,34 +961,13 @@ NavigationCapturingProcess::HandleIsolatedWebAppNavigation(
     return CapturingDisabled();
   }
 
-  // Service worker `clients.openWindow()` arrives with no source browser and a
-  // non-link transition, so the link-based source check below does not apply.
-  // Use the initiator origin to enforce the same cross-IWA restriction.
-  if (params.is_service_worker_open_window && params.initiator_origin &&
-      !params.initiator_origin->IsSameOriginWith(params.url)) {
-    // TODO(crbug.com/424422466): Support cross-IWA navigations to start_url.
-    return CancelInitialNavigation(
-        NavigationCapturingInitialResult::kNavigationCanceled);
-  }
-
   if (ui::PageTransitionCoreTypeIs(params.transition,
-                                   ui::PAGE_TRANSITION_LINK)) {
-    // Any links: same-IWA or cross-IWA window.open(), same-IWA or cross-IWA
-    // anchor link, cross-IWA meta tag redirect.
-    if (source_browser_app_id_ != iwa_id &&
-        (!first_navigation_parent_app_id_.has_value() ||
-         source_browser_app_id_ != first_navigation_parent_app_id_.value())) {
-      // TODO(crbug.com/424422466): Support cross-IWA navigations to start_url.
-      return CancelInitialNavigation(
-          NavigationCapturingInitialResult::kNavigationCanceled);
-    }
-
-    if (IsAuxiliaryBrowsingContext(params)) {
-      debug_data_.Set("is_auxiliary_browsing_context", true);
-      Browser* aux_window =
-          CreateWebAppWindowFromNavigationParams(iwa_id, params);
-      return AuxiliaryContextInAppWindow(aux_window);
-    }
+                                   ui::PAGE_TRANSITION_LINK) &&
+      IsAuxiliaryBrowsingContext(params)) {
+    debug_data_.Set("is_auxiliary_browsing_context", true);
+    BrowserWindowInterface* aux_window =
+        CreateWebAppWindowFromNavigationParams(iwa_id, params);
+    return AuxiliaryContextInAppWindow(aux_window);
   }
 
   // Auxiliary browsing contexts should only be openable via link transitions.
@@ -999,7 +1005,7 @@ NavigationCapturingProcess::HandleIsolatedWebAppNavigation(
     case LaunchHandler::ClientMode::kNavigateNew: {
       debug_data_.Set("client_mode",
                       base::ToString(LaunchHandler::ClientMode::kNavigateNew));
-      Browser* host_window =
+      BrowserWindowInterface* host_window =
           CreateWebAppWindowFromNavigationParams(iwa_id, params);
       return CapturedNewClient(app_display_mode, host_window);
     }
@@ -1045,7 +1051,8 @@ void NavigationCapturingProcess::MaybeNotifyIwaTabCounterService(
     }
 
     iwa_opener_app_id = provider->registrar_unsafe().FindBestAppWithUrlInScope(
-        initiator_origin->GetURL(), WebAppFilter::IsIsolatedApp());
+        initiator_origin->GetURL(), WebAppFilter::IsIsolatedApp(),
+        {.exclude_scope_extensions = true});
   }
 
   // If the "iwa_opener_app_id" is still not found, then there is a chance that
@@ -1402,7 +1409,7 @@ NavigationCapturingProcess::HandleRedirectImpl() {
                       *client_mode_and_browser.tab_index);
 
     content::WebContents* pre_existing_contents =
-        client_mode_and_browser.browser->tab_strip_model()->GetWebContentsAt(
+        client_mode_and_browser.browser->GetTabStripModel()->GetWebContentsAt(
             *client_mode_and_browser.tab_index);
     CHECK(pre_existing_contents);
     CHECK_NE(pre_existing_contents, web_contents_for_navigation);
@@ -1496,9 +1503,16 @@ void NavigationCapturingProcess::OnAttachedToNavigationHandle() {
   auto* navigation_handle_user_data =
       WebAppLaunchNavigationHandleUserData::GetOrCreateForNavigationHandle(
           *navigation_handle());
-  navigation_handle_user_data->SetLaunchParamsMetadata(
-      *launched_app_id_, navigation_handle()->GetURL(),
-      time_navigation_started_);
+  if (initial_nav_handling_result_ !=
+          NavigationCapturingInitialResult::kAuxiliaryContextAppBrowserTab &&
+      initial_nav_handling_result_ !=
+          NavigationCapturingInitialResult::kAuxiliaryContextAppWindow) {
+    // Omit launch params for auxiliary context - this isn't really a launch,
+    // but an extension of an existing app.
+    navigation_handle_user_data->SetLaunchParamsMetadata(
+        *launched_app_id_, navigation_handle()->GetURL(),
+        time_navigation_started_);
+  }
   navigation_handle_user_data->set_force_iph_off(force_iph_off_ ||
                                                  isolated_web_app_navigation_);
   navigation_handle_user_data->set_is_navigation_capturing(true);
@@ -1676,10 +1690,7 @@ NavigationCapturingProcess::GetEffectiveClientModeAndBrowser(
     if (existing_app_host.has_value()) {
       CHECK(existing_app_host->browser);
       CHECK_NE(existing_app_host->tab_index, -1);
-      result.browser =
-          existing_app_host->browser
-              ? existing_app_host->browser->GetBrowserForMigrationOnly()
-              : nullptr;
+      result.browser = existing_app_host->browser;
       result.tab_index = existing_app_host->tab_index;
       return result;
     }
@@ -1697,12 +1708,11 @@ NavigationCapturingProcess::GetEffectiveClientModeAndBrowser(
       // For kBrowser apps, an explicitly specific browser to navigate in
       // should override what browser we might otherwise use for the profile.
       if (navigation_params_browser_ &&
-          navigation_params_browser_->is_type_normal()) {
+          navigation_params_browser_->GetType() ==
+              BrowserWindowInterface::Type::TYPE_NORMAL) {
         result.browser = navigation_params_browser_;
       } else {
-        BrowserWindowInterface* browser = FindNormalBrowser(*profile_);
-        result.browser =
-            browser ? browser->GetBrowserForMigrationOnly() : nullptr;
+        result.browser = FindNormalBrowser(*profile_);
       }
       break;
     case blink::mojom::DisplayMode::kMinimalUi:
@@ -1726,9 +1736,7 @@ NavigationCapturingProcess::GetEffectiveClientModeAndBrowser(
       }
       BrowserWindowInterface* browser_for_web_app =
           AppBrowserController::FindForWebApp(*profile_, app_id);
-      result.browser = browser_for_web_app
-                           ? browser_for_web_app->GetBrowserForMigrationOnly()
-                           : nullptr;
+      result.browser = browser_for_web_app;
       // If somehow we found a browser that doesn't have a tab strip (which
       // might be possible if the manifest updated while a window is open),
       // don't return it to use for new tabs.
@@ -1773,7 +1781,8 @@ NavigationCapturingProcess::CancelInitialNavigation(
 }
 
 NavigationCapturingProcess::MaybeNavigationCapturingOverride
-NavigationCapturingProcess::NoCapturingOverrideBrowser(Browser* browser) {
+NavigationCapturingProcess::NoCapturingOverrideBrowser(
+    BrowserWindowInterface* browser) {
   debug_data_.Set("!result", "no capturing, override browser");
   CHECK_EQ(state_, PipelineState::kCreated);
   state_ = PipelineState::kInitialOverrideCalculated;
@@ -1800,7 +1809,8 @@ NavigationCapturingProcess::AuxiliaryContext() {
 }
 
 NavigationCapturingProcess::MaybeNavigationCapturingOverride
-NavigationCapturingProcess::AuxiliaryContextInAppWindow(Browser* app_browser) {
+NavigationCapturingProcess::AuxiliaryContextInAppWindow(
+    BrowserWindowInterface* app_browser) {
   CHECK(web_app::AppBrowserController::From(app_browser));
   initial_nav_handling_result_ =
       NavigationCapturingInitialResult::kAuxiliaryContextAppWindow;
@@ -1833,7 +1843,7 @@ NavigationCapturingProcess::NoInitialActionRedirectionHandlingEligible() {
 NavigationCapturingProcess::MaybeNavigationCapturingOverride
 NavigationCapturingProcess::ForcedNewAppContext(
     blink::mojom::DisplayMode app_display_mode,
-    Browser* host_browser) {
+    BrowserWindowInterface* host_browser) {
   CHECK(first_navigation_app_id_.has_value());
   CHECK(WebAppRegistrar::IsSupportedDisplayModeForNavigationCapture(
       app_display_mode));
@@ -1887,7 +1897,7 @@ NavigationCapturingProcess::ForcedNewIwaAppContextWithScopeExtendedUrl(
 NavigationCapturingProcess::MaybeNavigationCapturingOverride
 NavigationCapturingProcess::CapturedNewClient(
     blink::mojom::DisplayMode app_display_mode,
-    Browser* host_browser) {
+    BrowserWindowInterface* host_browser) {
   SCOPED_CRASH_KEY_STRING1024("crbug396028223", "app_display_mode",
                               base::ToString((app_display_mode)));
   SCOPED_CRASH_KEY_STRING1024(
@@ -1952,8 +1962,9 @@ NavigationCapturingProcess::CapturedNewIwaClientWithScopeExtendedUrl(
 }
 
 NavigationCapturingProcess::MaybeNavigationCapturingOverride
-NavigationCapturingProcess::CapturedNavigateExisting(Browser* app_browser,
-                                                     int browser_tab) {
+NavigationCapturingProcess::CapturedNavigateExisting(
+    BrowserWindowInterface* app_browser,
+    int browser_tab) {
   CHECK(first_navigation_app_id_.has_value());
 
   CHECK_NE(browser_tab, -1);
@@ -1980,14 +1991,15 @@ NavigationCapturingProcess::CapturedNavigateExisting(Browser* app_browser,
 }
 
 NavigationCapturingProcess::MaybeNavigationCapturingOverride
-NavigationCapturingProcess::CapturedFocusExisting(Browser* browser,
-                                                  int browser_tab,
-                                                  const GURL& url) {
+NavigationCapturingProcess::CapturedFocusExisting(
+    BrowserWindowInterface* browser,
+    int browser_tab,
+    const GURL& url) {
   CHECK(first_navigation_app_id_.has_value());
   const auto& app_id = *first_navigation_app_id_;
 
   content::WebContents* contents =
-      browser->tab_strip_model()->GetWebContentsAt(browser_tab);
+      browser->GetTabStripModel()->GetWebContentsAt(browser_tab);
   CHECK(contents);
   FocusAppContainer(browser, browser_tab);
 
@@ -2029,6 +2041,14 @@ void NavigationCapturingProcess::SetLaunchedAppIdAndUpdateLaunchParams(
     if (!navigation_handle()) {
       return std::nullopt;
     }
+    if (initial_nav_handling_result_ ==
+            NavigationCapturingInitialResult::kAuxiliaryContextAppBrowserTab ||
+        initial_nav_handling_result_ ==
+            NavigationCapturingInitialResult::kAuxiliaryContextAppWindow) {
+      // Auxiliary contexts don't set `user_data->GetLaunchParams()`.
+      return std::nullopt;
+    }
+
     auto* user_data =
         WebAppLaunchNavigationHandleUserData::GetForNavigationHandle(
             *navigation_handle());

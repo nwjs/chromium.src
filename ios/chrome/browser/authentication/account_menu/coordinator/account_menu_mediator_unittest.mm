@@ -77,7 +77,7 @@ class AccountMenuMediatorTest : public PlatformTest {
                               base::BindRepeating(&CreateTestSyncService));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegate(
+        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
     profile_ = std::move(builder).Build();
     avatar_provider_ = std::make_unique<signin::AvatarProvider>();
@@ -185,6 +185,10 @@ class AccountMenuMediatorTest : public PlatformTest {
     run_loop.Run();
   }
 
+ protected:
+  web::WebTaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
+  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   id<AccountMenuMediatorDelegate> delegate_mock_;
   id<SyncErrorSettingsCommandHandler> sync_error_settings_mock_;
   id<AccountMenuConsumer> consumer_mock_;
@@ -211,10 +215,6 @@ class AccountMenuMediatorTest : public PlatformTest {
   void AddSecondaryIdentity() {
     fake_system_identity_manager_->AddIdentity(kSecondaryIdentity);
   }
-
-  web::WebTaskEnvironment task_environment_{
-      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
-  IOSChromeScopedTestingLocalState scoped_testing_local_state_;
 };
 
 #pragma mark - Test for ChromeAccountManagerServiceObserver
@@ -339,7 +339,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAvatarNeedsRing) {
   // Feature disabled, even if tier is not-negative.
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndDisableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndDisableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 0);
     EXPECT_FALSE([mediator_ primaryAccountAvatarNeedsRing]);
@@ -348,7 +348,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAvatarNeedsRing) {
   // Feature enabled, but tier is negative.
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndEnableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, -1);
     EXPECT_FALSE([mediator_ primaryAccountAvatarNeedsRing]);
@@ -357,7 +357,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAvatarNeedsRing) {
   // Feature enabled, and tier is 0 (not positive).
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndEnableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 0);
     EXPECT_FALSE([mediator_ primaryAccountAvatarNeedsRing]);
@@ -366,7 +366,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAvatarNeedsRing) {
   // Feature enabled, and tier is positive (1).
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndEnableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 1);
     EXPECT_TRUE([mediator_ primaryAccountAvatarNeedsRing]);
@@ -380,7 +380,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAITierFullName) {
   // Feature disabled, even if tier is positive.
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndDisableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndDisableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 1);
     EXPECT_NSEQ([mediator_ primaryAccountAITierFullName], nil);
@@ -389,7 +389,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAITierFullName) {
   // Feature enabled, but tier is non-positive (0).
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndEnableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 0);
     EXPECT_NSEQ([mediator_ primaryAccountAITierFullName], nil);
@@ -398,7 +398,7 @@ TEST_F(AccountMenuMediatorTest, TestPrimaryAccountAITierFullName) {
   // Feature enabled, and tier is positive (1).
   {
     base::test::ScopedFeatureList scoped_feature_list;
-    scoped_feature_list.InitAndEnableFeature(kAiAvatarRingIos);
+    scoped_feature_list.InitAndEnableFeature(kAiSubscriptionAvatarRingIOS);
     profile_->GetPrefs()->SetInteger(
         subscription_eligibility::prefs::kAiSubscriptionTier, 1);
     // Under test, GetAITierFullName for tier 1 returns "AI 1".

@@ -148,6 +148,16 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private final SideUiObserver mSideUiObserver;
     private final SearchEngineService mSearchEngineService;
     private final BackPressManager mBackPressManager;
+    /**
+     * The predefined baseline vertical scroll distance before the fake search box reaches the top
+     * toolbar at which the transition animation into the omnibox begins.
+     *
+     * <p>Loaded from resources and excludes top insets. Increased by {@link #mTopInset} when
+     * Edge-to-Edge on top is active.
+     *
+     * <p>Note: For runtime scroll calculations, please reference {@link
+     * #mCurrentNtpFakeSearchBoxTransitionStartOffset}.
+     */
     private final int mNtpSearchBoxTransitionStartOffset;
     private final int mNtpSearchBoxTopMarginWithoutLogo;
     private final boolean mEnableLogs;
@@ -216,6 +226,13 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     // Previous visibility states for metrics.
     private @Nullable Boolean mPreviousVoiceSearchButtonVisible;
     private @Nullable Boolean mPreviousLensButtonVisible;
+    /**
+     * The current runtime vertical scroll distance before the fake search box reaches the top
+     * toolbar at which the transition animation into the omnibox begins.
+     *
+     * <p>Includes {@link #mTopInset} when Edge-to-Edge on top is active; otherwise equals {@link
+     * #getNtpSearchBoxTransitionStartOffset(boolean)}.
+     */
     private int mCurrentNtpFakeSearchBoxTransitionStartOffset;
     private int mTopInset;
     private @Nullable OnLayoutChangeListener mOnLayoutChangeListener;
@@ -224,6 +241,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     private @Nullable NtpSigninPromoCoordinator mSigninPromoCoordinator;
 
     private @Nullable Boolean mIsWhiteBackgroundOnSearchBoxApplied;
+    private @Nullable Boolean mIsWhiteBackgroundOnComposeplateApplied;
 
     /**
      * Constructor of the NewTabPageCoordinator.
@@ -368,7 +386,9 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         mContextMenuStartPosition =
                 ReturnToChromeUtil.calculateContextMenuStartPosition(mActivity.getResources());
 
-        if (mIsLff) {
+        if (mIsLff
+                || NewTabPageUtils.getPaddingStyleForAurora()
+                        != NewTabPageUtils.PaddingStyle.DEFAULT) {
             mDisplayStyleObserver = this::onDisplayStyleChanged;
             mUiConfig.addObserver(mDisplayStyleObserver);
         } else {
@@ -559,11 +579,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         mComposeplateCoordinator.setComposeplateButtonClickListener(
                 this::onComposeplateButtonClicked);
 
-        if (shouldApplyWhiteBackgroundOnSearchBox()) {
-            // It is safe to call mComposeplateCoordinator.applyWhiteBackground() again since it is
-            // no-op if the white background has been applied.
-            mComposeplateCoordinator.applyWhiteBackground(/* apply= */ true);
-        }
+        updateComposeplateBackground();
     }
 
     private void onComposeplateButtonClicked(View view) {
@@ -950,6 +966,21 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
     }
 
+    /**
+     * Calculates and returns the baseline static fake search box transition start offset (excluding
+     * top insets).
+     *
+     * <p>On Large Form Factor (LFF) devices where the default search engine does not provide a
+     * logo, this returns {@code 0} to prevent the fake search box alpha from becoming transparent.
+     * Otherwise, it returns the static {@link #mNtpSearchBoxTransitionStartOffset} dimension from
+     * resources.
+     *
+     * <p>Note: This baseline value excludes top insets. When Edge-to-Edge at top is enabled,
+     * callers should reference {@link #getCurrentNtpFakeSearchBoxTransitionStartOffset()} instead.
+     *
+     * @param showFakeSearchBoxWithoutLogo Whether the fake search box is displayed without a logo.
+     * @return The baseline transition start offset in pixels, excluding top insets.
+     */
     private int getNtpSearchBoxTransitionStartOffset(boolean showFakeSearchBoxWithoutLogo) {
         if (mIsLff && showFakeSearchBoxWithoutLogo) {
             // On large form factor (LFF) devices, it is possible to show fake search box if DSE
@@ -964,6 +995,23 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         }
     }
 
+    /**
+     * Returns the current runtime transition start offset of the fake search box, which represents
+     * the vertical scroll distance before the fake search box reaches the toolbar where the visual
+     * morphing animation into the top omnibox begins.
+     *
+     * <p>When Edge-to-Edge at top is enabled (e.g. with a customized NTP background), this offset
+     * includes {@link #mTopInset} to compensate for the top padding added to {@link
+     * NewTabPageLayout}, ensuring that both the visual transition and the snap scroll region align
+     * at the same scroll position.
+     *
+     * @return The current transition start offset in pixels, including top insets when Edge-to-Edge
+     *     at top is active.
+     */
+    public int getCurrentNtpFakeSearchBoxTransitionStartOffset() {
+        return mCurrentNtpFakeSearchBoxTransitionStartOffset;
+    }
+
     @VisibleForTesting
     void setSearchProviderTopMargin() {
         boolean showFakeSearchBoxWithoutLogo = !mSearchProviderHasLogo;
@@ -975,6 +1023,10 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
             mNtpSearchBox.setTopMargin(topMargin);
         }
 
+        setLogoTopMargin();
+    }
+
+    void setLogoTopMargin() {
         if (mLogoCoordinator != null) {
             mLogoCoordinator.setTopMargin(getLogoTopMargin());
         }
@@ -996,7 +1048,7 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
             return LogoUtils.getTopMarginForDoodle(resources);
         }
 
-        return resources.getDimensionPixelSize(R.dimen.ntp_logo_margin_top);
+        return LogoUtils.getTopMarginForLogo(resources);
     }
 
     /**
@@ -1452,7 +1504,12 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
     }
 
     private void onDisplayStyleChanged(UiConfig.DisplayStyle newDisplayStyle) {
-        if (!mIsLff) return;
+        if (!mIsLff) {
+            // Logo and Doodle have different top margin on landscape and portrait modes on phones,
+            // update when the screen rotates.
+            setLogoTopMargin();
+            return;
+        }
 
         updateDoodleOnTablet();
         updateSearchBoxTwoSideMargin();
@@ -1521,39 +1578,48 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
 
     /** Called when a customized background image is selected or deselected. */
     void onCustomizedBackgroundChanged() {
-        boolean applyWhiteBackgroundOnSearchBox = shouldApplyWhiteBackgroundOnSearchBox();
-
-        // If shouldn't apply a white background and the background hasn't been updated before,
-        // returns now.
-        if (mIsWhiteBackgroundOnSearchBoxApplied == null && !applyWhiteBackgroundOnSearchBox) {
-            return;
-        }
-
-        // If composeplate view flags haven't been initialized yet, returns now.
-        if (mCanShowComposeplateButton == null) {
-            return;
-        }
-
-        // If the background has been updated before and it should remain the same, returns now.
-        if (mIsWhiteBackgroundOnSearchBoxApplied != null
-                && mIsWhiteBackgroundOnSearchBoxApplied == applyWhiteBackgroundOnSearchBox) {
-            return;
-        }
-
-        // If the fake search box hasn't been initialized, returns now. It is fine to skip here
+        // If composeplate view flags haven't been initialized yet or the fake search box hasn't
+        // been initialized, returns now.
+        // It is fine to skip applyWhiteBackground() on the search box
         // because applyWhiteBackground() will be called immediately after the mNtpSearchBox
         // is initialized.
-        if (mNtpSearchBox == null) return;
-
-        mIsWhiteBackgroundOnSearchBoxApplied = applyWhiteBackgroundOnSearchBox;
-
-        if (mNtpSearchBox != null) {
-            mNtpSearchBox.applyWhiteBackground(applyWhiteBackgroundOnSearchBox);
+        if (mCanShowComposeplateButton == null || mNtpSearchBox == null) {
+            return;
         }
 
-        if (mComposeplateCoordinator != null) {
-            mComposeplateCoordinator.applyWhiteBackground(applyWhiteBackgroundOnSearchBox);
+        updateSearchBoxBackground();
+        updateComposeplateBackground();
+    }
+
+    private void updateSearchBoxBackground() {
+        boolean desiredState = shouldApplyWhiteBackgroundOnSearchBox();
+        if (shouldUpdateBackground(desiredState, mIsWhiteBackgroundOnSearchBoxApplied)) {
+            mIsWhiteBackgroundOnSearchBoxApplied = desiredState;
+            assertNonNull(mNtpSearchBox);
+            mNtpSearchBox.applyWhiteBackground(desiredState);
         }
+    }
+
+    private void updateComposeplateBackground() {
+        if (mComposeplateCoordinator == null) return;
+
+        boolean desiredState = NtpCustomizationUtils.shouldApplyWhiteBackgroundOnComposeplate();
+        if (shouldUpdateBackground(desiredState, mIsWhiteBackgroundOnComposeplateApplied)) {
+            mIsWhiteBackgroundOnComposeplateApplied = desiredState;
+            mComposeplateCoordinator.applyWhiteBackground(desiredState);
+        }
+    }
+
+    private boolean shouldUpdateBackground(boolean desiredState, @Nullable Boolean currentState) {
+        // On initial creation, update the background if a customized image is selected or if
+        // NTP Aurora is enabled to configure the dynamic background and shadow on startup.
+        if (currentState == null) {
+            // When NTP Aurora is launched, remove `|| NewTabPageUtils.isNtpAuroraEnabled()` here
+            // and change the default background in the layout XML directly.
+            return desiredState || NewTabPageUtils.isNtpAuroraEnabled();
+        }
+        // If the background has been updated before and it should remain the same, returns false.
+        return desiredState != currentState;
     }
 
     /** Returns the top inset of the NTP. */
@@ -1607,7 +1673,19 @@ public class NewTabPageCoordinator implements ModuleDelegateHost {
         mCanShowComposeplateButton = enabled;
     }
 
+    @Nullable Boolean getIsComposeplateEnabledForTesting() {
+        return mCanShowComposeplateButton;
+    }
+
     @Nullable ComposeplateCoordinator getComposeplateCoordinatorForTesting() {
         return mComposeplateCoordinator;
+    }
+
+    void setIsWhiteBackgroundOnSearchBoxApplied(Boolean applied) {
+        mIsWhiteBackgroundOnSearchBoxApplied = applied;
+    }
+
+    void setIsWhiteBackgroundOnComposeplateApplied(Boolean applied) {
+        mIsWhiteBackgroundOnComposeplateApplied = applied;
     }
 }

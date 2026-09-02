@@ -144,12 +144,14 @@ void PrePaintTreeWalk::Walk(LocalFrameView& frame_view,
         layout_view->AddSubtreePaintPropertyUpdateReason(
             SubtreePaintPropertyUpdateReason::kPreviouslySkipped);
       }
-      if (parent_context.paint_invalidator_context.NeedsSubtreeWalk())
+      if (parent_context.paint_invalidator_context.NeedsSubtreeWalk()) {
         layout_view->SetSubtreeShouldDoFullPaintInvalidation();
-      if (parent_context.effective_allowed_touch_action_changed)
-        layout_view->MarkEffectiveAllowedTouchActionChanged();
-      if (parent_context.blocking_wheel_event_handler_changed)
-        layout_view->MarkBlockingWheelEventHandlerChanged();
+      }
+      PrePaintSubtreeWalkReasons reasons = CrossFramePrePaintSubtreeWalkReasons(
+          parent_context.subtree_walk_reasons);
+      if (!reasons.empty()) {
+        layout_view->SetNeedsPrePaintSubtreeWalk(reasons);
+      }
     }
     return;
   }
@@ -252,10 +254,8 @@ bool HasBlockingWheelEventHandler(const LayoutObject& object) {
 void PrePaintTreeWalk::UpdateEffectiveAllowedTouchAction(
     const LayoutObject& object,
     PrePaintTreeWalk::PrePaintTreeWalkContext& context) {
-  if (object.EffectiveAllowedTouchActionChanged())
-    context.effective_allowed_touch_action_changed = true;
-
-  if (context.effective_allowed_touch_action_changed) {
+  if (context.subtree_walk_reasons.Has(
+          PrePaintSubtreeWalkReason::kEffectiveAllowedTouchAction)) {
     object.GetMutableForPainting().UpdateInsideBlockingTouchEventHandler(
         context.inside_blocking_touch_event_handler ||
         HasBlockingTouchEventHandler(object));
@@ -268,10 +268,8 @@ void PrePaintTreeWalk::UpdateEffectiveAllowedTouchAction(
 void PrePaintTreeWalk::UpdateBlockingWheelEventHandler(
     const LayoutObject& object,
     PrePaintTreeWalk::PrePaintTreeWalkContext& context) {
-  if (object.BlockingWheelEventHandlerChanged())
-    context.blocking_wheel_event_handler_changed = true;
-
-  if (context.blocking_wheel_event_handler_changed) {
+  if (context.subtree_walk_reasons.Has(
+          PrePaintSubtreeWalkReason::kBlockingWheelEventHandler)) {
     object.GetMutableForPainting().UpdateInsideBlockingWheelEventHandler(
         context.inside_blocking_wheel_event_handler ||
         HasBlockingWheelEventHandler(object));
@@ -288,8 +286,9 @@ void PrePaintTreeWalk::InvalidatePaintForHitTesting(
       PaintInvalidatorContext::kSubtreeNoInvalidation)
     return;
 
-  if (!context.effective_allowed_touch_action_changed &&
-      !context.blocking_wheel_event_handler_changed &&
+  if (!context.subtree_walk_reasons.HasAny(
+          {PrePaintSubtreeWalkReason::kEffectiveAllowedTouchAction,
+           PrePaintSubtreeWalkReason::kBlockingWheelEventHandler}) &&
       !object.ShouldInvalidatePaintForHitTestOnly()) {
     return;
   }
@@ -306,10 +305,6 @@ void PrePaintTreeWalk::UpdateSoftNavigationContext(
     return;
   }
 
-  if (object.SoftNavigationContextChanged()) {
-    context.soft_navigation_context_changed = true;
-  }
-
   // This node is either a new "container root" (a node having a different
   // `SoftNavigationContext` than its parent), or will inherit the context of
   // the container root being propagated. This is determined by
@@ -317,7 +312,8 @@ void PrePaintTreeWalk::UpdateSoftNavigationContext(
   // which is cached in the `LayoutObject`'s ShouldInheritSoftNavigationContext
   // bit, so that subsequent tree walks can quickly determine which node should
   // be propagated to children.
-  if (context.soft_navigation_context_changed) {
+  if (context.subtree_walk_reasons.Has(
+          PrePaintSubtreeWalkReason::kSoftNavigationContext)) {
     using PrePaintUpdateResult =
         SoftNavigationPaintAttributionTracker::PrePaintUpdateResult;
     PrePaintUpdateResult result =
@@ -351,15 +347,12 @@ void PrePaintTreeWalk::UpdateContainerTimingContext(
     return;
   }
 
-  if (object.ContainerTimingChanged()) {
-    context.container_timing_context_changed = true;
-  }
-
   // This node is either a container timing root (has containertiming attr),
-  // a stop node (has containertiming-ignore), or inherits its ancestor root.
+  // a stop node (has containertimingignore), or inherits its ancestor root.
   // The result is cached in ShouldInheritContainerTimingRoot so that
   // subsequent pre-paint walks skip nodes that haven't changed.
-  if (context.container_timing_context_changed) {
+  if (context.subtree_walk_reasons.Has(
+          PrePaintSubtreeWalkReason::kContainerTimingContext)) {
     using Result = ContainerTimingPaintAttributionTracker::PrePaintUpdateResult;
     const Result result =
         context.container_timing_paint_attribution_tracker->UpdateOnPrePaint(
@@ -394,7 +387,7 @@ void PrePaintTreeWalk::UpdateContainerTimingContext(
         element->FastHasAttribute(html_names::kContainertimingAttr)) {
       context.container_timing_context_root = element;
     } else {
-      // Stop node (containertiming-ignore without containertiming).
+      // Stop node (containertimingignore without containertiming).
       context.container_timing_context_root = nullptr;
     }
   }
@@ -422,23 +415,14 @@ bool PrePaintTreeWalk::NeedsTreeBuilderContextUpdate(
 
 bool PrePaintTreeWalk::ObjectRequiresPrePaint(const LayoutObject& object) {
   return object.ShouldCheckForPaintInvalidation() ||
-         object.EffectiveAllowedTouchActionChanged() ||
-         object.DescendantEffectiveAllowedTouchActionChanged() ||
-         object.BlockingWheelEventHandlerChanged() ||
-         object.DescendantBlockingWheelEventHandlerChanged() ||
-         object.SoftNavigationContextChanged() ||
-         object.DescendantSoftNavigationContextChanged() ||
-         object.ContainerTimingChanged() ||
-         object.DescendantContainerTimingChanged();
+         !object.GetPrePaintSubtreeWalkReasons().empty() ||
+         !object.GetDescendantPrePaintSubtreeWalkReasons().empty();
 }
 
 bool PrePaintTreeWalk::ContextRequiresChildPrePaint(
     const PrePaintTreeWalkContext& context) {
   return context.paint_invalidator_context.NeedsSubtreeWalk() ||
-         context.effective_allowed_touch_action_changed ||
-         context.blocking_wheel_event_handler_changed ||
-         context.soft_navigation_context_changed ||
-         context.container_timing_context_changed;
+         !context.subtree_walk_reasons.empty();
 }
 
 bool PrePaintTreeWalk::ObjectRequiresTreeBuilderContext(
@@ -698,9 +682,11 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
                                   *context.tree_builder_context);
     property_tree_builder->UpdateForSelf();
   }
-  if (const auto* html_element = DynamicTo<HTMLElement>(object.GetNode());
-      html_element && html_element->IsUnboundedElementActive()) {
+  if (object.StyleRef().IsUnboundedElementActive()) {
     DCHECK(RuntimeEnabledFeatures::UnboundedElementEnabled());
+    auto* html_element = DynamicTo<HTMLElement>(object.GetNode());
+    DCHECK(!html_element || object.StyleRef().IsUnboundedElementActive() ==
+                                html_element->IsUnboundedElementActive());
     context.inside_active_unbounded = true;
     gfx::Rect current_bounds =
         object.AbsoluteBoundingBoxRectForUnboundedElement();
@@ -714,7 +700,12 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
             widget->BlinkSpaceToDIPs(gfx::RectF(current_bounds)));
       }
     }
-    if (current_bounds != html_element->LastSentUnboundedBounds()) {
+    // Unbounded elements must have a minimum size of 1x1 to prevent
+    // empty-bounds compositor and platform window issues.
+    current_bounds.set_width(std::max(1, current_bounds.width()));
+    current_bounds.set_height(std::max(1, current_bounds.height()));
+    if (html_element &&
+        current_bounds != html_element->LastSentUnboundedBounds()) {
       const_cast<HTMLElement*>(html_element)
           ->SetLastSentUnboundedBounds(current_bounds);
       if (frame) {
@@ -727,6 +718,9 @@ void PrePaintTreeWalk::WalkInternal(const LayoutObject& object,
   }
   object.GetMutableForPainting().UpdateIsActiveUnboundedElementOrDescendant(
       context.inside_active_unbounded);
+
+  context.subtree_walk_reasons.PutAll(object.GetPrePaintSubtreeWalkReasons());
+
   // This must happen before paint invalidation because background painting
   // depends on the effective allowed touch action and blocking wheel event
   // handlers.
@@ -1524,16 +1518,12 @@ void PrePaintTreeWalk::Walk(const LayoutObject& object,
   // same bits on the context.
   if (child_walk_blocked && (ContextRequiresChildTreeBuilderContext(context) ||
                              ContextRequiresChildPrePaint(context))) {
-    // Note that |effective_allowed_touch_action_changed|,
-    // |blocking_wheel_event_handler_changed|, and
-    // |soft_navigation_context_changed| are special in that they requires us to
-    // specifically recalculate this value on each subtree element. Other flags
-    // simply need a subtree walk.
+    // Note that the reasons in `subtree_walk_reasons` are special in that they
+    // requires us to specifically recalculate the values on each subtree
+    // element. Other flags simply need a subtree walk, even if
+    // `subtree_walk_reasons` is empty.
     object.GetDisplayLockContext()->SetNeedsPrePaintSubtreeWalk(
-        context.effective_allowed_touch_action_changed,
-        context.blocking_wheel_event_handler_changed,
-        context.soft_navigation_context_changed,
-        context.container_timing_context_changed);
+        context.subtree_walk_reasons);
   }
 
   if (!child_walk_blocked) {
@@ -1559,10 +1549,16 @@ void PrePaintTreeWalk::Walk(const LayoutObject& object,
           if (context.tree_builder_context) {
             auto& current =
                 context.tree_builder_context->fragment_context.current;
-            current.paint_offset = PhysicalOffset(ToRoundedPoint(
-                current.paint_offset +
-                layout_embedded_content->ReplacedContentRect().offset -
-                PhysicalOffset(embedded_view->FrameRect().origin())));
+            current.paint_offset +=
+                layout_embedded_content->ReplacedContentRect().offset;
+            if (!RuntimeEnabledFeatures::
+                    AvoidEmbeddedContentViewLocationEnabled()) {
+              current.paint_offset -=
+                  PhysicalOffset(embedded_view->DeprecatedLocation());
+            }
+            current.paint_offset =
+                PhysicalOffset(ToRoundedPoint(current.paint_offset));
+
             // Subpixel accumulation doesn't propagate across embedded view.
             current.directly_composited_container_paint_offset_subpixel_delta =
                 PhysicalOffset();

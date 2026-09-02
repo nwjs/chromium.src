@@ -88,7 +88,7 @@
             {
                 "domain": "Page",
                 "exclude": ["getNavigationHistory", "navigateToHistoryEntry", "resetNavigationHistory", "captureScreenshot", "screencastFrameAck", "handleJavaScriptDialog", "setColorPickerEnabled",
-                            "getAppManifest", "getAnnotatedPageContent", "setControlNavigations", "processNavigation", "printToPDF", "bringToFront", "setDownloadBehavior", "navigate", "crash", "close", "setWebLifecycleState", "captureSnapshot", "getInstallabilityErrors", "getManifestIcons", "getAppId", "setSPCTransactionMode", "setRPHRegistrationMode", "setPrerenderingAllowed"],
+                            "getAppManifest", "getAnnotatedPageContent", "setControlNavigations", "processNavigation", "printToPDF", "bringToFront", "setDownloadBehavior", "navigate", "crash", "close", "setWebLifecycleState", "captureSnapshot", "getInstallabilityErrors", "getManifestIcons", "getAppId", "setSPCTransactionMode", "setRPHRegistrationMode", "setPrerenderingAllowed", "startScreenRecording", "stopScreenRecording"],
                 "pass_associated_data": [
                     "addScriptToEvaluateOnNewDocument",
                     "addScriptToEvaluateOnLoad"
@@ -109,8 +109,8 @@
             {
                 "domain": "Emulation",
                 "include": ["forceViewport", "resetViewport", "resetPageScaleFactor", "setPageScaleFactor", "setScriptExecutionDisabled", "setTouchEmulationEnabled", "setSmallViewportHeightDifferenceOverride",
-                            "setEmulatedMedia", "setEmulatedVisionDeficiency", "setEmulatedOSTextScale", "setCPUThrottlingRate", "setVirtualTimePolicy", "setTimezoneOverride", "setNavigatorOverrides", "setDefaultBackgroundColorOverride", "setSafeAreaInsetsOverride", "setDeviceMetricsOverride", "clearDeviceMetricsOverride",
-                            "setDataSaverOverride", "setHardwareConcurrencyOverride", "setUserAgentOverride", "setScrollbarsHidden", "setDocumentCookieDisabled", "setFocusEmulationEnabled", "setAutoDarkModeOverride", "setLocaleOverride", "setDisabledImageTypes", "setAutomationOverride"],
+                            "setEmulatedMedia", "setEmulatedVisionDeficiency", "setEmulatedOSTextScale", "setCPUThrottlingRate", "setVirtualTimePolicy", "setTimezoneOverride", "setNavigatorOverrides", "setDefaultBackgroundColorOverride", "setSafeAreaInsetsOverride", "setVirtualKeyboardGeometryOverride", "setDeviceMetricsOverride", "clearDeviceMetricsOverride",
+                            "setDataSaverOverride", "setHardwareConcurrencyOverride", "setCPUPerformanceOverride", "setUserAgentOverride", "setScrollbarsHidden", "setDocumentCookieDisabled", "setFocusEmulationEnabled", "setAutoDarkModeOverride", "setLocaleOverride", "setDisabledImageTypes", "setAutomationOverride"],
                 "include_events": ["virtualTimeBudgetExpired", "virtualTimeAdvanced", "virtualTimePaused"]
             },
             {

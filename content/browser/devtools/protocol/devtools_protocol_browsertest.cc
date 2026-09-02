@@ -83,6 +83,7 @@
 #include "content/shell/browser/shell_content_browser_client.h"
 #include "content/shell/browser/shell_download_manager_delegate.h"
 #include "content/test/content_browser_test_utils_internal.h"
+#include "media/media_buildflags.h"
 #include "net/base/features.h"
 #include "net/dns/dns_test_util.h"
 #include "net/dns/mock_host_resolver.h"
@@ -1397,6 +1398,39 @@ IN_PROC_BROWSER_TEST_F(CaptureScreenshotTest,
                     true);
 }
 
+#if BUILDFLAG(ENABLE_LIBAOM)
+IN_PROC_BROWSER_TEST_F(CaptureScreenshotTest, StartStopScreenRecording) {
+  shell()->LoadURL(
+      GURL("data:text/html,<body style='background:#123456;'></body>"));
+  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
+  Attach();
+
+  const base::DictValue* start_result =
+      SendCommandSync("Page.startScreenRecording");
+  ASSERT_TRUE(start_result);
+  const std::string* stream_handle_ptr = start_result->FindString("stream");
+  ASSERT_TRUE(stream_handle_ptr);
+  std::string stream_handle = *stream_handle_ptr;
+  EXPECT_FALSE(stream_handle.empty());
+
+  EXPECT_TRUE(
+      content::ExecJs(shell()->web_contents(),
+                      "document.body.style.backgroundColor = '#654321';"));
+
+  const base::DictValue* stop_result =
+      SendCommandSync("Page.stopScreenRecording");
+  ASSERT_TRUE(stop_result);
+
+  base::DictValue read_params;
+  read_params.Set("handle", stream_handle);
+  const base::DictValue* read_response =
+      SendCommandSync("IO.read", std::move(read_params));
+  ASSERT_TRUE(read_response);
+  const std::string* data = read_response->FindString("data");
+  ASSERT_TRUE(data);
+}
+#endif  // BUILDFLAG(ENABLE_LIBAOM)
+
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
                        NoCrashDeviceMetricsOverrideAutoResize) {
   NavigateToURLBlockUntilNavigationsComplete(
@@ -2557,7 +2591,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
   Attach();
   SendCommandSync("Network.enable");
   SendCommandAsync("Security.enable");
-  SendCommandSync("Network.setRequestInterception",
+  SendCommandSync("Fetch.enable",
                   std::move(base::JSONReader::Read(
                                 "{\"patterns\": [{\"urlPattern\": \"*\"}]}",
                                 base::JSON_PARSE_CHROMIUM_EXTENSIONS)
@@ -2573,14 +2607,12 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
   SendCommandSync("Network.clearBrowserCookies");
   TestNavigationObserver continue_observer(shell()->web_contents(), 1);
   shell()->LoadURL(test_url);
-  base::DictValue params =
-      WaitForNotification("Network.requestIntercepted", false);
-  std::string interceptionId = *params.FindString("interceptionId");
+  base::DictValue params = WaitForNotification("Fetch.requestPaused", false);
+  std::string requestId = *params.FindString("requestId");
   SendCommandAsync(
-      "Network.continueInterceptedRequest",
-      std::move(base::JSONReader::Read(
-                    "{\"interceptionId\": \"" + interceptionId + "\"}",
-                    base::JSON_PARSE_CHROMIUM_EXTENSIONS)
+      "Fetch.continueRequest",
+      std::move(base::JSONReader::Read("{\"requestId\": \"" + requestId + "\"}",
+                                       base::JSON_PARSE_CHROMIUM_EXTENSIONS)
                     ->GetDict()));
   continue_observer.Wait();
   EXPECT_EQ(test_url, shell()
@@ -5374,6 +5406,110 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
   const std::string* error_message = error()->FindString("message");
   ASSERT_TRUE(error_message);
   EXPECT_EQ("Internal error", *error_message);
+}
+
+// Regression test for crbug.com/521620916: detaching the browser client when
+// hidden targets with crashed renderers are attached should not cause
+// reentrancy UAF when sessions are cleared.
+IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, DetachWithCrashedHiddenTargets) {
+  content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
+  set_agent_host_can_close();
+  AttachToBrowserTarget();
+
+  base::DictValue create_page_params;
+  create_page_params.Set("url", "about:blank");
+  const base::DictValue* result =
+      SendCommandSync("Target.createTarget", std::move(create_page_params));
+  ASSERT_TRUE(result);
+  const std::string* page_target_id_ptr = result->FindString("targetId");
+  ASSERT_TRUE(page_target_id_ptr);
+  std::string page_target_id = *page_target_id_ptr;
+
+  scoped_refptr<DevToolsAgentHost> page_agent_host =
+      DevToolsAgentHost::GetForId(page_target_id);
+  ASSERT_TRUE(page_agent_host);
+  EXPECT_TRUE(WaitForLoadStop(page_agent_host->GetWebContents()));
+
+  base::DictValue attach_params;
+  attach_params.Set("targetId", page_target_id);
+  attach_params.Set("flatten", true);
+  result = SendCommandSync("Target.attachToTarget", std::move(attach_params));
+  ASSERT_TRUE(result);
+  const std::string* page_session_id_ptr = result->FindString("sessionId");
+  ASSERT_TRUE(page_session_id_ptr);
+  std::string page_session_id = *page_session_id_ptr;
+
+  // Use 12 targets to ensure sufficient depth and branching in libc++'s
+  // std::map Red-Black tree so that reentrant erase() calls during clearance
+  // reliably collide with post-order traversal regardless of key ordering.
+  constexpr size_t kHiddenTargetCount = 12;
+  std::vector<std::string> hidden_target_ids;
+  for (size_t i = 0; i < kHiddenTargetCount; ++i) {
+    base::DictValue params;
+    params.Set("url", "about:blank");
+    params.Set("hidden", true);
+    const base::DictValue* create_result = SendSessionCommand(
+        "Target.createTarget", std::move(params), page_session_id, true);
+    ASSERT_TRUE(create_result);
+    const std::string* target_id = create_result->FindString("targetId");
+    ASSERT_TRUE(target_id);
+    hidden_target_ids.push_back(*target_id);
+  }
+
+  for (const std::string& target_id : hidden_target_ids) {
+    scoped_refptr<DevToolsAgentHost> agent_host =
+        DevToolsAgentHost::GetForId(target_id);
+    ASSERT_TRUE(agent_host);
+    WebContents* web_contents = agent_host->GetWebContents();
+    ASSERT_TRUE(web_contents);
+    EXPECT_TRUE(WaitForLoadStop(web_contents));
+  }
+
+  for (const std::string& target_id : hidden_target_ids) {
+    base::DictValue params;
+    params.Set("targetId", target_id);
+    params.Set("flatten", true);
+    SendCommandSync("Target.attachToTarget", std::move(params));
+  }
+
+  // Terminate each hidden target's renderer so that closing the page on
+  // detach takes the synchronous path. The browser session is then detached
+  // during fixture tear down, which closes the hidden targets while the
+  // owning child session is being released.
+  std::set<RenderProcessHost*> rphs;
+  for (const std::string& target_id : hidden_target_ids) {
+    scoped_refptr<DevToolsAgentHost> agent_host =
+        DevToolsAgentHost::GetForId(target_id);
+    ASSERT_TRUE(agent_host);
+    WebContents* web_contents = agent_host->GetWebContents();
+    ASSERT_TRUE(web_contents);
+    RenderProcessHost* rph = web_contents->GetPrimaryMainFrame()->GetProcess();
+    if (rph) {
+      rphs.insert(rph);
+    }
+  }
+
+  for (RenderProcessHost* rph : rphs) {
+    if (rph && rph->IsInitializedAndNotDead()) {
+      RenderProcessHostWatcher watcher(
+          rph, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+      rph->Shutdown(RESULT_CODE_KILLED);
+      watcher.Wait();
+    }
+  }
+
+  for (const std::string& target_id : hidden_target_ids) {
+    scoped_refptr<DevToolsAgentHost> agent_host =
+        DevToolsAgentHost::GetForId(target_id);
+    ASSERT_TRUE(agent_host);
+    WebContents* web_contents = agent_host->GetWebContents();
+    ASSERT_TRUE(web_contents);
+    ASSERT_FALSE(web_contents->GetPrimaryMainFrame()->IsRenderFrameLive());
+  }
+
+  // Detaching the browser client closes the page session and hidden targets
+  // synchronously; should not crash or trigger reentrancy UAF.
+  Detach();
 }
 
 }  // namespace content

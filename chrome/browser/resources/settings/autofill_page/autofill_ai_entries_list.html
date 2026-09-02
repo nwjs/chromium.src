@@ -26,12 +26,6 @@
     padding-inline-end: var(--cr-section-padding);
   }
 
-  /* TODO(crbug.com/454617005): this is a quick fix, remove */
-  h2 {
-    align-self: auto;
-    padding-bottom: 0;
-    padding-top: 12px;
-  }
 
   .cr-row {
     border-top: none;
@@ -46,7 +40,7 @@
        user opted out by switching the toggle, the user should not be able to
        add entity instances. -->
   <cr-button id="addEntityInstance" class="header-aligned-button"
-      disabled$="[[!allowEditing_]]" on-click="onAddEntityInstanceClick_">
+      disabled$="[[!allowNewEntitiesAddition_]]" on-click="onAddEntityInstanceClick_">
     $i18n{add}
     <cr-icon icon="cr:arrow-drop-down" class="arrow-icon-down"></cr-icon>
   </cr-button>

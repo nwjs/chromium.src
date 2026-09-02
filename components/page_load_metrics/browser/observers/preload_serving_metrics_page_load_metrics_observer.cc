@@ -8,6 +8,7 @@
 #include "components/page_load_metrics/browser/navigation_handle_user_data.h"
 #include "components/page_load_metrics/browser/page_load_metrics_util.h"
 #include "content/public/browser/navigation_handle.h"
+#include "ui/base/page_transition_types.h"
 
 PreloadServingMetricsPageLoadMetricsObserver::
     PreloadServingMetricsPageLoadMetricsObserver() = default;
@@ -49,8 +50,28 @@ void PreloadServingMetricsPageLoadMetricsObserver::
   auto* user_data =
       page_load_metrics::NavigationHandleUserData::GetForNavigationHandle(
           *navigation_handle);
-  if (user_data) {
+  if (ui::PageTransitionCoreTypeIs(navigation_handle->GetPageTransition(),
+                                   ui::PAGE_TRANSITION_RELOAD)) {
+    navigation_initiator_string_ = "Reload";
+  } else if ((navigation_handle->GetPageTransition() &
+              ui::PAGE_TRANSITION_FORWARD_BACK) ||
+             navigation_handle->IsServedFromBackForwardCache()) {
+    int history_offset = navigation_handle->GetNavigationEntryOffset();
+    if (history_offset > 0) {
+      navigation_initiator_string_ = "Forward";
+    } else if (history_offset < 0) {
+      navigation_initiator_string_ = "Backward";
+    } else {
+      navigation_initiator_string_ = "Other";
+    }
+  } else if (user_data) {
     navigation_initiator_string_ = user_data->navigation_type_string();
+  } else if (navigation_handle->IsRendererInitiated() &&
+             navigation_handle->HasUserGesture() &&
+             ui::PageTransitionCoreTypeIs(
+                 navigation_handle->GetPageTransition(),
+                 ui::PAGE_TRANSITION_LINK)) {
+    navigation_initiator_string_ = "LinkClick";
   } else {
     navigation_initiator_string_ = "Other";
   }

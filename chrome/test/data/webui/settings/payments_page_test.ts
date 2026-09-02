@@ -1,0 +1,782 @@
+// Copyright 2018 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// clang-format off
+import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {SettingsSimpleConfirmationDialogElement} from 'chrome://settings/lazy_load.js';
+import {PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
+import type {CrButtonElement, SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
+import {CrSettingsPrefs, CvcDeletionUserAction, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PrivacyElementInteractions} from 'chrome://settings/settings.js';
+import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+
+// <if expr="not is_chromeos">
+import type {TestPaymentsManager} from './autofill_fake_data.js';
+// </if>
+import {createCreditCardEntry} from './autofill_fake_data.js';
+import {createPaymentsPage, getLocalAndServerCreditCardListItems, getDefaultExpectations, getCardRowShadowRoot, verifyBooleanHistogramRecorded, verifyBooleanHistogramNotRecorded} from './payments_page_test_utils.js';
+import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+
+import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
+import {eventToPromise, isVisible, whenAttributeIs} from 'chrome://webui-test/test_util.js';
+
+// <if expr="is_chromeos">
+import {TestPaymentsManager} from './autofill_fake_data.js';
+
+import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
+// </if>
+
+// clang-format on
+
+suite('PaymentsPageUiTest', function() {
+  test('AutofillExtensionIndicator', function() {
+    // Initializing with fake prefs
+    const page = document.createElement('settings-payments-page');
+    page.prefs = {
+      autofill: {credit_card_enabled: {}},
+    };
+    document.body.appendChild(page);
+
+    assertFalse(
+        !!page.shadowRoot!.querySelector('#autofillExtensionIndicator'));
+    page.set('prefs.autofill.credit_card_enabled.extensionId', 'test-id-1');
+    flush();
+
+    assertTrue(!!page.shadowRoot!.querySelector('#autofillExtensionIndicator'));
+  });
+});
+
+suite('PaymentsPage', function() {
+  let openWindowProxy: TestOpenWindowProxy;
+  let settingsPrefs: SettingsPrefsElement;
+
+  setup(async function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    openWindowProxy = new TestOpenWindowProxy();
+    OpenWindowProxyImpl.setInstance(openWindowProxy);
+    loadTimeData.overrideValues({
+      migrationEnabled: true,
+      showIbansSettings: true,
+      deviceAuthAvailable: true,
+      mandatoryReauthFeatureFlagEnabled: true,
+    });
+
+    settingsPrefs = document.createElement('settings-prefs');
+    document.body.appendChild(settingsPrefs);
+    await CrSettingsPrefs.initialized;
+  });
+
+  teardown(function() {
+    CrSettingsPrefs.resetForTesting();
+  });
+
+  test('ManagePaymentMethodsLink_RecordsMetrics', async function() {
+    const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: true}});
+
+    const manageAnchor = page.$.manageLink.querySelector('a');
+    assertTrue(!!manageAnchor);
+
+    // To avoid opening a new tab in the test (which ends up breaking the other
+    // tests), make the anchor basically non-operable before clicking it.
+    manageAnchor.href = '#';
+    manageAnchor.target = '';
+
+    manageAnchor.click();
+    const recordedAction =
+        await testMetricsBrowserProxy.whenCalled('recordAction');
+
+    assertEquals(
+        'Autofill.PaymentMethodsSettingsPage.ManagePaymentMethodsLinkClicked',
+        recordedAction);
+  });
+
+  test('verifyNoCreditCards', async function() {
+    const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: true}});
+
+    const creditCardList = page.$.paymentsList;
+    assertTrue(!!creditCardList);
+    assertEquals(0, getLocalAndServerCreditCardListItems().length);
+
+    const noPaymentMethodsLabel =
+        creditCardList.shadowRoot!.querySelector<HTMLElement>(
+            '#noPaymentMethodsLabel');
+    assertTrue(!!noPaymentMethodsLabel);
+    assertFalse(noPaymentMethodsLabel.hidden);
+
+    assertFalse(page.$.autofillCreditCardToggle.disabled);
+
+    const addPaymentMethodsButton =
+        page.shadowRoot!.querySelector<CrButtonElement>('#addPaymentMethods');
+    assertTrue(!!addPaymentMethodsButton);
+    assertFalse(addPaymentMethodsButton.disabled);
+
+    await verifyBooleanHistogramRecorded(
+        testMetricsBrowserProxy,
+        'Autofill.PaymentMethodsSettingsPage.CardsViewedWithoutExistingCards',
+        true);
+  });
+
+  test('verifyCreditCardsDisabled', async function() {
+    const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
+
+    loadTimeData.overrideValues({
+      showIbansSettings: false,
+    });
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: false}});
+
+    assertFalse(page.$.autofillCreditCardToggle.disabled);
+    const addCreditCardButton =
+        page.shadowRoot!.querySelector<CrButtonElement>('#addCreditCard');
+    assertTrue(!!addCreditCardButton);
+    assertFalse(addCreditCardButton.hidden);
+    assertTrue(addCreditCardButton.disabled);
+
+    // This metric should only be recorded when autofilling of credit cards is
+    // enabled.
+    await verifyBooleanHistogramNotRecorded(
+        testMetricsBrowserProxy,
+        'Autofill.PaymentMethodsSettingsPage.CardsViewedWithoutExistingCards');
+  });
+
+  test('verifyCreditCardCount', async function() {
+    const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
+
+    const creditCards = [
+      createCreditCardEntry(),
+      createCreditCardEntry(),
+      createCreditCardEntry(),
+      createCreditCardEntry(),
+      createCreditCardEntry(),
+      createCreditCardEntry(),
+    ];
+
+    const page = await createPaymentsPage(
+        creditCards, /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: true}});
+    const creditCardList = page.$.paymentsList;
+    assertTrue(!!creditCardList);
+    assertEquals(
+        creditCards.length, getLocalAndServerCreditCardListItems().length);
+
+    const noPaymentMethodsLabel =
+        creditCardList.shadowRoot!.querySelector<HTMLElement>(
+            '#noPaymentMethodsLabel');
+    assertTrue(!!noPaymentMethodsLabel);
+    assertTrue(noPaymentMethodsLabel.hidden);
+
+    assertFalse(page.$.autofillCreditCardToggle.disabled);
+
+    const addPaymentMethodsButton =
+        page.shadowRoot!.querySelector<CrButtonElement>('#addPaymentMethods');
+    assertTrue(!!addPaymentMethodsButton);
+    assertFalse(addPaymentMethodsButton.disabled);
+
+    await verifyBooleanHistogramRecorded(
+        testMetricsBrowserProxy,
+        'Autofill.PaymentMethodsSettingsPage.CardsViewedWithoutExistingCards',
+        false);
+  });
+
+  test('CanMakePaymentToggle_RecordsMetrics', async function() {
+    const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+        {credit_card_enabled: {value: true}});
+
+    page.$.canMakePaymentToggle.click();
+    const result =
+        await testMetricsBrowserProxy.whenCalled('recordSettingsPageHistogram');
+
+    assertEquals(PrivacyElementInteractions.PAYMENT_METHOD, result);
+  });
+
+  test(
+      'verifyAddPaymentMethodsButtonDisabledIfPaymentPrefDisabled',
+      async function() {
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[],
+            {credit_card_enabled: {value: false}});
+
+        const addPaymentMethodsButton =
+            page.shadowRoot!.querySelector<CrButtonElement>(
+                '#addPaymentMethods');
+        assertTrue(!!addPaymentMethodsButton);
+        assertFalse(addPaymentMethodsButton.hidden);
+        assertTrue(addPaymentMethodsButton.disabled);
+      });
+
+  /**
+   * The following tests deal with the Mandatory reauth feature. There are
+   * various conditions that can change the reauth toggle. Here are those
+   * conditions along with their shorthands to be used in the tests-
+   *    1. Mandatory reauth feature flag = flag
+   *    2. Biometric or Screen lock = device unlock
+   *    3. Autofill toggle = autofill
+   *    4. Mandatory reauth toggle = reauth
+   *
+   * There is another comment below to denote the end of the reauth tests.
+   */
+
+  test(
+      'verifyReauthShownIfDeviceUnlockIsAvailableAndAutofillIsOn',
+      async function() {
+        loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: true},
+              payment_methods_mandatory_reauth: {value: false},
+            });
+
+        const mandatoryAuthToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#mandatoryAuthToggle');
+
+        // <if expr="is_win or is_macosx or is_chromeos">
+        assertTrue(!!mandatoryAuthToggle);
+        assertFalse(mandatoryAuthToggle.checked);
+        // </if>
+        // <if expr="not is_win and not is_macosx and not is_chromeos">
+        assertFalse(!!mandatoryAuthToggle);
+        // </if>
+      });
+
+  test(
+      'verifyReauthShownIfDeviceUnlockIsAvailableAndReauthIsOn',
+      async function() {
+        loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: true},
+              payment_methods_mandatory_reauth: {value: true},
+            });
+
+        const mandatoryAuthToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#mandatoryAuthToggle');
+        // <if expr="is_win or is_macosx or is_chromeos">
+        assertTrue(!!mandatoryAuthToggle);
+        assertTrue(mandatoryAuthToggle.checked);
+        // </if>
+        // <if expr="not is_win and not is_macosx and not is_chromeos">
+        assertFalse(!!mandatoryAuthToggle);
+        // </if>
+      });
+
+  test(
+      'verifyReauthDisabledIfDeviceUnlockIsNotAvailableAndReauthIsOn',
+      async function() {
+        loadTimeData.overrideValues({deviceAuthAvailable: false});
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: true},
+              payment_methods_mandatory_reauth: {value: true},
+            });
+
+        const mandatoryAuthToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#mandatoryAuthToggle');
+
+        // <if expr="is_win or is_macosx or is_chromeos">
+        assertTrue(!!mandatoryAuthToggle);
+        assertTrue(mandatoryAuthToggle.disabled);
+        assertTrue(mandatoryAuthToggle.checked);
+        // </if>
+        // <if expr="not is_win and not is_macosx and not is_chromeos">
+        assertFalse(!!mandatoryAuthToggle);
+        // </if>
+      });
+
+  test(
+      'verifyReauthIsDisabledIfDeviceUnlockIsNotAvailableAndReauthIsOffAndAutofillIsOn',
+      async function() {
+        loadTimeData.overrideValues({deviceAuthAvailable: false});
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: true},
+              payment_methods_mandatory_reauth: {value: false},
+            });
+
+        const mandatoryAuthToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#mandatoryAuthToggle');
+
+        // <if expr="is_win or is_macosx or is_chromeos">
+        assertTrue(!!mandatoryAuthToggle);
+        assertTrue(mandatoryAuthToggle.disabled);
+        assertFalse(mandatoryAuthToggle.checked);
+        // </if>
+        // <if expr="not is_win and not is_macosx and not is_chromeos">
+        assertFalse(!!mandatoryAuthToggle);
+        // </if>
+      });
+
+  test(
+      'verifyReauthDisabledIfDeviceUnlockIsAvailableAndReauthIsOnAndAutofillIsOff',
+      async function() {
+        loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: false},
+              payment_methods_mandatory_reauth: {value: true},
+            });
+
+        const mandatoryAuthToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#mandatoryAuthToggle');
+
+        // <if expr="is_win or is_macosx or is_chromeos">
+        assertTrue(!!mandatoryAuthToggle);
+        assertTrue(mandatoryAuthToggle.disabled);
+        // </if>
+        // <if expr="not is_win and not is_macosx and not is_chromeos">
+        assertFalse(!!mandatoryAuthToggle);
+        // </if>
+      });
+
+  test(
+      'verifyReauthDisabledIfDeviceUnlockIsAvailableAndReauthIsOffAndAutofillIsOff',
+      async function() {
+        loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: false},
+              payment_methods_mandatory_reauth: {value: false},
+            });
+
+        assertFalse(page.$.autofillCreditCardToggle.disabled);
+        const mandatoryAuthToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#mandatoryAuthToggle');
+
+        // <if expr="is_win or is_macosx or is_chromeos">
+        assertTrue(!!mandatoryAuthToggle);
+        assertTrue(mandatoryAuthToggle.disabled);
+        // </if>
+        // <if expr="not is_win and not is_macosx and not is_chromeos">
+        assertFalse(!!mandatoryAuthToggle);
+        // </if>
+      });
+
+  // <if expr="not is_chromeos">
+  test('verifyReauthDoesTriggerUserAuthWhenClicked', async function() {
+    loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_methods_mandatory_reauth: {value: false},
+        });
+
+    const mandatoryAuthToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#mandatoryAuthToggle');
+
+    // <if expr="is_win or is_macosx">
+    const expectations = getDefaultExpectations();
+    assertTrue(!!mandatoryAuthToggle);
+    mandatoryAuthToggle.click();
+    expectations.authenticateUserAndFlipMandatoryAuthToggle = 1;
+    (PaymentsManagerImpl.getInstance() as TestPaymentsManager)
+        .assertExpectations(expectations);
+    // </if>
+    // <if expr="not is_win and not is_macosx">
+    assertFalse(!!mandatoryAuthToggle);
+    // </if>
+  });
+  // </if>
+
+  // <if expr="is_chromeos">
+  test('verifyReauthDoesTriggerUserAuthWhenClicked', async function() {
+    const paymentsManager = new TestPaymentsManager();
+    paymentsManager.checkIfDeviceAuthAvailable = () => Promise.resolve(true);
+    PaymentsManagerImpl.setInstance(paymentsManager);
+
+    const page = document.createElement('settings-payments-page');
+    page.prefs = {
+      autofill: {
+        credit_card_enabled: {value: true},
+        payment_methods_mandatory_reauth: {value: false},
+      },
+    };
+    document.body.appendChild(page);
+    await flushTasks();
+    const mandatoryAuthToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#mandatoryAuthToggle');
+
+    const expectations = getDefaultExpectations();
+    assertTrue(!!mandatoryAuthToggle);
+    mandatoryAuthToggle.click();
+    expectations.authenticateUserAndFlipMandatoryAuthToggle = 1;
+    paymentsManager.assertExpectations(expectations);
+  });
+  // </if>
+
+  test('verifyReauthDoesNotTriggersUserAuthWhenNotClicked', async function() {
+    loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_methods_mandatory_reauth: {value: false},
+        });
+
+    const mandatoryAuthToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#mandatoryAuthToggle');
+    const paymentsManagerProxy =
+        PaymentsManagerImpl.getInstance() as TestPaymentsManager;
+    const expectations = getDefaultExpectations();
+
+    // <if expr="is_win or is_macosx or is_chromeos">
+    assertTrue(!!mandatoryAuthToggle);
+    // </if>
+    // <if expr="not is_win and not is_macosx and not is_chromeos">
+    assertFalse(!!mandatoryAuthToggle);
+    // </if>
+    paymentsManagerProxy.assertExpectations(expectations);
+  });
+
+  test('verifyEditLocalCardTriggersUserAuth', async function() {
+    loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+    const page = await createPaymentsPage(
+        [createCreditCardEntry()], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_methods_mandatory_reauth: {value: true},
+        });
+
+    assertEquals(1, getLocalAndServerCreditCardListItems().length);
+
+    const rowShadowRoot = getCardRowShadowRoot(page.$.paymentsList);
+    assertFalse(!!rowShadowRoot.querySelector('#remoteCreditCardLink'));
+
+    const menuButton =
+        rowShadowRoot.querySelector<HTMLElement>('#creditCardMenu');
+    assertTrue(!!menuButton);
+    menuButton.click();
+    flush();
+
+    assertTrue(isVisible(page.$.menuEditCreditCard));
+    page.$.menuEditCreditCard.click();
+    flush();
+
+    const paymentsManagerProxy =
+        PaymentsManagerImpl.getInstance() as TestPaymentsManager;
+
+    const expectations = getDefaultExpectations();
+    expectations.getLocalCard = 1;
+    paymentsManagerProxy.assertExpectations(expectations);
+  });
+
+  // Regression test for https://crbug.com/442105451, to make sure that the
+  // mandatory auth pref is only updated via payment_section.ts and not the
+  // general settings pref code.
+  test('verifyMandatoryAuthToggleHasNoSetPref', async function() {
+    loadTimeData.overrideValues({deviceAuthAvailable: true});
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_methods_mandatory_reauth: {value: false},
+        });
+
+    const mandatoryAuthToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#mandatoryAuthToggle');
+
+    // <if expr="is_win or is_macosx or is_chromeos">
+    assertTrue(!!mandatoryAuthToggle);
+    assertTrue(mandatoryAuthToggle.hasAttribute('no-set-pref'));
+    // </if>
+    // <if expr="not is_win and not is_macosx and not is_chromeos">
+    assertFalse(!!mandatoryAuthToggle);
+    // </if>
+  });
+
+  //<if expr="is_chromeos">
+  test('verifyMandatoryAuthToggleShownWhenFlagEnabled', async function() {
+    loadTimeData.overrideValues({
+      deviceAuthAvailable: true,
+      mandatoryReauthFeatureFlagEnabled: true,
+    });
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_methods_mandatory_reauth: {value: true},
+        });
+
+    const mandatoryAuthToggle =
+        page.shadowRoot!.querySelector('#mandatoryAuthToggle');
+    assertTrue(!!mandatoryAuthToggle);
+  });
+
+  test('verifyMandatoryAuthToggleHiddenWhenFlagDisabled', async function() {
+    loadTimeData.overrideValues({
+      deviceAuthAvailable: true,
+      mandatoryReauthFeatureFlagEnabled: false,
+    });
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_methods_mandatory_reauth: {value: true},
+        });
+
+    const mandatoryAuthToggle =
+        page.shadowRoot!.querySelector('#mandatoryAuthToggle');
+    assertFalse(!!mandatoryAuthToggle);
+  });
+  //</if>
+  // --------- End of Reauth Tests ---------
+
+  test('verifyCvcStorageToggleIsShown', async function() {
+    loadTimeData.overrideValues({
+      cvcStorageAvailable: true,
+    });
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+        });
+    const cvcStorageToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#cvcStorageToggle');
+
+    assertTrue(!!cvcStorageToggle);
+    assertEquals(
+        loadTimeData.getString('enableCvcStorageSublabel'),
+        cvcStorageToggle.subLabelWithLink);
+    assertEquals(
+        loadTimeData.getString('enableCvcStorageAriaLabelForNoCvcSaved'),
+        cvcStorageToggle.ariaLabel);
+  });
+
+  test('verifyCvcStorageToggleSublabelWithDeletionIsShown', async function() {
+    loadTimeData.overrideValues({
+      cvcStorageAvailable: true,
+    });
+
+    const creditCard = createCreditCardEntry();
+    creditCard.cvc = '•••';
+    const page = await createPaymentsPage(
+        /*creditCards=*/[creditCard], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+        });
+    const cvcStorageToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#cvcStorageToggle');
+
+    assertTrue(!!cvcStorageToggle);
+    assertEquals(
+        loadTimeData.getString('enableCvcStorageDeleteDataSublabel'),
+        cvcStorageToggle.subLabelWithLink);
+    assertEquals(
+        loadTimeData.getString('enableCvcStorageLabel'),
+        cvcStorageToggle.ariaLabel);
+  });
+
+  test(
+      'verifyCvcStorageToggleSublabelWithoutDeletionIsShown', async function() {
+        loadTimeData.overrideValues({
+          cvcStorageAvailable: true,
+        });
+
+        const creditCard = createCreditCardEntry();
+        const page = await createPaymentsPage(
+            /*creditCards=*/[creditCard], /*ibans=*/[],
+            /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: true},
+            });
+        const cvcStorageToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#cvcStorageToggle');
+
+        assertTrue(!!cvcStorageToggle);
+        assertEquals(
+            loadTimeData.getString('enableCvcStorageSublabel'),
+            cvcStorageToggle.subLabelWithLink);
+      });
+
+  // Test to verify if bulk delete is triggered or not based on how user
+  // interacts with the deletion dialog window.
+  [true, false].forEach(shouldTriggerBulkDelete => {
+    test(
+        `verifyBulkDeleteCvcIsTriggered_${shouldTriggerBulkDelete}`,
+        async function() {
+          loadTimeData.overrideValues({
+            cvcStorageAvailable: true,
+          });
+          const testMetricsBrowserProxy = new TestMetricsBrowserProxy();
+          MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
+
+          const creditCard = createCreditCardEntry();
+          creditCard.cvc = '•••';
+          const page = await createPaymentsPage(
+              /*creditCards=*/[creditCard], /*ibans=*/[],
+              /*payOverTimeIssuers=*/[], {
+                credit_card_enabled: {value: true},
+              });
+
+          const cvcStorageToggle =
+              page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                  '#cvcStorageToggle');
+          assertTrue(!!cvcStorageToggle);
+          assertEquals(
+              loadTimeData.getString('enableCvcStorageDeleteDataSublabel'),
+              cvcStorageToggle.subLabelWithLink);
+
+          const cvcStorageToggleSublabelLink =
+              cvcStorageToggle.$.labelWrapper
+                  .querySelector('#sub-label-text-with-link')!.querySelector(
+                      'a');
+          assertTrue(isVisible(cvcStorageToggleSublabelLink));
+          cvcStorageToggleSublabelLink!.click();
+          flush();
+
+          const bulkDeletionDialog =
+              page.shadowRoot!
+                  .querySelector<SettingsSimpleConfirmationDialogElement>(
+                      '#bulkDeleteCvcConfirmDialog');
+          assertTrue(!!bulkDeletionDialog);
+          await whenAttributeIs(bulkDeletionDialog.$.dialog, 'open', '');
+
+          if (shouldTriggerBulkDelete) {
+            bulkDeletionDialog.$.confirm.click();
+          } else {
+            bulkDeletionDialog.$.cancel.click();
+          }
+          flush();
+
+          // Wait for the dialog close event to propagate to the PaymentManager.
+          await eventToPromise('close', bulkDeletionDialog);
+
+          const paymentsManagerProxy =
+              PaymentsManagerImpl.getInstance() as TestPaymentsManager;
+          const expectations = getDefaultExpectations();
+
+          assertEquals(2, testMetricsBrowserProxy.getCallCount('recordAction'));
+          assertEquals(
+              CvcDeletionUserAction.HYPERLINK_CLICKED,
+              testMetricsBrowserProxy.getArgs('recordAction')[0]);
+          if (shouldTriggerBulkDelete) {
+            expectations.bulkDeleteAllCvcs = 1;
+            assertEquals(
+                CvcDeletionUserAction.DIALOG_ACCEPTED,
+                testMetricsBrowserProxy.getArgs('recordAction')[1]);
+          } else {
+            assertEquals(
+                CvcDeletionUserAction.DIALOG_CANCELLED,
+                testMetricsBrowserProxy.getArgs('recordAction')[1]);
+          }
+          paymentsManagerProxy.assertExpectations(expectations);
+        });
+  });
+
+  test('verifyCardBenefitsToggleIsShown', async function() {
+    loadTimeData.overrideValues({
+      autofillCardBenefitsAvailable: true,
+    });
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+        });
+    const cardBenefitsToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#cardBenefitsToggle');
+
+    assertTrue(!!cardBenefitsToggle);
+    assertEquals(
+        loadTimeData.getString('cardBenefitsLabel'), cardBenefitsToggle.label);
+    assertEquals(
+        loadTimeData.getString('cardBenefitsToggleSublabel'),
+        cardBenefitsToggle.subLabelWithLink);
+  });
+
+  test(
+      'verifyCardBenefitsToggleIsDisabledWhenCreditCardEnabledIsOff',
+      async function() {
+        loadTimeData.overrideValues({
+          autofillCardBenefitsAvailable: true,
+        });
+
+        const page = await createPaymentsPage(
+            /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+              credit_card_enabled: {value: false},
+            });
+        const cardBenefitsToggle =
+            page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+                '#cardBenefitsToggle');
+
+        assertTrue(!!cardBenefitsToggle);
+        assertTrue(cardBenefitsToggle.disabled);
+      });
+
+  test('verifyCardBenefitsToggleSublabelLinkClickOpensUrl', async function() {
+    loadTimeData.overrideValues({
+      autofillCardBenefitsAvailable: true,
+    });
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+        });
+    const cardBenefitsToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#cardBenefitsToggle');
+    assertTrue(!!cardBenefitsToggle);
+
+    const link = cardBenefitsToggle.shadowRoot!.querySelector('a');
+    assertTrue(!!link);
+    link.click();
+
+    const url = await openWindowProxy.whenCalled('openUrl');
+    assertEquals(loadTimeData.getString('cardBenefitsToggleLearnMoreUrl'), url);
+  });
+
+  test('verifyCardBenefitsPrefIsFalseWhenToggleIsOff', async function() {
+    loadTimeData.overrideValues({
+      autofillCardBenefitsAvailable: true,
+    });
+
+    const page = await createPaymentsPage(
+        /*creditCards=*/[], /*ibans=*/[], /*payOverTimeIssuers=*/[], {
+          credit_card_enabled: {value: true},
+          payment_card_benefits: {value: true},
+        });
+    const cardBenefitsToggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#cardBenefitsToggle');
+    assertTrue(!!cardBenefitsToggle);
+    assertTrue(cardBenefitsToggle.checked);
+
+    cardBenefitsToggle.click();
+
+    assertFalse(cardBenefitsToggle.checked);
+    assertFalse(cardBenefitsToggle.pref!.value);
+  });
+});

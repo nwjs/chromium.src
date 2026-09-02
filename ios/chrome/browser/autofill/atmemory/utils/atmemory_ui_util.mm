@@ -4,61 +4,91 @@
 
 #import "ios/chrome/browser/autofill/atmemory/utils/atmemory_ui_util.h"
 
-#import <algorithm>
-
-#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
-#import "ios/chrome/browser/shared/ui/table_view/content_configuration/image_content_configuration.h"
-#import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "base/strings/sys_string_conversions.h"
+#import "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
+#import "components/autofill/core/browser/integrators/at_memory/memory_data_type_util.h"
+#import "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
+#import "ios/chrome/browser/autofill/atmemory/public/at_memory_constants.h"
+#import "ios/chrome/browser/autofill/atmemory/ui/at_memory_granular_fill_item.h"
 
 namespace {
-// Size of the close button.
-constexpr CGFloat kCloseButtonSize = 44;
 
-// Size of the close button when liquid glass is disabled.
-constexpr CGFloat kCloseButtonSizePreLiquidGlass = 30;
+// Resolves the attribute name string, falling back to i18n data type name.
+NSString* GetAttributeName(const std::u16string& type_name,
+                           autofill::MemoryDataType type) {
+  std::u16string name = type_name.empty()
+                            ? autofill::GetMemoryDataTypeNameForI18n(type)
+                            : type_name;
+  return base::SysUTF16ToNSString(name);
+}
 
-// Size of the cell icon.
-constexpr CGFloat kCellIconSize = 24;
 }  // namespace
 
-namespace autofill {
+NSString* GetAtMemoryGranularFillTitle(
+    const autofill::MemorySearchResult& result) {
+  if (std::optional<autofill::AttributeType> attribute_type =
+          autofill::ToAttributeType(result.type)) {
+    return base::SysUTF16ToNSString(
+        attribute_type->entity_type().GetNameForI18n());
+  }
+  return GetAttributeName(result.type_name, result.type);
+}
 
-// Returns the symbol configuration to use for the close button.
-UIImageSymbolConfiguration* GetCloseButtonSymbolConfiguration() {
-  if (@available(iOS 26, *)) {
-    return [UIImageSymbolConfiguration
-        configurationWithPointSize:kCloseButtonSize
-                            weight:UIImageSymbolWeightThin
-                             scale:UIImageSymbolScaleDefault];
+NSArray<AtMemoryGranularFillItem*>* AtMemoryGranularFillItemsForSearchResult(
+    const autofill::MemorySearchResult& result) {
+  NSMutableArray<AtMemoryGranularFillItem*>* items =
+      [[NSMutableArray alloc] init];
+
+  for (const auto& metadata : result.metadata_list) {
+    if (!metadata.value.empty()) {
+      [items addObject:[[AtMemoryGranularFillItem alloc]
+                           initWithAttributeName:GetAttributeName(
+                                                     metadata.type_name,
+                                                     metadata.type)
+                                  attributeValue:base::SysUTF16ToNSString(
+                                                     metadata.value)]];
+    }
   }
 
-  return [UIImageSymbolConfiguration
-      configurationWithPointSize:kCloseButtonSizePreLiquidGlass
-                          weight:UIImageSymbolWeightRegular
-                           scale:UIImageSymbolScaleMedium];
+  return [items copy];
 }
 
-// Returns the foreground color to use for the close button color palette.
-UIColor* GetCloseButtonForegroundColor() {
-  if (@available(iOS 26, *)) {
-    return [UIColor colorNamed:kTextPrimaryColor];
-  }
-
-  return [[UIColor secondaryLabelColor] colorWithAlphaComponent:0.6];
+NSString* GetAtMemoryGranularFillCellAccessibilityIdentifier(
+    NSString* attribute_name) {
+  return [NSString
+      stringWithFormat:@"%@%@",
+                       kAtMemoryGranularFillCellAccessibilityIdentifierPrefix,
+                       attribute_name];
 }
 
-ImageContentConfiguration* AtMemoryCellIconConfiguration(Symbol symbol) {
-  UIImageSymbolConfiguration* configuration = [UIImageSymbolConfiguration
-      configurationWithPointSize:kCellIconSize
-                          weight:UIImageSymbolWeightMedium
-                           scale:UIImageSymbolScaleMedium];
-  UIImage* symbol_image = SymbolWithConfiguration(symbol, configuration);
-
-  ImageContentConfiguration* symbol_configuration =
-      [[ImageContentConfiguration alloc] init];
-  symbol_configuration.image = symbol_image;
-  symbol_configuration.imageTintColor = [UIColor colorNamed:kTextPrimaryColor];
-  return symbol_configuration;
+NSString* GetAtMemoryGranularFillAttributeLabelAccessibilityIdentifier(
+    NSString* attribute_name) {
+  return [NSString
+      stringWithFormat:
+          @"%@%@",
+          kAtMemoryGranularFillAttributeLabelAccessibilityIdentifierPrefix,
+          attribute_name];
 }
 
-}  // namespace autofill
+NSString* GetAtMemoryGranularFillChipButtonAccessibilityIdentifier(
+    NSString* attribute_name) {
+  return [NSString
+      stringWithFormat:
+          @"%@%@", kAtMemoryGranularFillChipButtonAccessibilityIdentifierPrefix,
+          attribute_name];
+}
+
+NSString* GetAtMemorySearchResultCellAccessibilityIdentifier(NSString* title) {
+  return [NSString
+      stringWithFormat:@"%@%@",
+                       kAtMemorySearchResultCellAccessibilityIdentifierPrefix,
+                       title];
+}
+
+NSString* GetAtMemorySearchResultInfoButtonAccessibilityIdentifier(
+    NSString* title) {
+  return [NSString
+      stringWithFormat:
+          @"%@%@", kAtMemorySearchResultInfoButtonAccessibilityIdentifierPrefix,
+          title];
+}

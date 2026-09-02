@@ -179,20 +179,30 @@ class AutoOpenSidePanelTabModelObserver : public TabModelObserver {
   ~AutoOpenSidePanelTabModelObserver() override = default;
 
   void DidSelectTab(TabAndroid* tab, TabModel::TabSelectionType type) override {
-    auto key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+    auto key = SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
     auto* registry = SidePanelRegistry::From(tab);
     if (!registry->GetEntryForKey(key)) {
       registry->Register(
           CreateSidePanelEntry(key, browser_, /*use_thin_web_view=*/true));
+      side_panel_entry_observers_.push_back(
+          std::make_unique<TestSidePanelEntryObserver>(
+              registry->GetEntryForKey(key)));
     }
     coordinator_->SidePanelUIBase::Show(key,
                                         SidePanelOpenTrigger::kToolbarButton,
                                         /*suppress_animations=*/true);
   }
 
+  const std::vector<std::unique_ptr<TestSidePanelEntryObserver>>&
+  side_panel_entry_observers() const {
+    return side_panel_entry_observers_;
+  }
+
  private:
   raw_ptr<BrowserWindowInterface> browser_;
   raw_ptr<SidePanelCoordinatorAndroid> coordinator_;
+  std::vector<std::unique_ptr<TestSidePanelEntryObserver>>
+      side_panel_entry_observers_;
 };
 
 BrowserWindowInterface* CreateBrowserWindowAsync(Profile* profile) {
@@ -457,6 +467,46 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
       entry_java_view.obj(), entry_ptr->CachedView()->view().obj()));
 }
 
+IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
+                       Destructor_ClearsCachedEntryViews) {
+  // Arrange: Register entries in window and tab registries and populate cache.
+  tabs::TabInterface* active_tab = tab_list_->GetActiveTab();
+  auto window_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
+  auto tab_key = SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
+
+  auto window_entry = CreateSidePanelEntry(window_key, browser_);
+  auto tab_entry = CreateSidePanelEntry(tab_key, browser_);
+  SidePanelEntry* window_entry_ptr = window_entry.get();
+  SidePanelEntry* tab_entry_ptr = tab_entry.get();
+
+  SidePanelRegistry::From(browser_)->Register(std::move(window_entry));
+  SidePanelRegistry::From(active_tab)->Register(std::move(tab_entry));
+
+  coordinator_->SidePanelUIBase::Show(window_key,
+                                      SidePanelOpenTrigger::kToolbarButton,
+                                      /*suppress_animations=*/true);
+  WaitUntilOpened(coordinator_);
+  coordinator_->SidePanelUIBase::Show(tab_key,
+                                      SidePanelOpenTrigger::kToolbarButton,
+                                      /*suppress_animations=*/true);
+  WaitUntilOpened(coordinator_);
+
+  ASSERT_NE(nullptr, window_entry_ptr->CachedView().get());
+  ASSERT_NE(nullptr, tab_entry_ptr->CachedView().get());
+
+  // Act: Destroy the coordinator (simulating window/activity destruction).
+  delete coordinator_.ExtractAsDangling();
+
+  // Assert: Cached views in both window and tab registries are cleared...
+  EXPECT_EQ(nullptr, window_entry_ptr->CachedView().get());
+  EXPECT_EQ(nullptr, tab_entry_ptr->CachedView().get());
+
+  // ...but active entry selection remains preserved for window restoration.
+  EXPECT_EQ(
+      tab_entry_ptr,
+      SidePanelRegistry::From(active_tab)->GetActiveEntry().value_or(nullptr));
+}
+
 IN_PROC_BROWSER_TEST_F(
     SidePanelCoordinatorAndroidBrowserTest,
     Show_SidePanelAlreadyShownWithDifferentEntry_CachesEntryViewForBothPreviousAndCurrentEntries) {
@@ -467,7 +517,8 @@ IN_PROC_BROWSER_TEST_F(
   ScopedJavaGlobalRef<jobject> first_java_view;
   ScopedJavaGlobalRef<jobject> second_java_view;
   auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   auto first_entry =
       CreateSidePanelEntry(first_entry_key, browser_,
                            /*use_thin_web_view=*/false,
@@ -525,7 +576,8 @@ IN_PROC_BROWSER_TEST_F(
   TestSidePanelEntryObserver first_entry_observer(first_entry.get());
   registry->Register(std::move(first_entry));
 
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   auto second_entry = CreateSidePanelEntry(second_entry_key, browser_);
   TestSidePanelEntryObserver second_entry_observer(second_entry.get());
   registry->Register(std::move(second_entry));
@@ -713,6 +765,59 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(
     SidePanelCoordinatorAndroidBrowserTest,
+    Close_Animated_TabSwitchMidAnimation_PanelStaysClosedAndDoesNotReopenOnReturn) {
+  // Arrange: Create two tabs.
+  tabs::TabInterface* first_tab = tab_list_->GetActiveTab();
+  tabs::TabInterface* second_tab =
+      tab_list_->OpenTab(GURL("about:blank"), /*index=*/1);
+
+  auto entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
+  auto* first_registry = SidePanelRegistry::From(first_tab);
+  first_registry->Register(CreateSidePanelEntry(entry_key, browser_));
+
+  // Open the tab-scoped entry on first_tab.
+  tab_list_->ActivateTab(first_tab->GetHandle());
+  coordinator_->SidePanelUIBase::Show(entry_key,
+                                      SidePanelOpenTrigger::kToolbarButton,
+                                      /*suppress_animations=*/true);
+  WaitUntilOpened(coordinator_);
+  ASSERT_TRUE(
+      coordinator_->SidePanelUIBase::IsSidePanelEntryShowing(entry_key));
+  ASSERT_TRUE(first_registry->GetActiveEntry().has_value());
+
+  // Act 1: Initiate an animated close on first_tab.
+  coordinator_->Close(SidePanelEntryHideReason::kSidePanelClosed,
+                      /*suppress_animations=*/false);
+
+  // Assert 1:
+  // Even while the close animation is ongoing and before WaitUntilClosed
+  // completes, ResetActiveEntry() should have immediately cleared the active
+  // entry.
+  ASSERT_EQ(SidePanelState::kClosing, coordinator_->GetStateForTesting());
+  EXPECT_FALSE(first_registry->GetActiveEntry().has_value());
+
+  // Act 2: Switch to second_tab mid-animation before the close completes.
+  tab_list_->ActivateTab(second_tab->GetHandle());
+
+  // Wait for any remaining closing animation to complete.
+  WaitUntilClosed(coordinator_);
+
+  // Assert 2: Panel is closed while on second_tab.
+  EXPECT_FALSE(coordinator_->IsSidePanelShowing());
+  EXPECT_EQ(SidePanelState::kClosed, coordinator_->GetStateForTesting());
+
+  // Act 3: Switch back to first_tab (where the close was initiated).
+  tab_list_->ActivateTab(first_tab->GetHandle());
+
+  // Assert 3: Panel does NOT reopen and remains closed on first_tab because its
+  // active entry was immediately cleared when the close started.
+  EXPECT_FALSE(coordinator_->IsSidePanelShowing());
+  EXPECT_FALSE(first_registry->GetActiveEntry().has_value());
+  EXPECT_EQ(SidePanelState::kClosed, coordinator_->GetStateForTesting());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    SidePanelCoordinatorAndroidBrowserTest,
     Close_ClearsCachedEntryViewForInactiveEntriesInContextualRegistries) {
   // Arrange: Register two tab-scoped entries.
   tabs::TabInterface* first_tab = tab_list_->GetActiveTab();
@@ -720,7 +825,8 @@ IN_PROC_BROWSER_TEST_F(
       tab_list_->OpenTab(GURL("about:blank"), /*index=*/1);
 
   auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   std::unique_ptr<SidePanelEntry> first_entry =
       CreateSidePanelEntry(first_entry_key, browser_);
   std::unique_ptr<SidePanelEntry> second_entry =
@@ -860,7 +966,8 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(second_tab->IsActivated());
 
   // Arrange: Register a SidePanelEntry for the 2nd tab.
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   second_registry->Register(CreateSidePanelEntry(second_entry_key, browser_));
 
   // Arrange: Show the SidePanelEntry for the 2nd tab.
@@ -893,7 +1000,8 @@ IN_PROC_BROWSER_TEST_F(
   auto* first_registry = SidePanelRegistry::From(first_tab);
   auto* second_registry = SidePanelRegistry::From(second_tab);
   auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
 
   auto first_entry = CreateSidePanelEntry(first_entry_key, browser_);
   TestSidePanelEntryObserver first_entry_observer(first_entry.get());
@@ -964,7 +1072,8 @@ IN_PROC_BROWSER_TEST_F(
   auto* first_registry = SidePanelRegistry::From(first_tab);
   auto* second_registry = SidePanelRegistry::From(second_tab);
   auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
 
   auto first_entry = CreateSidePanelEntry(first_entry_key, browser_);
   TestSidePanelEntryObserver first_entry_observer(first_entry.get());
@@ -1042,7 +1151,8 @@ IN_PROC_BROWSER_TEST_F(
   auto* first_registry = SidePanelRegistry::From(first_tab);
   auto* second_registry = SidePanelRegistry::From(second_tab);
   auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
 
   auto first_entry = CreateSidePanelEntry(first_entry_key, browser_);
   TestSidePanelEntryObserver first_entry_observer(first_entry.get());
@@ -1163,7 +1273,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Arrange: Register a tab-scoped entry for the 2nd tab.
   auto* second_registry = SidePanelRegistry::From(second_tab);
-  auto tab_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto tab_entry_key = SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   auto tab_entry = CreateSidePanelEntry(tab_entry_key, browser_);
   TestSidePanelEntryObserver tab_entry_observer(tab_entry.get());
   second_registry->Register(std::move(tab_entry));
@@ -1227,7 +1337,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Arrange: Register a tab-scoped entry for the 1st tab.
   auto* first_registry = SidePanelRegistry::From(first_tab);
-  auto tab_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto tab_entry_key = SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   auto tab_entry = CreateSidePanelEntry(tab_entry_key, browser_);
   TestSidePanelEntryObserver tab_entry_observer(tab_entry.get());
   first_registry->Register(std::move(tab_entry));
@@ -1383,7 +1493,8 @@ IN_PROC_BROWSER_TEST_F(
   // Arrange: Open the 1st tab and show its entry backed by a ThinWebView.
   tabs::TabInterface* first_tab = tab_list_->GetActiveTab();
   auto* first_registry = SidePanelRegistry::From(first_tab);
-  auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto first_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   first_registry->Register(CreateSidePanelEntry(first_entry_key, browser_,
                                                 /*use_thin_web_view=*/true));
   coordinator_->SidePanelUIBase::Show(first_entry_key,
@@ -1455,7 +1566,7 @@ IN_PROC_BROWSER_TEST_F(
       tab_list_->OpenTab(GURL("about:blank"), /*index=*/1);
 
   auto entry_key_1 = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto entry_key_2 = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto entry_key_2 = SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   SidePanelRegistry::From(tab_1)->Register(
       CreateSidePanelEntry(entry_key_1, browser_));
   SidePanelRegistry::From(tab_2)->Register(
@@ -1539,7 +1650,8 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
       coordinator_->SidePanelUIBase::IsSidePanelEntryShowing(first_entry_key));
 
   // 2. Prepare a second entry (Glic) that is not available immediately.
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   auto on_view_created =
       base::BindRepeating([](SidePanelNativeViewAndroid* view) {
         SidePanelUtil::GetSidePanelContentProxy(view)->SetAvailable(false);
@@ -1623,7 +1735,8 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
   // Arrange:
 
   auto first_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto second_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto second_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   auto* registry = SidePanelRegistry::From(browser_);
   registry->Register(CreateSidePanelEntry(first_entry_key, browser_));
   registry->Register(CreateSidePanelEntry(second_entry_key, browser_));
@@ -1655,7 +1768,7 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
       tab_list_->OpenTab(GURL("about:blank"), /*index=*/1);
 
   auto entry_key_1 = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto entry_key_2 = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto entry_key_2 = SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
   SidePanelRegistry::From(tab_1)->Register(
       CreateSidePanelEntry(entry_key_1, browser_));
   SidePanelRegistry::From(tab_2)->Register(
@@ -1719,7 +1832,8 @@ IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
       tab_list_->OpenTab(GURL("about:blank"), /*index=*/1);
 
   auto tab_entry_key = SidePanelEntryKey(SidePanelEntryId::kAboutThisSite);
-  auto window_entry_key = SidePanelEntryKey(SidePanelEntryId::kGlic);
+  auto window_entry_key =
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry);
 
   SidePanelRegistry::From(tab_1)->Register(
       CreateSidePanelEntry(tab_entry_key, browser_));
@@ -1942,7 +2056,8 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {std::nullopt, SidePanelEntryId::kGlic}, /*active_tab_index=*/1);
+      {std::nullopt, SidePanelEntryId::kTestTabScopedEntry},
+      /*active_tab_index=*/1);
   auto* src_coordinator = SidePanelCoordinatorAndroid::From(src_window);
   auto* src_tab_list = TabListInterface::From(src_window);
 
@@ -1962,7 +2077,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(src_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -1975,7 +2090,7 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {SidePanelEntryId::kGlic}, /*active_tab_index=*/0);
+      {SidePanelEntryId::kTestTabScopedEntry}, /*active_tab_index=*/0);
   auto* src_tab_list = TabListInterface::From(src_window);
 
   BrowserWindowInterface* dst_window =
@@ -1992,11 +2107,11 @@ IN_PROC_BROWSER_TEST_F(
                                 /*destination_index=*/0);
   WaitUntilOpened(dst_coordinator);
 
-  // Assert: Target window receives the tab and shows kGlic side panel
-  // successfully.
+  // Assert: Target window receives the tab and shows kTestTabScopedEntry side
+  // panel successfully.
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2044,7 +2159,7 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {SidePanelEntryId::kAboutThisSite, SidePanelEntryId::kGlic},
+      {SidePanelEntryId::kAboutThisSite, SidePanelEntryId::kTestTabScopedEntry},
       /*active_tab_index=*/1, /*use_thin_web_view=*/true);
   auto* src_coordinator = SidePanelCoordinatorAndroid::From(src_window);
   auto* src_tab_list = TabListInterface::From(src_window);
@@ -2089,7 +2204,7 @@ IN_PROC_BROWSER_TEST_F(
       SidePanelEntryKey(SidePanelEntryId::kAboutThisSite)));
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2137,7 +2252,7 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {SidePanelEntryId::kAboutThisSite, SidePanelEntryId::kGlic},
+      {SidePanelEntryId::kAboutThisSite, SidePanelEntryId::kTestTabScopedEntry},
       /*active_tab_index=*/1);
   auto* src_coordinator = SidePanelCoordinatorAndroid::From(src_window);
   auto* src_tab_list = TabListInterface::From(src_window);
@@ -2160,7 +2275,7 @@ IN_PROC_BROWSER_TEST_F(
       SidePanelEntryKey(SidePanelEntryId::kAboutThisSite)));
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2173,7 +2288,7 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {SidePanelEntryId::kAboutThisSite, SidePanelEntryId::kGlic},
+      {SidePanelEntryId::kAboutThisSite, SidePanelEntryId::kTestTabScopedEntry},
       /*active_tab_index=*/1);
   auto* src_coordinator = SidePanelCoordinatorAndroid::From(src_window);
   auto* src_tab_list = TabListInterface::From(src_window);
@@ -2198,7 +2313,7 @@ IN_PROC_BROWSER_TEST_F(
       SidePanelEntryKey(SidePanelEntryId::kAboutThisSite)));
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2211,7 +2326,8 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {std::nullopt, SidePanelEntryId::kGlic}, /*active_tab_index=*/1);
+      {std::nullopt, SidePanelEntryId::kTestTabScopedEntry},
+      /*active_tab_index=*/1);
   auto* src_coordinator = SidePanelCoordinatorAndroid::From(src_window);
   auto* src_tab_list = TabListInterface::From(src_window);
 
@@ -2231,7 +2347,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(src_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2244,7 +2360,8 @@ IN_PROC_BROWSER_TEST_F(
   BrowserWindowInterface* src_window = GetLastActiveBrowser();
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      {std::nullopt, SidePanelEntryId::kGlic}, /*active_tab_index=*/1);
+      {std::nullopt, SidePanelEntryId::kTestTabScopedEntry},
+      /*active_tab_index=*/1);
   auto* src_coordinator = SidePanelCoordinatorAndroid::From(src_window);
   auto* src_tab_list = TabListInterface::From(src_window);
 
@@ -2267,7 +2384,7 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_FALSE(src_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelShowing());
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2364,11 +2481,12 @@ IN_PROC_BROWSER_TEST_F(
   auto* src_tab_list = TabListInterface::From(src_window);
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      /*tab_scoped_entry_ids=*/{std::nullopt, SidePanelEntryId::kGlic},
+      /*tab_scoped_entry_ids=*/
+      {std::nullopt, SidePanelEntryId::kTestTabScopedEntry},
       /*active_tab_index=*/1);
   tabs::TabHandle side_panel_tab_handle = src_tab_list->GetTab(1)->GetHandle();
   ASSERT_TRUE(src_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 
   // Arrange: Simulate that the source window becomes narrow enough so the side
   // panel auto-closes and its entry is tracked by
@@ -2382,7 +2500,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(src_deferred_entry.has_value());
   EXPECT_EQ(src_deferred_entry->tab_handle, side_panel_tab_handle);
   EXPECT_EQ(src_deferred_entry->key,
-            SidePanelEntryKey(SidePanelEntryId::kGlic));
+            SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry));
 
   // Arrange: Create the destination window.
   BrowserWindowInterface* dst_window =
@@ -2397,7 +2515,7 @@ IN_PROC_BROWSER_TEST_F(
   // Assert: Side panel is shown in the destination window.
   WaitUntilOpened(dst_coordinator);
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 
   // Assert: The source window's SidePanelDeferredEntryTracker should no longer
   // track the SidePanelEntry that's moved to the destination window.
@@ -2491,11 +2609,12 @@ IN_PROC_BROWSER_TEST_F(
   auto* src_tab_list = TabListInterface::From(src_window);
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      /*tab_scoped_entry_ids=*/{std::nullopt, SidePanelEntryId::kGlic},
+      /*tab_scoped_entry_ids=*/
+      {std::nullopt, SidePanelEntryId::kTestTabScopedEntry},
       /*active_tab_index=*/1);
   tabs::TabHandle side_panel_tab_handle = src_tab_list->GetTab(1)->GetHandle();
   ASSERT_TRUE(src_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 
   // Arrange: Create the destination window.
   BrowserWindowInterface* dst_window =
@@ -2520,7 +2639,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(dst_deferred_entry.has_value());
   EXPECT_EQ(dst_deferred_entry->tab_handle, side_panel_tab_handle);
   EXPECT_EQ(dst_deferred_entry->key,
-            SidePanelEntryKey(SidePanelEntryId::kGlic));
+            SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry));
 
   // Act: Simulate auto-restore in the destination window.
   dst_coordinator->SimulateAutoRestoreConditionForTesting();
@@ -2528,7 +2647,7 @@ IN_PROC_BROWSER_TEST_F(
   // Assert: Side panel is shown in the destination window.
   WaitUntilOpened(dst_coordinator);
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 // Setup:
@@ -2546,11 +2665,12 @@ IN_PROC_BROWSER_TEST_F(
   auto* src_tab_list = TabListInterface::From(src_window);
   SetUpSidePanelEntriesForWindow(
       src_window, /*window_scoped_entry_id=*/std::nullopt,
-      /*tab_scoped_entry_ids=*/{std::nullopt, SidePanelEntryId::kGlic},
+      /*tab_scoped_entry_ids=*/
+      {std::nullopt, SidePanelEntryId::kTestTabScopedEntry},
       /*active_tab_index=*/1);
   tabs::TabHandle side_panel_tab_handle = src_tab_list->GetTab(1)->GetHandle();
   ASSERT_TRUE(src_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 
   // Arrange: Simulate that the source window becomes narrow enough so the side
   // panel auto-closes and its entry is tracked by
@@ -2564,7 +2684,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(src_deferred_entry.has_value());
   EXPECT_EQ(src_deferred_entry->tab_handle, side_panel_tab_handle);
   EXPECT_EQ(src_deferred_entry->key,
-            SidePanelEntryKey(SidePanelEntryId::kGlic));
+            SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry));
 
   // Arrange: Create the destination window.
   BrowserWindowInterface* dst_window =
@@ -2597,7 +2717,7 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(dst_deferred_entry.has_value());
   EXPECT_EQ(dst_deferred_entry->tab_handle, side_panel_tab_handle);
   EXPECT_EQ(dst_deferred_entry->key,
-            SidePanelEntryKey(SidePanelEntryId::kGlic));
+            SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry));
 
   // Act: Simulate auto-restore in the destination window.
   dst_coordinator->SimulateAutoRestoreConditionForTesting();
@@ -2605,7 +2725,7 @@ IN_PROC_BROWSER_TEST_F(
   // Assert: Side panel is shown in the destination window.
   WaitUntilOpened(dst_coordinator);
   EXPECT_TRUE(dst_coordinator->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kGlic)));
+      SidePanelEntryKey(SidePanelEntryId::kTestTabScopedEntry)));
 }
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
@@ -3290,29 +3410,48 @@ IN_PROC_BROWSER_TEST_F(
 
 IN_PROC_BROWSER_TEST_F(SidePanelCoordinatorAndroidBrowserTest,
                        RapidTabSwitch_AutoOpenSidePanel) {
+  coordinator_->ConfigDeferredViewReplacementForTesting(true);
+
   // Simulate GLiC's "automatically open side panel for a new tab" behavior.
   AutoOpenSidePanelTabModelObserver observer(browser_, coordinator_);
   auto* tab_model = static_cast<TabModel*>(tab_list_);
   tab_model->AddObserver(&observer);
 
-  // Switch tabs rapidly to trigger side panel creation and show.
-  // We open three new tabs here:
-  // - Tab 2: Opens the side panel initially.
-  // - Tab 3: Replaces Tab 2's panel (1st replacement).
-  // - Tab 4: Replaces Tab 3's panel (2nd replacement, forces the 1st
-  // replacement to complete synchronously).
+  const auto& side_panel_entry_observers =
+      observer.side_panel_entry_observers();
+
+  // Tab 2: Opens the side panel initially.
   tab_list_->OpenTab(GURL("about:blank"), tab_list_->GetTabCount());
+  ASSERT_EQ(1u, side_panel_entry_observers.size());
+  EXPECT_EQ(1, side_panel_entry_observers[0]->num_on_entry_shown_received_);
+
+  // Tab 3: Replaces Tab 2's panel (1st replacement).
+  // In a real device, this uses delayed detachment. In the headless test
+  // environment, it may complete synchronously.
   tab_list_->OpenTab(GURL("about:blank"), tab_list_->GetTabCount());
+  ASSERT_EQ(2u, side_panel_entry_observers.size());
+  EXPECT_EQ(1, side_panel_entry_observers[1]->num_on_entry_shown_received_);
+
+  // Tab 4: Replaces Tab 3's panel (2nd replacement).
   tab_list_->OpenTab(GURL("about:blank"), tab_list_->GetTabCount());
+  ASSERT_EQ(3u, side_panel_entry_observers.size());
+  EXPECT_EQ(1, side_panel_entry_observers[2]->num_on_entry_shown_received_);
 
   // Wait for the final tab's panel to open.
   WaitUntilOpened(coordinator_);
-  EXPECT_EQ(SidePanelEntryId::kGlic, coordinator_->GetCurrentEntryId());
+  EXPECT_EQ(SidePanelEntryId::kTestTabScopedEntry,
+            coordinator_->GetCurrentEntryId());
 
-  // Wait for the background delayed detachment of the intermediate tab's side
-  // panel to finish successfully.
+  // Wait for any background delayed detachments (if any) to finish
+  // successfully.
   ASSERT_TRUE(base::test::RunUntil(
       [this]() { return !coordinator_->HasPendingReplacedEntryForTesting(); }));
 
+  // At this point, the older tabs should be hidden and the active tab shown.
+  EXPECT_EQ(1, side_panel_entry_observers[0]->num_on_entry_hidden_received_);
+  EXPECT_EQ(1, side_panel_entry_observers[1]->num_on_entry_hidden_received_);
+  EXPECT_EQ(0, side_panel_entry_observers[2]->num_on_entry_hidden_received_);
+
   tab_model->RemoveObserver(&observer);
+  coordinator_->ConfigDeferredViewReplacementForTesting(false);
 }

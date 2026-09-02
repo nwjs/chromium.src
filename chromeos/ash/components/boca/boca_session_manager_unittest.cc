@@ -286,10 +286,6 @@ class BocaSessionManagerTestBase : public testing::Test {
 
     boca_app_client_ = std::make_unique<StrictMock<MockBocaAppClient>>();
 
-    // Expect to have registered session manager for current profile.
-    EXPECT_CALL(*boca_app_client_, GetIdentityManager())
-        .Times(2)
-        .WillRepeatedly(Return(identity_manager()));
     EXPECT_CALL(*boca_app_client_, GetSchoolToolsServerBaseUrl())
         .WillRepeatedly(Return(kTestDefaultUrl));
     core_account_id_ = identity_manager()->PickAccountIdForAccount(
@@ -412,7 +408,8 @@ class BocaSessionManagerTest : public BocaSessionManagerTestBase {
         .WillRepeatedly(Return(kDeviceId));
 
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id, is_producer_);
+        session_client_impl(), &local_state(), account_id, identity_manager(),
+        is_producer_);
     boca_session_manager_->AddObserver(observer());
 
     EXPECT_CALL(*observer(), OnSessionStarted(_, _)).Times(1);
@@ -1063,27 +1060,20 @@ TEST_F(BocaSessionManagerTest, DISABLED_DoNotPollSessionWhenNoNetwork) {
 }
 
 TEST_F(BocaSessionManagerTest, NotifyLocalCaptionConfigWhenLocalChange) {
-  EXPECT_CALL(*boca_app_client(), GetIdentityManager())
-      .WillOnce(Return(identity_manager()));
   EXPECT_CALL(*observer(), OnLocalCaptionConfigUpdated(_)).Times(1);
 
   ::boca::CaptionsConfig config;
-  BocaAppClient::Get()->GetSessionManager()->NotifyLocalCaptionEvents(config);
+  boca_session_manager()->NotifyLocalCaptionEvents(config);
 }
 
 TEST_F(BocaSessionManagerTest, NotifyLocalCaptionClosed) {
-  EXPECT_CALL(*boca_app_client(), GetIdentityManager())
-      .WillOnce(Return(identity_manager()));
   EXPECT_CALL(*observer(), OnLocalCaptionClosed()).Times(1);
-  BocaAppClient::Get()->GetSessionManager()->NotifyLocalCaptionClosed();
+  boca_session_manager()->NotifyLocalCaptionClosed();
 }
 
 TEST_F(BocaSessionManagerTest, NotifyAppReloadEvent) {
-  EXPECT_CALL(*boca_app_client(), GetIdentityManager())
-      .WillOnce(Return(identity_manager()));
   EXPECT_CALL(*observer(), OnAppReloaded()).Times(1);
-
-  BocaAppClient::Get()->GetSessionManager()->NotifyAppReload();
+  boca_session_manager()->NotifyAppReload();
 }
 
 TEST_F(BocaSessionManagerTest, UpdateTabActivity) {
@@ -1983,7 +1973,7 @@ class BocaSessionManagerSodaTest : public BocaSessionManagerTestBase {
                 GetSession(_, /*can_skip_duplicate_request=*/true));
     EXPECT_CALL(*boca_app_client(), GetDeviceId());
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/true);
 
     EXPECT_CALL(mock_soda_installer_, GetAvailableLanguages)
@@ -2136,7 +2126,7 @@ class BocaSessionManagerManagedNetworkTest : public BocaSessionManagerTestBase {
     EXPECT_CALL(*boca_app_client(), GetDeviceId())
         .WillRepeatedly(Return(kDeviceId));
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/true);
     ToggleManagedNetOffline();
   }
@@ -2216,7 +2206,7 @@ class BocaSessionManagerNoPollingTest : public BocaSessionManagerTestBase {
     EXPECT_CALL(*boca_app_client(), GetDeviceId())
         .WillRepeatedly(Return(kDeviceId));
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/true);
   }
 
@@ -2300,7 +2290,7 @@ class BocaSessionManagerCustomPollingTest : public BocaSessionManagerTestBase {
     EXPECT_CALL(*boca_app_client(), GetDeviceId())
         .WillRepeatedly(Return(kDeviceId));
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/true);
   }
 
@@ -2354,7 +2344,7 @@ class BocaSessionManagerStudentHeartbeatTest
     const auto account_id =
         AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestGaiaId);
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/false);
   }
 
@@ -2572,7 +2562,7 @@ class BocaSessionManagerStudentHeartbeatCustomPollingTest
     const auto account_id =
         AccountId::FromUserEmailGaiaId(kTestUserEmail, kTestGaiaId);
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/false);
   }
 
@@ -2641,7 +2631,7 @@ class BocaSessionManagerStudentHeartbeatNoPollingTest
     EXPECT_CALL(*boca_app_client(), GetDeviceId())
         .WillRepeatedly(Return(kDeviceId));
     boca_session_manager_ = std::make_unique<BocaSessionManager>(
-        session_client_impl(), &local_state(), account_id,
+        session_client_impl(), &local_state(), account_id, identity_manager(),
         /*is_producer=*/false);
   }
 

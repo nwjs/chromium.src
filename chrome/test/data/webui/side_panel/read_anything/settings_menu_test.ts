@@ -32,7 +32,6 @@ suite('SettingsMenuElement', () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     const readingMode = new FakeReadingMode();
     chrome.readingMode = readingMode as unknown as typeof chrome.readingMode;
-    chrome.readingMode.imagesFeatureEnabled = true;
     chrome.readingMode.isLineFocusEnabled = true;
     metrics = mockMetrics();
 
@@ -120,8 +119,8 @@ suite('SettingsMenuElement', () => {
         assertEquals(8, submenuEvents);
       });
 
-  test('with improved read aloud flag enabled', async () => {
-    chrome.readingMode.isImprovedReadAloudEnabled = true;
+  test('with improved ui flag enabled', async () => {
+    chrome.readingMode.isReadAnythingImprovedUiEnabled = true;
     chrome.readingMode.isImmersiveEnabled = true;
     settingsMenu.isImmersiveMode = true;
     await microtasksFinished();
@@ -364,8 +363,10 @@ suite('SettingsMenuElement', () => {
   });
 
   test('forward arrow is ignored when focus is on previewplaybutton', () => {
-    // Pretend we are in Voice Selection submenu.
-    settingsMenu['currentOpenId_'] = SettingsOption.VOICE_SELECTION;
+    // Open Voice Selection submenu.
+    const voiceItem = settingsMenu.$.lazyMenu.get().querySelector<HTMLButtonElement>(
+        `#${SettingsOption.VOICE_SELECTION}`)!;
+    voiceItem.click();
 
     // Move focus away from settings menu row.
     const dummySubmenuElement = document.createElement('button');
@@ -417,11 +418,11 @@ suite('SettingsMenuElement', () => {
 
   test('menu items have correct aria-expanded attribute', async () => {
     const actionMenu = settingsMenu.$.lazyMenu.get();
-    const menuItems =
+    let menuItems =
         Array.from(actionMenu.querySelectorAll<HTMLButtonElement>('.menu-row'));
 
     // Submenu toggles should have aria-expanded false by default.
-    const fontItem = menuItems.find(item => item.id === SettingsOption.FONT);
+    let fontItem = menuItems.find(item => item.id === SettingsOption.FONT);
     assertTrue(!!fontItem);
     assertEquals('false', fontItem.getAttribute('aria-expanded'));
 
@@ -431,9 +432,15 @@ suite('SettingsMenuElement', () => {
     assertFalse(linksItem.hasAttribute('aria-expanded'));
 
     // Open the font submenu.
+    const whenFired =
+        eventToPromise(ToolbarEvent.OPEN_SETTINGS_SUBMENU, settingsMenu);
     fontItem.click();
+    await whenFired;
     await microtasksFinished();
 
+    menuItems =
+        Array.from(actionMenu.querySelectorAll<HTMLButtonElement>('.menu-row'));
+    fontItem = menuItems.find(item => item.id === SettingsOption.FONT)!;
     // The font item should now be expanded.
     assertEquals('true', fontItem.getAttribute('aria-expanded'));
     // Another submenu should still not be expanded.
@@ -445,7 +452,6 @@ suite('SettingsMenuElement', () => {
 
   test('only first toggle has separator', async () => {
     chrome.readingMode.isReadabilityEnabled = true;
-    chrome.readingMode.imagesFeatureEnabled = true;
     settingsMenu.isImmersiveMode = true;
     settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
     await microtasksFinished();
@@ -477,10 +483,10 @@ suite('SettingsMenuElement', () => {
   });
 
   test(
-      'improved read aloud menu requires both isImprovedReadAloudEnabled and ' +
+      'improved ui menu requires both isReadAnythingImprovedUiEnabled and ' +
           'isImmersiveEnabled',
       async () => {
-        chrome.readingMode.isImprovedReadAloudEnabled = true;
+        chrome.readingMode.isReadAnythingImprovedUiEnabled = true;
         chrome.readingMode.isImmersiveEnabled = false;
         settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
         await microtasksFinished();
@@ -492,7 +498,7 @@ suite('SettingsMenuElement', () => {
             !menuItems.find(item => item.id === SettingsOption.APPEARANCE));
         assertTrue(!!menuItems.find(item => item.id === SettingsOption.COLOR));
 
-        chrome.readingMode.isImprovedReadAloudEnabled = true;
+        chrome.readingMode.isReadAnythingImprovedUiEnabled = true;
         chrome.readingMode.isImmersiveEnabled = true;
         settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
         await microtasksFinished();
@@ -503,7 +509,7 @@ suite('SettingsMenuElement', () => {
             !!menuItems.find(item => item.id === SettingsOption.APPEARANCE));
         assertTrue(!menuItems.find(item => item.id === SettingsOption.COLOR));
 
-        chrome.readingMode.isImprovedReadAloudEnabled = false;
+        chrome.readingMode.isReadAnythingImprovedUiEnabled = false;
         chrome.readingMode.isImmersiveEnabled = true;
         settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
         await microtasksFinished();
@@ -513,6 +519,22 @@ suite('SettingsMenuElement', () => {
         assertTrue(
             !menuItems.find(item => item.id === SettingsOption.APPEARANCE));
         assertTrue(!!menuItems.find(item => item.id === SettingsOption.COLOR));
+      });
+
+  test(
+      'LINE_FOCUS is not in top level menu when isReadAnythingImprovedUiEnabled is true',
+      async () => {
+        chrome.readingMode.isReadAnythingImprovedUiEnabled = true;
+        chrome.readingMode.isImmersiveEnabled = true;
+        chrome.readingMode.isLineFocusEnabled = true;
+        settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
+        await microtasksFinished();
+
+        const actionMenu = settingsMenu.$.lazyMenu.get();
+        const menuItems = Array.from(
+            actionMenu.querySelectorAll<HTMLButtonElement>('.menu-row'));
+        assertFalse(
+            !!menuItems.find(item => item.id === SettingsOption.LINE_FOCUS));
       });
 
   test('translate action fires event when clicked', async () => {
@@ -559,5 +581,48 @@ suite('SettingsMenuElement', () => {
     translateItem.click();
     const event = await whenFired;
     assertEquals(SettingsOption.FONT, event.detail.previousId);
+  });
+
+  test(
+      'line focus item shows new badge when showLineFocusNewBadge is true',
+      async () => {
+        settingsMenu.showLineFocusNewBadge = true;
+        await microtasksFinished();
+
+        const actionMenu = settingsMenu.$.lazyMenu.get();
+        const lineFocusItem = actionMenu.querySelector<HTMLButtonElement>(
+            `#${SettingsOption.LINE_FOCUS}`);
+        assertTrue(!!lineFocusItem);
+
+        const badge = lineFocusItem.querySelector('new-badge');
+        assertTrue(!!badge);
+      });
+
+  test(
+      'line focus item hides new badge when showLineFocusNewBadge is false',
+      async () => {
+        settingsMenu.showLineFocusNewBadge = false;
+        await microtasksFinished();
+
+        const actionMenu = settingsMenu.$.lazyMenu.get();
+        const lineFocusItem = actionMenu.querySelector<HTMLButtonElement>(
+            `#${SettingsOption.LINE_FOCUS}`);
+        assertTrue(!!lineFocusItem);
+
+        const badge = lineFocusItem.querySelector('new-badge');
+        assertFalse(!!badge);
+      });
+
+  test('requests line focus new badge on open', () => {
+    let requested = false;
+    chrome.readingMode.requestShouldShowLineFocusNewBadge = () => {
+      requested = true;
+    };
+    const anchor = document.createElement('div');
+    document.body.appendChild(anchor);
+
+    settingsMenu.open(anchor);
+
+    assertTrue(requested);
   });
 });

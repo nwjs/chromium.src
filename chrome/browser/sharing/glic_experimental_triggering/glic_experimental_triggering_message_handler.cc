@@ -14,14 +14,14 @@
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
+#include "chrome/browser/glic/experimental_triggering/actor_log.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_converters.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_coordinator.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_metrics.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sharing/glic_experimental_triggering/actor_log.h"
-#include "chrome/browser/sharing/glic_experimental_triggering/glic_experimental_triggering_converters.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
@@ -152,7 +152,6 @@ GlicExperimentalTriggeringMessageHandler::
       message_sender_(message_sender),
       coordinator_(std::move(coordinator)) {
   CHECK(profile_);
-  CHECK(message_sender_);
   if (!coordinator_) {
     coordinator_ =
         std::make_unique<MessageHandlerCoordinatorDelegate>(profile_, this);
@@ -160,7 +159,23 @@ GlicExperimentalTriggeringMessageHandler::
 }
 
 GlicExperimentalTriggeringMessageHandler::
-    ~GlicExperimentalTriggeringMessageHandler() = default;
+    ~GlicExperimentalTriggeringMessageHandler() {
+  CancelAllPendingMessages();
+}
+
+void GlicExperimentalTriggeringMessageHandler::CancelAllPendingMessages() {
+  for (auto& [context_id, message_list] : pending_messages_) {
+    for (auto& pending_message : message_list) {
+      if (pending_message.done_callback) {
+        std::move(pending_message.done_callback)
+            .Run(CreateResponseMessage(
+                context_id, TaskUpdate::FAILED, TaskUpdate::ERROR_MESSAGE,
+                "Message cancelled: Handler being destroyed.", nullptr,
+                kDefaultStartingRequestFailureSequenceNumber));
+      }
+    }
+  }
+}
 
 size_t
 GlicExperimentalTriggeringMessageHandler::GetUpdatesHandlerMapSizeForTesting()
@@ -173,7 +188,9 @@ GlicExperimentalTriggeringMessageHandler::GetBrowserWindow() const {
   BrowserWindowInterface* browser = nullptr;
   ForEachCurrentBrowserWindowInterfaceOrderedByActivation(
       [&browser, this](BrowserWindowInterface* b) {
-        if (b->GetProfile() == profile_) {
+        if (b->GetProfile() == profile_ &&
+            b->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL &&
+            !b->IsDeleteScheduled()) {
           browser = b;
           return false;  // Stop iteration
         }
@@ -191,35 +208,20 @@ tabs::TabInterface* GlicExperimentalTriggeringMessageHandler::GetActiveTab()
 void GlicExperimentalTriggeringMessageHandler::OnMessage(
     components_sharing_message::SharingMessage message,
     SharingMessageHandler::DoneCallback done_callback) {
-  CHECK(base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering));
+  CheckFeatureFlags();
   CHECK(message.has_glic_experimental_triggering());
 
   glic::ScopedIncomingMessageResultLogger result_logger(
       glic::ScopedIncomingMessageResultLogger::Channel::kSharingMessage);
 
-  const auto& request = message.glic_experimental_triggering();
   // If no `context_id` is present in the request, we generate one that
   // may be used by the sender in follow up actuation requests.
-  const std::string context_id =
-      (request.has_context_id() && !request.context_id().empty())
-          ? request.context_id()
-          : base::Uuid::GenerateRandomV4().AsLowercaseString();
-
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(features::kGlicBackgroundTriggering)) {
-    VLOG(1) << "GlicTrigger: Triggering ActorForegroundService from native";
-    if (profile_) {
-      actor::ActorKeyedService* actor_service =
-          actor::ActorKeyedService::Get(profile_);
-      if (actor_service) {
-        actor_service->EnsureForegroundServiceStarted(context_id);
-      }
-    }
-  } else {
-    VLOG(1) << "GlicTrigger: GlicBackgroundTriggering feature disabled, "
-               "skipping FGS trigger";
+  std::string context_id = message.glic_experimental_triggering().context_id();
+  if (context_id.empty()) {
+    context_id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+    message.mutable_glic_experimental_triggering()->set_context_id(context_id);
   }
-#endif
+  const auto& request = message.glic_experimental_triggering();
 
   const components_sharing_message::GlicExperimentalTriggering::TaskMetadata*
       request_metadata =
@@ -255,7 +257,7 @@ void GlicExperimentalTriggeringMessageHandler::OnMessage(
     if (profile_) {
       actor::ActorKeyedService* actor_service =
           actor::ActorKeyedService::Get(profile_);
-      LogGlicExperimentalTriggeringProto(
+      glic::LogGlicExperimentalTriggeringProto(
           actor_service, "GlicExperimentalTriggering", "", request);
     }
 
@@ -270,17 +272,75 @@ void GlicExperimentalTriggeringMessageHandler::OnMessage(
     return;
   }
 
-  if (profile_) {
-    actor::ActorKeyedService* actor_service =
-        actor::ActorKeyedService::Get(profile_);
-    LogGlicExperimentalTriggeringProto(
-        actor_service, "GlicExperimentalTriggering", context_id, request);
+#if BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(features::kGlicBackgroundTriggering)) {
+    VLOG(1) << "GlicTrigger: Triggering ActorForegroundService from native";
+    if (profile_) {
+      actor::ActorKeyedService* actor_service =
+          actor::ActorKeyedService::Get(profile_);
+      if (actor_service) {
+        if (!actor_service_observation_.IsObserving()) {
+          actor_service_observation_.Observe(actor_service);
+        }
+        bool already_pending = pending_messages_.contains(context_id);
+        pending_messages_[context_id].push_back(
+            MessageData{std::move(message), std::move(done_callback),
+                        std::move(result_logger)});
+        if (!already_pending) {
+          // TODO(crbug.com/540892797): Avoid starting an Android Foreground
+          // Service (FGS) if it is redundant or unnecessary:
+          // 1. If Chrome is already in the foreground, starting an FGS is
+          //    unnecessary and adds asynchronous JNI/IPC overhead.
+          // 2. If a task is already active and executing (meaning the initial
+          //    tab preparation is complete and the queue is cleared),
+          //    subsequent control messages (e.g., INTERRUPT or STOP) should not
+          //    trigger EnsureForegroundServiceStarted() again.
+          actor_service->EnsureForegroundServiceStarted(context_id);
+        }
+        return;
+      }
+    }
+  } else {
+    VLOG(1) << "GlicTrigger: GlicBackgroundTriggering feature disabled, "
+               "skipping FGS trigger";
   }
+#endif
 
-  glic::ExperimentalTriggeringRequest domain_request =
-      glic::ProtoToRequest(request);
+  ProcessValidatedMessage(std::move(message), context_id,
+                          std::move(done_callback), std::move(result_logger),
+                          nullptr);
+}
 
-  auto update_callback = base::BindRepeating(
+void GlicExperimentalTriggeringMessageHandler::ProcessValidatedMessage(
+    components_sharing_message::SharingMessage message,
+    const std::string& context_id,
+    SharingMessageHandler::DoneCallback done_callback,
+    glic::ScopedIncomingMessageResultLogger result_logger,
+    tabs::TabInterface* prepared_tab) {
+  const auto& request = message.glic_experimental_triggering();
+  CHECK(!context_id.empty());
+
+  std::optional<glic::ExperimentalTriggeringResponse> domain_response =
+      coordinator_->OnProtoMessage(context_id, request,
+                                   std::move(result_logger),
+                                   GetUpdateCallback(message), prepared_tab);
+
+  if (domain_response.has_value()) {
+    std::move(done_callback)
+        .Run(ResponseToResponseMessageProto(*domain_response));
+  } else {
+    std::move(done_callback).Run(nullptr);
+  }
+}
+
+void GlicExperimentalTriggeringMessageHandler::CheckFeatureFlags() const {
+  CHECK(base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering));
+}
+
+glic::GlicExperimentalTriggeringUpdateCallback
+GlicExperimentalTriggeringMessageHandler::GetUpdateCallback(
+    components_sharing_message::SharingMessage& message) {
+  return base::BindRepeating(
       [](base::WeakPtr<GlicExperimentalTriggeringMessageHandler>
              weak_message_handler,
          components_sharing_message::ServerChannelConfiguration server_channel,
@@ -293,7 +353,7 @@ void GlicExperimentalTriggeringMessageHandler::OnMessage(
         if (weak_message_handler->profile_) {
           actor::ActorKeyedService* actor_service =
               actor::ActorKeyedService::Get(weak_message_handler->profile_);
-          LogGlicExperimentalTriggeringProto(
+          glic::LogGlicExperimentalTriggeringProto(
               actor_service, "GlicExperimentalTriggering", response.context_id,
               outgoing_message.glic_experimental_triggering());
         }
@@ -316,18 +376,6 @@ void GlicExperimentalTriggeringMessageHandler::OnMessage(
       },
       weak_ptr_factory_.GetWeakPtr(),
       *message.mutable_server_channel_configuration());
-
-  std::optional<glic::ExperimentalTriggeringResponse> domain_response =
-      coordinator_->OnRequest(context_id, domain_request,
-                              std::move(result_logger),
-                              std::move(update_callback));
-
-  if (domain_response.has_value()) {
-    std::move(done_callback)
-        .Run(ResponseToResponseMessageProto(*domain_response));
-  } else {
-    std::move(done_callback).Run(nullptr);
-  }
 }
 
 bool GlicExperimentalTriggeringMessageHandler::IsVersionSupported(
@@ -344,4 +392,53 @@ GlicExperimentalTriggeringMessageHandler::GetLocalTriggeringVersion() const {
   return glic_service
              ? glic_service->enabling().GetExperimentalTriggeringVersion()
              : std::nullopt;
+}
+
+void GlicExperimentalTriggeringMessageHandler::OnBackgroundTabPrepared(
+    tabs::TabInterface* tab,
+    const std::string& context_id) {
+  auto it = pending_messages_.find(context_id);
+  if (it == pending_messages_.end()) {
+    return;
+  }
+  std::vector<MessageData> messages = std::move(it->second);
+  pending_messages_.erase(it);
+
+  if (pending_messages_.empty()) {
+    actor_service_observation_.Reset();
+  }
+
+  for (auto& pending_message : messages) {
+    ProcessValidatedMessage(std::move(pending_message.message), context_id,
+                            std::move(pending_message.done_callback),
+                            std::move(pending_message.result_logger), tab);
+  }
+}
+
+void GlicExperimentalTriggeringMessageHandler::OnBackgroundSetupFailed(
+    const std::string& context_id) {
+  auto it = pending_messages_.find(context_id);
+  if (it == pending_messages_.end()) {
+    return;
+  }
+  std::vector<MessageData> messages = std::move(it->second);
+  pending_messages_.erase(it);
+
+  if (pending_messages_.empty()) {
+    actor_service_observation_.Reset();
+  }
+
+  for (auto& pending_message : messages) {
+    const auto& request =
+        pending_message.message.glic_experimental_triggering();
+    const components_sharing_message::GlicExperimentalTriggering::TaskMetadata*
+        request_metadata =
+            request.has_task_metadata() ? &request.task_metadata() : nullptr;
+
+    std::move(pending_message.done_callback)
+        .Run(CreateResponseMessage(
+            context_id, TaskUpdate::FAILED, TaskUpdate::ERROR_MESSAGE,
+            "Background setup failed.", request_metadata,
+            kDefaultStartingRequestFailureSequenceNumber));
+  }
 }

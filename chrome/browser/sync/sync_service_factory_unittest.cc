@@ -31,6 +31,7 @@
 #include "content/public/test/browser_task_environment.h"
 #include "extensions/buildflags/buildflags.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/webui/buildflags.h"
 
 #if BUILDFLAG(ENABLE_SPELLCHECK)
 #include "chrome/browser/spellchecker/spellcheck_factory.h"
@@ -114,7 +115,7 @@ class SyncServiceFactoryTest : public testing::Test {
 
   // Returns the collection of default datatypes.
   syncer::DataTypeSet DefaultDatatypes() {
-    static_assert(66 == syncer::GetNumDataTypes(),
+    static_assert(67 == syncer::GetNumDataTypes(),
                   "When adding a new type, you probably want to add it here as "
                   "well (assuming it is already enabled). Check similar "
                   "function in "
@@ -267,7 +268,7 @@ class SyncServiceFactoryTest : public testing::Test {
       datatypes.Put(syncer::THEMES_IOS);
     }
 
-#if !BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID) || !BUILDFLAG(ENABLE_WEBUI_NTP)
     if (base::FeatureList::IsEnabled(
             syncer::kNewTabPageCustomizationThemeSync)) {
       datatypes.Put(syncer::THEMES_ANDROID);
@@ -276,6 +277,10 @@ class SyncServiceFactoryTest : public testing::Test {
 
     if (base::FeatureList::IsEnabled(syncer::kSyncNotebook)) {
       datatypes.Put(syncer::NOTEBOOK);
+    }
+
+    if (base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
+      datatypes.Put(syncer::JOURNEY);
     }
 
     return datatypes;
@@ -348,11 +353,13 @@ TEST_F(SyncServiceFactoryTestWithCrossDeviceThemeFeatures,
   syncer::DataTypeSet types = sync_service->GetRegisteredDataTypesForTest();
 
   EXPECT_TRUE(types.Has(syncer::THEMES_IOS));
-#if !BUILDFLAG(IS_ANDROID)
+  // THEMES_ANDROID is registered on desktop (via CrossDeviceThemeTracker) and
+  // on Android (via NtpAndroidCustomBackgroundService), except on Desktop
+  // Android where NTP theme sync is temporarily disabled (crbug.com/488439751).
+#if !BUILDFLAG(IS_ANDROID) || !BUILDFLAG(ENABLE_WEBUI_NTP)
   EXPECT_TRUE(types.Has(syncer::THEMES_ANDROID));
-  EXPECT_TRUE(types.Has(syncer::THEMES));
 #else
   EXPECT_FALSE(types.Has(syncer::THEMES_ANDROID));
-  EXPECT_TRUE(types.Has(syncer::THEMES));
 #endif
+  EXPECT_TRUE(types.Has(syncer::THEMES));
 }

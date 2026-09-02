@@ -25,7 +25,9 @@ class CommandUpdater;
 class LocationBarModel;
 class LocationBarTesting;
 class OmniboxController;
+class PermissionDashboardController;
 class OmniboxView;
+class OmniboxPopupPresenterDelegate;
 class OmniboxPopupView;
 class Profile;
 
@@ -66,6 +68,7 @@ class LocationBar {
     ~Observer() override;
 
     virtual void OnLocationBarBoundsChanged();
+    virtual void OnLocationBarFocusChanged();
   };
 
   explicit LocationBar(CommandUpdater* command_updater);
@@ -109,6 +112,8 @@ class LocationBar {
 
   virtual OmniboxPopupView* GetOmniboxPopupView() = 0;
 
+  virtual OmniboxPopupPresenterDelegate* GetPresenterDelegate();
+
   // Returns the OmniboxController owned by this LocationBar.
   virtual OmniboxController* GetOmniboxController() = 0;
 
@@ -128,6 +133,12 @@ class LocationBar {
 
   // Controls the chip in the LocationBar.
   virtual ChipController* GetChipController() = 0;
+
+  // Controls the permission dashboard in the LocationBar.
+  virtual PermissionDashboardController* GetPermissionDashboardController();
+
+  // Announces an alert for accessibility screen readers.
+  virtual void AnnounceAlert(const std::u16string& announcement) = 0;
 
   // Called when anything has changed that might affect the layout or contents
   // of the views around the edit, including the text of the edit and the
@@ -220,6 +231,7 @@ class LocationBar {
   virtual ~LocationBar();
 
   void NotifyBoundsChanged();
+  void NotifyFocusChanged();
 
  private:
   NavigationParams navigation_params_;

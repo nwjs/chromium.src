@@ -209,7 +209,6 @@ found in the LICENSE file.
     <color name="ntp_color_fuchsia_primary_dark">#CF8DC5</color>
     <color name="ntp_color_violet_primary_light">#6B5395</color>
     <color name="ntp_color_violet_primary_dark">#B196DE</color>
-    <color name="ntp_customization_theme_sync_badge_stroke_color">#F7F9FD</color>
 
     <!-- Colors used in Setup List celebratory promo illustration -->
     <color name="setup_list_celebratory_promo_yellow_base">#FCC934</color>
@@ -231,4 +230,10 @@ found in the LICENSE file.
     <!-- Colors used for the Glic/Actor take over button glow. -->
     <color name="actor_button_glow_soft">#4D0B57D0</color>
     <color name="actor_button_glow_strong">#800B57D0</color>
+
+    <!-- Colors used for google logo-->
+    <color name="google_logo_light_red" tools:ignore="UnusedResources">#FC413D</color>
+    <color name="google_logo_light_yellow" tools:ignore="UnusedResources">#FFBE00</color>
+    <color name="google_logo_light_green" tools:ignore="UnusedResources">#00AF57</color>
+    <color name="google_logo_light_blue" tools:ignore="UnusedResources">@color/spark_blue_gradient_mid</color>
 </resources>

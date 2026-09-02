@@ -57,6 +57,9 @@ class PageContextWrapperConfig {
   // True to apply redacting metadata for credit card numbers.
   bool extract_autofill_credit_card_redactions() const;
 
+  // True to apply redacting metadata for OTP fields.
+  bool extract_autofill_otp_redactions() const;
+
   // True to block page context extraction on unsafe pages.
   bool block_unsafe_pages() const;
 
@@ -77,6 +80,7 @@ class PageContextWrapperConfig {
       bool extract_autofill,
       bool extract_autofill_credit_card_redactions,
       bool include_sensitive_payments_for_redaction,
+      bool extract_autofill_otp_redactions,
       bool block_unsafe_pages,
       bool include_same_site_only);
 
@@ -107,6 +111,9 @@ class PageContextWrapperConfig {
   // Bit to include sensitive payments for redaction.
   bool include_sensitive_payments_for_redaction_;
 
+  // Bit to apply Autofill OTP redaction policies.
+  bool extract_autofill_otp_redactions_;
+
   // Bit to block page context extraction on unsafe pages.
   bool block_unsafe_pages_;
 
@@ -132,6 +139,12 @@ class PageContextWrapperConfigBuilder {
   PageContextWrapperConfigBuilder& SetUseRichExtraction(
       bool use_rich_extraction);
 
+  // Shorthand to configure rich extraction (APC V2) defaults for iOS features.
+  // Sets use_rich_extraction, graft_cross_origin_frame_content, and
+  // extract_paid_content.
+  PageContextWrapperConfigBuilder& SetDefaultRichExtraction(
+      bool use_rich_extraction);
+
   // Sets whether to extract actionable information alongside rich extraction.
   // This needs and will implicitly activate rich extraction.
   PageContextWrapperConfigBuilder& SetUseRichExtractionWithActionable(
@@ -153,17 +166,23 @@ class PageContextWrapperConfigBuilder {
   // for blink.
   PageContextWrapperConfigBuilder& SetExtractAutofill(bool extract_autofill);
 
-  // Sets whether to apply Autofill credit card redaction to field values. Does
-  // the equivalent of the kAnnotatedPageContentAutofillCreditCardRedactions
-  // feature switch in
-  // components/optimization_guide/content/browser/page_content_proto_util.cc
-  // for blink.
+  // Sets whether to apply Autofill credit card redaction to field values.
+  // Note: If `kPageContextAutofillCreditCardRedactions` is enabled,
+  // this setting is overridden to true upon `Build()`.
   PageContextWrapperConfigBuilder& SetExtractAutofillCreditCardRedactions(
       bool extract_autofill_credit_card_redactions);
 
   // Sets whether to include sensitive payments for redaction.
+  // Note: If `kPageContextScreenshotSensitivePaymentRedaction` is enabled, this
+  // setting is overridden to true upon `Build()`.
   PageContextWrapperConfigBuilder& SetIncludeSensitivePaymentsForRedaction(
       bool include_sensitive_payments_for_redaction);
+
+  // Sets whether to apply Autofill OTP redactions to field values.
+  // Note: If `kPageContextAutofillOtpRedactions` is enabled, this setting is
+  // overridden to true upon `Build()`.
+  PageContextWrapperConfigBuilder& SetExtractAutofillOtpRedactions(
+      bool extract_autofill_otp_redactions);
 
   // Sets whether to block page context extraction on unsafe pages.
   PageContextWrapperConfigBuilder& SetBlockUnsafePages(bool block_unsafe_pages);
@@ -185,6 +204,7 @@ class PageContextWrapperConfigBuilder {
   bool extract_autofill_;
   bool extract_autofill_credit_card_redactions_;
   bool include_sensitive_payments_for_redaction_;
+  bool extract_autofill_otp_redactions_;
   bool block_unsafe_pages_;
   bool include_same_site_only_;
 };

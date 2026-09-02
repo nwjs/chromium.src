@@ -5,7 +5,6 @@ static_library("first_run") {
     "personal_context_first_run_service.h",
     "personal_context_first_run_service_impl.cc",
     "personal_context_first_run_service_impl.h",
-    "personal_context_first_run_types.h",
   ]
 
   deps = [
@@ -13,6 +12,18 @@ static_library("first_run") {
     "//components/keyed_service/core",
     "//components/personal_context/core",
     "//components/signin/public/identity_manager",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "test_personal_context_first_run_service.cc",
+    "test_personal_context_first_run_service.h",
+  ]
+  deps = [
+    ":first_run",
+    "//base",
   ]
 }
 

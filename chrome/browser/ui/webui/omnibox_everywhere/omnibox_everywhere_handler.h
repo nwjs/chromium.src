@@ -27,7 +27,8 @@ class OmniboxEverywhereHandler : public ContextualSearchboxHandler {
       MetricsReporter* metrics_reporter,
       content::WebUI* web_ui,
       OmniboxEverywhereService* service,
-      GetSessionHandleCallback get_session_callback);
+      GetSessionHandleCallback get_session_callback,
+      ScreenshareDelegate* screenshare_delegate = nullptr);
 
   OmniboxEverywhereHandler(const OmniboxEverywhereHandler&) = delete;
   OmniboxEverywhereHandler& operator=(const OmniboxEverywhereHandler&) = delete;
@@ -36,6 +37,13 @@ class OmniboxEverywhereHandler : public ContextualSearchboxHandler {
 
   // searchbox::mojom::PageHandler:
   void OnThumbnailRemoved() override {}
+  void SubmitQuery(const std::string& query_text,
+                   uint8_t mouse_button,
+                   bool alt_key,
+                   bool ctrl_key,
+                   bool meta_key,
+                   bool shift_key,
+                   bool is_voice_search) override;
 
   // Overridden to intercept the Drive upload request, dynamically associate the
   // standalone WebContents with the latest active BrowserWindowInterface, and

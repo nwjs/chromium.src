@@ -6,34 +6,51 @@ source_set("coordinator") {
   sources = [
     "at_memory_coordinator.h",
     "at_memory_coordinator.mm",
-    "at_memory_mediator.h",
-    "at_memory_mediator.mm",
+    "at_memory_granular_fill_coordinator.h",
+    "at_memory_granular_fill_coordinator.mm",
+    "at_memory_granular_fill_mediator.h",
+    "at_memory_granular_fill_mediator.mm",
+    "at_memory_search_coordinator.h",
+    "at_memory_search_coordinator.mm",
+    "at_memory_search_mediator.h",
+    "at_memory_search_mediator.mm",
     "scoped_at_memory_search_provider_override.h",
     "scoped_at_memory_search_provider_override.mm",
   ]
   deps = [
+    "//components/autofill/core/browser",
+    "//components/personal_context/first_run",
+    "//ios/chrome/browser/autofill/atmemory/model",
     "//ios/chrome/browser/autofill/atmemory/public",
     "//ios/chrome/browser/autofill/atmemory/ui",
-    "//ios/chrome/browser/autofill/manual_fill/model",
-    "//ios/chrome/browser/net/model",
+    "//ios/chrome/browser/autofill/atmemory/ui:item",
+    "//ios/chrome/browser/autofill/atmemory/utils",
+    "//ios/chrome/browser/autofill/manual_fill/public",
+    "//ios/chrome/browser/personal_context/model",
     "//ios/chrome/browser/shared/coordinator/chrome_coordinator",
     "//ios/chrome/browser/shared/model/browser",
+    "//ios/chrome/browser/shared/model/profile",
+    "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
-    "//ios/chrome/browser/shared/ui/symbols",
-    "//ios/chrome/common/ui/colors",
-    "//ios/public/provider/chrome/browser/keyboard:keyboard_api",
-    "//ui/base",
+    "//ios/chrome/browser/shared/ui/table_view:utils",
+    "//ios/web/public",
   ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "at_memory_mediator_unittest.mm" ]
+  sources = [ "at_memory_search_mediator_unittest.mm" ]
   deps = [
     ":coordinator",
+    "//base",
+    "//base/test:test_support",
+    "//components/autofill/core/browser:test_support",
+    "//components/personal_context/first_run",
     "//ios/chrome/browser/autofill/atmemory/public",
     "//ios/chrome/browser/autofill/atmemory/ui",
-    "//ios/chrome/browser/autofill/manual_fill/public",
+    "//ios/web/public/test",
+    "//ios/web/public/test/fakes",
+    "//testing/gmock",
     "//testing/gtest",
     "//third_party/ocmock",
   ]

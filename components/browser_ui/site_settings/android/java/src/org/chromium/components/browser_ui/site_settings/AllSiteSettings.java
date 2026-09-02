@@ -10,7 +10,6 @@ import static org.chromium.components.browser_ui.settings.SearchUtils.handleSear
 import static org.chromium.components.browser_ui.styles.SemanticColorUtils.getDefaultTextColorLink;
 
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.res.Resources;
 import android.os.Bundle;
 import android.text.SpannableString;
@@ -27,6 +26,7 @@ import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SearchView;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -339,12 +339,7 @@ public class AllSiteSettings extends BaseSiteSettingsFragment
         builder.setView(dialogView);
         builder.setPositiveButton(
                 R.string.storage_delete_dialog_clear_storage_option,
-                new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int id) {
-                        clearStorage();
-                    }
-                });
+                (dialog, id) -> clearStorage());
         builder.setNegativeButton(R.string.cancel, null);
         builder.setTitle(R.string.storage_delete_site_storage_title);
         builder.create().show();
@@ -383,6 +378,23 @@ public class AllSiteSettings extends BaseSiteSettingsFragment
         mSearchViewObserver = observer;
     }
 
+    private void onSearchQueryChanged(String query) {
+        boolean queryHasChanged =
+                mSearch == null ? query != null && !query.isEmpty() : !mSearch.equals(query);
+        mSearch = query;
+        if (queryHasChanged) getInfoForOrigins();
+    }
+
+    @Override
+    public void initSearchView(SearchView searchView) {
+        SearchUtils.initializeSearchView(
+                searchView,
+                mSearch,
+                getActivity(),
+                mSearchViewObserver,
+                this::onSearchQueryChanged);
+    }
+
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         menu.clear();
@@ -394,14 +406,7 @@ public class AllSiteSettings extends BaseSiteSettingsFragment
                 mSearch,
                 getActivity(),
                 assumeNonNull(mSearchViewObserver),
-                (query) -> {
-                    boolean queryHasChanged =
-                            mSearch == null
-                                    ? query != null && !query.isEmpty()
-                                    : !mSearch.equals(query);
-                    mSearch = query;
-                    if (queryHasChanged) getInfoForOrigins();
-                });
+                this::onSearchQueryChanged);
 
         if (getSiteSettingsDelegate().isHelpAndFeedbackEnabled()) {
             MenuItem help =

@@ -83,11 +83,10 @@ typedef void (^ProceduralBlockWithBlockWithItemArray)(
 // with the Gemini icon to match the style of the other items in the list.
 - (UIImage*)imageSymbol {
 #if BUILDFLAG(IOS_USE_BRANDED_ASSETS)
-  return CustomSymbolWithPointSize(kGeminiBrandedLogoSymbol,
-                                   kSymbolActionPointSize);
+  return SymbolWithPointSize(SymbolGeminiBrandedLogo, kSymbolActionPointSize);
 #else
-  return DefaultSymbolWithPointSize(kGeminiNonBrandedLogoSymbol,
-                                    kSymbolActionPointSize);
+  return SymbolWithPointSize(SymbolGeminiNonBrandedLogo,
+                             kSymbolActionPointSize);
 #endif
 }
 
@@ -193,7 +192,11 @@ typedef void (^ProceduralBlockWithBlockWithItemArray)(
   GeminiStartupState* startupState = [[GeminiStartupState alloc]
       initWithEntryPoint:gemini::EntryPoint::EditMenu];
   startupState.prepopulatedPrompt = prepopulatedPrompt;
-  [self.geminiHandler startGeminiFlowWithStartupState:startupState];
+  [self.geminiHandler
+      startGeminiEntryFlowWithStartupState:startupState
+                        baseViewController:self.baseViewController
+                  showSnackbarOnCompletion:YES
+                                completion:nil];
 }
 
 // Returns the action to trigger the search with feature. Calls `handler` on

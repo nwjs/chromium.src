@@ -112,7 +112,7 @@ constexpr auto kPageActionProperties = base::MakeFixedFlatMap<
         },
     },
     {
-        kActionZoomNormal,
+        kActionShowZoomBubble,
         {
             .histogram_name = "Zoom",
             .type = PageActionIconType::kZoom,
@@ -318,6 +318,8 @@ constexpr auto kPageActionProperties = base::MakeFixedFlatMap<
             .histogram_name = "AutofillPayment",
             .type = PageActionIconType::kAutofillPayment,
             .element_identifier = kAutofillPaymentIconElementId,
+            .priority =
+                page_actions::PageActionPriorityCategory::kContextualCue,
         },
     },
     {
@@ -335,6 +337,14 @@ constexpr auto kPageActionProperties = base::MakeFixedFlatMap<
             .type = PageActionIconType::kFakePageActionForDebug,
             .priority =
                 page_actions::PageActionPriorityCategory::kUserInteraction,
+        },
+    },
+    {
+        kActionWalletReminderNotice,
+        {
+            .histogram_name = "WalletReminderNotice",
+            .type = PageActionIconType::kWalletReminderNotice,
+            .element_identifier = kPageActionWalletReminderNoticeElementId,
         },
     },
 });

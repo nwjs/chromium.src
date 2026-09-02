@@ -41,6 +41,13 @@ const char kEnableFieldTrialTestingConfig[] = "enable-field-trial-config";
 // and "canary". This works for official builds as well.
 const char kFakeVariationsChannel[] = "fake-variations-channel";
 
+// Fakes the platform of the browser for variations seed fetching and field
+// trial filtering. Possible values are as follows: "android",
+// "android_webview", "chromeos", "fuchsia", "ios", "linux", "mac", and "win".
+//
+// Intended only for testing.
+const char kFakeVariationsPlatform[] = "fake-variations-platform";
+
 // This option can be used to force parameters of field trials when testing
 // changes locally. The argument is a param list of (key, value) pairs prefixed
 // by an associated (trial, group) pair. You specify the param list for multiple
@@ -75,6 +82,10 @@ const char kVariationsSeedVersion[] = "variations-seed-version";
 // Additionally, unlike chrome://translate-internals, the value isn't persisted
 // across sessions.
 const char kVariationsOverrideCountry[] = "variations-override-country";
+
+// Allows overriding the administrative area code used for evaluating
+// variations and regional eligibility features.
+const char kVariationsOverrideGeoLevel1[] = "variations-override-geo-level-1";
 
 // Specifies the location of a seed file for Local State's seed to be
 // populated from. The seed file must be in json format with the keys

@@ -16,6 +16,7 @@
 #import "ios/chrome/browser/signin/ui/avatar/ai_tier_avatar_view.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
@@ -67,6 +68,7 @@ UIImage* GetEnterpriseIcon() {
                   avatarImage:(UIImage*)avatarImage
               showsAITierRing:(BOOL)showsAITierRing
                aiTierFullName:(NSString*)aiTierFullName
+         subscriptionChipView:(UIView*)subscriptionChipView
                          name:(NSString*)name
                         email:(NSString*)email
         managementDescription:(NSString*)managementDescription
@@ -85,11 +87,11 @@ UIImage* GetEnterpriseIcon() {
     self.accessibilityIdentifier =
         CentralAccountViewAccessibilityIdentifier(email);
 
-    CGFloat outerSize =
+    CGFloat avatarDiameter =
         GetSizeForIdentityAvatarSize(IdentityAvatarSize::Large).width;
     _avatarView =
         [[AITierAvatarView alloc] initWithAvatarImage:_avatarImage
-                                            outerSize:outerSize
+                                       avatarDiameter:avatarDiameter
                                       showsAITierRing:showsAITierRing];
     [self addSubview:_avatarView];
 
@@ -122,7 +124,7 @@ UIImage* GetEnterpriseIcon() {
             : (kTableViewLargeVerticalSpacing + kTableViewVerticalSpacing);
 
     if (managementDescription) {
-      CHECK_GT(managementDescription.length, 0u, base::NotFatalUntil::M140);
+      CHECK_GT(managementDescription.length, 0u);
       UIImage* managementIcon = GetEnterpriseIcon();
       UIImageView* managementIconView =
           [[UIImageView alloc] initWithImage:managementIcon];
@@ -191,32 +193,49 @@ UIImage* GetEnterpriseIcon() {
                        constant:(_useLargeMargins
                                      ? kTableViewLargeVerticalSpacing
                                      : kTopLargePadding)];
+    AddSameConstraintsToSidesWithInsets(
+        nameLabel, self, LayoutSides::kHorizontal,
+        NSDirectionalEdgeInsets{0, kTableViewHorizontalSpacing, 0,
+                                kTableViewHorizontalSpacing});
+    AddSameConstraintsToSides(emailLabel, nameLabel, LayoutSides::kHorizontal);
     [NSLayoutConstraint activateConstraints:@[
       [_avatarView.centerXAnchor constraintEqualToAnchor:self.centerXAnchor],
       _topPaddingConstraint,
-      [_avatarView.widthAnchor
-          constraintEqualToConstant:GetSizeForIdentityAvatarSize(
-                                        IdentityAvatarSize::Large)
-                                        .width],
-      [_avatarView.heightAnchor
-          constraintEqualToAnchor:_avatarView.widthAnchor],
-
-      [nameLabel.topAnchor constraintEqualToAnchor:_avatarView.bottomAnchor
-                                          constant:kTableViewVerticalSpacing],
-      [nameLabel.leadingAnchor
-          constraintEqualToAnchor:self.leadingAnchor
-                         constant:kTableViewHorizontalSpacing],
-      [nameLabel.trailingAnchor
-          constraintEqualToAnchor:self.trailingAnchor
-                         constant:-kTableViewHorizontalSpacing],
-
       [emailLabel.topAnchor constraintEqualToAnchor:nameLabel.bottomAnchor
                                            constant:kLabelVerticalSpacing],
-      [emailLabel.leadingAnchor
-          constraintEqualToAnchor:nameLabel.leadingAnchor],
-      [emailLabel.trailingAnchor
-          constraintEqualToAnchor:nameLabel.trailingAnchor],
     ]];
+
+    if (subscriptionChipView) {
+      // We track whether user interacts with this chip as if it were a button.
+      // So we disable any accessibility features it may have on its own.
+      UITapGestureRecognizer* tapRecognizer = [[UITapGestureRecognizer alloc]
+          initWithTarget:self
+                  action:@selector(subscriptionChipTapped:)];
+      [subscriptionChipView addGestureRecognizer:tapRecognizer];
+      subscriptionChipView.userInteractionEnabled = YES;
+      subscriptionChipView.isAccessibilityElement = NO;
+      subscriptionChipView.accessibilityElementsHidden = YES;
+
+      [self addSubview:subscriptionChipView];
+      subscriptionChipView.translatesAutoresizingMaskIntoConstraints = NO;
+
+      [NSLayoutConstraint activateConstraints:@[
+        [subscriptionChipView.topAnchor
+            constraintEqualToAnchor:_avatarView.bottomAnchor
+                           constant:4.0],
+        [subscriptionChipView.centerXAnchor
+            constraintEqualToAnchor:self.centerXAnchor],
+        [nameLabel.topAnchor
+            constraintEqualToAnchor:subscriptionChipView.bottomAnchor
+                           constant:kTableViewVerticalSpacing],
+      ]];
+    } else {
+      [NSLayoutConstraint activateConstraints:@[
+        [nameLabel.topAnchor constraintEqualToAnchor:_avatarView.bottomAnchor
+                                            constant:kTableViewVerticalSpacing],
+      ]];
+    }
+
     [self updateFrame];
   }
   return self;
@@ -331,6 +350,12 @@ UIImage* GetEnterpriseIcon() {
       (_useLargeMargins ? kTableViewLargeVerticalSpacing : kTopLargePadding);
   _topPaddingConstraint.constant = topPadding - existingPadding;
   [self updateFrame];
+}
+
+#pragma mark - Private
+
+- (void)subscriptionChipTapped:(UITapGestureRecognizer*)sender {
+  [self.delegate centralAccountViewDidTapAISubscriptionChip:self];
 }
 
 @end

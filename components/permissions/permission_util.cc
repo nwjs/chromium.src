@@ -118,6 +118,15 @@ RequestTypeForUma PermissionUtil::GetUmaValueForRequest(
                                    request.GetGeolocationPromptType());
 }
 
+RequestTypeForUma PermissionUtil::GetUmaValueForRequests(
+    const std::vector<std::unique_ptr<PermissionRequest>>& requests) {
+  CHECK(!requests.empty());
+  if (requests.size() == 1) {
+    return GetUmaValueForRequest(*requests[0]);
+  }
+  return GetUmaValueForMultipleRequests(requests[0]->request_type());
+}
+
 RequestTypeForUma PermissionUtil::GetUmaValueForRequestType(
     RequestType request_type,
     std::optional<GeolocationPromptType> geolocation_prompt_type) {
@@ -387,9 +396,13 @@ bool PermissionUtil::IsLowPriorityPermissionRequest(
   return request->request_type() == RequestType::kNotifications ||
          request->request_type() == RequestType::kGeolocation;
 }
+
 bool PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
-    PermissionPrompt::Delegate* delegate,
+    const PermissionPrompt::Delegate* delegate,
     content::WebContents* web_contents) {
+  if (delegate->Requests().empty()) {
+    return false;
+  }
   if (permissions::PermissionsClient::
           AllowEmbeddedPermissionPromptForAllowlistedSurfaces() &&
       permissions::PermissionsClient::Get()
@@ -400,8 +413,13 @@ bool PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
   }
   return ShouldCurrentRequestUsePermissionElementSecondaryUI(delegate);
 }
+
 bool PermissionUtil::ShouldCurrentRequestUsePermissionElementSecondaryUI(
-    PermissionPrompt::Delegate* delegate) {
+    const PermissionPrompt::Delegate* delegate) {
+  if (delegate->Requests().empty()) {
+    return false;
+  }
+
   if (!base::FeatureList::IsEnabled(blink::features::kGeolocationElement) &&
       !base::FeatureList::IsEnabled(blink::features::kUserMediaElement) &&
       !base::FeatureList::IsEnabled(blink::features::kWebAppInstallation)) {

@@ -4,10 +4,6 @@
 
 import("//build/config/features.gni")
 import("//components/enterprise/buildflags/buildflags.gni")
-if (is_android) {
-  import("//build/config/android/config.gni")
-  import("//build/config/android/rules.gni")
-}
 
 source_set("core") {
   configs += [ "//components/enterprise:extra_warnings" ]
@@ -41,6 +37,8 @@ source_set("core") {
     "enterprise_interstitial_util.h",
     "features.cc",
     "features.h",
+    "network_request_service_settings.cc",
+    "network_request_service_settings.h",
     "realtime_reporting_client_base.cc",
     "realtime_reporting_client_base.h",
     "reporting_event_router.cc",
@@ -286,6 +284,7 @@ source_set("unit_tests") {
     "connectors_manager_base_unittest.cc",
     "connectors_service_base_unittest.cc",
     "enterprise_connectors_policy_handler_unittest.cc",
+    "network_request_service_settings_unittest.cc",
     "reporting_service_settings_unittest.cc",
     "reporting_utils_unittest.cc",
     "service_provider_config_unittest.cc",
@@ -362,17 +361,5 @@ if (enterprise_cloud_content_analysis || is_android) {
         "cloud_content_scanning/chunked_file_data_pipe_producer_unittest.cc",
       ]
     }
-  }
-}
-
-if (is_android) {
-  android_library("connectors_java_enums") {
-    srcjar_deps = [ ":connectors_java_enums_srcjar" ]
-
-    deps = [ "//third_party/androidx:androidx_annotation_annotation_java" ]
-  }
-
-  java_cpp_enum("connectors_java_enums_srcjar") {
-    sources = [ "common.h" ]
   }
 }

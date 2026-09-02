@@ -29,8 +29,6 @@ component("ipc") {
       # code.
       "ipc_channel.cc",
       "ipc_channel.h",
-      "ipc_channel_factory.cc",
-      "ipc_channel_factory.h",
       "ipc_channel_proxy.cc",
       "ipc_channel_proxy.h",
       "ipc_listener.cc",
@@ -39,8 +37,6 @@ component("ipc") {
       "ipc_message_pipe_reader.h",
       "ipc_mojo_bootstrap.cc",
       "ipc_mojo_bootstrap.h",
-      "ipc_sync_channel.cc",
-      "ipc_sync_channel.h",
       "urgent_message_observer.h",
     ]
   }
@@ -77,8 +73,6 @@ component("message_support") {
     "ipc_message_support_export.h",
     "ipc_mojo_handle_attachment.cc",
     "ipc_mojo_handle_attachment.h",
-    "ipc_mojo_message_helper.cc",
-    "ipc_mojo_message_helper.h",
   ]
 
   if (is_win) {
@@ -211,7 +205,6 @@ if (use_blink) {
       "ipc_channel_unittest.cc",
       "ipc_message_unittest.cc",
       "ipc_mojo_bootstrap_unittest.cc",
-      "ipc_sync_channel_unittest.cc",
       "param_traits_protobuf_utils_unittest.cc",
       "param_traits_utils_unittest.cc",
     ]

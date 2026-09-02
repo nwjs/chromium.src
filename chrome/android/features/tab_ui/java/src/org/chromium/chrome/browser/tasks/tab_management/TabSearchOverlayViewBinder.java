@@ -7,12 +7,17 @@ package org.chromium.chrome.browser.tasks.tab_management;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
+
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.R;
 import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.util.StyleUtils;
 
 /** ViewBinder and ViewHolder for the Tab Search Overlay component. */
 @NullMarked
@@ -56,10 +61,11 @@ public class TabSearchOverlayViewBinder {
         } else if (TabSearchOverlayProperties.VISIBLE == propertyKey) {
             boolean visible = model.get(TabSearchOverlayProperties.VISIBLE);
             if (visible) {
+                updateCloseButton(view, model.get(TabSearchOverlayProperties.IS_INCOGNITO));
                 runShowAnimation(view);
             } else {
                 if (view.panelContainer.getVisibility() == View.VISIBLE) {
-                    runHideAnimation(view);
+                    runHideAnimation(model, view);
                 } else {
                     // If the overlay is already hidden (e.g. during startup or redundant hide
                     // calls), immediately set visibility to GONE instead of running the hide
@@ -67,6 +73,9 @@ public class TabSearchOverlayViewBinder {
                     view.panelContainer.setVisibility(View.GONE);
                 }
             }
+        } else if (TabSearchOverlayProperties.IS_INCOGNITO == propertyKey) {
+            boolean isIncognito = model.get(TabSearchOverlayProperties.IS_INCOGNITO);
+            updateCloseButton(view, isIncognito);
         }
     }
 
@@ -88,7 +97,7 @@ public class TabSearchOverlayViewBinder {
                 .start();
     }
 
-    private static void runHideAnimation(ViewHolder view) {
+    private static void runHideAnimation(PropertyModel model, ViewHolder view) {
         // Cancel any active animation (e.g. an ongoing show transition) to prevent conflicts.
         view.panel.animate().cancel();
 
@@ -112,9 +121,58 @@ public class TabSearchOverlayViewBinder {
                             public void onAnimationEnd(Animator animation) {
                                 if (!mCancelled) {
                                     view.panelContainer.setVisibility(View.GONE);
+                                    Runnable onHideFinished =
+                                            model.get(TabSearchOverlayProperties.ON_HIDE_FINISHED);
+                                    if (onHideFinished != null) {
+                                        onHideFinished.run();
+                                    }
                                 }
                             }
                         })
                 .start();
+    }
+
+    private static void updateCloseButton(ViewHolder view, boolean isIncognito) {
+        var context = view.panel.getContext();
+        ImageButton closeButton = view.panel.findViewById(R.id.tab_search_close_button);
+
+        boolean useDesktopDensity = StyleUtils.shouldApplyDesktopDensity();
+
+        // Configure close button layout size based on density
+        int size =
+                context.getResources()
+                        .getDimensionPixelSize(
+                                useDesktopDensity
+                                        ? R.dimen.tab_search_close_button_size_desktop
+                                        : R.dimen.tab_search_close_button_size);
+        ViewGroup.LayoutParams layoutParams = closeButton.getLayoutParams();
+        if (layoutParams.width != size || layoutParams.height != size) {
+            layoutParams.width = size;
+            layoutParams.height = size;
+            closeButton.setLayoutParams(layoutParams);
+        }
+
+        // Set density-appropriate close button icon and background drawables.
+        closeButton.setImageResource(
+                useDesktopDensity
+                        ? R.drawable.ic_tab_close_tabstrip_20dp
+                        : R.drawable.ic_tab_close_tabstrip_24dp);
+        closeButton.setBackgroundResource(
+                useDesktopDensity
+                        ? R.drawable.tab_close_button_bg_20dp
+                        : R.drawable.tab_close_button_bg_24dp);
+
+        // Apply profile-sensitive color tints.
+        int iconTintRes =
+                isIncognito
+                        ? R.color.default_icon_color_light
+                        : R.color.default_icon_color_tint_list;
+        int bgTintRes =
+                isIncognito
+                        ? R.color.tab_strip_close_bg_incognito_tint_list
+                        : R.color.tab_strip_close_bg_tint_list;
+
+        closeButton.setImageTintList(AppCompatResources.getColorStateList(context, iconTintRes));
+        closeButton.setBackgroundTintList(AppCompatResources.getColorStateList(context, bgTintRes));
     }
 }

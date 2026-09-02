@@ -18,9 +18,9 @@
 #include "chrome/browser/apps/app_service/metrics/website_metrics_browser_test_mixin.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
@@ -41,6 +41,7 @@
 #include "content/public/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/base_window.h"
 #include "ui/wm/core/window_util.h"
 #include "url/gurl.h"
 
@@ -138,33 +139,34 @@ class WebsiteMetricsBrowserTest : public MixinBasedInProcessBrowserTest {
     command_line->AppendSwitch(::switches::kNoStartupWindow);
   }
 
-  Browser* CreateBrowser() {
+  BrowserWindowInterface* CreateBrowser() {
     return website_metrics_browser_test_mixin_.CreateBrowser();
   }
 
-  Browser* CreateAppBrowser(const std::string& app_id) {
-    auto params = Browser::CreateParams::CreateForApp(
-        "_crx_" + app_id, true /* trusted_source */,
-        gfx::Rect(), /* window_bounts */
-        profile(), true /* user_gesture */);
-    Browser* browser = Browser::Create(params);
+  BrowserWindowInterface* CreateAppBrowser(const std::string& app_id) {
+    auto params = BrowserWindowCreateParams::CreateForApp(
+        "_crx_" + app_id, /*trusted_source=*/true,
+        gfx::Rect(), /*window_bounds*/
+        profile(), /*user_gesture=*/true);
+    BrowserWindowInterface* browser = CreateBrowserWindow(std::move(params));
     browser->GetWindow()->Show();
     return browser;
   }
 
-  ::content::WebContents* InsertForegroundTab(Browser* browser,
+  ::content::WebContents* InsertForegroundTab(BrowserWindowInterface* browser,
                                               const std::string& url) {
     return website_metrics_browser_test_mixin_.InsertForegroundTab(browser,
                                                                    url);
   }
 
-  ::content::WebContents* InsertBackgroundTab(Browser* browser,
+  ::content::WebContents* InsertBackgroundTab(BrowserWindowInterface* browser,
                                               const std::string& url) {
     return website_metrics_browser_test_mixin_.InsertBackgroundTab(browser,
                                                                    url);
   }
 
-  void NavigateActiveTab(Browser* browser, const std::string& url) {
+  void NavigateActiveTab(BrowserWindowInterface* browser,
+                         const std::string& url) {
     return website_metrics_browser_test_mixin_.NavigateActiveTab(browser, url);
   }
 
@@ -279,7 +281,7 @@ class WebsiteMetricsBrowserTest : public MixinBasedInProcessBrowserTest {
 IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, InsertAndCloseTabs) {
   InstallWebAppOpeningAsTab("https://a.example.org");
 
-  Browser* browser = CreateBrowser();
+  BrowserWindowInterface* browser = CreateBrowser();
   auto* window = browser->GetWindow()->GetNativeWindow();
   EXPECT_EQ(1u, window_to_web_contents().size());
 
@@ -324,17 +326,15 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, InsertAndCloseTabs) {
                 /*is_activated=*/true, /*promotable=*/false);
 
   // Close in reverse order.
-  int i = browser->tab_strip_model()->GetIndexOfWebContents(tab_app4);
-  browser->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser->tab_strip_model()->CloseWebContents(
+      tab_app4, TabCloseTypes::CLOSE_USER_GESTURE);
   EXPECT_EQ(2u, webcontents_to_ukm_key().size());
   EXPECT_FALSE(webcontents_to_ukm_key().contains(tab_app4));
   VerifyUrlInfo(GURL("https://c.example.org"),
                 /*is_activated=*/true, /*promotable=*/false);
 
-  i = browser->tab_strip_model()->GetIndexOfWebContents(tab_app3);
-  browser->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser->tab_strip_model()->CloseWebContents(
+      tab_app3, TabCloseTypes::CLOSE_USER_GESTURE);
   EXPECT_EQ(2u, webcontents_to_observer_map().size());
   EXPECT_TRUE(
       webcontents_to_observer_map().contains(window_to_web_contents()[window]));
@@ -374,7 +374,7 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, InsertAndCloseTabs) {
 }
 
 IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, ForegroundTabNavigate) {
-  Browser* browser = CreateBrowser();
+  BrowserWindowInterface* browser = CreateBrowser();
   auto* window = browser->GetWindow()->GetNativeWindow();
   EXPECT_EQ(1u, window_to_web_contents().size());
 
@@ -436,7 +436,7 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, NavigateToBackgroundTab) {
   website_metrics_browser_test_mixin_.metrics_service()
       ->SetWebsiteMetricsForTesting(std::move(website_metrics_ptr));
 
-  Browser* browser = CreateBrowser();
+  BrowserWindowInterface* browser = CreateBrowser();
   auto* window = browser->GetWindow()->GetNativeWindow();
   EXPECT_EQ(1u, window_to_web_contents().size());
   // Open a tab in foreground.
@@ -496,7 +496,7 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, ActiveBackgroundTab) {
   website_metrics_browser_test_mixin_.metrics_service()
       ->SetWebsiteMetricsForTesting(std::move(website_metrics_ptr));
 
-  Browser* browser = CreateBrowser();
+  BrowserWindowInterface* browser = CreateBrowser();
   auto* window = browser->GetWindow()->GetNativeWindow();
   EXPECT_EQ(1u, window_to_web_contents().size());
   // Open a tab in foreground.
@@ -570,7 +570,7 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, NavigateToUrlWithManifest) {
   website_metrics_browser_test_mixin_.metrics_service()
       ->SetWebsiteMetricsForTesting(std::move(website_metrics_ptr));
 
-  Browser* browser = CreateBrowser();
+  BrowserWindowInterface* browser = CreateBrowser();
   auto* window = browser->GetWindow()->GetNativeWindow();
   EXPECT_EQ(1u, window_to_web_contents().size());
 
@@ -671,9 +671,8 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, MultipleBrowser) {
                 /*is_activated=*/true, /*promotable=*/false);
 
   // Close tabs.
-  int i = browser1->tab_strip_model()->GetIndexOfWebContents(tab_app1);
-  browser1->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser1->tab_strip_model()->CloseWebContents(
+      tab_app1, TabCloseTypes::CLOSE_USER_GESTURE);
   EXPECT_EQ(2u, window_to_web_contents().size());
   EXPECT_EQ(3u, webcontents_to_observer_map().size());
   EXPECT_EQ(window_to_web_contents()[window1]->GetVisibleURL(),
@@ -683,9 +682,8 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, MultipleBrowser) {
   VerifyUrlInfo(GURL("https://d.example.org"),
                 /*is_activated=*/true, /*promotable=*/false);
 
-  i = browser2->tab_strip_model()->GetIndexOfWebContents(tab_app3);
-  browser2->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser2->tab_strip_model()->CloseWebContents(
+      tab_app3, TabCloseTypes::CLOSE_USER_GESTURE);
   EXPECT_EQ(2u, window_to_web_contents().size());
   EXPECT_EQ(2u, webcontents_to_observer_map().size());
   EXPECT_EQ(window_to_web_contents()[window2]->GetVisibleURL(),
@@ -697,9 +695,8 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, MultipleBrowser) {
   VerifyUrlInfo(GURL("https://d.example.org"),
                 /*is_activated=*/true, /*promotable=*/false);
 
-  i = browser2->tab_strip_model()->GetIndexOfWebContents(tab_app4);
-  browser2->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser2->tab_strip_model()->CloseWebContents(
+      tab_app4, TabCloseTypes::CLOSE_USER_GESTURE);
   wm::GetActivationClient(window1->GetRootWindow())->ActivateWindow(window1);
   EXPECT_EQ(1u, window_to_web_contents().size());
   EXPECT_EQ(1u, webcontents_to_observer_map().size());
@@ -712,9 +709,8 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, MultipleBrowser) {
   VerifyUrlInfo(GURL("https://d.example.org"),
                 /*is_activated=*/false, /*promotable=*/false);
 
-  i = browser1->tab_strip_model()->GetIndexOfWebContents(tab_app2);
-  browser1->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser1->tab_strip_model()->CloseWebContents(
+      tab_app2, TabCloseTypes::CLOSE_USER_GESTURE);
   VerifyUrlInfo(GURL("https://a.example.org"),
                 /*is_activated=*/false, /*promotable=*/false);
   VerifyUrlInfo(GURL("https://b.example.org"),
@@ -833,9 +829,8 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest,
   VerifyUrlInfo(url2,
                 /*is_activated=*/false, /*promotable=*/false);
 
-  auto i = browser2->tab_strip_model()->GetIndexOfWebContents(tab4);
-  browser2->tab_strip_model()->CloseWebContentsAt(
-      i, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser2->tab_strip_model()->CloseWebContents(
+      tab4, TabCloseTypes::CLOSE_USER_GESTURE);
 
   // Simulate recording the UKMs to clear the local usage time records.
   website_metrics()->OnFiveMinutes();
@@ -984,7 +979,7 @@ IN_PROC_BROWSER_TEST_F(WebsiteMetricsBrowserTest, WindowedWebApp) {
   std::string app_id = InstallWebAppOpeningAsWindow("https://d.example.org");
 
   // Open app D in a window (configured to open in a window).
-  Browser* browser = CreateAppBrowser(app_id);
+  BrowserWindowInterface* browser = CreateAppBrowser(app_id);
   InsertForegroundTab(browser, "https://d.example.org");
 
   // Verify there is no window, web contents recorded.

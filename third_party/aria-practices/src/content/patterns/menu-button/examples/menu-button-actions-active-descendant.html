@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Actions Menu Button Example Using aria-activedescendant</title>
+
+    <!-- JS and CSS for this example -->
+    <link href="css/menu-button-actions.css" rel="stylesheet">
+    <script src="js/menu-button-actions-active-descendant.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <div class="menu-button-actions">
+            <button type="button" id="menubutton1" aria-haspopup="true" aria-expanded="false" aria-controls="menu1">
+              Actions
+              <svg xmlns="http://www.w3.org/2000/svg" class="down" width="12" height="9" viewBox="0 0 12 9">
+                <polygon points="1 0, 11 0, 6 8" />
+              </svg>
+            </button>
+            <ul id="menu1" role="menu" tabindex="-1" aria-labelledby="menubutton1" aria-activedescendant="mi1">
+              <li id="mi1" role="menuitem">Action 1</li>
+              <li id="mi2" role="menuitem">Action 2</li>
+              <li id="mi3" role="menuitem">Action 3</li>
+              <li id="mi4" role="menuitem">Action 4</li>
+            </ul>
+          </div>
+          <p>
+            <label>Last Action: <input class="action" id="action_output" type="text" value=""></label>
+          </p>
+        </div>
+  </body>
+</html>

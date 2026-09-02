@@ -16,6 +16,7 @@
 
 #include "base/check_op.h"
 #include "base/debug/crash_logging.h"
+#include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
@@ -79,7 +80,8 @@ TransformTree::TransformTree(PropertyTrees* property_trees)
     : PropertyTree<TransformNode>(property_trees),
       page_scale_factor_(1.f),
       device_scale_factor_(1.f),
-      device_transform_scale_factor_(1.f) {
+      device_transform_scale_factor_(1.f),
+      external_page_scale_factor_(1.f) {
   cached_data_.push_back(TransformCachedNodeData());
 }
 
@@ -173,6 +175,7 @@ void TransformTree::clear() {
   page_scale_factor_ = 1.f;
   device_scale_factor_ = 1.f;
   device_transform_scale_factor_ = 1.f;
+  external_page_scale_factor_ = 1.f;
   nodes_affected_by_outer_viewport_bounds_delta_.clear();
   nodes_affected_by_safe_area_inset_bottom_.clear();
   cached_data_.clear();
@@ -255,6 +258,7 @@ void TransformTree::CopyFromPreservingNodes(const TransformTree& other) {
   page_scale_factor_ = other.page_scale_factor_;
   device_scale_factor_ = other.device_scale_factor_;
   device_transform_scale_factor_ = other.device_transform_scale_factor_;
+  external_page_scale_factor_ = other.external_page_scale_factor_;
   nodes_affected_by_outer_viewport_bounds_delta_ =
       other.nodes_affected_by_outer_viewport_bounds_delta_;
   nodes_affected_by_safe_area_inset_bottom_ =
@@ -650,6 +654,18 @@ gfx::Vector2dF TransformTree::AnchorPositionOffset(
   // anchor position in chrome ui.
   CHECK(update_data);
 
+  auto get_transformed_offset = [&](gfx::Vector2dF offset,
+                                    int container_transform_id) {
+    if (offset.IsZero()) {
+      return offset;
+    }
+    gfx::Transform mapper = ToScreen(container_transform_id);
+    mapper.PostConcat(FromScreen(node.parent_id));
+    gfx::PointF transformed_offset =
+        mapper.MapPoint(gfx::PointF(offset.x(), offset.y()));
+    return transformed_offset - mapper.MapPoint(gfx::PointF());
+  };
+
   gfx::Vector2dF accumulated_offset(0, 0);
   for (ElementId container_id : data->adjustment_container_ids) {
     int container_transform_id = kInvalidNodeId;
@@ -661,20 +677,22 @@ gfx::Vector2dF TransformTree::AnchorPositionOffset(
       // We don't ever expect that an anchor node or any of its scrolling
       // containers should have an invalid transform_id.
       DCHECK(container_transform_id != kInvalidPropertyNodeId);
-      accumulated_offset += transform_node.scroll_offset().OffsetFromOrigin();
+      accumulated_offset += get_transformed_offset(
+          transform_node.scroll_offset().OffsetFromOrigin(),
+          transform_node.parent_id);
       // TODO(crbug.com/325613705): Should we consider snap_amount here?
     } else if (TransformNode* container_transform =
                    property_trees()
                        ->transform_tree_mutable()
                        .MutableFindNodeFromElementId(container_id)) {
       container_transform_id = container_transform->id;
-      accumulated_offset -= StickyPositionOffset(*container_transform);
-      // Adjust for chained anchor positioned offset. Note that "-=" here is
-      // different from the blink version in anchor_position_scroll_data.cc
-      // because AnchorPositionOffset() is the opposite of
-      // blink::AnchorPositionScrollData::AccmulatedOffset().
-      accumulated_offset -= AnchorPositionOffset(
+      gfx::Vector2dF adjustment = StickyPositionOffset(*container_transform);
+      // Adjust for chained anchor positioned offset.
+      adjustment += AnchorPositionOffset(
           *container_transform, max_updated_node_id, update_data, visited);
+
+      accumulated_offset -=
+          get_transformed_offset(adjustment, container_transform_id);
     }
     if (container_transform_id > max_updated_node_id) {
       // The adjustment depends on a later transform node that may contain
@@ -1074,6 +1092,7 @@ bool TransformTree::operator==(const TransformTree& other) const {
          device_scale_factor_ == other.device_scale_factor() &&
          device_transform_scale_factor_ ==
              other.device_transform_scale_factor() &&
+         external_page_scale_factor_ == other.external_page_scale_factor() &&
          nodes_affected_by_outer_viewport_bounds_delta_ ==
              other.nodes_affected_by_outer_viewport_bounds_delta() &&
          cached_data_ == other.cached_data() &&
@@ -1263,6 +1282,23 @@ void EffectTree::UpdateSurfaceContentsScale(EffectNode* effect_node) {
   const gfx::Vector2dF old_scale = effect_node->surface_contents_scale;
   effect_node->surface_contents_scale = gfx::ComputeTransform2dScaleComponents(
       transform_tree.ToScreen(transform_node.id), layer_scale_factor);
+
+  // external_page_scale_factor is the embedder's magnification of this OOPIF
+  // (like page_scale_factor for the main frame): it raises raster/backing
+  // resolution, not on-screen geometry. surface_contents_scale is a backing
+  // resolution too, so scaling it here only sharpens the effect surface's
+  // backing without changing where or how large it draws. Do this for non-root
+  // effect surfaces (mirroring PictureLayerImpl::UpdateIdealScales) so their
+  // backing matches raster density; otherwise the crisp tiles are downsampled
+  // into an un-magnified backing and upsampled when composited, blurring text.
+  // The root surface is left un-magnified: it defines the OOPIF's submitted
+  // frame size, which the embedder magnifies.
+  if (effect_node->id != kContentsRootPropertyNodeId &&
+      base::FeatureList::IsEnabled(
+          features::kSizeOopifEffectSurfacesAtExternalScale)) {
+    effect_node->surface_contents_scale.Scale(
+        transform_tree.external_page_scale_factor());
+  }
 
   // To avoid seams we apply only scale as draw transform instead of raster
   // content transform.
@@ -1753,29 +1789,17 @@ void ScrollTree::CopyCompleteTreeState(const ScrollTree& other) {
 
 bool ScrollTree::CanRealizeScrollsOnActiveTree(const ScrollNode& node) const {
   return node.transform_id != kInvalidPropertyNodeId && node.is_composited &&
-         GetMainThreadRepaintReasons(node) ==
-             MainThreadScrollingReason::kNotScrollingOnMain;
+         node.main_thread_repaint_reasons.empty();
 }
 
 bool ScrollTree::CanRealizeScrollsOnPendingTree(const ScrollNode& node) const {
   return node.transform_id != kInvalidPropertyNodeId && !node.is_composited &&
-         GetMainThreadRepaintReasons(node) ==
-             MainThreadScrollingReason::kNotScrollingOnMain;
+         node.main_thread_repaint_reasons.empty();
 }
 
 bool ScrollTree::ShouldRealizeScrollsOnMain(const ScrollNode& node) const {
   return node.transform_id != kInvalidPropertyNodeId &&
-         GetMainThreadRepaintReasons(node) !=
-             MainThreadScrollingReason::kNotScrollingOnMain;
-}
-
-uint32_t ScrollTree::GetMainThreadRepaintReasons(const ScrollNode& node) const {
-  uint32_t reasons = node.main_thread_repaint_reasons;
-  if (!MainThreadScrollingReason::AreRepaintReasons(reasons)) {
-    SCOPED_CRASH_KEY_NUMBER("NotRepaint", "reasons", reasons);
-    NOTREACHED();
-  }
-  return reasons;
+         !node.main_thread_repaint_reasons.empty();
 }
 
 void ScrollTree::clear() {

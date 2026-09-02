@@ -64,6 +64,7 @@
 #include "third_party/blink/renderer/platform/text/text_break_iterator.h"
 #include "third_party/blink/renderer/platform/wtf/deque.h"
 #include "third_party/blink/renderer/platform/wtf/math_extras.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
 
@@ -155,7 +156,7 @@ void CheckShapeResultRange(const ShapeResult* result,
   log.Append("Font='");
   const FontDescription& font_description = font->GetFontDescription();
   log.Append(font_description.Family().ToString());
-  log.AppendFormat("', %f", font_description.ComputedSize());
+  FormatTo(log, "', {:f}", font_description.ComputedSize());
 
   // Log the primary font with its family name in the font file.
   const SimpleFontData* font_data = font->PrimaryFont();
@@ -171,7 +172,7 @@ void CheckShapeResultRange(const ShapeResult* result,
   log.AppendFormat(": %u-%u -> %u-%u:", start, end, result->StartIndex(),
                    result->EndIndex());
   for (unsigned i = start; i < end; ++i) {
-    log.AppendFormat(" %02X", text[i]);
+    FormatTo(log, " {:02X}", text[i]);
   }
 
   log.Append(", result=");

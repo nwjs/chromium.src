@@ -11,7 +11,9 @@
 
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
+#include "base/values.h"
 #include "crypto/signature_verifier.h"
+#include "crypto/unexportable_key.h"
 #include "net/base/net_export.h"
 #include "net/device_bound_sessions/session_key.h"
 #include "net/device_bound_sessions/session_usage.h"
@@ -23,6 +25,25 @@ class Time;
 }
 
 namespace net::device_bound_sessions {
+
+// Canonical W3C Fetch-Metadata header identifiers utilized by Device Bound
+// Session Credentials (DBSC) for outbound discovery and redirect-tracking.
+NET_EXPORT extern const char kSecFetchSiteHeaderName[];
+NET_EXPORT extern const char kSecFetchModeHeaderName[];
+NET_EXPORT extern const char kSecFetchDestHeaderName[];
+
+// Formats an attestation statement into a dictionary.
+base::DictValue NET_EXPORT CreateAttestationValue(
+    const crypto::AttestationStatement& attestation_statement);
+
+// Creates outer header and payload parts of a nested registration JWT. This is
+// needed for sessions including an attestation key.
+std::optional<std::string> NET_EXPORT CreateOuterRegistrationHeaderAndPayload(
+    std::string_view inner_jws,
+    crypto::SignatureVerifier::SignatureAlgorithm aik_algorithm,
+    base::span<const uint8_t> aik_pubkey_spki,
+    std::string_view aud,
+    const crypto::AttestationStatement& attestation_stmt);
 
 // Creates header and payload parts of a registration JWT.
 std::optional<std::string> NET_EXPORT CreateKeyRegistrationHeaderAndPayload(
@@ -47,6 +68,14 @@ std::optional<std::string> NET_EXPORT AppendSignatureToHeaderAndPayload(
 // Returns true if `url`'s scheme is cryptographic or if it's localhost. This
 // uses the same definition of secure connections that cookies use.
 bool NET_EXPORT IsSecure(const GURL& url);
+
+// Translates a Chromium-native `OriginRelation` evaluated between a referring
+// origin and a destination URI into its W3C-standard HTTP string literal
+// representation
+// ("same-origin", "same-site", or "cross-site").
+NET_EXPORT std::string_view SecFetchSiteForReferringOrigin(
+    const url::Origin& referring_origin,
+    const GURL& target_url);
 
 // If `request` does not have a session usage listed for `session_key`, or if
 // that session usage is smaller than `new_usage`, then `new_usage` will be set

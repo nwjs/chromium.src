@@ -75,6 +75,9 @@ class ActorUiStateManagerInterface {
   virtual std::optional<actor::ActorTask::State> GetActorTaskState(
       TaskId id) = 0;
 
+  virtual std::optional<actor::ActorTask::InterruptReason>
+  GetActorTaskInterruptReason(TaskId id) = 0;
+
   // Gets the duration of a given task.
   virtual ActorTask::TaskDuration GetDuration(TaskId task_id) = 0;
 
@@ -104,6 +107,14 @@ class ActorUiStateManagerInterface {
   using ActorTaskRemovedCallback = base::RepeatingCallback<void(TaskId)>;
   virtual base::CallbackListSubscription RegisterActorTaskRemoved(
       ActorTaskRemovedCallback callback) = 0;
+
+  // Sets the given tab to a pending actuation state (showing the dynamic
+  // indicator before an ActorTask is created).
+  virtual void SetTabPendingActuation(tabs::TabHandle tab_handle) = 0;
+
+  // Clears the pending actuation state for the given tab. Returns true if the
+  // tab was in pending actuation and was cleared.
+  virtual bool ClearTabPendingActuation(tabs::TabHandle tab_handle) = 0;
 };
 
 }  // namespace actor::ui

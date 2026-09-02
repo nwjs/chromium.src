@@ -56,7 +56,6 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/recently_audible_helper.h"
 #include "chrome/browser/ui/tabs/tab_muted_utils.h"
-#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
@@ -76,6 +75,7 @@
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension.h"
+#include "extensions/common/extension_features.h"
 #include "extensions/common/manifest_constants.h"
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/mojom/api_permission_id.mojom-shared.h"
@@ -96,8 +96,10 @@
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/strings/stringprintf.h"
 #include "chrome/browser/platform_util.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_init_state.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/window_sizer/window_sizer.h"
@@ -229,10 +231,6 @@ bool SetOpenerOfTab(Profile& profile,
 
   BrowserWindowInterface* opener_browser =
       browser_window_util::GetBrowserForTabContents(*opener.GetContents());
-  // NOTE: This would be more efficient if there were a
-  // TabListInterface::GetIndexOfWebContents() or similar, since then we could
-  // just check `opener_browser->GetIndexOfWebContents(&tab)` instead of looking
-  // up the tab's browser.
   BrowserWindowInterface* tab_browser =
       browser_window_util::GetBrowserForTabContents(*tab.GetContents());
   if (!opener_browser || opener_browser != tab_browser) {
@@ -374,13 +372,12 @@ void MaybeSetLockedFullscreenState(const api::windows::Update::Params& params,
                                    bool is_locked_fullscreen) {
   // State will be WINDOW_STATE_NONE if the state parameter wasn't passed from
   // the JS side, and in that case we don't want to change the locked state.
-  Browser* const target_browser = browser->GetBrowserForMigrationOnly();
-  if (target_browser) {
+  if (browser) {
     if (is_locked_fullscreen &&
         params.update_info.state != windows::WindowState::kLockedFullscreen &&
         params.update_info.state != windows::WindowState::kNone) {
       auto* delegate =
-          ash::BrowserController::GetInstance()->GetDelegate(target_browser);
+          ash::BrowserController::GetInstance()->GetDelegate(browser);
       if (delegate && delegate->IsLockedFullscreen()) {
         delegate->LeaveLockedFullscreen();
       }
@@ -388,7 +385,7 @@ void MaybeSetLockedFullscreenState(const api::windows::Update::Params& params,
                params.update_info.state ==
                    windows::WindowState::kLockedFullscreen) {
       auto* delegate =
-          ash::BrowserController::GetInstance()->GetDelegate(target_browser);
+          ash::BrowserController::GetInstance()->GetDelegate(browser);
       if (delegate && !delegate->IsLockedFullscreen()) {
         delegate->EnterLockedFullscreen(/*focus_toolbar=*/false);
       }
@@ -399,7 +396,7 @@ void MaybeSetLockedFullscreenState(const api::windows::Update::Params& params,
 
 // Updates `window_bounds` from `params`. Returns true if bounds were set.
 bool UpdateWindowBoundsFromParams(const api::windows::Update::Params& params,
-                                  gfx::Rect& window_bounds, Browser* b, bool& set_pos_only) {
+                                  gfx::Rect& window_bounds, BrowserWindowInterface* b, bool& set_pos_only) {
   bool set_window_bounds = false;
   bool set_min_size = false;
   bool set_max_size = false;
@@ -1119,7 +1116,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     }
 
       // Initialize default window bounds according to window type.
-      // TODO(https://crbug.com/431004500): Properly initialize window bounds.
+      // TODO(https://crbug.com/545671279): Properly initialize window bounds.
 #if !BUILDFLAG(IS_ANDROID)
     ui::mojom::WindowShowState ignored_show_state =
         ui::mojom::WindowShowState::kDefault;
@@ -1232,7 +1229,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         BrowserWindowInterface::TYPE_APP_POPUP;
 #endif
 
-    // TODO(https://crbug.com/431004500): Initialize app name on android, or
+    // TODO(https://crbug.com/545671279): Initialize app name on android, or
     // verify this is unnecessary.
 #if !BUILDFLAG(IS_ANDROID)
     create_params.app_name =
@@ -1321,7 +1318,6 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
   if (!new_window) {
     return RespondNow(Error(ExtensionTabUtil::kBrowserWindowNotAllowed));
   }
-
   // NOTE: Even though `new_window` was returned, it may not be fully
   // initialized on non-desktop platforms. See documentation on
   // CreateBrowserWindow().
@@ -1511,14 +1507,13 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
 
   // Create a new tab if the created window is still empty. Don't create a new
   // tab when it is intended to create an empty popup.
-  // TODO(https://crbug.com/431004500): Port to desktop android.
+  // TODO(https://crbug.com/545671279): Port to desktop android.
 #if !BUILDFLAG(IS_ANDROID)
   if (!moved_tab && urls_.empty() &&
       new_window->GetType() == Browser::TYPE_NORMAL) {
     // TODO(crbug.com/452431839) Make a new NewTabTypes value for
     // when new tabs are made because of an empty window.
-    chrome::NewTab(new_window->GetBrowserForMigrationOnly(),
-                   NewTabTypes::kNewTabCommand);
+    chrome::NewTab(new_window, NewTabTypes::kNewTabCommand);
   }
 #endif
 
@@ -1533,13 +1528,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
     focused = *create_data_->focused;
   }
 
-  // Some of the Show() operations below may feasibly cause the window to
-  // destruct. Guard appropriately.
-  base::WeakPtr<BrowserWindowInterface> weak_window = new_window->GetWeakPtr();
-  // Reset `new_window` to prevent it from being used.
-  new_window = nullptr;
-
-  Browser* b = weak_window->GetBrowserForMigrationOnly();
+  Browser* b = new_window->GetBrowserForMigrationOnly();
   BrowserView::GetBrowserViewForBrowser(b)->SetMinimumSize(gfx::Size(min_width, min_height));
   BrowserView::GetBrowserViewForBrowser(b)->SetMaximumSize(gfx::Size(max_width, max_height));
 
@@ -1555,9 +1544,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
 
   if (!hidden) {
   if (focused) {
-    weak_window->GetWindow()->Show();
+    new_window->GetWindow()->Show();
   } else {
-    // TODO(https://crbug.com/431004500): Port to desktop android.
+    // TODO(https://crbug.com/545671279): Port to desktop android.
 #if !BUILDFLAG(IS_ANDROID)
     // Show an unfocused new window.
     BrowserWindowInterface* const last_active_bwi =
@@ -1568,20 +1557,16 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
     // the old active browser.
     if (last_active_bwi && last_active_bwi->IsActive()) {
       ScopedPinBrowserAtFront scoper(last_active_bwi);
-      weak_window->GetWindow()->ShowInactive();
+      new_window->GetWindow()->ShowInactive();
     } else {
-      weak_window->GetWindow()->ShowInactive();
+      new_window->GetWindow()->ShowInactive();
     }
 #else
-    weak_window->GetWindow()->ShowInactive();
+    new_window->GetWindow()->ShowInactive();
 #endif  // BUILDFLAG(IS_ANDROID)
   }
   } else { //hidden
     BrowserView::GetBrowserViewForBrowser(b)->Hide();
-  }
-
-  if (!weak_window || weak_window->IsDeleteScheduled()) {
-    return RespondNow(Error(ExtensionTabUtil::kBrowserWindowNotAllowed));
   }
 
 // Despite creating the window with initial_show_state() ==
@@ -1590,9 +1575,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
 // TODO(crbug.com/40254339): Remove this workaround when linux is fixed.
 // TODO(crbug.com/40254339): Find a fix for wayland as well.
 #if BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
-  if (BrowserInitState::From(weak_window.get())->initial_show_state() ==
+  if (BrowserInitState::From(new_window)->initial_show_state() ==
       ui::mojom::WindowShowState::kMinimized) {
-    weak_window->GetWindow()->Minimize();
+    new_window->GetWindow()->Minimize();
   }
 #endif  // BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
 
@@ -1603,7 +1588,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
   if (create_data_ &&
       create_data_->state == windows::WindowState::kLockedFullscreen) {
 #if BUILDFLAG(IS_CHROMEOS)
-    Browser* const target_browser = weak_window->GetBrowserForMigrationOnly();
+    Browser* const target_browser = new_window->GetBrowserForMigrationOnly();
     if (target_browser) {
       auto* delegate =
           ash::BrowserController::GetInstance()->GetDelegate(target_browser);
@@ -1614,7 +1599,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
 #endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
-  if (weak_window->GetProfile()->IsOffTheRecord() &&
+  if (new_window->GetProfile()->IsOffTheRecord() &&
       !browser_context()->IsOffTheRecord() &&
       !include_incognito_information()) {
     // Don't expose incognito windows if extension itself works in non-incognito
@@ -1624,7 +1609,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::OnBrowserWindowCreated(
 
   if (b->DidFinishFirstNavigation())
   return RespondNow(WithArguments(ExtensionTabUtil::CreateWindowValueForExtension(
-      *weak_window, extension(), WindowController::kPopulateTabs,
+      *new_window, extension(), WindowController::kPopulateTabs,
       source_context_type())));
 
   b->AddOnDidFinishFirstNavigationCallback(
@@ -1667,7 +1652,7 @@ base::expected<void, std::string> WindowsCreateFunction::ValidateTab(
         ExtensionTabUtil::kCanOnlyMoveTabsWithinNormalWindowsError);
   }
 #if !BUILDFLAG(IS_ANDROID)
-  Browser* source_browser = source_window->GetBrowser();
+  BrowserWindowInterface* source_browser = source_window->GetBrowser();
   CHECK(source_browser);
   if (web_app::AppBrowserController* controller =
           web_app::AppBrowserController::From(source_browser);
@@ -1762,7 +1747,6 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
 
   BrowserWindowInterface* browser =
       window_controller->GetBrowserWindowInterface();
-  Browser* b = window_controller->GetBrowser();
   if (!browser) {
     return RespondNow(Error(ExtensionTabUtil::kNoCrashBrowserError));
   }
@@ -1791,10 +1775,10 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
                                 : browser_window->GetBounds();
   bool set_pos_only = false;
   const bool set_window_bounds =
-      UpdateWindowBoundsFromParams(*params, window_bounds, b, set_pos_only);
+      UpdateWindowBoundsFromParams(*params, window_bounds, browser, set_pos_only);
 
   bool set_client_bounds = false;
-  BrowserWidget* frame = BrowserView::GetBrowserViewForBrowser(b)->browser_widget();
+  BrowserWidget* frame = BrowserView::GetBrowserViewForBrowser(browser)->browser_widget();
   gfx::Rect client_bounds = frame->non_client_view()->frame_view()->GetBoundsForClientView();
   client_bounds.Offset(window_bounds.OffsetFromOrigin());
 
@@ -1810,7 +1794,7 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
 
   if (set_client_bounds) {
     gfx::Rect win_bounds = frame->non_client_view()->GetWindowBoundsForClientBounds(client_bounds);
-    BrowserView::GetBrowserViewForBrowser(b)->SetBounds(win_bounds);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetBounds(win_bounds);
   }
 
   if (set_window_bounds &&
@@ -1879,7 +1863,6 @@ void WindowsUpdateFunction::UpdateWindowState(
     const gfx::Rect& window_bounds,
     bool set_pos_only) {
   ui::BaseWindow* browser_window = browser->GetWindow();
-  Browser* b = window_controller->GetBrowser();
 
   if (show_state != ui::mojom::WindowShowState::kFullscreen &&
       show_state != ui::mojom::WindowShowState::kDefault) {
@@ -1915,7 +1898,7 @@ void WindowsUpdateFunction::UpdateWindowState(
     // general solution is needed. See http://crbug.com/40322435 .
 #if defined(OS_WIN)
     if (set_pos_only)
-      BrowserView::GetBrowserViewForBrowser(b)
+      BrowserView::GetBrowserViewForBrowser(browser)
       ->SetPosition(window_bounds.origin());
     else
 #endif
@@ -1924,12 +1907,12 @@ void WindowsUpdateFunction::UpdateWindowState(
 
   if (params.update_info.position &&
       *params.update_info.position == "center")
-    BrowserView::GetBrowserViewForBrowser(b)
+    BrowserView::GetBrowserViewForBrowser(browser)
         ->browser_widget()->CenterWindow(window_bounds.size());
   if (params.update_info.position &&
       *params.update_info.position == "mouse") {
     BrowserWidget* browser_frame =
-      BrowserView::GetBrowserViewForBrowser(b)->browser_widget();
+      BrowserView::GetBrowserViewForBrowser(browser)->browser_widget();
       gfx::Point cursor_pos(display::Screen::Get()->GetCursorScreenPoint());
       gfx::Rect bounds = browser_frame->GetWindowBoundsInScreen();
       bounds.set_origin(cursor_pos);
@@ -1948,16 +1931,16 @@ void WindowsUpdateFunction::UpdateWindowState(
     browser_window->Show();
   }
   if (params.update_info.resizable) {
-    BrowserView::GetBrowserViewForBrowser(b)->SetResizable(*params.update_info.resizable);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetResizable(*params.update_info.resizable);
   }
   if (params.update_info.all_visible) {
-    BrowserView::GetBrowserViewForBrowser(b)->SetAllVisible(*params.update_info.all_visible);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetAllVisible(*params.update_info.all_visible);
   }
   if (params.update_info.always_on_top) {
-    BrowserView::GetBrowserViewForBrowser(b)->SetZOrderLevel(*params.update_info.always_on_top ? ui::ZOrderLevel::kFloatingWindow : ui::ZOrderLevel::kNormal);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetZOrderLevel(*params.update_info.always_on_top ? ui::ZOrderLevel::kFloatingWindow : ui::ZOrderLevel::kNormal);
   }
   if (params.update_info.show_in_taskbar) {
-    BrowserView::GetBrowserViewForBrowser(b)->SetShowInTaskbar(*params.update_info.show_in_taskbar);
+    BrowserView::GetBrowserViewForBrowser(browser)->SetShowInTaskbar(*params.update_info.show_in_taskbar);
   }
 
   if (params.update_info.draw_attention) {
@@ -2392,6 +2375,15 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
   pinned_ = create_properties.pinned;
   index_ = create_properties.index;
   original_url_ = std::move(create_properties.url);
+  split_with_tab_id_ = create_properties.split_with_tab_id;
+
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(https://crbug.com/480192698): Remove this restriction once split tabs
+  // are supported on Desktop Android.
+  if (split_with_tab_id_) {
+    return RespondNow(Error(tabs_constants::kSplitViewCreationFailedError));
+  }
+#endif
 
   validated_url_ = chrome::ChromeUINewTabURLAsGURL();
   if (original_url_) {
@@ -2451,6 +2443,54 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
     return RespondNow(Error(std::move(error)));
   }
 
+  if (base::FeatureList::IsEnabled(extensions_features::kApiTabsSplitView)) {
+    if (split_with_tab_id_) {
+      int target_index = -1;
+      WindowController* target_window_controller = nullptr;
+      content::WebContents* target_contents = nullptr;
+      // 1. Check that the split-with tab exists.
+      if (!ExtensionTabUtil::GetTabById(*split_with_tab_id_, browser_context(),
+                                        include_incognito_information(),
+                                        &target_window_controller,
+                                        &target_contents, &target_index)) {
+        return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+            ExtensionTabUtil::kTabNotFoundError,
+            base::NumberToString(*split_with_tab_id_))));
+      }
+
+      // 2. Check that the split-with tab is not already in a split view.
+      if (::tabs::TabInterface::GetFromContents(target_contents)->IsSplit()) {
+        return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+            tabs_constants::kSplitWithTabAlreadyInSplitViewError,
+            base::NumberToString(*split_with_tab_id_))));
+      }
+
+      // 3. Check that the split-with tab is in the same window as the new tab.
+      BrowserWindowInterface* split_with_browser =
+          target_window_controller
+              ? target_window_controller->GetBrowserWindowInterface()
+              : nullptr;
+      if (split_with_browser != browser) {
+        return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+            tabs_constants::kSplitWithTabNotInSameWindowError,
+            base::NumberToString(*split_with_tab_id_))));
+      }
+
+      // 4. Check that the index (if specified) is adjacent to the split-with
+      // tab.
+      if (create_properties.index) {
+        int index = *create_properties.index;
+        if (index < target_index || index > target_index + 1) {
+          return RespondNow(Error(ErrorUtils::FormatErrorMessage(
+              tabs_constants::kSplitWithTabIndexNotAdjacentError,
+              base::NumberToString(*split_with_tab_id_),
+              base::NumberToString(target_index),
+              base::NumberToString(index))));
+        }
+      }
+    }
+  }
+
   // We can't load extension URLs into incognito windows unless the extension
   // uses split mode. Special case to fall back to a tabbed window or, if
   // needed, create one.
@@ -2471,10 +2511,9 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
   // browser *and* it's attempting to close? Should that be *or*? This goes
   // back to the dawn of time, AKA the initial implementation in 2014:
   // https://codereview.chromium.org/245933002.
-  if (browser && (browser->IsDeleteScheduled() ||
-                  (browser->GetType() != BrowserWindowInterface::TYPE_NORMAL &&
-                   UnloadController::From(browser->GetBrowserForMigrationOnly())
-                       ->is_attempting_to_close_browser()))) {
+  if (browser && browser->GetType() != BrowserWindowInterface::TYPE_NORMAL &&
+      UnloadController::From(browser->GetBrowserForMigrationOnly())
+          ->is_attempting_to_close_browser()) {
     browser = nullptr;
     fallback_to_tabbed_browser = true;
   }
@@ -2565,18 +2604,7 @@ void TabsCreateFunction::OnBrowserWindowCreated(
     return;
   }
 
-  // The Show() call below could feasibly cause the window to close on some
-  // platforms.
-  base::WeakPtr<BrowserWindowInterface> weak_browser = browser->GetWeakPtr();
-  // Reset `browser` to prevent it from being used.
-  browser = nullptr;
-
-  weak_browser->GetWindow()->Show();
-
-  if (!weak_browser || weak_browser->IsDeleteScheduled()) {
-    Respond(Error(ExtensionTabUtil::kBrowserWindowNotAllowed));
-    return;
-  }
+  browser->GetWindow()->Show();
 
   // Re-fetch the opener, if one was specified. This call might fail if the
   // opener tab was destroyed while the window was being created. In that case,
@@ -2589,7 +2617,7 @@ void TabsCreateFunction::OnBrowserWindowCreated(
                                  &opener, nullptr);
   }
 
-  OpenTabInBrowser(*weak_browser, opener);
+  OpenTabInBrowser(*browser, opener);
 }
 
 void TabsCreateFunction::OpenTabInBrowser(BrowserWindowInterface& browser,
@@ -2599,6 +2627,7 @@ void TabsCreateFunction::OpenTabInBrowser(BrowserWindowInterface& browser,
   options.active = active_;
   options.pinned = pinned_;
   options.index = index_;
+  options.split_with_tab_id = split_with_tab_id_;
 
   base::expected<content::WebContents*, std::string> result =
       OpenTabHelper::OpenTab(validated_url_, browser, *this, options);

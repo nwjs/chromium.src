@@ -13,7 +13,6 @@
 #include "chrome/browser/contextual_cueing/contextual_cueing_metrics.h"
 #include "chrome/browser/contextual_cueing/cueing_log.h"
 #include "chrome/browser/contextual_cueing/features.h"
-#include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -38,6 +37,10 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_skia.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/browser_ui/glic_vector_icon_manager.h"
+#endif
 
 namespace glic {
 
@@ -88,9 +91,14 @@ void GlicCueTarget::CheckEligibility(
     return;
   }
 
-  GlicCueTabState::CreateForWebContents(web_contents.get());
-  GlicCueTabState::FromWebContents(web_contents.get())
-      ->CheckEligibility(intrusiveness, std::move(callback), this);
+  GlicCueTabState* cue_tab_state = GlicCueTabState::From(&tab_.get());
+  if (!cue_tab_state) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(std::move(callback), false, ContentGenerator()));
+    return;
+  }
+  cue_tab_state->CheckEligibility(intrusiveness, std::move(callback), this);
 }
 
 bool GlicCueTarget::IsPageEligible(
@@ -137,11 +145,7 @@ bool GlicCueTarget::IsEligible() const {
   return GlicEnabling::IsEnabledForProfile(tab_->GetProfile()) &&
          tab_->GetProfile()->GetPrefs()->GetBoolean(
              prefs::kGlicPinnedToTabstrip) &&
-         !glic_keyed_service_->IsPanelShowingForBrowser(*window) &&
-         // TODO(crbug.com/507551989): Default tab context sharing check won't
-         // be needed once tab sharing UI is implemented.
-         tab_->GetProfile()->GetPrefs()->GetBoolean(
-             glic::prefs::kGlicDefaultTabContextEnabled);
+         !glic_keyed_service_->IsPanelShowingForBrowser(*window);
 }
 
 void GlicCueTarget::OnClick(contextual_cueing::CueActionData data) {
@@ -192,9 +196,14 @@ ui::ImageModel GlicCueTarget::GetAnchoredMessageIcon() const {
 }
 
 ui::ImageModel GlicCueTarget::GetOmniboxChipIcon() const {
+#if BUILDFLAG(IS_ANDROID)
+  NOTIMPLEMENTED() << "Glic contextual cue not yet implemented for Android.";
+  return ui::ImageModel();
+#else
   return ui::ImageModel::FromVectorIcon(
       glic::GlicVectorIconManager::GetVectorIcon(IDR_GLIC_BUTTON_VECTOR_ICON),
       ui::kColorSysOnSurface, 18);
+#endif
 }
 
 contextual_cueing::CueActionData GlicCueTarget::CueActionDataFromResponse(
@@ -203,6 +212,10 @@ contextual_cueing::CueActionData GlicCueTarget::CueActionDataFromResponse(
   contextual_cueing::GlicCueActionData data;
   if (!cue.has_gemini_in_chrome_surface()) {
     CUEING_LOG("Missing Gemini surface data.");
+    return data;
+  }
+  if (cue.gemini_in_chrome_surface().prompt().empty()) {
+    CUEING_LOG("Missing prompt in Gemini surface data.");
     return data;
   }
   data.prompt = cue.gemini_in_chrome_surface().prompt();

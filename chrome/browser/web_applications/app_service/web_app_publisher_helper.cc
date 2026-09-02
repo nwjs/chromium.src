@@ -115,7 +115,7 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "ash/webui/projector_app/public/cpp/projector_app_constants.h"  // nogncheck
+#include "ash/constants/web_app_id_constants.h"
 #include "chrome/browser/ash/guest_os/guest_os_terminal.h"
 #include "chrome/browser/ash/login/demo_mode/demo_session.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
@@ -1452,8 +1452,9 @@ void WebAppPublisherHelper::MaybeSetSupportedLinksPreference(
     bool are_other_apps_preferred =
         AreOtherAppsPreferredForLinks(proxy, app_id, intent_filters);
     bool iwa_capture_links_set_default =
-        proxy->PreferredAppsList().IsPreferredAppForSupportedLinks(app_id) ||
-        (!app_had_supported_links && !are_other_apps_preferred);
+        !are_other_apps_preferred &&
+        (proxy->PreferredAppsList().IsPreferredAppForSupportedLinks(app_id) ||
+         !app_had_supported_links);
     if (iwa_capture_links_set_default) {
       proxy->SetSupportedLinksPreference(app_id);
     }

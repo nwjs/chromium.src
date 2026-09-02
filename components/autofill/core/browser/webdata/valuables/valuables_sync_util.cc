@@ -75,6 +75,7 @@ void TrimPassport(sync_pb::Passport& passport) {
 void TrimDriverLicense(sync_pb::DriverLicense& driver_license) {
   driver_license.clear_owner_name();
   driver_license.clear_masked_number();
+  driver_license.clear_country_code();
   driver_license.clear_region();
   driver_license.clear_issue_date();
   driver_license.clear_expiration_date();
@@ -97,6 +98,24 @@ void TrimKnownTravelerNumber(sync_pb::KnownTravelerNumber& ktn) {
   ktn.clear_owner_name();
   ktn.clear_masked_number();
   ktn.clear_expiration_date();
+}
+
+void TrimOrder(sync_pb::Order& order) {
+  order.clear_id();
+  order.clear_account();
+  order.clear_order_date();
+  order.clear_merchant_name();
+  order.clear_merchant_domain();
+  order.clear_product_names();
+}
+
+void TrimShipment(sync_pb::Shipment& shipment) {
+  shipment.clear_tracking_number();
+  shipment.clear_delivery_zip_code();
+  shipment.clear_shipping_date();
+  shipment.clear_carrier_name();
+  shipment.clear_carrier_domain();
+  shipment.clear_associated_order_ids();
 }
 
 }  // namespace
@@ -249,6 +268,20 @@ AutofillValuableSpecifics TrimAutofillValuableSpecificsDataForCaching(
           *trimmed_specifics.mutable_known_traveler_number());
       if (trimmed_specifics.known_traveler_number().ByteSizeLong() == 0) {
         trimmed_specifics.clear_known_traveler_number();
+      }
+      break;
+    }
+    case AutofillValuableSpecifics::kOrder: {
+      TrimOrder(*trimmed_specifics.mutable_order());
+      if (trimmed_specifics.order().ByteSizeLong() == 0) {
+        trimmed_specifics.clear_order();
+      }
+      break;
+    }
+    case AutofillValuableSpecifics::kShipment: {
+      TrimShipment(*trimmed_specifics.mutable_shipment());
+      if (trimmed_specifics.shipment().ByteSizeLong() == 0) {
+        trimmed_specifics.clear_shipment();
       }
       break;
     }

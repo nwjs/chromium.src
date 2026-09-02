@@ -88,6 +88,13 @@ const char kExceptionMessagePermissionPolicy[] =
 const char kExceptionMessageUserActivationRequired[] =
     "Requires a user gesture when availability is \"downloading\" or "
     "\"downloadable\".";
+const char kExceptionMessageSpeculativeDecodingSamplingConflict[] =
+    "The sampling options are incompatible with speculative decoding (MTP). "
+    "Prompt API sessions must specify compatible sampling options, i.e. "
+    "`samplingMode:'most-predictable'` or `topK:1` or `temperature:0`.";
+const char kExceptionMessageSpeculativeDecodingConstraintConflict[] =
+    "Constrained decoding (responseConstraint) cannot be used with speculative "
+    "decoding (MTP).";
 
 void ThrowInvalidContextException(ExceptionState& exception_state) {
   exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
@@ -350,7 +357,11 @@ String ConvertModelAvailabilityCheckResultToDebugString(
     case mojom::blink::ModelAvailabilityCheckResult::
         kUnavailableInsufficientDiskSpace:
       return "The device does not have enough space for downloading the "
-             "on-device model";
+             "on-device model.";
+    case mojom::blink::ModelAvailabilityCheckResult::
+        kUnavailableInsufficientDiskSpaceForCaches:
+      return "The device does not have enough disk space to initialize "
+             "the on-device model.";
     case mojom::blink::ModelAvailabilityCheckResult::
         kUnavailableTranslationNotEligible:
       return "The on-device translation is not available.";
@@ -362,6 +373,9 @@ String ConvertModelAvailabilityCheckResultToDebugString(
     case mojom::blink::ModelAvailabilityCheckResult::
         kUnavailableIncompatiblePreferenceOptions:
       return kExceptionMessageIncompatiblePreferenceOptions;
+    case mojom::blink::ModelAvailabilityCheckResult::
+        kUnavailableIncompatibleSpeculativeDecodingOptions:
+      return kExceptionMessageSpeculativeDecodingSamplingConflict;
     case mojom::blink::ModelAvailabilityCheckResult::kAvailable:
     case mojom::blink::ModelAvailabilityCheckResult::kDownloadable:
     case mojom::blink::ModelAvailabilityCheckResult::kDownloading:

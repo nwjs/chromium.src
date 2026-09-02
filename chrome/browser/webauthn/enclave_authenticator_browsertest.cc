@@ -45,9 +45,10 @@
 #include "chrome/browser/password_manager/factories/account_password_store_factory.h"
 #include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/webauthn/passkey_upgrade_request_controller.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_controller.h"
@@ -96,7 +97,6 @@
 #include "crypto/scoped_fake_user_verifying_key_provider.h"
 #include "crypto/unexportable_key.h"
 #include "crypto/user_verifying_key.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_request_handler_base.h"
 #include "device/fido/public/features.h"
 #include "device/fido/public/fido_transport_protocol.h"
@@ -743,8 +743,6 @@ class EnclaveAuthenticatorBrowserTest : public EnclaveAuthenticatorTestBase {
       pre_tai_run_loop_->Run();
       pre_tai_run_loop_ = std::make_unique<base::RunLoop>();
     }
-
-    void RunMakeCredentialWithLargeBlobSupport(std::string* out_b64);
 
     void WaitForDelegateDestruction() {
       destruction_run_loop_->Run();
@@ -2832,12 +2830,13 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
 #if BUILDFLAG(IS_MAC)
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest, BiometricsInPWA) {
   // When requesting biometrics in a PWA, Touch ID should never be used.
-  // Create a Browser of type `TYPE_APP`, like a PWA.
-  Browser* app_browser = Browser::Create(Browser::CreateParams::CreateForApp(
-      "appname", /*trusted_source=*/true, gfx::Rect(0, 0, 500, 500),
-      browser()->GetProfile(),
-      /*user_gesture=*/true));
-  ASSERT_EQ(app_browser->type(), Browser::Type::TYPE_APP);
+  // Create a BrowserWindowInterface of type `TYPE_APP`, like a PWA.
+  BrowserWindowInterface* app_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams::CreateForApp(
+          "appname", /*trusted_source=*/true, gfx::Rect(0, 0, 500, 500),
+          browser()->GetProfile(),
+          /*from_user_gesture=*/true));
+  ASSERT_EQ(app_browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
   app_browser->GetWindow()->Show();
 
   ASSERT_TRUE(NavigateToURLWithDisposition(
@@ -3222,7 +3221,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
                        IncognitoModeMakeCredential) {
-  Browser* otr_browser = OpenURLOffTheRecord(
+  BrowserWindowInterface* otr_browser = OpenURLOffTheRecord(
       browser()->GetProfile(),
       https_server_.GetURL("www.example.com", "/title1.html"));
   SetTrustedVaultRecoverable(kSecretVersion, otr_browser->tab_strip_model()
@@ -3282,7 +3281,7 @@ IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(EnclaveAuthenticatorBrowserTest,
                        IncognitoModeGetAssertion) {
-  Browser* otr_browser = OpenURLOffTheRecord(
+  BrowserWindowInterface* otr_browser = OpenURLOffTheRecord(
       browser()->GetProfile(),
       https_server_.GetURL("www.example.com", "/title1.html"));
   SetTrustedVaultRecoverable(kSecretVersion, otr_browser->tab_strip_model()
@@ -3763,7 +3762,7 @@ IN_PROC_BROWSER_TEST_P(EnclaveAuthenticatorIncognitoBrowserTest,
                        MultipleDeclinedBootstrappings) {
   content::WebContents* web_contents;
   if (GetParam()) {
-    Browser* otr_browser = OpenURLOffTheRecord(
+    BrowserWindowInterface* otr_browser = OpenURLOffTheRecord(
         browser()->GetProfile(),
         https_server_.GetURL("www.example.com", "/title1.html"));
     web_contents = otr_browser->tab_strip_model()->GetActiveWebContents();

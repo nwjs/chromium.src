@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/ui/views/frame/glass_frame_service.h"
+
 #include "base/callback_list.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -10,18 +12,22 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/global_features.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/themes/theme_helper.h"
+#include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/frame/base_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/glass_frame_service.h"
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/performance_manager/public/user_tuning/prefs.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
@@ -30,11 +36,54 @@
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/views/view_utils.h"
 
+namespace {
+
+class FakeThemeService : public ThemeService {
+ public:
+  explicit FakeThemeService(Profile* profile)
+      : ThemeService(profile, GetFakeThemeHelper()) {}
+  bool UsingExtensionTheme() const override {
+    return is_using_extension_theme_;
+  }
+  void set_using_extension_theme(bool value) {
+    is_using_extension_theme_ = value;
+    NotifyThemeChanged();
+  }
+
+ private:
+  static const ThemeHelper& GetFakeThemeHelper() {
+    static base::NoDestructor<ThemeHelper> helper;
+    return *helper;
+  }
+
+  bool is_using_extension_theme_ = false;
+};
+
+}  // namespace
+
 class GlassFrameServiceInteractiveTest : public InProcessBrowserTest {
  public:
   GlassFrameServiceInteractiveTest() {
     scoped_feature_list_.InitWithFeatures(
         {features::kGlassFrame, tabs::kVerticalTabs}, {});
+  }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    InProcessBrowserTest::SetUpInProcessBrowserTestFixture();
+    create_services_subscription_ =
+        BrowserContextDependencyManager::GetInstance()
+            ->RegisterCreateServicesCallbackForTesting(
+                base::BindRepeating([](content::BrowserContext* context) {
+                  ThemeServiceFactory::GetInstance()->SetTestingFactory(
+                      context,
+                      base::BindRepeating([](content::BrowserContext* context)
+                                              -> std::unique_ptr<KeyedService> {
+                        auto service = std::make_unique<FakeThemeService>(
+                            static_cast<Profile*>(context));
+                        service->Init();
+                        return service;
+                      }));
+                }));
   }
 
   bool GlassFrameEligibilityMatchesTabStrip(BrowserWindowInterface* browser) {
@@ -62,6 +111,7 @@ class GlassFrameServiceInteractiveTest : public InProcessBrowserTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   ui::UserDataFactory::ScopedOverride glass_frame_service_override_;
+  base::CallbackListSubscription create_services_subscription_;
 };
 
 IN_PROC_BROWSER_TEST_F(GlassFrameServiceInteractiveTest, SingleWindowEligible) {
@@ -340,4 +390,74 @@ IN_PROC_BROWSER_TEST_F(GlassFrameServiceInteractiveTest, BatterySaverMode) {
   // Wait until BSM is inactive and browser1 is eligible again.
   ASSERT_TRUE(base::test::RunUntil([&] { return browser1_eligible; }));
   EXPECT_TRUE(glass_frame_service->IsBrowserWindowEligible(browser1));
+}
+
+IN_PROC_BROWSER_TEST_F(GlassFrameServiceInteractiveTest,
+                       DanglingBrowserWindowPointerOnActivation) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP();
+  }
+
+  GlassFrameService* const glass_frame_service =
+      GlassFrameService::GetInstance();
+  BrowserWindowInterface* const browser1 = browser();
+
+  // Allocate a browser pointer.
+  BrowserWindowInterface* deleted_browser =
+      CreateBrowser(browser()->GetProfile());
+
+  // Register a callback referencing the browser pointer before it is destroyed.
+  base::CallbackListSubscription sub =
+      glass_frame_service->RegisterGlassFrameEligibilityChangedCallback(
+          deleted_browser, base::BindRepeating([](bool is_eligible) {}));
+
+  // Delete browser to simulate a destroyed window while subscription is active.
+  CloseBrowserSynchronously(deleted_browser);
+
+  // Trigger OnBrowserActivated to invoke callbacks_.Notify().
+  glass_frame_service->OnBrowserActivated(browser1);
+}
+
+IN_PROC_BROWSER_TEST_F(GlassFrameServiceInteractiveTest,
+                       ExtensionThemeIneligible) {
+  if (!features::IsGlassFrameEnabled()) {
+    GTEST_SKIP();
+  }
+
+  GlassFrameService* const glass_frame_service =
+      GlassFrameService::GetInstance();
+  BrowserWindowInterface* const browser1 = browser();
+
+  bool browser1_eligible =
+      glass_frame_service->IsBrowserWindowEligible(browser1);
+  base::CallbackListSubscription sub1 =
+      glass_frame_service->RegisterGlassFrameEligibilityChangedCallback(
+          browser1, base::BindRepeating(
+                        [](bool* out_eligible, bool is_eligible) {
+                          *out_eligible = is_eligible;
+                        },
+                        &browser1_eligible));
+
+  // Initially browser1 has default theme, so it is eligible.
+  EXPECT_TRUE(browser1_eligible);
+
+  FakeThemeService* const fake_theme_service = static_cast<FakeThemeService*>(
+      ThemeServiceFactory::GetForProfile(browser1->GetProfile()));
+  ASSERT_TRUE(fake_theme_service);
+
+  // Enable extension theme.
+  fake_theme_service->set_using_extension_theme(true);
+
+  // GlassFrameService should report browser1 as ineligible.
+  ASSERT_TRUE(base::test::RunUntil([&] { return !browser1_eligible; }));
+  EXPECT_FALSE(glass_frame_service->IsBrowserWindowEligible(browser1));
+  EXPECT_TRUE(GlassFrameEligibilityMatchesTabStrip(browser1));
+
+  // Remove extension theme.
+  fake_theme_service->set_using_extension_theme(false);
+
+  // Browser1 should become eligible again.
+  ASSERT_TRUE(base::test::RunUntil([&] { return browser1_eligible; }));
+  EXPECT_TRUE(glass_frame_service->IsBrowserWindowEligible(browser1));
+  EXPECT_TRUE(GlassFrameEligibilityMatchesTabStrip(browser1));
 }

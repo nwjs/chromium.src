@@ -1,0 +1,1648 @@
+// Copyright 2018 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// clang-format off
+import 'chrome://settings/settings.js';
+
+import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import type {CrActionMenuElement} from 'chrome://settings/settings.js';
+import type { CrInputElement, CrTextareaElement, SettingsContactInfoPageElement, SettingsSimpleConfirmationDialogElement } from 'chrome://settings/lazy_load.js';
+import {AutofillAddressOptInChange, AutofillManagerImpl, CountryDetailManagerProxyImpl} from 'chrome://settings/lazy_load.js';
+import {assertEquals, assertFalse, assertGT, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import type {MetricsTracker} from 'chrome://webui-test/metrics_test_support.js';
+import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
+import type {SettingsToggleButtonElement} from 'chrome://settings/settings.js';
+import {loadTimeData, OpenWindowProxyImpl} from 'chrome://settings/settings.js';
+import {eventToPromise, whenAttributeIs, isVisible} from 'chrome://webui-test/test_util.js';
+import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
+import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
+
+import {AutofillManagerExpectations, createAddressEntry, createEmptyAddressEntry, STUB_USER_ACCOUNT_INFO, TestAutofillManager} from './autofill_fake_data.js';
+import {createContactInfoPage, initiateRemoving, initiateEditing, createAddressDialog, createRemoveAddressDialog, expectEvent, openAddressDialog, getAddressFieldValue} from './contact_info_page_test_utils.js';
+import {TestCountryDetailManagerProxy} from './test_country_detail_manager_proxy.js';
+// clang-format on
+
+const FieldType = chrome.autofillPrivate.FieldType;
+
+const ADDRESS_COMPONENTS_US = {
+  components: [
+    {
+      row: [
+        {
+          field: FieldType.NAME_FULL,
+          fieldName: 'Name',
+          isLongField: true,
+          isRequired: false,
+        },
+      ],
+    },
+    {
+      row: [
+        {
+          field: FieldType.ADDRESS_HOME_CITY,
+          fieldName: 'City',
+          isLongField: false,
+          isRequired: true,
+        },
+        {
+          field: FieldType.ADDRESS_HOME_STATE,
+          fieldName: 'State',
+          isLongField: false,
+          isRequired: true,
+        },
+        {
+          field: FieldType.ADDRESS_HOME_ZIP,
+          fieldName: 'ZIP code',
+          isLongField: false,
+          isRequired: true,
+        },
+      ],
+    },
+  ],
+  languageCode: 'en',
+};
+
+const ADDRESS_COMPONENTS_GB = {
+  components: [
+    {
+      row: [
+        {
+          field: FieldType.NAME_FULL,
+          fieldName: 'Name',
+          isLongField: true,
+          isRequired: false,
+        },
+      ],
+    },
+    {
+      row: [
+        {
+          field: FieldType.ADDRESS_HOME_CITY,
+          fieldName: 'Post town',
+          isLongField: false,
+          isRequired: true,
+        },
+      ],
+    },
+    {
+      row: [
+        {
+          field: FieldType.ADDRESS_HOME_ZIP,
+          fieldName: 'Postal code',
+          isLongField: false,
+          isRequired: true,
+        },
+      ],
+    },
+    {
+      row: [
+        {
+          field: FieldType.ADDRESS_HOME_STATE,
+          fieldName: 'County',
+          isLongField: false,
+          isRequired: true,
+        },
+      ],
+    },
+  ],
+  languageCode: 'en',
+};
+
+const ADDRESS_COMPONENTS_IL = {
+  components: [
+    {
+      row: [
+        {
+          field: FieldType.NAME_FULL,
+          fieldName: 'Name',
+          isLongField: true,
+          isRequired: false,
+        },
+      ],
+    },
+    {
+      row: [
+        {
+          field: FieldType.ADDRESS_HOME_CITY,
+          fieldName: 'City',
+          isLongField: false,
+          isRequired: true,
+        },
+        {
+          field: FieldType.ADDRESS_HOME_ZIP,
+          fieldName: 'Postal code',
+          isLongField: false,
+          isRequired: true,
+        },
+      ],
+    },
+  ],
+  languageCode: 'iw',
+};
+
+suite('ContactInfoPageUiTest', function() {
+  setup(function() {
+    loadTimeData.overrideValues({
+      emailVerificationProtocolEnabled: false,
+      autofillGmailOtpFillingEnabled: false,
+    });
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+  });
+
+  test('AutofillExtensionIndicator', function() {
+    // Initializing with fake prefs
+    const page = document.createElement('settings-contact-info-page');
+    page.prefs = {
+      autofill: {
+        profile_enabled: {},
+        email_verification_state: {
+          type: chrome.settingsPrivate.PrefType.DICTIONARY,
+          value: {},
+        },
+      },
+    };
+    document.body.appendChild(page);
+
+    assertFalse(
+        !!page.shadowRoot!.querySelector('#autofillExtensionIndicator'));
+    page.set('prefs.autofill.profile_enabled.extensionId', 'test-id');
+    flush();
+
+    assertTrue(
+        !!page.shadowRoot!.querySelector('#autofillExtensionIndicator'));
+  });
+
+  test('EmailVerificationToggle', async function() {
+    loadTimeData.overrideValues({emailVerificationProtocolEnabled: true});
+
+    const page = await createContactInfoPage([], {
+      profile_enabled: {value: true},
+      email_verification_enabled: {value: true},
+    });
+    const toggle =
+        page.shadowRoot!.querySelector('#autofillEmailVerificationToggle');
+    assertTrue(!!toggle);
+
+    const noEmailsLabel = page.shadowRoot!.querySelector('#noEmailsLabel');
+    assertTrue(!!noEmailsLabel);
+    assertFalse((noEmailsLabel as HTMLElement).hidden);
+  });
+
+  test('EmailVerificationList', async function() {
+    loadTimeData.overrideValues({emailVerificationProtocolEnabled: true});
+
+    const emailState = {
+      'test1@example.com': {allowed: true, issuer_site: 'https://google.com'},
+      'test2@example.com': {allowed: false, issuer_site: 'https://yahoo.com'},
+    };
+
+    const page = await createContactInfoPage([], {
+      profile_enabled: {value: true},
+      email_verification_enabled: {value: true},
+      email_verification_state: {
+        type: chrome.settingsPrivate.PrefType.DICTIONARY,
+        value: emailState,
+      },
+    });
+
+    flush();
+
+    const menuButtons =
+        page.shadowRoot!.querySelectorAll<HTMLElement>('.email-menu');
+    assertEquals(2, menuButtons.length);
+
+    const button0 = menuButtons[0]!;
+    const button1 = menuButtons[1]!;
+
+    const item0 = button0.parentElement;
+    const item1 = button1.parentElement;
+    assertTrue(!!item0);
+    assertTrue(!!item1);
+
+    const start0 = item0.querySelector('.start');
+    assertTrue(!!start0);
+    assertEquals('test1@example.com', start0.textContent.trim());
+    const favicon0 = item0.querySelector('site-favicon');
+    assertTrue(!!favicon0);
+    assertEquals('https://google.com', favicon0.url);
+
+    const start1 = item1.querySelector('.start');
+    assertTrue(!!start1);
+    assertEquals('test2@example.com', start1.textContent.trim());
+    const favicon1 = item1.querySelector('site-favicon');
+    assertTrue(!!favicon1);
+    assertEquals('https://yahoo.com', favicon1.url);
+
+    // Click menu on first item.
+    button0.click();
+    await flushTasks();
+
+    const actionMenu = page.shadowRoot!.querySelector<CrActionMenuElement>(
+        '#emailSharedMenu')!;
+    assertTrue(actionMenu.open);
+
+    // Click remove.
+    const removeButton =
+        actionMenu.querySelector<HTMLElement>('#menuRemoveEmail');
+    assertTrue(!!removeButton);
+    removeButton.click();
+    await flushTasks();
+
+    const dialog = page.shadowRoot!
+                       .querySelector<SettingsSimpleConfirmationDialogElement>(
+                           '#emailRemoveConfirmationDialog');
+    assertTrue(!!dialog);
+    dialog.$.confirm.click();
+
+    await eventToPromise('close', dialog.$.dialog);
+    await flushTasks();
+
+    // Verify pref was updated.
+    const updatedPrefs = page
+                             .getPref<Record<string, unknown>>(
+                                 'autofill.email_verification_state')
+                             .value;
+    assertFalse('test1@example.com' in updatedPrefs);
+    assertTrue('test2@example.com' in updatedPrefs);
+
+    // Verify UI updated.
+    const newMenuButtons = page.shadowRoot!.querySelectorAll('.email-menu');
+    assertEquals(1, newMenuButtons.length);
+    const newButton0 = newMenuButtons[0]!;
+    const newItem0 = newButton0.parentElement!;
+    assertTrue(!!newItem0);
+    const newStart0 = newItem0.querySelector('.start');
+    assertTrue(!!newStart0);
+    assertEquals('test2@example.com', newStart0.textContent.trim());
+  });
+
+  test('verifyAddressDeleteRecordTypeNotice', async () => {
+    const address = createAddressEntry();
+    const accountAddress = createAddressEntry();
+    accountAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT;
+
+    const autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [address, accountAddress];
+    autofillManager.data.accountInfo = {
+      ...STUB_USER_ACCOUNT_INFO,
+      isSyncEnabledForAutofillProfiles: true,
+    };
+    AutofillManagerImpl.setInstance(autofillManager);
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await autofillManager.whenCalled('getAddressList');
+
+    await flushTasks();
+
+    {
+      const dialog = await initiateRemoving(page, 0);
+      const expectedMessage =
+          loadTimeData.getString('removeSyncAddressConfirmationDescription');
+      assertEquals(
+          dialog.$.description.textContent.trim(), expectedMessage,
+          'Sync-on message should be visible');
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+
+    await flushTasks();
+
+    const changeListener =
+        autofillManager.lastCallback.setPersonalDataManagerListener;
+    assertTrue(
+        !!changeListener,
+        'PersonalDataChangedListener should be set in the page element');
+
+    // Imitate disabling sync.
+    changeListener(autofillManager.data.addresses, [], [], [], {
+      ...STUB_USER_ACCOUNT_INFO,
+    });
+
+    {
+      const dialog = await initiateRemoving(page, 0);
+      const expectedMessage =
+          loadTimeData.getString('removeLocalAddressConfirmationDescription');
+      assertEquals(
+          dialog.$.description.textContent.trim(), expectedMessage,
+          'Sync-off message should be visible');
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+
+    await flushTasks();
+
+    // Imitate disabling sync.
+    changeListener(autofillManager.data.addresses, [], [], [], undefined);
+
+    {
+      const dialog = await initiateRemoving(page, 0);
+      const expectedMessage =
+          loadTimeData.getString('removeLocalAddressConfirmationDescription');
+      assertEquals(
+          dialog.$.description.textContent.trim(), expectedMessage,
+          'Sync-off message should be visible when account info is missing');
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+
+    await flushTasks();
+
+    changeListener(autofillManager.data.addresses, [], [], [], {
+      ...STUB_USER_ACCOUNT_INFO,
+      isSyncEnabledForAutofillProfiles: true,
+    });
+
+    {
+      const dialog = await initiateRemoving(page, 1);
+      const expectedMessage = loadTimeData.getStringF(
+          'deleteAccountAddressRecordTypeNotice', STUB_USER_ACCOUNT_INFO.email);
+      assertEquals(
+          dialog.$.description.textContent.trim(), expectedMessage,
+          'Account address message should be visible');
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+  });
+
+  test('verifyAddressDeleteHomeAddressNotice', async () => {
+    const homeAddress = createAddressEntry();
+    homeAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_HOME;
+
+    const autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [homeAddress];
+    autofillManager.data.accountInfo = {
+      ...STUB_USER_ACCOUNT_INFO,
+      isSyncEnabledForAutofillProfiles: true,
+    };
+    AutofillManagerImpl.setInstance(autofillManager);
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await autofillManager.whenCalled('getAddressList');
+    await flushTasks();
+
+    {
+      const dialog = await initiateRemoving(page, 0);
+      const homeUrl = loadTimeData.getString('googleAccountHomeAddressUrl')
+                          .replace(/&/g, '&amp;');
+      const expectedMessage = loadTimeData.getStringF(
+          'deleteHomeAddressNotice', homeUrl, STUB_USER_ACCOUNT_INFO.email);
+      assertEquals(
+          dialog.$.description.innerHTML, expectedMessage,
+          `Home address delete confirmation view description is incorrect.`);
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+  });
+
+  test('verifyAddressDeleteWorkAddressNotice', async () => {
+    const workAddress = createAddressEntry();
+    workAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_WORK;
+
+    const autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [workAddress];
+    autofillManager.data.accountInfo = {
+      ...STUB_USER_ACCOUNT_INFO,
+      isSyncEnabledForAutofillProfiles: true,
+    };
+    AutofillManagerImpl.setInstance(autofillManager);
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await autofillManager.whenCalled('getAddressList');
+    await flushTasks();
+
+    {
+      const dialog = await initiateRemoving(page, 0);
+      const workUrl = loadTimeData.getString('googleAccountWorkAddressUrl')
+                          .replace(/&/g, '&amp;');
+      const expectedMessage = loadTimeData.getStringF(
+          'deleteWorkAddressNotice', workUrl, STUB_USER_ACCOUNT_INFO.email);
+      assertEquals(
+          dialog.$.description.innerHTML, expectedMessage,
+          `Work address delete confirmation view description is incorrect.`);
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+  });
+
+  test('verifyAddressDeleteNameEmailAddressNotice', async () => {
+    const nameEmailAddress = createAddressEntry();
+    nameEmailAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_NAME_EMAIL;
+
+    const autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [nameEmailAddress];
+    autofillManager.data.accountInfo = {
+      ...STUB_USER_ACCOUNT_INFO,
+      isSyncEnabledForAutofillProfiles: true,
+    };
+    AutofillManagerImpl.setInstance(autofillManager);
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await autofillManager.whenCalled('getAddressList');
+    await flushTasks();
+
+    {
+      const dialog = await initiateRemoving(page, 0);
+      const nameEmailUrl =
+          loadTimeData.getString('googleAccountNameEmailAddressEditUrl')
+              .replace(/&/g, '&amp;');
+      const expectedDescription = loadTimeData.getStringF(
+          'deleteNameEmailAddressNotice', nameEmailUrl,
+          STUB_USER_ACCOUNT_INFO.email);
+      assertEquals(
+          dialog.$.description.innerHTML, expectedDescription,
+          `Name email delete confirmation view description is incorrect.`);
+
+      const title = dialog.shadowRoot!.querySelector<HTMLElement>('#title');
+      assertTrue(!!title);
+      assertEquals(
+          title.innerHTML,
+          loadTimeData.getString('removeNameEmailAddressConfirmationTitle'),
+          `Name email delete confirmation view title is incorrect.`);
+
+      const removeButton =
+          dialog.shadowRoot!.querySelector<HTMLElement>('#remove');
+      assertTrue(!!removeButton);
+      assertEquals(
+          removeButton.innerText,
+          loadTimeData.getString('removeAddressFromChrome'),
+          `Name email delete confirmation remove button label is incorrect.`);
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+  });
+
+  test('verifyAddressEditRecordTypeNotice', async () => {
+    const email = 'stub-user@example.com';
+    const address = createAddressEntry();
+    const accountAddress = createAddressEntry();
+    accountAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT;
+    const page = await createContactInfoPage([address, accountAddress], {}, {
+      ...STUB_USER_ACCOUNT_INFO,
+      email,
+    });
+
+    {
+      const dialog = await initiateEditing(page, 0);
+      assertFalse(
+          isVisible(dialog.$.accountRecordTypeNotice),
+          'account notice should be invisible for non-account address');
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+
+    await flushTasks();
+
+    {
+      const dialog = await initiateEditing(page, 1);
+      assertTrue(
+          isVisible(dialog.$.accountRecordTypeNotice),
+          'account notice should be visible for account address');
+
+      assertEquals(
+          dialog.$.accountRecordTypeNotice.innerText,
+          page.i18n('editAccountAddressRecordTypeNotice', email));
+
+      dialog.$.dialog.close();
+      // Make sure closing clean-ups are finished.
+      await eventToPromise('close', dialog.$.dialog);
+    }
+  });
+
+  interface GmailOtpFillingOptions {
+    profileEnabled?: boolean;
+    gmailOtpFilling?: boolean;
+    accountInfo?: chrome.autofillPrivate.AccountInfo|null;
+  }
+
+  interface ContactInfoPageElementWithToggle {
+    page: SettingsContactInfoPageElement;
+    toggle: SettingsToggleButtonElement|null;
+  }
+
+  async function createContactInfoPageForGmailOtpFilling({
+    profileEnabled = true,
+    gmailOtpFilling = false,
+    accountInfo,
+  }: GmailOtpFillingOptions = {}): Promise<ContactInfoPageElementWithToggle> {
+    const page = await createContactInfoPage(
+        [], {
+          profile_enabled: {
+            type: chrome.settingsPrivate.PrefType.BOOLEAN,
+            value: profileEnabled,
+          },
+          gmail_otp_filling: {
+            enabled: {
+              type: chrome.settingsPrivate.PrefType.BOOLEAN,
+              value: gmailOtpFilling,
+            },
+          },
+        },
+        accountInfo);
+    await flushTasks();
+    const toggle =
+        page.shadowRoot!.querySelector<SettingsToggleButtonElement>(
+            '#autofillOtpFillingToggle');
+    return {page, toggle};
+  }
+
+  test('OtpFillingToggleShown', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    const {toggle} = await createContactInfoPageForGmailOtpFilling();
+
+    assertTrue(!!toggle);
+  });
+
+  test('OtpFillingToggleHiddenWhenSignedOut', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    const {toggle} =
+        await createContactInfoPageForGmailOtpFilling({accountInfo: null});
+
+    assertFalse(!!toggle);
+  });
+
+  test('OtpFillingToggleHiddenWhenFlagDisabled', async function() {
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: false});
+    const {toggle} = await createContactInfoPageForGmailOtpFilling();
+
+    assertFalse(!!toggle);
+  });
+
+  test('OtpFillingToggleDisabledThenToggledAndEnabled', async function() {
+    const metricsTracker = fakeMetricsPrivate();
+    loadTimeData.overrideValues({autofillGmailOtpFillingEnabled: true});
+    const {page, toggle} = await createContactInfoPageForGmailOtpFilling();
+    assertTrue(!!toggle);
+
+    assertTrue(isVisible(toggle));
+    assertFalse(toggle.checked);
+    assertFalse(
+        page.getPref<boolean>('autofill.gmail_otp_filling.enabled').value);
+
+    toggle.click();
+
+    assertTrue(isVisible(toggle));
+    assertTrue(toggle.checked);
+    assertTrue(
+        page.getPref<boolean>('autofill.gmail_otp_filling.enabled').value);
+    assertEquals(
+        1, metricsTracker.count('Autofill.GmailOtpOptIn.SettingsChange', true));
+
+    toggle.click();
+    assertFalse(toggle.checked);
+    assertEquals(
+        1,
+        metricsTracker.count('Autofill.GmailOtpOptIn.SettingsChange', false));
+  });
+});
+
+suite('ContactInfoPageAddressTests', function() {
+  let countryDetailManager: TestCountryDetailManagerProxy;
+  let metricsTracker: MetricsTracker;
+
+  setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    metricsTracker = fakeMetricsPrivate();
+
+    countryDetailManager = new TestCountryDetailManagerProxy();
+    CountryDetailManagerProxyImpl.setInstance(countryDetailManager);
+
+    countryDetailManager.setGetCountryListRepsonse([
+      {name: 'United States', countryCode: 'US'},  // Default country.
+      {name: 'Israel', countryCode: 'IL'},
+      {name: 'United Kingdom', countryCode: 'GB'},
+    ]);
+    countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_US);
+  });
+
+  test('verifyAutofillAddressToggleMetric', async function() {
+    const page =
+        await createContactInfoPage([], {profile_enabled: {value: true}});
+    const button = page.$.autofillProfileToggle;
+    assertTrue(!!button);
+
+    // The address profile toggle is on by default.
+    assertTrue(button.checked);
+    assertEquals(metricsTracker.count('Autofill.Address.IsEnabled.Change'), 0);
+
+    // Test that toggling the button off records the correct metric.
+    button.click();
+    assertEquals(metricsTracker.count('Autofill.Address.IsEnabled.Change'), 1);
+    assertEquals(
+        metricsTracker.count(
+            'Autofill.Address.IsEnabled.Change',
+            AutofillAddressOptInChange.OPT_OUT),
+        1);
+
+    // Test that toggling the button on records the correct metric.
+    button.click();
+    assertEquals(metricsTracker.count('Autofill.Address.IsEnabled.Change'), 2);
+    assertEquals(
+        metricsTracker.count(
+            'Autofill.Address.IsEnabled.Change',
+            AutofillAddressOptInChange.OPT_IN),
+        1);
+  });
+
+  test('verifyNoAddresses', async function() {
+    const page =
+        await createContactInfoPage([], {profile_enabled: {value: true}});
+
+    const addressList = page.$.addressList;
+    assertTrue(!!addressList);
+    // 1 for the template element.
+    assertEquals(1, addressList.children.length);
+
+    assertFalse(page.$.noAddressesLabel.hidden);
+    assertFalse(page.$.addAddress.disabled);
+    assertFalse(page.$.autofillProfileToggle.disabled);
+  });
+
+  test('verifyAddressCount', async function() {
+    const addresses = [
+      createAddressEntry(),
+      createAddressEntry(),
+      createAddressEntry(),
+      createAddressEntry(),
+      createAddressEntry(),
+    ];
+
+    const page = await createContactInfoPage(
+        addresses, {profile_enabled: {value: true}});
+
+    const addressList = page.$.addressList;
+    assertTrue(!!addressList);
+    assertEquals(
+        addresses.length, addressList.querySelectorAll('.list-item').length);
+
+    assertTrue(page.$.noAddressesLabel.hidden);
+    assertFalse(page.$.autofillProfileToggle.disabled);
+    assertFalse(page.$.addAddress.disabled);
+  });
+
+  test('verifyAddressDisabled', async function() {
+    const page =
+        await createContactInfoPage([], {profile_enabled: {value: false}});
+
+    assertFalse(page.$.autofillProfileToggle.disabled);
+    assertFalse(page.$.addAddress.hidden);
+    assertTrue(page.$.addAddress.disabled);
+  });
+
+  test('verifyAddressFields', async function() {
+    const address = createAddressEntry();
+    const page = await createContactInfoPage([address], {});
+    const addressList = page.$.addressList;
+    const row = addressList.children[0];
+    assertTrue(!!row);
+
+    const addressSummary =
+        address.metadata!.summaryLabel + address.metadata!.summarySublabel;
+
+    let actualSummary = '';
+
+    // Eliminate white space between nodes!
+    const addressPieces = row.querySelector('#addressSummary')!.children;
+    for (const addressPiece of addressPieces) {
+      actualSummary += addressPiece.textContent.trim();
+    }
+
+    assertEquals(addressSummary, actualSummary);
+  });
+
+  test('verifyAddressLocalIndication', async () => {
+    const autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [createAddressEntry()];
+    autofillManager.data.accountInfo = {
+      ...STUB_USER_ACCOUNT_INFO,
+      isSyncEnabledForAutofillProfiles: true,
+    };
+    AutofillManagerImpl.setInstance(autofillManager);
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await autofillManager.whenCalled('getAddressList');
+    await flushTasks();
+
+    const addressList = page.$.addressList;
+    const getIcon = () => addressList.children[0]!.querySelector<HTMLElement>(
+        '#address-row-icon');
+
+    const iconName1 = getIcon()!.getAttribute('icon');
+    assertFalse(
+        !!iconName1 && iconName1.includes('cloud-off'),
+        'Sync for addresses is enabled, the local indicator should be off.');
+
+    const changeListener =
+        autofillManager.lastCallback.setPersonalDataManagerListener!;
+    changeListener(autofillManager.data.addresses, [], [], [], undefined);
+    const iconName2 = getIcon()!.getAttribute('icon');
+    assertFalse(
+        !!iconName2 && iconName2.includes('cloud-off'),
+        'The local indicator should not be shown to logged-out users');
+
+    changeListener(
+        autofillManager.data.addresses, [], [], [], STUB_USER_ACCOUNT_INFO);
+    assertTrue(
+        isVisible(getIcon()),
+        'Sync is disabled but the feature is on, the icon should be visible.');
+
+    document.body.removeChild(page);
+  });
+
+  test('verifyNoAddressLocalIndicationForAccountNameEmail', async () => {
+    const nameEmailAddress = createAddressEntry();
+    nameEmailAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_NAME_EMAIL;
+
+    const autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [nameEmailAddress];
+    autofillManager.data.accountInfo = {
+      ...STUB_USER_ACCOUNT_INFO,
+    };
+    AutofillManagerImpl.setInstance(autofillManager);
+
+    const page = document.createElement('settings-contact-info-page');
+    document.body.appendChild(page);
+    await autofillManager.whenCalled('getAddressList');
+    await flushTasks();
+
+    const addressList = page.$.addressList;
+    const getIcon = () => addressList.children[0]!.querySelector<HTMLElement>(
+        '#address-row-icon');
+    const iconName = getIcon()!.getAttribute('icon');
+    assertFalse(
+        !!iconName && iconName.includes('cloud-off'),
+        'Local indicator should not be shown on account name email profile');
+    document.body.removeChild(page);
+  });
+
+  test('verifyAddressRowButtonTriggersDropdown', async function() {
+    const address = createAddressEntry();
+    const page = await createContactInfoPage([address], {});
+    const addressList = page.$.addressList;
+    const row = addressList.children[0];
+    assertTrue(!!row);
+    const menuButton = row.querySelector<HTMLElement>('.address-menu');
+    assertTrue(!!menuButton);
+    menuButton.click();
+    flush();
+
+    assertTrue(!!page.shadowRoot!.querySelector('#menuEditAddress'));
+  });
+
+  test('verifyAccountHomeAddressEdit', async function() {
+    const openWindowProxy = new TestOpenWindowProxy();
+    OpenWindowProxyImpl.setInstance(openWindowProxy);
+    const homeAddress = createAddressEntry();
+    homeAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_HOME;
+    const page = await createContactInfoPage([homeAddress], {});
+
+    const addressList = page.$.addressList;
+    const row = addressList.children[0];
+    assertTrue(!!row);
+    const menuButton = row.querySelector<HTMLElement>('.address-menu');
+    assertTrue(!!menuButton);
+    menuButton.click();
+    flush();
+
+    const editButton =
+        page.shadowRoot!.querySelector<HTMLElement>('#menuEditAddress');
+    assertTrue(!!editButton);
+    editButton.click();
+
+    const url = await openWindowProxy.whenCalled('openUrl');
+    assertEquals(url, loadTimeData.getString('googleAccountHomeAddressUrl'));
+  });
+
+  test('verifyAccountWorkAddressEdit', async function() {
+    const openWindowProxy = new TestOpenWindowProxy();
+    OpenWindowProxyImpl.setInstance(openWindowProxy);
+    const workAddress = createAddressEntry();
+    workAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_WORK;
+    const page = await createContactInfoPage([workAddress], {});
+
+    const addressList = page.$.addressList;
+    const row = addressList.children[0];
+    assertTrue(!!row);
+    const menuButton = row.querySelector<HTMLElement>('.address-menu');
+    assertTrue(!!menuButton);
+    menuButton.click();
+    flush();
+
+    const editButton =
+        page.shadowRoot!.querySelector<HTMLElement>('#menuEditAddress');
+    assertTrue(!!editButton);
+    editButton.click();
+
+    const url = await openWindowProxy.whenCalled('openUrl');
+    assertEquals(url, loadTimeData.getString('googleAccountWorkAddressUrl'));
+  });
+
+  test('verifyAccountNameEmailAddressEdit', async function() {
+    const openWindowProxy = new TestOpenWindowProxy();
+    OpenWindowProxyImpl.setInstance(openWindowProxy);
+    const nameEmailAddress = createAddressEntry();
+    nameEmailAddress.metadata!.recordType =
+        chrome.autofillPrivate.AddressRecordType.ACCOUNT_NAME_EMAIL;
+    const page = await createContactInfoPage([nameEmailAddress], {});
+
+    const addressList = page.$.addressList;
+    const row = addressList.children[0];
+    assertTrue(!!row);
+    const menuButton = row.querySelector<HTMLElement>('.address-menu');
+    assertTrue(!!menuButton);
+    menuButton.click();
+    flush();
+
+    const editButton =
+        page.shadowRoot!.querySelector<HTMLElement>('#menuEditAddress');
+    assertTrue(!!editButton);
+    editButton.click();
+
+    const url = await openWindowProxy.whenCalled('openUrl');
+    assertEquals(
+        url, loadTimeData.getString('googleAccountNameEmailAddressEditUrl'));
+  });
+
+  test('verifyAddAddressDialog', async function() {
+    const address = createEmptyAddressEntry();
+    const dialog = await createAddressDialog(address);
+    const title = dialog.shadowRoot!.querySelector('[slot=title]')!;
+    assertEquals(loadTimeData.getString('addAddressTitle'), title.textContent);
+    // A country is preselected.
+    const countrySelect = dialog.$.country;
+    assertTrue(!!countrySelect);
+    assertTrue(!!countrySelect.value);
+  });
+
+  test('verifyEditAddressDialog', async function() {
+    const dialog = await createAddressDialog(createAddressEntry());
+    const title = dialog.shadowRoot!.querySelector('[slot=title]')!;
+    assertEquals(loadTimeData.getString('editAddressTitle'), title.textContent);
+    // Should be possible to save when editing because fields are
+    // populated.
+    assertFalse(dialog.$.saveButton.disabled);
+  });
+
+  // The first editable element should be focused by default.
+  test('verifyFirstFieldFocused', async function() {
+    const dialog = await createAddressDialog(createEmptyAddressEntry());
+    const currentFocus = dialog.shadowRoot!.activeElement;
+    const editableElements =
+        dialog.$.dialog.querySelectorAll('cr-input, select');
+    assertEquals(editableElements[0], currentFocus);
+  });
+
+  test('verifyRemoveAddressDialogConfirmed', async function() {
+    const autofillManager = new TestAutofillManager();
+    const removeAddressDialog =
+        await createRemoveAddressDialog(autofillManager);
+
+    // Wait for the dialog to open.
+    await whenAttributeIs(removeAddressDialog.$.dialog, 'open', '');
+
+    removeAddressDialog.$.remove.click();
+
+    // Wait for the dialog to close.
+    await eventToPromise('close', removeAddressDialog);
+
+    assertTrue(removeAddressDialog.wasConfirmed());
+    assertEquals(
+        1,
+        metricsTracker.count('Autofill.ProfileDeleted.Settings.Account', true));
+    assertEquals(
+        0,
+        metricsTracker.count(
+            'Autofill.ProfileDeleted.Settings.Account', false));
+    assertEquals(
+        1,
+        metricsTracker.count('Autofill.ProfileDeleted.Settings.Total', true));
+    assertEquals(
+        0,
+        metricsTracker.count('Autofill.ProfileDeleted.Settings.Total', false));
+    assertEquals(
+        1, metricsTracker.count('Autofill.ProfileDeleted.Any.Account', true));
+    assertEquals(
+        0, metricsTracker.count('Autofill.ProfileDeleted.Any.Account', false));
+    assertEquals(
+        1, metricsTracker.count('Autofill.ProfileDeleted.Any.Total', true));
+    assertEquals(
+        0, metricsTracker.count('Autofill.ProfileDeleted.Any.Total', false));
+
+    const expected = new AutofillManagerExpectations();
+    expected.requestedAddresses = 1;
+    expected.listeningAddresses = 1;
+    expected.removeAddress = 1;
+    autofillManager.assertExpectations(expected);
+  });
+
+  test('verifyRemoveAddressDialogCanceled', async function() {
+    const autofillManager = new TestAutofillManager();
+    const removeAddressDialog =
+        await createRemoveAddressDialog(autofillManager);
+
+    // Wait for the dialog to open.
+    await whenAttributeIs(removeAddressDialog.$.dialog, 'open', '');
+
+    removeAddressDialog.$.cancel.click();
+
+    // Wait for the dialog to close.
+    await eventToPromise('close', removeAddressDialog);
+    assertFalse(removeAddressDialog.wasConfirmed());
+    assertEquals(
+        0,
+        metricsTracker.count('Autofill.ProfileDeleted.Settings.Account', true));
+    assertEquals(
+        1,
+        metricsTracker.count(
+            'Autofill.ProfileDeleted.Settings.Account', false));
+    assertEquals(
+        0,
+        metricsTracker.count('Autofill.ProfileDeleted.Settings.Total', true));
+    assertEquals(
+        1,
+        metricsTracker.count('Autofill.ProfileDeleted.Settings.Total', false));
+    assertEquals(
+        0, metricsTracker.count('Autofill.ProfileDeleted.Any.Account', true));
+    assertEquals(
+        1, metricsTracker.count('Autofill.ProfileDeleted.Any.Account', false));
+    assertEquals(
+        0, metricsTracker.count('Autofill.ProfileDeleted.Any.Total', true));
+    assertEquals(
+        1, metricsTracker.count('Autofill.ProfileDeleted.Any.Total', false));
+
+    const expected = new AutofillManagerExpectations();
+    expected.requestedAddresses = 1;
+    expected.listeningAddresses = 1;
+    expected.removeAddress = 0;
+    autofillManager.assertExpectations(expected);
+  });
+
+  test('verifyCountryIsSaved', async function() {
+    const address = createEmptyAddressEntry();
+    const dialog = await createAddressDialog(address);
+    const countrySelect = dialog.$.country;
+    assertTrue(!!countrySelect);
+    // The country should be pre-selected.
+    assertEquals('US', countrySelect.value);
+    countrySelect.value = 'GB';
+    countrySelect.dispatchEvent(new CustomEvent('change'));
+    flush();
+    assertEquals('GB', countrySelect.value);
+  });
+
+  test('verifyLanguageCodeIsSaved', async function() {
+    const address = createEmptyAddressEntry();
+    // TODO(crbug.com/403312087): Don't nest promise callbacks (here and
+    // everywhere else in this file). Use async/await instead. Check this
+    // comment for more info: crrev.com/c/6348920/comment/25b26a8a_d69cf940/
+    const dialog = await createAddressDialog(address);
+    const countrySelect = dialog.$.country;
+    assertTrue(!!countrySelect);
+    // The first country is pre-selected.
+    assertEquals('US', countrySelect.value);
+    assertEquals('en', address.languageCode);
+    countrySelect.value = 'IL';
+    countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_IL);
+    countrySelect.dispatchEvent(new CustomEvent('change'));
+    flush();
+    await eventToPromise('on-update-address-wrapper', dialog);
+    assertEquals('IL', countrySelect.value);
+    assertEquals('iw', address.languageCode);
+  });
+
+  test('verifyPhoneAndEmailAreSaved', async () => {
+    const address = createEmptyAddressEntry();
+    const dialog = await createAddressDialog(address);
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    assertGT(rows.length, 0, 'dialog should contain address rows');
+
+    const lastRow = rows[rows.length - 1]!;
+    const phoneInput =
+        lastRow.querySelector<CrInputElement>('cr-input:nth-of-type(1)');
+    const emailInput =
+        lastRow.querySelector<CrInputElement>('cr-input:nth-of-type(2)');
+
+    assertTrue(!!phoneInput, 'phone element should be the first cr-input');
+    assertTrue(!!emailInput, 'email element should be the second cr-input');
+
+    assertEquals(undefined, phoneInput.value);
+    assertFalse(
+        !!getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER));
+
+    assertEquals(undefined, emailInput.value);
+    assertFalse(!!getAddressFieldValue(address, FieldType.EMAIL_ADDRESS));
+
+    const phoneNumber = '(555) 555-5555';
+    const emailAddress = 'no-reply@chromium.org';
+
+    phoneInput.value = phoneNumber;
+    emailInput.value = emailAddress;
+    await Promise.all([phoneInput.updateComplete, emailInput.updateComplete]);
+    await expectEvent(dialog, 'save-address', function() {
+      dialog.$.saveButton.click();
+    });
+    assertEquals(phoneNumber, phoneInput.value);
+    assertEquals(
+        phoneNumber,
+        getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER));
+
+    assertEquals(emailAddress, emailInput.value);
+    assertEquals(
+        emailAddress, getAddressFieldValue(address, FieldType.EMAIL_ADDRESS));
+  });
+
+  test('verifyPhoneAndEmailAreRemoved', async function() {
+    const address = createEmptyAddressEntry();
+
+    const phoneNumber = '(555) 555-5555';
+    const emailAddress = 'no-reply@chromium.org';
+
+    address.fields.push({
+      type: FieldType.ADDRESS_HOME_COUNTRY,
+      value: 'US',
+    });  // Set to allow save to be active.
+    address.fields.push({
+      type: FieldType.PHONE_HOME_WHOLE_NUMBER,
+      value: phoneNumber,
+    });
+    address.fields.push({type: FieldType.EMAIL_ADDRESS, value: emailAddress});
+
+    const dialog = await createAddressDialog(address);
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    assertGT(rows.length, 0, 'dialog should contain address rows');
+
+    const lastRow = rows[rows.length - 1]!;
+    const phoneInput =
+        lastRow.querySelector<CrInputElement>('cr-input:nth-of-type(1)');
+    const emailInput =
+        lastRow.querySelector<CrInputElement>('cr-input:nth-of-type(2)');
+
+    assertTrue(!!phoneInput, 'phone element should be the first cr-input');
+    assertTrue(!!emailInput, 'email element should be the second cr-input');
+
+    assertEquals(
+        phoneNumber, phoneInput.value,
+        'The input should have the corresponding address field value.');
+    assertEquals(
+        emailAddress, emailInput.value,
+        'The input should have the corresponding address field value.');
+
+    phoneInput.value = '';
+    emailInput.value = '';
+    await flushTasks();
+
+    await expectEvent(dialog, 'save-address', function() {
+      dialog.$.saveButton.click();
+    });
+    assertFalse(
+        !!getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER),
+        'The phone field should be empty.');
+    assertFalse(
+        !!getAddressFieldValue(address, FieldType.EMAIL_ADDRESS),
+        'The email field should be empty.');
+  });
+
+  // Test will set a value of 'foo' in each text field and verify that the
+  // save button is enabled, then it will clear the field and verify that the
+  // save button is disabled. Test passes after all elements have been tested.
+  test('verifySaveIsNotClickableIfAllInputFieldsAreEmpty', async function() {
+    const dialog = await createAddressDialog(createEmptyAddressEntry());
+    const saveButton = dialog.$.saveButton;
+    const testElements =
+        dialog.$.dialog.querySelectorAll<CrTextareaElement|CrInputElement>(
+            'cr-textarea, cr-input');
+
+    // The country can be preselected. Clear it to ensure the form is empty.
+    await expectEvent(dialog, 'on-update-can-save', function() {
+      const countrySelect = dialog.$.country;
+      assertTrue(!!countrySelect);
+      countrySelect.value = '';
+      countrySelect.dispatchEvent(new CustomEvent('change'));
+    });
+    assertEquals(
+        6, testElements.length,
+        'There should be 6 elements: The 4 fields from ' +
+            '`ADDRESS_COMPONENTS_US` + phone + email that are added ' +
+            'separately.');
+
+    assertTrue(saveButton.disabled);
+    for (const element of testElements) {
+      await expectEvent(dialog, 'on-update-can-save', function() {
+        element.value = 'foo';
+      });
+      assertFalse(saveButton.disabled);
+      await expectEvent(dialog, 'on-update-can-save', function() {
+        element.value = '';
+      });
+      assertTrue(saveButton.disabled);
+    }
+  });
+
+  // Setting the country should allow the address to be saved.
+  test('verifySaveIsNotClickableIfCountryNotSet', async function() {
+    function simulateCountryChange(countryCode: string) {
+      const countrySelect = dialog.$.country;
+      assertTrue(!!countrySelect);
+      countrySelect.value = countryCode;
+      countrySelect.dispatchEvent(new CustomEvent('change'));
+    }
+
+    const dialog = await createAddressDialog(createEmptyAddressEntry());
+    const countrySelect = dialog.$.country;
+    assertTrue(!!countrySelect);
+    // A country code is preselected.
+    assertFalse(dialog.$.saveButton.disabled);
+    assertEquals(countrySelect.value, 'US');
+
+    await expectEvent(
+        dialog, 'on-update-can-save', simulateCountryChange.bind(null, 'GB'));
+    assertFalse(dialog.$.saveButton.disabled);
+
+    await expectEvent(
+        dialog, 'on-update-can-save', simulateCountryChange.bind(null, ''));
+    assertTrue(dialog.$.saveButton.disabled);
+  });
+
+  // Test will timeout if save-address event is not fired.
+  test('verifyDefaultCountryIsAppliedWhenSaving', async function() {
+    const address = createEmptyAddressEntry();
+    address.fields.push({type: FieldType.NAME_FULL, value: 'Name'});
+    const dialog = await createAddressDialog(address);
+    await expectEvent(dialog, 'save-address', function() {
+      // Verify |countryCode| is not set.
+      assertEquals(
+          undefined,
+          getAddressFieldValue(address, FieldType.ADDRESS_HOME_COUNTRY));
+      dialog.$.saveButton.click();
+    });
+    // 'US' is the default country for these tests.
+    const countrySelect = dialog.$.country;
+    assertTrue(!!countrySelect);
+    assertEquals('US', countrySelect.value);
+  });
+
+  test(
+      'verifyNoSaveAddressEventWhenEditDialogCancelButtonIsClicked',
+      async function() {
+        const dialog = await createAddressDialog(createAddressEntry());
+
+        let saveFired = false;
+        eventToPromise('save-address', dialog).then(() => {
+          saveFired = true;
+        });
+
+        const cancelPromise = eventToPromise('cancel', dialog);
+        dialog.$.cancelButton.click();
+        await cancelPromise;
+
+        assertEquals(
+            1, metricsTracker.count('Autofill.Settings.EditAddress', false));
+
+        // Wait a bit to ensure save-address isn't fired.
+        await new Promise(resolve => window.setTimeout(resolve, 100));
+        assertFalse(saveFired);
+      });
+
+  test(
+      'verifyNoCancelEventWhenEditDialogSaveButtonIsClicked', async function() {
+        const dialog = await createAddressDialog(createAddressEntry());
+
+        let cancelFired = false;
+        eventToPromise('cancel', dialog).then(() => {
+          cancelFired = true;
+        });
+
+        const savePromise = eventToPromise('save-address', dialog);
+        dialog.$.saveButton.click();
+        await savePromise;
+
+        assertEquals(
+            1, metricsTracker.count('Autofill.Settings.EditAddress', true));
+
+        // Wait a bit to ensure cancel isn't fired.
+        await new Promise(resolve => window.setTimeout(resolve, 100));
+        assertFalse(cancelFired);
+      });
+
+  test('verifySyncRecordTypeNoticeForNewAddress', async () => {
+    const page = await createContactInfoPage([], {}, {
+      ...STUB_USER_ACCOUNT_INFO,
+      email: 'stub-user@example.com',
+      isSyncEnabledForAutofillProfiles: true,
+      isEligibleForAddressAccountStorage: false,
+    });
+
+    const dialog = await openAddressDialog(page);
+
+    assertTrue(
+        !isVisible(dialog.$.accountRecordTypeNotice),
+        'account notice should be invisible for non-account address');
+
+    document.body.removeChild(page);
+  });
+
+  test('verifyAccountRecordTypeNoticeForNewAddress', async () => {
+    const email = 'stub-user@example.com';
+    const page = await createContactInfoPage([], {}, {
+      ...STUB_USER_ACCOUNT_INFO,
+      email,
+      isSyncEnabledForAutofillProfiles: true,
+      isEligibleForAddressAccountStorage: true,
+    });
+
+    const dialog = await openAddressDialog(page);
+
+    assertTrue(
+        isVisible(dialog.$.accountRecordTypeNotice),
+        'account notice should be visible as the user is eligible');
+
+    assertEquals(
+        dialog.$.accountRecordTypeNotice.innerText,
+        page.i18n('newAccountAddressRecordTypeNotice', email));
+
+    document.body.removeChild(page);
+  });
+});
+
+suite('ContactInfoPageAddressLocaleTests', function() {
+  let countryDetailManager: TestCountryDetailManagerProxy;
+
+  setup(function() {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+
+    countryDetailManager = new TestCountryDetailManagerProxy();
+    CountryDetailManagerProxyImpl.setInstance(countryDetailManager);
+
+    countryDetailManager.setGetCountryListRepsonse([
+      {name: 'United States', countryCode: 'US'},  // Default country.
+      {name: 'Israel', countryCode: 'IL'},
+      {name: 'United Kingdom', countryCode: 'GB'},
+    ]);
+    countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_US);
+  });
+
+  // US address has 3 fields on the same line.
+  test('verifyEditingUSAddress', async function() {
+    const address = createEmptyAddressEntry();
+
+    address.fields = [
+      {type: FieldType.ADDRESS_HOME_COUNTRY, value: 'US'},
+      {type: FieldType.NAME_FULL, value: 'Name'},
+      {type: FieldType.ADDRESS_HOME_CITY, value: 'City'},
+      {type: FieldType.ADDRESS_HOME_STATE, value: 'State'},
+      {type: FieldType.ADDRESS_HOME_ZIP, value: 'ZIP code'},
+      {type: FieldType.PHONE_HOME_WHOLE_NUMBER, value: 'Phone'},
+      {type: FieldType.EMAIL_ADDRESS, value: 'Email'},
+    ];
+
+    const dialog = await createAddressDialog(address);
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    assertEquals(
+        4, rows.length,
+        'There should be 4 rows: Country, Name, City + State + Zip, ' +
+            'Phone + Email');
+
+    let index = 0;
+    // Country
+    let row = rows[index]!;
+    const countrySelect = row.querySelector('select');
+    assertTrue(!!countrySelect);
+    assertEquals(
+        'United States', countrySelect.selectedOptions[0]!.textContent.trim());
+    index++;
+    // Name
+    row = rows[index]!;
+    let cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.NAME_FULL), cols[0]!.value);
+    index++;
+    // City, State, ZIP code
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(3, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_CITY),
+        cols[0]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_STATE),
+        cols[1]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_ZIP),
+        cols[2]!.value);
+    index++;
+    // Phone, Email
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(2, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER),
+        cols[0]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.EMAIL_ADDRESS), cols[1]!.value);
+  });
+
+  // GB address has 1 field per line for all lines that change.
+  test('verifyEditingGBAddress', async function() {
+    const address = createEmptyAddressEntry();
+
+    address.fields = [
+      {type: FieldType.ADDRESS_HOME_COUNTRY, value: 'GB'},
+      {type: FieldType.NAME_FULL, value: 'Name'},
+      {type: FieldType.ADDRESS_HOME_CITY, value: 'Post town'},
+      {type: FieldType.ADDRESS_HOME_ZIP, value: 'Postal code'},
+      {type: FieldType.ADDRESS_HOME_STATE, value: 'County'},
+      {type: FieldType.PHONE_HOME_WHOLE_NUMBER, value: 'Phone'},
+      {type: FieldType.EMAIL_ADDRESS, value: 'Email'},
+    ];
+
+    countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_GB);
+    const dialog = await createAddressDialog(address);
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    assertEquals(
+        6, rows.length,
+        'There should be 6 rows: Country, Name, City, Zip, State, ' +
+            'Phone + Email');
+
+    let index = 0;
+    // Country
+    let row = rows[index]!;
+    const countrySelect = row.querySelector('select');
+    assertTrue(!!countrySelect);
+    assertEquals(
+        'United Kingdom', countrySelect.selectedOptions[0]!.textContent.trim());
+    index++;
+    // Name
+    row = rows[index]!;
+    let cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.NAME_FULL), cols[0]!.value);
+    index++;
+    // Post Town
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_CITY),
+        cols[0]!.value);
+    index++;
+    // Postal code
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_ZIP),
+        cols[0]!.value);
+    index++;
+    // County
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_STATE),
+        cols[0]!.value);
+    index++;
+    // Phone, Email
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(2, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER),
+        cols[0]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.EMAIL_ADDRESS), cols[1]!.value);
+  });
+
+  // IL address has 2 fields on the same line and is an RTL locale.
+  // RTL locale shouldn't affect this test.
+  test('verifyEditingILAddress', async function() {
+    const address = createEmptyAddressEntry();
+    address.fields = [
+      {type: FieldType.ADDRESS_HOME_COUNTRY, value: 'IL'},
+      {type: FieldType.NAME_FULL, value: 'Name'},
+      {type: FieldType.ADDRESS_HOME_CITY, value: 'City'},
+      {type: FieldType.ADDRESS_HOME_ZIP, value: 'Postal code'},
+      {type: FieldType.PHONE_HOME_WHOLE_NUMBER, value: 'Phone'},
+      {type: FieldType.EMAIL_ADDRESS, value: 'Email'},
+    ];
+
+    countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_IL);
+    const dialog = await createAddressDialog(address);
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    assertEquals(
+        4, rows.length,
+        'There should be 4 rows: Country, Name, City + Zip, Phone + Email');
+
+    let index = 0;
+    // Country
+    let row = rows[index]!;
+    const countrySelect = row.querySelector('select');
+    assertTrue(!!countrySelect);
+    assertEquals(
+        'Israel', countrySelect.selectedOptions[0]!.textContent.trim());
+    index++;
+    // Name
+    row = rows[index]!;
+    let cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.NAME_FULL)!, cols[0]!.value);
+    index++;
+    // City, Postal code
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(2, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_CITY),
+        cols[0]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_ZIP),
+        cols[1]!.value);
+    index++;
+    // Phone, Email
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(2, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER),
+        cols[0]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.EMAIL_ADDRESS), cols[1]!.value);
+  });
+
+  // Testing address edit dialog in an RTL layout by setting the document
+  // direction to 'rtl'. The phone number input should have direction=ltr and
+  // text-align=end.
+  test('verifyEditingILAddressWithRtlLayout', async function() {
+    document.documentElement.dir = 'rtl';
+    const address = createEmptyAddressEntry();
+    address.fields = [
+      {type: FieldType.ADDRESS_HOME_COUNTRY, value: 'IL'},
+      {type: FieldType.NAME_FULL, value: 'Name'},
+      {type: FieldType.ADDRESS_HOME_CITY, value: 'City'},
+      {type: FieldType.ADDRESS_HOME_ZIP, value: 'Postal code'},
+      {type: FieldType.PHONE_HOME_WHOLE_NUMBER, value: 'Phone'},
+      {type: FieldType.EMAIL_ADDRESS, value: 'Email'},
+    ];
+
+    countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_IL);
+    const dialog = await createAddressDialog(address);
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    // There should be 4 rows: Country, Name, City + Zip, Phone + Email
+    assertEquals(4, rows.length);
+
+    let index = 0;
+    // Country
+    let row = rows[index]!;
+    const countrySelect = row.querySelector('select');
+    assertTrue(!!countrySelect);
+    assertEquals(
+        'Israel', countrySelect.selectedOptions[0]!.textContent.trim());
+    index++;
+    // Name
+    row = rows[index]!;
+    let cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(1, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.NAME_FULL)!, cols[0]!.value);
+    index++;
+    // City, Postal code
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(2, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_CITY),
+        cols[0]!.value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.ADDRESS_HOME_ZIP),
+        cols[1]!.value);
+    index++;
+    // Phone, Email
+    row = rows[index]!;
+    cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(2, cols.length);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.PHONE_HOME_WHOLE_NUMBER),
+        cols[0]!.value);
+    assertTrue(cols[0]!.classList.contains('phone-number-input'));
+    const phoneInput = (cols[0]! as CrInputElement).inputElement;
+    assertEquals(
+        'ltr',
+        (phoneInput.computedStyleMap().get('direction') as CSSUnitValue).value);
+    assertEquals(
+        'end',
+        (phoneInput.computedStyleMap().get('text-align') as CSSUnitValue)
+            .value);
+    assertEquals(
+        getAddressFieldValue(address, FieldType.EMAIL_ADDRESS), cols[1]!.value);
+  });
+
+  // US has an extra field 'State'. Validate that this field is
+  // persisted when switching to IL then back to US.
+  test('verifyAddressPersistanceWhenSwitchingCountries', async function() {
+    const address = createEmptyAddressEntry();
+    address.fields.push({type: FieldType.ADDRESS_HOME_COUNTRY, value: 'US'});
+
+    const dialog = await createAddressDialog(address);
+    const city = 'Los Angeles';
+    const state = 'CA';
+    const zip = '90291';
+    const countrySelect = dialog.$.country;
+    assertTrue(!!countrySelect);
+
+    await expectEvent(dialog, 'on-update-address-wrapper', function() {
+      // US:
+      const rows = dialog.$.dialog.querySelectorAll('.address-row');
+      assertEquals(
+          4, rows.length,
+          'There should be 4 rows: Country, Name, City + State ' +
+              '+ Zip, Phone + Email');
+
+      // City, State, ZIP code
+      const row = rows[2]!;
+      const cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+          '.address-column');
+      assertEquals(3, cols.length);
+      cols[0]!.value = city;
+      cols[1]!.value = state;
+      cols[2]!.value = zip;
+
+      countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_IL);
+      countrySelect.value = 'IL';
+      countrySelect.dispatchEvent(new CustomEvent('change'));
+    });
+
+    await expectEvent(dialog, 'on-update-address-wrapper', function() {
+      // IL:
+      const rows = dialog.$.dialog.querySelectorAll('.address-row');
+      assertEquals(
+          4, rows.length,
+          'There should be 4 rows: Country, Name, City + Zip, ' +
+              'Phone + Email');
+
+      // City, Postal code
+      const row = rows[2]!;
+      const cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+          '.address-column');
+      assertEquals(2, cols.length);
+      assertEquals(city, cols[0]!.value);
+      assertEquals(zip, cols[1]!.value);
+
+      countryDetailManager.setGetAddressFormatRepsonse(ADDRESS_COMPONENTS_US);
+      countrySelect.value = 'US';
+      countrySelect.dispatchEvent(new CustomEvent('change'));
+    });
+
+    // US:
+    const rows = dialog.$.dialog.querySelectorAll('.address-row');
+    assertEquals(
+        4, rows.length,
+        'There should be 4 rows: Country, Name, City + State + Zip, ' +
+            'Phone + Email');
+
+    // City, State, ZIP code
+    const row = rows[2]!;
+    const cols = row.querySelectorAll<CrTextareaElement|CrInputElement>(
+        '.address-column');
+    assertEquals(3, cols.length);
+    assertEquals(city, cols[0]!.value);
+    assertEquals(state, cols[1]!.value);
+    assertEquals(zip, cols[2]!.value);
+  });
+});

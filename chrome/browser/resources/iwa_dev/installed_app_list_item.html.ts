@@ -11,7 +11,8 @@ export function getHtml(this: InstalledAppListItemElement) {
   return html`
 <div id="icon-circle">
   ${this.app.name.length > 0 ? html`
-    <img src="chrome://app-icon/${this.app.appId}/48" alt="">
+    <img id="app-icon" draggable="false"
+         src="chrome://app-icon/${this.app.appId}/48" alt="">
   ` : ''}
 </div>
 <div id="details">
@@ -20,11 +21,17 @@ export function getHtml(this: InstalledAppListItemElement) {
     <span id="version">v${this.app.installedVersion}</span>
     <span id="source-text">• ${this.sourceMetadata.label}</span>
   </div>
-  <div id="id">ID: ${this.app.appId}</div>
+  <div id="id">ID: ${this.app.webBundleId}</div>
   <div id="source">${this.sourceMetadata.description}</div>
 </div>
-<cr-button id="uninstall-btn" @click="${this.onUninstallClick}">
-  Uninstall
-</cr-button>
+<div id="actions">
+  <cr-button id="update-btn" ?disabled="${this.isUpdating}"
+      @click="${this.onUpdateClick}">
+    Update
+  </cr-button>
+  <cr-button id="uninstall-btn" @click="${this.onUninstallClick}">
+    Uninstall
+  </cr-button>
+</div>
 `;
 }

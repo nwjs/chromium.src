@@ -27,6 +27,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/foreign_layer_display_item.h"
 #include "third_party/blink/renderer/platform/graphics/paint/scoped_paint_chunk_properties.h"
+#include "ui/gfx/geometry/point.h"
 
 namespace blink {
 
@@ -73,10 +74,21 @@ void EmbeddedContentPainter::PaintReplaced(const PaintInfo& paint_info,
         paint_offset + layout_embedded_content_.ReplacedContentRect().offset);
   }
 
-  gfx::Vector2d view_paint_offset =
-      paint_location - embedded_content_view->FrameRect().origin();
-  CullRect adjusted_cull_rect = paint_info.GetCullRect();
-  adjusted_cull_rect.Move(-view_paint_offset);
+  gfx::Vector2d view_paint_offset = paint_location.OffsetFromOrigin();
+  CullRect adjusted_cull_rect;
+  if (RuntimeEnabledFeatures::AvoidEmbeddedContentViewLocationEnabled()) {
+    if (!paint_info.IntersectsCullRect(
+            PhysicalRect(gfx::Rect(embedded_content_view->Size())),
+            PhysicalOffset(view_paint_offset))) {
+      return;
+    }
+    // `adjusted_cull_rect` won't be used in Paint().
+  } else {
+    view_paint_offset -=
+        embedded_content_view->DeprecatedLocation().OffsetFromOrigin();
+    adjusted_cull_rect = paint_info.GetCullRect();
+    adjusted_cull_rect.Move(-view_paint_offset);
+  }
   embedded_content_view->Paint(paint_info, adjusted_cull_rect,
                                view_paint_offset);
 
@@ -95,7 +107,7 @@ void EmbeddedContentPainter::PaintReplaced(const PaintInfo& paint_info,
   if (auto layer =
           GetSubframeSnapshotLayer(*embedded_content_view, paint_info.phase)) {
     GraphicsContext& context = paint_info.context;
-    layer->SetBounds(embedded_content_view->FrameRect().size());
+    layer->SetBounds(embedded_content_view->Size());
     layer->SetIsDrawable(true);
     RecordForeignLayer(context, layout_embedded_content_,
                        DisplayItem::kForeignLayerViewTransitionContent,

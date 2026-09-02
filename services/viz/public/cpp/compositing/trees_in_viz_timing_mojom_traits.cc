@@ -11,19 +11,27 @@ namespace mojo {
 using Traits =
     StructTraits<viz::mojom::TreesInVizTimingDataView, viz::TreesInVizTiming>;
 // static
-bool Traits::Read(viz::mojom::TreesInVizTimingDataView data,
-                  viz::TreesInVizTiming* out) {
-  bool success =
-      data.ReadStartUpdateDisplayTree(&out->start_update_display_tree) &&
-      data.ReadStartPrepareToDraw(&out->start_prepare_to_draw) &&
-      data.ReadStartDrawLayers(&out->start_draw_layers) &&
-      data.ReadSubmitCompositorFrame(&out->submit_compositor_frame);
-  if (!success) {
-    return false;
+base::expected<void, DeserializationError> Traits::Read(
+    viz::mojom::TreesInVizTimingDataView data,
+    viz::TreesInVizTiming* out) {
+  if (!data.ReadStartUpdateDisplayTree(&out->start_update_display_tree)) {
+    return base::unexpected(DeserializationError());
   }
-  return out->start_update_display_tree <= out->start_prepare_to_draw &&
-         out->start_prepare_to_draw <= out->start_draw_layers &&
-         out->start_draw_layers <= out->submit_compositor_frame;
+  if (!data.ReadStartPrepareToDraw(&out->start_prepare_to_draw)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadStartDrawLayers(&out->start_draw_layers)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadSubmitCompositorFrame(&out->submit_compositor_frame)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!(out->start_update_display_tree <= out->start_prepare_to_draw &&
+        out->start_prepare_to_draw <= out->start_draw_layers &&
+        out->start_draw_layers <= out->submit_compositor_frame)) {
+    return base::unexpected(DeserializationError());
+  }
+  return base::ok();
 }
 
 }  // namespace mojo

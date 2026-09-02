@@ -60,7 +60,8 @@ WebBundleManager::CreateWebBundleURLLoaderFactory(
     const ResourceRequest::WebBundleTokenParams& web_bundle_token_params,
     int32_t process_id,
     const CrossOriginEmbedderPolicy& cross_origin_embedder_policy,
-    mojom::CrossOriginEmbedderPolicyReporter* coep_reporter) {
+    mojo::PendingRemote<mojom::CrossOriginEmbedderPolicyReporter>
+        coep_reporter) {
   Key key = GetKey(web_bundle_token_params, process_id);
   DCHECK(factories_.find(key) == factories_.end());
   DCHECK(web_bundle_token_params.handle.is_valid());
@@ -81,15 +82,21 @@ WebBundleManager::CreateWebBundleURLLoaderFactory(
       bundle_url, web_bundle_token_params, std::move(remote),
       std::make_unique<MemoryQuotaConsumer>(weak_ptr_factory_.GetWeakPtr(),
                                             process_id),
-      cross_origin_embedder_policy, coep_reporter);
+      cross_origin_embedder_policy, std::move(coep_reporter));
 
   // Process pending subresource loaders if there are.
   // These subresource requests arrived earlier than the request for the bundle.
   auto it = pending_loaders_.find(key);
   if (it != pending_loaders_.end()) {
-    for (auto& loader : it->second)
-      factory->StartLoader(loader);
+    // Detach the vector and erase the map entry before invoking StartLoader(),
+    // because a synchronous failure inside StartLoader() can reentrantly
+    // call CleanUpWillBeDeletedURLLoader() and modify pending_loaders_.
+    std::vector<base::WeakPtr<WebBundleURLLoaderFactory::URLLoader>>
+        pending_loaders = std::move(it->second);
     pending_loaders_.erase(it);
+    for (auto& loader : pending_loaders) {
+      factory->StartLoader(loader);
+    }
   }
 
   auto weak_factory = factory->GetWeakPtr();

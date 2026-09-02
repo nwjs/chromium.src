@@ -70,7 +70,6 @@ media::VideoFrameMetadata GetFullVideoFrameMetadata() {
   metadata.transformation = media::VIDEO_ROTATION_90;
 
   // bools
-  metadata.allow_overlay = true;
   metadata.copy_required = true;
   metadata.end_of_stream = true;
   metadata.in_surface_view = true;
@@ -112,7 +111,6 @@ media::VideoFrameMetadata GetFullVideoFrameMetadata() {
 
 void VerifyVideoFrameMetadataEquality(const media::VideoFrameMetadata& a,
                                       const media::VideoFrameMetadata& b) {
-  EXPECT_EQ(a.allow_overlay, b.allow_overlay);
   EXPECT_EQ(a.capture_begin_time, b.capture_begin_time);
   EXPECT_EQ(a.capture_end_time, b.capture_end_time);
   EXPECT_EQ(a.capture_counter, b.capture_counter);
@@ -1060,7 +1058,6 @@ TEST(VideoFrameMetadata, PartialMergeMetadata) {
   partial_metadata.capture_update_rect = kTempRect;
   partial_metadata.reference_time = kTempTicks;
   partial_metadata.processing_time = kTempDelta;
-  partial_metadata.allow_overlay = false;
 
   // Merging partial metadata into full metadata partially override it.
   full_metadata.MergeMetadataFrom(partial_metadata);
@@ -1068,12 +1065,11 @@ TEST(VideoFrameMetadata, PartialMergeMetadata) {
   EXPECT_EQ(partial_metadata.capture_update_rect, kTempRect);
   EXPECT_EQ(partial_metadata.reference_time, kTempTicks);
   EXPECT_EQ(partial_metadata.processing_time, kTempDelta);
-  EXPECT_EQ(partial_metadata.allow_overlay, false);
 }
 
 TEST(VideoFrame, AccessPlaneDataSpans) {
-  for (auto format :
-       {PIXEL_FORMAT_XRGB, PIXEL_FORMAT_I420, PIXEL_FORMAT_NV12}) {
+  for (auto format : {PIXEL_FORMAT_XRGB, PIXEL_FORMAT_I420, PIXEL_FORMAT_NV12,
+                      PIXEL_FORMAT_P010LE}) {
     gfx::Size coded_size(100, 100);
     gfx::Rect visible_rect(10, 10, 60, 20);
     std::vector<uint8_t> pixels;
@@ -1283,6 +1279,32 @@ TEST(VideoFrame, GetVisibleSkYUVAPixmaps) {
     auto pixmaps = frame->GetVisiblePlanesSkPixmaps();
     EXPECT_TRUE(pixmaps.empty());
   }
+}
+
+TEST(VideoFrame, WrapTrackingToken) {
+  const gfx::Size coded_size(320, 240);
+  const gfx::Rect visible_rect(10, 10, 300, 220);
+  const gfx::Size natural_size(640, 480);
+  const base::TimeDelta timestamp = base::Seconds(1);
+  const auto tracking_token = base::UnguessableToken::Create();
+
+  auto frame = VideoFrame::WrapTrackingToken(PIXEL_FORMAT_NV12, tracking_token,
+                                             coded_size, visible_rect,
+                                             natural_size, timestamp);
+  ASSERT_TRUE(frame);
+  EXPECT_EQ(frame->format(), PIXEL_FORMAT_NV12);
+  EXPECT_EQ(frame->coded_size(), coded_size);
+  EXPECT_EQ(frame->visible_rect(), visible_rect);
+  EXPECT_EQ(frame->natural_size(), natural_size);
+  EXPECT_EQ(frame->timestamp(), timestamp);
+  EXPECT_EQ(frame->metadata().tracking_token, tracking_token);
+
+  // Invalid config (visible_rect outside coded_size) should return nullptr.
+  const gfx::Rect invalid_visible_rect(0, 0, 400, 400);
+  auto invalid_frame = VideoFrame::WrapTrackingToken(
+      PIXEL_FORMAT_NV12, tracking_token, coded_size, invalid_visible_rect,
+      natural_size, timestamp);
+  EXPECT_FALSE(invalid_frame);
 }
 
 }  // namespace media

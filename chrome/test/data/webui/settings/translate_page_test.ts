@@ -7,15 +7,14 @@ import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import type {CrIconButtonElement, LanguageHelper, SettingsAddLanguagesDialogElement, SettingsTranslatePageElement} from 'chrome://settings/lazy_load.js';
 import {LanguagesBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
-import {CrSettingsPrefs} from 'chrome://settings/settings.js';
+import {CrSettingsPrefs, PrefsBrowserProxy, PrefService} from 'chrome://settings/settings.js';
 import {assertDeepEquals, assertEquals, assertTrue, assertFalse} from 'chrome://webui-test/chai_assert.js';
-import {FakeSettingsPrivate} from 'chrome://webui-test/fake_settings_private.js';
 import {eventToPromise} from 'chrome://webui-test/test_util.js';
 import {fakeDataBind} from 'chrome://webui-test/polymer_test_util.js';
 
-import type {FakeLanguageSettingsPrivate} from './fake_language_settings_private.js';
 import {getFakeLanguagePrefs} from './fake_language_settings_private.js';
 import {TestLanguagesBrowserProxy} from './test_languages_browser_proxy.js';
+import {TestPrefsBrowserProxy} from './test_prefs_browser_proxy.js';
 // clang-format on
 
 suite('TranslatePage', function() {
@@ -34,31 +33,20 @@ suite('TranslatePage', function() {
   });
 
   setup(async function() {
-    const settingsPrefs = document.createElement('settings-prefs');
-    const settingsPrivate = new FakeSettingsPrivate(getFakeLanguagePrefs());
-    settingsPrefs.initialize(settingsPrivate);
-    document.body.appendChild(settingsPrefs);
+    const prefsBrowserProxy = new TestPrefsBrowserProxy(getFakeLanguagePrefs());
+    PrefsBrowserProxy.setInstance(prefsBrowserProxy);
+    PrefService.resetInstanceForTesting();
+    await PrefService.getInstance().whenInitialized();
 
-    await CrSettingsPrefs.initialized;
     // Set up test browser proxy.
     browserProxy = new TestLanguagesBrowserProxy();
     LanguagesBrowserProxyImpl.setInstance(browserProxy);
 
-    // Set up fake languageSettingsPrivate API.
-    const languageSettingsPrivate = browserProxy.getLanguageSettingsPrivate() as
-        unknown as FakeLanguageSettingsPrivate;
-    languageSettingsPrivate.setSettingsPrefs(settingsPrefs);
-
     const settingsLanguages = document.createElement('settings-languages');
-    settingsLanguages.prefs = settingsPrefs.prefs!;
-    fakeDataBind(settingsPrefs, settingsLanguages, 'prefs');
     document.body.appendChild(settingsLanguages);
     languageHelper = settingsLanguages;
 
     translatePage = document.createElement('settings-translate-page');
-
-    translatePage.prefs = settingsPrefs.prefs!;
-    fakeDataBind(settingsPrefs, translatePage, 'prefs');
 
     translatePage.languages = settingsLanguages.languages;
     fakeDataBind(settingsLanguages, translatePage, 'languages');
@@ -82,12 +70,13 @@ suite('TranslatePage', function() {
 
       assertEquals(
           targetLanguageSelector.value,
-          translatePage.getPref(translateTarget).value);
+          PrefService.getInstance().getPref(translateTarget).value);
 
       targetLanguageSelector.value = 'sw';
       targetLanguageSelector.dispatchEvent(new CustomEvent('change'));
 
-      assertEquals(translatePage.getPref(translateTarget).value, 'sw');
+      assertEquals(
+          PrefService.getInstance().getPref(translateTarget).value, 'sw');
     });
 
     test('never translate display', function() {
@@ -108,7 +97,8 @@ suite('TranslatePage', function() {
 
       // But two should be in the preference (since en-US is the default).
       assertDeepEquals(
-          ['en-US', 'eo'], translatePage.getPref(neverTranslatePref).value);
+          ['en-US', 'eo'],
+          PrefService.getInstance().getPref(neverTranslatePref).value);
 
       // Disable a language that is in fake_language_settings_private. The
       // language should be shown in the never translate list.
@@ -122,7 +112,7 @@ suite('TranslatePage', function() {
       // But three should be on the never translate list
       assertDeepEquals(
           ['en-US', 'eo', 'nb'],
-          translatePage.getPref(neverTranslatePref).value);
+          PrefService.getInstance().getPref(neverTranslatePref).value);
     });
 
     test('always translate display', function() {
@@ -144,7 +134,7 @@ suite('TranslatePage', function() {
       // But one should be on the always translate list
       assertDeepEquals(
           ['eo'],
-          Object.keys(translatePage
+          Object.keys(PrefService.getInstance()
                           .getPref<Record<string, unknown>>(alwaysTranslatePref)
                           .value));
 
@@ -161,7 +151,7 @@ suite('TranslatePage', function() {
       // But two should be on the always translate list
       assertDeepEquals(
           ['eo', 'nb'],
-          Object.keys(translatePage
+          Object.keys(PrefService.getInstance()
                           .getPref<Record<string, unknown>>(alwaysTranslatePref)
                           .value));
     });
@@ -212,13 +202,13 @@ suite('TranslatePage', function() {
       // Clicking on the toggle switches it to false.
       settingsToggle.click();
       let newToggleValue =
-          translatePage.getPref<boolean>('translate.enabled').value;
+          PrefService.getInstance().getPref<boolean>('translate.enabled').value;
       assertFalse(newToggleValue);
 
       // Clicking on the toggle switches it to true again.
       settingsToggle.click();
       newToggleValue =
-          translatePage.getPref<boolean>('translate.enabled').value;
+          PrefService.getInstance().getPref<boolean>('translate.enabled').value;
       assertTrue(newToggleValue);
     });
   });
@@ -288,7 +278,7 @@ suite('TranslatePage', function() {
       dialog.$.dialog.close();
       assertDeepEquals(
           ['en', 'no'],
-          Object.keys(translatePage
+          Object.keys(PrefService.getInstance()
                           .getPref<Record<string, unknown>>(alwaysTranslatePref)
                           .value));
 
@@ -361,7 +351,7 @@ suite('TranslatePage', function() {
       dialog.$.dialog.close();
       assertDeepEquals(
           ['en-US', 'sw', 'no'],
-          translatePage.getPref(neverTranslatePref).value);
+          PrefService.getInstance().getPref(neverTranslatePref).value);
 
       return dialogClosedResolver.promise;
     });

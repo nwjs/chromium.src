@@ -218,7 +218,6 @@ class MODULES_EXPORT CanvasRenderingContext2D final
 
   sk_sp<PaintFilter> StateGetFilter() final;
 
-  void PreFinalizeFrame() override;
   void FinalizeFrame(FlushReason) override;
 
   CanvasRenderingContextHost* GetCanvasRenderingContextHost() const override;
@@ -231,6 +230,12 @@ class MODULES_EXPORT CanvasRenderingContext2D final
 
   std::optional<cc::PaintRecord> FlushCanvas(FlushReason) override;
 
+ protected:
+  void DidFlushRecording(const cc::PaintRecord& recording,
+                         bool clear_frame,
+                         FlushReason reason) override;
+
+ public:
   void Trace(Visitor*) const override;
 
   ImageData* getImageDataInternal(int sx,
@@ -335,6 +340,9 @@ class MODULES_EXPORT CanvasRenderingContext2D final
   // For privacy reasons we need to delay contextLost events until the page is
   // visible. In order to do this we will hold on to a bool here
   bool needs_context_lost_event_ = false;
+
+ private:
+  std::optional<cc::PaintRecord> last_recording_;
 };
 
 }  // namespace blink

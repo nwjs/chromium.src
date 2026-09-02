@@ -460,12 +460,16 @@ suite('NewTabPageRealboxNextTest', () => {
       colorSourceIsBaseline: false,
     });
     await microtasksFinished();
+    const expectedVoiceIcon =
+        document.documentElement.hasAttribute('webui-rounded-icons') ?
+        'mic.svg' :
+        'mic_old.svg';
 
     const buttonsToTest = [
       {
         selector: '#voiceSearchButton',
-        iconUrl:
-            'url("chrome://resources/cr_components/searchbox/icons/mic.svg")',
+        iconUrl: `url("chrome://resources/cr_components/searchbox/icons/${
+            expectedVoiceIcon}")`,
       },
       {
         selector: '#lensSearchButton',
@@ -1139,7 +1143,11 @@ suite('NewTabPageRealboxNextTest', () => {
       testProxy.callbackRouterRemote.onInputStateChanged(newInputState);
       await testProxy.callbackRouterRemote.$.flushForTesting();
       await microtasksFinished();
-      const inputState = realbox.getInputStateForTesting();
+      const contextualEntrypoint =
+          realbox.shadowRoot.querySelector<ContextualEntrypointAndMenuElement>(
+              '#context')!;
+      assertTrue(!!contextualEntrypoint);
+      const inputState = contextualEntrypoint.inputState;
       assertTrue(!!inputState);
       assertEquals(ToolMode.kDeepSearch, inputState.allowedTools[0]);
       assertEquals(ModelMode.kUnspecified, inputState.activeModel);

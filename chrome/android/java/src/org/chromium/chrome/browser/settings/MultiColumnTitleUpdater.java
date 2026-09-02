@@ -21,6 +21,7 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import androidx.appcompat.widget.AppCompatTextView;
+import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.TooltipCompat;
 import androidx.core.view.ViewCompat;
 import androidx.fragment.app.Fragment;
@@ -34,6 +35,7 @@ import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.components.browser_ui.settings.SearchViewProvider;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.ui.base.LocalizationUtils;
 import org.chromium.ui.widget.ChromeImageButton;
@@ -110,6 +112,7 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
     private final Callback<@Nullable String> mTitleTapCallback;
 
     private boolean mMainMenuShown;
+    private boolean mHasBackButton;
 
     /**
      * The index of the first title to show. Used to skip displaying the titles preceding {@code
@@ -333,31 +336,45 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
 
         float scaleX = LocalizationUtils.isLayoutRtl() ? -1f : 1f;
 
-        if (SettingsInTab.isEnabled() && titles.size() > 1) {
+        int prevIndex = titles.size() - 2;
+        mHasBackButton = SettingsInTab.isEnabled() && prevIndex >= mFirstVisibleTitleIndex;
+        // Do not show the back button if the previous title is hidden (e.g. Search results).
+        if (mHasBackButton) {
             // Set up a back button to go to the section for the previous title.
-            int prevIndex = titles.size() - 2;
+            // TODO(crbug.com/545663479): Move this back button out of the containing scrollView,
+            // as we always want to show it, even if we have to scroll the title text.
             var prevTitle = titles.get(prevIndex);
             var backButton = new ChromeImageButton(mContext);
+            // Assign a stable resource ID so UI tests and accessibility tools
+            // can directly look up the title back button without looping over
+            // child views.
+            backButton.setId(R.id.back_button);
             backButton.setImageResource(R.drawable.ic_arrow_back_24dp);
             // Ensure icon isn't stretched by the larger touch target.
             backButton.setScaleType(ImageView.ScaleType.CENTER);
-            // Provide material design circular hover highlight and ripple.
+            // Provide material design circular hover highlight and ripple. Note that this makes
+            // the required size of the button much larger than the icon.
             backButton.setBackgroundResource(R.drawable.default_icon_background);
             // Ensure size is large enough for touch accessibility.
             int minTouchTargetPx = getDimenPx(R.dimen.min_touch_target_size);
             backButton.setMinimumWidth(minTouchTargetPx);
             backButton.setMinimumHeight(minTouchTargetPx);
-            backButton.setLayoutParams(new LinearLayout.LayoutParams(LAYOUT_CENTER_VERTICAL));
+            var layoutParams = new LinearLayout.LayoutParams(LAYOUT_CENTER_VERTICAL);
+            backButton.setLayoutParams(layoutParams);
             backButton.setOnClickListener(v -> navigateToTitle(prevTitle, prevIndex));
             // Set both accessibility content description and tooltip.
             TooltipCompat.setTooltipText(backButton, mContext.getString(R.string.back));
             mContainer.addView(backButton);
         }
 
-        for (int i = 0; i < titles.size(); ++i) {
-            if (i < mFirstVisibleTitleIndex) continue;
-
-            if (i != mFirstVisibleTitleIndex) {
+        // SettingsInTab only shows the last title, not the full breadcrumb path.
+        int startIndex =
+                SettingsInTab.isEnabled()
+                        ? Math.max(mFirstVisibleTitleIndex, titles.size() - 1)
+                        : mFirstVisibleTitleIndex;
+        DetailedTitle lastTitleView = null;
+        for (int i = startIndex; i < titles.size(); ++i) {
+            if (i != startIndex) {
                 // '>' separator.
                 var view = new ImageView(mContext);
                 view.setPadding(paddingPx, 0, paddingPx, 0);
@@ -379,8 +396,57 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
                 final int finalIndex = i;
                 view.setOnClickListener((View v) -> navigateToTitle(title, finalIndex));
             }
+
             mContainer.addView(view);
+            lastTitleView = view;
         }
+
+        if (SettingsInTab.isEnabled() && lastTitleView != null) {
+            Fragment detailFragment =
+                    mMultiColumnSettings
+                            .getChildFragmentManager()
+                            .findFragmentById(R.id.preferences_detail);
+            if (detailFragment instanceof SearchViewProvider searchViewProvider) {
+                final DetailedTitle titleView = lastTitleView;
+                var searchButton = new ChromeImageButton(mContext);
+                searchButton.setImageResource(R.drawable.ic_search_24dp);
+                searchButton.setScaleType(ImageView.ScaleType.CENTER);
+                searchButton.setBackgroundResource(R.drawable.default_icon_background);
+                int minTouchTargetPx = getDimenPx(R.dimen.min_touch_target_size);
+                searchButton.setMinimumWidth(minTouchTargetPx);
+                searchButton.setMinimumHeight(minTouchTargetPx);
+                TooltipCompat.setTooltipText(searchButton, mContext.getString(R.string.search));
+                searchButton.setContentDescription(mContext.getString(R.string.search));
+                searchButton.setLayoutParams(new LinearLayout.LayoutParams(LAYOUT_CENTER_VERTICAL));
+
+                var searchView = new SearchView(mContext);
+                searchView.setLayoutParams(new LinearLayout.LayoutParams(LAYOUT_CENTER_VERTICAL));
+                searchView.setVisibility(View.GONE);
+                searchViewProvider.initSearchView(searchView);
+
+                searchButton.setOnClickListener(
+                        v -> {
+                            titleView.setVisibility(View.GONE);
+                            searchButton.setVisibility(View.GONE);
+                            searchView.setVisibility(View.VISIBLE);
+                            searchView.setIconified(false);
+                            searchView.requestFocus();
+                        });
+
+                searchView.setOnCloseListener(
+                        () -> {
+                            searchView.setVisibility(View.GONE);
+                            titleView.setVisibility(View.VISIBLE);
+                            searchButton.setVisibility(View.VISIBLE);
+                            return false;
+                        });
+
+                mContainer.addView(searchButton);
+                mContainer.addView(searchView);
+            }
+        }
+
+        maybeUpdateStartMargin();
 
         // Make the last-added/tapped one visible after adding titles.
         if (mContainer.getParent() instanceof HorizontalScrollView scrollView) {
@@ -469,12 +535,16 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         maybeUpdateStartMargin();
     }
 
+    /**
+     * Updates the start margin of the title scroll view. This method has extra null checks so it
+     * can be calling before the layout is fully inflated and in unit tests.
+     */
     private void maybeUpdateStartMargin() {
         View detailView = mMultiColumnSettings.getDetailView();
-        View recyclerView = detailView.findViewById(R.id.recycler_view);
-        if (recyclerView == null) return;
-
-        int widthPx = recyclerView.getWidth();
+        if (detailView == null) return;
+        // Check detailView width because recyclerView might not have completed layout during
+        // fragment transitions (e.g. screen rotation).
+        int widthPx = detailView.getWidth();
         if (widthPx == 0) return;
 
         int maxDetailWidthPx = getDimenPx(R.dimen.settings_min_multi_column_screen_width);
@@ -482,9 +552,26 @@ class MultiColumnTitleUpdater implements MultiColumnSettings.Observer {
         int startMargin = getDimenPx(R.dimen.settings_detailed_title_start_margin);
         int excessPx = widthPx - maxDetailWidthPx - minPaddingPx * 2;
         int offsetX = minPaddingPx + (excessPx > 0 ? excessPx / 2 : 0);
+
+        // Shift titleScrollView left when the back button is shown so that the extra space
+        // for the button's material design ripple background fits inside titleScrollView without
+        // being clipped on the left edge.
+        int backButtonOffsetPx = 0;
+        if (mHasBackButton) {
+            assert mContainer.getChildCount() > 0;
+            assert mContainer.getChildAt(0) instanceof ChromeImageButton;
+            var backButton = (ChromeImageButton) mContainer.getChildAt(0);
+            assertNonNull(backButton.getDrawable());
+            int minTouchTargetPx = getDimenPx(R.dimen.min_touch_target_size);
+            int iconWidthPx = backButton.getDrawable().getIntrinsicWidth();
+            backButtonOffsetPx = (minTouchTargetPx - iconWidthPx) / 2;
+        }
+
         View titleScrollView = (View) mContainer.getParent();
+        if (titleScrollView == null) return;
         var params = (RelativeLayout.LayoutParams) titleScrollView.getLayoutParams();
-        params.setMarginStart(startMargin + offsetX);
+        if (params == null) return;
+        params.setMarginStart(startMargin + offsetX - backButtonOffsetPx);
         titleScrollView.setLayoutParams(params);
     }
 

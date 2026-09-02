@@ -149,6 +149,7 @@ void DeriveCommandLine(const GURL& start_url,
       ::switches::kV,
       ::switches::kVModule,
       ::switches::kVideoCaptureUseGpuMemoryBuffer,
+      ::switches::kVideoCaptureUseVirtualDevicesOnly,
       ::switches::kWebAuthRemoteDesktopSupport,
       ::switches::kEnableWebGLDeveloperExtensions,
       ::switches::kEnableWebGLDraftExtensions,
@@ -252,14 +253,15 @@ void DeriveFeatures(base::CommandLine* out_command_line) {
       &features::kAutoNightLight,
       &chromeos::features::kFeatureManagementRoundedWindows,
       &ash::features::kSeamlessRefreshRateSwitching,
-      &::features::kPluginVm,
       &display::features::kCtmColorManagement,
       &display::features::kDrmColorSpaceDefaultIsRec709,
       &display::features::kOledScaleFactorEnabled,
 #if BUILDFLAG(ENABLE_PLATFORM_HEVC)
       &media::kPlatformHEVCDecoderSupport,
 #endif
+#if BUILDFLAG(MOJO_SUPPORT_LEGACY_CORE)
       &mojo::core::kMojoIpcz,
+#endif  // BUILDFLAG(MOJO_SUPPORT_LEGACY_CORE)
   };
   std::vector<std::string> enabled_features;
   std::vector<std::string> disabled_features;

@@ -153,7 +153,9 @@ class ExtensionGlobalError : public GlobalErrorWithStandardBubble {
 
   std::u16string MenuItemLabel() override { NOTREACHED(); }
 
-  void ExecuteMenuItem(Browser* browser) override { NOTREACHED(); }
+  void ExecuteMenuItem(BrowserWindowInterface* browser) override {
+    NOTREACHED();
+  }
 
   std::u16string GetBubbleViewTitle() override {
     return GenerateTitle(delegate_->GetBlocklistedExtensions(),
@@ -176,15 +178,15 @@ class ExtensionGlobalError : public GlobalErrorWithStandardBubble {
     return l10n_util::GetStringUTF16(IDS_EXTENSION_ALERT_ITEM_DETAILS);
   }
 
-  void OnBubbleViewDidClose(Browser* browser) override {
+  void OnBubbleViewDidClose(BrowserWindowInterface* browser) override {
     delegate_->OnAlertClosed();
   }
 
-  void BubbleViewAcceptButtonPressed(Browser* browser) override {
+  void BubbleViewAcceptButtonPressed(BrowserWindowInterface* browser) override {
     delegate_->OnAlertAccept();
   }
 
-  void BubbleViewCancelButtonPressed(Browser* browser) override {
+  void BubbleViewCancelButtonPressed(BrowserWindowInterface* browser) override {
     // Even though there is no cancel button, users can still cancel the dialog
     // by pressing escape.
     delegate_->OnAlertClosed();
@@ -194,7 +196,8 @@ class ExtensionGlobalError : public GlobalErrorWithStandardBubble {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
-  void BubbleViewDetailsButtonPressed(Browser* browser) override {
+  void BubbleViewDetailsButtonPressed(
+      BrowserWindowInterface* browser) override {
     delegate_->OnAlertDetails();
   }
 
@@ -222,7 +225,7 @@ bool ExtensionErrorUIDesktop::ShowErrorInBubbleView() {
   if (!browser)
     return false;
 
-  browser_ = browser->GetBrowserForMigrationOnly();
+  browser_ = browser;
   global_error_->ShowBubbleView(browser_);
   return true;
 }

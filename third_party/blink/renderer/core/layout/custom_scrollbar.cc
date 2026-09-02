@@ -272,7 +272,7 @@ void CustomScrollbar::UpdateScrollbarPart(ScrollbarPart part_type) {
       it != parts_.end() ? it->value : nullptr;
   if (!part_layout_object && need_layout_object && scrollable_area_) {
     part_layout_object = LayoutCustomScrollbarPart::CreateAnonymous(
-        &StyleSource()->GetDocument(), scrollable_area_, this, part_type,
+        StyleSource()->GetDocument(), scrollable_area_, this, part_type,
         suppress_use_counters_);
     parts_.Set(part_type, part_layout_object);
     SetNeedsPaintInvalidation(part_type);
@@ -427,7 +427,7 @@ const ComputedStyle* CustomScrollbar::GetScrollbarPartStyleForCursor(
     ScrollbarPart part_type) const {
   const LayoutCustomScrollbarPart* part_layout_object = GetPart(part_type);
   if (part_layout_object) {
-    return part_layout_object->Style();
+    return &part_layout_object->StyleRef();
   }
   switch (part_type) {
     case kBackButtonStartPart:

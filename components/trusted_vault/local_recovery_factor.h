@@ -11,10 +11,11 @@
 #include "base/functional/callback.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/trusted_vault/trusted_vault_histograms.h"
-#include "components/trusted_vault/trusted_vault_throttling_connection.h"
 #include "google_apis/gaia/gaia_id.h"
 
 namespace trusted_vault {
+
+enum class TrustedVaultRegistrationStatus;
 
 // Type of a LocalRecoveryFactor. Overwritten by sub-classes according to how
 // they manage recovery keys locally.
@@ -72,7 +73,7 @@ class LocalRecoveryFactor {
   // Attempts to register the recovery factor in case it's not yet registered
   // and currently available local data is sufficient to do it. It returns an
   // enum representing the registration state, intended to be used for metric
-  // recording.
+  // recording. `cb` is guaranteed to be invoked.
   virtual TrustedVaultRecoveryFactorRegistrationStateForUMA MaybeRegister(
       RegisterCallback cb) = 0;
 };

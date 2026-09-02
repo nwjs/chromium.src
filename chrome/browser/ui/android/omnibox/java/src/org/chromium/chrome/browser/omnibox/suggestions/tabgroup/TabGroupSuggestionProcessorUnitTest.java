@@ -40,7 +40,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.basic.SuggestionViewPrope
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.tab_ui.R;
-import org.chromium.components.metrics.OmniboxEventProtos.OmniboxEventProto.PageClassification;
+import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteMatch;
 import org.chromium.components.omnibox.AutocompleteMatchBuilder;
@@ -64,15 +64,15 @@ public class TabGroupSuggestionProcessorUnitTest {
     private static final String TITLE = "My Group";
     private static final String DESCRIPTION = JUnitTestGURLs.URL_1.getSpec();
 
-    public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private @Mock SuggestionHost mSuggestionHost;
-    private @Mock OmniboxImageSupplier mImageSupplier;
-    private @Mock UrlBarEditingTextStateProvider mTextProvider;
-    private @Mock Supplier<Tab> mTabSupplier;
-    private @Mock Supplier<ShareDelegate> mShareDelegateSupplier;
-    private @Mock BookmarkState mBookmarkState;
-    private @Mock OmniboxActionDelegate mActionDelegate;
+    @Mock private SuggestionHost mSuggestionHost;
+    @Mock private OmniboxImageSupplier mImageSupplier;
+    @Mock private UrlBarEditingTextStateProvider mTextProvider;
+    @Mock private Supplier<Tab> mTabSupplier;
+    @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
+    @Mock private BookmarkState mBookmarkState;
+    @Mock private OmniboxActionDelegate mActionDelegate;
 
     private Context mContext;
     private TabGroupSuggestionProcessor mProcessor;
@@ -123,7 +123,7 @@ public class TabGroupSuggestionProcessorUnitTest {
     @Test
     @SmallTest
     public void testPopulateModelTabGroupSuggestions() {
-        mInput.setPageClassification(PageClassification.ANDROID_HUB_VALUE);
+        mInput.setPageClassification(PageClassification.ANDROID_HUB);
 
         createTabGroupSuggestion(OmniboxSuggestionType.TAB_GROUP);
         assertEquals(

@@ -80,10 +80,12 @@ class ContextualTasksComposeboxHandler
                       AddFileContextCallback callback) override;
   void AddTabContext(int32_t tab_id,
                      bool delay_upload,
+                     searchbox::mojom::TabAttachmentSource source,
                      AddTabContextCallback callback) override;
   void StartPlatformVoiceRecognition() override;
 
-  void SetActiveToolMode(omnibox::ToolMode tool) override;
+  void SetActiveToolMode(omnibox::ToolMode tool,
+                         bool is_set_by_server) override;
 
   // We override this method to inject an existing `InputStateModel` if one is
   // provided by the ContextualTasksUI via the `take_input_model_callback_`.
@@ -121,6 +123,8 @@ class ContextualTasksComposeboxHandler
   void OnTaskChanged() override;
 
   std::vector<int32_t> GetSelectedTabIds() const override;
+
+  bool HasAutoSuggestedTab();
 
   void ClearFiles(bool should_block_auto_suggested_tabs) override;
 #if !BUILDFLAG(IS_ANDROID)

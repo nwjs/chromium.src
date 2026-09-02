@@ -7,14 +7,20 @@ assert(!is_android)
 source_set("omnibox_everywhere") {
   sources = [
     "composebox_everywhere_handler.cc",
-    "composebox_everywhere_handler.h",
     "omnibox_everywhere_handler.cc",
-    "omnibox_everywhere_handler.h",
     "omnibox_everywhere_ui.cc",
+  ]
+  public = [
+    "composebox_everywhere_handler.h",
+    "omnibox_everywhere_handler.h",
     "omnibox_everywhere_ui.h",
   ]
-  public_deps = [ "//chrome/browser:browser_public_dependencies" ]
+  public_deps = [
+    "debug:mojo_bindings",
+    "//chrome/browser:browser_public_dependencies",
+  ]
   deps = [
+    "debug",
     "//base",
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/contextual_search",
@@ -22,11 +28,13 @@ source_set("omnibox_everywhere") {
     "//chrome/browser/resources/omnibox_everywhere:resources",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/omnibox",
+    "//chrome/browser/ui/omnibox/omnibox_everywhere",
     "//chrome/browser/ui/profiles",
     "//chrome/browser/ui/webui:favicon_source",
     "//chrome/browser/ui/webui:plural_string_handler",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/cr_components/composebox",
+    "//chrome/browser/ui/webui/cr_components/most_visited",
     "//chrome/browser/ui/webui/cr_components/searchbox",
     "//chrome/browser/ui/webui/metrics_reporter",
     "//chrome/browser/ui/webui/new_tab_page/composebox/variations",
@@ -37,8 +45,13 @@ source_set("omnibox_everywhere") {
     "//components/lens",
     "//components/omnibox/browser:mojo_bindings",
     "//components/omnibox/common:features",
+    "//components/search",
+    "//components/search_engines",
+    "//components/strings:components_strings",
     "//content/public/browser",
     "//ui/base",
+    "//ui/strings:ui_strings",
     "//ui/webui/resources/cr_components/composebox:mojo_bindings",
+    "//ui/webui/resources/cr_components/most_visited:mojom",
   ]
 }

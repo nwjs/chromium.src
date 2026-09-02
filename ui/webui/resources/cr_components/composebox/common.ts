@@ -5,7 +5,8 @@
 import {ComposeboxContextAddedMethod} from '//resources/cr_components/search/constants.js';
 import {assertNotReachedCase} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import type {DriveUploadError, SuggestInventory} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {TabAttachmentSource} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {DriveUploadError, SearchContextAttachment, SuggestInventory} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
@@ -131,6 +132,7 @@ export class ComposeboxFile {
   supportsUnimodal: boolean;
   thumbnailUrl?: string|null;
   iconUrl?: Url|null;
+  origin?: TabUploadOrigin;
 
   constructor(
       uuid: UnguessableToken, name: string, type: string, inputType: InputType,
@@ -149,6 +151,7 @@ export class ComposeboxFile {
     this.supportsUnimodal = options?.supportsUnimodal ?? false;
     this.thumbnailUrl = options?.thumbnailUrl ?? null;
     this.iconUrl = options?.iconUrl ?? null;
+    this.origin = options?.origin;
   }
 
   static createFromFile(
@@ -217,6 +220,71 @@ export enum TabUploadOrigin {
   ACTION_CHIP = 2,
   AUTO_ACTIVE = 3,
   OTHER = 4,
+  AUTO_ADDED = 5,
+}
+
+// TODO (crbug.com/542691701): Consolidate the two enums if possible
+// to avoid duplication.
+const ORIGIN_TO_MOJO: Record<TabUploadOrigin, TabAttachmentSource> = {
+  [TabUploadOrigin.CONTEXT_MENU]: TabAttachmentSource.kContextMenu,
+  [TabUploadOrigin.CURRENT_TAB_CHIP]: TabAttachmentSource.kCurrentTabChip,
+  [TabUploadOrigin.ACTION_CHIP]: TabAttachmentSource.kActionChip,
+  [TabUploadOrigin.AUTO_ACTIVE]: TabAttachmentSource.kAutoActive,
+  [TabUploadOrigin.AUTO_ADDED]: TabAttachmentSource.kAutoAdded,
+  [TabUploadOrigin.OTHER]: TabAttachmentSource.kOther,
+};
+
+export function mapOriginToMojoSource(origin?: TabUploadOrigin): TabAttachmentSource {
+  return origin === undefined ? TabAttachmentSource.kOther : ORIGIN_TO_MOJO[origin];
+}
+
+const MOJO_TO_ORIGIN: Record<TabAttachmentSource, TabUploadOrigin> = {
+  [TabAttachmentSource.kContextMenu]: TabUploadOrigin.CONTEXT_MENU,
+  [TabAttachmentSource.kCurrentTabChip]: TabUploadOrigin.CURRENT_TAB_CHIP,
+  [TabAttachmentSource.kActionChip]: TabUploadOrigin.ACTION_CHIP,
+  [TabAttachmentSource.kAutoActive]: TabUploadOrigin.AUTO_ACTIVE,
+  [TabAttachmentSource.kAutoAdded]: TabUploadOrigin.AUTO_ADDED,
+  [TabAttachmentSource.kOther]: TabUploadOrigin.OTHER,
+};
+
+export function mapMojoSourceToOrigin(source: TabAttachmentSource): TabUploadOrigin {
+  return MOJO_TO_ORIGIN[source];
+}
+
+export function isAutoAddedOrigin(origin?: TabUploadOrigin): boolean {
+  return origin === TabUploadOrigin.AUTO_ADDED ||
+      origin === TabUploadOrigin.CURRENT_TAB_CHIP;
+}
+
+export function hasOnlyAutoAddedTabs(
+    files: Map<UnguessableToken, ComposeboxFile>): boolean {
+  if (files.size === 0) {
+    return false;
+  }
+  for (const file of files.values()) {
+    if (file.inputType !== InputType.kBrowserTab ||
+        !isAutoAddedOrigin(file.origin)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function hasOnlyAutoAddedTabAttachments(
+    attachments: SearchContextAttachment[]): boolean {
+  if (attachments.length === 0) {
+    return false;
+  }
+  for (const attachment of attachments) {
+    if (!attachment.tabAttachment) {
+      return false;
+    }
+    const origin = mapMojoSourceToOrigin(attachment.tabAttachment.source);
+    if (!isAutoAddedOrigin(origin)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 export interface TabUpload {
@@ -247,15 +315,24 @@ export enum ContextualSearchInputStateDeletionType {
 
 export function recordEnumerationValue(
     metricName: string, value: number, enumSize: number) {
-  chrome.histograms.recordEnumerationValue(metricName, value, enumSize);
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordEnumerationValue(metricName, value, enumSize);
+  }
 }
 
 export function recordUserAction(metricName: string) {
-  chrome.histograms.recordUserAction(metricName);
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordUserAction(metricName);
+  }
 }
 
 export function recordBoolean(metricName: string, value: boolean) {
-  chrome.histograms.recordBoolean(metricName, value);
+  const metricsService = chrome.histograms || chrome.metricsPrivate;
+  if (metricsService) {
+    metricsService.recordBoolean(metricName, value);
+  }
 }
 
 // TODO(crbug.com/468329884): Consider making this a new contextual entry

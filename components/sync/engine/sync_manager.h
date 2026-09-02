@@ -37,6 +37,7 @@ class CancelationSignal;
 class EngineComponentsFactory;
 class ExtensionsActivity;
 class ProtocolEvent;
+class SyncAccessTokenFetcher;
 class SyncCycleSnapshot;
 struct SyncStatus;
 
@@ -101,6 +102,8 @@ class SyncManager {
     // Must outlive SyncManager.
     raw_ptr<CancelationSignal> cancelation_signal = nullptr;
 
+    raw_ptr<SyncAccessTokenFetcher> sync_access_token_fetcher = nullptr;
+
     // Define the polling interval. Must not be zero.
     base::TimeDelta poll_interval;
 
@@ -108,6 +111,8 @@ class SyncManager {
     std::string cache_guid;
     std::string birthday;
     std::string bag_of_chips;
+
+    std::string account_email;
   };
 
   // The state of sync the feature. If the user turned on sync explicitly, it

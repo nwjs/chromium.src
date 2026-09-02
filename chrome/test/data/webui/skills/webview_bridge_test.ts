@@ -3,11 +3,13 @@
 // found in the LICENSE file.
 
 import {loadTimeData} from '//resources/js/load_time_data.js';
-import {ToastType} from 'chrome://skills/skills.mojom-webui.js';
+import type {Skill} from 'chrome://skills/skill.mojom-webui.js';
+import {SkillSource} from 'chrome://skills/skill.mojom-webui.js';
+import type {PendingEditorData} from 'chrome://skills/skills.mojom-webui.js';
 import {SkillsWebview} from 'chrome://skills/v2/skills_webview.js';
 import type {SkillsWebviewBridgeDelegate} from 'chrome://skills/v2/skills_webview_bridge.js';
 import {SkillsWebviewBridge} from 'chrome://skills/v2/skills_webview_bridge.js';
-import {getChromePathForRemoteUrl, getLoadingStageHistogramName, HANDSHAKE_TIMEOUT_MS, HISTOGRAM_HANDSHAKE_RESULT, LoadingStage, PRIMARY_SKILLS_ORIGIN, SKILLS_HANDSHAKE_ACK, SKILLS_HANDSHAKE_TYPE, SKILLS_INVOKE_SKILL, SKILLS_LOG_METRIC, SKILLS_OPEN_URL, SKILLS_REMOTE_URL, SKILLS_SHOW_TOAST} from 'chrome://skills/v2/skills_webview_bridge_constants.js';
+import {getChromePathForRemoteUrl, getLoadingStageHistogramName, getPrimarySkillsOrigin, getRemoteUrlForChromePath, getSkillsRemoteUrl, HANDSHAKE_TIMEOUT_MS, HISTOGRAM_HANDSHAKE_RESULT, LoadingStage, SKILLS_DIALOG_INFO_TYPE, SKILLS_GET_PROVIDED_SKILL, SKILLS_HANDSHAKE_ACK, SKILLS_HANDSHAKE_TYPE, SKILLS_INVOKE_SKILL, SKILLS_LOG_METRIC, SKILLS_LOG_UMA_ENUM, SKILLS_OPEN_FULL_PAGE_EDITOR, SKILLS_OPEN_URL, SKILLS_PROVIDED_SKILL_INFO_TYPE, SKILLS_SEND_PROMPT, SKILLS_SEND_PROVIDED_SKILLS_TYPE, SKILLS_SHOW_TOAST, SKILLS_TOAST_CLOSED_TYPE, SKILLS_UNDO_TYPE} from 'chrome://skills/v2/skills_webview_bridge_constants.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {MockTimer} from 'chrome://webui-test/mock_timer.js';
 
@@ -28,6 +30,78 @@ suite('SkillsWebviewBridgeTest', () => {
   let onPostMessage: (message: {type?: string}) => void;
   let recordedHistograms: RecordedHistogram[] = [];
 
+  function createSkill(overrides: Partial<Skill> = {}): Skill {
+    return {
+      id: '1',
+      sourceSkillId: null,
+      name: 'Default Skill',
+      icon: '',
+      prompt: '',
+      description: '',
+      curatedBy: '',
+      imageUrl: '',
+      source: SkillSource.kEnterprise,
+      creationTime: {internalValue: 0n},
+      lastUpdateTime: {internalValue: 0n},
+      category: '',
+      ...overrides,
+    };
+  }
+
+  const MOCK_ENTERPRISE_SKILL = createSkill({
+    id: 'skill-1',
+    name: 'Enterprise Skill 1',
+    icon: '🏢',
+    prompt: 'Summarize internal doc',
+    description: 'Enterprise skill description',
+    curatedBy: 'Admin',
+  });
+
+  function createMockDelegate(overrides?: Partial<SkillsWebviewBridgeDelegate>):
+      SkillsWebviewBridgeDelegate {
+    return {
+      onError: () => {},
+      onShowSaveToast: () => {},
+      onShowSaveAndInvokeToast: () => {},
+      onShowDeleteToast: (_skillId: string) =>
+          Promise.resolve({actionClicked: false}),
+      onInvokeSkill: () => {},
+      onUrlChanged: () => {},
+      onCloseDialog: () => {},
+      onCloseDialogAndOpenEditor: (_data: PendingEditorData) => {},
+      onHandshakeComplete: () => {},
+      onSendPrompt: (_prompt: string) => {},
+      onGetProvidedSkill: (_skillId: string) => {},
+      ...overrides,
+    };
+  }
+
+  function triggerLoadCommit(url: string = getSkillsRemoteUrl()) {
+    const event = new CustomEvent('loadcommit');
+    Object.defineProperty(event, 'isTopLevel', {value: true});
+    Object.defineProperty(event, 'url', {value: url});
+    webview.dispatchEvent(event);
+  }
+
+  function sendMockMessage(data: unknown) {
+    const messageEvent = new MessageEvent('message', {
+      data,
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(messageEvent);
+  }
+
+  function sendHandshakeAck() {
+    sendMockMessage({type: SKILLS_HANDSHAKE_ACK});
+  }
+
+  function establishHandshake() {
+    triggerLoadCommit();
+    sendHandshakeAck();
+    assertTrue(bridge.isConnected());
+  }
+
   setup(() => {
     if (!loadTimeData.isInitialized()) {
       loadTimeData.data = {};
@@ -35,6 +109,8 @@ suite('SkillsWebviewBridgeTest', () => {
     loadTimeData.overrideValues({
       devMode: true,
       isSkillsWebViewV2Enabled: true,
+      skillsPrimaryOrigin: 'https://clients5.google.com',
+      languageCode: null,
     });
     postedMessages = [];
     recordedHistograms = [];
@@ -46,6 +122,8 @@ suite('SkillsWebviewBridgeTest', () => {
         histograms?: {
           recordMediumTime: (name: string, value: number) => void,
           recordBoolean: (name: string, value: boolean) => void,
+          recordEnumerationValue: (
+              name: string, sample: number, boundary: number) => void,
         },
       };
     }
@@ -58,6 +136,10 @@ suite('SkillsWebviewBridgeTest', () => {
       recordBoolean: (name: string, value: boolean) => {
         recordedHistograms.push({name, value, type: 'boolean'});
       },
+      recordEnumerationValue:
+          (name: string, sample: number, _boundary: number) => {
+            recordedHistograms.push({name, value: sample, type: 'enumeration'});
+          },
     };
 
     Object.defineProperty(window, 'postMessage', {
@@ -67,6 +149,9 @@ suite('SkillsWebviewBridgeTest', () => {
         if (message) {
           postedMessages.push(message);
           onPostMessage(message);
+        }
+        if (targetOrigin !== '*' && targetOrigin !== window.location.origin) {
+          return;
         }
         return originalPostMessage.call(
             window, message, targetOrigin, transfer);
@@ -98,14 +183,7 @@ suite('SkillsWebviewBridgeTest', () => {
   });
 
   test('HostInitiatesHandshakeAndReceivesAck', async () => {
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: () => {},
-      onInvokeSkill: () => {},
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    const delegate = createMockDelegate();
     bridge = new SkillsWebviewBridge(webview, delegate);
 
     assertFalse(bridge.isConnected());
@@ -119,11 +197,7 @@ suite('SkillsWebviewBridgeTest', () => {
       };
     });
 
-    // Trigger loadcommit to start handshake.
-    const event = new CustomEvent('loadcommit');
-    Object.defineProperty(event, 'isTopLevel', {value: true});
-    Object.defineProperty(event, 'url', {value: SKILLS_REMOTE_URL});
-    webview.dispatchEvent(event);
+    triggerLoadCommit();
 
     // Verify ping was sent.
     await pingPromise;
@@ -140,13 +214,7 @@ suite('SkillsWebviewBridgeTest', () => {
       window.addEventListener('message', handler);
     });
 
-    // Send matching ACK via mock MessageEvent to simulate correct origin.
-    const messageEvent = new MessageEvent('message', {
-      data: {type: SKILLS_HANDSHAKE_ACK},
-      origin: new URL(SKILLS_REMOTE_URL).origin,
-      source: window,
-    });
-    window.dispatchEvent(messageEvent);
+    sendHandshakeAck();
 
     await ackPromise;
     assertTrue(bridge.isConnected());
@@ -172,26 +240,17 @@ suite('SkillsWebviewBridgeTest', () => {
 
   test('HandshakeTimesOut', () => {
     let errorCalled = false;
-    const delegate: SkillsWebviewBridgeDelegate = {
+    const delegate = createMockDelegate({
       onError: () => {
         errorCalled = true;
       },
-      onShowToast: () => {},
-      onInvokeSkill: () => {},
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    });
     bridge = new SkillsWebviewBridge(webview, delegate);
 
     const mockTimer = new MockTimer();
     mockTimer.install();
 
-    // Trigger loadcommit to start handshake.
-    const event = new CustomEvent('loadcommit');
-    Object.defineProperty(event, 'isTopLevel', {value: true});
-    Object.defineProperty(event, 'url', {value: SKILLS_REMOTE_URL});
-    webview.dispatchEvent(event);
+    triggerLoadCommit();
 
     // The error callback should not be called immediately.
     assertFalse(errorCalled);
@@ -205,123 +264,182 @@ suite('SkillsWebviewBridgeTest', () => {
     mockTimer.uninstall();
   });
 
-  test('HostReceivesShowToastMessage_Delete', () => {
-    let receivedToastType: ToastType|null = null;
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: (toastType: ToastType) => {
-        receivedToastType = toastType;
+  test('HostReceivesShowToastMessage_Save', () => {
+    let saveToastCalled = false;
+    const delegate = createMockDelegate({
+      onShowSaveToast: () => {
+        saveToastCalled = true;
       },
-      onInvokeSkill: () => {},
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    });
     bridge = new SkillsWebviewBridge(webview, delegate);
 
-    // Trigger loadcommit to start handshake.
-    const loadEvent = new CustomEvent('loadcommit');
-    Object.defineProperty(loadEvent, 'isTopLevel', {value: true});
-    Object.defineProperty(loadEvent, 'url', {value: SKILLS_REMOTE_URL});
-    webview.dispatchEvent(loadEvent);
+    establishHandshake();
 
-    // Send mock ACK to complete handshake.
-    const ackEvent = new MessageEvent('message', {
-      data: {type: SKILLS_HANDSHAKE_ACK},
-      origin: new URL(SKILLS_REMOTE_URL).origin,
-      source: window,
+    sendMockMessage({
+      type: SKILLS_SHOW_TOAST,
+      toastType: 'save',
     });
-    window.dispatchEvent(ackEvent);
 
-    assertTrue(bridge.isConnected());
+    assertTrue(saveToastCalled);
+  });
 
-    // Send show-toast message via mock MessageEvent to match origin.
-    const toastEvent = new MessageEvent('message', {
-      data: {
-        type: SKILLS_SHOW_TOAST,
-        toastType: 'delete',
+  test('HostReceivesShowToastMessage_SaveAndInvoke', () => {
+    let receivedSkillId = '';
+    let receivedSkillName = '';
+    let receivedSkillIcon = '';
+    const delegate = createMockDelegate({
+      onShowSaveAndInvokeToast:
+          (skillId: string, skillName: string, skillIcon: string) => {
+            receivedSkillId = skillId;
+            receivedSkillName = skillName;
+            receivedSkillIcon = skillIcon;
+          },
+    });
+    bridge = new SkillsWebviewBridge(webview, delegate);
+
+    establishHandshake();
+
+    sendMockMessage({
+      type: SKILLS_SHOW_TOAST,
+      toastType: 'save_and_invoke',
+      skillId: 'some_id',
+      skillName: 'some_name',
+      skillIcon: 'some_icon',
+    });
+
+    assertEquals('some_id', receivedSkillId);
+    assertEquals('some_name', receivedSkillName);
+    assertEquals('some_icon', receivedSkillIcon);
+  });
+
+  test('HostReceivesShowToastMessage_Delete', async () => {
+    let receivedSkillId = '';
+    const delegate = createMockDelegate({
+      onShowDeleteToast: (skillId: string) => {
+        receivedSkillId = skillId;
+        return Promise.resolve({actionClicked: false});
       },
-      origin: new URL(SKILLS_REMOTE_URL).origin,
-      source: window,
     });
-    window.dispatchEvent(toastEvent);
+    bridge = new SkillsWebviewBridge(webview, delegate);
 
-    assertEquals(ToastType.kDelete, receivedToastType);
+    establishHandshake();
+
+    const toastClosedPromise =
+        new Promise<{type?: string, skillId?: string}>(resolve => {
+          onPostMessage = (message) => {
+            if (message.type === SKILLS_TOAST_CLOSED_TYPE) {
+              resolve(message as {type?: string, skillId?: string});
+            }
+          };
+        });
+
+    sendMockMessage({
+      type: SKILLS_SHOW_TOAST,
+      toastType: 'delete',
+      skillId: 'some_deleted_id',
+    });
+
+    const message = await toastClosedPromise;
+    assertEquals('some_deleted_id', receivedSkillId);
+    assertEquals('some_deleted_id', message['skillId']);
+  });
+
+  test('HostReceivesShowToastMessage_Delete_Undo', async () => {
+    let receivedSkillId = '';
+    const delegate = createMockDelegate({
+      onShowDeleteToast: (skillId: string) => {
+        receivedSkillId = skillId;
+        return Promise.resolve({actionClicked: true});
+      },
+    });
+    bridge = new SkillsWebviewBridge(webview, delegate);
+
+    establishHandshake();
+
+    const undoPromise =
+        new Promise<{type?: string, skillId?: string}>(resolve => {
+          onPostMessage = (message) => {
+            if (message.type === SKILLS_UNDO_TYPE) {
+              resolve(message as {type?: string, skillId?: string});
+            }
+          };
+        });
+
+    sendMockMessage({
+      type: SKILLS_SHOW_TOAST,
+      toastType: 'delete',
+      skillId: 'some_undone_id',
+    });
+
+    const message = await undoPromise;
+    assertEquals('some_undone_id', receivedSkillId);
+    assertEquals('some_undone_id', message['skillId']);
   });
 
   test('HostReceivesInvokeSkillMessage', () => {
     let receivedSkillId: string|null = null;
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: () => {},
-      onInvokeSkill: (skillId: string) => {
-        receivedSkillId = skillId;
-      },
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    let receivedSkillName: string|null = null;
+    let receivedSkillIcon: string|null = null;
+    const delegate = createMockDelegate({
+      onInvokeSkill:
+          (skillId: string, skillName: string, skillIcon: string) => {
+            receivedSkillId = skillId;
+            receivedSkillName = skillName;
+            receivedSkillIcon = skillIcon;
+          },
+    });
     bridge = new SkillsWebviewBridge(webview, delegate);
 
-    // Trigger loadcommit to start handshake.
-    const loadEvent = new CustomEvent('loadcommit');
-    Object.defineProperty(loadEvent, 'isTopLevel', {value: true});
-    Object.defineProperty(loadEvent, 'url', {value: SKILLS_REMOTE_URL});
-    webview.dispatchEvent(loadEvent);
+    establishHandshake();
 
-    // Send mock ACK to complete handshake.
-    const ackEvent = new MessageEvent('message', {
-      data: {type: SKILLS_HANDSHAKE_ACK},
-      origin: new URL(SKILLS_REMOTE_URL).origin,
-      source: window,
+    sendMockMessage({
+      type: SKILLS_INVOKE_SKILL,
+      skillId: 'some_skill_id',
+      skillName: 'some_name',
+      skillIcon: 'some_icon',
     });
-    window.dispatchEvent(ackEvent);
-
-    assertTrue(bridge.isConnected());
-
-    // Send invoke-skill message via mock MessageEvent to match origin.
-    const invokeEvent = new MessageEvent('message', {
-      data: {
-        type: SKILLS_INVOKE_SKILL,
-        skillId: 'some_skill_id',
-      },
-      origin: new URL(SKILLS_REMOTE_URL).origin,
-      source: window,
-    });
-    window.dispatchEvent(invokeEvent);
 
     assertEquals('some_skill_id', receivedSkillId);
+    assertEquals('some_name', receivedSkillName);
+    assertEquals('some_icon', receivedSkillIcon);
   });
 
   test('HostReceivesUrlChangedEvent', () => {
     const received = {url: null as URL | null};
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: () => {},
-      onInvokeSkill: () => {},
+    const delegate = createMockDelegate({
       onUrlChanged: (url: URL) => {
         received.url = url;
       },
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    });
     bridge = new SkillsWebviewBridge(webview, delegate);
 
     // Trigger loadcommit with specific URL.
-    const event = new CustomEvent('loadcommit');
-    Object.defineProperty(event, 'isTopLevel', {value: true});
-    Object.defineProperty(
-        event, 'url',
-        {value: `${PRIMARY_SKILLS_ORIGIN}/chromeskills/yourSkills`});
-    webview.dispatchEvent(event);
+    triggerLoadCommit(`${getPrimarySkillsOrigin()}/chromeskills/yourSkills`);
 
     assertEquals(
-        `${PRIMARY_SKILLS_ORIGIN}/chromeskills/yourSkills`,
-        received.url?.href ?? '');
+        getRemoteUrlForChromePath('/yourSkills'), received.url?.href ?? '');
+  });
+
+  test('GetRemoteUrlForChromePath_IncludesLanguageCode', () => {
+    loadTimeData.overrideValues({languageCode: 'ja'});
+    const url = new URL(getRemoteUrlForChromePath('/yourSkills'));
+    assertEquals('ja', url.searchParams.get('hl'));
+  });
+
+  test('GetRemoteUrlForChromePath_OmitHlWhenEmpty', () => {
+    loadTimeData.overrideValues({languageCode: ''});
+    const url = new URL(getRemoteUrlForChromePath('/yourSkills'));
+    assertEquals(null, url.searchParams.get('hl'));
+  });
+
+  test('GetRemoteUrlForChromePath_OmitHlWhenNull', () => {
+    loadTimeData.overrideValues({languageCode: null});
+    const url = new URL(getRemoteUrlForChromePath('/yourSkills'));
+    assertEquals(null, url.searchParams.get('hl'));
   });
 
   test('GetChromePathForRemoteUrl_ValidPath', () => {
-    const url = new URL(`${PRIMARY_SKILLS_ORIGIN}/chromeskills/yourSkills`);
+    const url = new URL(getRemoteUrlForChromePath('/yourSkills'));
     assertEquals('/yourSkills', getChromePathForRemoteUrl(url));
   });
 
@@ -331,33 +449,28 @@ suite('SkillsWebviewBridgeTest', () => {
   });
 
   test('GetChromePathForRemoteUrl_InvalidPathDefaultsToBrowse', () => {
-    const url = new URL(`${PRIMARY_SKILLS_ORIGIN}/invalidpath/yourSkills`);
+    const url = new URL(`${getPrimarySkillsOrigin()}/invalidpath/yourSkills`);
     assertEquals('/browse', getChromePathForRemoteUrl(url));
   });
   test('HandshakeLogsMetricsOnSuccess', () => {
     let handshakeCompleteCalled = false;
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: () => {},
-      onInvokeSkill: () => {},
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
+    const delegate = createMockDelegate({
       onHandshakeComplete: () => {
         handshakeCompleteCalled = true;
       },
-    };
+    });
     bridge = new SkillsWebviewBridge(webview, delegate);
 
     // Trigger loadcommit to start handshake.
     const event = new CustomEvent('loadcommit');
     Object.defineProperty(event, 'isTopLevel', {value: true});
-    Object.defineProperty(event, 'url', {value: SKILLS_REMOTE_URL});
+    Object.defineProperty(event, 'url', {value: getSkillsRemoteUrl()});
     webview.dispatchEvent(event);
 
     // Send matching ACK to simulate success.
     const messageEvent = new MessageEvent('message', {
       data: {type: SKILLS_HANDSHAKE_ACK},
-      origin: new URL(SKILLS_REMOTE_URL).origin,
+      origin: getPrimarySkillsOrigin(),
       source: window,
     });
     window.dispatchEvent(messageEvent);
@@ -380,14 +493,7 @@ suite('SkillsWebviewBridgeTest', () => {
   });
 
   test('HandshakeLogsMetricsOnTimeout', () => {
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: () => {},
-      onInvokeSkill: () => {},
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    const delegate = createMockDelegate();
     bridge = new SkillsWebviewBridge(webview, delegate);
 
     const mockTimer = new MockTimer();
@@ -396,7 +502,7 @@ suite('SkillsWebviewBridgeTest', () => {
     // Trigger loadcommit to start handshake.
     const event = new CustomEvent('loadcommit');
     Object.defineProperty(event, 'isTopLevel', {value: true});
-    Object.defineProperty(event, 'url', {value: SKILLS_REMOTE_URL});
+    Object.defineProperty(event, 'url', {value: getSkillsRemoteUrl()});
     webview.dispatchEvent(event);
 
     // Fast-forward time to trigger handshake timeout.
@@ -414,26 +520,19 @@ suite('SkillsWebviewBridgeTest', () => {
   });
 
   test('HostLogsGuestMetrics', () => {
-    const delegate: SkillsWebviewBridgeDelegate = {
-      onError: () => {},
-      onShowToast: () => {},
-      onInvokeSkill: () => {},
-      onUrlChanged: () => {},
-      onCloseDialog: () => {},
-      onHandshakeComplete: () => {},
-    };
+    const delegate = createMockDelegate();
     bridge = new SkillsWebviewBridge(webview, delegate);
 
     // Trigger loadcommit to start handshake.
     const loadEvent = new CustomEvent('loadcommit');
     Object.defineProperty(loadEvent, 'isTopLevel', {value: true});
-    Object.defineProperty(loadEvent, 'url', {value: SKILLS_REMOTE_URL});
+    Object.defineProperty(loadEvent, 'url', {value: getSkillsRemoteUrl()});
     webview.dispatchEvent(loadEvent);
 
     // Send mock ACK to complete handshake.
     const ackEvent = new MessageEvent('message', {
       data: {type: SKILLS_HANDSHAKE_ACK},
-      origin: new URL(SKILLS_REMOTE_URL).origin,
+      origin: getPrimarySkillsOrigin(),
       source: window,
     });
     window.dispatchEvent(ackEvent);
@@ -447,7 +546,7 @@ suite('SkillsWebviewBridgeTest', () => {
         metricName: 'framework-load-time',
         valueMs: 123,
       },
-      origin: new URL(SKILLS_REMOTE_URL).origin,
+      origin: getPrimarySkillsOrigin(),
       source: window,
     });
     window.dispatchEvent(frameworkEvent);
@@ -459,11 +558,36 @@ suite('SkillsWebviewBridgeTest', () => {
         metricName: 'web-client-load-time',
         valueMs: 456,
       },
-      origin: new URL(SKILLS_REMOTE_URL).origin,
+      origin: getPrimarySkillsOrigin(),
       source: window,
     });
     window.dispatchEvent(webClientEvent);
 
+    // Send guest metric 'guest-data-fetch-time' (as float)
+    const dataFetchEvent = new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_METRIC,
+        metricName: 'guest-data-fetch-time',
+        valueMs: 789.6,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    });
+    window.dispatchEvent(dataFetchEvent);
+
+    // Send guest metric 'guest-data-save-time' (as float)
+    const dataSaveEvent = new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_METRIC,
+        metricName: 'guest-data-save-time',
+        valueMs: 1011.2,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    });
+    window.dispatchEvent(dataSaveEvent);
+
+    // Verify histograms
     const frameworkMetric = recordedHistograms.find(
         h => h.name ===
             getLoadingStageHistogramName(LoadingStage.GUEST_FRAMEWORK));
@@ -475,6 +599,102 @@ suite('SkillsWebviewBridgeTest', () => {
             getLoadingStageHistogramName(LoadingStage.GUEST_WEB_CLIENT));
     assertTrue(!!webClientMetric);
     assertEquals(456, webClientMetric.value);
+
+    const dataFetchMetric = recordedHistograms.find(
+        h => h.name === 'Skills.Webview.LoadingStageDuration.GUEST_DATA_FETCH');
+    assertTrue(!!dataFetchMetric);
+    assertEquals(789, dataFetchMetric.value);
+
+    const dataSaveMetric =
+        recordedHistograms.find(h => h.name === 'Skills.Webview.WriteLatency');
+    assertTrue(!!dataSaveMetric);
+    assertEquals(1011, dataSaveMetric.value);
+  });
+
+  test('HostReceivesLogUmaEnumMessage', () => {
+    const delegate = createMockDelegate();
+    bridge = new SkillsWebviewBridge(webview, delegate);
+    establishHandshake();
+
+    assertTrue(bridge.isConnected());
+
+    const creationActionEvent = new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_UMA_ENUM,
+        histogramName: 'Skills.Dialog.Creation.Action',
+        value: 1,
+        enumSize: 5,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    });
+    window.dispatchEvent(creationActionEvent);
+
+    const saveResultEvent = new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_UMA_ENUM,
+        histogramName: 'Skills.Save.Result',
+        value: 0,
+        enumSize: 4,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    });
+    window.dispatchEvent(saveResultEvent);
+
+    const creationMetric = recordedHistograms.find(
+        h => h.name === 'Skills.Dialog.Creation.Action');
+    assertTrue(!!creationMetric);
+    assertEquals(1, creationMetric.value);
+    assertEquals('enumeration', creationMetric.type);
+
+    const saveMetric =
+        recordedHistograms.find(h => h.name === 'Skills.Save.Result');
+    assertTrue(!!saveMetric);
+    assertEquals(0, saveMetric.value);
+    assertEquals('enumeration', saveMetric.type);
+
+    // Test invalid payloads (out of bounds, non-integer, wrong prefix)
+    const initialRecordedCount = recordedHistograms.length;
+
+    // Out of bounds: value >= enumSize
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_UMA_ENUM,
+        histogramName: 'Skills.Dialog.Creation.Action',
+        value: 5,
+        enumSize: 5,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    }));
+
+    // Negative value
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_UMA_ENUM,
+        histogramName: 'Skills.Dialog.Creation.Action',
+        value: -1,
+        enumSize: 5,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    }));
+
+    // Non-Skills histogram prefix
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: SKILLS_LOG_UMA_ENUM,
+        histogramName: 'Omnibox.Action',
+        value: 1,
+        enumSize: 5,
+      },
+      origin: getPrimarySkillsOrigin(),
+      source: window,
+    }));
+
+    // None of the invalid payloads should be recorded
+    assertEquals(initialRecordedCount, recordedHistograms.length);
   });
 
   test('SkillsWebview_GetInitStartTime', () => {
@@ -506,26 +726,19 @@ suite('SkillsWebviewBridgeTest', () => {
     };
 
     try {
-      const delegate: SkillsWebviewBridgeDelegate = {
-        onError: () => {},
-        onShowToast: () => {},
-        onInvokeSkill: () => {},
-        onUrlChanged: () => {},
-        onCloseDialog: () => {},
-        onHandshakeComplete: () => {},
-      };
+      const delegate = createMockDelegate();
       bridge = new SkillsWebviewBridge(webview, delegate);
 
       // Trigger loadcommit to start handshake.
       const loadEvent = new CustomEvent('loadcommit');
       Object.defineProperty(loadEvent, 'isTopLevel', {value: true});
-      Object.defineProperty(loadEvent, 'url', {value: SKILLS_REMOTE_URL});
+      Object.defineProperty(loadEvent, 'url', {value: getSkillsRemoteUrl()});
       webview.dispatchEvent(loadEvent);
 
       // Send mock ACK to complete handshake.
       const ackEvent = new MessageEvent('message', {
         data: {type: SKILLS_HANDSHAKE_ACK},
-        origin: new URL(SKILLS_REMOTE_URL).origin,
+        origin: getPrimarySkillsOrigin(),
         source: window,
       });
       window.dispatchEvent(ackEvent);
@@ -538,7 +751,7 @@ suite('SkillsWebviewBridgeTest', () => {
           type: SKILLS_OPEN_URL,
           url: 'https://example.com/foo',
         },
-        origin: new URL(SKILLS_REMOTE_URL).origin,
+        origin: getPrimarySkillsOrigin(),
         source: window,
       });
       window.dispatchEvent(openUrlEvent);
@@ -548,5 +761,187 @@ suite('SkillsWebviewBridgeTest', () => {
     } finally {
       window.open = originalOpen;
     }
+  });
+
+  test('HostReceivesSendPromptMessage', () => {
+    let receivedPrompt: string|null = null;
+    const delegate = createMockDelegate({
+      onSendPrompt: (prompt: string) => {
+        receivedPrompt = prompt;
+      },
+    });
+    bridge = new SkillsWebviewBridge(webview, delegate);
+
+    // Trigger loadcommit to start handshake.
+    const loadEvent = new CustomEvent('loadcommit');
+    Object.defineProperty(loadEvent, 'isTopLevel', {value: true});
+    Object.defineProperty(loadEvent, 'url', {value: getSkillsRemoteUrl()});
+    webview.dispatchEvent(loadEvent);
+
+    // Send mock ACK to complete handshake.
+    const ackEvent = new MessageEvent('message', {
+      data: {type: SKILLS_HANDSHAKE_ACK},
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(ackEvent);
+
+    assertTrue(bridge.isConnected());
+
+    // Send send-prompt message via mock MessageEvent to match origin.
+    const promptEvent = new MessageEvent('message', {
+      data: {
+        type: SKILLS_SEND_PROMPT,
+        prompt: 'test prompt content',
+      },
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(promptEvent);
+
+    assertEquals('test prompt content', receivedPrompt);
+  });
+
+  test('HostReceivesOpenFullPageEditorMessage', () => {
+    let receivedData: PendingEditorData = {
+      name: '',
+      description: '',
+      instructions: '',
+      icon: '',
+      url: '',
+    };
+    const delegate = createMockDelegate({
+      onCloseDialogAndOpenEditor: (data: PendingEditorData) => {
+        receivedData = data;
+      },
+    });
+    bridge = new SkillsWebviewBridge(webview, delegate);
+
+    establishHandshake();
+
+    // Send open-full-page-editor message.
+    sendMockMessage({
+      type: SKILLS_OPEN_FULL_PAGE_EDITOR,
+      url: '/chromeskills/yourSkills',
+      skillName: 'test name',
+      skillDescription: 'test description',
+      skillInstructions: 'test instructions',
+      skillIcon: 'test icon',
+    });
+
+    assertEquals('test name', receivedData.name);
+    assertEquals('test description', receivedData.description);
+    assertEquals('test instructions', receivedData.instructions);
+    assertEquals('test icon', receivedData.icon);
+    assertEquals(getRemoteUrlForChromePath('/yourSkills'), receivedData.url);
+  });
+
+  test('SendSkillDialogInfo', async () => {
+    const delegate = createMockDelegate();
+    bridge = new SkillsWebviewBridge(webview, delegate);
+
+    establishHandshake();
+
+    interface DialogInfoMessage {
+      type?: string;
+      skillName?: string;
+      skillDescription?: string;
+      skillInstructions?: string;
+      skillIcon?: string;
+    }
+
+    const infoPromise = new Promise<DialogInfoMessage>(resolve => {
+      onPostMessage = (message) => {
+        if (message.type === SKILLS_DIALOG_INFO_TYPE) {
+          resolve(message as unknown as DialogInfoMessage);
+        }
+      };
+    });
+
+    bridge.sendSkillDialogInfo({
+      skillName: 'test name',
+      skillDescription: 'test description',
+      skillInstructions: 'test instructions',
+      skillIcon: 'test icon',
+    });
+
+    const msg = await infoPromise;
+    assertEquals('test name', msg.skillName);
+    assertEquals('test description', msg.skillDescription);
+    assertEquals('test instructions', msg.skillInstructions);
+    assertEquals('test icon', msg.skillIcon);
+  });
+
+  test('HostReceivesGetProvidedSkillMessage', () => {
+    let requestedSkillId: string|null = null;
+    const delegate = createMockDelegate({
+      onGetProvidedSkill: (skillId: string) => {
+        requestedSkillId = skillId;
+      },
+    });
+    bridge = new SkillsWebviewBridge(webview, delegate);
+
+    triggerLoadCommit();
+
+    const ackEvent = new MessageEvent('message', {
+      data: {type: SKILLS_HANDSHAKE_ACK},
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(ackEvent);
+
+    assertTrue(bridge.isConnected());
+
+    const getSkillEvent = new MessageEvent('message', {
+      data: {
+        type: SKILLS_GET_PROVIDED_SKILL,
+        skillId: 'enterprise-skill-123',
+      },
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(getSkillEvent);
+
+    assertEquals('enterprise-skill-123', requestedSkillId);
+  });
+
+  test('HostSendsProvidedSkills', () => {
+    bridge = new SkillsWebviewBridge(webview, createMockDelegate());
+    triggerLoadCommit();
+
+    const ackEvent = new MessageEvent('message', {
+      data: {type: SKILLS_HANDSHAKE_ACK},
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(ackEvent);
+
+    assertTrue(bridge.isConnected());
+
+    bridge.sendProvidedSkills([MOCK_ENTERPRISE_SKILL]);
+
+    const sentMessage = postedMessages.find(
+        msg => msg.type === SKILLS_SEND_PROVIDED_SKILLS_TYPE);
+    assertTrue(!!sentMessage);
+  });
+
+  test('HostSendsProvidedSkillInfo', () => {
+    bridge = new SkillsWebviewBridge(webview, createMockDelegate());
+    triggerLoadCommit();
+
+    const ackEvent = new MessageEvent('message', {
+      data: {type: SKILLS_HANDSHAKE_ACK},
+      origin: new URL(getSkillsRemoteUrl()).origin,
+      source: window,
+    });
+    window.dispatchEvent(ackEvent);
+
+    assertTrue(bridge.isConnected());
+
+    bridge.sendProvidedSkillInfo(MOCK_ENTERPRISE_SKILL);
+
+    const sentMessage = postedMessages.find(
+        msg => msg.type === SKILLS_PROVIDED_SKILL_INFO_TYPE);
+    assertTrue(!!sentMessage);
   });
 });

@@ -15,29 +15,19 @@
 
 #include <errno.h>
 
-#include <atomic>
-#include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <ostream>
 #include <string>
 #include <type_traits>
 #include <utility>
 
-#include "absl/base/attributes.h"
 #include "absl/base/config.h"
-#include "absl/base/internal/raw_logging.h"
 #include "absl/base/internal/strerror.h"
-#include "absl/base/macros.h"
 #include "absl/base/no_destructor.h"
 #include "absl/base/nullability.h"
-#include "absl/debugging/stacktrace.h"
-#include "absl/debugging/symbolize.h"
 #include "absl/status/internal/status_internal.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/source_location.h"
 
@@ -140,11 +130,13 @@ uintptr_t Status::MakeRepFromStringView(uintptr_t inlined_rep,
   return MakeStatusRepImpl<absl::string_view>(inlined_rep, msg, loc);
 }
 
+#ifndef SWIG
 uintptr_t Status::MakeRepFromStringRvalue(uintptr_t inlined_rep,
                                           std::string&& msg,
                                           absl::SourceLocation loc) {
   return MakeStatusRepImpl<std::string&&>(inlined_rep, std::move(msg), loc);
 }
+#endif  // SWIG
 
 uintptr_t Status::AddSourceLocationImpl(uintptr_t rep,
                                         absl::SourceLocation loc) {

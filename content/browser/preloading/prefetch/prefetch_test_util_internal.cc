@@ -533,7 +533,7 @@ ScopedMockContentBrowserClient::ScopedMockContentBrowserClient() {
       WillCreateURLLoaderFactory(
           _, _, _,
           ContentBrowserClient::URLLoaderFactoryType::kDocumentSubResource, _,
-          _, _, _, _, _, _, _, _, _))
+          _, _, _, _, _, _, _, _, _, _))
       .Times(::testing::AnyNumber());
 }
 
@@ -812,18 +812,79 @@ WithPrefetchRearchParam::~WithPrefetchRearchParam() = default;
 
 // static
 std::vector<PrefetchRearchParam> PrefetchRearchParam::Params() {
+  // Write parameter combinations declaratively instead of using `for` loops.
   return {
-      PrefetchRearchParam{.force_off_the_main_thread = false},
-      PrefetchRearchParam{.force_off_the_main_thread = true},
+      PrefetchRearchParam{
+          .force_off_the_main_thread = false,
+          .unblock_async_policy = std::nullopt,
+      },
+      PrefetchRearchParam{
+          .force_off_the_main_thread = false,
+          .unblock_async_policy =
+              features::PrefetchMatchResolverUnblockAsyncPolicy::kAsyncBlocked,
+      },
+      PrefetchRearchParam{
+          .force_off_the_main_thread = false,
+          .unblock_async_policy = features::
+              PrefetchMatchResolverUnblockAsyncPolicy::kAsyncBlockedUnmatch,
+      },
+      PrefetchRearchParam{
+          .force_off_the_main_thread = true,
+          .check_will_create_url_loader_factory = false,
+          .unblock_async_policy = std::nullopt,
+      },
+      PrefetchRearchParam{
+          .force_off_the_main_thread = true,
+          .check_will_create_url_loader_factory = true,
+          .unblock_async_policy = std::nullopt,
+      },
+      PrefetchRearchParam{
+          .force_off_the_main_thread = true,
+          .check_will_create_url_loader_factory = true,
+          .unblock_async_policy =
+              features::PrefetchMatchResolverUnblockAsyncPolicy::kAsyncBlocked,
+      },
+      PrefetchRearchParam{
+          .force_off_the_main_thread = true,
+          .check_will_create_url_loader_factory = true,
+          .unblock_async_policy = features::
+              PrefetchMatchResolverUnblockAsyncPolicy::kAsyncBlockedUnmatch,
+      },
   };
 }
 
 void WithPrefetchRearchParam::InitRearchFeatures() {
   if (param_.force_off_the_main_thread) {
-    feature_list_force_off_the_main_thread_.InitWithFeatures(
+    std::vector<base::test::FeatureRefAndParams> enabled_features;
+    enabled_features.push_back(
         {features::kPrefetchOffTheMainThread,
-         features::kPrefetchOffTheMainThreadForceForTesting},
+         {{features::kPrefetchOffTheMainThreadCheckWillCreateURLLoaderFactory
+               .name,
+           param_.check_will_create_url_loader_factory ? "true" : "false"}}});
+    enabled_features.push_back(
+        {features::kPrefetchOffTheMainThreadForceForTesting, {}});
+
+    feature_list_force_off_the_main_thread_.InitWithFeaturesAndParameters(
+        enabled_features, {});
+  }
+  if (param_.unblock_async_policy.has_value()) {
+    const char* policy_str = nullptr;
+    switch (*param_.unblock_async_policy) {
+      case features::PrefetchMatchResolverUnblockAsyncPolicy::kAsyncBlocked:
+        policy_str = "AsyncBlocked";
+        break;
+      case features::PrefetchMatchResolverUnblockAsyncPolicy::
+          kAsyncBlockedUnmatch:
+        policy_str = "AsyncBlockedUnmatch";
+        break;
+    }
+    feature_list_unblock_async_.InitWithFeaturesAndParameters(
+        {{features::kPrefetchMatchResolverUnblockAsync,
+          {{"unblock_async_policy", policy_str}}}},
         {});
+  } else {
+    feature_list_unblock_async_.InitWithFeatures(
+        {}, {features::kPrefetchMatchResolverUnblockAsync});
   }
 }
 

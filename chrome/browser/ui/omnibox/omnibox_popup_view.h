@@ -74,6 +74,9 @@ class OmniboxPopupView {
   // Informs the popup of user intent to open its current selection.
   virtual void OpenCurrentSelection(WindowOpenDisposition disposition) {}
 
+  // Informs the popup to reset its selection to the initial state.
+  virtual void ResetPopupToInitialState() {}
+
   // Saves state to the given tab.
   virtual void SaveStateToTab(content::WebContents* contents) {}
 
@@ -87,11 +90,18 @@ class OmniboxPopupView {
   // Called when the omnibox gains focus.
   virtual void OnFocus(bool query_zps) {}
 
+  // Called when the omnibox loses focus.
+  virtual void OnBlur() {}
+
   // Called when the WebUI omnibox reports a manual blur.
   virtual void OnManualBlur() {}
 
   // Returns true if the popup controls its own selection state.
   virtual bool IsSelectionPopupControlled() const = 0;
+
+  // Returns true if the popup is currently processing a revert/Escape action.
+  virtual bool IsReverting() const;
+  virtual void SetIsReverting(bool reverting);
 
   // Safe downcasting to the BrowserView-embedded implementation.
   virtual OmniboxPopupViewBrowserView* AsOmniboxPopupViewBrowserView();

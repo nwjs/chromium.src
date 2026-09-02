@@ -4,11 +4,7 @@
 
 #include "chrome/browser/extensions/browser_window_util.h"
 
-#include <algorithm>
-#include <vector>
-
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "components/tabs/public/tab_interface.h"
@@ -29,11 +25,6 @@ bool BrowserMatchesHelper(BrowserWindowInterface& browser,
                           bool include_incognito_or_parent,
                           bool restrict_to_normal_browsers,
                           bool restrict_to_current_workspace) {
-  // The browser's going away, don't use it for anything else.
-  if (browser.IsDeleteScheduled()) {
-    return false;
-  }
-
   if (browser.GetProfile() != &profile) {
     if (!include_incognito_or_parent ||
         !profile.IsSameOrParent(browser.GetProfile())) {
@@ -64,24 +55,7 @@ BrowserWindowInterface* GetBrowserForTabContents(
     content::WebContents& tab_contents) {
   tabs::TabInterface* tab =
       tabs::TabInterface::MaybeGetFromContents(&tab_contents);
-  if (!tab) {
-    return nullptr;
-  }
-
-  std::vector<BrowserWindowInterface*> all_browsers =
-      GetAllBrowserWindowInterfaces();
-  for (auto* browser : all_browsers) {
-    TabListInterface* tab_list = TabListInterface::From(browser);
-    if (!tab_list) {
-      continue;
-    }
-    std::vector<tabs::TabInterface*> all_tabs = tab_list->GetAllTabs();
-    if (std::ranges::contains(all_tabs, tab)) {
-      return browser;  // Found it!
-    }
-  }
-
-  return nullptr;
+  return tab ? tab->GetBrowserWindowInterface() : nullptr;
 }
 
 BrowserWindowInterface* GetLastActiveBrowserWithProfile(

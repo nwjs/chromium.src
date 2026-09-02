@@ -807,9 +807,9 @@ public class UrlOverridingTest {
         byte[] value = ApiCompatibilityUtils.getBytesUtf8(paramNewUrl);
         return mTestServer.getURL(url)
                 + "?replace_text="
-                + Base64.encodeToString(paranName, Base64.URL_SAFE)
+                + Base64.encodeToString(paranName, Base64.URL_SAFE | Base64.NO_WRAP)
                 + ":"
-                + Base64.encodeToString(value, Base64.URL_SAFE);
+                + Base64.encodeToString(value, Base64.URL_SAFE | Base64.NO_WRAP);
     }
 
     private String getNonBrowserPackageName() {
@@ -897,6 +897,7 @@ public class UrlOverridingTest {
 
     @Test
     @SmallTest
+    @DisabledTest(message = "crbug.com/543459084")
     public void testNavigationFromXHRCallbackAndShortTimeout() throws Exception {
         WebPageStation ctaPage = mTabbedActivityTestRule.startOnBlankPage();
         loadUrlAndWaitForIntentUrl(
@@ -2201,12 +2202,26 @@ public class UrlOverridingTest {
         String finalUrl = mTestServer.getURL(HELLO_PAGE);
         WebPageStation ctaPage = mTabbedActivityTestRule.startOnBlankPage();
 
-        TestParams params =
-                new TestParams(
-                        mTestServer.getURL(NAVIGATION_FROM_RENAVIGATE_FRAME_BLANK), true, true);
+        String url = getUrlWithParam(NAVIGATION_FROM_RENAVIGATE_FRAME_BLANK, EXTERNAL_APP_URL);
+        TestParams params = new TestParams(url, true, true);
         params.createsNewTab = true;
         params.willNavigateTwice = true;
         loadUrlAndWaitForIntentUrl(params, ctaPage);
+    }
+
+    @Test
+    @LargeTest
+    public void testWindowRenavigation_blankFrame_reparentToBrowser() throws Exception {
+        InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
+
+        ChromeActivity newActivity =
+                launchTwaAndClick(
+                        getUrlWithParam(
+                                NAVIGATION_FROM_RENAVIGATE_FRAME_BLANK, "https://example.com"));
+
+        Tab tab = ThreadUtils.runOnUiThreadBlocking(newActivity::getActivityTab);
+        Assert.assertFalse(tab.isTabInPWA());
+        Assert.assertTrue(tab.getWebContents().hasOpener());
     }
 
     @Test
@@ -2560,6 +2575,7 @@ public class UrlOverridingTest {
         launchTwa("com.foo.bar", url);
         ChromeActivity activity = mCustomTabActivityRule.getActivity();
         Tab tab = activity.getActivityTab();
+        ChromeTabUtils.waitForInteractable(tab);
 
         Assert.assertTrue(tab.isTabInPWA());
         Assert.assertFalse(tab.getWebContents().hasOpener());
@@ -2599,7 +2615,6 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
-    @DisabledTest(message = "https://crbug.com/513674983")
     public void testTopLevelNavigationWasReparented() throws TimeoutException {
         InterceptNavigationDelegateClientImpl.setIsDesktopWindowingModeForTesting(true);
 

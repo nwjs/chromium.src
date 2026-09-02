@@ -254,6 +254,7 @@ CGFloat const kSheetTopPadding = 40.0f;
                     didTapTool:(ComposeboxMode)toolMode {
   _successfulActionPerformed = YES;
 
+  __weak __typeof(self) weakSelf = self;
   if (_isStandaloneMenu) {
     [_metricsRecorder recordToolSelected:toolMode];
     if (toolMode == ComposeboxMode::kAIM) {
@@ -267,7 +268,6 @@ CGFloat const kSheetTopPadding = 40.0f;
                   toolMode:toolMode
                  modelMode:ComposeboxModelOption::kNone
             attachmentList:nil];
-    __weak __typeof(self) weakSelf = self;
     [_viewController.presentingViewController
         dismissViewControllerAnimated:YES
                            completion:^{
@@ -276,7 +276,10 @@ CGFloat const kSheetTopPadding = 40.0f;
   } else {
     [self.inputPlateDelegate composeboxMenuCoordinator:self
                                             didTapTool:toolMode];
-    [_viewController dismissViewControllerAnimated:YES completion:nil];
+    [_viewController dismissViewControllerAnimated:YES
+                                        completion:^{
+                                          [weakSelf requestMenuDismissal];
+                                        }];
   }
 }
 
@@ -284,6 +287,7 @@ CGFloat const kSheetTopPadding = 40.0f;
                    didTapModel:(ComposeboxModelOption)modelMode {
   _successfulActionPerformed = YES;
 
+  __weak __typeof(self) weakSelf = self;
   if (_isStandaloneMenu) {
     [_metricsRecorder recordModelSelected:modelMode];
     ComposeboxFocusParams* focusParams = [[ComposeboxFocusParams alloc]
@@ -292,7 +296,6 @@ CGFloat const kSheetTopPadding = 40.0f;
                   toolMode:ComposeboxMode::kRegularSearch
                  modelMode:modelMode
             attachmentList:nil];
-    __weak __typeof(self) weakSelf = self;
     [_viewController.presentingViewController
         dismissViewControllerAnimated:YES
                            completion:^{
@@ -301,13 +304,17 @@ CGFloat const kSheetTopPadding = 40.0f;
   } else {
     [self.inputPlateDelegate composeboxMenuCoordinator:self
                                            didTapModel:modelMode];
-    [_viewController dismissViewControllerAnimated:YES completion:nil];
+    [_viewController dismissViewControllerAnimated:YES
+                                        completion:^{
+                                          [weakSelf requestMenuDismissal];
+                                        }];
   }
 }
 
 - (void)composeboxMenuMediator:(ComposeboxMenuMediator*)mediator
           didUpdateAttachments:(ComposeboxAttachmentSelection*)attachments {
   _successfulActionPerformed = YES;
+  __weak __typeof(self) weakSelf = self;
   if (_isStandaloneMenu) {
     ComposeboxFocusParams* focusParams = [[ComposeboxFocusParams alloc]
         initWithEntrypoint:_entrypoint
@@ -315,7 +322,6 @@ CGFloat const kSheetTopPadding = 40.0f;
                   toolMode:ComposeboxMode::kRegularSearch
                  modelMode:ComposeboxModelOption::kNone
             attachmentList:attachments];
-    __weak __typeof(self) weakSelf = self;
     [_viewController.presentingViewController
         dismissViewControllerAnimated:YES
                            completion:^{
@@ -324,7 +330,10 @@ CGFloat const kSheetTopPadding = 40.0f;
   } else {
     [self.inputPlateDelegate composeboxMenuCoordinator:self
                                   didUpdateAttachments:attachments];
-    [_viewController dismissViewControllerAnimated:YES completion:nil];
+    [_viewController dismissViewControllerAnimated:YES
+                                        completion:^{
+                                          [weakSelf requestMenuDismissal];
+                                        }];
   }
 }
 

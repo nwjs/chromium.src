@@ -11,13 +11,13 @@
 #include <vector>
 
 #include "base/containers/span.h"
+#include "base/debug/stack_trace.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/notimplemented.h"
 #include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/debug/stack_trace.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -33,6 +33,7 @@
 #include "net/http/http_util.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "net/url_request/url_request.h"
+#include "services/network/public/cpp/timing_allow_origin_parser.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_data_pipe_getter.h"
 #include "services/network/test/test_url_loader_client.h"
@@ -126,14 +127,18 @@ class FakeControllerServiceWorker
       blink::mojom::SerializedBlobPtr blob_body,
       network::mojom::FetchResponseSource response_source,
       base::Time response_time,
-      std::string cache_storage_cache_name) {
+      std::string cache_storage_cache_name,
+      network::mojom::FetchResponseType response_type =
+          network::mojom::FetchResponseType::kDefault,
+      network::mojom::ParsedHeadersPtr parsed_headers = nullptr) {
     auto response = blink::mojom::FetchAPIResponse::New();
     response->status_code = 200;
     response->status_text = "OK";
-    response->response_type = network::mojom::FetchResponseType::kDefault;
+    response->response_type = response_type;
     response->response_source = response_source;
     response->response_time = response_time;
     response->cache_storage_cache_name = cache_storage_cache_name;
+    response->parsed_headers = std::move(parsed_headers);
     response->blob = std::move(blob_body);
     if (response->blob) {
       response->headers.emplace("Content-Length",
@@ -267,6 +272,18 @@ class FakeControllerServiceWorker
 
   void SetResponseTime(base::Time time) { response_time_ = time; }
 
+  void SetResponseType(network::mojom::FetchResponseType response_type) {
+    response_type_ = response_type;
+  }
+
+  void SetTimingAllowOrigin(const std::string& tao_string) {
+    parsed_headers_ = network::mojom::ParsedHeaders::New();
+    parsed_headers_->timing_allow_origin =
+        network::ParseTimingAllowOrigin(tao_string);
+  }
+
+  void ResetTimingAllowOrigin() { parsed_headers_.reset(); }
+
   // blink::mojom::ControllerServiceWorker:
   void DispatchFetchEventForSubresource(
       blink::mojom::DispatchFetchEventParamsPtr params,
@@ -290,7 +307,9 @@ class FakeControllerServiceWorker
       case ResponseMode::kDefault:
         response_callback->OnResponse(
             OkResponse(nullptr /* blob_body */, response_source_,
-                       response_time_, cache_storage_cache_name_),
+                       response_time_, cache_storage_cache_name_,
+                       response_type_,
+                       parsed_headers_ ? parsed_headers_->Clone() : nullptr),
             std::move(timing), /*errors=*/nullptr);
         std::move(callback).Run(
             blink::mojom::ServiceWorkerEventStatus::COMPLETED);
@@ -302,7 +321,8 @@ class FakeControllerServiceWorker
       case ResponseMode::kStream:
         response_callback->OnResponseStream(
             OkResponse(nullptr /* blob_body */, response_source_,
-                       response_time_, cache_storage_cache_name_),
+                       response_time_, cache_storage_cache_name_,
+                       response_type_),
             std::move(stream_handle_), std::move(timing), /*errors=*/nullptr);
         std::move(callback).Run(
             blink::mojom::ServiceWorkerEventStatus::COMPLETED);
@@ -310,7 +330,7 @@ class FakeControllerServiceWorker
       case ResponseMode::kBlob:
         response_callback->OnResponse(
             OkResponse(std::move(blob_body_), response_source_, response_time_,
-                       cache_storage_cache_name_),
+                       cache_storage_cache_name_, response_type_),
             std::move(timing), /*errors=*/nullptr);
         std::move(callback).Run(
             blink::mojom::ServiceWorkerEventStatus::COMPLETED);
@@ -342,8 +362,9 @@ class FakeControllerServiceWorker
             blob->blob.InitWithNewPipeAndPassReceiver());
 
         // Respond with a 206 response.
-        auto response = OkResponse(std::move(blob), response_source_,
-                                   response_time_, cache_storage_cache_name_);
+        auto response =
+            OkResponse(std::move(blob), response_source_, response_time_,
+                       cache_storage_cache_name_, response_type_);
         response->status_code = 206;
         response->headers.emplace(
             "Content-Range", base::StringPrintf("bytes %zu-%zu/%zu", start, end,
@@ -442,8 +463,12 @@ class FakeControllerServiceWorker
   network::mojom::FetchResponseSource response_source_ =
       network::mojom::FetchResponseSource::kUnspecified;
 
+  network::mojom::FetchResponseType response_type_ =
+      network::mojom::FetchResponseType::kDefault;
+
   std::string cache_storage_cache_name_;
   base::Time response_time_;
+  network::mojom::ParsedHeadersPtr parsed_headers_;
 };
 
 class FakeServiceWorkerContainerHost
@@ -1740,6 +1765,55 @@ TEST_F(ServiceWorkerSubresourceLoaderTest,
             "bytes 5-32/33");
   EXPECT_EQ(28, info->content_length);
   EXPECT_EQ("is sample text for the Blob.", TakeResponseBody(client.get()));
+}
+
+TEST_F(ServiceWorkerSubresourceLoaderTest, TimingAllowPassedByResponseType) {
+  struct {
+    network::mojom::FetchResponseType response_type;
+    std::optional<std::string> timing_allow_origin;
+    bool expected_timing_allow_passed;
+  } kTestCases[] = {
+      // Basic and Default responses always pass timing allow check.
+      {network::mojom::FetchResponseType::kBasic, std::nullopt, true},
+      {network::mojom::FetchResponseType::kDefault, std::nullopt, true},
+      // Filtered responses without Timing-Allow-Origin header fail.
+      {network::mojom::FetchResponseType::kCors, std::nullopt, false},
+      {network::mojom::FetchResponseType::kError, std::nullopt, false},
+      {network::mojom::FetchResponseType::kOpaque, std::nullopt, false},
+      {network::mojom::FetchResponseType::kOpaqueRedirect, std::nullopt, false},
+      // Filtered responses with valid Timing-Allow-Origin pass.
+      {network::mojom::FetchResponseType::kCors, "*", true},
+      {network::mojom::FetchResponseType::kOpaque, "*", true},
+      {network::mojom::FetchResponseType::kCors, "https://www.example.com",
+       true},
+      // Filtered responses with mismatching Timing-Allow-Origin fail.
+      {network::mojom::FetchResponseType::kCors, "https://other.example.com",
+       false},
+      {network::mojom::FetchResponseType::kOpaque, "https://other.example.com",
+       false},
+  };
+
+  for (const auto& test_case : kTestCases) {
+    fake_controller_.SetResponseType(test_case.response_type);
+    if (test_case.timing_allow_origin) {
+      fake_controller_.SetTimingAllowOrigin(*test_case.timing_allow_origin);
+    } else {
+      fake_controller_.ResetTimingAllowOrigin();
+    }
+    mojo::Remote<network::mojom::URLLoaderFactory> factory =
+        CreateSubresourceLoaderFactory();
+    network::ResourceRequest request =
+        CreateRequest(GURL("https://www.example.com/foo.png"));
+    request.request_initiator =
+        url::Origin::Create(GURL("https://www.example.com"));
+    mojo::Remote<network::mojom::URLLoader> loader;
+    std::unique_ptr<network::TestURLLoaderClient> client;
+    StartRequest(factory, request, &loader, &client);
+    fake_controller_.RunUntilFetchEvent();
+    client->RunUntilComplete();
+    EXPECT_EQ(test_case.expected_timing_allow_passed,
+              client->response_head()->timing_allow_passed);
+  }
 }
 
 }  // namespace service_worker_subresource_loader_unittest

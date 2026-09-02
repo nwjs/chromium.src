@@ -40,20 +40,18 @@ class PixAccountLinkingManager : public NativeAccountLinkingHandler {
   virtual void MaybeShowPixAccountLinkingPrompt(
       const url::Origin& pix_payment_page_origin);
 
-  // Sets the internal UI state and triggers dismissal.
-  void DismissPrompt() override;
-
  protected:
   std::optional<AccountLinkingParams> CreateAccountLinkingParams() override;
   // NativeAccountLinkingHandler:
   std::string_view GetHistogramSuffix() const override;
+  strike_database::StrikeDatabaseIntegratorBase* GetStrikeDatabase() override;
+  bool IsUserPrefEnabled() const override;
   base::DictValue GetPayloadForGetDetailsForCreatePaymentInstrument() override;
   void DoOnClientTokenReceived(
       const std::vector<uint8_t>& client_token) override;
   void DoOnGetDetailsForCreatePaymentInstrumentResponse(
       bool is_eligible) override;
   void DoOnAccepted() override;
-  void DoOnDeclined() override;
   void DoOnAccountLinkingResult(AccountLinkingResult result) override;
   base::WeakPtr<NativeAccountLinkingHandler> GetWeakPtr() override;
 
@@ -61,6 +59,12 @@ class PixAccountLinkingManager : public NativeAccountLinkingHandler {
   friend class PixAccountLinkingManagerTestApi;
 
   void Reset();
+
+  // Called when the user returns to Chrome after paying in bank app.
+  void OnUserReturnedToChrome();
+
+  // Called after the predefined wait time following user return to Chrome.
+  void OnPostReturnDelayPassed();
 
   // Sets the UI event listener, sets the internal UI state, and triggers
   // showing the Pix account linking prompt if the user is eligible.
@@ -75,6 +79,12 @@ class PixAccountLinkingManager : public NativeAccountLinkingHandler {
 
   // Stores the client token received from FetchClientToken().
   std::vector<uint8_t> client_token_;
+
+  // Track if the user has returned to Chrome tab from the bank app.
+  bool has_user_returned_to_chrome_ = false;
+
+  // Track if the delay after returning to Chrome has elapsed.
+  bool has_post_return_delay_passed_ = false;
 
   // Optional bool to indicate whether the user is eligible for Pix account
   // linking based on the response from payments backend. This field is set to

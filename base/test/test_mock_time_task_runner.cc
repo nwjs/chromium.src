@@ -414,8 +414,8 @@ void TestMockTimeTaskRunner::ForwardClocksUntilTickTime(TimeTicks later_ticks) {
   OnAfterTimePassed();
 }
 
-bool TestMockTimeTaskRunner::DequeueNextTask(const TimeTicks& reference,
-                                             const TimeDelta& max_delta,
+bool TestMockTimeTaskRunner::DequeueNextTask(TimeTicks reference,
+                                             TimeDelta max_delta,
                                              TestPendingTask* next_task) {
   DCHECK(thread_checker_.CalledOnValidThread());
   AutoLock scoped_lock(tasks_lock_);

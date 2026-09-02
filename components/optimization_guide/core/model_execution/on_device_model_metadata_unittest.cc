@@ -11,7 +11,6 @@
 #include "base/test/gmock_expected_support.h"
 #include "base/test/task_environment.h"
 #include "base/test/test.pb.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/features/compose.pb.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -23,8 +22,10 @@ namespace {
 
 using base::test::ErrorIs;
 
-const struct OnDeviceBaseModelSpec kModelSpec = {"test", "0.0.1", {}};
-const struct OnDeviceBaseModelSpec kModelSpecNew = {"test", "0.0.2", {}};
+const OnDeviceBaseModelSpec kModelSpec = {.model_name = "test",
+                                          .model_version = "0.0.1"};
+const OnDeviceBaseModelSpec kModelSpecNew = {.model_name = "test",
+                                             .model_version = "0.0.2"};
 
 class OnDeviceModelMetadataTest : public testing::Test {
  public:

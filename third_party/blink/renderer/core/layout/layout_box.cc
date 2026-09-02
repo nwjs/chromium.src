@@ -627,10 +627,10 @@ void LayoutBox::WillBeRemovedFromTree() {
 }
 
 void LayoutBox::StyleWillChange(StyleDifference diff,
+                                const ComputedStyle* old_style,
                                 const ComputedStyle& new_style,
                                 StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  const ComputedStyle* old_style = Style();
   if (old_style) {
     // When a layout hint happens and an object's position style changes, we
     // have to do a layout to dirty the layout tree using the old position
@@ -644,14 +644,17 @@ void LayoutBox::StyleWillChange(StyleDifference diff,
         IsInsideMulticol() && ShouldPreventColumnSpannerDescendants();
   }
 
-  LayoutBoxModelObject::StyleWillChange(diff, new_style, style_change_context);
+  LayoutBoxModelObject::StyleWillChange(diff, old_style, new_style,
+                                        style_change_context);
 }
 
 void LayoutBox::StyleDidChange(StyleDifference diff,
                                const ComputedStyle* old_style,
+                               const ComputedStyle& new_style,
                                const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutBoxModelObject::StyleDidChange(diff, old_style, style_change_context);
+  LayoutBoxModelObject::StyleDidChange(diff, old_style, new_style,
+                                       style_change_context);
 
   // Reflection works through PaintLayer. Some child classes e.g. LayoutSVGBlock
   // don't create layers and ignore reflections.
@@ -665,7 +668,6 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
   // scroll offset may be outside the normal min/max range of the scrollable
   // area, which is weird but OK, because the scrollable area will update its
   // min/max in updateAfterLayout().
-  const ComputedStyle& new_style = StyleRef();
   if (IsScrollContainer() && old_style &&
       old_style->EffectiveZoom() != new_style.EffectiveZoom()) {
     PaintLayerScrollableArea* scrollable_area = GetScrollableArea();
@@ -701,7 +703,6 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
           diff.border_radius_changed ||
           (diff.border_shape_changed &&
            (new_style.HasBorderShape() || old_style->HasBorderShape())) ||
-          (HasControlClip() && !old_style->PaddingEqual(new_style)) ||
           (new_style.OverflowClipMargin() &&
            new_style.OverflowClipMargin()->GetReferenceBox() ==
                StyleOverflowClipMargin::ReferenceBox::kContentBox &&
@@ -779,14 +780,14 @@ void LayoutBox::StyleDidChange(StyleDifference diff,
 
   if (diff.NeedsFullLayout()) {
     if (IsValidColumnSpannerInTree(*old_style) !=
-        IsValidColumnSpannerInTree(StyleRef())) {
+        IsValidColumnSpannerInTree(new_style)) {
       MarkParentForSpannerOrOutOfFlowPositionedChange();
     }
   }
 
   // Update the script style map, from the new computed style.
   if (IsCustomItem())
-    GetCustomLayoutChild()->styleMap()->UpdateStyle(GetDocument(), StyleRef());
+    GetCustomLayoutChild()->styleMap()->UpdateStyle(GetDocument(), new_style);
 }
 
 void LayoutBox::UpdateShapeOutsideInfoAfterStyleChange(
@@ -1105,7 +1106,8 @@ LayoutBlock* LayoutBox::ScrollerFromScrollMarkerGroup() const {
 
 void LayoutBox::QuadsInAncestorInternal(Vector<gfx::QuadF>& quads,
                                         const LayoutBoxModelObject* ancestor,
-                                        MapCoordinatesFlags mode) const {
+                                        MapCoordinatesFlags mode,
+                                        BoxQuadType box_type) const {
   NOT_DESTROYED();
   const PhysicalBoxFragment* first_fragment = nullptr;
   for (const PhysicalBoxFragment& fragment : PhysicalFragments()) {
@@ -1118,7 +1120,8 @@ void LayoutBox::QuadsInAncestorInternal(Vector<gfx::QuadF>& quads,
       offset = fragment.OffsetFromRootFragmentationContext() -
                first_fragment->OffsetFromRootFragmentationContext();
     }
-    PhysicalRect rect(offset, fragment.Size());
+    PhysicalRect rect = LocalRectForBoxQuad(fragment, box_type);
+    rect.offset += offset;
     quads.push_back(LocalRectToAncestorQuad(rect, ancestor, mode));
   }
 }
@@ -1887,7 +1890,7 @@ bool LayoutBox::ApplyBoxClips(
     TransformState::TransformAccumulation accumulation,
     VisualRectFlags visual_rect_flags) const {
   NOT_DESTROYED();
-  if (visual_rect_flags & VisualRectFlags::kSkipAncestorAndViewportClips) {
+  if (visual_rect_flags.Has(VisualRectFlag::kSkipAncestorAndViewportClips)) {
     return true;
   }
   transform_state.Flatten();
@@ -1899,7 +1902,7 @@ bool LayoutBox::ApplyBoxClips(
   // receive CSS clip but for whom the current object is not in the containing
   // block chain.
   PhysicalRect clip_rect = ClippingRect();
-  if (visual_rect_flags & kEdgeInclusive) {
+  if (visual_rect_flags.Has(VisualRectFlag::kEdgeInclusive)) {
     does_intersect = rect.InclusiveIntersect(clip_rect);
   } else {
     rect.Intersect(clip_rect);
@@ -2166,7 +2169,8 @@ ResourcePriority LayoutBox::ComputeResourcePriority() const {
   // TODO(japhet): Is this IgnoreTransforms correct? Would it be better to use
   // the visual rect (which has ancestor clips and transforms applied)? Should
   // we map to the top-level viewport instead of the current (sub) frame?
-  object_bounds.Move(LocalToAbsolutePoint(PhysicalOffset(), kIgnoreTransforms));
+  object_bounds.Move(LocalToAbsolutePoint(
+      PhysicalOffset(), {MapCoordinatesMode::kIgnoreTransforms}));
 
   // The object bounds might be empty right now, so intersects will fail since
   // it doesn't deal with empty rects. Use PhysicalRect::Contains in that case.
@@ -2334,23 +2338,11 @@ PhysicalRect LayoutBox::OverflowClipRect(
                       kExcludeScrollbarGutter);
   }
 
-  if (HasControlClip()) [[unlikely]] {
-    PhysicalRect control_clip = PhysicalContentBoxRect();
-    clip_rect.Intersect(control_clip);
-  }
-
   return clip_rect;
 }
 
 PhysicalRect LayoutBox::OverflowClipRectForScrollNode() const {
   return OverflowClipRect();
-}
-
-bool LayoutBox::HasControlClip() const {
-  NOT_DESTROYED();
-  return !RuntimeEnabledFeatures::SelectUsesUAClipEnabled() && IsMenuList() &&
-         StyleRef().EffectiveAppearance() != AppearanceValue::kBase &&
-         StyleRef().EffectiveAppearance() != AppearanceValue::kBaseSelect;
 }
 
 void LayoutBox::ExcludeScrollbars(
@@ -2980,7 +2972,7 @@ bool LayoutBox::MapToVisualRectInAncestorSpaceInternal(
   if (ancestor == this)
     return true;
 
-  if (!(visual_rect_flags & kIgnoreFilters)) {
+  if (!visual_rect_flags.Has(VisualRectFlag::kIgnoreFilters)) {
     InflateVisualRectForFilter(transform_state);
   }
 
@@ -2997,7 +2989,8 @@ bool LayoutBox::MapToVisualRectInAncestorSpaceInternal(
     container_offset += AnchorPositionScrollTranslationOffset();
   }
 
-  if (skip_info.FilterSkipped() && !(visual_rect_flags & kIgnoreFilters)) {
+  if (skip_info.FilterSkipped() &&
+      !visual_rect_flags.Has(VisualRectFlag::kIgnoreFilters)) {
     InflateVisualRectForFilterUnderContainer(transform_state, *container,
                                              ancestor);
   }
@@ -3677,6 +3670,48 @@ PhysicalOffset LayoutBox::OffsetPoint(const Element* parent) const {
   return AdjustedPositionRelativeTo(PhysicalLocation(), parent);
 }
 
+LayoutUnit LayoutBox::StitchedBlockSize() const {
+  NOT_DESTROYED();
+  if (!PhysicalFragmentCount()) {
+    return LayoutUnit();
+  }
+  auto writing_direction = StyleRef().GetWritingDirection();
+  const auto& first_fragment = *GetPhysicalFragment(0);
+  if (first_fragment.IsOnlyForNode() ||
+      (first_fragment.GetBreakToken() &&
+       first_fragment.GetBreakToken()->IsRepeated())) {
+    // This node either generates a single fragment, or we're dealing with
+    // repeated content, which isn't stitched.
+    return LogicalFragment(writing_direction, first_fragment).BlockSize();
+  }
+
+  wtf_size_t idx = PhysicalFragmentCount();
+  DCHECK_GT(idx, 1u);
+  idx--;
+  // Calculating the stitched size is straight-forward if the node isn't
+  // overflowed: Just add the consumed block-size of the last break token
+  // and the block-size of the last fragment. If it is overflowed, on the
+  // other hand, we need to search backwards until we find the end of the
+  // block-end border edge.
+  PhysicalSize last_content_fragment_size = GetPhysicalFragment(idx)->Size();
+  LayoutUnit previously_consumed_block_size;
+  while (idx) {
+    // Look at the preceding break token.
+    idx--;
+    const BlockBreakToken* break_token =
+        GetPhysicalFragment(idx)->GetBreakToken();
+    if (!break_token->IsAtBlockEnd()) {
+      previously_consumed_block_size = break_token->ConsumedBlockSize();
+      break;
+    }
+    last_content_fragment_size = GetPhysicalFragment(idx)->Size();
+  }
+
+  LogicalSize logical_size(
+      ToLogicalSize(last_content_fragment_size, StyleRef().GetWritingMode()));
+  return previously_consumed_block_size + logical_size.block_size;
+}
+
 PhysicalSize LayoutBox::StitchedSize() const {
   NOT_DESTROYED();
   if (!HasValidCachedGeometry()) {
@@ -3846,8 +3881,9 @@ PhysicalRect LayoutBox::DebugRect() const {
 
 OverflowClipAxes LayoutBox::ComputeOverflowClipAxes() const {
   NOT_DESTROYED();
-  if (ShouldApplyPaintContainment() || HasControlClip())
+  if (ShouldApplyPaintContainment()) {
     return kOverflowClipBothAxis;
+  }
 
   if (!RespectsCSSOverflow() || !HasNonVisibleOverflow())
     return kNoOverflowClip;

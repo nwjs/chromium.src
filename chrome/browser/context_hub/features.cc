@@ -16,6 +16,24 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    "auto_todos_timeout_seconds",
                    base::Seconds(30));
 
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kTabBasedTodosInactivityThreshold,
+                   &browser::context_hub::mojom::kAutoTodos,
+                   "tab_based_todos_inactivity_threshold",
+                   base::Hours(1));
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kFirstPartyAutoTodosInterval,
+                   &browser::context_hub::mojom::kAutoTodos,
+                   "first_party_auto_todos_interval",
+                   base::Days(1));
+
+BASE_FEATURE_PARAM(size_t,
+                   kMaxTodoFeedbackCacheSize,
+                   &browser::context_hub::mojom::kAutoTodos,
+                   "max_todo_feedback_cache_size",
+                   50);
+
 BASE_FEATURE(kMemoryBanks, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(size_t,

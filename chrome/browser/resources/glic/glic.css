@@ -459,3 +459,9 @@ cr-progress {
   opacity: 0.9;
 }
 
+.androidMobile .panel .close-button {
+  --cr-icon-button-size: 48px;
+  --cr-icon-button-margin-end: -20px;
+  margin-block: -12px;
+}
+

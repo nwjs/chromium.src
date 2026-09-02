@@ -18,6 +18,7 @@
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "components/password_manager/core/browser/password_store/test_password_store.h"
+#include "components/password_manager/core/browser/password_string.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
@@ -76,7 +77,7 @@ class NotificationCardMovePasswordsTest
     password_manager::StoredCredential cred;
     cred.signon_realm = "https://example.com/";
     cred.username_value = u"username";
-    cred.password_value = u"password";
+    cred.password_value = password_manager::PasswordString(u"password");
     cred.in_store = store_type;
     profile_store_->AddLogin(std::move(cred));
     task_environment()->RunUntilIdle();
@@ -102,11 +103,13 @@ TEST_F(NotificationCardMovePasswordsTest, NoPromoIfNoPasswords) {
   std::unique_ptr<password_manager::PasswordNotificationCardBase> promo =
       std::make_unique<MovePasswordsPromo>(profile(), delegate());
 
-  EXPECT_FALSE(promo->ShouldShowCard());
+  EXPECT_FALSE(
+      promo->ShouldShowCard(password_manager::NotificationCardPrefState{}));
 }
 
 TEST_F(NotificationCardMovePasswordsTest, NoPromoIfAccountStorageDisabled) {
   SavePassword();
+  sync_service()->SetSignedOut();
 
   ASSERT_THAT(pref_service()->GetList(
                   password_manager::prefs::kPasswordManagerPromoCardsList),
@@ -114,7 +117,8 @@ TEST_F(NotificationCardMovePasswordsTest, NoPromoIfAccountStorageDisabled) {
   std::unique_ptr<password_manager::PasswordNotificationCardBase> promo =
       std::make_unique<MovePasswordsPromo>(profile(), delegate());
 
-  EXPECT_FALSE(promo->ShouldShowCard());
+  EXPECT_FALSE(
+      promo->ShouldShowCard(password_manager::NotificationCardPrefState{}));
 }
 
 TEST_F(NotificationCardMovePasswordsTest, NoPromoIfNoLocalPasswords) {
@@ -127,7 +131,8 @@ TEST_F(NotificationCardMovePasswordsTest, NoPromoIfNoLocalPasswords) {
   std::unique_ptr<password_manager::PasswordNotificationCardBase> promo =
       std::make_unique<MovePasswordsPromo>(profile(), delegate());
 
-  EXPECT_FALSE(promo->ShouldShowCard());
+  EXPECT_FALSE(
+      promo->ShouldShowCard(password_manager::NotificationCardPrefState{}));
 }
 
 TEST_F(NotificationCardMovePasswordsTest, PromoShownWithSavedLocalPasswords) {
@@ -140,7 +145,8 @@ TEST_F(NotificationCardMovePasswordsTest, PromoShownWithSavedLocalPasswords) {
   std::unique_ptr<password_manager::PasswordNotificationCardBase> promo =
       std::make_unique<MovePasswordsPromo>(profile(), delegate());
 
-  EXPECT_TRUE(promo->ShouldShowCard());
+  EXPECT_TRUE(
+      promo->ShouldShowCard(password_manager::NotificationCardPrefState{}));
 }
 
 TEST_F(NotificationCardMovePasswordsTest, PromoShownIn7DaysAfterDismiss) {
@@ -153,17 +159,22 @@ TEST_F(NotificationCardMovePasswordsTest, PromoShownIn7DaysAfterDismiss) {
               IsEmpty());
   std::unique_ptr<password_manager::PasswordNotificationCardBase> promo =
       std::make_unique<MovePasswordsPromo>(profile(), delegate());
-  EXPECT_TRUE(promo->ShouldShowCard());
+  EXPECT_TRUE(
+      promo->ShouldShowCard(password_manager::NotificationCardPrefState{}));
 
-  promo->OnNotificationCardShown();
-  promo->OnNotificationCardDismissed();
-  EXPECT_FALSE(promo->ShouldShowCard());
+  password_manager::NotificationCardPrefState dismissed_state;
+  dismissed_state.was_dismissed = true;
+  dismissed_state.last_time_shown = base::Time::Now();
+  EXPECT_FALSE(promo->ShouldShowCard(dismissed_state));
 
   // Check that in 7 days it's shown again even after dismissing.
   task_environment()->AdvanceClock(base::Days(7) + base::Seconds(1));
-  EXPECT_TRUE(promo->ShouldShowCard());
 
-  histogram_tester.ExpectUniqueSample(
-      "PasswordManager.PromoCard.Shown",
-      password_manager::NotificationCardType::kMovePasswords, 1);
+  // The pref state needs to hold the historical timestamp relative to the
+  // advanced clock
+  password_manager::NotificationCardPrefState past_dismissed_state;
+  past_dismissed_state.was_dismissed = true;
+  past_dismissed_state.last_time_shown =
+      base::Time::Now() - base::Days(7) - base::Seconds(1);
+  EXPECT_TRUE(promo->ShouldShowCard(past_dismissed_state));
 }

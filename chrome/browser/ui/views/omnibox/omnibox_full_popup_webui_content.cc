@@ -9,14 +9,19 @@
 
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
+#include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
+#include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
+#include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_ui.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/menus/simple_menu_model.h"
@@ -47,10 +52,26 @@ bool OmniboxFullPopupWebUIContent::EscClosesUI() const {
 }
 
 void OmniboxFullPopupWebUIContent::CloseUI() {
+  // Call base class method first so that any focus operations downstream
+  // will be overridden by focusing the web contents.
+  OmniboxPopupWebUIBaseContent::CloseUI();
+
   controller()->client()->FocusWebContents();
   controller()->edit_model()->OnKillFocus();
+}
 
-  OmniboxPopupWebUIBaseContent::CloseUI();
+void OmniboxFullPopupWebUIContent::Clear() {
+  if (auto* handler = popup_handler()) {
+    handler->ClearPopup(
+        base::BindOnce(&OmniboxFullPopupWebUIContent::OnClearCallback,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    Detach();
+  }
+}
+
+void OmniboxFullPopupWebUIContent::OnClearCallback() {
+  Detach();
 }
 
 // TODO(b/504668887): If necessary, copy `OmniboxAimPopupWebUIContent::Clear()`
@@ -142,11 +163,29 @@ const gfx::FontList& OmniboxFullPopupWebUIContent::FontListForContextMenu()
 
 bool OmniboxFullPopupWebUIContent::IsContextMenuTextEditingCommandEnabled(
     int command_id) const {
+  if (const auto* handler = GetPopupHandler()) {
+    if (command_id == views::Textfield::kUndo) {
+      return handler->can_undo();
+    }
+  }
   return HandleIsContextMenuTextEditingCommandEnabled(command_id, params_);
 }
 
 views::Widget* OmniboxFullPopupWebUIContent::GetWidgetForTextServices() {
   return GetWidget();
+}
+
+const OmniboxPopupHandler* OmniboxFullPopupWebUIContent::GetPopupHandler()
+    const {
+  if (!popup_presenter() || !popup_presenter()->GetWebUIContent()) {
+    return nullptr;
+  }
+  const auto* contents_wrapper =
+      popup_presenter()->GetWebUIContent()->contents_wrapper();
+  const auto* webui_controller =
+      contents_wrapper ? contents_wrapper->GetWebUIController() : nullptr;
+  const auto* popup_ui = static_cast<const OmniboxPopupUI*>(webui_controller);
+  return popup_ui ? popup_ui->popup_handler() : nullptr;
 }
 
 BEGIN_METADATA(OmniboxFullPopupWebUIContent)

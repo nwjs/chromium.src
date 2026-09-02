@@ -393,7 +393,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Android.SystemExitReason{AndroidProcessExitReasons}"
-    enum="AndroidProcessExitReason" expires_after="2026-11-29">
+    enum="AndroidProcessExitReason" expires_after="2027-02-07">
   <owner>boliu@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <owner>wnwen@chromium.org</owner>
@@ -570,6 +570,47 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Stability.CommitLimitTerminatedTab.ReloadResult"
+    enum="CommitLimitTerminatedTabReloadResult" expires_after="2026-11-01">
+  <owner>aattar@google.com</owner>
+  <owner>chrome-stability-core@google.com</owner>
+  <summary>
+    Records the outcome of a user's attempt to reload a tab that was terminated
+    due to system commit limits
+    (CHROME_RESULT_CODE_TERMINATED_BY_OTHER_PROCESS_ON_COMMIT_FAILURE). Windows
+    only.
+
+    At most one sample is recorded per commit-limit termination.
+
+    The exact emission points for each bucket are:
+
+    - Success: A hidden tab was discarded after the termination and, once made
+    visible again, its reload navigation committed without an error page.
+
+    - Failed: Repeated OOM / Other Error: The renderer exited again (with a
+    commit-limit or other abnormal exit, respectively) while the recovery was
+    being tracked.
+
+    - Failed: Hidden Tab Not Discarded: The hidden tab was not discarded and
+    became visible again, which shows a sad tab.
+
+    Unrecorded cases (no sample recorded): Navigating to a different URL, hiding
+    the tab during tracking, or closing the tab (normal termination).
+  </summary>
+</histogram>
+
+<histogram name="Stability.CommitLimitTerminatedTab.Visibility"
+    enum="CommitLimitTerminatedTabVisibility" expires_after="2026-11-01">
+  <owner>aattar@google.com</owner>
+  <owner>chrome-stability-core@google.com</owner>
+  <summary>
+    Records the visibility of a tab when its renderer was terminated due to
+    system commit limits
+    (CHROME_RESULT_CODE_TERMINATED_BY_OTHER_PROCESS_ON_COMMIT_FAILURE). Logged
+    once at termination time. Windows only.
+  </summary>
+</histogram>
+
 <histogram name="Stability.Counts2" enum="StabilityEventType"
     expires_after="never">
 <!--
@@ -740,7 +781,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.iOS.UTE.HasPossibleExplanation"
-    enum="BooleanHasPossibleExplanation" expires_after="2026-11-30">
+    enum="BooleanHasPossibleExplanation" expires_after="2027-02-07">
   <owner>michaeldo@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <summary>
@@ -840,7 +881,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.iOS.UTE.TimeBetweenUTEAndNextLaunch" units="ms"
-    expires_after="2026-12-06">
+    expires_after="2027-02-07">
   <owner>michaeldo@chromium.org</owner>
   <owner>olivierrobin@chromium.org</owner>
   <summary>
@@ -867,7 +908,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.Media.{ProcessType}.Launch" enum="Boolean"
-    expires_after="2026-12-09">
+    expires_after="2027-02-07">
   <owner>sangbaekpark@chromium.org</owner>
   <owner>media-dev-uma@chromium.org</owner>
   <summary>
@@ -923,7 +964,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.RendererAbnormalTermination2.HostedContentType"
-    enum="RendererHostedContentType" expires_after="2026-11-29">
+    enum="RendererHostedContentType" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -933,7 +974,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Stability.RendererAbnormalTermination2.{HostedContentType}"
-    enum="TerminationStatus" expires_after="2026-11-29">
+    enum="TerminationStatus" expires_after="2027-02-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>

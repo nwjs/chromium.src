@@ -3050,6 +3050,40 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Autofill.AtAtPressed">
+  <owner>schwering@google.com</owner>
+  <owner>autofill-internal@google.com</owner>
+  <summary>
+    Recorded whenever the user hits &quot;@&quot; twice in quick succession.
+  </summary>
+  <metric name="FieldSessionIdentifier">
+    <summary>
+      A random variable assigned to a specific instance of a form control (e.g.
+      a HTML input element). This should be globally unique and suitable for
+      distinguishing fields. Two different users would have different values.
+      For the same user, the same field in the same form in two different tabs
+      would have two different values.
+    </summary>
+  </metric>
+  <metric name="FieldSignature">
+    <summary>
+      The field signature of the field where the &quot;@@&quot; sequence was
+      typed (value taken modulo 1021).
+    </summary>
+  </metric>
+  <metric name="FormControlType" enum="AutofillFormControlType2">
+    <summary>
+      The form control type of the field where &quot;@@&quot; was typed.
+    </summary>
+  </metric>
+  <metric name="FormSignature">
+    <summary>
+      The form signature of the form where &quot;@@&quot; was typed (value taken
+      modulo 1021).
+    </summary>
+  </metric>
+</event>
+
 <event name="Autofill.Bnpl.AiAmountExtraction.AmountInIssuerRange">
   <owner>jamessun@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -4768,6 +4802,73 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Blink.EmailVerificationProtocol">
+  <owner>npm@google.com</owner>
+  <owner>web-identity-eng@google.com</owner>
+  <summary>
+    Records metrics for the Email Verification Protocol (EVP) flow. Surfaced
+    once per EVP request attempt when the request flow finishes.
+  </summary>
+  <metric name="Autofill.FlowResult" enum="EvpAutofillFlowResult">
+    <summary>
+      Records the outcomes and failure reasons of the high-level Email
+      Verification Protocol (EVP) flow from autofill side. Recorded once per
+      autofill attempt when the verification flow finishes.
+    </summary>
+  </metric>
+  <metric name="PermissionUi.Status" enum="EvpPermissionUiStatus">
+    <summary>
+      Records the outcome and dismissal reasons of the Email Verification
+      Permission UI. Recorded once per permission UI showing when it is
+      dismissed or accepted.
+    </summary>
+  </metric>
+  <metric name="Status.IsVerifiable" enum="EvpRequestStatus">
+    <summary>
+      Records the status of the IsVerifiable stage of an Email Verification
+      Protocol (EVP) request. Recorded once per request when the IsVerifiable
+      check completes.
+    </summary>
+  </metric>
+  <metric name="Status.Verify" enum="EvpRequestStatus">
+    <summary>
+      Records the status of the Verify stage of an Email Verification Protocol
+      (EVP) request. Recorded once per request when the Verify operation
+      completes.
+    </summary>
+  </metric>
+  <metric name="Timing.IsVerifiable">
+    <summary>
+      Records the time taken (in milliseconds) from the start of checking if an
+      email is verifiable until the pre-prompt background verification check
+      completes.
+    </summary>
+  </metric>
+  <metric name="Timing.Verify">
+    <summary>
+      Records the time taken (in milliseconds) from the start of the token
+      verification call until the post-prompt token verification and fetch
+      completes.
+    </summary>
+  </metric>
+</event>
+
+<event name="Blink.EmailVerificationProtocol.FormSubmission">
+  <owner>npm@google.com</owner>
+  <owner>web-identity-eng@google.com</owner>
+  <summary>
+    Records metrics for the Email Verification Protocol (EVP) when a form
+    containing a verified email verification token is submitted.
+  </summary>
+  <metric name="Autofill.FormSubmitted" enum="BooleanHit">
+    <summary>
+      Records when a form containing a verified email verification token is
+      submitted. Recorded once when the form submission occurs after successful
+      email verification.
+    </summary>
+  </metric>
+</event>
+
 <event name="Blink.FedCm">
   <owner>yigu@chromium.org</owner>
   <owner>web-identity-eng@google.com</owner>
@@ -4873,17 +4974,6 @@ be describing additional metrics about the same event.
       one sample per FedCM API with auto re-authn enabled: some failures could
       occur before this metric is recorded. Records at the time the API call is
       completed.
-    </summary>
-  </metric>
-  <metric name="AutoReauthn.TimeFromEmbargoWhenBlocked">
-    <summary>
-      Records the amount of time that has passed from the time the FedCM auto
-      re-authn API was embargoed to the time in which the next call occurs. Only
-      records a sample when there is an auto re-authn FedCM API call which is
-      blocked due to embargo. Samples are exponentially bucketed, with a max
-      bucket of 10 minutes, the embargo duration (see
-      `kFederatedIdentityAutoReauthnEmbargoDuration`). Records at the time the
-      API call is completed.
     </summary>
   </metric>
   <metric name="Button.AccountChooserResult" enum="FedCmAccountChooserResult">
@@ -5065,16 +5155,6 @@ be describing additional metrics about the same event.
       base::UmaHistogramCounts100.
     </summary>
   </metric>
-  <metric name="PreventSilentAccessFrameType" enum="FedCmRequesterFrameType">
-    <summary>
-      Records the type of frame that invokes preventSilentAccess(). Records only
-      when there is an existing FedCM sharing permission on the main frame, and
-      some frame in the page invokes the preventSilentAccess() JavaScript call.
-      Possible values are: main frame, same-site iframe, and cross-site iframe,
-      where the site of the caller frame is compared with the site of the main
-      frame. Records at the time the API call is completed.
-    </summary>
-  </metric>
   <metric name="RpMode" enum="FedCmRpMode">
     <summary>
       Records the RP mode of the FedCM API. Recorded once per API call together
@@ -5157,16 +5237,6 @@ be describing additional metrics about the same event.
       right before sending the response back to the renderer process. Records
       one sample for every disconnect call which sends a disconnect request.
       Records at the time the API call is completed.
-    </summary>
-  </metric>
-  <metric name="Timing.GetUserInfoToButtonMode">
-    <summary>
-      Records the time in milliseconds from when the accounts are received via
-      the getUserInfo() API to the time when the Button Mode API is called.
-      Recorded when the Button mode is invoked and there was a successful
-      accounts fetch via the getUserInfo API call on this page. Recorded at most
-      once per getUserInfo API call. Records at the time the API call is
-      completed.
     </summary>
   </metric>
   <metric name="Timing.IdTokenResponse">
@@ -5966,42 +6036,6 @@ be describing additional metrics about the same event.
     Metrics associated with the async script count associated with a document,
     recorded when the HTML parsing of a mainframe has completed.
   </summary>
-</event>
-
-<event name="Blink.SVGImage" singular="True">
-  <owner>chikamune@chromium.org</owner>
-  <owner>chrome-loading@google.com</owner>
-  <summary>
-    Metrics to measure the SVGImage::DataChanged() performance per document
-    while loading the outermost main frame document. This is recorded at the
-    frequency of 0.001.
-  </summary>
-  <metric name="Count">
-    <summary>
-      Measures the call count of SVGImage::DataChanged().
-      ukm::GetExponentialBucketMinForCounts1000() is applied.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
-  <metric name="TotalTime">
-    <summary>
-      Measures the total elapsed time it takes to run SVGImage::DataChanged(),
-      in microseconds.
-    </summary>
-    <aggregation>
-      <history>
-        <statistics>
-          <quantiles type="std-percentiles"/>
-        </statistics>
-      </history>
-    </aggregation>
-  </metric>
 </event>
 
 <event name="Blink.UpdateTime">
@@ -10270,8 +10304,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameControls.ButtonOptionsMenuFunctionTriggered">
-  <owner>cuicuiruan@google.com</owner>
-  <owner>pjlee@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     Logged when Game Controls' options menu button functions are triggered.
@@ -10284,8 +10317,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameControls.EditDeleteMenuFuctionTriggered">
-  <owner>cuicuiruan@google.com</owner>
-  <owner>pjlee@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     Logged when Game Controls edit-delete menu functions are triggered.
@@ -10298,8 +10330,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameControls.EditingListFunctionTriggered">
-  <owner>cuicuiruan@google.com</owner>
-  <owner>pjlee@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     Logged when Game Controls editing list functions are triggered.
@@ -10312,7 +10343,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameControls.PlayGameWithGameControls">
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     Log once whether the ARC game is played with Game Controls per game session.
@@ -10327,8 +10358,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameControls.ToggleWithMappingSource">
-  <owner>cuicuiruan@google.com</owner>
-  <owner>pjlee@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     Logged when Game Controls feature or hint is toggled on or off.
@@ -10351,7 +10381,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ControlsFeatureToggleState">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10365,7 +10394,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ControlsHintToggleSource">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10384,7 +10412,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.EditControlsWithEmptyState">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10398,7 +10425,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.FunctionTriggered">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10412,7 +10438,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.RecordingStartSource">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10426,7 +10451,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ScreenshotTakeSource">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10440,7 +10464,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ToggleMainMenu">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10460,7 +10483,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ToolbarClickToExpandState">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10474,7 +10496,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ToolbarNewLocation">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10488,7 +10509,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.ToolbarToggleState">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10502,7 +10522,6 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GameDashboard.WelcomeDialogNotificationToggleState">
-  <owner>cuicuiruan@google.com</owner>
   <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
@@ -10517,8 +10536,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.ActionRepositionOperationType">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event that is logged when key mapping position is changed.
@@ -10538,8 +10556,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.ActionRepositionWindowStateType">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event that is logged when key mapping position is changed.
@@ -10559,8 +10576,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.ButtonGroupRepositionOperationType">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event that is logged when button group position is changed.
@@ -10580,8 +10596,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.ButtonGroupRepositionWindowStateType">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event that is logged when menu entry position is changed.
@@ -10601,8 +10616,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.Customization">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event for gaming input overlay that is logged when users enter into edit
@@ -10623,8 +10637,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.Feature">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event for gaming input overlay that is logged when the input overlay
@@ -10645,8 +10658,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.MappingHint">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event for gaming input overlay that is logged when the mapping hint state
@@ -10667,8 +10679,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.MenuEntryRepositionOperationType">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event that is logged when key mapping position is changed.
@@ -10688,8 +10699,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="GamingInputOverlay.MenuEntryRepositionWindowStateType">
-  <owner>pjlee@google.com</owner>
-  <owner>cuicuiruan@google.com</owner>
+  <owner>phshah@chromium.org</owner>
   <owner>arc-gaming@google.com</owner>
   <summary>
     An event that is logged when menu entry position is changed.
@@ -10759,6 +10769,13 @@ be describing additional metrics about the same event.
       The duration in milliseconds that the auto-opened Glic instance remained
       open.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -10773,16 +10790,37 @@ be describing additional metrics about the same event.
     <summary>
       Whether the glic window was attached or detached.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="InvocationSource" enum="GlicInvocationSource">
     <summary>
       The source of the invocation of the glic window.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="WebClientMode" enum="GlicWebClientMode">
     <summary>
       The mode of the glic window.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -10797,11 +10835,25 @@ be describing additional metrics about the same event.
     <summary>
       Whether the glic window was attached or detached.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
   <metric name="InvocationSource" enum="GlicInvocationSource">
     <summary>
       The source of the invocation of the glic window.
     </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
   </metric>
 </event>
 
@@ -11393,6 +11445,31 @@ be describing additional metrics about the same event.
       the end of each page load. As usual with PageLoad metrics, we consider app
       backgrounding on Android to be the end of page load as well as the app
       could be evicted by Android anytime after that happens.
+    </summary>
+  </metric>
+  <metric name="PaintTiming.FirstContentfulPaintSubmittedMs">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time the first contentful paint was rendered by Blink and
+      submitted to the compositor (but not yet presented on screen).
+    </summary>
+  </metric>
+  <metric name="PaintTiming.JsCompositionCompleteMs">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time Lit DOM composition completes.
+    </summary>
+  </metric>
+  <metric name="PaintTiming.JsResourcesLoadedMs">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time WebUI JS resources have evaluated.
+    </summary>
+  </metric>
+  <metric name="PaintTiming.LoadTimeDataReadMs">
+    <summary>
+      Measures the time in milliseconds from navigation timing's navigation
+      start to the time loadTimeData initial state is parsed.
     </summary>
   </metric>
   <metric name="PaintTiming.NavigationToFirstContentfulPaint">
@@ -19976,11 +20053,13 @@ be describing additional metrics about the same event.
       particular prompt disposition was used, if any.
     </summary>
   </metric>
+<!-- LINT.IfChange(UkmPermissionPromptOptions) -->
+
   <metric name="PromptOptions">
     <summary>
-      An enum of type UkmPromptOptions (see
-      https://source.chromium.org/search?q=class:%5CbPermissionAction%5Cb). This
-      is only emitted if the permission prompt supports additional prompt
+      An enum of type UkmPermissionPromptOptions (see
+      https://source.chromium.org/search?q=class:%5CbUkmPermissionPromptOptions%5Cb).
+      This is only emitted if the permission prompt supports additional prompt
       options, which currently is the case only for geolocation permission
       prompts when the ApproximateGeolocationPermission is enabled. In that
       case, this is either 1 (APPROXIMATE_LOCATION) or 2 (PRECISE_LOCATION) and
@@ -19988,6 +20067,8 @@ be describing additional metrics about the same event.
       &quot;precise&quot; at the time when the action was taken.
     </summary>
   </metric>
+<!-- LINT.ThenChange(//components/permissions/permission_uma_constants.h:UkmPermissionPromptOptions) -->
+
   <metric name="SatisfiedAdaptiveTriggers">
     <summary>
       A bitmask consisting of flags defined in enum type AdaptiveTriggers. A bit
@@ -27646,7 +27727,9 @@ be describing additional metrics about the same event.
   <metric name="ElementResultByInstalledApp" enum="WebInstallServiceResult">
     <summary>
       Records the result of one activation of the install element for the URL of
-      the target site that we attempted to install.
+      the target site that we attempted to install. As of M153, keyed on the
+      origin of the caller-supplied manifest URL (earlier milestones used the
+      install URL). Only recorded when the manifest URL is HTTPS.
     </summary>
     <aggregation>
       <history>
@@ -27672,7 +27755,9 @@ be describing additional metrics about the same event.
   <metric name="ResultByInstalledApp" enum="WebInstallServiceResult">
     <summary>
       Records the result of the Web Install API for the URL of the target site
-      that we attempted to install as a web app via the API.
+      that we attempted to install as a web app via the API. As of M153, keyed
+      on the origin of the caller-supplied manifest URL (earlier milestones used
+      the install URL). Only recorded when the manifest URL is HTTPS.
     </summary>
   </metric>
   <metric name="ResultByRequestingPage" enum="WebInstallServiceResult">

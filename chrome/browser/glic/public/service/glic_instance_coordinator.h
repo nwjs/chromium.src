@@ -32,8 +32,6 @@
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/gfx/native_ui_types.h"
 
-class Browser;
-
 namespace content {
 class RenderFrameHost;
 }
@@ -92,6 +90,10 @@ class GlicInstanceCoordinator {
       GlicUnpinTrigger trigger) = 0;
 
   virtual base::WeakPtr<GlicInstance> Invoke(GlicInvokeOptions options) = 0;
+
+  // Show, summon, or activate the panel if needed.
+  virtual void Show(BrowserWindowInterface* browser,
+                    mojom::InvocationSource source) = 0;
 
   // Show, summon, or activate the panel if needed, or close it if it's already
   // active and prevent_close is false.

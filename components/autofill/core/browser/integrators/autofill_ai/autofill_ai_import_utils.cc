@@ -63,7 +63,8 @@ bool IsEntityImportable(const AutofillClient& client,
 
 bool AttributesMeetImportConstraints(EntityType entity_type,
                                      DenseSet<AttributeType> attributes) {
-  return std::ranges::any_of(entity_type.import_constraints(),
+  return entity_type.import_constraints().empty() ||
+         std::ranges::any_of(entity_type.import_constraints(),
                              [&](const DenseSet<AttributeType>& constraint) {
                                return attributes.contains_all(constraint);
                              });
@@ -213,11 +214,13 @@ std::vector<EntityInstance> GetPossibleEntitiesFromSubmittedForm(
       // on whether the user is eligible (pref state and feature enabled)
       // and whether the entity type is "walletable". If the entity cannot be
       // stored on the Wallet servers, it is stored locally.
-      const EntityInstance::RecordType record_type =
+      const EntityInstance::RecordTypeData record_type_data =
           MayPerformAutofillAiAction(client, AutofillAiAction::kImportToWallet,
                                      entity_name)
-              ? EntityInstance::RecordType::kServerWallet
-              : EntityInstance::RecordType::kLocal;
+              ? EntityInstance::RecordTypeData(
+                    EntityInstance::WalletRecordTypePayload{})
+              : EntityInstance::RecordTypeData(
+                    EntityInstance::LocalRecordTypePayload{});
       EntityInstance entity = EntityInstance(
           entity_name,
           base::ToVector(
@@ -225,7 +228,7 @@ std::vector<EntityInstance> GetPossibleEntitiesFromSubmittedForm(
               &std::pair<const AttributeType, AttributeInstance>::second),
           EntityInstance::EntityId(base::Uuid::GenerateRandomV4()),
           /*nickname=*/std::string(""), base::Time::Now(), /*use_count=*/0,
-          /*use_date=*/base::Time::Now(), record_type,
+          /*use_date=*/base::Time::Now(), std::move(record_type_data),
           EntityInstance::AreAttributesReadOnly(false),
           /*frecency_override=*/"");
       if (!IsEntityImportable(client, entity)) {

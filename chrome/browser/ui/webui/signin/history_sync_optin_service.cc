@@ -12,7 +12,6 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
@@ -296,6 +295,7 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kOverflowMenu:
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
       return;
   }
 

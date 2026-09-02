@@ -70,7 +70,7 @@ class AutofillAiWalletUtilsTest : public ::testing::Test {
   EntityDataManager& edm() { return *autofill_client().GetEntityDataManager(); }
 
  private:
-  base::test::SingleThreadTaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_;
   AutofillWebDataServiceTestHelper webdata_helper_{
       std::make_unique<EntityTable>()};
   NiceMock<MockAutofillClient> autofill_client_;
@@ -229,6 +229,13 @@ TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_PublicPasses) {
       {.record_type = EntityInstance::RecordType::kServerWallet});
   EXPECT_EQ(GetWalletManagementURL(entity),
             "https://wallet.google.com/wallet/passes");
+}
+
+TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_Shopping) {
+  EntityInstance entity = test::GetOrderEntityInstance(
+      {.record_type = EntityInstance::RecordType::kServerWallet});
+  EXPECT_EQ(GetWalletManagementURL(entity),
+            "https://wallet.google.com/wallet/transactions");
 }
 
 TEST_F(AutofillAiWalletUtilsTest, GetWalletManagementURL_PrivatePasses) {

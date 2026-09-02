@@ -48,8 +48,6 @@ namespace device {
 
 class OpenXrExtensionHelper;
 class OpenXRInputHelper;
-class VRTestHook;
-class ServiceTestHook;
 
 using SessionStartedCallback =
     base::OnceCallback<void(mojom::XRRuntimeSessionOptionsPtr options,
@@ -84,10 +82,6 @@ class OpenXrApiWrapper {
   static std::vector<XrEnvironmentBlendMode> GetSupportedBlendModes(
       XrInstance instance,
       XrSystemId system);
-
-  static VRTestHook* GetTestHook();
-
-  static bool NeedsSeparateActivity();
 
   bool UpdateAndGetSessionEnded();
 
@@ -153,8 +147,6 @@ class OpenXrApiWrapper {
   uint32_t GetRecommendedSwapchainSampleCount() const;
 
   uint16_t GetMaxRenderLayers() const;
-
-  static void DEVICE_VR_EXPORT SetTestHook(VRTestHook* hook);
 
  private:
   void Reset();
@@ -224,10 +216,6 @@ class OpenXrApiWrapper {
   SessionEndedCallback on_session_ended_callback_;
   VisibilityChangedCallback visibility_changed_callback_;
   mojom::XRRuntimeSessionOptionsPtr session_options_;
-
-  // Testing objects
-  static VRTestHook* test_hook_;
-  static ServiceTestHook* service_test_hook_;
 
   std::unique_ptr<OpenXRInputHelper> input_helper_;
 

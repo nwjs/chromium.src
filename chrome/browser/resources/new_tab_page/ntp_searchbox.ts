@@ -368,7 +368,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
     if (this.cyclingPlaceholders) {
       waitForLazyRender().then(async () => {
-        const {config} = await this.pageHandler().getPlaceholderConfig();
+        const {config} = await this.pageHandler().getCyclingPlaceholderConfig();
         const texts = config.texts;
         if (texts.length < 2) {
           // Need at least 2 placeholders to cycle. If fewer, disable cycling
@@ -392,23 +392,8 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
   override handleKeyNavigation(e: KeyboardEvent) {
     if (this.composeButtonEnabled && e.key === 'Tab' &&
-        this.$.input?.lastInput()?.inline &&
-        this.$.input === this.shadowRoot.activeElement) {
-      if (e.shiftKey) {
-        this.$.input.setInput({inline: ''});
-        return;
-      }
-
-      const newText =
-          this.$.input.lastInput()!.text + this.$.input.lastInput()!.inline;
-      this.$.input.setInput({
-        text: newText,
-        inline: '',
-        moveCursorToEnd: true,
-      });
-      this.queryAutocomplete(
-          newText, /*preventInlineAutocomplete=*/ false, /*isOnFocus=*/ false);
-      e.preventDefault();
+        this.$.input === this.shadowRoot.activeElement &&
+        this.acceptInlineAutocomplete(e)) {
       return;
     }
 
@@ -623,6 +608,15 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
 
   protected onRequestTabSuggestionsLoad() {
     this.refreshTabSuggestions_(/*forceRefresh=*/ true);
+  }
+
+  closeContextMenu() {
+    const context =
+        this.shadowRoot?.querySelector<ContextualEntrypointAndMenuElement>(
+            '#context');
+    if (context) {
+      context.closeMenu();
+    }
   }
 
   protected onContextMenuOpened_() {
@@ -875,14 +869,7 @@ export class NtpSearchboxElement extends NtpSearchboxElementBase implements
   }
 
   protected computePlaceholderText_(placeholderText: string): string {
-    if (placeholderText) {
-      return placeholderText;
-    }
-    return this.i18n('searchBoxHint');
-  }
-
-  getInputStateForTesting(): InputState|null {
-    return this.inputState_;
+    return placeholderText || '';
   }
 }
 

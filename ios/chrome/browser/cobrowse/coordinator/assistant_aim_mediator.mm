@@ -84,6 +84,8 @@
   // Whether the initial context library has been processed for the current
   // thread.
   BOOL _hasProcessedInitialContextLibrary;
+  // Whether dark mode is currently active.
+  BOOL _isDarkMode;
 }
 
 @synthesize consumer = _consumer;
@@ -122,6 +124,9 @@
         _cobrowseBrowserAgent->SetCobrowseContext(_context);
       }
     }
+    _isDarkMode =
+        (UITraitCollection.currentTraitCollection.userInterfaceStyle ==
+         UIUserInterfaceStyleDark);
     _containerHandler = containerHandler;
     _contextualTasksService = contextualTasksService;
     _urlLoader = URLLoader;
@@ -155,15 +160,11 @@
   return _webState ? _webState->GetLastCommittedURL() : GURL();
 }
 
-- (void)loadURL:(const GURL&)url {
+- (void)loadDebugURL:(const GURL&)url {
   if (!experimental_flags::IsOmniboxDebuggingEnabled()) {
     return;
   }
-  if (!_webState) {
-    return;
-  }
-  web::NavigationManager::WebLoadParams params(url);
-  _webState->GetNavigationManager()->LoadURLWithParams(params);
+  [self loadURL:url];
 }
 
 - (void)setConsumer:(id<AssistantAIMConsumer>)consumer {
@@ -179,7 +180,7 @@
 - (void)updateContext {
   if (_cobrowseBrowserAgent) {
     CobrowseContext* newContext = _cobrowseBrowserAgent->GetCobrowseContext();
-    if (newContext && newContext != _context) {
+    if (newContext && ![_context isEqual:newContext]) {
       BOOL urlChanged = (!_context || newContext.url != _context.url);
       _context = newContext;
       if (urlChanged && _context.url.is_valid()) {
@@ -204,7 +205,6 @@
   _webState.reset();
   _urlLoader = nullptr;
   _context = nil;
-  [self endSession];
   _cobrowseBrowserAgent = nullptr;
   _capabilities = std::nullopt;
   _logger = nil;
@@ -297,7 +297,10 @@
       animateAssistantContainerToDetent:detent
                                duration:kSheetDetentAnimationDuration
                                   curve:UIViewAnimationCurveEaseInOut];
-  web::NavigationManager::WebLoadParams params(_context.url);
+  GURL baseContextURL = _context.url;
+  GURL urlWithTheme = net::AppendOrReplaceQueryParameter(
+      baseContextURL, "cs", _isDarkMode ? "1" : "0");
+  web::NavigationManager::WebLoadParams params(urlWithTheme);
   _webState->GetNavigationManager()->LoadURLWithParams(params);
 }
 
@@ -443,6 +446,14 @@
   [_delegate assistantAIMMediatorDidFocusFromMinimized:self];
 }
 
+- (void)updateDarkModeState:(BOOL)isDarkMode {
+  if (_isDarkMode == isDarkMode) {
+    return;
+  }
+  _isDarkMode = isDarkMode;
+  [self loadAIMURL];
+}
+
 #pragma mark - CRWWebFramesManagerObserver
 
 - (void)webFramesManager:(web::WebFramesManager*)webFramesManager
@@ -473,6 +484,14 @@
 }
 
 #pragma mark - Private
+
+- (void)loadURL:(const GURL&)url {
+  if (!_webState) {
+    return;
+  }
+  web::NavigationManager::WebLoadParams params(url);
+  _webState->GetNavigationManager()->LoadURLWithParams(params);
+}
 
 - (void)sendHandshakePing {
   if (!_webState) {
@@ -573,6 +592,15 @@
     VLOG(1) << "AimCobrowse: Received UnlockInput";
   } else if (message.has_lock_input()) {
     VLOG(1) << "AimCobrowse: Received LockInput";
+  } else if (message.has_open_link_in_side_panel_mode()) {
+    VLOG(1) << "AimCobrowse: Received OpenLinkInSidePanelMode";
+    // Some anchor links arrive as client messages and require an explicit
+    // action to open.
+    GURL target_url(message.open_link_in_side_panel_mode().url());
+    // Only accept valid URLs that are HTTP or HTTPS.
+    if (target_url.is_valid() && target_url.SchemeIsHTTPOrHTTPS()) {
+      [self loadURL:target_url];
+    }
   }
 }
 

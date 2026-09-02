@@ -20,6 +20,12 @@ OsSettingsProviderQt::~OsSettingsProviderQt() = default;
 DISABLE_CFI_VCALL
 ui::NativeTheme::PreferredColorScheme
 OsSettingsProviderQt::PreferredColorScheme() const {
+  // The xdg-desktop-portal color-scheme preference (pushed in via
+  // QtUi::SetColorScheme) takes precedence when it expresses one.
+  if (prefer_dark_) {
+    return *prefer_dark_ ? ui::NativeTheme::PreferredColorScheme::kDark
+                         : ui::NativeTheme::PreferredColorScheme::kLight;
+  }
   return color_utils::IsDark(
              shim_->GetColor(ColorType::kWindowBg, ColorState::kNormal))
              ? ui::NativeTheme::PreferredColorScheme::kDark
@@ -33,6 +39,30 @@ base::TimeDelta OsSettingsProviderQt::CaretBlinkInterval() const {
   // not built to constantly recheck the value, so for now we'll just ignore
   // changes while running. (Windows has the same problem.)
   return base::Milliseconds(shim_->GetCursorBlinkIntervalMs());
+}
+
+std::optional<SkColor> OsSettingsProviderQt::AccentColor() const {
+  return accent_color_;
+}
+
+void OsSettingsProviderQt::SetAccentColor(std::optional<SkColor> accent_color) {
+  if (accent_color_ == accent_color) {
+    return;
+  }
+  accent_color_ = accent_color;
+  NotifyOnSettingsChanged();
+}
+
+void OsSettingsProviderQt::SetColorScheme(std::optional<bool> prefer_dark) {
+  if (prefer_dark_ == prefer_dark) {
+    return;
+  }
+  prefer_dark_ = prefer_dark;
+  NotifyOnSettingsChanged();
+}
+
+void OsSettingsProviderQt::OnThemeChanged() {
+  NotifyOnSettingsChanged();
 }
 
 }  // namespace qt

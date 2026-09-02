@@ -15,7 +15,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -165,8 +165,7 @@ const base::TimeDelta kPopUIDelay = base::Seconds(0.3);
                                   delegate:(id<InactiveTabsCoordinatorDelegate>)
                                                delegate {
   CHECK(delegate);
-  CHECK_EQ(browser->type(), Browser::Type::kInactive,
-           base::NotFatalUntil::M146);
+  CHECK_EQ(browser->type(), Browser::Type::kInactive);
   self = [super initWithBaseViewController:viewController browser:browser];
   if (self) {
     _delegate = delegate;
@@ -441,7 +440,7 @@ const base::TimeDelta kPopUIDelay = base::Seconds(0.3);
 
 - (void)inactiveTabsViewController:
             (InactiveTabsViewController*)inactiveTabsViewController
-    didTapCloseAllInactiveBarButtonItem:(UIBarButtonItem*)barButtonItem {
+    didTapCloseAllInactiveFromSourceView:(UIView*)sourceView {
   NSInteger numberOfTabs = [self.mediator numberOfItems];
   if (numberOfTabs <= 0) {
     return;
@@ -465,7 +464,8 @@ const base::TimeDelta kPopUIDelay = base::Seconds(0.3);
                          browser:self.browser
                            title:title
                          message:message
-                   barButtonItem:barButtonItem];
+                            rect:sourceView.bounds
+                            view:sourceView];
 
   __weak __typeof(self) weakSelf = self;
   NSString* closeAllActionTitle = l10n_util::GetNSString(

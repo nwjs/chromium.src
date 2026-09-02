@@ -18,6 +18,12 @@ source_set("test_support") {
     "glic_test_tab_added_waiter.h",
     "glic_test_util.cc",
     "glic_test_util.h",
+    "mock_glic_instance.cc",
+    "mock_glic_instance.h",
+    "mock_glic_instance_coordinator.cc",
+    "mock_glic_instance_coordinator.h",
+    "mock_glic_keyed_service.cc",
+    "mock_glic_keyed_service.h",
     "new_glic_api_test.cc",
     "new_glic_api_test.h",
     "test_result.h",
@@ -31,12 +37,6 @@ source_set("test_support") {
       "interactive_glic_test.h",
       "interactive_test_util.cc",
       "interactive_test_util.h",
-      "mock_glic_instance.cc",
-      "mock_glic_instance.h",
-      "mock_glic_instance_coordinator.cc",
-      "mock_glic_instance_coordinator.h",
-      "mock_glic_keyed_service.cc",
-      "mock_glic_keyed_service.h",
       "mock_local_hotkey_panel.cc",
       "mock_local_hotkey_panel.h",
       "non_interactive_glic_test.cc",
@@ -61,6 +61,9 @@ source_set("test_support") {
   if (enable_desktop_aura || is_mac) {
     deps += [ "//ui/views:test_support" ]
   }
+  if (is_android) {
+    sources += [ "glic_test_environment_android.cc" ]
+  }
   if (!is_android) {
     deps += [
       "//chrome/browser/actor",
@@ -70,6 +73,7 @@ source_set("test_support") {
     ]
   } else {
     deps += [
+      "//chrome/browser/glic/android:test_support_jni_headers",
       "//chrome/browser/ui/side_panel/android",
       "//components/signin/public/android:jni_headers",
       "//google_apis/gaia/android:jni_headers",

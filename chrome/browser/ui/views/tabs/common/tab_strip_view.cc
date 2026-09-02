@@ -23,8 +23,10 @@
 #include "chrome/browser/ui/views/tabs/common/tab_strip_utils.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view_layout.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view.h"
+#include "chrome/browser/ui/views/tabs/horizontal/horizontal_tab_strip_overflow_indicator_view.h"
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_controller.h"
 #include "chrome/browser/ui/views/tabs/vertical/vertical_tab_strip_scroll_bar.h"
+#include "components/tabs/public/tab_collection_types.h"
 #include "components/tabs/public/tab_group.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
@@ -258,7 +260,8 @@ void TabStripView::OnChildMoved(TabCollectionNode* moved_node) {
   if (active_tab) {
     if (moved_node->type() == TabCollectionNode::Type::TAB) {
       const tabs::TabInterface* tab =
-          std::get<const tabs::TabInterface*>(moved_node->GetNodeData());
+          std::get<tabs::ConstDanglingUntriagedTabInterface>(
+              moved_node->GetNodeData());
       is_active_tab = (tab == active_tab);
     } else if (moved_node->type() == TabCollectionNode::Type::SPLIT) {
       is_active_tab =
@@ -275,7 +278,8 @@ void TabStripView::OnChildMoved(TabCollectionNode* moved_node) {
     switch (moved_node->type()) {
       case TabCollectionNode::Type::TAB: {
         const tabs::TabInterface* tab =
-            std::get<const tabs::TabInterface*>(moved_node->GetNodeData());
+            std::get<tabs::ConstDanglingUntriagedTabInterface>(
+                moved_node->GetNodeData());
         OnTabChanged(tab);
         break;
       }
@@ -498,7 +502,7 @@ views::View* TabStripView::AddScrollViewContents(
     unpinned_tabs_container_view_ = container;
     return unpinned_tabs_scroll_view_->SetContents(std::move(view));
   }
-  // |view| should only ever be UnpinnedTabContainerView or
+  // `view` should only ever be UnpinnedTabContainerView or
   // PinnedTabContainerView.
   auto* container = views::AsViewClass<PinnedTabContainerView>(view.get());
   CHECK(container);
@@ -517,7 +521,7 @@ void TabStripView::RemoveScrollViewContents(views::View* view) {
     pinned_tabs_scroll_view_->SetContents(nullptr);
     return;
   }
-  // |view| should only ever be UnpinnedTabContainerView or
+  // `view` should only ever be UnpinnedTabContainerView or
   // PinnedTabContainerView.
   NOTREACHED();
 }
@@ -540,6 +544,20 @@ void TabStripView::SetScrollViewProperties(views::ScrollView* scroll_view) {
     scroll_view->SetVerticalScrollBarMode(
         views::ScrollView::ScrollBarMode::kDisabled);
     scroll_view->SetTreatAllScrollEventsAsHorizontal(true);
+
+    scroll_view->SetCustomOverflowIndicator(
+        views::OverflowIndicatorAlignment::kLeft,
+        std::make_unique<HorizontalTabStripOverflowIndicatorView>(
+            views::OverflowIndicatorAlignment::kLeft),
+        HorizontalTabStripOverflowIndicatorView::kTotalThickness,
+        /*fills_opaquely=*/false);
+
+    scroll_view->SetCustomOverflowIndicator(
+        views::OverflowIndicatorAlignment::kRight,
+        std::make_unique<HorizontalTabStripOverflowIndicatorView>(
+            views::OverflowIndicatorAlignment::kRight),
+        HorizontalTabStripOverflowIndicatorView::kTotalThickness,
+        /*fills_opaquely=*/false);
   }
   callback_subscriptions_.emplace_back(
       scroll_view->AddContentsScrolledCallback(base::BindRepeating(
@@ -671,8 +689,8 @@ void TabStripView::EnableOverflowVisuals(views::ScrollView* scroll_view) {
   // Override the post-layout callback to prevent any scheduled scroll requests
   // from running.
   scroll_view->RegisterPostLayoutCallback(base::DoNothing());
-  scroll_view->SetDrawOverflowIndicator(true);
   if (IsVerticalOrientation(collection_node_)) {
+    scroll_view->SetDrawOverflowIndicator(true);
     scroll_view->SetVerticalScrollBarMode(
         views::ScrollView::ScrollBarMode::kEnabled);
 
@@ -692,11 +710,10 @@ void TabStripView::EnableOverflowVisuals(views::ScrollView* scroll_view) {
 }
 
 void TabStripView::DisableOverflowVisuals(views::ScrollView* scroll_view) {
-  scroll_view->SetDrawOverflowIndicator(false);
-
   // If in the vertical orientation also hide scrollbar visuals. This is not
   // needed for horizontal since the scrollbar is not shown.
   if (IsVerticalOrientation(collection_node_)) {
+    scroll_view->SetDrawOverflowIndicator(false);
     scroll_view->SetVerticalScrollBarMode(
         views::ScrollView::ScrollBarMode::kHiddenButEnabled);
 
@@ -742,6 +759,12 @@ void TabStripView::HideHoverCardOnScroll() {
       hover_card_controller && hover_card_controller->IsHoverCardVisible()) {
     hover_card_controller->UpdateHoverCard(
         nullptr, TabSlotController::HoverCardUpdateType::kAnimating);
+  }
+}
+
+void TabStripView::SetAvailableUnpinnedSpace(views::SizeBound space) const {
+  if (unpinned_tabs_container_view_) {
+    unpinned_tabs_container_view_->SetAvailableSpace(space);
   }
 }
 

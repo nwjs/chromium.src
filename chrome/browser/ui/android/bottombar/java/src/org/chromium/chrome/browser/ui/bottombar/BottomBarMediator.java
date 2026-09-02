@@ -14,9 +14,11 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
+import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
+import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.glic.GlicKeyedService;
 import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
@@ -33,6 +35,8 @@ import org.chromium.chrome.browser.ui.actions.ActionId;
 import org.chromium.chrome.browser.ui.actions.ActionProperties;
 import org.chromium.chrome.browser.ui.actions.ActionRegistry;
 import org.chromium.chrome.browser.ui.android.bars_common.IphIntent;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics.AimIneligibilityReason;
+import org.chromium.chrome.browser.ui.bottombar.BottomBarMetrics.CandidateAction;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
@@ -79,6 +83,7 @@ public class BottomBarMediator
     private final NonNullObservableSupplier<Boolean> mHomepageEnabledSupplier;
     private final NonNullObservableSupplier<Boolean> mOmniboxFocusStateSupplier;
     private final NullableObservableSupplier<Profile> mProfileSupplier;
+    private final OneshotSupplier<String> mCountrySupplier;
     private final NullableObservableSupplier<PropertyModel> mGlicActionSupplier;
     private final NullableObservableSupplier<PropertyModel> mAiModeActionSupplier;
     private final NullableObservableSupplier<PropertyModel> mNewTabActionSupplier;
@@ -89,7 +94,7 @@ public class BottomBarMediator
     private final Callback<@Nullable Tab> mTabSupplierObserver = this::onTabChanged;
     private final Callback<Boolean> mHomepageEnabledObserver = this::onHomepageEnabledChanged;
     private final Callback<Boolean> mOmniboxFocusObserver = this::onOmniboxFocusChanged;
-    private final Callback<@Nullable Profile> mProfileObserver = this::updateExtraActionVisibility;
+    private final Callback<@Nullable Profile> mProfileObserver = this::onProfileChanged;
     private final GlicKeyedService.AllowedChangedObserver mAllowedChangedObserver =
             this::onGlicAllowedChanged;
 
@@ -102,14 +107,17 @@ public class BottomBarMediator
     private @Nullable TemplateUrlService mTemplateUrlService;
     private @Nullable TemplateUrlServiceObserver mTemplateUrlServiceObserver;
     private @Nullable LayoutStateProvider mLayoutStateProvider;
+    private @Nullable @ActionId Integer mResolvedCandidateExtraAction;
 
     // Mutable State (Primitive / Non-null)
     private boolean mGlicWasVisible;
     private boolean mGlicTimeToAppearRecorded;
     private boolean mShouldHideForHub;
+    private boolean mDestroyed;
     private long mBottomBarShownTimeMs = -1;
     private long mGlicAppearedTimeMs = -1;
     private boolean mStartupPromoFlowFinished;
+    private boolean mObservingSharedPrefs;
 
     /**
      * @param context The context to use for the bottom bar.
@@ -121,6 +129,7 @@ public class BottomBarMediator
      * @param visibilityDelegate Delegate to handle compositor-level visibility changes.
      * @param shouldIncludeHomeButton Whether the home button should be included in the bottom bar.
      * @param profileSupplier Supplier of the current profile.
+     * @param countrySupplier Supplier of the latest variations country code.
      * @param omniboxFocusStateSupplier Supplier of the omnibox focus state.
      * @param promoDialogCoordinator The {@link BottomBarPromoDialogCoordinator} for the promo
      *     dialog.
@@ -136,6 +145,7 @@ public class BottomBarMediator
             VisibilityDelegate visibilityDelegate,
             boolean shouldIncludeHomeButton,
             NullableObservableSupplier<Profile> profileSupplier,
+            OneshotSupplier<String> countrySupplier,
             NonNullObservableSupplier<Boolean> omniboxFocusStateSupplier,
             BottomBarPromoDialogCoordinator promoDialogCoordinator,
             ActionRegistry actionRegistry,
@@ -149,6 +159,7 @@ public class BottomBarMediator
         mVisibilityDelegate = visibilityDelegate;
         mShouldIncludeHomeButton = shouldIncludeHomeButton;
         mProfileSupplier = profileSupplier;
+        mCountrySupplier = countrySupplier;
         mOmniboxFocusStateSupplier = omniboxFocusStateSupplier;
         mPromoDialogCoordinator = promoDialogCoordinator;
         mGlicActionSupplier = actionRegistry.get(ActionId.GLIC);
@@ -173,12 +184,12 @@ public class BottomBarMediator
         mThemeColorProvider.addTintObserver(this);
         mModel.set(BottomBarProperties.COLOR_SCHEME, mThemeColorProvider.getBrandedColorScheme());
         mProfileSupplier.addSyncObserverAndCallIfNonNull(mProfileObserver);
+        mCountrySupplier.onAvailable((country) -> updateExtraActionVisibility());
         mOmniboxFocusStateSupplier.addSyncObserver(mOmniboxFocusObserver);
         onTabChanged(mTabSupplier.addSyncObserver(mTabSupplierObserver));
         if (mShouldIncludeHomeButton) {
             mHomepageEnabledSupplier.addSyncObserverAndCallIfNonNull(mHomepageEnabledObserver);
         }
-        ContextUtils.getAppSharedPreferences().registerOnSharedPreferenceChangeListener(this);
 
         // Safe to set the listener after all observers are initialized to trigger the immediate
         // callback with the correct state.
@@ -268,7 +279,10 @@ public class BottomBarMediator
                 Boolean.TRUE.equals(mModel.get(BottomBarProperties.IS_EXTRA_BUTTON_VISIBLE));
         if (isBottomBarVisible && isExtraVisible) {
             Profile profile = mProfileSupplier.get();
-            Tracker tracker = profile == null ? null : TrackerFactory.getTrackerForProfile(profile);
+            Tracker tracker =
+                    profile == null
+                            ? null
+                            : TrackerFactory.getTrackerForProfile(profile.getOriginalProfile());
             boolean hasSeenPromo =
                     tracker != null
                             && tracker.hasEverTriggered(
@@ -284,30 +298,79 @@ public class BottomBarMediator
         }
     }
 
-    private void updateExtraActionVisibility(@Nullable Profile profile) {
-        Profile originalProfile = profile != null ? profile.getOriginalProfile() : null;
+    private void onProfileChanged(@Nullable Profile profile) {
+        updateExtraActionVisibility();
+    }
 
-        // Manage observers for dynamic updates.
-        updateObservers(originalProfile);
-
+    private void updateExtraActionVisibility() {
+        if (mDestroyed) return;
+        Profile profile = mProfileSupplier.get();
         if (profile == null) {
             setButtonVisibility(ActionId.GLIC, false);
             setButtonVisibility(ActionId.AI_MODE, false);
             return;
         }
 
-        // Calculate and set visibility.
-        long startTime = SystemClock.uptimeMillis();
-        @ActionId
-        int eligibleAction = BottomBarActionEligibility.getEligibleExtraAction(originalProfile);
-        long decisionDuration = SystemClock.uptimeMillis() - startTime;
+        Profile originalProfile = profile.getOriginalProfile();
+        String country = mCountrySupplier.get();
 
-        BottomBarMetrics.recordGlicVisibilityDecisionTime(decisionDuration);
+        if (mResolvedCandidateExtraAction == null) {
+            // Check if prerequisites for resolution are satisfied.
+            if (!BottomBarActionEligibility.isCandidateResolutionReady(originalProfile, country)) {
+                // Country code not yet populated and geofencing not bypassed: defer decision.
+                setButtonVisibility(ActionId.GLIC, /* visible= */ false);
+                setButtonVisibility(ActionId.AI_MODE, /* visible= */ false);
+                return;
+            }
 
-        boolean showGlic = eligibleAction == ActionId.GLIC;
-        boolean showAiMode = eligibleAction == ActionId.AI_MODE;
+            long startTime = SystemClock.uptimeMillis();
+            BottomBarActionEligibility.getCandidateExtraAction(originalProfile, country);
+            Integer candidateExtraAction =
+                    BottomBarActionEligibility.getCachedCandidateExtraAction();
+            mResolvedCandidateExtraAction = candidateExtraAction;
+            long decisionDuration = SystemClock.uptimeMillis() - startTime;
+            BottomBarMetrics.recordCandidateDecisionTime(decisionDuration);
 
-        if (showGlic && !mGlicWasVisible) {
+            @CandidateAction int candidateMetric;
+            if (candidateExtraAction != null && candidateExtraAction == ActionId.GLIC) {
+                candidateMetric = CandidateAction.GLIC;
+            } else if (candidateExtraAction != null && candidateExtraAction == ActionId.AI_MODE) {
+                candidateMetric = CandidateAction.AIM;
+            } else {
+                candidateMetric = CandidateAction.NONE;
+            }
+            BottomBarMetrics.recordCandidateExtraAction(candidateMetric);
+        }
+
+        updateObservers(originalProfile);
+
+        Integer candidateExtraAction = mResolvedCandidateExtraAction;
+        if (candidateExtraAction != null && candidateExtraAction == ActionId.GLIC) {
+            updateGlicVisibility(originalProfile);
+        } else if (candidateExtraAction != null && candidateExtraAction == ActionId.AI_MODE) {
+            updateAiModeVisibility();
+        } else {
+            setButtonVisibility(ActionId.GLIC, /* visible= */ false);
+            setButtonVisibility(ActionId.AI_MODE, /* visible= */ false);
+        }
+    }
+
+    private void updateGlicVisibility(@Nullable Profile originalProfile) {
+        Integer candidateExtraAction = mResolvedCandidateExtraAction;
+        if (originalProfile == null
+                || candidateExtraAction == null
+                || candidateExtraAction != ActionId.GLIC) {
+            setButtonVisibility(ActionId.GLIC, /* visible= */ false);
+            return;
+        }
+
+        String country = mCountrySupplier.get();
+        boolean visible =
+                (GlicEnabling.isPolicyEnforced(originalProfile)
+                                || BottomBarConfigUtils.isGlicButtonEnabled())
+                        && BottomBarActionEligibility.isGlicAllowedInCountry(country);
+
+        if (visible && !mGlicWasVisible) {
             mGlicAppearedTimeMs = SystemClock.uptimeMillis();
             if (mBottomBarShownTimeMs != -1 && !mGlicTimeToAppearRecorded) {
                 long timeSinceShown = mGlicAppearedTimeMs - mBottomBarShownTimeMs;
@@ -315,10 +378,29 @@ public class BottomBarMediator
                 mGlicTimeToAppearRecorded = true;
             }
         }
-        mGlicWasVisible = showGlic;
+        mGlicWasVisible = visible;
 
-        setButtonVisibility(ActionId.GLIC, showGlic);
-        setButtonVisibility(ActionId.AI_MODE, showAiMode);
+        setButtonVisibility(ActionId.AI_MODE, /* visible= */ false);
+        setButtonVisibility(ActionId.GLIC, visible);
+    }
+
+    private void updateAiModeVisibility() {
+        Integer candidateExtraAction = mResolvedCandidateExtraAction;
+        if (candidateExtraAction == null || candidateExtraAction != ActionId.AI_MODE) {
+            setButtonVisibility(ActionId.AI_MODE, /* visible= */ false);
+            return;
+        }
+
+        boolean visible =
+                mTemplateUrlService != null && mTemplateUrlService.isDefaultSearchEngineGoogle();
+
+        if (!visible) {
+            BottomBarMetrics.recordAimIneligibilityReason(
+                    AimIneligibilityReason.DEFAULT_SEARCH_ENGINE_NOT_GOOGLE);
+        }
+
+        setButtonVisibility(ActionId.GLIC, /* visible= */ false);
+        setButtonVisibility(ActionId.AI_MODE, visible);
     }
 
     private void updateObservers(@Nullable Profile originalProfile) {
@@ -331,40 +413,52 @@ public class BottomBarMediator
             mGlicKeyedService.removeAllowedChangedObserver(mAllowedChangedObserver);
             mGlicKeyedService = null;
         }
+        if (mObservingSharedPrefs) {
+            ContextUtils.getAppSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
+            mObservingSharedPrefs = false;
+        }
         if (mTemplateUrlService != null && mTemplateUrlServiceObserver != null) {
             mTemplateUrlService.removeObserver(mTemplateUrlServiceObserver);
             mTemplateUrlService = null;
             mTemplateUrlServiceObserver = null;
         }
 
-        if (originalProfile == null) return;
-
-        GlicKeyedService glicKeyedService = GlicKeyedServiceFactory.getForProfile(originalProfile);
-        mGlicKeyedService = glicKeyedService;
-        if (mGlicKeyedService != null) {
-            mGlicKeyedService.addAllowedChangedObserver(mAllowedChangedObserver);
+        Integer candidateExtraAction = mResolvedCandidateExtraAction;
+        if (originalProfile == null || candidateExtraAction == null) {
+            return;
         }
 
-        mTemplateUrlService = TemplateUrlServiceFactory.getForProfile(originalProfile);
-        if (mTemplateUrlService != null) {
-            mTemplateUrlServiceObserver = this::onTemplateURLServiceChanged;
-            mTemplateUrlService.addObserver(mTemplateUrlServiceObserver);
+        if (candidateExtraAction == ActionId.GLIC) {
+            GlicKeyedService glicKeyedService =
+                    GlicKeyedServiceFactory.getForProfile(originalProfile);
+            mGlicKeyedService = glicKeyedService;
+            if (mGlicKeyedService != null) {
+                mGlicKeyedService.addAllowedChangedObserver(mAllowedChangedObserver);
+            }
+            ContextUtils.getAppSharedPreferences().registerOnSharedPreferenceChangeListener(this);
+            mObservingSharedPrefs = true;
+        } else if (candidateExtraAction == ActionId.AI_MODE) {
+            mTemplateUrlService = TemplateUrlServiceFactory.getForProfile(originalProfile);
+            if (mTemplateUrlService != null) {
+                mTemplateUrlServiceObserver = this::onTemplateURLServiceChanged;
+                mTemplateUrlService.addObserver(mTemplateUrlServiceObserver);
+            }
         }
     }
 
     private void onGlicAllowedChanged() {
-        updateExtraActionVisibility(mProfileSupplier.get());
+        updateGlicVisibility(mOriginalProfile);
     }
 
     private void onTemplateURLServiceChanged() {
-        updateExtraActionVisibility(mProfileSupplier.get());
+        updateAiModeVisibility();
     }
 
     @Override
     public void onSharedPreferenceChanged(
             SharedPreferences sharedPreferences, @Nullable String key) {
         if (ChromePreferenceKeys.BOTTOM_BAR_GLIC_BUTTON_ENABLED.equals(key)) {
-            updateExtraActionVisibility(mProfileSupplier.get());
+            updateGlicVisibility(mOriginalProfile);
         }
     }
 
@@ -505,6 +599,7 @@ public class BottomBarMediator
 
     @Override
     public void destroy() {
+        mDestroyed = true;
         mThemeColorProvider.removeTintObserver(this);
         if (mCurrentTab != null) {
             mCurrentTab.removeObserver(mTabObserver);
@@ -514,7 +609,10 @@ public class BottomBarMediator
         if (mShouldIncludeHomeButton) {
             mHomepageEnabledSupplier.removeObserver(mHomepageEnabledObserver);
         }
-        ContextUtils.getAppSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
+        if (mObservingSharedPrefs) {
+            ContextUtils.getAppSharedPreferences().unregisterOnSharedPreferenceChangeListener(this);
+            mObservingSharedPrefs = false;
+        }
         mProfileSupplier.removeObserver(mProfileObserver);
         if (mGlicKeyedService != null) {
             mGlicKeyedService.removeAllowedChangedObserver(mAllowedChangedObserver);

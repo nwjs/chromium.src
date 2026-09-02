@@ -60,11 +60,15 @@ class MockFacilitatedPaymentsBottomSheetBridge
   MOCK_METHOD(void, OnDismissed, (), (override));
   MOCK_METHOD(void,
               ShowPixAccountLinkingPrompt,
-              (int strike_count),
+              (int strike_count, const std::string& account_email),
               (override));
   MOCK_METHOD(bool,
               ShowAccountLinkingPrompt,
               (const payments::facilitated::AccountLinkingParams& params),
+              (override));
+  MOCK_METHOD(void,
+              ShowAccountLinkingFailureNotification,
+              (payments::facilitated::FacilitatedPaymentsType),
               (override));
 };
 
@@ -155,17 +159,19 @@ TEST_F(FacilitatedPaymentsControllerTest, ShowErrorScreen) {
 // Test controller forwards call for showing the Pix account linking prompt to
 // the view.
 TEST_F(FacilitatedPaymentsControllerTest, ShowPixAccountLinkingPrompt) {
-  EXPECT_CALL(*mock_view_, ShowPixAccountLinkingPrompt(kTestStrikeCount));
+  EXPECT_CALL(*mock_view_,
+              ShowPixAccountLinkingPrompt(kTestStrikeCount, "test@gmail.com"));
 
-  controller_->ShowPixAccountLinkingPrompt(kTestStrikeCount, base::DoNothing(),
-                                           base::DoNothing());
+  controller_->ShowPixAccountLinkingPrompt(
+      kTestStrikeCount, "test@gmail.com", base::DoNothing(), base::DoNothing());
 }
 
 TEST_F(FacilitatedPaymentsControllerTest, OnPixAccountLinkingPromptAccepted) {
   base::MockCallback<base::OnceCallback<void()>> mock_on_accepted;
   base::MockCallback<base::OnceCallback<void()>> mock_on_declined;
-  controller_->ShowPixAccountLinkingPrompt(
-      kTestStrikeCount, mock_on_accepted.Get(), mock_on_declined.Get());
+  controller_->ShowPixAccountLinkingPrompt(kTestStrikeCount, "test@gmail.com",
+                                           mock_on_accepted.Get(),
+                                           mock_on_declined.Get());
 
   // When the Pix account linking prompt is accepted, callback should be called.
   EXPECT_CALL(mock_on_accepted, Run());
@@ -177,8 +183,9 @@ TEST_F(FacilitatedPaymentsControllerTest, OnPixAccountLinkingPromptAccepted) {
 TEST_F(FacilitatedPaymentsControllerTest, OnPixAccountLinkingPromptDeclined) {
   base::MockCallback<base::OnceCallback<void()>> mock_on_accepted;
   base::MockCallback<base::OnceCallback<void()>> mock_on_declined;
-  controller_->ShowPixAccountLinkingPrompt(
-      kTestStrikeCount, mock_on_accepted.Get(), mock_on_declined.Get());
+  controller_->ShowPixAccountLinkingPrompt(kTestStrikeCount, "test@gmail.com",
+                                           mock_on_accepted.Get(),
+                                           mock_on_declined.Get());
 
   // When the Pix account linking prompt is declined, callback should be called.
   EXPECT_CALL(mock_on_accepted, Run).Times(0);
@@ -222,8 +229,8 @@ TEST_F(FacilitatedPaymentsControllerTest,
   controller_->ShowAccountLinkingPrompt(
       params, base::DoNothing(), base::DoNothing(), mock_on_dismissed.Get());
 
-  // Second call while the first prompt is still showing should drop the
-  // callbacks entirely and NOT show the prompt again.
+  // Second call while the first prompt is still showing should be dropped
+  // and NOT show the prompt again, nor should it trigger teardown callbacks.
   base::MockCallback<base::OnceCallback<void()>> mock_on_dismissed2;
   EXPECT_CALL(mock_on_dismissed2, Run()).Times(0);
   controller_->ShowAccountLinkingPrompt(
@@ -578,4 +585,16 @@ TEST_P(FacilitatedPaymentsControllerTestForAccountLinkingAction,
 
   histogram_tester.ExpectTotalCount(duration_histogram, 1);
   histogram_tester.ExpectTotalCount(segmented_duration_histogram, 1);
+}
+
+// Test controller forwards call for showing the Pix account linking failure
+// notification to the view.
+TEST_F(FacilitatedPaymentsControllerTest,
+       ShowAccountLinkingFailureNotification) {
+  EXPECT_CALL(*mock_view_,
+              ShowAccountLinkingFailureNotification(
+                  payments::facilitated::FacilitatedPaymentsType::kPix));
+
+  controller_->ShowAccountLinkingFailureNotification(
+      payments::facilitated::FacilitatedPaymentsType::kPix);
 }

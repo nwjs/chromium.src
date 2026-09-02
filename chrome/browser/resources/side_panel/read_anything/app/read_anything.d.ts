@@ -48,7 +48,6 @@ declare namespace chrome {
     let fontSize: number;
     let linksEnabled: boolean;
     let imagesEnabled: boolean;
-    let imagesFeatureEnabled: boolean;
     // The numerical enum value of these styles, not the actual value used to
     // style the app.
     let lineSpacing: number;
@@ -117,6 +116,10 @@ declare namespace chrome {
     // Whether the Read Anything Translate Entry Point feature flag is enabled.
     let isReadAnythingTranslateEntryPointEnabled: boolean;
 
+    // Whether the Read Anything Read Aloud Experimental Playback UI flag is
+    // enabled.
+    let isReadAnythingReadAloudExperimentalPlaybackUiEnabled: boolean;
+
     // Whether Read Anything is pinned to the toolbar.
     let isReadAnythingPinned: boolean;
 
@@ -150,9 +153,6 @@ declare namespace chrome {
     // The fallback language, corresponding to the browser language, that
     // should only be used when baseLanguageForSpeech is unavailable.
     let defaultLanguageForSpeech: string;
-
-    // If the current platform is ChromeOS Ash.
-    let isChromeOsAsh: boolean;
 
     // If distillations have been queued up.
     let requiresDistillation: boolean;
@@ -212,10 +212,6 @@ declare namespace chrome {
     // in this node, only returns children which are partially or entirely
     // contained within the selection.
     function getChildren(nodeId: number): number[];
-
-    // Returns content of "data-font-css" html attribute. This is needed for
-    // rendering content from annotated canvas in Google Docs.
-    function getDataFontCss(nodeId: number): string;
 
     // Returns the HTML tag of the AXNode for the provided AXNodeID.
     function getHtmlTag(nodeId: number): string;
@@ -399,12 +395,6 @@ declare namespace chrome {
     function setAnchorsForTesting(
         snapshotLite: Object, contentNodeIds: number[]): void;
 
-    // Set the theme. Used by tests only.
-    function setThemeForTesting(
-        fontName: string, fontSize: number, linksEnabled: boolean,
-        foregroundColor: number, backgroundColor: number, lineSpacing: number,
-        letterSpacing: number): void;
-
     // Sets the page language. Used by tests only.
     function setLanguageForTesting(code: string): void;
 
@@ -435,6 +425,19 @@ declare namespace chrome {
 
     // Called by the Read Anything app to toggle between presentation modes.
     function togglePresentation(): void;
+
+    // The following 3 functions are for handling the auto-disappearing logic
+    // for the line focus new badge.
+    // TODO(crbug.com/543113387): Remove these when the WebUI new badge supports
+    // auto-disappearing logic itself.
+    // Called to request whether to show the new badge for the line focus menu.
+    function requestShouldShowLineFocusNewBadge(): void;
+
+    // Called with the answer to the above requestShouldShowLineFocusNewBadge.
+    function onShouldShowLineFocusNewBadgeResponse(show: boolean): void;
+
+    // Called when the line focus feature is used.
+    function onLineFocusFeatureUsed(): void;
 
     // Whether the Google Docs load more button is visible.
     let isDocsLoadMoreButtonVisible: boolean;
@@ -613,9 +616,9 @@ declare namespace chrome {
 
     // Called when the main frame undergoes a same document navigation (such as
     // a fragment navigation).
-    let onMainFrameSameDocumentNavigation: (url: string) => void;
+    function onMainFrameSameDocumentNavigation(url: string): void;
 
     // Called to inform the web ui to play read aloud on open.
-    let setPlayOnOpen: (playOnOpen: boolean) => void;
+    function setPlayOnOpen(playOnOpen: boolean): void;
   }
 }

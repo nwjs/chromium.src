@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/views/webid/account_selection_view_test_base.h"
 #include "chrome/browser/ui/webid/account_selection_view.h"
 #include "chrome/browser/ui/webid/identity_ui_utils.h"
-#include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/constrained_window/constrained_window_views.h"
@@ -390,6 +389,8 @@ class StubAccountSelectionViewDelegate : public AccountSelectionView::Delegate {
                     const GURL& idp_login_url) override {}
   void OnMoreDetails() override {}
   void OnAccountsDisplayed() override {}
+  void OnNativeAppResult(const std::string& token) override {}
+  void OnNativeAppLoginFinished() override {}
   gfx::NativeView GetNativeView() override { return gfx::NativeView(); }
 
   content::WebContents* GetWebContents() override { return web_contents_; }
@@ -2692,6 +2693,96 @@ TEST_F(FedCmAccountSelectionViewDesktopTest, CanShowUi) {
 
   controller->SetCanShowUi(true);
   EXPECT_TRUE(controller->IsDialogWidgetVisible());
+}
+
+class FedCmAccountSelectionViewDesktopClickProtectionTest
+    : public FedCmAccountSelectionViewDesktopTest,
+      public testing::WithParamInterface<blink::mojom::RpMode> {};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         FedCmAccountSelectionViewDesktopClickProtectionTest,
+                         testing::Values(blink::mojom::RpMode::kPassive,
+                                         blink::mojom::RpMode::kActive));
+
+// Tests that switching to another tab and back re-arms the input event
+// activation protector for both bubble (passive mode) and modal (active mode)
+// dialogs, so that immediate clicks on the re-shown dialog are rejected while
+// delayed clicks after the cooldown period are accepted.
+TEST_P(FedCmAccountSelectionViewDesktopClickProtectionTest,
+       ClickProtectionAfterTabSwitch) {
+  std::unique_ptr<TestFedCmAccountSelectionView> controller =
+      CreateAndShow(accounts_, GetParam());
+
+  // Use a real InputEventActivationProtector.
+  controller->SetInputEventActivationProtectorForTesting(
+      std::make_unique<views::InputEventActivationProtector>());
+
+  // Advance time past the initial 500ms protection window.
+  task_environment()->FastForwardBy(base::Milliseconds(600));
+
+  // Simulate tab entering background and returning to foreground.
+  TabWillEnterBackground(controller.get());
+  TabForegrounded(controller.get());
+
+  ui::MouseEvent immediate_event(ui::EventType::kMousePressed, gfx::Point(),
+                                 gfx::Point(), base::TimeTicks::Now(),
+                                 ui::EF_LEFT_MOUSE_BUTTON, 0);
+
+  // Immediate click after re-show should be rejected by the protector.
+  EXPECT_FALSE(controller->OnAccountSelected(accounts_[0], immediate_event));
+
+  // Advance past the 500ms protection window.
+  task_environment()->FastForwardBy(base::Milliseconds(600));
+
+  ui::MouseEvent delayed_event(ui::EventType::kMousePressed, gfx::Point(),
+                               gfx::Point(), base::TimeTicks::Now(),
+                               ui::EF_LEFT_MOUSE_BUTTON, 0);
+
+  // Click after delay should be accepted.
+  EXPECT_TRUE(controller->OnAccountSelected(accounts_[0], delayed_event));
+}
+
+// Tests that when a bubble dialog is hidden because it cannot fit in the web
+// contents during a window resize, re-showing it upon resizing back re-arms the
+// input event activation protector. (Note: Modal dialogs are tab-modal and
+// centered, so they are not hidden when resized).
+TEST_F(FedCmAccountSelectionViewDesktopTest, ClickProtectionAfterResize) {
+  std::unique_ptr<TestFedCmAccountSelectionView> controller =
+      CreateAndShow(accounts_);
+
+  // Use a real InputEventActivationProtector.
+  controller->SetInputEventActivationProtectorForTesting(
+      std::make_unique<views::InputEventActivationProtector>());
+
+  // Advance time past the initial 500ms protection window.
+  task_environment()->FastForwardBy(base::Milliseconds(600));
+
+  // Resize so bubble dialog cannot fit, which hides it.
+  controller->can_fit_in_web_contents_ = false;
+  controller->PrimaryMainFrameWasResized(/*width_changed=*/true);
+  EXPECT_FALSE(controller->IsDialogWidgetVisible());
+
+  // Resize back so dialog can fit again, which re-shows it.
+  controller->can_fit_in_web_contents_ = true;
+  controller->PrimaryMainFrameWasResized(/*width_changed=*/true);
+  EXPECT_TRUE(controller->IsDialogWidgetVisible());
+
+  ui::MouseEvent immediate_event(ui::EventType::kMousePressed, gfx::Point(),
+                                 gfx::Point(), base::TimeTicks::Now(),
+                                 ui::EF_LEFT_MOUSE_BUTTON, 0);
+
+  // Immediate click after re-show should be rejected.
+  EXPECT_FALSE(controller->OnAccountSelected(accounts_[0], immediate_event));
+
+  // Advance past the 500ms protection window.
+  task_environment()->FastForwardBy(base::Milliseconds(600));
+
+  ui::MouseEvent delayed_event(ui::EventType::kMousePressed, gfx::Point(),
+                               gfx::Point(), base::TimeTicks::Now(),
+                               ui::EF_LEFT_MOUSE_BUTTON, 0);
+
+  // Click after delay should be accepted.
+  EXPECT_TRUE(controller->OnAccountSelected(accounts_[0], delayed_event));
 }
 
 }  // namespace webid

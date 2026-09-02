@@ -50,6 +50,7 @@
 #include "components/autofill/core/browser/payments/otp_unmask_result.h"
 #include "components/autofill/core/browser/payments/payments_autofill_client.h"
 #include "components/autofill/core/browser/payments/payments_churned_users_manager.h"
+#include "components/autofill/core/browser/payments/payments_churned_users_metrics.h"
 #include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/payments/save_and_fill_manager_impl.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
@@ -1314,10 +1315,25 @@ void ChromePaymentsAutofillClient::ShowPaymentsChurnedUsersUI(
   if (!tab_interface) {
     return;
   }
+
+  signin::IdentityManager* identity_manager = client_->GetIdentityManager();
+  if (!identity_manager) {
+    return;
+  }
+
+  AccountInfo account_info = identity_manager->FindExtendedAccountInfo(
+      GetPaymentsDataManager().GetAccountInfoForPaymentsServer());
+  if (account_info.IsEmpty()) {
+    autofill_metrics::LogPaymentsChurnedUsersBubbleShowResult(
+        autofill_metrics::PaymentsChurnedUsersBubbleShowResult::
+            kNoAccountInfoPresent);
+    return;
+  }
+
   if (PaymentsChurnedUsersBubbleController* controller =
           PaymentsChurnedUsersBubbleController::From(*tab_interface)) {
     controller->Show(std::move(accept_callback), std::move(cancel_callback),
-                     std::move(closed_callback));
+                     std::move(closed_callback), std::move(account_info));
   }
 #endif
 }

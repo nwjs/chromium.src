@@ -789,18 +789,17 @@ suite(`NewTabPageComposeboxUploadPasteTest`, () => {
         loadTimeData.getString('composeFileTypesAllowedError'),
         testProxy.element.$.errorScrim.errorMessage);
 
+    // Check that the paste event was prevented.
+    assertTrue(pasteEvent.defaultPrevented);
+
     // Check that no files were added.
     assertEquals(
         0,
         testProxy.searchboxHandler.getCallCount(
             testSupport.ADD_FILE_CONTEXT_FN));
-
-    // Check that the paste event was prevented.
-    assertTrue(pasteEvent.defaultPrevented);
   });
 
-  test(
-      'pasting only text does not call addFiles or prevent default',
+    test('pasting only text does not call addFiles or prevent default',
       async () => {
         // Arrange.
         testSupport.createComposeboxElement(testProxy);
@@ -1088,7 +1087,7 @@ suite(`NewTabPageComposeboxUploadToolModeTest`, () => {
         testProxy.searchboxHandler.getCallCount('setActiveToolMode'), 1);
     assertEquals(
         ToolMode.kImageGen,
-        testProxy.searchboxHandler.getArgs('setActiveToolMode')[0]);
+        testProxy.searchboxHandler.getArgs('setActiveToolMode')[0][0]);
     assertEquals(
         testProxy.searchboxHandler.getCallCount('recordToolSelectionAction'),
         1);
@@ -1131,7 +1130,8 @@ suite(`NewTabPageComposeboxUploadToolModeTest`, () => {
         testProxy.element, testProxy.searchboxCallbackRouterRemote));
 
     // Query autocomplete with image present to get verbatim match.
-    testProxy.element.getInputElement().$.input.value = 'T';
+    (testProxy.element.getInputElement().$.input as HTMLTextAreaElement).value =
+        'T';
     testProxy.element.getInputElement().$.input.dispatchEvent(
         new Event('input'));
     await microtasksFinished();

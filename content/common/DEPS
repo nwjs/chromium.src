@@ -2,8 +2,10 @@ include_rules = [
   "-storage/browser",
 
   "+components/discardable_memory/common",
+  "+components/network_session_configurator/common",
   "+components/viz/common",
   "+device/base/synchronization",
+  "+services/data_decoder/public/cpp",
   "+services/media_session/public/cpp",
   "+services/device/public/mojom",
   "+services/network/public/cpp",

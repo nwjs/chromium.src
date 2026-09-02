@@ -57,6 +57,7 @@ class WebUILocationBar : public LocationBar,
   // WebUIReadOnlyOmnibox::UpdatePropagator:
   void PropagateOmniboxUpdate(
       toolbar_ui_api::mojom::OmniboxViewStatePtr update) override;
+  void PropagateApplyFocusRingToAimButton(bool force_focus) override;
   void PropagateFocusRequest(
       toolbar_ui_api::mojom::FocusRequestTarget target) override;
   std::optional<GURL> ConsumeDroppedUrl(
@@ -83,11 +84,14 @@ class WebUILocationBar : public LocationBar,
   void Revert() override;
   OmniboxView* GetOmniboxView() override;
   OmniboxPopupView* GetOmniboxPopupView() override;
+  OmniboxPopupPresenterDelegate* GetPresenterDelegate() override;
   OmniboxController* GetOmniboxController() override;
   bool ShouldCloseOmniboxPopup(ui::MouseEvent* event) override;
   ChipController* GetChipController() override;
+  PermissionDashboardController* GetPermissionDashboardController() override;
   content::WebContents* GetWebContents() override;
   void SetPermissionPromptShowing(bool showing) override;
+  void AnnounceAlert(const std::u16string& announcement) override;
 
   // LocationBarTesting:
   LocationBarModel* GetLocationBarModel() override;
@@ -131,8 +135,6 @@ class WebUILocationBar : public LocationBar,
   void OnLhsChipDrag(toolbar_ui_api::mojom::LhsChipIdentifier identifier,
                      ui::mojom::DragEventSource source);
 
-  void AnnounceAlert(const std::u16string& announcement);
-
   WebUIContentSettingImageControl& content_setting_image_control() {
     return content_setting_image_control_;
   }
@@ -156,12 +158,9 @@ class WebUILocationBar : public LocationBar,
   views::Widget* GetLocationBarWidget() override;
   OmniboxPopupFileSelector* GetOmniboxPopupFileSelector() const override;
   OmniboxPopupAimPresenter* GetOmniboxPopupAimPresenter() const override;
+  views::View* GetLocationBarFocusRestoreView() override;
 
   void SetSuppressionThresholdForTesting(base::TimeDelta threshold);
-
-  PermissionDashboardController* permission_dashboard_controller() {
-    return permission_dashboard_controller_.get();
-  }
 
  private:
   friend class WebUILocationBarTest;
@@ -170,6 +169,7 @@ class WebUILocationBar : public LocationBar,
   // Determines whether the location icon should be overridden while a chip is
   // being displayed.
   bool ShouldChipOverrideLocationIcon();
+  bool ShouldHideRHSIcons();
 
   void OnMovedOrShown(ui::TrackedElement* element);
   void OnPopupStateChanged(OmniboxPopupState old_state,
@@ -195,7 +195,6 @@ class WebUILocationBar : public LocationBar,
       bool is_text_dangerous);
 
   void OnIconFetched(const gfx::Image& image);
-
 
   void ShowPageInfoBubble();
 
@@ -232,12 +231,14 @@ class WebUILocationBar : public LocationBar,
   // the HTML side.
   bool focus_within_ = false;
 
+  // Whether to paint AIM button as focused (with focus still on omnibox).
+  bool force_aim_button_focus_ring_ = false;
+
   toolbar_ui_api::IconHandle location_icon_;
   security_state::SecurityLevel last_update_security_level_ =
       security_state::NONE;
 
   WebUIBubbleReopenSuppressor page_info_reopen_suppressor_;
-  bool suppress_lhs_chip_clicked_ = false;
 
   std::optional<std::u16string> last_search_keyword_;
   std::optional<bool> last_is_keyword_selected_;

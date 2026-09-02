@@ -56,12 +56,12 @@ std::string ConvertMinorTextToPrintableString(Suggestion suggestion) {
 std::string_view ConvertAcceptabilityToPrintableString(
     Suggestion::Acceptability acceptability) {
   switch (acceptability) {
-    case Suggestion::Acceptability::kAcceptable:
-      return "kAcceptable";
-    case Suggestion::Acceptability::kUnacceptable:
-      return "kUnacceptable";
-    case Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle:
-      return "kUnacceptableWithDeactivatedStyle";
+    case Suggestion::Acceptability::kSelectableAndAcceptable:
+      return "kSelectableAndAcceptable";
+    case Suggestion::Acceptability::kSelectableButUnacceptable:
+      return "kSelectableButUnacceptable";
+    case Suggestion::Acceptability::kUnselectableAndUnacceptable:
+      return "kUnselectableAndUnacceptable";
   }
   NOTREACHED();
 }
@@ -93,8 +93,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kAccount";
     case Suggestion::Icon::kAndroidMessages:
       return "kAndroidMessages";
-    case Suggestion::Icon::kClear:
-      return "kClear";
+    case Suggestion::Icon::kClose:
+      return "kClose";
     case Suggestion::Icon::kCode:
       return "kCode";
     case Suggestion::Icon::kDelete:
@@ -499,29 +499,31 @@ Suggestion::~Suggestion() = default;
 
 bool Suggestion::IsAcceptable() const {
   using enum SuggestionType;
+  // LINT.IfChange(UnacceptableSuggestionTypes)
   static constexpr auto kUnacceptableItemIds =
       DenseSet({kSeparator, kInsecureContextPaymentDisabledMessage,
                 kMixedFormMessage, kTitle, kAtMemorySourceAttribution});
+  // LINT.ThenChange(/components/autofill/android/java/src/org/chromium/components/autofill/AutofillSuggestion.java:UnacceptableSuggestionTypes)
   if (kUnacceptableItemIds.contains(type)) {
     return false;
   }
   switch (acceptability) {
-    case Acceptability::kAcceptable:
+    case Acceptability::kSelectableAndAcceptable:
       return true;
-    case Acceptability::kUnacceptable:
-    case Acceptability::kUnacceptableWithDeactivatedStyle:
+    case Acceptability::kSelectableButUnacceptable:
+    case Acceptability::kUnselectableAndUnacceptable:
       return false;
   }
   NOTREACHED();
 }
 
-bool Suggestion::HasDeactivatedStyle() const {
+bool Suggestion::IsSelectable() const {
   switch (acceptability) {
-    case Acceptability::kAcceptable:
-    case Acceptability::kUnacceptable:
-      return false;
-    case Acceptability::kUnacceptableWithDeactivatedStyle:
+    case Acceptability::kSelectableAndAcceptable:
+    case Acceptability::kSelectableButUnacceptable:
       return true;
+    case Acceptability::kUnselectableAndUnacceptable:
+      return false;
   }
   NOTREACHED();
 }

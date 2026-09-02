@@ -7,6 +7,7 @@
 #include "base/location.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/profiles/nuke_profile_directory_utils.h"
 #include "chrome/browser/profiles/profile.h"
@@ -18,29 +19,98 @@
 #include "components/user_manager/user_manager.h"
 #endif
 
-namespace {
-
-Browser::CreateParams CreateAppBrowserWindow(
-    BrowserWindowCreateParams create_params) {
-  CHECK(create_params.type == BrowserWindowInterface::TYPE_APP ||
-        create_params.type == BrowserWindowInterface::TYPE_APP_POPUP)
-      << "Unexpected browser type with `app_name`: "
-      << static_cast<int>(create_params.type);
-  Browser::CreateParams browser_params =
-      create_params.type == BrowserWindowInterface::TYPE_APP
-          ? Browser::CreateParams::CreateForApp(
-                create_params.app_name, create_params.is_trusted_source,
-                create_params.initial_bounds, &*create_params.profile,
-                create_params.from_user_gesture)
-          : Browser::CreateParams::CreateForAppPopup(
-                create_params.app_name, create_params.is_trusted_source,
-                create_params.initial_bounds, &*create_params.profile,
-                create_params.from_user_gesture);
-
-  browser_params.initial_show_state = create_params.initial_show_state;
-
-  return browser_params;
+BrowserWindowCreateParams BrowserWindowCreateParams::Clone() const {
+  BrowserWindowCreateParams clone(type, *profile, from_user_gesture);
+  clone.initial_bounds = initial_bounds;
+  clone.is_trusted_source = is_trusted_source;
+  clone.app_name = app_name;
+  clone.initial_show_state = initial_show_state;
+  clone.omit_from_session_restore = omit_from_session_restore;
+  clone.should_trigger_session_restore = should_trigger_session_restore;
+  clone.initial_origin_specified = initial_origin_specified;
+  clone.initial_workspace = initial_workspace;
+  clone.initial_visible_on_all_workspaces_state =
+      initial_visible_on_all_workspaces_state;
+  clone.creation_source = creation_source;
+  clone.in_tab_dragging = in_tab_dragging;
+  clone.window = window;
+  clone.user_title = user_title;
+  clone.can_resize = can_resize;
+  clone.can_maximize = can_maximize;
+  clone.can_fullscreen = can_fullscreen;
+  clone.pip_options = pip_options;
+  clone.vertical_tab_strip_collapsed = vertical_tab_strip_collapsed;
+  clone.vertical_tab_strip_uncollapsed_width =
+      vertical_tab_strip_uncollapsed_width;
+  clone.focused_tab_group_id = focused_tab_group_id;
+#if BUILDFLAG(IS_CHROMEOS)
+  clone.display_id = display_id;
+#endif
+#if BUILDFLAG(IS_LINUX)
+  clone.startup_id = startup_id;
+#endif
+#if BUILDFLAG(IS_OZONE)
+  clone.restore_id = restore_id;
+#endif
+  return clone;
 }
+
+// static
+BrowserWindowCreateParams BrowserWindowCreateParams::CreateForApp(
+    const std::string& app_name,
+    bool trusted_source,
+    const gfx::Rect& window_bounds,
+    Profile* profile,
+    bool user_gesture) {
+  DCHECK(!app_name.empty());
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_APP, profile, user_gesture);
+  params.app_name = app_name;
+  params.is_trusted_source = trusted_source;
+  params.initial_bounds = window_bounds;
+  return params;
+}
+
+// static
+BrowserWindowCreateParams BrowserWindowCreateParams::CreateForAppPopup(
+    const std::string& app_name,
+    bool trusted_source,
+    const gfx::Rect& window_bounds,
+    Profile* profile,
+    bool user_gesture) {
+  DCHECK(!app_name.empty());
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_APP_POPUP, profile, user_gesture);
+  params.app_name = app_name;
+  params.is_trusted_source = trusted_source;
+  params.initial_bounds = window_bounds;
+  return params;
+}
+
+// static
+BrowserWindowCreateParams BrowserWindowCreateParams::CreateForPictureInPicture(
+    const std::string& app_name,
+    bool trusted_source,
+    Profile* profile,
+    bool user_gesture) {
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_PICTURE_IN_PICTURE, profile, user_gesture);
+  params.app_name = app_name;
+  params.is_trusted_source = trusted_source;
+  return params;
+}
+
+// static
+BrowserWindowCreateParams BrowserWindowCreateParams::CreateForDevTools(
+    Profile* profile) {
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_DEVTOOLS, profile, true);
+  params.app_name = DevToolsWindow::kDevToolsApp;
+  params.is_trusted_source = true;
+  return params;
+}
+
+namespace {
 
 #if BUILDFLAG(IS_CHROMEOS)
 bool IsOnKioskSplashScreen() {
@@ -72,29 +142,13 @@ BrowserWindowInterface* CreateBrowserWindow(
   CHECK_EQ(BrowserWindowInterface::CreationStatus::kOk,
            GetBrowserWindowCreationStatusForProfile(*create_params.profile));
 
-  Browser::CreateParams browser_params(create_params.type,
-                                       &*create_params.profile,
-                                       create_params.from_user_gesture);
-  if (!create_params.app_name.empty()) {
-    browser_params = CreateAppBrowserWindow(create_params);
-  }
+  return Browser::Create(std::move(create_params));
+}
 
-  browser_params.trusted_source = create_params.is_trusted_source;
-  browser_params.initial_bounds = std::move(create_params.initial_bounds);
-  browser_params.initial_show_state = create_params.initial_show_state;
-  browser_params.frameless = create_params.frameless;
-  browser_params.always_on_top = create_params.always_on_top;
-  browser_params.all_visible = create_params.all_visible;
-  browser_params.resizable = create_params.resizable;
-  browser_params.show_in_taskbar = create_params.show_in_taskbar;
-  browser_params.title = create_params.title;
-  browser_params.position = create_params.position;
-  browser_params.extension_id = create_params.extension_id;
-  browser_params.windows_key = create_params.windows_key;
-  browser_params.alpha_enabled = create_params.alpha_enabled;
-  browser_params.icon = create_params.icon;
-
-  return Browser::Create(browser_params);
+std::unique_ptr<Browser> DeprecatedCreateOwnedBrowserWindowForTesting(
+    BrowserWindowCreateParams create_params) {
+  return Browser::DeprecatedCreateOwnedForTesting(
+      std::move(create_params));  // IN-TEST
 }
 
 void CreateBrowserWindow(

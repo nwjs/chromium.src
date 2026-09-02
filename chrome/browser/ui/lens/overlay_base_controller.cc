@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/lens/overlay_base_controller.h"
 
+#include "base/i18n/rtl.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
@@ -11,8 +12,10 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/lens/lens_preselection_bubble.h"
+#include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/multi_contents_view.h"
 #include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/pref_names.h"
@@ -75,18 +78,6 @@ OverlayBaseController::OverlayBaseController(tabs::TabInterface* tab,
 
 OverlayBaseController::~OverlayBaseController() {
   state_ = State::kOff;
-  if (overlay_web_view_) {
-    // Remove render frame observer.
-    overlay_web_view_->GetWebContents()
-        ->GetPrimaryMainFrame()
-        ->GetProcess()
-        ->RemoveObserver(this);
-  } else if (owned_overlay_web_view_) {
-    owned_overlay_web_view_->GetWebContents()
-        ->GetPrimaryMainFrame()
-        ->GetProcess()
-        ->RemoveObserver(this);
-  }
 }
 
 bool OverlayBaseController::IsOverlayShowing() const {
@@ -100,7 +91,8 @@ bool OverlayBaseController::IsOverlayActive() const {
 
 bool OverlayBaseController::IsOverlayInitializing() {
   return state_ == State::kStartingWebUI || state_ == State::kScreenshot ||
-         state_ == State::kClosingOpenedSidePanel;
+         state_ == State::kClosingOpenedSidePanel ||
+         state_ == State::kWaitingForOpeningSidePanelReflow;
 }
 
 bool OverlayBaseController::IsOverlayClosing() {
@@ -221,6 +213,13 @@ void OverlayBaseController::RenderProcessExited(
               : DismissalSource::kOverlayRendererClosedUnexpectedly));
 }
 
+void OverlayBaseController::RenderProcessHostDestroyed(
+    content::RenderProcessHost* host) {
+  if (render_process_host_observation_.IsObservingSource(host)) {
+    render_process_host_observation_.Reset();
+  }
+}
+
 raw_ptr<views::View> OverlayBaseController::CreateViewForOverlay() {
   views::View* host_view = GetHostView();
   CHECK(host_view);
@@ -291,10 +290,8 @@ raw_ptr<views::View> OverlayBaseController::CreateViewForOverlay() {
   overlay_web_view_ = host_view->AddChildView(std::move(web_view));
 
   // Listen to the render process housing out overlay.
-  overlay_web_view_->GetWebContents()
-      ->GetPrimaryMainFrame()
-      ->GetProcess()
-      ->AddObserver(this);
+  render_process_host_observation_.Observe(
+      overlay_web_view_->GetWebContents()->GetPrimaryMainFrame()->GetProcess());
 
   return host_view;
 }
@@ -603,16 +600,31 @@ void OverlayBaseController::ShowModalUI() {
       prefs::kSidePanelHorizontalAlignment,
       base::BindRepeating(&OverlayBaseController::OnSidePanelAlignmentChanged,
                           base::Unretained(this)));
+  pref_change_registrar_.Add(
+      prefs::kSidePanelAlignmentOverrides,
+      base::BindRepeating(&OverlayBaseController::OnSidePanelAlignmentChanged,
+                          base::Unretained(this)));
 
   // This should be the last thing called in ShowUI, so if something goes wrong
   // in capturing the screenshot, the state gets cleaned up correctly.
-  if (side_panel_ui->IsSidePanelShowing() && ShouldCloseSidePanel() &&
-      !IsResultsSidePanelShowing()) {
+  // 1. Determine the target state based on side panel conditions.
+  if (!side_panel_ui->IsSidePanelShowing()) {
+    state_ = State::kScreenshot;
+  } else if (ShouldCloseSidePanel() && !IsResultsSidePanelShowing()) {
     // Close the currently opened side panel synchronously if it's not the Lens
     // panel. Postpone the screenshot for a fixed time to allow reflow.
     state_ = State::kClosingOpenedSidePanel;
     side_panel_ui->Close(SidePanelEntryHideReason::kSidePanelClosed,
                          /*suppress_animations=*/true);
+  } else if (ShouldWaitForSidePanelReflow()) {
+    state_ = State::kWaitingForOpeningSidePanelReflow;
+  } else {
+    state_ = State::kScreenshot;
+  }
+
+  // 2. Execute the action corresponding to the state.
+  if (state_ == State::kClosingOpenedSidePanel ||
+      state_ == State::kWaitingForOpeningSidePanelReflow) {
     base::SingleThreadTaskRunner::GetCurrentDefault()
         ->PostNonNestableDelayedTask(
             FROM_HERE,
@@ -620,7 +632,6 @@ void OverlayBaseController::ShowModalUI() {
                            weak_factory_.GetWeakPtr(), base::TimeTicks::Now()),
             kReflowWaitTimeout);
   } else {
-    state_ = State::kScreenshot;
     content::RenderWidgetHostView* view = tab_->GetContents()
                                               ->GetPrimaryMainFrame()
                                               ->GetRenderViewHost()
@@ -636,12 +647,14 @@ void OverlayBaseController::ShowModalUI() {
   }
 }
 
+bool OverlayBaseController::ShouldWaitForSidePanelReflow() {
+  return false;
+}
+
 void OverlayBaseController::FinishedWaitingForReflow(
     base::TimeTicks reflow_start_time) {
-  if (state_ == State::kClosingOpenedSidePanel) {
-    // This path is invoked after the user invokes the overlay, but we needed
-    // to close the side panel before taking a screenshot. The Side panel is
-    // now closed so we can now take the screenshot of the page.
+  if (state_ == State::kClosingOpenedSidePanel ||
+      state_ == State::kWaitingForOpeningSidePanelReflow) {
     state_ = State::kScreenshot;
     StartScreenshotFlow();
   }
@@ -792,18 +805,7 @@ void OverlayBaseController::CloseUI() {
   CHECK(contents_web_view);
   contents_web_view->SetEnabled(true);
 
-  if (overlay_web_view_) {
-    // Remove render frame observer.
-    overlay_web_view_->GetWebContents()
-        ->GetPrimaryMainFrame()
-        ->GetProcess()
-        ->RemoveObserver(this);
-  } else if (owned_overlay_web_view_) {
-    owned_overlay_web_view_->GetWebContents()
-        ->GetPrimaryMainFrame()
-        ->GetProcess()
-        ->RemoveObserver(this);
-  }
+  render_process_host_observation_.Reset();
 
   owned_preselection_widget_anchor_.reset();
   owned_promo_anchor_.reset();
@@ -872,9 +874,12 @@ void OverlayBaseController::SetOverlayRoundedCorner() {
   }
   CHECK(overlay_web_view);
 
-  const bool should_round_corner = IsResultsSidePanelShowing();
+  // Only tab-scoped overlays (where `!IsOverlayViewShared()`) live inside a
+  // `ContentsContainerView` and respect split view rounded corners.
+  const bool is_split = !IsOverlayViewShared() && tab_ && tab_->IsSplit();
+  const bool should_round_corner = is_split || IsResultsSidePanelShowing();
   float radius = 0;
-  if (should_round_corner) {
+  if (!is_split && should_round_corner) {
     const views::LayoutProvider* layout_provider =
         overlay_web_view->GetLayoutProvider();
     if (!layout_provider) {
@@ -888,10 +893,28 @@ void OverlayBaseController::SetOverlayRoundedCorner() {
     radius = layout_provider->GetCornerRadiusMetric(
         views::ShapeContextTokens::kContentSeparatorRadius);
   }
-  const bool right_aligned =
+  bool is_right_aligned =
       pref_service_->GetBoolean(prefs::kSidePanelHorizontalAlignment);
-  const gfx::RoundedCornersF radii = gfx::RoundedCornersF{
-      right_aligned ? 0 : radius, right_aligned ? radius : 0, 0, 0};
+  const base::DictValue& overrides =
+      pref_service_->GetDict(prefs::kSidePanelAlignmentOverrides);
+  auto* side_panel_ui = tab_ && tab_->GetBrowserWindowInterface()
+                            ? tab_->GetBrowserWindowInterface()
+                                  ->GetFeatures()
+                                  .side_panel_ui()
+                            : nullptr;
+  if (side_panel_ui) {
+    if (auto current_entry_id = side_panel_ui->GetCurrentEntryId()) {
+      if (auto override_val = overrides.FindBool(
+              SidePanelEntryIdToString(*current_entry_id))) {
+        is_right_aligned = *override_val;
+      }
+    }
+  }
+  const bool right_aligned = is_right_aligned != base::i18n::IsRTL();
+  const gfx::RoundedCornersF radii =
+      is_split ? MultiContentsView::kSplitViewContentRoundedCorners
+               : gfx::RoundedCornersF{right_aligned ? 0 : radius,
+                                      right_aligned ? radius : 0, 0, 0};
 
   overlay_web_view->holder()->SetNativeViewCornerRadii(radii);
 

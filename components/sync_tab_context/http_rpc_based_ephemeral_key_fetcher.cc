@@ -10,6 +10,7 @@
 #include "base/functional/bind.h"
 #include "base/strings/strcat.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/oauth_consumer_id.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
@@ -30,8 +31,16 @@
 namespace sync_tab_context {
 
 namespace {
+
 // Maximum response size for ephemeral key response (1 MB).
 constexpr size_t kMaxResponseSizeBytes = 1024 * 1024;
+
+base::Time GoogleTimestampProtoToTime(
+    const google::protobuf::Timestamp& timestamp) {
+  return base::Time::FromSecondsSinceUnixEpoch(timestamp.seconds()) +
+         base::Nanoseconds(timestamp.nanos());
+}
+
 }  // namespace
 
 class HttpRpcBasedEphemeralKeyFetcher::Operation {
@@ -75,8 +84,9 @@ class HttpRpcBasedEphemeralKeyFetcher::Operation {
       return std::nullopt;
     }
 
-    if (response_proto.server_token().empty() ||
-        !response_proto.has_agile_symmetric_key_set()) {
+    if (response_proto.name().empty() ||
+        !response_proto.has_agile_symmetric_key_set() ||
+        !response_proto.has_expire_time()) {
       return std::nullopt;
     }
 
@@ -87,7 +97,9 @@ class HttpRpcBasedEphemeralKeyFetcher::Operation {
     }
 
     return Result{.ephemeral_key = std::move(key_set),
-                  .server_token = response_proto.server_token()};
+                  .name = response_proto.name(),
+                  .expire_time =
+                      GoogleTimestampProtoToTime(response_proto.expire_time())};
   }
 
   void OnAccessTokenFetched(GoogleServiceAuthError error,
@@ -178,27 +190,29 @@ class HttpRpcBasedEphemeralKeyFetcher::Operation {
 
 HttpRpcBasedEphemeralKeyFetcher::HttpRpcBasedEphemeralKeyFetcher(
     signin::IdentityManager* identity_manager,
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+    UrlLoaderFactoryGetter url_loader_factory_getter,
     const GURL& server_url)
     : identity_manager_(identity_manager),
-      url_loader_factory_(std::move(url_loader_factory)),
+      url_loader_factory_getter_(std::move(url_loader_factory_getter)),
       server_url_(server_url) {
   CHECK(identity_manager_);
-  CHECK(url_loader_factory_);
+  CHECK(url_loader_factory_getter_);
 }
 
 HttpRpcBasedEphemeralKeyFetcher::~HttpRpcBasedEphemeralKeyFetcher() = default;
 
 void HttpRpcBasedEphemeralKeyFetcher::FetchEphemeralKey(
     FetchCallback callback) {
-  if (!server_url_.is_valid()) {
+  scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory =
+      url_loader_factory_getter_.Run();
+  if (!server_url_.is_valid() || !url_loader_factory) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), std::nullopt));
     return;
   }
 
-  auto op = std::make_unique<Operation>(identity_manager_, url_loader_factory_,
-                                        server_url_);
+  auto op = std::make_unique<Operation>(
+      identity_manager_, std::move(url_loader_factory), server_url_);
   Operation* op_ptr = op.get();
   ongoing_operations_.push_back(std::move(op));
 

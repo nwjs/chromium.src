@@ -59,8 +59,6 @@ std::string PlatformToString(variations::Study::Platform platform) {
       return "WebView";
     case variations::Study::PLATFORM_FUCHSIA:
       return "Fuchsia";
-    case variations::Study::PLATFORM_ANDROID_WEBLAYER:
-      return "WebLayer";
   }
   NOTREACHED();
 }
@@ -232,6 +230,8 @@ base::ListValue GetVariationsSummary(
                                  BoolToString(state->is_low_end_device)));
   list.Append(CreateKeyValueDict("Country (Session Consistency)",
                                  state->session_consistency_country));
+  list.Append(CreateKeyValueDict("Administrative area (Session Consistency)",
+                                 state->session_consistency_geolevel1));
   list.Append(CreateKeyValueDict("Country (Permanent Consistency)",
                                  state->permanent_consistency_country));
   list.Append(CreateKeyValueDict("Locale", state->locale));

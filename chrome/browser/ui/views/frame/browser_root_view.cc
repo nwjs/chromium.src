@@ -6,12 +6,12 @@
 
 #include <cmath>
 #include <memory>
+#include <ranges>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/check_op.h"
-#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -21,6 +21,7 @@
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
@@ -352,8 +353,8 @@ bool BrowserRootView::OnMouseWheel(const ui::MouseWheelEvent& event) {
       // Count a scroll in either axis - summing the axes works for this.
       int whole_scroll_offset = whole_scroll_amount_x + whole_scroll_amount_y;
 
-      Browser* browser = browser_view_->browser();
-      TabStripModel* model = browser->tab_strip_model();
+      BrowserWindowInterface* browser = browser_view_->browser();
+      TabStripModel* model = browser->GetTabStripModel();
 
       auto has_tab_in_direction = [model](int delta) {
         for (int index = model->active_index() + delta;
@@ -447,9 +448,8 @@ void BrowserRootView::PaintChildren(const views::PaintInfo& paint_info) {
   TabStripModel* model = browser_view_->browser()->tab_strip_model();
   std::vector<tabs::TabInterface*> active_tabs = model->GetForegroundTabs();
   for (tabs::TabInterface* active_tab : active_tabs) {
-    int index = model->GetIndexOfTab(active_tab);
-    views::View* tab_view =
-        browser_view_->tab_strip_view()->GetTabAnchorViewAt(index);
+    views::View* tab_view = browser_view_->tab_strip_view()->GetTabAnchorView(
+        active_tab->GetHandle());
 
     if (tab_view && tab_view->GetVisible()) {
       gfx::RectF bounds(tab_view->GetMirroredBounds());
@@ -595,8 +595,8 @@ void BrowserRootView::NavigateToDroppedUrls(
     std::unique_ptr<ui::LayerTreeOwner> drag_image_layer_owner) {
   DCHECK(drop_info);
 
-  Browser* const browser = browser_view_->browser();
-  TabStripModel* const model = browser->tab_strip_model();
+  BrowserWindowInterface* const browser = browser_view_->browser();
+  TabStripModel* const model = browser->GetTabStripModel();
 
   // If the browser window is not visible, it's about to be destroyed.
   if (!browser->GetWindow()->IsVisible() || model->empty()) {
@@ -644,7 +644,7 @@ void BrowserRootView::NavigateToDroppedUrls(
     ++insertion_index;  // Additional URLs inserted to the right.
   }
 
-  for (const GURL& url : base::Reversed(urls)) {
+  for (const GURL& url : std::views::reverse(urls)) {
     NavigateParams params(browser_view_->browser(), url,
                           ui::PAGE_TRANSITION_LINK);
     params.tabstrip_index = insertion_index;

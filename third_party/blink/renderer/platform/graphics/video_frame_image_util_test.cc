@@ -103,20 +103,9 @@ class VideoFrameImageUtilTest
   scoped_refptr<StaticBitmapImage> DoCreateImageFromVideoFrame(
       scoped_refptr<media::VideoFrame> frame,
       media::PaintCanvasVideoRenderer* video_renderer = nullptr,
-      bool prefer_tagged_orientation = true) {
-    const auto transform =
-        frame->metadata().transformation.value_or(media::kNoTransformation);
-    // Since we're copying, the destination is always aligned with the origin.
-    const auto& visible_rect = frame->visible_rect();
-    auto dest_rect =
-        gfx::Rect(0, 0, visible_rect.width(), visible_rect.height());
-    if (transform.rotation == media::VIDEO_ROTATION_90 ||
-        transform.rotation == media::VIDEO_ROTATION_270) {
-      dest_rect.Transpose();
-    }
-
-    auto info =
-        CreateSnapshotProviderInfoForVideoFrame(*frame, dest_rect.size());
+      VideoOrientationBehavior orientation_behavior =
+          VideoOrientationBehavior::kTagOrientation) {
+    auto info = CreateSnapshotProviderInfoForVideoFrame(*frame);
     if (ShouldCreateAcceleratedImages(raster_context_provider())) {
       auto snapshot_provider = CanvasNon2DResourceProvider::Create(
           info.size, info.format, info.alpha_type, info.color_space,
@@ -128,10 +117,10 @@ class VideoFrameImageUtilTest
       }
       return CreateAcceleratedImageFromVideoFrame(
           std::move(frame), snapshot_provider.get(), video_renderer,
-          prefer_tagged_orientation);
+          orientation_behavior);
     } else {
       return CreateUnacceleratedImageFromVideoFrame(
-          std::move(frame), info, video_renderer, prefer_tagged_orientation);
+          std::move(frame), info, video_renderer, orientation_behavior);
     }
   }
 
@@ -169,16 +158,16 @@ TEST_P(VideoFrameImageUtilTest, CreateImageFromVideoFrameOrientation) {
 
   frame->metadata().transformation = kTestTransform;
 
-  // We expect applying transform during copy if `prefer_tagged_orientation` is
-  // false.
+  // We expect applying transform during copy if `orientation_behavior` is
+  // VideoOrientationBehavior::kHardFlip.
   auto image = DoCreateImageFromVideoFrame(frame, nullptr,
-                                           /*prefer_tagged_orientation=*/false);
+                                           VideoOrientationBehavior::kHardFlip);
   EXPECT_EQ(image->Orientation(), ImageOrientationEnum::kDefault);
 
   // We expect doing copy without transform applied and result image be tagged
   // with correct orientation.
-  image = DoCreateImageFromVideoFrame(frame, nullptr,
-                                      /*prefer_tagged_orientation=*/true);
+  image = DoCreateImageFromVideoFrame(
+      frame, nullptr, VideoOrientationBehavior::kTagOrientation);
 
   // TODO(crbug.com/40172676): Accelerated images are not tagged correctly.
   if (expect_accelerated_images()) {
@@ -252,6 +241,34 @@ TEST_P(VideoFrameImageUtilTest, AcceleratedImageIsCreated) {
 
   auto image = DoCreateImageFromVideoFrame(texture_frame);
   EXPECT_TRUE(image->IsTextureBacked());
+}
+
+TEST_P(VideoFrameImageUtilTest, CreateSnapshotProviderInfoRotatedFrame) {
+  auto frame = media::VideoFrame::CreateBlackFrame(gfx::Size(100, 200));
+  frame->metadata().transformation =
+      media::VideoTransformation(media::VIDEO_ROTATION_90);
+
+  // Without scaled_size, orthogonal rotation transposes the natural_size.
+  auto info = CreateSnapshotProviderInfoForVideoFrame(*frame);
+  EXPECT_EQ(info.size, gfx::Size(200, 100));
+
+  // With non-orthogonal rotation (e.g. 180), size is not transposed.
+  frame->metadata().transformation =
+      media::VideoTransformation(media::VIDEO_ROTATION_180);
+  info = CreateSnapshotProviderInfoForVideoFrame(*frame);
+  EXPECT_EQ(info.size, gfx::Size(100, 200));
+
+  // With explicit scaled_size, scaled_size is used as-is.
+  info = CreateSnapshotProviderInfoForVideoFrame(*frame, gfx::Size(50, 60));
+  EXPECT_EQ(info.size, gfx::Size(50, 60));
+
+  // When orientation_behavior is kTagOrientation, size is not transposed.
+  frame->metadata().transformation =
+      media::VideoTransformation(media::VIDEO_ROTATION_90);
+  info = CreateSnapshotProviderInfoForVideoFrame(
+      *frame, std::nullopt, VideoColorSpaceInterpretation::kPreserve,
+      VideoOrientationBehavior::kTagOrientation);
+  EXPECT_EQ(info.size, gfx::Size(100, 200));
 }
 
 }  // namespace blink

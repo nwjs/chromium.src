@@ -49,6 +49,7 @@
 //ios/chrome/test/data/policy/pref_mapping/EnableExperimentalPolicies.json
 //ios/chrome/test/data/policy/pref_mapping/EnterpriseRealTimeUrlCheckMode.json
 //ios/chrome/test/data/policy/pref_mapping/FilePickerChooseFromDriveSettings.json
+//ios/chrome/test/data/policy/pref_mapping/FindAndFillWithGeminiSettings.json
 //ios/chrome/test/data/policy/pref_mapping/GeminiSettings.json
 //ios/chrome/test/data/policy/pref_mapping/GenAiDefaultSettings.json
 //ios/chrome/test/data/policy/pref_mapping/IdleTimeout.json
@@ -84,6 +85,7 @@
 //ios/chrome/test/data/policy/pref_mapping/ProvisionManagedClientCertificateForBrowser.json
 //ios/chrome/test/data/policy/pref_mapping/ProvisionManagedClientCertificateForUser.json
 //ios/chrome/test/data/policy/pref_mapping/ProvisionalNotificationsAllowed.json
+//ios/chrome/test/data/policy/pref_mapping/ProxyProvisioningDomains.json
 //ios/chrome/test/data/policy/pref_mapping/RestrictAccountsToPatterns.json
 //ios/chrome/test/data/policy/pref_mapping/SafeBrowsingEnabled.json
 //ios/chrome/test/data/policy/pref_mapping/SafeBrowsingProtectionLevel.json

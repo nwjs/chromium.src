@@ -193,6 +193,14 @@ FrameTree::NodeRange::NodeRange(
 FrameTree::NodeRange::NodeRange(const NodeRange&) = default;
 FrameTree::NodeRange::~NodeRange() = default;
 
+std::optional<int64_t> FrameTree::Delegate::GetPrivilegedContentsFeatureId() {
+  return std::nullopt;
+}
+
+bool FrameTree::Delegate::DoesWebContentsDisallowServiceWorkerControl() {
+  return false;
+}
+
 FrameTree::FrameTree(
     BrowserContext* browser_context,
     Delegate* delegate,

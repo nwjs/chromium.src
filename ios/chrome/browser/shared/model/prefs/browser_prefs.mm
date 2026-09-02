@@ -30,6 +30,7 @@
 #import "components/enterprise/data_controls/core/browser/prefs.h"
 #import "components/enterprise/idle/idle_pref_names.h"
 #import "components/enterprise/isolated_mode/prefs.h"
+#import "components/enterprise/net/core/prefs.h"
 #import "components/feature_engagement/public/pref_names.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/handoff/handoff_manager.h"
@@ -99,6 +100,7 @@
 #import "components/translate/core/browser/translate_pref_names.h"
 #import "components/translate/core/browser/translate_prefs.h"
 #import "components/unified_consent/unified_consent_service.h"
+#import "components/universal_optout/prefs.h"
 #import "components/update_client/update_client.h"
 #import "components/variations/service/variations_service.h"
 #import "components/web_resource/web_resource_pref_names.h"
@@ -154,12 +156,6 @@
 
 namespace {
 
-
-// Deprecated 09/2025.
-inline constexpr char kNtpShownBookmarksFolder[] = "ntp.shown_bookmarks_folder";
-constexpr char kGaiaCookieLastListAccountsData[] =
-    "gaia_cookie.last_list_accounts_data";
-inline constexpr char kFRESourceTrial[] = "FileMetricsProviderFRESourceTrial";
 
 // Deprecated 10/2025
 inline constexpr char kSessionStorageFormatPref[] =
@@ -525,6 +521,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   enterprise::RegisterIdentifiersProfilePrefs(registry);
   enterprise_connectors::RegisterProfilePrefs(registry);
   enterprise_data_protection::RegisterProfilePrefs(registry);
+  enterprise_net::RegisterProfilePrefs(registry);
   ios_feed::RegisterProfilePrefs(registry);
   FirstRun::RegisterProfilePrefs(registry);
   FontSizeTabHelper::RegisterProfilePrefs(registry);
@@ -568,6 +565,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   TemplateURLPrepopulateData::RegisterProfilePrefs(registry);
   translate::TranslatePrefs::RegisterProfilePrefs(registry);
   unified_consent::UnifiedConsentService::RegisterPrefs(registry);
+  universal_optout::prefs::RegisterProfilePrefs(registry);
   variations::VariationsService::RegisterProfilePrefs(registry);
   ZeroSuggestProvider::RegisterProfilePrefs(registry);
   tab_resumption_prefs::RegisterProfilePrefs(registry);
@@ -735,6 +733,12 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
       enterprise_reporting::kUserSecurityAuthenticatedReporting, false);
   registry->RegisterBooleanPref(
       enterprise_reporting::kUserSecuritySignalsReporting, false);
+  registry->RegisterTimePref(
+      enterprise_reporting::kLastSignalsUploadAttemptTimestamp, base::Time());
+  registry->RegisterTimePref(
+      enterprise_reporting::kLastSignalsUploadSucceededTimestamp, base::Time());
+  registry->RegisterStringPref(
+      enterprise_reporting::kLastSignalsUploadSucceededConfig, std::string());
 
   // Register prefs related to Enterprise Isolated Mode.
   enterprise_isolated_mode::RegisterProfilePrefs(registry);
@@ -914,11 +918,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Preference associated with the Gemini Settings policy state.
   registry->RegisterIntegerPref(optimization_guide::prefs::kGeminiSettings, 0);
 
-  // Deprecated 09/2025.
-  registry->RegisterInt64Pref(kNtpShownBookmarksFolder, 0);
-  registry->RegisterStringPref(kGaiaCookieLastListAccountsData, std::string());
-  registry->RegisterStringPref(kFRESourceTrial, std::string());
-
   // Deprecated 10/2025
   registry->RegisterIntegerPref(kSessionStorageFormatPref, 0);
   registry->RegisterIntegerPref(kSessionStorageMigrationStatusPref, 0);
@@ -993,6 +992,11 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Deprecated 07/2026.
   registry->RegisterTimePref(kObsoleteManagementProfileLastLogTime,
                              base::Time());
+
+  // Deprecated 08/2026.
+  registry->RegisterBooleanPref("autofill.wallet_import_enabled", true);
+  registry->RegisterBooleanPref("sync.autofill_wallet_import_enabled_migrated",
+                                false);
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -1037,11 +1041,6 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   // Added 09/2024.
   browsing_data::prefs::MaybeMigrateToQuickDeletePrefValues(prefs);
 
-
-  // Added 09/2025.
-  prefs->ClearPref(kNtpShownBookmarksFolder);
-  prefs->ClearPref(kGaiaCookieLastListAccountsData);
-  prefs->ClearPref(kFRESourceTrial);
 
   // Added 10/2025.
   prefs->ClearPref(kSessionStorageFormatPref);
@@ -1100,6 +1099,10 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
 
   // Added 07/2026.
   prefs->ClearPref(kObsoleteManagementProfileLastLogTime);
+
+  // Added 08/2026.
+  prefs->ClearPref("autofill.wallet_import_enabled");
+  prefs->ClearPref("sync.autofill_wallet_import_enabled_migrated");
 }
 
 void MigrateObsoleteUserDefault() {

@@ -29,7 +29,7 @@
 // Model representing a row in the Gemini consent accordion view.
 @interface GeminiConsentRow : NSObject
 
-// Icon displayed to the left. Always present.
+// Icon displayed to the left. Can be nil if no icon is displayed.
 @property(nonatomic, strong, readonly) UIImage* icon;
 // Title displayed regardless of the collapsed state.
 @property(nonatomic, copy, readonly) NSString* title;
@@ -39,6 +39,7 @@
 @property(nonatomic, assign) BOOL collapsed;
 
 // Designated initializer for a row, defaulting `collapsed` to `YES`.
+// `icon` can be nil.
 - (instancetype)initWithIcon:(UIImage*)icon
                        title:(NSString*)title
                         body:(NSAttributedString*)body
@@ -59,6 +60,8 @@
 @property(nonatomic, strong, readonly) GeminiConsentHeader* header;
 // Whether the consent rows are collapsible.
 @property(nonatomic, assign, readonly) BOOL collapsible;
+// Whether the configuration enforces strict legal consent.
+@property(nonatomic, assign, readonly) BOOL useStrict;
 
 // Factory method to build a configuration. Most notably, the number of rows
 // and their order might change depending on the parameters.

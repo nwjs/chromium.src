@@ -565,9 +565,8 @@ void ClearCookiesMatchingInfo(content::StoragePartition* partition,
 
 
 void ClearData(content::StoragePartition* partition, base::RunLoop* run_loop) {
-  base::Time time;
   partition->ClearData(StoragePartition::REMOVE_DATA_MASK_SHADER_CACHE,
-                       blink::StorageKey(), time, time,
+                       blink::StorageKey(), base::Time(), base::Time::Max(),
                        run_loop->QuitClosure());
 }
 
@@ -606,7 +605,6 @@ class StoragePartitionImplTest : public testing::Test {
   explicit StoragePartitionImplTest(
       bool is_local_storage_sqlite_enabled = false) {
     std::vector<base::test::FeatureRef> enabled_features{
-        network::features::kSharedStorageAPI,
         blink::features::kDeclarativePerformanceObserver};
     std::vector<base::test::FeatureRef> disabled_features;
     if (is_local_storage_sqlite_enabled) {
@@ -1057,6 +1055,60 @@ TEST_F(StoragePartitionImplTest, RemoveCookieWithDeleteInfo) {
                                 CookieDeletionFilter::New(), &run_loop2));
   run_loop2.RunUntilIdle();
   EXPECT_FALSE(tester.ContainsCookie(kOrigin));
+}
+
+TEST_F(StoragePartitionImplTest, DeleteStaleSessionDataDeferred) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      features::kDeferSessionStorageScavengingOnStartup);
+
+  StoragePartitionImpl* partition = static_cast<StoragePartitionImpl*>(
+      browser_context()->GetDefaultStoragePartition());
+
+  // Override the delay to 10 seconds.
+  partition->OverrideDeleteStaleSessionCleanupDelayForTesting(
+      base::Seconds(10));
+
+  // Trigger stale session data deletion.
+  partition->DeleteStaleSessionData();
+
+  // Run any immediate tasks. Since scavenging is deferred, it shouldn't have
+  // run.
+  task_environment()->RunUntilIdle();
+  EXPECT_FALSE(
+      partition->GetDOMStorageContext()->scavenging_started_for_testing());
+
+  // Fast forward by slightly less than the delay (9 seconds).
+  task_environment()->FastForwardBy(base::Seconds(9));
+  EXPECT_FALSE(
+      partition->GetDOMStorageContext()->scavenging_started_for_testing());
+
+  // Fast forward to complete the delay (total 10 seconds).
+  task_environment()->FastForwardBy(base::Seconds(1));
+  EXPECT_TRUE(
+      partition->GetDOMStorageContext()->scavenging_started_for_testing());
+}
+
+TEST_F(StoragePartitionImplTest, DeleteStaleSessionDataImmediate) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kDeferSessionStorageScavengingOnStartup);
+
+  StoragePartitionImpl* partition = static_cast<StoragePartitionImpl*>(
+      browser_context()->GetDefaultStoragePartition());
+
+  // Override the delay to 10 seconds.
+  partition->OverrideDeleteStaleSessionCleanupDelayForTesting(
+      base::Seconds(10));
+
+  // Trigger stale session data deletion.
+  partition->DeleteStaleSessionData();
+
+  // Run any immediate tasks. Since scavenging is NOT deferred, it should run
+  // immediately.
+  task_environment()->RunUntilIdle();
+  EXPECT_TRUE(
+      partition->GetDOMStorageContext()->scavenging_started_for_testing());
 }
 
 TEST_P(LocalStoragePartitionImplTest, RemoveUnprotectedLocalStorageForever) {

@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 #include <atomic>
+#include <cmath>
 #include <memory>
 
+#include "base/command_line.h"
 #include "base/environment.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
@@ -12,6 +14,8 @@
 #include "chrome/browser/vr/test/multi_class_browser_test.h"
 #include "chrome/browser/vr/test/ui_utils.h"
 #include "chrome/browser/vr/test/webxr_vr_browser_test.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/gl/gl_switches.h"
 
 namespace vr {
 namespace {
@@ -26,20 +30,12 @@ struct Frame {
 
 class MyXRMock : public MockXRDeviceHookBase {
  public:
+  MyXRMock() { SetDeviceConfig({.interpupillary_distance = kIPD}); }
+
   void ProcessSubmittedFrameUnlocked(
       const std::vector<device::ViewData>& views,
       const std::vector<device::LayerData>& layers) final;
-  void WaitGetDeviceConfig(
-      device_test::mojom::XRTestHook::WaitGetDeviceConfigCallback callback)
-      final {
-    std::move(callback).Run(GetDeviceConfig());
-  }
-  void WaitGetPresentingPose(
-      device_test::mojom::XRTestHook::WaitGetPresentingPoseCallback callback)
-      final;
-  void WaitGetMagicWindowPose(
-      device_test::mojom::XRTestHook::WaitGetMagicWindowPoseCallback callback)
-      final;
+  void UpdateFrameDataUnlocked() override;
 
   base::Lock frame_data_lock;
   std::vector<Frame> submitted_frames GUARDED_BY(frame_data_lock);
@@ -55,10 +51,29 @@ class MyXRMock : public MockXRDeviceHookBase {
   std::atomic_int frame_id_ = 0;
 };
 
-uint32_t ParseColorFrameId(const device::Color& color) {
+uint8_t SrgbToLinear(uint8_t srgb) {
+  float s = srgb / 255.0f;
+  float c =
+      (s <= 0.04045f) ? (s / 12.92f) : std::pow((s + 0.055f) / 1.055f, 2.4f);
+  return static_cast<uint8_t>(std::round(c * 255.0f));
+}
+
+uint32_t ParseColorFrameId(SkColor color) {
+  uint8_t r = SkColorGetR(color);
+  uint8_t g = SkColorGetG(color);
+  uint8_t b = SkColorGetB(color);
+  // The validating command decoder (used on Android emulators) enforces sRGB
+  // color conversion on OpenGLES sRGB swapchains, which gamma-encodes the
+  // float clearColor into sRGB byte values. Convert back to linear space to
+  // recover the original integer frame ID.
+  if (base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+          switches::kUseCmdDecoder) == gl::kCmdDecoderValidatingName) {
+    r = SrgbToLinear(r);
+    g = SrgbToLinear(g);
+    b = SrgbToLinear(b);
+  }
   // Corresponding math in test_webxr_poses.html.
-  uint32_t frame_id =
-      static_cast<uint32_t>(color.r) + 256 * color.g + 256 * 256 * color.b;
+  uint32_t frame_id = static_cast<uint32_t>(r) + 256 * g + 256 * 256 * b;
   return frame_id;
 }
 
@@ -78,27 +93,14 @@ void MyXRMock::ProcessSubmittedFrameUnlocked(
   ASSERT_TRUE(last_immersive_frame_data)
       << "Frame submitted without any frame data provided";
 
-  // We expect a waitGetPoses, then 2 submits (one for each eye), so after 2
-  // submitted frames don't use the same frame_data again.
-  if (GetFrameCount() % 2 == 0) {
-    last_immersive_frame_data = std::nullopt;
-  }
+  // Consume the frame data so each submitted frame must have a corresponding
+  // UpdateFrameData call.
+  last_immersive_frame_data = std::nullopt;
 }
 
-void MyXRMock::WaitGetMagicWindowPose(
-    device_test::mojom::XRTestHook::WaitGetMagicWindowPoseCallback callback) {
+void MyXRMock::UpdateFrameDataUnlocked() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  // Almost identity matrix - enough different that we can identify if magic
-  // window poses are used instead of presenting poses.
-  gfx::Transform pose;
-  pose.set_rc(1, 1, -1);
-  std::move(callback).Run(std::move(pose));
-}
-
-void MyXRMock::WaitGetPresentingPose(
-    device_test::mojom::XRTestHook::WaitGetPresentingPoseCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  DLOG(ERROR) << "WaitGetPresentingPose: " << frame_id_;
+  DLOG(ERROR) << "UpdateFrameData: " << frame_id_;
 
   gfx::Transform pose;
 
@@ -112,7 +114,7 @@ void MyXRMock::WaitGetPresentingPose(
     last_immersive_frame_data = pose;
   }
 
-  std::move(callback).Run(pose);
+  SetHeadPose(pose);
 }
 
 std::string GetMatrixAsString(const gfx::Transform& m) {
@@ -180,11 +182,11 @@ WEBXR_VR_ALL_RUNTIMES_BROWSER_TEST_F(TestPresentationPoses) {
 
       // Validate that each frame is only seen once for each eye.
       DLOG(ERROR) << "Frame id: " << frame_id;
-      if (data.eye == device::XrEye::kLeft) {
+      if (data.eye == device::mojom::XREye::kLeft) {
         ASSERT_TRUE(seen_left.find(frame_id) == seen_left.end())
             << "Frame for left eye submitted more than once";
         seen_left.insert(frame_id);
-      } else if (data.eye == device::XrEye::kRight) {
+      } else if (data.eye == device::mojom::XREye::kRight) {
         ASSERT_TRUE(seen_right.find(frame_id) == seen_right.end())
             << "Frame for right eye submitted more than once";
         seen_right.insert(frame_id);

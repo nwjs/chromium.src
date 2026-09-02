@@ -14,10 +14,8 @@ import android.view.HapticFeedbackConstants;
 import android.view.View;
 
 import androidx.annotation.VisibleForTesting;
-import androidx.coordinatorlayout.widget.CoordinatorLayout;
 
 import org.chromium.base.MathUtils;
-import org.chromium.base.SysUtils;
 import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.NullMarked;
@@ -50,7 +48,7 @@ public class StripLayoutUtils {
     public static final float TAB_GROUP_BOTTOM_INDICATOR_WIDTH_OFFSET = 27f;
 
     // Tab width constants.
-    private static final float MIN_TAB_WIDTH_DESKTOP_DP = 76f;
+    public static final float MIN_TAB_WIDTH_DESKTOP_DP = 68f;
     private static final float MIN_TAB_WIDTH_TABLET_DP = 108f;
     public static final float MIN_TAB_WIDTH_DP =
             StyleUtils.shouldApplyDesktopDensity()
@@ -499,23 +497,9 @@ public class StripLayoutUtils {
         float windowWidthPx = displayMetrics.widthPixels;
         float windowWidthDp = windowWidthPx / displayDensity;
 
-        // 2. Determine the hover card width, making adjustments relative to the window width if
-        // applicable.
-        float hoverCardWidthPx = context.getResources().getDimension(R.dimen.tab_hover_card_width);
-
-        // Hover card width should be a maximum of 90% of the window width.
-        hoverCardWidthPx =
-                Math.min(
-                        hoverCardWidthPx,
-                        TabHoverCardView.HOVER_CARD_MAX_WIDTH_PERCENT * windowWidthPx);
+        // 2. Determine the hover card width.
+        float hoverCardWidthPx = TabHoverCardView.getHoverCardWidthPx(context);
         float hoverCardWidthDp = hoverCardWidthPx / displayDensity;
-        // Update the card LayoutParams if an adjustment on the current width is required.
-        var layoutParams = hoverCardView.getLayoutParams();
-        if (layoutParams != null && hoverCardWidthPx != layoutParams.width) {
-            hoverCardView.setLayoutParams(
-                    new CoordinatorLayout.LayoutParams(
-                            Math.round(hoverCardWidthPx), layoutParams.height));
-        }
 
         // 3. Determine the horizontal position of the hover card.
         float hoverCardXDp =
@@ -531,13 +515,10 @@ public class StripLayoutUtils {
                             LocalizationUtils.isLayoutRtl());
         }
 
-        // On a low-end device adjust the card to account for the shadow length of the background
-        // drawable.
-        if (SysUtils.isLowEndDevice()) {
-            hoverCardXDp -=
-                    context.getResources().getDimension(R.dimen.tab_hover_card_elevation)
-                            / displayDensity;
-        }
+        // Adjust the card to account for the shadow length of the background drawable.
+        hoverCardXDp -=
+                context.getResources().getDimension(R.dimen.popup_menu_shadow_length)
+                        / displayDensity;
 
         float windowHorizontalMarginDp =
                 context.getResources().getDimension(R.dimen.tab_hover_card_window_horizontal_margin)
@@ -554,13 +535,10 @@ public class StripLayoutUtils {
         // 4. Determine the vertical position of the hover card.
         float hoverCardYDp = height + topPadding;
 
-        // On a low-end device adjust the card to account for the shadow length of the background
-        // drawable.
-        if (SysUtils.isLowEndDevice()) {
-            hoverCardYDp -=
-                    context.getResources().getDimension(R.dimen.tab_hover_card_elevation)
-                            / displayDensity;
-        }
+        // Adjust the card to account for the shadow length of the background drawable.
+        hoverCardYDp -=
+                context.getResources().getDimension(R.dimen.popup_menu_shadow_length)
+                        / displayDensity;
 
         return new float[] {hoverCardXDp * displayDensity, hoverCardYDp * displayDensity};
     }

@@ -183,6 +183,7 @@ if (current_toolchain == default_toolchain) {
       "java/src/org/chromium/components/embedder_support/util/InputStreamUtil.java",
       "java/src/org/chromium/components/embedder_support/util/LegacyPasswordEchoSettingDelegateImpl.java",
       "java/src/org/chromium/components/embedder_support/util/Origin.java",
+      "java/src/org/chromium/components/embedder_support/util/PasswordEchoSettingDelegateImpl.java",
       "java/src/org/chromium/components/embedder_support/util/PasswordEchoSettingObserver.java",
       "java/src/org/chromium/components/embedder_support/util/PasswordEchoSettingState.java",
       "java/src/org/chromium/components/embedder_support/util/UrlConstants.java",
@@ -260,6 +261,9 @@ if (current_toolchain == default_toolchain) {
 
   java_strings_grd("web_contents_delegate_strings_grd") {
     grd_file = "java/strings/web_contents_delegate_android_strings.grd"
+    inputs = process_file_template(
+            xtb_locales,
+            [ "java/strings/translations/web_contents_delegate_android_strings_{{source_name_part}}.xtb" ])
   }
 
   android_resources("web_contents_delegate_java_resources") {

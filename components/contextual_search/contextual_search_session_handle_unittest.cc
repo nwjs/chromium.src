@@ -337,6 +337,9 @@ TEST_F(
       std::move(mock_controller), nullptr);
   local_handle->CheckSearchContentSharingSettings(&prefs_);
 
+  local_handle->set_smart_tab_sharing_active(true);
+  local_handle->set_smart_tab_sharing_toggled_since_last_turn(false);
+
   // Create a tab context token.
   base::UnguessableToken tab_token = local_handle->CreateContextToken();
 
@@ -350,9 +353,7 @@ TEST_F(
   EXPECT_CALL(*local_mock_controller_ptr, GetFileInfo(tab_token))
       .WillRepeatedly(testing::Return(&tab_file_info));
 
-  // Simulate smart tab sharing being active and toggled on in a previous turn.
-  local_handle->set_smart_tab_sharing_active(true);
-  local_handle->set_smart_tab_sharing_toggled_since_last_turn(false);
+  // Submit Query 1.
   auto request_info1 = std::make_unique<
       ContextualSearchContextController::CreateClientToAimRequestInfo>();
   EXPECT_CALL(*local_mock_controller_ptr, CreateClientToAimRequest(_))
@@ -364,6 +365,12 @@ TEST_F(
 
   // SmartTabSharing explicitly toggled off prior to Query 2.
   local_handle->set_smart_tab_sharing_active(false);
+
+  // Verify that submitted context tokens and persisted tabs are cleared immediately on toggle.
+  EXPECT_TRUE(local_handle->GetSubmittedContextTokens().empty());
+  EXPECT_TRUE(local_handle->GetSubmittedContextFileInfos().empty());
+  EXPECT_TRUE(local_handle->persisted_tabs().empty());
+  EXPECT_EQ(local_handle->sts_toggled_removed_contexts().size(), 1u);
 
   auto request_info2 = std::make_unique<
       ContextualSearchContextController::CreateClientToAimRequestInfo>();
@@ -425,6 +432,8 @@ TEST_F(
   auto local_handle = local_service->CreateSessionForTesting(
       std::move(mock_controller), nullptr);
   local_handle->CheckSearchContentSharingSettings(&prefs_);
+  local_handle->set_smart_tab_sharing_active(false);
+  local_handle->set_smart_tab_sharing_toggled_since_last_turn(false);
 
   // Create a tab context token.
   base::UnguessableToken tab_token = local_handle->CreateContextToken();
@@ -451,6 +460,12 @@ TEST_F(
 
   // SmartTabSharing explicitly toggled on prior to Query 2.
   local_handle->set_smart_tab_sharing_active(true);
+
+  // Verify that submitted context tokens and persisted tabs are cleared immediately on toggle.
+  EXPECT_TRUE(local_handle->GetSubmittedContextTokens().empty());
+  EXPECT_TRUE(local_handle->GetSubmittedContextFileInfos().empty());
+  EXPECT_TRUE(local_handle->persisted_tabs().empty());
+  EXPECT_EQ(local_handle->sts_toggled_removed_contexts().size(), 1u);
 
   auto request_info2 = std::make_unique<
       ContextualSearchContextController::CreateClientToAimRequestInfo>();
@@ -1890,6 +1905,40 @@ TEST_F(ContextualSearchSessionHandleTest,
 
   // Verify persisted tabs is empty.
   EXPECT_TRUE(local_handle->persisted_tabs().empty());
+}
+
+TEST_F(ContextualSearchSessionHandleTest, HasSubmittedContext) {
+  auto mock_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  MockContextualSearchContextController* mock_controller_ptr =
+      mock_controller.get();
+
+  auto local_handle =
+      service_->CreateSessionForTesting(std::move(mock_controller), nullptr);
+  local_handle->CheckSearchContentSharingSettings(&prefs_);
+
+  // Initially false.
+  EXPECT_FALSE(local_handle->has_submitted_context());
+
+  // Uploading context without submitting query does not set
+  // has_submitted_context.
+  base::UnguessableToken file_token = local_handle->CreateContextToken();
+  EXPECT_FALSE(local_handle->has_submitted_context());
+
+  // Submitting a query with file tokens sets has_submitted_context to true.
+  auto request_info = std::make_unique<
+      ContextualSearchContextController::CreateClientToAimRequestInfo>();
+  request_info->file_tokens.push_back(file_token);
+
+  EXPECT_CALL(*mock_controller_ptr, CreateClientToAimRequest(_))
+      .WillOnce(testing::Return(lens::ClientToAimMessage()));
+  local_handle->CreateClientToAimRequest(std::move(request_info));
+
+  EXPECT_TRUE(local_handle->has_submitted_context());
+
+  // Clearing submitted context tokens does not reset has_submitted_context.
+  local_handle->ClearSubmittedContextTokens();
+  EXPECT_TRUE(local_handle->has_submitted_context());
 }
 
 }  // namespace contextual_search

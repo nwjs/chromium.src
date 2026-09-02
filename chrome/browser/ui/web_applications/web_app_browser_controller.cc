@@ -26,7 +26,6 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -563,7 +562,8 @@ ui::ImageModel WebAppBrowserController::GetWindowIcon() const {
 std::optional<SkColor> WebAppBrowserController::GetThemeColor() const {
 #if BUILDFLAG(IS_CHROMEOS)
   // System App popups (settings pages) always use default theme.
-  if (system_app() && browser()->is_type_app_popup()) {
+  if (system_app() &&
+      browser()->GetType() == BrowserWindowInterface::Type::TYPE_APP_POPUP) {
     return std::nullopt;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)

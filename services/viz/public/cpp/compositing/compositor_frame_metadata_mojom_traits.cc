@@ -12,7 +12,6 @@
 #include "services/viz/public/cpp/compositing/selection_mojom_traits.h"
 #include "services/viz/public/cpp/compositing/surface_id_mojom_traits.h"
 #include "services/viz/public/cpp/compositing/trees_in_viz_timing_mojom_traits.h"
-#include "services/viz/public/cpp/crash_keys.h"
 #include "skia/public/mojom/skcolor4f_mojom_traits.h"
 #include "third_party/blink/public/common/tokens/tokens_mojom_traits.h"
 #include "ui/gfx/geometry/mojom/geometry_mojom_traits.h"
@@ -23,36 +22,39 @@
 namespace mojo {
 
 // static
-bool StructTraits<viz::mojom::CompositorFrameMetadataDataView,
-                  viz::CompositorFrameMetadata>::
+base::expected<void, DeserializationError>
+StructTraits<viz::mojom::CompositorFrameMetadataDataView,
+             viz::CompositorFrameMetadata>::
     Read(viz::mojom::CompositorFrameMetadataDataView data,
          viz::CompositorFrameMetadata* out) {
   if (data.device_scale_factor() <= 0) {
-    viz::SetDeserializationCrashKeyString("Invalid device scale factor");
-    return false;
+    return base::unexpected(DeserializationError());
   }
   out->device_scale_factor = data.device_scale_factor();
   if (!data.ReadRootScrollOffset(&out->root_scroll_offset)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
 
   out->page_scale_factor = data.page_scale_factor();
-  if (!data.ReadScrollableViewportSize(&out->scrollable_viewport_size))
-    return false;
+  if (!data.ReadScrollableViewportSize(&out->scrollable_viewport_size)) {
+    return base::unexpected(DeserializationError());
+  }
   if (!data.ReadVisibleViewportSize(&out->visible_viewport_size)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
 
   if (data.frame_token() == viz::kInvalidFrameToken) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
   out->frame_token = data.frame_token();
 
-  if (!data.ReadContentColorUsage(&out->content_color_usage))
-    return false;
+  if (!data.ReadContentColorUsage(&out->content_color_usage)) {
+    return base::unexpected(DeserializationError());
+  }
 
-  if (!data.ReadRootBackgroundColor(&out->root_background_color))
-    return false;
+  if (!data.ReadRootBackgroundColor(&out->root_background_color)) {
+    return base::unexpected(DeserializationError());
+  }
 
   out->may_contain_video = data.may_contain_video();
   out->may_throttle_if_undrawn_frames = data.may_throttle_if_undrawn_frames();
@@ -66,34 +68,61 @@ bool StructTraits<viz::mojom::CompositorFrameMetadataDataView,
   out->top_controls_visible_height = data.top_controls_visible_height();
 
   if (!data.ReadScreenshotDestination(&out->screenshot_destination)) {
-    return false;
+    return base::unexpected(DeserializationError());
   }
 
-  if (!(data.ReadLatencyInfo(&out->latency_info) &&
-        data.ReadReferencedSurfaces(&out->referenced_surfaces) &&
-        data.ReadDeadline(&out->deadline) &&
-        data.ReadActivationDependencies(&out->activation_dependencies) &&
-        data.ReadBeginFrameAck(&out->begin_frame_ack) &&
-        data.ReadDisplayTransformHint(&out->display_transform_hint) &&
-        data.ReadDelegatedInkMetadata(&out->delegated_ink_metadata) &&
-        data.ReadTransitionDirectives(&out->transition_directives) &&
-        data.ReadCaptureBounds(&out->capture_bounds) &&
-        data.ReadOffsetTagDefinitions(&out->offset_tag_definitions) &&
-        data.ReadOffsetTagValues(&out->offset_tag_values) &&
-        data.ReadFrameIntervalInputs(&out->frame_interval_inputs) &&
-        data.ReadTreesInVizTiming(&out->trees_in_viz_timing_details) &&
-        data.ReadTrackedElementRects(&out->tracked_element_rects))) {
-    return false;
+  if (!data.ReadLatencyInfo(&out->latency_info)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadReferencedSurfaces(&out->referenced_surfaces)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadDeadline(&out->deadline)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadActivationDependencies(&out->activation_dependencies)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadBeginFrameAck(&out->begin_frame_ack)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadDisplayTransformHint(&out->display_transform_hint)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadDelegatedInkMetadata(&out->delegated_ink_metadata)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadTransitionDirectives(&out->transition_directives)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadCaptureBounds(&out->capture_bounds)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadOffsetTagDefinitions(&out->offset_tag_definitions)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadOffsetTagValues(&out->offset_tag_values)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadFrameIntervalInputs(&out->frame_interval_inputs)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadTreesInVizTiming(&out->trees_in_viz_timing_details)) {
+    return base::unexpected(DeserializationError());
+  }
+  if (!data.ReadTrackedElementRects(&out->tracked_element_rects)) {
+    return base::unexpected(DeserializationError());
   }
 
   // Verify that OffsetTagDefinition providers are referenced surfaces.
-  for (auto& tag_def : out->offset_tag_definitions) {
-    if (!std::ranges::contains(out->referenced_surfaces, tag_def.provider)) {
-      return false;
+  for (size_t i = 0; i < out->offset_tag_definitions.size(); ++i) {
+    if (!std::ranges::contains(out->referenced_surfaces,
+                               out->offset_tag_definitions[i].provider)) {
+      return base::unexpected(DeserializationError::CustomCode(i));
     }
   }
 
-  return true;
+  return base::ok();
 }
 
 }  // namespace mojo

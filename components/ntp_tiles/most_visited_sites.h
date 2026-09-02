@@ -38,7 +38,6 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-#include "components/supervised_user/core/browser/supervised_user_service_observer.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
 #endif
 
@@ -90,7 +89,6 @@ class CustomLinksCache {
 // Tracks the list of most visited sites.
 class MostVisitedSites :
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-    public SupervisedUserServiceObserver,
     public supervised_user::SupervisedUserUrlFilteringService::Observer,
 #endif
     public history::TopSitesObserver {
@@ -333,8 +331,6 @@ class MostVisitedSites :
   void ClearBlockedUrls();
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  //  SupervisedUserServiceObserver:
-  void OnURLFilterChanged() override;
   // SupervisedUserUrlFilteringService::Observer:
   void OnUrlFilteringServiceChanged() override;
 #endif
@@ -499,9 +495,6 @@ class MostVisitedSites :
   raw_ptr<const supervised_user::SupervisedUserUrlFilteringService>
       supervised_user_url_filtering_service_;
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  base::ScopedObservation<supervised_user::SupervisedUserService,
-                          SupervisedUserServiceObserver>
-      supervised_user_service_observation_{this};
   base::ScopedObservation<
       supervised_user::SupervisedUserUrlFilteringService,
       supervised_user::SupervisedUserUrlFilteringService::Observer>

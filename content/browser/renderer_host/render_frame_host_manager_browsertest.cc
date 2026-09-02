@@ -4853,17 +4853,28 @@ IN_PROC_BROWSER_TEST_P(RenderFrameHostManagerTest,
     EXPECT_EQ(4, nav_controller.GetEntryCount());
     EXPECT_EQ(test_url, child1->current_frame_host()->GetLastCommittedURL());
 
-    // Error pages should commit in an opaque origin. This particular error
-    // stays in the current process, so when B2 navigates B1 to C, it stays in
-    // B's process. The origin's precursor should be empty, and more
-    // specifically, it should not be C, to guard against compromised renderers
-    // gaining access to cross-site precursors (crbug.com/502348223).
+    // Error pages should commit in an opaque origin. The precursor of that
+    // origin depends on whether subframe error page isolation is enabled.
     const url::Origin& child1_origin =
         child1->current_frame_host()->GetLastCommittedOrigin();
     EXPECT_TRUE(child1_origin.opaque());
-    EXPECT_TRUE(
-        child1_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL().is_empty());
-
+    if (SiteIsolationPolicy::IsErrorPageIsolationEnabled(
+            /*in_main_frame=*/false)) {
+      // When error page isolation is on, the error commits in its own isolated
+      // process. In this case, the error origin's precursor is currently
+      // derived from the failing URL (on c.com) for both main frame and
+      // subframe cases, which is safe, since there's no attacker code running
+      // in that process.
+      EXPECT_TRUE(IsOriginOpaqueAndCompatibleWithURL(child1, test_url));
+    } else {
+      // When subframe error page isolation is off, the error stays in the
+      // current process, so when B2 navigates B1 to C, it stays in B's process.
+      // The origin's precursor should be empty, and more specifically, it
+      // should not be C, to guard against compromised renderers gaining access
+      // to cross-site precursors (crbug.com/502348223).
+      EXPECT_TRUE(
+          child1_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL().is_empty());
+    }
     // net::ERR_BLOCKED_BY_CLIENT errors in subframes should commit in the
     // the correct process based on whether isolation is enabled or not.
     EXPECT_TRUE(IsExpectedSubframeErrorTransition(
@@ -7529,6 +7540,142 @@ IN_PROC_BROWSER_TEST_P(
   EXPECT_TRUE(instance1->IsRelatedSiteInstance(instance2.get()));
   // Verify that the toggled flag also did not apply.
   EXPECT_FALSE(instance2->GetSiteInfo().are_v8_optimizations_disabled());
+}
+
+// Tests that a renderer process cannot send IPCs through an old
+// RenderFrameProxyHost to manipulate a window that has navigated to a different
+// BrowsingInstance, even if the new BrowsingInstance happens to share a process
+// with the old one (e.g., due to subframe process reuse).
+IN_PROC_BROWSER_TEST_P(
+    RenderFrameHostManagerTest,
+    ProxyIgnoresRequestsFromOldBrowsingInstanceWithProcessReuse) {
+  StartEmbeddedServer();
+  DisableBackForwardCache(BackForwardCacheImpl::TEST_REQUIRES_NO_CACHING);
+
+  // Ensure that all sites in this test are isolated from each other (even on
+  // Android, where site-per-process is not the default).
+  IsolateOriginsForTesting(embedded_test_server(), shell()->web_contents(),
+                           {"a.com", "b.com", "c.com", "d.com"});
+
+  // Navigate to A1.
+  GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url_a));
+  RenderFrameHostImpl* a1_rfh =
+      static_cast<WebContentsImpl*>(shell()->web_contents())
+          ->GetPrimaryMainFrame();
+
+  // A1 opens A2 in a new window.
+  ShellAddedObserver shell2_observer;
+  EXPECT_TRUE(ExecJs(shell(), "window.open('/title2.html', 'window2');"));
+  Shell* shell2 = shell2_observer.GetShell();
+  EXPECT_TRUE(WaitForLoadStop(shell2->web_contents()));
+
+  // A2 navigates to B2 in the same BCG1. Window 2 now has a proxy in A's
+  // process.
+  GURL url_b(embedded_test_server()->GetURL("b.com", "/title1.html"));
+  EXPECT_TRUE(NavigateToURLFromRenderer(shell2, url_b));
+  RenderFrameHostImpl* b2_rfh =
+      static_cast<WebContentsImpl*>(shell2->web_contents())
+          ->GetPrimaryMainFrame();
+  RenderFrameProxyHost* window2_proxy_in_bcg1 =
+      b2_rfh->browsing_context_state()->GetRenderFrameProxyHost(
+          a1_rfh->GetSiteInstance()->group());
+  EXPECT_TRUE(window2_proxy_in_bcg1);
+
+  // B2's opener should be A1.
+  EXPECT_EQ(a1_rfh->frame_tree_node(), b2_rfh->frame_tree_node()->opener());
+
+  // The user navigates B2 to C2 in BCG2. Use a browser-initiated navigation to
+  // force a BrowsingInstance swap. Be careful not to use something like a WebUI
+  // for this, since that would prevent a subsequent window.open() from staying
+  // in the same BCG2, which is needed in this test.
+  GURL url_c(embedded_test_server()->GetURL("c.com", "/title2.html"));
+  EXPECT_TRUE(NavigateToURL(shell2, url_c));
+  RenderFrameHostImpl* c2_rfh =
+      static_cast<WebContentsImpl*>(shell2->web_contents())
+          ->GetPrimaryMainFrame();
+  EXPECT_FALSE(c2_rfh->GetSiteInstance()->group()->IsRelatedSiteInstanceGroup(
+      a1_rfh->GetSiteInstance()->group()));
+
+  // C2's opener stays as A1.
+  EXPECT_EQ(a1_rfh->frame_tree_node(), c2_rfh->frame_tree_node()->opener());
+
+  // C2 opens another page D3 in a new window that embeds A3 as a subframe.
+  // This will create a proxy for C2 in BCG2 in both D3's and A3's process.
+  GURL url_d(embedded_test_server()->GetURL(
+      "d.com", "/cross_site_iframe_factory.html?d(a)"));
+  ShellAddedObserver shell3_observer;
+  EXPECT_TRUE(
+      ExecJs(shell2, "window.open('" + url_d.spec() + "', 'window3');"));
+  Shell* shell3 = shell3_observer.GetShell();
+  EXPECT_TRUE(WaitForLoadStop(shell3->web_contents()));
+  RenderFrameHostImpl* d3_rfh =
+      static_cast<WebContentsImpl*>(shell3->web_contents())
+          ->GetPrimaryMainFrame();
+  RenderFrameHostImpl* a3_rfh = d3_rfh->child_at(0)->current_frame_host();
+
+  // Verify A3 shares process with A1 (due to subframe process reuse).
+  EXPECT_EQ(a1_rfh->GetProcess(), a3_rfh->GetProcess());
+
+  // A1 and A3 should be in different BCGs.
+  EXPECT_FALSE(a1_rfh->GetSiteInstance()->group()->IsRelatedSiteInstanceGroup(
+      a3_rfh->GetSiteInstance()->group()));
+
+  // Get the proxy for Window 2 (shell2)'s main frame in A3's
+  // SiteInstanceGroup.
+  RenderFrameProxyHost* window2_proxy_in_bcg2 =
+      c2_rfh->browsing_context_state()->GetRenderFrameProxyHost(
+          a3_rfh->GetSiteInstance()->group());
+  EXPECT_TRUE(window2_proxy_in_bcg2);
+
+  // Even though they're in the same process and representing the same window 2,
+  // these two proxies are different, corresponding to two different
+  // SiteInstanceGroups in different BCGs.
+  EXPECT_NE(window2_proxy_in_bcg1, window2_proxy_in_bcg2);
+  EXPECT_NE(
+      window2_proxy_in_bcg1->site_instance_group()->browsing_instance_id(),
+      window2_proxy_in_bcg2->site_instance_group()->browsing_instance_id());
+  EXPECT_EQ(window2_proxy_in_bcg1->GetProcess(),
+            window2_proxy_in_bcg2->GetProcess());
+  EXPECT_EQ(window2_proxy_in_bcg1->frame_tree_node(),
+            window2_proxy_in_bcg2->frame_tree_node());
+  // Check that the window2 proxy in BCG1 can still be found. Note that this
+  // lookup will no longer be possible to do via `c2_rfh` if
+  // NewBrowsingContextStateOnBrowsingContextGroupSwap is launched (see
+  // https://crbug.com/40239885 and https://crbug.com/40205442).
+  EXPECT_EQ(window2_proxy_in_bcg1,
+            c2_rfh->browsing_context_state()->GetRenderFrameProxyHost(
+                a1_rfh->GetSiteInstance()->group()));
+
+  // Verify opener of Window 2 is still A1.
+  EXPECT_EQ(a1_rfh->frame_tree_node(), c2_rfh->frame_tree_node()->opener());
+
+  // A3 can update C2's opener to itself.
+  EXPECT_TRUE(ExecJs(a3_rfh, "window.open('', 'window2');"));
+  EXPECT_EQ(a3_rfh->frame_tree_node(), c2_rfh->frame_tree_node()->opener());
+
+  // In contrast, A1 shouldn't be able to update C2's opener to itself via
+  // window.open(), as its proxy to window 2 is in a different BrowsingInstance
+  // than C2.
+  EXPECT_TRUE(ExecJs(a1_rfh, "window.open('', 'window2');"));
+  EXPECT_EQ(a3_rfh->frame_tree_node(), c2_rfh->frame_tree_node()->opener());
+
+  // Also, try to disown openers directly through the appropriate proxies,
+  // verifying our assumptions more directly (and simulating what a compromised
+  // renderer could do).
+  //
+  // If A1 tries to clear Window 2's opener via its old proxy, this should be
+  // dropped because A1 is in BCG1 and Window 2 is now in BCG2. The opener
+  // should not be changed.
+  static_cast<blink::mojom::RemoteFrameHost*>(window2_proxy_in_bcg1)
+      ->DidChangeOpener(std::nullopt);
+  EXPECT_EQ(a3_rfh->frame_tree_node(), c2_rfh->frame_tree_node()->opener());
+
+  // If A3 clears Window 2's opener via its proxy, this should succeed because
+  // A3 and Window 2 are in the same BCG.
+  static_cast<blink::mojom::RemoteFrameHost*>(window2_proxy_in_bcg2)
+      ->DidChangeOpener(std::nullopt);
+  EXPECT_EQ(nullptr, c2_rfh->frame_tree_node()->opener());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

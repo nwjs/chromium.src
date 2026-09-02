@@ -18,6 +18,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
@@ -39,14 +40,13 @@ public class PageInfoIphControllerUnitTest {
     private static final int IPH_RES_ID = R.string.accessibility_omnibox_btn_refine;
     private static final int TIMEOUT = 12345;
 
-    public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
-    private @Mock UserEducationHelper mHelper;
-    private @Mock Profile mProfile;
-    private @Mock Tracker mTracker;
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private UserEducationHelper mHelper;
+    @Mock private Profile mProfile;
+    @Mock private Tracker mTracker;
+    @Captor private ArgumentCaptor<IphCommand> mIphCmdCaptor;
     private View mView;
     private PageInfoIphController mController;
-    private final ArgumentCaptor<IphCommand> mIphCmdCaptor =
-            ArgumentCaptor.forClass(IphCommand.class);
 
     @Before
     public void setUp() {

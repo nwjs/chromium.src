@@ -285,6 +285,9 @@ class GraphBuilderTflite final {
 
   // Get the value from constant operand and cast it to int64 data type.
   base::FixedArray<int64_t> GetConstantInt64Value(OperandId operand_id);
+  // Returns the value of `operand_id` if it is a floating point constant with
+  // a single element.
+  std::optional<float> GetFloatScalarConstant(OperandId operand_id);
   // Get quantize scale value for float16 and float32 data type.
   base::FixedArray<float> GetQuantizeScaleValue(OperandId operand_id);
 
@@ -558,6 +561,14 @@ class GraphBuilderTflite final {
   base::expected<TensorIndex, std::string> InsertTransposeOperation(
       const TensorInfo& input_tensor_info,
       base::span<const uint32_t> permutation);
+
+  // Serializes the rank-2 constant `operand_id` with its two axes
+  // exchanged, so that no TRANSPOSE operator is emitted for it. A
+  // float16 constant is followed by the DEQUANTIZE which unpacks it,
+  // so the returned index may be that operator's output rather than
+  // the constant.
+  base::expected<TensorIndex, std::string> SerializeTransposedConstant2D(
+      OperandId operand_id);
 
   // Serialize a sub graph (pow appending mul operation) for erf operation.
   base::expected<TensorIndex, std::string> SerializeSubGraphPowMul(

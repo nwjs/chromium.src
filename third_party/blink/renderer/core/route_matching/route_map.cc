@@ -4,23 +4,18 @@
 
 #include "third_party/blink/renderer/core/route_matching/route_map.h"
 
-#include "base/auto_reset.h"
 #include "base/check_is_test.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_union_urlpatterninit_usvstring.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_url_pattern_init.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
-#include "third_party/blink/renderer/core/dom/element.h"
-#include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_activation.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_api.h"
 #include "third_party/blink/renderer/core/navigation_api/navigation_history_entry.h"
-#include "third_party/blink/renderer/core/route_matching/route.h"
+#include "third_party/blink/renderer/core/route_matching/navigation_state.h"
 #include "third_party/blink/renderer/core/url_pattern/url_pattern.h"
-#include "third_party/blink/renderer/core/url_pattern/url_pattern_utils.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
+#include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
 
@@ -33,9 +28,7 @@ RouteMap::RouteMap() : Supplement<Document>(nullptr) {
 }
 
 void RouteMap::Trace(Visitor* v) const {
-  v->Trace(routes_);
-  v->Trace(anonymous_routes_);
-  v->Trace(navigation_state_);
+  v->Trace(locations_);
   Supplement<Document>::Trace(v);
 }
 
@@ -68,83 +61,20 @@ RouteMap& RouteMap::Ensure(Document& document) {
 
 // END Supplement support
 
-void RouteMap::AddRouteFromRule(const String& dashed_ident,
-                                URLPattern* url_pattern) {
+void RouteMap::AddURLPatternFromLocation(const String& dashed_ident,
+                                         URLPattern* url_pattern) {
   DCHECK(dashed_ident.starts_with("--"));
-
-  if (routes_.find(dashed_ident) != routes_.end()) {
+  if (locations_.find(dashed_ident) != locations_.end()) {
     // TODO(crbug.com/436805487): Handle route modificiation and removal.
     return;
   }
-  Route* route = MakeGarbageCollected<Route>(GetDocument());
-  route->AddPattern(url_pattern);
-  routes_.insert(dashed_ident, route);
-  SetNeedsStyleUpdateOnNavigation();
-  route->UpdateMatchStatus(navigation_state_);
+  locations_.insert(dashed_ident, url_pattern);
 }
 
-void RouteMap::AddAnonymousRoute(const AtomicString& url_pattern_string) {
-  Member<Route>& route =
-      anonymous_routes_.insert(url_pattern_string, nullptr).stored_value->value;
-  if (route) {
-    return;
-  }
-
-  V8URLPatternInput* url_pattern_input =
-      MakeGarbageCollected<V8URLPatternInput>(url_pattern_string);
-  const Document& document = GetDocument();
-  URLPattern* url_pattern =
-      URLPattern::Create(document.GetExecutionContext()->GetIsolate(),
-                         url_pattern_input, document.Url(), IGNORE_EXCEPTION);
-
-  route = MakeGarbageCollected<Route>(GetDocument());
-  route->AddPattern(url_pattern);
-  SetNeedsStyleUpdateOnNavigation();
-  route->UpdateMatchStatus(navigation_state_);
-}
-
-const Route* RouteMap::FindRoute(const AtomicString& route_name) const {
-  const auto it = routes_.find(route_name);
-  return it == routes_.end() ? nullptr : it->value;
-}
-
-const Route* RouteMap::FindAnonymousRoute(
-    const AtomicString& url_pattern_string) const {
-  auto it = anonymous_routes_.find(url_pattern_string);
-  return it == anonymous_routes_.end() ? nullptr : it->value;
-}
-
-void RouteMap::UpdateActiveRoutes() {
-#if DCHECK_IS_ON()
-  DCHECK(!is_updating_active_routes_);
-  base::AutoReset<bool> is_updating(&is_updating_active_routes_, true);
-#endif
-
-  for (const auto& entry : routes_) {
-    Route& route = *entry.value;
-    route.UpdateMatchStatus(navigation_state_);
-  }
-  for (const auto& entry : anonymous_routes_) {
-    Route& route = *entry.value;
-    route.UpdateMatchStatus(navigation_state_);
-  }
-}
-
-void RouteMap::GetActiveRoutesForTesting(NavigationPreposition preposition,
-                                         MatchCollection* collection) const {
-  collection->clear();
-  for (const auto& entry : routes_) {
-    Route& route = *entry.value;
-    if (route.Matches(preposition)) {
-      collection->insert(&route);
-    }
-  }
-  for (const auto& entry : anonymous_routes_) {
-    Route& route = *entry.value;
-    if (route.Matches(preposition)) {
-      collection->insert(&route);
-    }
-  }
+const URLPattern* RouteMap::FindURLPatternByLocation(
+    const AtomicString& location_name) const {
+  const auto it = locations_.find(location_name);
+  return it == locations_.end() ? nullptr : it->value;
 }
 
 void RouteMap::EstablishNavigationStateFromActivation() {
@@ -155,102 +85,94 @@ void RouteMap::EstablishNavigationStateFromActivation() {
   }
   NavigationHistoryEntry* to = activation->entry();
   NavigationHistoryEntry* from = activation->from();
-  if (!to || !from) {
+  V8NavigationType::Enum nav_type = activation->navigationType().AsEnum();
+  if (!to || (!from && nav_type != V8NavigationType::Enum::kReload)) {
     return;
   }
-  OnNavigationStart(from->url(), to->url(), /*source_element=*/nullptr);
+  KURL from_url = from ? from->url() : to->url();
+  auto& state = NavigationState::Create(GetDocument(), from_url, to->url(),
+                                        /*source_element=*/nullptr);
+  if (nav_type == V8NavigationType::Enum::kTraverse) {
+    bool back = to->index() < from->index();
+    state.SetTraverseType(back ? NavigationState::kBack
+                               : NavigationState::kForward);
+  } else if (nav_type == V8NavigationType::Enum::kReload) {
+    state.SetTraverseType(NavigationState::kReload);
+  }
+  SetNavigationStarted();
 }
 
-void RouteMap::OnNavigationStart(const KURL& previous_url,
-                                 const KURL& next_url,
-                                 Element* source_element) {
-  navigation_state_ = MakeGarbageCollected<NavigationState>(
-      previous_url, next_url, source_element);
-  UpdateActiveRoutes();
+void RouteMap::SetNavigationStarted() {
+  auto* navigation_state = NavigationState::Get(&GetDocument());
+  DCHECK(navigation_state);
 
   // Need to update active style right away, or view transitions might glitch.
   StyleEngine& style_engine = GetDocument().GetStyleEngine();
   style_engine.SetNeedsActiveStyleUpdate(GetDocument());
   style_engine.UpdateActiveStyle();
-
-  if (source_element) {
-    source_element->PseudoStateChanged(CSSSelector::kPseudoNavSource);
-  }
 }
 
-void RouteMap::OnNavigationTraverse(NavigationState::HistoryTraverseType type) {
-  DCHECK(navigation_state_);
-  navigation_state_->SetTraverseType(type);
+void RouteMap::SetCommitted() {
+  auto* navigation_state = NavigationState::Get(&GetDocument());
+  DCHECK(navigation_state);
+  navigation_state->SetPhase(NavigationPhase::kCommitted);
   NotifyStyleEngineIfNeeded();
 }
 
-void RouteMap::OnNavigationCommitted() {
-  DCHECK(navigation_state_);
-  navigation_state_->SetPhase(NavigationPhase::kCommitted);
-  UpdateActiveRoutes();
-  NotifyStyleEngineIfNeeded();
-}
-
-void RouteMap::OnNavigationDone() {
-  if (!navigation_state_) {
-    return;
+bool RouteMap::AttemptSetNavigationFinished() {
+  if (!NavigationState::Get(&GetDocument())) {
+    return true;
   }
   if (ViewTransitionUtils::GetTransition(GetDocument())) {
     // Even if the document has finished loading, the navigation needs to remain
     // active, since there are ongoing view transitions. When view transitions
     // are done, this function will be called again.
-    return;
+    return false;
   }
-  if (Element* source_element = navigation_state_->GetSourceElement()) {
-    source_element->PseudoStateChanged(CSSSelector::kPseudoNavSource);
-  }
-  navigation_state_ = nullptr;
-  UpdateActiveRoutes();
   NotifyStyleEngineIfNeeded();
+  return true;
 }
 
 void RouteMap::OnPreviewStart() {
-  CHECK(navigation_state_);
-  CHECK(!navigation_state_->IsInPreview());
+  auto* navigation_state = NavigationState::Get(&GetDocument());
+  CHECK(navigation_state);
+  CHECK(!navigation_state->IsInPreview());
   CHECK(RuntimeEnabledFeatures::TwoPhaseViewTransitionEnabled());
-  navigation_state_->SetIsInPreview(true);
+  navigation_state->SetIsInPreview(true);
   NotifyStyleEngineIfNeeded();
 }
 
 void RouteMap::OnPreviewFinished() {
-  if (!navigation_state_ || !navigation_state_->IsInPreview()) {
+  auto* navigation_state = NavigationState::Get(&GetDocument());
+  if (!navigation_state || !navigation_state->IsInPreview()) {
     return;
   }
   CHECK(RuntimeEnabledFeatures::TwoPhaseViewTransitionEnabled());
-  navigation_state_->SetIsInPreview(false);
+  navigation_state->SetIsInPreview(false);
   NotifyStyleEngineIfNeeded();
 }
 
-// Get the "active navigation URL", given the specified preposition.
-//
-// https://drafts.csswg.org/css-navigation-1/#active-navigation-url
-KURL RouteMap::GetActiveNavigationURL(NavigationPreposition preposition) const {
-  if (!navigation_state_) {
-    return KURL();
+bool RouteMap::MatchesCurrentNavigation(NavigationPreposition preposition,
+                                        const URLPattern& pattern) const {
+  const auto* navigation_state = NavigationState::Get(&GetDocument());
+  if (!navigation_state) {
+    return false;
   }
-  const NavigationState& state = *navigation_state_;
-  DCHECK(GetDocument().Url() == state.GetOldURL() ||
-         GetDocument().Url() == state.GetNewURL());
+  const KURL& url = [&] {
+    switch (preposition) {
+      case NavigationPreposition::kAt:
+        if (navigation_state->GetPhase() == NavigationPhase::kCommitted) {
+          return navigation_state->GetNewURL();
+        }
+        return navigation_state->GetOldURL();
+      case NavigationPreposition::kFrom:
+        return navigation_state->GetOldURL();
+      case NavigationPreposition::kTo:
+        return navigation_state->GetNewURL();
+    }
+  }();
 
-  auto at_old_url = [&] {
-    return state.GetPhase() == NavigationPhase::kLoading;
-  };
-
-  switch (preposition) {
-    case NavigationPreposition::kAt:
-      return at_old_url() ? state.GetOldURL() : state.GetNewURL();
-    case NavigationPreposition::kFrom:
-      return state.GetOldURL();
-    case NavigationPreposition::kTo:
-      return state.GetNewURL();
-    case NavigationPreposition::kWith:
-      return !at_old_url() ? state.GetOldURL() : state.GetNewURL();
-  }
+  return !url.IsEmpty() && pattern.Match(url);
 }
 
 void RouteMap::NotifyStyleEngineIfNeeded() {

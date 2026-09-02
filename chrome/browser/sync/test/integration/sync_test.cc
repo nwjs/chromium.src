@@ -46,7 +46,6 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/sync/test/integration/committed_all_nudged_changes_checker.h"
-#include "chrome/browser/sync/test/integration/device_info_helper.h"
 #include "chrome/browser/sync/test/integration/fake_sync_gcm_driver_for_instance_id.h"
 #include "chrome/browser/sync/test/integration/session_hierarchy_match_checker.h"
 #include "chrome/browser/sync/test/integration/sync_datatype_helper.h"
@@ -67,7 +66,6 @@
 #include "components/gcm_driver/instance_id/instance_id_driver.h"
 #include "components/gcm_driver/instance_id/instance_id_profile_service.h"
 #include "components/keyed_service/core/keyed_service.h"
-#include "components/plus_addresses/core/common/features.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_switches.h"
@@ -131,6 +129,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/trusted_vault/command_line_switches.h"
@@ -468,9 +467,6 @@ Profile* SyncTest::GetProfile(int index) const {
 
 std::vector<raw_ptr<Profile, VectorExperimental>> SyncTest::GetAllProfiles() {
   std::vector<raw_ptr<Profile, VectorExperimental>> profiles;
-  if (UseVerifier()) {
-    profiles.push_back(verifier());
-  }
   for (int i = 0; i < num_clients(); ++i) {
     profiles.push_back(GetProfile(i));
   }
@@ -499,7 +495,10 @@ Browser* SyncTest::GetBrowser(int index) {
 
 Browser* SyncTest::AddBrowser(int profile_index) {
   Profile* profile = GetProfile(profile_index);
-  browsers_.push_back(Browser::Create(Browser::CreateParams(profile, true)));
+  browsers_.push_back(
+      CreateBrowserWindow(
+          BrowserWindowCreateParams(profile, /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly());
   profiles_.push_back(profile);
   CHECK_EQ(browsers_.size(), profiles_.size());
 
@@ -569,16 +568,6 @@ SyncTest::GetSyncServices() {
   return services;
 }
 
-Profile* SyncTest::verifier() {
-  CHECK(UseVerifier()) << "Verifier account is disabled.";
-  CHECK(verifier_ != nullptr) << "SetupClients() has not yet been called.";
-  return verifier_;
-}
-
-bool SyncTest::UseVerifier() {
-  return false;
-}
-
 bool SyncTest::SetupClients() {
   CHECK(profiles_.empty());
   CHECK(clients_.empty());
@@ -636,24 +625,6 @@ bool SyncTest::SetupClients() {
               << (base::Time::Now() - test_construction_time_);
   }
 
-  // Verifier account is not useful when running against external servers.
-  CHECK(server_type_ != EXTERNAL_LIVE_SERVER || !UseVerifier());
-
-// Verifier needs to create a test profile. But Clank doesn't support multiple
-// profiles.
-#if BUILDFLAG(IS_ANDROID)
-  CHECK(!UseVerifier());
-#endif
-
-  // Create the verifier profile.
-  if (UseVerifier()) {
-    base::FilePath user_data_dir;
-    base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
-    verifier_ = g_browser_process->profile_manager()->GetProfile(
-        user_data_dir.Append(FILE_PATH_LITERAL("Verifier")));
-    WaitForDataModels(verifier());
-  }
-
 #if BUILDFLAG(IS_CHROMEOS)
   if (ArcAppListPrefsFactory::IsFactorySetForSyncTest()) {
     // Init SyncArcPackageHelper to ensure that the arc services are initialized
@@ -679,7 +650,10 @@ void SyncTest::InitializeProfile(int index, Profile* profile) {
   profile->AddObserver(this);
 
 #if !BUILDFLAG(IS_ANDROID)
-  browsers_.push_back(Browser::Create(Browser::CreateParams(profile, true)));
+  browsers_.push_back(
+      CreateBrowserWindow(
+          BrowserWindowCreateParams(profile, /*from_user_gesture=*/true))
+          ->GetBrowserForMigrationOnly());
   CHECK_EQ(static_cast<size_t>(index), browsers_.size() - 1);
 
   Browser* browser = browsers_.back();
@@ -992,19 +966,21 @@ void SyncTest::TearDownOnMainThread() {
 void SyncTest::OnProfileWillBeDestroyed(Profile* profile) {
   profile->RemoveObserver(this);
 
+  if (server_type_ == IN_PROCESS_FAKE_SERVER) {
+    CHECK(profile_to_fake_gcm_driver_.contains(profile));
+    if (fake_server_sync_invalidation_sender_) {
+      fake_server_sync_invalidation_sender_->RemoveFakeGCMDriver(
+          profile_to_fake_gcm_driver_[profile]);
+    }
+    profile_to_fake_gcm_driver_.erase(profile);
+  }
+
   for (size_t index = 0; index < profiles_.size(); ++index) {
     if (profiles_[index] != profile) {
       continue;
     }
 
     CheckForDataTypeFailures(/*client_index=*/index);
-
-    // |profile_to_fake_gcm_driver_| may be empty when using an external server.
-    if (profile_to_fake_gcm_driver_.contains(profile)) {
-      fake_server_sync_invalidation_sender_->RemoveFakeGCMDriver(
-          profile_to_fake_gcm_driver_[profile]);
-      profile_to_fake_gcm_driver_.erase(profile);
-    }
     profiles_[index] = nullptr;
     clients_[index].reset();
 #if !BUILDFLAG(IS_ANDROID)
@@ -1057,6 +1033,9 @@ std::unique_ptr<KeyedService> SyncTest::CreateGCMProfileService(
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN}));
 
   Profile* profile = Profile::FromBrowserContext(context);
+  CHECK(!profile_to_fake_gcm_driver_.contains(profile))
+      << "CreateGCMProfileService called multiple times for profile: "
+      << profile->GetDebugName() << ", is_otr: " << context->IsOffTheRecord();
 
   auto fake_gcm_driver =
       std::make_unique<FakeSyncGCMDriver>(profile, blocking_task_runner);
@@ -1210,17 +1189,6 @@ bool SyncTest::WaitForAsyncChangesToBeCommitted(size_t profile_index) const {
   // CommittedAllNudgedChangesChecker will wait for all the local changes to be
   // committed, it doesn't cover all the cases.
   if (server_type_ != EXTERNAL_LIVE_SERVER) {
-    // Wait for committing DeviceInfo with sharing_fields, it may happen
-    // asynchronously due to FCM token registration.
-    if (GetSyncService(profile_index)
-            ->GetPreferredDataTypes()
-            .Has(syncer::SHARING_MESSAGE)) {
-      if (!device_info_helper::WaitForFullDeviceInfoCommitted(
-              GetCacheGuid(profile_index))) {
-        return false;
-      }
-    }
-
 #if BUILDFLAG(IS_ANDROID)
     // On Android, default about:blank page is loaded by default. Wait for
     // Session to be committed to prevent unexpected commit requests during
@@ -1284,7 +1252,7 @@ std::string SetupSyncModeAsString(SyncTest::SetupSyncMode sync_test_mode) {
 // enabled by default, e.g. HISTORY requires a dedicated opt-in via
 // SyncUserSettings::SetSelectedTypes().
 syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
-  static_assert(66 == syncer::GetNumDataTypes(),
+  static_assert(67 == syncer::GetNumDataTypes(),
                 "Add new types below if they can run in transport mode");
 
 #if BUILDFLAG(IS_ANDROID)
@@ -1380,12 +1348,14 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #if BUILDFLAG(IS_CHROMEOS)
     if (base::FeatureList::IsEnabled(
-            syncer::kReplaceSyncPromosWithSignInPromos))
-#endif
-    {
+            syncer::kReplaceSyncPromosWithSignInPromos)) {
       allowed_types.Put(syncer::EXTENSIONS);
       allowed_types.Put(syncer::EXTENSION_SETTINGS);
     }
+#else
+    allowed_types.Put(syncer::EXTENSIONS);
+    allowed_types.Put(syncer::EXTENSION_SETTINGS);
+#endif
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   }
   allowed_types.Put(syncer::AUTOFILL_VALUABLE);
@@ -1412,6 +1382,10 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
 
   if (base::FeatureList::IsEnabled(syncer::kSyncNotebook)) {
     allowed_types.Put(syncer::NOTEBOOK);
+  }
+
+  if (base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
+    allowed_types.Put(syncer::JOURNEY);
   }
 
   if (base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {
@@ -1452,14 +1426,6 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
   allowed_types.Put(syncer::OUTGOING_PASSWORD_SHARING_INVITATION);
   allowed_types.Put(syncer::WEBAUTHN_CREDENTIAL);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-  if (base::FeatureList::IsEnabled(
-          plus_addresses::features::kPlusAddressesEnabled) &&
-      !plus_addresses::features::kEnterprisePlusAddressServerUrl.Get()
-           .empty()) {
-    allowed_types.Put(syncer::PLUS_ADDRESS);
-    allowed_types.Put(syncer::PLUS_ADDRESS_SETTING);
-  }
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
   if (base::FeatureList::IsEnabled(

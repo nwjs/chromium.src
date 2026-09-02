@@ -8,8 +8,21 @@ source_set("utils") {
     "atmemory_ui_util.mm",
   ]
   deps = [
-    "//ios/chrome/browser/shared/ui/symbols",
-    "//ios/chrome/browser/shared/ui/table_view/content_configuration",
-    "//ios/chrome/common/ui/colors",
+    "//components/autofill/core/browser",
+    "//ios/chrome/browser/autofill/atmemory/public",
+    "//ios/chrome/browser/autofill/atmemory/ui:item",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "atmemory_ui_util_unittest.mm" ]
+  deps = [
+    ":utils",
+    "//components/autofill/core/browser",
+    "//components/strings",
+    "//ios/chrome/browser/autofill/atmemory/ui:item",
+    "//testing/gtest",
+    "//ui/base",
   ]
 }

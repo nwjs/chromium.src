@@ -115,7 +115,8 @@ class PageContextExtractorJavaScriptFeatureTest
           frame, include_cross_origin_frame_content, use_rich_extraction,
           use_rich_extraction_with_actionable, extract_paid_content,
           attempt_paid_content_json_fixing,
-          /*include_sensitive_payments_for_redaction=*/false, nonce, timeout,
+          /*include_sensitive_payments_for_redaction=*/false,
+          /*extract_autofill_otp_redactions=*/false, nonce, timeout,
           base::BindOnce(
               [](base::OnceCallback<void(std::optional<base::Value>)> callback,
                  const base::Value* value) {
@@ -128,7 +129,8 @@ class PageContextExtractorJavaScriptFeatureTest
           frame, include_cross_origin_frame_content, use_rich_extraction,
           use_rich_extraction_with_actionable, extract_paid_content,
           attempt_paid_content_json_fixing,
-          /*include_sensitive_payments_for_redaction=*/false, nonce, timeout,
+          /*include_sensitive_payments_for_redaction=*/false,
+          /*extract_autofill_otp_redactions=*/false, nonce, timeout,
           future.GetCallback());
     }
     return future.Take();
@@ -531,6 +533,66 @@ TEST_P(PageContextExtractorJavaScriptFeatureTest,
   EXPECT_TRUE(interaction_info->FindList("clickabilityReasons"));
 }
 
+// Tests that anchor links with an href attribute receive clickability reasons
+// (CURSOR_POINTER), while anchors without href or with explicit non-pointer
+// cursors do not.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_RichExtraction_AnchorClickabilityReasons) {
+  web::test::LoadHtml(@"<html><body>"
+                       "<a href=\"https://example.com\">Clickable Link</a>"
+                       "<a name=\"target\">Anchor Without Href</a>"
+                       "<a href=\"https://example.com\" style=\"cursor: "
+                       "default\">Default Cursor Link</a>"
+                       "</body></html>",
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/true,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  ASSERT_TRUE(result_value);
+
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(children);
+  ASSERT_GE(children->size(), 3u);
+
+  auto has_cursor_pointer_clickability = [](const base::DictValue& node) {
+    const base::DictValue* interaction_info =
+        node.FindDictByDottedPath("contentAttributes.nodeInteractionInfo");
+    if (!interaction_info) {
+      return false;
+    }
+    const base::ListValue* click_reasons =
+        interaction_info->FindList("clickabilityReasons");
+    if (!click_reasons) {
+      return false;
+    }
+    for (const auto& reason : *click_reasons) {
+      if (static_cast<int>(reason.GetDouble()) ==
+          optimization_guide::proto::CLICKABILITY_REASON_CURSOR_POINTER) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // 1. <a href="..."> has CURSOR_POINTER.
+  EXPECT_TRUE(has_cursor_pointer_clickability((*children)[0].GetDict()));
+
+  // 2. <a name="..."> without href does not have CURSOR_POINTER.
+  EXPECT_FALSE(has_cursor_pointer_clickability((*children)[1].GetDict()));
+
+  // 3. <a href="..." style="cursor: default"> does not have CURSOR_POINTER.
+  EXPECT_FALSE(has_cursor_pointer_clickability((*children)[2].GetDict()));
+}
+
 // Test the extraction of the text size.
 TEST_P(PageContextExtractorJavaScriptFeatureTest,
        ExtractPageContext_RichExtraction_Text_Size) {
@@ -789,6 +851,65 @@ TEST_P(PageContextExtractorJavaScriptFeatureTest,
   EXPECT_EQ(*(nested_text_node.FindStringByDottedPath(
                 "contentAttributes.textInfo.textContent")),
             "Nested Text");
+}
+
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_RichExtraction_ShadowDom) {
+  for (bool actionable_mode : {false, true}) {
+    const std::string html =
+        "<html><body><div id=\"open-host\" role=\"region\">"
+        "light text</div></body></html>";
+    web::test::LoadHtml(base::SysUTF8ToNSString(html),
+                        test_server_.GetURL(kMainPagePath), web_state());
+    web::test::ExecuteJavaScript(
+        @"const root = document.getElementById('open-host')."
+        @"attachShadow({mode: 'open'});"
+        @"root.innerHTML = 'direct shadow text<p>shadow paragraph</p>';",
+        web_state());
+
+    std::optional<base::Value> result_value = RunExtraction(
+        web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+        /*include_cross_origin_frame_content=*/false,
+        /*use_rich_extraction=*/true,
+        /*use_rich_extraction_with_actionable=*/actionable_mode,
+        /*extract_paid_content=*/false,
+        /*attempt_paid_content_json_fixing=*/false,
+        actionable_mode ? "actionable-nonce" : "nonce", base::Seconds(1));
+
+    ASSERT_TRUE(result_value);
+    const base::DictValue* root_node =
+        result_value->GetDict().FindDict("rootNode");
+    ASSERT_TRUE(root_node);
+    const base::ListValue* root_children = root_node->FindList("childrenNodes");
+    ASSERT_TRUE(root_children);
+    ASSERT_EQ(root_children->size(), 1u);
+
+    const base::DictValue& host_node = (*root_children)[0].GetDict();
+    const base::ListValue* host_children = host_node.FindList("childrenNodes");
+    ASSERT_TRUE(host_children);
+    ASSERT_EQ(host_children->size(), 3u);
+    const std::string* direct_shadow_text =
+        (*host_children)[0].GetDict().FindStringByDottedPath(
+            "contentAttributes.textInfo.textContent");
+    ASSERT_TRUE(direct_shadow_text);
+    EXPECT_EQ(*direct_shadow_text, "direct shadow text");
+
+    const base::ListValue* paragraph_children =
+        (*host_children)[1].GetDict().FindList("childrenNodes");
+    ASSERT_TRUE(paragraph_children);
+    ASSERT_EQ(paragraph_children->size(), 1u);
+    const std::string* shadow_paragraph =
+        (*paragraph_children)[0].GetDict().FindStringByDottedPath(
+            "contentAttributes.textInfo.textContent");
+    ASSERT_TRUE(shadow_paragraph);
+    EXPECT_EQ(*shadow_paragraph, "shadow paragraph");
+
+    const std::string* light_text =
+        (*host_children)[2].GetDict().FindStringByDottedPath(
+            "contentAttributes.textInfo.textContent");
+    ASSERT_TRUE(light_text);
+    EXPECT_EQ(*light_text, "light text");
+  }
 }
 
 // Verifies that SVG anchors are correctly extracted.
@@ -2096,6 +2217,212 @@ TEST_P(PageContextExtractorJavaScriptFeatureTest,
 
   ASSERT_TRUE(result_value.has_value());
   EXPECT_FALSE(result_value->is_none());
+}
+
+// Test that custom ARIA form controls capture standard placeholder attributes
+// in addition to aria-placeholder.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_AriaControlPlaceholder) {
+  const std::string html = R"(
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          [contenteditable="true"][placeholder]:empty::before {
+            content: attr(placeholder);
+            color: #888;
+            pointer-events: none;
+            display: block;
+          }
+          [contenteditable="true"][aria-placeholder]:empty::before {
+            content: attr(aria-placeholder);
+            color: #888;
+            pointer-events: none;
+            display: block;
+          }
+        </style>
+      </head>
+      <body style="margin: 0; padding: 20px;">
+        <div role="searchbox" contenteditable="true"
+             placeholder="Search destination"
+             style="width: 300px; height: 40px; border: 1px solid #ccc; padding: 8px; margin-bottom: 10px; display: block;"></div>
+        <div role="textbox" contenteditable="true"
+             aria-placeholder="Enter username"
+             style="width: 300px; height: 40px; border: 1px solid #ccc; padding: 8px; display: block;"></div>
+        <input type="text" aria-placeholder="Filter results"
+               style="width: 300px; height: 40px; border: 1px solid #ccc; padding: 8px; display: block;">
+        <textarea aria-placeholder="Enter description"
+                  style="width: 300px; height: 40px; border: 1px solid #ccc; padding: 8px; display: block;"></textarea>
+        <input type="text" placeholder="Primary placeholder" aria-placeholder="Secondary placeholder"
+               style="width: 300px; height: 40px; border: 1px solid #ccc; padding: 8px; display: block;">
+      </body>
+    </html>
+  )";
+  web::test::LoadHtml(base::SysUTF8ToNSString(html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/true,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  ASSERT_TRUE(result_value.has_value());
+  EXPECT_FALSE(result_value->is_none());
+
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* root_children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(root_children);
+  ASSERT_GE(root_children->size(), 5u);
+
+  const base::DictValue& searchbox_node = (*root_children)[0].GetDict();
+  const std::string* searchbox_placeholder =
+      searchbox_node.FindStringByDottedPath(
+          "contentAttributes.formControlData.placeholder");
+  ASSERT_TRUE(searchbox_placeholder);
+  EXPECT_EQ(*searchbox_placeholder, "Search destination");
+
+  const base::DictValue& textbox_node = (*root_children)[1].GetDict();
+  const std::string* textbox_placeholder = textbox_node.FindStringByDottedPath(
+      "contentAttributes.formControlData.placeholder");
+  ASSERT_TRUE(textbox_placeholder);
+  EXPECT_EQ(*textbox_placeholder, "Enter username");
+
+  const base::DictValue& input_node = (*root_children)[2].GetDict();
+  const std::string* input_placeholder = input_node.FindStringByDottedPath(
+      "contentAttributes.formControlData.placeholder");
+  ASSERT_TRUE(input_placeholder);
+  EXPECT_EQ(*input_placeholder, "Filter results");
+
+  const base::DictValue& textarea_node = (*root_children)[3].GetDict();
+  const std::string* textarea_placeholder =
+      textarea_node.FindStringByDottedPath(
+          "contentAttributes.formControlData.placeholder");
+  ASSERT_TRUE(textarea_placeholder);
+  EXPECT_EQ(*textarea_placeholder, "Enter description");
+
+  const base::DictValue& precedence_node = (*root_children)[4].GetDict();
+  const std::string* precedence_placeholder =
+      precedence_node.FindStringByDottedPath(
+          "contentAttributes.formControlData.placeholder");
+  ASSERT_TRUE(precedence_placeholder);
+  EXPECT_EQ(*precedence_placeholder, "Primary placeholder");
+}
+
+// Test that interactive elements clipped completely offscreen inside an
+// overflow container (such as offscreen carousel slides) do not retain
+// nodeInteractionInfo.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_CarouselOffscreenPruning) {
+  const std::string html = R"(
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0;">
+        <div style="overflow: hidden; width: 300px; height: 100px; position: relative;">
+          <button style="position: absolute; left: 10px; top: 10px; width: 100px; height: 50px;">
+            Visible Button
+          </button>
+          <button style="position: absolute; left: 1000px; top: 10px; width: 100px; height: 50px;">
+            Offscreen Cloned Button
+          </button>
+        </div>
+      </body>
+    </html>
+  )";
+  web::test::LoadHtml(base::SysUTF8ToNSString(html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/true,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+
+  ASSERT_TRUE(result_value.has_value());
+  EXPECT_FALSE(result_value->is_none());
+
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* root_children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(root_children);
+  ASSERT_GE(root_children->size(), 1u);
+
+  const base::DictValue& container_node = (*root_children)[0].GetDict();
+  const base::ListValue* container_children =
+      container_node.FindList("childrenNodes");
+  ASSERT_TRUE(container_children);
+  ASSERT_GE(container_children->size(), 2u);
+
+  const base::DictValue& visible_button = (*container_children)[0].GetDict();
+  const base::DictValue* visible_interaction_info =
+      visible_button.FindDictByDottedPath(
+          "contentAttributes.nodeInteractionInfo");
+  ASSERT_TRUE(visible_interaction_info);
+
+  const base::DictValue& offscreen_button = (*container_children)[1].GetDict();
+  const base::DictValue* offscreen_interaction_info =
+      offscreen_button.FindDictByDottedPath(
+          "contentAttributes.nodeInteractionInfo");
+  EXPECT_FALSE(offscreen_interaction_info);
+}
+
+// Test fieldset extraction logic.
+TEST_P(PageContextExtractorJavaScriptFeatureTest,
+       ExtractPageContext_FieldsetControl) {
+  const std::string html = "<html><body>"
+                           "  <fieldset name=\"test_fieldset\">"
+                           "    <input type=\"text\" name=\"test_input\" />"
+                           "  </fieldset>"
+                           "</body></html>";
+  web::test::LoadHtml(base::SysUTF8ToNSString(html),
+                      test_server_.GetURL(kMainPagePath), web_state());
+
+  std::optional<base::Value> result_value = RunExtraction(
+      web_state()->GetPageWorldWebFramesManager()->GetMainWebFrame(),
+      /*include_cross_origin_frame_content=*/false,
+      /*use_rich_extraction=*/true,
+      /*use_rich_extraction_with_actionable=*/false,
+      /*extract_paid_content=*/false,
+      /*attempt_paid_content_json_fixing=*/false, "nonce", base::Seconds(1));
+  ASSERT_TRUE(result_value.has_value());
+  EXPECT_FALSE(result_value->is_none());
+
+  const base::DictValue& dict = result_value->GetDict();
+  const base::DictValue* root_node = dict.FindDict("rootNode");
+  ASSERT_TRUE(root_node);
+  const base::ListValue* root_children = root_node->FindList("childrenNodes");
+  ASSERT_TRUE(root_children);
+  ASSERT_GE(root_children->size(), 1u);
+
+  const base::DictValue& fieldset_node = (*root_children)[0].GetDict();
+  std::optional<double> fieldset_attribute_type =
+      fieldset_node.FindDoubleByDottedPath("contentAttributes.attributeType");
+  ASSERT_TRUE(fieldset_attribute_type.has_value());
+  EXPECT_EQ(*fieldset_attribute_type,
+            static_cast<double>(
+                optimization_guide::proto::CONTENT_ATTRIBUTE_FORM_CONTROL));
+
+  std::optional<double> fieldset_form_control_type =
+      fieldset_node.FindDoubleByDottedPath(
+          "contentAttributes.formControlData.formControlType");
+  ASSERT_TRUE(fieldset_form_control_type.has_value());
+  EXPECT_EQ(*fieldset_form_control_type,
+            static_cast<double>(
+                optimization_guide::proto::FORM_CONTROL_TYPE_FIELDSET));
+
+  const std::string* field_name = fieldset_node.FindStringByDottedPath(
+      "contentAttributes.formControlData.fieldName");
+  ASSERT_TRUE(field_name);
+  EXPECT_EQ(*field_name, "test_fieldset");
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

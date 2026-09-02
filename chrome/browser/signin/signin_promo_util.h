@@ -36,6 +36,8 @@ class PrefService;
 
 namespace signin {
 
+class AccountPreviewDataService;
+
 enum class SignInPromoType;
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -56,6 +58,10 @@ bool ShouldShowSearchAIModeSignInPromo(Profile& profile);
 
 // Whether we should show the sign in promo after a bookmark was saved.
 bool ShouldShowBookmarkSignInPromo(Profile& profile);
+
+// Returns true if the Composebox Drive context menu option sign in promo
+// should be shown.
+bool ShouldShowComposeboxDriveContextMenuOptionSignInPromo(Profile& profile);
 
 // Returns whether `access_point` has an equivalent signin promo which is its
 // own bubble, rather than a footnote.
@@ -134,13 +140,17 @@ void ComputeProfileMenuAvatarButtonPromoInfo(
 // via `ComputeProfileMenuAvatarButtonPromoInfo()`.
 class AvatarButtonPromoManager : public signin::IdentityManager::Observer {
  public:
-  explicit AvatarButtonPromoManager(signin::IdentityManager* identity_manager,
-                                    PrefService* pref_service);
+  AvatarButtonPromoManager(
+      signin::IdentityManager* identity_manager,
+      signin::AccountPreviewDataService* account_preview_data_service,
+      PrefService* pref_service);
   // Used only for testing.
-  AvatarButtonPromoManager(signin::IdentityManager* identity_manager,
-                           PrefService* pref_service,
-                           int max_shown_count,
-                           int max_used_count);
+  AvatarButtonPromoManager(
+      signin::IdentityManager* identity_manager,
+      signin::AccountPreviewDataService* account_preview_data_service,
+      PrefService* pref_service,
+      int max_shown_count,
+      int max_used_count);
   ~AvatarButtonPromoManager() override;
 
   AvatarButtonPromoManager(const AvatarButtonPromoManager&) = delete;
@@ -170,6 +180,8 @@ class AvatarButtonPromoManager : public signin::IdentityManager::Observer {
   // Only nullptr after the `identity_manager_` starts shutting down.
   std::unique_ptr<SigninPrefs> signin_prefs_;
   raw_ptr<PrefService> pref_service_;
+  raw_ptr<signin::AccountPreviewDataService> account_preview_data_service_ =
+      nullptr;
 
   const int max_shown_count_ = 0;
   const int max_used_count_ = 0;

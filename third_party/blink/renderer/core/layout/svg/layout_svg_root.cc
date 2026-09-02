@@ -57,12 +57,7 @@
 
 namespace blink {
 
-LayoutSVGRoot::LayoutSVGRoot(SVGElement* node)
-    : LayoutReplaced(node),
-      needs_transform_update_(true),
-      container_scale_changed_(false),
-      has_non_isolated_blending_descendants_(false),
-      has_non_isolated_blending_descendants_dirty_(false) {}
+LayoutSVGRoot::LayoutSVGRoot(SVGElement* node) : LayoutReplaced(node) {}
 
 LayoutSVGRoot::~LayoutSVGRoot() = default;
 
@@ -310,9 +305,11 @@ void LayoutSVGRoot::IntrinsicSizingInfoChanged() {
 void LayoutSVGRoot::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
-  LayoutReplaced::StyleDidChange(diff, old_style, style_change_context);
+  LayoutReplaced::StyleDidChange(diff, old_style, new_style,
+                                 style_change_context);
 
   if (old_style && StyleChangeAffectsIntrinsicSize(*old_style))
     IntrinsicSizingInfoChanged();
@@ -466,6 +463,24 @@ AffineTransform LayoutSVGRoot::LocalToSVGParentTransform() const {
   return AffineTransform::Translation(RoundToInt(location.left),
                                       RoundToInt(location.top)) *
          local_to_border_box_transform_;
+}
+
+void LayoutSVGRoot::SetContainerScale(const gfx::Vector2dF& container_scale) {
+  NOT_DESTROYED();
+  // Only update the scale factors and trigger relayout if descendants use
+  // non-scaling-stroke. The flag is computed during layout and reflects the
+  // previous layout pass; style changes that add/remove non-scaling-stroke
+  // trigger layout independently via style invalidation.
+  if (!View()->ContainsNonScalingStroke()) {
+    return;
+  }
+  if (container_scale_ == container_scale) {
+    return;
+  }
+  container_scale_ = container_scale;
+  container_scale_changed_ = true;
+  SetNeedsLayoutAndFullPaintInvalidation(
+      layout_invalidation_reason::kSvgChanged);
 }
 
 gfx::RectF LayoutSVGRoot::ViewBoxRect() const {

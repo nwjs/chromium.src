@@ -85,7 +85,9 @@ to expose data from gamepads that cannot be queried from the browser process.
 The XRInput process may be the browser process or a separate process depending
 on the platform.
 
-# Test interfaces (defined in browser_test_interfaces.mojom)
-XRTestHook allows a test to control the behavior of a fake implementation of
-OpenXR, and potentially other runtimes.  This allows testing the entire stack
-of Chromium WebXR code end-to-end.
+# Test interfaces (defined in xr_test_hook.test-mojom)
+`XRTestHook` allows a test to control the behavior of a fake implementation of
+OpenXR, and potentially other runtimes. This allows testing the entire stack
+of Chromium WebXR code end-to-end. These test interfaces, their typemaps, and
+traits are marked `testonly = true` and documented in
+[`test/README.md`](test/README.md).

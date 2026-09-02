@@ -11,7 +11,7 @@
 #import "components/enterprise/connectors/core/common.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "ios/chrome/browser/drive/model/upload_task.h"
-#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/scan_decision_helper.h"
+#import "ios/chrome/browser/enterprise/cloud_content_scanning/model/cloud_content_scanning_helper.h"
 #import "ios/chrome/browser/enterprise/connectors/analysis/content_analysis_info.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser_list.h"
@@ -181,10 +181,10 @@ TEST_F(DriveTabHelperTest, UploadStartsDirectlyWhenFeatureDisabled) {
 
   // Simulate completion of the download task.
   download_task_->SetDone(true);
-  OnDownloadUpdated(download_task_.get());
 
-  // Since the feature is disabled, it should have started the upload.
-  EXPECT_EQ(UploadTask::State::kInProgress, upload_task->GetState());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return upload_task->GetState() == UploadTask::State::kInProgress;
+  }));
 }
 
 // Tests that when scanning is ENABLED and result is SUCCESS, the upload
@@ -307,6 +307,7 @@ TEST_F(DriveTabHelperTest, UploadFailsIfIdentityRemovedBeforeStart) {
   // files_request_handler_).
   download_task_->SetDone(true);
 
-  // Upload should have failed and not be resumable.
-  EXPECT_EQ(UploadTask::State::kFailedNotResumable, upload_task->GetState());
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return upload_task->GetState() == UploadTask::State::kFailedNotResumable;
+  }));
 }

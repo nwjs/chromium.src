@@ -26,8 +26,11 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.FeatureOverrides;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.ntp.NewTabPageUtils.PaddingStyle;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
@@ -41,6 +44,8 @@ import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplaySty
 @Config(manifest = Config.NONE)
 public class NewTabPageUtilUnitTest {
     @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+
+    private static final String PADDING_STYLE_PARAM = "padding_style";
 
     private Context mContext;
     private View mView;
@@ -129,6 +134,47 @@ public class NewTabPageUtilUnitTest {
 
         testUpdateTilesLayoutTopMargin_shouldNotShowLogoImpl(
                 /* isLff= */ true, expectedTileLayoutTopMargin);
+    }
+
+    @Test
+    public void testGetPaddingStyleForAurora() {
+        // Default should be DEFAULT.
+        assertEquals(PaddingStyle.DEFAULT, NewTabPageUtils.getPaddingStyleForAurora());
+
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, PaddingStyle.SMALL);
+        assertEquals(PaddingStyle.SMALL, NewTabPageUtils.getPaddingStyleForAurora());
+
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, PaddingStyle.MEDIUM);
+        assertEquals(PaddingStyle.MEDIUM, NewTabPageUtils.getPaddingStyleForAurora());
+
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, PaddingStyle.LARGE);
+        assertEquals(PaddingStyle.LARGE, NewTabPageUtils.getPaddingStyleForAurora());
+    }
+
+    @Test
+    public void testGetNtpSectionPaddingPx() {
+        Resources resources = mContext.getResources();
+        int expectedDefaultMargin = resources.getDimensionPixelSize(R.dimen.ntp_section_top_margin);
+        int expectedSmallMargin =
+                resources.getDimensionPixelSize(R.dimen.ntp_section_top_margin_small);
+
+        // Default should be ntp_section_top_margin.
+        assertEquals(expectedDefaultMargin, NewTabPageUtils.getNtpSectionPaddingPx(resources));
+
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, PaddingStyle.SMALL);
+        assertEquals(expectedSmallMargin, NewTabPageUtils.getNtpSectionPaddingPx(resources));
+
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, PaddingStyle.MEDIUM);
+        assertEquals(expectedSmallMargin, NewTabPageUtils.getNtpSectionPaddingPx(resources));
+
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, PaddingStyle.LARGE);
+        assertEquals(expectedSmallMargin, NewTabPageUtils.getNtpSectionPaddingPx(resources));
     }
 
     private void testUpdateTilesLayoutTopMargin_shouldNotShowLogoImpl(

@@ -60,6 +60,10 @@ class GlicActorTaskIconManager : public KeyedService {
   static bool IsActiveUniversalCartTask(actor::ActorTask::State state,
                                         glic::mojom::FeatureMode feature_mode);
 
+  // Returns true if the task is an active password change task.
+  static bool IsActivePasswordChangeTask(actor::ActorTask::State state,
+                                         glic::mojom::FeatureMode feature_mode);
+
   // Register for this callback to get task nudge state change notifications.
   using TaskNudgeChangeCallback = base::RepeatingCallback<void(
       bool show_bubble,
@@ -68,10 +72,10 @@ class GlicActorTaskIconManager : public KeyedService {
       TaskNudgeChangeCallback callback);
 
   // Register for this callback to get task state change notifications for the
-  // bubble.
+  // bubble. Virtual for testing.
   using TaskListBubbleChangeCallback =
       base::RepeatingCallback<void(bool is_start_notification)>;
-  base::CallbackListSubscription RegisterTaskListBubbleStateChange(
+  virtual base::CallbackListSubscription RegisterTaskListBubbleStateChange(
       TaskListBubbleChangeCallback callback);
 
   actor::ui::ActorTaskNudgeState GetCurrentActorTaskNudgeState() const;

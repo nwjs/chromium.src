@@ -117,9 +117,6 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   aw_feature_overrides.DisableFeature(
       blink::features::kLowLatencyUsageSupportedForCanvas);
 
-  // Disable Shared Storage on WebView.
-  aw_feature_overrides.DisableFeature(network::features::kSharedStorageAPI);
-
   // Disable scrollbar-color on WebView.
   aw_feature_overrides.DisableFeature(blink::features::kScrollbarColor);
 
@@ -253,6 +250,8 @@ void AwFieldTrials::RegisterFeatureOverrides(base::FeatureList* feature_list) {
   aw_feature_overrides.DisableFeature(blink::features::kGeolocationElement);
   aw_feature_overrides.DisableFeature(blink::features::kUserMediaElement);
   aw_feature_overrides.DisableFeature(blink::features::kInstallElement);
+  aw_feature_overrides.DisableFeature(
+      blink::features::kCameraAndMicrophoneElements);
 
   // Delete Incidental Party State (DIPS) feature is not yet supported on
   // WebView.

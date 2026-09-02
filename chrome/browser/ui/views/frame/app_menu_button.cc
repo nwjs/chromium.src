@@ -9,21 +9,22 @@
 #include "base/feature_list.h"
 #include "base/observer_list.h"
 #include "base/types/pass_key.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/app_menu/action_app_menu.h"
-#include "chrome/browser/ui/views/app_menu/app_menu_action_manager.h"
 #include "chrome/browser/ui/views/chrome_typography.h"
 #include "chrome/browser/ui/views/frame/app_menu_button_observer.h"
+#include "chrome/browser/ui/views/interaction/browser_elements_views.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/views/accessible_pane_view.h"
+#include "ui/views/bubble/bubble_anchor.h"
 #include "ui/views/controls/button/menu_button_controller.h"
 #include "ui/views/view_class_properties.h"
 
@@ -47,7 +48,17 @@ AppMenuButton::AppMenuButton(PressedCallback callback)
 AppMenuButton::~AppMenuButton() = default;
 
 views::BubbleAnchor AppMenuButton::GetAnchor() {
-  return views::BubbleAnchor(this);
+  if (IsDrawn()) {
+    return views::BubbleAnchor(this);
+  }
+  // The app menu button is always present but might be non-visible or offscreen
+  // in certain cases (e.g. content-fullscreen). In this case, use the fallback
+  // anchor instead.
+  auto* const elements = BrowserElementsViews::From(this);
+  CHECK(elements);
+  auto* const element = elements->GetElement(kFallbackPopupAnchorElementId);
+  CHECK(element);
+  return views::BubbleAnchor(element);
 }
 
 bool AppMenuButton::IsDrawn() const {
@@ -118,12 +129,9 @@ void AppMenuButton::RunActionMenu(
     BrowserWindowInterface* browser_window_interface,
     int run_flags) {
   action_menu_.reset();
-  auto action_manager = std::make_unique<AppMenuActionManager>(
-      browser_window_interface->GetActions()->root_action_item());
-  action_manager->Initialize();
 
   action_menu_ = std::make_unique<ActionAppMenu>(
-      browser_window_interface, std::move(action_manager),
+      browser_window_interface,
       base::BindRepeating(&AppMenuButton::OnMenuClosed,
                           weak_ptr_factory_.GetWeakPtr()));
   action_menu_->RunMenu(menu_button_controller_);
@@ -150,7 +158,18 @@ void AppMenuButton::SetTypeAndSeverity(
   // this functionality.
 }
 
-void AppMenuButton::SetTrailingMargin(int margin) {
+void AppMenuButton::SetIsMaximizedOrFullscreen(bool maximized_or_fullscreen) {
+  // When maximized or fullscreen, extend the trailing app menu button to the
+  // window edge per Fitts' law. Because the parent container's interior margin
+  // may have had its trailing edge zeroed out (e.g. for WebUI toolbar), use
+  // `default_insets` to reliably acquire the physical trailing inset (`left`
+  // when mirrored/RTL versus `right` in LTR).
+  int margin = 0;
+  if (maximized_or_fullscreen) {
+    const gfx::Insets default_insets =
+        ::GetLayoutInsets(LayoutInset::TOOLBAR_INTERIOR_MARGIN);
+    margin = GetMirrored() ? default_insets.left() : default_insets.right();
+  }
   ToolbarButton::SetTrailingMargin(margin);
 }
 

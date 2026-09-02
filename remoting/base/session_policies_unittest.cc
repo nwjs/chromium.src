@@ -5,7 +5,6 @@
 #include "remoting/base/session_policies.h"
 
 #include "base/time/time.h"
-#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace remoting {
@@ -13,7 +12,7 @@ namespace remoting {
 TEST(SessionPolicies, Equality) {
   SessionPolicies test_policies_1;
   test_policies_1.clipboard_size_bytes = 1024;
-  test_policies_1.host_udp_port_range = {.min_port = 123, .max_port = 456};
+  test_policies_1.host_udp_port_range = *PortRange::Create(123, 456);
   test_policies_1.allow_file_transfer = true;
   test_policies_1.maximum_session_duration = base::Hours(20);
   test_policies_1.curtain_required = false;
@@ -32,7 +31,7 @@ TEST(SessionPolicies, Equality) {
   EXPECT_NE(test_policies_1, test_policies_4);
 
   SessionPolicies test_policies_5 = test_policies_1;
-  test_policies_5.host_udp_port_range.max_port = 789;
+  test_policies_5.host_udp_port_range = *PortRange::Create(123, 789);
   EXPECT_NE(test_policies_1, test_policies_5);
 }
 

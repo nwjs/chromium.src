@@ -31,7 +31,6 @@
 #include "chrome/browser/password_manager/factories/password_receiver_service_factory.h"
 #include "chrome/browser/password_manager/factories/password_sender_service_factory.h"
 #include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
-#include "chrome/browser/plus_addresses/plus_address_setting_service_factory.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_key.h"
@@ -76,7 +75,6 @@
 #include "components/collaboration/public/collaboration_service.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/password_manager/core/browser/sharing/password_receiver_service.h"
-#include "components/plus_addresses/core/browser/webdata/plus_address_webdata_service.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/send_tab_to_self/send_tab_to_self_sync_service.h"
@@ -124,6 +122,7 @@
 #include "base/android/scoped_java_ref.h"
 #include "chrome/browser/android/webapk/webapk_sync_service.h"
 #include "chrome/browser/android/webapk/webapk_sync_service_factory.h"
+#include "chrome/browser/ntp_customization/ntp_android_custom_background_service_factory.h"
 #include "ui/base/device_form_factor.h"
 
 // Must come after other includes, because FromJniType() uses Profile.
@@ -261,10 +260,6 @@ syncer::DataTypeController::TypeVector CreateCommonControllers(
                                profile, ServiceAccessType::IMPLICIT_ACCESS),
                            AccountPasswordStoreFactory::GetForProfile(
                                profile, ServiceAccessType::IMPLICIT_ACCESS));
-  builder.SetPlusAddressServices(
-      PlusAddressSettingServiceFactory::GetForBrowserContext(profile),
-      WebDataServiceFactory::GetPlusAddressWebDataForProfile(
-          profile, ServiceAccessType::IMPLICIT_ACCESS));
   builder.SetPrefService(profile->GetPrefs());
   builder.SetPrefServiceSyncable(PrefServiceSyncableFromProfile(profile));
   builder.SetTabGroupSyncService(GetTabGroupSyncService(profile));
@@ -329,6 +324,10 @@ syncer::DataTypeController::TypeVector CreateChromeControllers(
 #endif  // BUILDFLAG(ENABLE_SPELLCHECK)
 
 #if BUILDFLAG(IS_ANDROID)
+  builder.SetNtpAndroidCustomBackgroundService(
+      base::FeatureList::IsEnabled(syncer::kNewTabPageCustomizationThemeSync)
+          ? NtpAndroidCustomBackgroundServiceFactory::GetForProfile(profile)
+          : nullptr);
   builder.SetWebApkSyncService(
       base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)
           ? webapk::WebApkSyncServiceFactory::GetForProfile(profile)
@@ -575,7 +574,6 @@ SyncServiceFactory::SyncServiceFactory()
 #endif  // !BUILDFLAG(IS_ANDROID)
   DependsOn(PasswordReceiverServiceFactory::GetInstance());
   DependsOn(PasswordSenderServiceFactory::GetInstance());
-  DependsOn(PlusAddressSettingServiceFactory::GetInstance());
   DependsOn(ProfilePasswordStoreFactory::GetInstance());
 
   DependsOn(SecurityEventRecorderFactory::GetInstance());
@@ -595,6 +593,7 @@ SyncServiceFactory::SyncServiceFactory()
 #endif  // !BUILDFLAG(IS_ANDROID)
   DependsOn(TrustedVaultServiceFactory::GetInstance());
 #if BUILDFLAG(IS_ANDROID)
+  DependsOn(NtpAndroidCustomBackgroundServiceFactory::GetInstance());
   if (base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
     DependsOn(webapk::WebApkSyncServiceFactory::GetInstance());
   }
@@ -646,17 +645,10 @@ bool SyncServiceFactory::HasSyncService(Profile* profile) {
 bool SyncServiceFactory::IsSyncAllowed(Profile* profile) {
   DCHECK(profile);
 
-  if (HasSyncService(profile)) {
-    syncer::SyncService* sync_service = GetForProfile(profile);
-    return !sync_service->HasDisableReason(
-        syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
-  }
-
-  // No SyncServiceImpl created yet - we don't want to create one, so just
-  // infer the accessible state by looking at prefs/command line flags.
-  syncer::SyncPrefs prefs(profile->GetPrefs());
-  return syncer::IsSyncAllowedByFlag() &&
-         (!prefs.IsSyncClientDisabledByPolicy() || prefs.IsLocalSyncEnabled());
+  syncer::SyncService* sync_service = GetForProfile(profile);
+  return sync_service &&
+         !sync_service->HasDisableReason(
+             syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
 }
 
 // static

@@ -282,6 +282,10 @@ inline constexpr ExtensionIcons EXTENSION_ICON_LARGE = 128;
 inline constexpr ExtensionIcons EXTENSION_ICON_MEDIUM = 48;
 inline constexpr ExtensionIcons EXTENSION_ICON_SMALL = 32;
 inline constexpr ExtensionIcons EXTENSION_ICON_SMALLISH = 24;
+// TODO(crbug.com/539516970): This size is used for Android, but the icon for
+// 20dp isn't provided by the developers, so we are sacrificing some quality due
+// to downscaling.
+inline constexpr ExtensionIcons EXTENSION_ICON_MINI = 20;
 inline constexpr ExtensionIcons EXTENSION_ICON_BITTY = 16;
 inline constexpr ExtensionIcons EXTENSION_ICON_INVALID = 0;
 
@@ -328,6 +332,10 @@ inline constexpr char kIndigoExtensionId[] = "gcgachbpjjonjloecffgdajegokngglh";
 // The extension id of the AIM Eligibility component extension.
 inline constexpr char kAimEligibilityExtensionId[] =
     "kgjeljgkbckpoekmgjfplammhcggiiaf";
+
+// The extension id of the Contextual Tasks component extension.
+inline constexpr char kContextualTasksExtensionId[] =
+    "glbjnfimcajjenihimblfaponejbkoph";
 
 // The extension id of the Files Manager application.
 inline constexpr char kFilesManagerAppId[] = "hhaomjibdihmijegdhdafkllkbggdgoj";

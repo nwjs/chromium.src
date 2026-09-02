@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/tabs/hovercard/tab_hover_card_test_util.h"
 
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/views/frame/base_tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -49,7 +50,7 @@ TabHoverCardController* TabHoverCardTestUtil::GetHoverCardController(
                : nullptr;
   }
   auto* tab_strip = browser_view->horizontal_tab_strip_for_testing();
-  return tab_strip ? tab_strip->hover_card_controller_for_testing() : nullptr;
+  return tab_strip ? tab_strip->hover_card_controller() : nullptr;
 }
 
 // static
@@ -76,7 +77,8 @@ bool TabHoverCardTestUtil::IsHoverCardVisible(BrowserWindowInterface* browser) {
 }
 
 // static
-int TabHoverCardTestUtil::GetHoverCardsSeenCount(Browser* browser) {
+int TabHoverCardTestUtil::GetHoverCardsSeenCount(
+    BrowserWindowInterface* browser) {
   auto* controller = GetHoverCardController(browser);
   return controller ? controller->hover_cards_seen_count_for_testing() : 0;
 }
@@ -87,8 +89,9 @@ TabHoverCardBubbleView* TabHoverCardTestUtil::SimulateHoverTab(
     int tab_index) {
   auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
   if (base::FeatureList::IsEnabled(tabs::kTabStripUnification)) {
-    auto* tab_view = views::AsViewClass<TabView>(
-        browser_view->tab_strip_view()->GetTabAnchorViewAt(tab_index));
+    auto* tab_view = views::AsViewClass<
+        TabView>(browser_view->tab_strip_view()->GetTabAnchorView(
+        browser->GetTabStripModel()->GetTabAtIndex(tab_index)->GetHandle()));
     if (tab_view) {
       if (auto* controller = GetHoverCardController(browser)) {
         controller->UpdateHoverCard(

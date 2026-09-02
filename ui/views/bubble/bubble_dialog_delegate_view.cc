@@ -621,6 +621,10 @@ std::unique_ptr<FrameView> BubbleDialogDelegate::CreateFrameView(
   frame->SetFootnoteMargins(margin.footnote);
   frame->SetFootnoteView(DisownFootnoteView());
   frame->set_use_anchor_window_bounds(use_anchor_window_bounds_);
+  if (available_screen_bounds_callback_) {
+    frame->set_available_screen_bounds_callback(
+        available_screen_bounds_callback_);
+  }
 
   std::unique_ptr<BubbleBorder> border =
       std::make_unique<BubbleBorder>(arrow(), GetShadow());
@@ -1061,6 +1065,21 @@ ax::mojom::Role BubbleDialogDelegate::GetAccessibleWindowRole() {
   // readers announce the contents of the bubble dialog as soon as it appears,
   // as long as we also fire |ax::mojom::Event::kAlert|.
   return ax::mojom::Role::kAlertDialog;
+}
+
+std::u16string BubbleDialogDelegate::GetAccessibleWindowTitle() const {
+  if (!GetAccessibleTitle().empty()) {
+    return GetAccessibleTitle();
+  }
+  // If the window title is displayed visually in the bubble frame (as a label
+  // or heading), return an empty string so that the dialog container's
+  // accessible name is set to kAttributeExplicitlyEmpty. This prevents screen
+  // readers from announcing the title twice (once for the dialog container and
+  // once for the title label).
+  if (ShouldShowWindowTitle() && !GetWindowTitle().empty()) {
+    return std::u16string();
+  }
+  return GetWindowTitle();
 }
 
 gfx::Rect BubbleDialogDelegate::GetDesiredBubbleBounds() {

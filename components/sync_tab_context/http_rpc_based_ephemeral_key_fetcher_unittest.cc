@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 
+#include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
@@ -34,11 +35,22 @@ class HttpRpcBasedEphemeralKeyFetcherTest : public ::testing::Test {
             base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
                 &test_url_loader_factory_)),
         fetcher_(identity_test_env_.identity_manager(),
-                 test_shared_loader_factory_,
+                 GetUrlLoaderFactoryGetter(),
                  GURL(kTestServerUrl)) {
     identity_test_env_.MakePrimaryAccountAvailable(
         "test@example.com", signin::ConsentLevel::kSignin);
     identity_test_env_.SetAutomaticIssueOfAccessTokens(true);
+  }
+
+  // Returns a `UrlLoaderFactoryGetter` callback that returns
+  // `test_shared_loader_factory_`.
+  HttpRpcBasedEphemeralKeyFetcher::UrlLoaderFactoryGetter
+  GetUrlLoaderFactoryGetter() const {
+    return base::BindRepeating(
+        [](scoped_refptr<network::SharedURLLoaderFactory> factory) {
+          return factory;
+        },
+        test_shared_loader_factory_);
   }
 
   // Synchronously fetches an ephemeral key using `fetcher_`, simulating an
@@ -65,7 +77,7 @@ class HttpRpcBasedEphemeralKeyFetcherTest : public ::testing::Test {
 TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
        ShouldReturnNulloptWhenServerUrlIsInvalid) {
   HttpRpcBasedEphemeralKeyFetcher fetcher(identity_test_env_.identity_manager(),
-                                          test_shared_loader_factory_,
+                                          GetUrlLoaderFactoryGetter(),
                                           GURL("invalid-url"));
   base::test::TestFuture<std::optional<EphemeralKeyFetcher::Result>> future;
   fetcher.FetchEphemeralKey(future.GetCallback());
@@ -78,7 +90,7 @@ TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
   base::test::TestFuture<std::optional<EphemeralKeyFetcher::Result>> future;
   fetcher_.FetchEphemeralKey(future.GetCallback());
   identity_test_env_.WaitForAccessTokenRequestIfNecessaryAndRespondWithError(
-      GoogleServiceAuthError(GoogleServiceAuthError::SERVICE_ERROR));
+      GoogleServiceAuthError::FromServiceError(""));
   EXPECT_EQ(future.Take(), std::nullopt);
 }
 
@@ -91,9 +103,12 @@ TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
 TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
        ShouldSuccessfullyFetchAndParseEphemeralKey) {
   GenerateEphemeralKeyResponse response_proto;
-  response_proto.set_server_token("test_server_token_123");
+  response_proto.set_name("test_server_token_123");
+  response_proto.mutable_expire_time()->set_seconds(1234567890);
+  response_proto.mutable_expire_time()->set_nanos(500000000);
 
-  auto key = syncer::AgileSymmetricKey::CreateRandom();
+  const std::unique_ptr<syncer::AgileSymmetricKey> key =
+      syncer::AgileSymmetricKey::CreateRandom();
   sync_pb::AgileSymmetricKeySet* key_set_proto =
       response_proto.mutable_agile_symmetric_key_set();
   key_set_proto->set_primary_key_id(1);
@@ -101,11 +116,14 @@ TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
   key_entry->set_key_id(1);
   *key_entry->mutable_key_data() = key->ToProto();
 
-  std::optional<EphemeralKeyFetcher::Result> result =
+  const std::optional<EphemeralKeyFetcher::Result> result =
       FetchEphemeralKey(net::HTTP_OK, response_proto.SerializeAsString());
 
   ASSERT_TRUE(result.has_value());
-  EXPECT_EQ(result->server_token, "test_server_token_123");
+  EXPECT_EQ(result->name, "test_server_token_123");
+  EXPECT_EQ(result->expire_time,
+            base::Time::FromSecondsSinceUnixEpoch(1234567890) +
+                base::Nanoseconds(500000000));
   ASSERT_THAT(result->ephemeral_key, NotNull());
   EXPECT_EQ(result->ephemeral_key->size(), 1u);
 }
@@ -120,8 +138,10 @@ TEST_F(HttpRpcBasedEphemeralKeyFetcherTest, ShouldSupportConcurrentRequests) {
   EXPECT_EQ(fetcher_.ongoing_operations_count_for_testing(), 2u);
 
   GenerateEphemeralKeyResponse response1;
-  response1.set_server_token("token_server_1");
-  auto key1 = syncer::AgileSymmetricKey::CreateRandom();
+  response1.set_name("token_server_1");
+  response1.mutable_expire_time()->set_seconds(100);
+  const std::unique_ptr<syncer::AgileSymmetricKey> key1 =
+      syncer::AgileSymmetricKey::CreateRandom();
   response1.mutable_agile_symmetric_key_set()->set_primary_key_id(1);
   sync_pb::AgileSymmetricKeySet::Key* key_entry1 =
       response1.mutable_agile_symmetric_key_set()->add_key();
@@ -129,8 +149,10 @@ TEST_F(HttpRpcBasedEphemeralKeyFetcherTest, ShouldSupportConcurrentRequests) {
   *key_entry1->mutable_key_data() = key1->ToProto();
 
   GenerateEphemeralKeyResponse response2;
-  response2.set_server_token("token_server_2");
-  auto key2 = syncer::AgileSymmetricKey::CreateRandom();
+  response2.set_name("token_server_2");
+  response2.mutable_expire_time()->set_seconds(200);
+  const std::unique_ptr<syncer::AgileSymmetricKey> key2 =
+      syncer::AgileSymmetricKey::CreateRandom();
   response2.mutable_agile_symmetric_key_set()->set_primary_key_id(2);
   sync_pb::AgileSymmetricKeySet::Key* key_entry2 =
       response2.mutable_agile_symmetric_key_set()->add_key();
@@ -142,14 +164,68 @@ TEST_F(HttpRpcBasedEphemeralKeyFetcherTest, ShouldSupportConcurrentRequests) {
   test_url_loader_factory_.SimulateResponseForPendingRequest(
       kTestServerUrl, response2.SerializeAsString());
 
-  std::optional<EphemeralKeyFetcher::Result> res1 = future1.Take();
-  std::optional<EphemeralKeyFetcher::Result> res2 = future2.Take();
+  const std::optional<EphemeralKeyFetcher::Result> res1 = future1.Take();
+  const std::optional<EphemeralKeyFetcher::Result> res2 = future2.Take();
 
   ASSERT_TRUE(res1.has_value());
   ASSERT_TRUE(res2.has_value());
-  EXPECT_EQ(res1->server_token, "token_server_1");
-  EXPECT_EQ(res2->server_token, "token_server_2");
+  EXPECT_EQ(res1->name, "token_server_1");
+  EXPECT_EQ(res2->name, "token_server_2");
   EXPECT_EQ(fetcher_.ongoing_operations_count_for_testing(), 0u);
+}
+
+TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
+       ShouldFetchEphemeralKeyWithLazyUrlLoaderFactoryGetter) {
+  testing::NiceMock<base::MockRepeatingCallback<
+      scoped_refptr<network::SharedURLLoaderFactory>()>>
+      mock_factory_getter;
+
+  EXPECT_CALL(mock_factory_getter, Run()).Times(0);
+
+  HttpRpcBasedEphemeralKeyFetcher fetcher(identity_test_env_.identity_manager(),
+                                          mock_factory_getter.Get(),
+                                          GURL(kTestServerUrl));
+
+  EXPECT_CALL(mock_factory_getter, Run())
+      .WillOnce(testing::Return(test_shared_loader_factory_));
+
+  base::test::TestFuture<std::optional<EphemeralKeyFetcher::Result>> future;
+  fetcher.FetchEphemeralKey(future.GetCallback());
+}
+
+TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
+       ShouldReturnNulloptWhenUrlLoaderFactoryGetterReturnsNull) {
+  HttpRpcBasedEphemeralKeyFetcher fetcher(
+      identity_test_env_.identity_manager(),
+      base::BindRepeating(
+          []() -> scoped_refptr<network::SharedURLLoaderFactory> {
+            return nullptr;
+          }),
+      GURL(kTestServerUrl));
+
+  base::test::TestFuture<std::optional<EphemeralKeyFetcher::Result>> future;
+  fetcher.FetchEphemeralKey(future.GetCallback());
+  EXPECT_EQ(future.Take(), std::nullopt);
+}
+
+TEST_F(HttpRpcBasedEphemeralKeyFetcherTest,
+       ShouldReturnNulloptWhenExpireTimeIsMissing) {
+  GenerateEphemeralKeyResponse response_proto;
+  response_proto.set_name("test_server_token_123");
+
+  const std::unique_ptr<syncer::AgileSymmetricKey> key =
+      syncer::AgileSymmetricKey::CreateRandom();
+  sync_pb::AgileSymmetricKeySet* key_set_proto =
+      response_proto.mutable_agile_symmetric_key_set();
+  key_set_proto->set_primary_key_id(1);
+  sync_pb::AgileSymmetricKeySet::Key* key_entry = key_set_proto->add_key();
+  key_entry->set_key_id(1);
+  *key_entry->mutable_key_data() = key->ToProto();
+
+  const std::optional<EphemeralKeyFetcher::Result> result =
+      FetchEphemeralKey(net::HTTP_OK, response_proto.SerializeAsString());
+
+  EXPECT_EQ(result, std::nullopt);
 }
 
 }  // namespace

@@ -17,6 +17,7 @@
 #include "chrome/browser/sessions/session_common_utils.h"
 #include "chrome/browser/sessions/session_data_deleter.h"
 #include "chrome/browser/sessions/session_service_utils.h"
+#include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "components/sessions/content/content_serialized_navigation_builder.h"
 #include "components/sessions/content/session_tab_helper.h"
@@ -71,18 +72,19 @@ void AppSessionService::TabClosed(SessionID window_id, SessionID tab_id) {
   ScheduleCommand(sessions::CreateTabClosedCommand(tab_id));
 }
 
-void AppSessionService::WindowOpened(Browser* browser) {
+void AppSessionService::WindowOpened(BrowserWindowInterface* browser) {
   if (!ShouldTrackBrowser(browser)) {
     return;
   }
 
-  SetWindowType(browser->session_id(), browser->type());
-  SetWindowAppName(browser->session_id(), browser->app_name());
+  SetWindowType(browser->GetSessionID(), browser->GetType());
+  SetWindowAppName(browser->GetSessionID(),
+                   BrowserInitState::From(browser)->create_params().app_name);
 
   // Save a browser workspace after window is created in `Browser()`.
   // Bento desks restore feature in ash requires this line to restore correctly
   // after creating a new browser window in a particular desk.
-  SetWindowWorkspace(browser->session_id(),
+  SetWindowWorkspace(browser->GetSessionID(),
                      BrowserWindow::FromBrowser(browser)->GetWorkspace());
 }
 
@@ -109,7 +111,8 @@ void AppSessionService::WindowClosed(SessionID window_id) {
   ScheduleCommand(sessions::CreateWindowClosedCommand(window_id));
 }
 
-void AppSessionService::SetWindowType(SessionID window_id, Browser::Type type) {
+void AppSessionService::SetWindowType(SessionID window_id,
+                                      BrowserWindowInterface::Type type) {
   sessions::SessionWindow::WindowType window_type =
       WindowTypeForBrowserType(type);
   if (!ShouldRestoreWindowOfType(window_type)) {
@@ -121,8 +124,9 @@ void AppSessionService::SetWindowType(SessionID window_id, Browser::Type type) {
   ScheduleCommand(CreateSetWindowTypeCommand(window_id, window_type));
 }
 
-Browser::Type AppSessionService::GetDesiredBrowserTypeForWebContents() {
-  return Browser::Type::TYPE_APP;
+BrowserWindowInterface::Type
+AppSessionService::GetDesiredBrowserTypeForWebContents() {
+  return BrowserWindowInterface::Type::TYPE_APP;
 }
 
 bool AppSessionService::ShouldRestoreWindowOfType(

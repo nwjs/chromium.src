@@ -25,9 +25,9 @@ found in the LICENSE file.
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent"/>
 
-    <org.chromium.ui.widget.ChromeImageView
+    <ImageView
         android:id="@+id/fusebox_plus_button"
-        android:foreground="@drawable/plus_button_focus_ring"
+        android:foreground="@drawable/pill_button_focus_ring"
         android:layout_width="@dimen/fusebox_button_size"
         android:layout_height="@dimen/fusebox_button_size"
         android:visibility="gone"
@@ -39,6 +39,8 @@ found in the LICENSE file.
         android:clickable="true"
         android:focusable="true"
         android:clipToOutline="true"
+        android:layout_marginStart="?attr/fuseboxPlusButtonStartMargin"
+        android:layout_marginBottom="?attr/fuseboxPlusButtonBottomMargin"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintTop_toBottomOf="@id/url_bar"
@@ -64,24 +66,24 @@ found in the LICENSE file.
         app:verticalInset="6dp"
         app:rippleCornerRadius="36dp"/>
 
-    <org.chromium.ui.widget.ChromeImageView
+    <ImageView
         android:id="@+id/navigate_button"
         android:layout_width="@dimen/min_touch_target_size"
         android:layout_height="@dimen/min_touch_target_size"
-        android:layout_marginEnd="4dp"
+        android:layout_marginEnd="10dp"
         android:visibility="gone"
         android:src="@drawable/ic_arrow_forward_blue_24dp"
         android:tooltipText="@string/ntp_compose_submit_button_a11y_label"
         android:clickable="true"
         android:focusable="true"
         android:scaleType="centerInside"
-        android:background="@drawable/oval_baseline_primary_50"
-        android:foreground="@drawable/circle_button_focus_ring"
+        android:background="@drawable/fusebox_popover_navigate_button_background"
+        android:foreground="@drawable/pill_button_focus_ring"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@id/margin_spacer"
         app:layout_constraintTop_toBottomOf="@id/url_bar"/>
 
-    <org.chromium.ui.widget.ButtonCompat
+    <org.chromium.components.browser_ui.widget.chips.ChipView
         style="@style/AiModeChip"
         android:id="@+id/fusebox_activation_chip"
         android:visibility="gone"

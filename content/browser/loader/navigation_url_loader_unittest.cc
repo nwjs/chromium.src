@@ -83,6 +83,8 @@ class NavigationURLLoaderTest : public testing::Test {
     blink::mojom::BeginNavigationParamsPtr begin_params =
         blink::mojom::BeginNavigationParams::New(
             std::nullopt /* initiator_frame_token */,
+            std::nullopt /* initiator_state_token */,
+            std::nullopt /* initiator_document_token */,
             std::string() /* headers */, net::LOAD_NORMAL,
             false /* skip_service_worker */,
             blink::mojom::RequestContextType::LOCATION,
@@ -131,12 +133,10 @@ class NavigationURLLoaderTest : public testing::Test {
             base::UnguessableToken::Create() /* devtools_navigation_token */,
             base::UnguessableToken::Create() /* devtools_frame_token */,
             nullptr /* client_security_state */,
-            std::nullopt /* devtools_accepted_stream_types */,
             false /* is_pdf */, ChildProcessId() /* initiator_process_id */,
             std::nullopt /* initiator_document_token */,
             false /* allow_cookies_from_browser */, 0 /* navigation_id */,
-            false /* shared_storage_writable */, false /* is_ad_tagged */,
-            false /* force_no_https_upgrade */));
+            false /* is_ad_tagged */, false /* force_no_https_upgrade */));
     return NavigationURLLoader::Create(
         browser_context_.get(), storage_partition, std::move(request_info),
         nullptr, nullptr, nullptr, delegate,

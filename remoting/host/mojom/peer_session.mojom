@@ -4,14 +4,200 @@
 
 module remoting.mojom;
 
-// Main process interface used by the Daemon to bootstrap the Peer Connection
-// process.
+import "mojo/public/mojom/base/time.mojom";
+import "remoting/host/mojom/chromoting_host_services.mojom";
+import "remoting/host/mojom/common.mojom";
+import "remoting/host/mojom/desktop_session.mojom";
+import "remoting/host/mojom/webrtc_types.mojom";
+
+// LINT.IfChange(SessionDescription)
+// WebRTC Session Description (SDP) type.
+// Maps to C++ enum: `::remoting::SessionDescription::Type`
+// (defined in remoting/signaling/jingle_data_structures.h).
+enum SdpType {
+  kUnspecified,
+  kOffer,
+  kAnswer,
+};
+
+// Represents a WebRTC Session Description Protocol (SDP) payload. The protocol
+// is defined in RFC 4566.
+// Maps to C++ type: `::remoting::SessionDescription`
+// (defined in remoting/signaling/jingle_data_structures.h).
+struct SessionDescription {
+  SdpType type;
+  string sdp;
+  array<uint8> signature;
+};
+// LINT.ThenChange(//remoting/signaling/jingle_data_structures.h:SessionDescription)
+
+// LINT.IfChange(NamedCandidate)
+// Represents an individual ICE (Interactive Connectivity Establishment,
+// RFC 8445) candidate with its associated media stream identifier (`sdp_mid`).
+// An ICE candidate defines a potential network transport address (IP, port, and
+// protocol) for peer-to-peer communication.
+// Maps to C++ type: `::remoting::IceTransportInfo::NamedCandidate`
+// (defined in remoting/signaling/jingle_data_structures.h).
+struct NamedCandidate {
+  string sdp_mid;
+  // The zero-based index of the Media Descriptions ("m=") in the SDP associated
+  // with this candidate, if available; null if only sdp_mid is provided by the
+  // signaling peer.
+  int32? sdp_m_line_index;
+  WebrtcCandidate candidate;
+};
+// LINT.ThenChange(//remoting/signaling/jingle_data_structures.h:NamedCandidate)
+
+// LINT.IfChange(JingleTransportInfo)
+// Represents structured Jingle transport parameters. Used in Trickle ICE
+// (RFC 8838): initial message carries `session_description` and initial
+// candidates; subsequent messages asynchronously stream newly discovered
+// candidates with `session_description` set to null.
+// Maps to C++ type: `::remoting::JingleTransportInfo`
+// (defined in remoting/signaling/jingle_data_structures.h).
+struct JingleTransportInfo {
+  array<NamedCandidate> candidates;
+  // The WebRTC Session Description (SDP) payload if this transport-info
+  // stanza conveys an offer/answer session description; null if this message
+  // conveys only incremental ICE candidates.
+  SessionDescription? session_description;
+};
+// LINT.ThenChange(//remoting/signaling/jingle_data_structures.h:JingleTransportInfo)
+
+// Interface implemented in the high-privilege daemon process (`DaemonProcess`).
+// Used by the Network process to spawn or bootstrap a Peer Connection session.
 //
-// Callee: Untrusted PC Process.
-// Caller: Privileged Daemon Process.
+// Callee: High-privilege Daemon Process (`remoting::DaemonProcess`).
+// Caller: Trusted Network Process (`remoting::IpcPeerSessionFactory`).
+[EnableIf=is_win|is_linux]
+interface PeerSessionManager {
+  // Launches a peer session and binds `peer_session_receiver`.
+  LaunchPeerSession(
+      pending_receiver<PeerSession> peer_session_receiver);
+};
+
+// LINT.IfChange(peer_session_event_handler)
+// Mirror of remoting::PeerSession::EventHandler.
+// Implemented by the Network process and called by the Peer Connection process.
+[EnableIf=is_win|is_linux]
+interface PeerSessionEventHandler {
+  // Called after all channels have been connected.
+  OnSessionChannelsConnected();
+
+  // Called when the session has closed or failed. `error_details` is a
+  // human-readable diagnostic string intended for logging/debugging only and
+  // must not be parsed programmatically.
+  OnSessionClosed(ProtocolErrorCode error,
+                  string error_details,
+                  SourceLocation error_location);
+
+  // Called on notification of a route change event when a channel is connected.
+  OnSessionRouteChange(string channel_name, TransportRoute route);
+};
+// LINT.ThenChange(//remoting/host/peer_session.h:peer_session_event_handler)
+
+// Handles outgoing transport signaling messages from the PC process to the
+// Network process.
+// Implemented by `IpcPeerSession` in the Network process.
+[EnableIf=is_win|is_linux]
+interface TransportEventHandler {
+  // Relays outgoing transport information (local ICE candidates / SDP)
+  // from the PC process to the Network process.
+  // Consecutive calls append newly gathered ICE candidates to the existing
+  // candidate pool, whereas `session_description` (if present) updates or
+  // replaces the previous session description.
+  SendTransportInfo(JingleTransportInfo transport_info);
+};
+
+// LINT.IfChange(IceConfig)
+// Strongly-typed representation of remoting::protocol::IceConfig.
+// Maps to C++ type: `::remoting::protocol::IceConfig`
+// (defined in remoting/protocol/ice_config.h).
+struct IceConfig {
+  mojo_base.mojom.Time expiration_time;
+  array<WebrtcSocketAddress> stun_servers;
+  array<WebrtcRelayServerConfig> turn_servers;
+  int32 max_bitrate_kbps;
+};
+// LINT.ThenChange(//remoting/protocol/ice_config.h:IceConfig)
+
+// Interface for fetching WebRTC ICE configuration (STUN/TURN).
+// Implemented by the Network process and called by the Peer Connection process.
+interface IceConfigFetcher {
+  // Fetches ICE configuration from the remoting service.
+  // Returns the fetched ICE configuration, or null if the configuration
+  // could not be fetched (e.g. network failure, authentication error, or
+  // service unavailable).
+  GetIceConfig() => (IceConfig? ice_config);
+};
+
+// LINT.IfChange(PairingResponse)
+// Response to a client pairing request.
+// Maps to C++ type: `::remoting::protocol::PairingResponse`
+// (defined in remoting/proto/control.pb.h).
+struct PairingResponse {
+  string client_id;
+  string shared_secret;
+};
+// LINT.ThenChange(//remoting/proto/control.proto:PairingResponse)
+
+// Interface for requesting client pairing.
+//
+// Callee: Trusted Network Process (`remoting::IpcPeerSession`).
+// Caller: Untrusted Peer Connection Process
+//         (`remoting::PeerConnectionProcess`).
+interface PairingRequester {
+  // Requests pairing for `client_name`.
+  // Returns `pairing_response`, or null if the pairing request failed or was
+  // rejected.
+  RequestPairing(string client_name) => (PairingResponse? pairing_response);
+};
+
+// A session interface implemented by the Peer Connection process.
+// If the caller drops the remote, the disconnect handler terminates the Peer
+// Connection process.
+//
+// Callee: Untrusted Peer Connection Process (`PeerConnectionProcess`).
+// Caller: Network Process (`IpcPeerSession`).
+[EnableIf=is_win|is_linux]
+interface PeerSession {
+  // Starts the peer session.
+  Start(string client_jid,
+        pending_remote<PeerSessionEventHandler> event_handler,
+        pending_remote<DesktopSession> desktop_control,
+        pending_receiver<DesktopSessionEvents> desktop_events_receiver,
+        pending_remote<IceConfigFetcher> ice_config_fetcher,
+        pending_remote<PairingRequester> pairing_requester,
+        DesktopEnvironmentOptions desktop_environment_options,
+        SessionPolicies session_policies,
+        SessionOptions session_options);
+
+  // Starts the WebRTC transport with the given authentication key and
+  // transport event handler remote.
+  StartTransport(string auth_key,
+                 pending_remote<TransportEventHandler> transport_event_handler);
+
+  // Relays incoming transport information (remote ICE candidates / SDP)
+  // from the Network process to the PC process.
+  // Consecutive calls append received remote ICE candidates to the existing
+  // candidate pool, whereas `session_description` (if present) updates or
+  // replaces the previous remote session description.
+  ProcessTransportInfo(JingleTransportInfo transport_info);
+
+  // Disconnects the peer session and tears down transport and desktop
+  // resources. `error_details` is a human-readable diagnostic string intended
+  // for logging/debugging only and must not be parsed programmatically.
+  DisconnectSession(ProtocolErrorCode error,
+                    string error_details,
+                    SourceLocation error_location);
+};
+
+// Associated interface used by the Daemon to control the PC process.
+//
+// Callee: Untrusted Peer Connection Process (`PeerConnectionProcess`).
+// Caller: Privileged Daemon Process (`remoting::DaemonProcess`).
 [EnableIf=is_win|is_linux]
 interface PeerConnectionProcessControl {
-  // Passes the desktop pipe (connected to the Desktop Process) to the PC
-  // process.
-  ConnectDesktopChannel(handle<message_pipe> desktop_pipe);
+  // Binds the `PeerSession` receiver in the PC process.
+  BindPeerSession(pending_receiver<PeerSession> session_receiver);
 };

@@ -61,7 +61,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
@@ -419,11 +418,6 @@ public class PageInfoController
         mPermissionsController.setPermissions(params);
     }
 
-    // TODO(crbug.com/40500621): Update to use a p-link URL (e.g. via
-    // chrome::kSafeBrowsingHelpCenterURL).
-    private static final String SAFE_BROWSING_HELP_CENTER_URL =
-            "https://support.google.com/chrome/answer/99020?hl=en&co=GENIE.Platform%3DAndroid";
-
     /**
      * Sets the connection security summary and detailed description strings, and configures UI for
      * suspicious site warnings.
@@ -433,8 +427,7 @@ public class PageInfoController
     @CalledByNative
     public void setSecurityDescription(String summary, String details, boolean isSuspiciousSite) {
         mIsSuspiciousSite = isSuspiciousSite;
-        String linkUrl = isSuspiciousSite ? SAFE_BROWSING_HELP_CENTER_URL : null;
-        mConnectionController.setSecurityDescription(summary, details, linkUrl);
+        mConnectionController.setSecurityDescription(summary, details, isSuspiciousSite);
         // Synchronize suspicious site state to native controller. In production this is set by
         // SetIdentityInfo, but is required for testing environments where setSecurityDescription
         // is invoked directly from Java tests without going through SetIdentityInfo.
@@ -487,23 +480,6 @@ public class PageInfoController
     @CalledByNative
     private void showConnectionSecurityInfo() {
         mConnectionSecurityController.showSecurityInfo();
-    }
-
-    /** Updates the Topic view if present. */
-    @CalledByNative
-    private void setAdPersonalizationInfo(boolean hasJoinedUserToInterestGroup, String[] topics) {
-        // This logic is a little weird. On Android we already have separate controllers for most
-        // PageInfo components and they usually update themselves. On Desktop we still have one big
-        // controller. Here we are reusing Desktop controller to update the Android component.
-        // In the future the Desktop logic will hopefully be split as well and then we can remove
-        // this logic here.
-        for (PageInfoSubpageController controller : mSubpageControllers) {
-            if (controller instanceof PageInfoAdPersonalizationController) {
-                ((PageInfoAdPersonalizationController) controller)
-                        .setAdPersonalizationInfo(
-                                hasJoinedUserToInterestGroup, Arrays.asList(topics));
-            }
-        }
     }
 
     @Override
@@ -669,15 +645,15 @@ public class PageInfoController
 
         void onSuspiciousSiteMarkAsSafe(long nativePageInfoControllerAndroid);
 
-        void openUrl(long nativePageInfoControllerAndroid, String url);
+        void openSafeBrowsingHelpCenter(long nativePageInfoControllerAndroid);
 
         void setIsSuspiciousSite(long nativePageInfoControllerAndroid, boolean isSuspiciousSite);
     }
 
     @Override
-    public void openUrl(String url) {
+    public void openSafeBrowsingHelpCenter() {
         if (mNativePageInfoController != 0) {
-            PageInfoControllerJni.get().openUrl(mNativePageInfoController, url);
+            PageInfoControllerJni.get().openSafeBrowsingHelpCenter(mNativePageInfoController);
         }
     }
 

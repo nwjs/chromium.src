@@ -4,6 +4,7 @@
 
 package org.chromium.chrome.browser.ntp_customization.theme_sync;
 
+import android.app.Activity;
 import android.content.Context;
 
 import org.jni_zero.CalledByNative;
@@ -12,6 +13,7 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.ObserverList;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -21,11 +23,13 @@ import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.Cus
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataColor;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataCustomizedColor;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataManager;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataThemeCollection;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.PlatformType;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.url.GURL;
 
+import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.List;
 
@@ -60,6 +64,8 @@ public class CrossDeviceThemeTracker {
 
     private long mNativePtr;
     private final ObserverList<Observer> mObservers = new ObserverList<>();
+    private @Nullable WeakReference<Activity> mActivityRef;
+    private boolean mHasPendingSyncData;
 
     /**
      * Returns the {@link CrossDeviceThemeTracker} instance for the given {@link Profile}, or null
@@ -80,12 +86,42 @@ public class CrossDeviceThemeTracker {
 
     private CrossDeviceThemeTracker(long nativePtr) {
         mNativePtr = nativePtr;
+        mHasPendingSyncData = true;
+    }
+
+    /**
+     * Sets the Activity used to resolve theme colors and drawables for synced themes. Uses a
+     * WeakReference internally to prevent leaking the Activity.
+     *
+     * @param activity The Activity, or null to clear.
+     */
+    public void setActivity(@Nullable Activity activity) {
+        if (activity == null) {
+            mActivityRef = null;
+            return;
+        }
+        mActivityRef = new WeakReference<>(activity);
+        if (mHasPendingSyncData) {
+            syncRemoteThemesToSharedPreference();
+        }
+    }
+
+    private @Nullable Activity getValidActivity() {
+        if (mActivityRef == null) return null;
+        Activity activity = mActivityRef.get();
+        if (activity == null) return null;
+        if (activity.isFinishing() || activity.isDestroyed()) {
+            mActivityRef = null;
+            return null;
+        }
+        return activity;
     }
 
     /** Called by C++ when it is being destroyed to invalidate the weak native pointer. */
     @CalledByNative
     private void clearNativePtr() {
         mNativePtr = 0;
+        mActivityRef = null;
     }
 
     /** Adds an observer to be notified of cross-device theme changes and status updates. */
@@ -100,9 +136,30 @@ public class CrossDeviceThemeTracker {
 
     @CalledByNative
     private void notifyThemesChanged() {
+        Activity activity = getValidActivity();
+        if (activity != null) {
+            syncRemoteThemesToSharedPreference();
+        } else {
+            mHasPendingSyncData = true;
+        }
         for (Observer observer : mObservers) {
             observer.onThemesChanged();
         }
+    }
+
+    private void syncRemoteThemesToSharedPreference() {
+        Activity activity = getValidActivity();
+        if (activity == null) {
+            mHasPendingSyncData = true;
+            return;
+        }
+        List<NtpBackgroundDataBase> remoteThemes = getThemes(activity);
+        if (remoteThemes.isEmpty()) return;
+        NtpBackgroundDataManager dataManager = new NtpBackgroundDataManager(activity);
+        for (NtpBackgroundDataBase theme : remoteThemes) {
+            dataManager.saveRemoteSyncDataToSharedPreference(theme);
+        }
+        mHasPendingSyncData = false;
     }
 
     @CalledByNative
@@ -116,6 +173,28 @@ public class CrossDeviceThemeTracker {
     public List<NtpBackgroundDataBase> getThemes(Context context) {
         if (mNativePtr == 0) return Collections.emptyList();
         return CrossDeviceThemeTrackerJni.get().getThemes(mNativePtr, context);
+    }
+
+    /**
+     * Returns the remote theme for the specified device GUID, or the best candidate theme if {@code
+     * deviceGuid} is null/empty.
+     *
+     * <p>If a specific non-empty {@code deviceGuid} is provided, only a theme from that specific
+     * device will be returned (or null if that device has no theme), avoiding combining preferences
+     * from one device with a theme from another. An empty string ({@code ""}) or null indicates
+     * that no specific device GUID is requested (i.e. no preferences are being imported) and
+     * candidate scoring across all available devices should be used.
+     *
+     * @param context The {@link Context}.
+     * @param deviceGuid The remote device GUID to retrieve a theme for, or null/empty if no
+     *     specific device GUID is requested.
+     * @return The matching or best candidate {@link NtpBackgroundDataBase}, or null if not found.
+     */
+    public @Nullable NtpBackgroundDataBase getThemeForDeviceGuid(
+            Context context, @Nullable String deviceGuid) {
+        if (mNativePtr == 0) return null;
+        return CrossDeviceThemeTrackerJni.get()
+                .getThemeForDeviceGuid(mNativePtr, context, deviceGuid == null ? "" : deviceGuid);
     }
 
     /** Returns the current service status of the cross-device theme tracker. */
@@ -186,12 +265,27 @@ public class CrossDeviceThemeTracker {
                 backgroundColorDark);
     }
 
+    public static void setInstanceForTesting(Natives instance) {
+        CrossDeviceThemeTrackerJni.setInstanceForTesting(instance); // IN-TEST
+        ResettersForTesting.register(
+                () -> CrossDeviceThemeTrackerJni.setInstanceForTesting(null)); // IN-TEST
+    }
+
+    boolean getHasPendingSyncDataForTesting() {
+        return mHasPendingSyncData;
+    }
+
     @NativeMethods
-    interface Natives {
+    public interface Natives {
         @Nullable CrossDeviceThemeTracker getForProfile(@JniType("Profile*") Profile profile);
 
         List<NtpBackgroundDataBase> getThemes(
                 long nativeCrossDeviceThemeTrackerAndroid, Context context);
+
+        @Nullable NtpBackgroundDataBase getThemeForDeviceGuid(
+                long nativeCrossDeviceThemeTrackerAndroid,
+                Context context,
+                @JniType("std::string") String deviceGuid);
 
         @JniType("ServiceStatus")
         @ServiceStatus

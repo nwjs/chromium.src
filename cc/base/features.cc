@@ -7,6 +7,9 @@
 #include <atomic>
 #include <string>
 
+#if BUILDFLAG(IS_ANDROID)
+#include "base/android/android_info.h"
+#endif
 #include "base/feature_list.h"
 #include "build/build_config.h"
 
@@ -21,6 +24,16 @@ std::atomic<bool> s_is_eligible_for_throttle_main_frame_to_60hz = false;
 // Whithout this, text in OOPIFs that isn't aligned to the pixel grid may appear
 // blurry. https://crbug.com/399478935
 BASE_FEATURE(kComputeRasterTranslateForExternalScale,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, non-root effect render surfaces (opacity/filter/mask) inside an
+// OOPIF magnified by its embedder are allocated at the external page scale
+// factor, matching the raster (picture layer) resolution. Without this, such a
+// surface's backing is sized at the un-magnified resolution, so the crisp
+// raster tiles drawn into it are downsampled and then upsampled again when the
+// magnified surface is composited, making text inside the effect look blurry.
+// The OOPIF's root surface is intentionally left un-magnified.
+BASE_FEATURE(kSizeOopifEffectSurfacesAtExternalScale,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDeferImplInvalidation, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -74,10 +87,17 @@ const base::FeatureParam<double> kWaitForLateScrollEventsDeadlineRatio{
 BASE_FEATURE(kPreserveDiscardableImageMapQuality,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kScrollEndRepaintFollowsScrollUpdate,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kCCSlimming, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebViewMemoryMultiplier,
+             "WebViewMemoryMultiplier",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+const base::FeatureParam<int> kWebViewMemoryMultiplierParam{
+    &kWebViewMemoryMultiplier, "MemoryMultiplier", 20};
+
+const base::FeatureParam<int> kWebViewMemoryMultiplierSoftPercentageParam{
+    &kWebViewMemoryMultiplier, "MemoryMultiplierSoftPercentage", 50};
 
 bool IsCCSlimmingEnabled() {
   static const bool enabled = base::FeatureList::IsEnabled(kCCSlimming);
@@ -131,25 +151,29 @@ BASE_FEATURE(kInitImageDecodeLastUseTime, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kThrottleRepeatedNoDamageFrames,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-const base::FeatureParam<int> kThrottleRepeatedNoDamageFramesThreshold1(
-    &kThrottleRepeatedNoDamageFrames,
-    "repeated_no_damage_frame_throttling_threshold1",
-    90);
+BASE_FEATURE_PARAM(int,
+                   kThrottleRepeatedNoDamageFramesThreshold1,
+                   &kThrottleRepeatedNoDamageFrames,
+                   "repeated_no_damage_frame_throttling_threshold1",
+                   90);
 
-const base::FeatureParam<int> kThrottleRepeatedNoDamageFramesThreshold2(
-    &kThrottleRepeatedNoDamageFrames,
-    "repeated_no_damage_frame_throttling_threshold2",
-    90);
+BASE_FEATURE_PARAM(int,
+                   kThrottleRepeatedNoDamageFramesThreshold2,
+                   &kThrottleRepeatedNoDamageFrames,
+                   "repeated_no_damage_frame_throttling_threshold2",
+                   90);
 
-const base::FeatureParam<int> kThrottleRepeatedNoDamageFramesIntervalFactor1(
-    &kThrottleRepeatedNoDamageFrames,
-    "repeated_no_damage_frame_throttling_factor1",
-    2);
+BASE_FEATURE_PARAM(int,
+                   kThrottleRepeatedNoDamageFramesIntervalFactor1,
+                   &kThrottleRepeatedNoDamageFrames,
+                   "repeated_no_damage_frame_throttling_factor1",
+                   2);
 
-const base::FeatureParam<int> kThrottleRepeatedNoDamageFramesIntervalFactor2(
-    &kThrottleRepeatedNoDamageFrames,
-    "repeated_no_damage_frame_throttling_factor2",
-    2);
+BASE_FEATURE_PARAM(int,
+                   kThrottleRepeatedNoDamageFramesIntervalFactor2,
+                   &kThrottleRepeatedNoDamageFrames,
+                   "repeated_no_damage_frame_throttling_factor2",
+                   2);
 
 // Enabled on Android, after a field trial showed improvements.
 BASE_FEATURE(kThrottleMainFrameTo60Hz,
@@ -255,8 +279,19 @@ BASE_FEATURE_PARAM(double,
 BASE_FEATURE(kScrollJankV4MetricFastScrollContinuityRequiresSameDirection,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kUseScrollIdToCalculateScrollJankV4FrameStages,
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_ANDROID)
+BASE_FEATURE(kScrollJankV4MetricReportAndroidAppJankStats,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool ShouldScrollJankV4MetricReportAndroidAppJankStats() {
+  if (base::android::android_info::sdk_int() <
+      base::android::android_info::SDK_VERSION_BAKLAVA) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(
+      features::kScrollJankV4MetricReportAndroidAppJankStats);
+}
+#endif
 
 BASE_FEATURE(kManualBeginFrame, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -285,5 +320,7 @@ BASE_FEATURE(kSendEarlyFinalBeginMainFrame, base::FEATURE_ENABLED_BY_DEFAULT);
 bool SendEarlyFinalBeginMainFrameIsEnabled() {
   return base::FeatureList::IsEnabled(kSendEarlyFinalBeginMainFrame);
 }
+
+BASE_FEATURE(kVizHitTestRoundedCorners, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace features

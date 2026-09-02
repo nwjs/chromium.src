@@ -97,6 +97,23 @@ bool ValidateDownloadAttributeLength(const String& download_attr,
 
 }  // namespace
 
+void AnchorElementUtils::UpdateHref(Element& element,
+                                    const AtomicString& new_value) {
+  bool was_link = element.IsLink();
+  bool is_link = !new_value.IsNull();
+  element.SetIsLink(is_link);
+  if (!was_link && !is_link) {
+    return;
+  }
+  element.PseudoStateChanged(CSSSelector::kPseudoLink);
+  element.PseudoStateChanged(CSSSelector::kPseudoVisited);
+  element.PseudoStateChanged(CSSSelector::kPseudoLinkTo);
+  if (was_link != is_link) {
+    element.PseudoStateChanged(CSSSelector::kPseudoWebkitAnyLink);
+    element.PseudoStateChanged(CSSSelector::kPseudoAnyLink);
+  }
+}
+
 void AnchorElementUtils::HandleDownloadAttribute(Element* element,
                                                  const String& download_attr,
                                                  const KURL& url,
@@ -134,6 +151,7 @@ void AnchorElementUtils::HandleDownloadAttribute(Element* element,
   request.SetSuggestedFilename(download_attr);
   request.SetRequestContext(mojom::blink::RequestContextType::DOWNLOAD);
   request.SetRequestorOrigin(window->GetSecurityOrigin());
+  request.SetHasUserGesture(LocalFrame::HasTransientUserActivation(frame));
   network::mojom::ReferrerPolicy referrer_policy = request.GetReferrerPolicy();
 
   if (referrer_policy == network::mojom::ReferrerPolicy::kDefault) {

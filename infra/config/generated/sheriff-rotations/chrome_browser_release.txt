@@ -1,4 +1,5 @@
 ci/Android FYI Release (Pixel 10)
+ci/Android FYI Release (Pixel 4)
 ci/Android FYI Release (Pixel 6)
 ci/Android Release (Pixel 2)
 ci/Android arm Builder (dbg)
@@ -24,9 +25,12 @@ ci/Dawn Win10 x86 DEPS Release (Intel)
 ci/Dawn Win10 x86 DEPS Release (NVIDIA)
 ci/Dawn Win11 arm64 DEPS Builder
 ci/Dawn Win11 arm64 DEPS Release (Qualcomm Snapdragon X Elite)
+ci/GPU FYI Android arm Builder
 ci/GPU FYI Android arm64 Builder
+ci/GPU FYI Linux Builder
 ci/GPU FYI Mac arm64 Builder
 ci/GPU FYI Win arm64 Builder
+ci/GPU FYI Win x64 Builder
 ci/GPU Linux Builder
 ci/GPU Mac Builder
 ci/GPU Mac arm64 Builder
@@ -38,6 +42,9 @@ ci/Linux ASan LSan Tests (1)
 ci/Linux Builder
 ci/Linux Builder (Wayland)
 ci/Linux Builder (dbg)
+ci/Linux FYI Release (AMD RX 5500 XT)
+ci/Linux FYI Release (Intel UHD 630)
+ci/Linux FYI Release (NVIDIA)
 ci/Linux Release (NVIDIA)
 ci/Linux TSan Builder
 ci/Linux TSan Tests
@@ -53,6 +60,8 @@ ci/Mac13 Tests
 ci/Win Builder
 ci/Win Builder (dbg)
 ci/Win x64 Builder
+ci/Win10 FYI x64 Release (Intel)
+ci/Win10 FYI x64 Release (NVIDIA)
 ci/Win10 Tests x64
 ci/Win10 x64 Release (NVIDIA)
 ci/Win11 FYI arm64 Release (Qualcomm Snapdragon X Elite)
@@ -91,12 +100,14 @@ ci/fuchsia-x64-cast-receiver-dbg
 ci/fuchsia-x64-cast-receiver-rel
 ci/ios-simulator
 ci/ios-simulator-full-configs
+ci/linux-arm64-official
 ci/linux-cast-arm-rel
 ci/linux-cast-arm64-rel
 ci/linux-cast-x64-dbg
 ci/linux-cast-x64-rel
 ci/linux-chromeos-dbg
 ci/linux-chromeos-rel
+ci/linux-official
 ci/linux-wayland-mutter-rel-tests
 ci/linux-wayland-weston-rel-tests
 ci/mac-arm64-dbg

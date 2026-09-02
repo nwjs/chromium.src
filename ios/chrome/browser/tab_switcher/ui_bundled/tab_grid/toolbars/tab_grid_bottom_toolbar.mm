@@ -10,7 +10,7 @@
 #import "base/metrics/user_metrics_action.h"
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
-#import "ios/chrome/browser/shared/coordinator/scene/state/layout_state.h"
+#import "ios/chrome/browser/shared/coordinator/scene/state/scene_layout_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -55,7 +55,7 @@ CGFloat CompactButtonHorizontalPadding() {
 
 }  // namespace
 
-@interface TabGridBottomToolbar () <LayoutStateObserver>
+@interface TabGridBottomToolbar () <SceneLayoutStateObserver>
 @end
 
 @implementation TabGridBottomToolbar {
@@ -69,8 +69,6 @@ CGFloat CompactButtonHorizontalPadding() {
   BOOL _scrolledToEdge;
   TabGridToolbarBackground* _backgroundView;
   TabGridToolbarScrollingBackground* _scrollBackgroundView;
-  // Configures the responder following the receiver in the responder chain.
-  UIResponder* _followingNextResponder;
   NSLayoutConstraint* _viewTopConstraint;
 }
 
@@ -215,9 +213,9 @@ CGFloat CompactButtonHorizontalPadding() {
   _addToButton.enabled = enabled;
 }
 
-#pragma mark - LayoutStateObserver
+#pragma mark - SceneLayoutStateObserver
 
-- (void)layoutState:(LayoutState*)layoutState
+- (void)layoutState:(SceneLayoutState*)layoutState
     didChangeAppBarPosition:(AppBarPosition)appBarPosition {
   [self updateLayout];
 }
@@ -550,17 +548,15 @@ CGFloat CompactButtonHorizontalPadding() {
     _scrollBackgroundView = [[TabGridToolbarScrollingBackground alloc] init];
     _scrollBackgroundView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_scrollBackgroundView];
-    AddSameConstraintsToSides(
-        self, _scrollBackgroundView,
-        LayoutSides::kLeading | LayoutSides::kTop | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(self, _scrollBackgroundView,
+                              LayoutSides::kTop | LayoutSides::kHorizontal);
   } else {
     _backgroundView =
         [[TabGridToolbarBackground alloc] initWithFrame:self.frame];
     _backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
     [self addSubview:_backgroundView];
-    AddSameConstraintsToSides(
-        self, _backgroundView,
-        LayoutSides::kLeading | LayoutSides::kTop | LayoutSides::kTrailing);
+    AddSameConstraintsToSides(self, _backgroundView,
+                              LayoutSides::kTop | LayoutSides::kHorizontal);
   }
 }
 
@@ -594,17 +590,7 @@ CGFloat CompactButtonHorizontalPadding() {
   _largeNewTabButton.hidden = YES;
 }
 
-#pragma mark - Public
-
-- (void)respondBeforeResponder:(UIResponder*)nextResponder {
-  _followingNextResponder = nextResponder;
-}
-
 #pragma mark - UIResponder
-
-- (UIResponder*)nextResponder {
-  return _followingNextResponder;
-}
 
 - (NSArray<UIKeyCommand*>*)keyCommands {
   return @[ UIKeyCommand.cr_closeAll, UIKeyCommand.cr_close ];
@@ -666,7 +652,7 @@ CGFloat CompactButtonHorizontalPadding() {
   [self updateBackgroundVisibility];
 }
 
-- (void)setLayoutState:(LayoutState*)layoutState {
+- (void)setLayoutState:(SceneLayoutState*)layoutState {
   if (_layoutState == layoutState) {
     return;
   }

@@ -55,7 +55,7 @@ void LogSuggestionPreserved(MultistepFilterLogRouter* log_router,
   MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
                        LogEventType::kSuggestionPreserved,
                        metadata.url.GetHost())
-      << LogDetail{"reason", std::string(reason)};
+      << LogDetail{"reason", reason};
 }
 
 void LogUrlEligibilityCheck(MultistepFilterLogRouter* log_router,
@@ -71,9 +71,42 @@ void LogUrlEligibilityCheck(MultistepFilterLogRouter* log_router,
     MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
                          LogEventType::kUrlEligibilityCheck,
                          metadata.url.GetHost())
-        << LogDetail{"eligible", eligible}
-        << LogDetail{"reason", std::string(reason)};
+        << LogDetail{"eligible", eligible} << LogDetail{"reason", reason};
   }
+}
+
+void LogUrlEligibilityCheck(MultistepFilterLogRouter* log_router,
+                            const FilterNavigationMetadata& metadata,
+                            const AccountState& account) {
+  MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
+                       LogEventType::kUrlEligibilityCheck,
+                       metadata.url.GetHost())
+      << LogDetail{"eligible", account.IsEligible()}
+      << LogDetail{"signed_in", account.is_signed_in}
+      << LogDetail{"can_use_model_execution_features",
+                   account.can_use_model_execution_features};
+}
+
+void LogUrlEligibilityCheck(MultistepFilterLogRouter* log_router,
+                            const FilterNavigationMetadata& metadata,
+                            const ConsentState& consent) {
+  MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
+                       LogEventType::kUrlEligibilityCheck,
+                       metadata.url.GetHost())
+      << LogDetail{"eligible", consent.IsFullyConsented()}
+      << LogDetail{"url_keyed_data_collection_enabled", consent.is_msbb_enabled}
+      << LogDetail{"history_sync_enabled", consent.is_history_sync_enabled};
+}
+
+void LogUrlEligibilityCheck(MultistepFilterLogRouter* log_router,
+                            const FilterNavigationMetadata& metadata,
+                            const SettingsState& settings) {
+  MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
+                       LogEventType::kUrlEligibilityCheck,
+                       metadata.url.GetHost())
+      << LogDetail{"eligible", settings.IsSmartSuggestionsEnabled()}
+      << LogDetail{"opt_in_state", std::to_underlying(settings.opt_in_state)}
+      << LogDetail{"policy_state", std::to_underlying(settings.policy_state)};
 }
 
 void LogAnnotationExtractionStarted(MultistepFilterLogRouter* log_router,
@@ -89,7 +122,7 @@ void LogSuggestionSuppressed(MultistepFilterLogRouter* log_router,
   MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
                        LogEventType::kSuggestionSuppressed,
                        metadata.url.GetHost())
-      << LogDetail{"reason", std::string(reason)};
+      << LogDetail{"reason", reason};
 }
 
 void LogSuggestionGenerationStarted(MultistepFilterLogRouter* log_router,
@@ -130,7 +163,7 @@ void LogSuggestionApplicationOutcome(
 
   std::string_view outcome_str =
       SuggestionApplicationResultToString(result.outcome);
-  if (result.outcome == SuggestionApplicationResult::kFailedAttributeMismatch) {
+  if (!result.missing_keys.empty()) {
     MULTISTEP_FILTER_LOG(log_router, metadata.navigation_id,
                          LogEventType::kSuggestionApplied,
                          metadata.url.GetHost())
@@ -240,16 +273,21 @@ void FilterTabController::OnNavigationFinished(
     return;
   }
 
-  if (!service_->CanUseModelExecutionFeatures()) {
-    LogUrlEligibilityCheck(log_router_, metadata, /*eligible=*/false,
-                           "model_execution_features_disabled");
+  AccountState account = service_->GetAccountState();
+  if (!account.IsEligible()) {
+    LogUrlEligibilityCheck(log_router_, metadata, account);
     return;
   }
 
-  if (!service_->HasUserProvidedConsent(metadata.navigation_id,
-                                        metadata.url.GetHost())) {
-    LogUrlEligibilityCheck(log_router_, metadata, /*eligible=*/false,
-                           "no_user_consent");
+  SettingsState settings = service_->GetSettingsState();
+  if (!settings.IsSmartSuggestionsEnabled()) {
+    LogUrlEligibilityCheck(log_router_, metadata, settings);
+    return;
+  }
+
+  ConsentState consent = service_->GetConsentState();
+  if (!consent.IsFullyConsented()) {
+    LogUrlEligibilityCheck(log_router_, metadata, consent);
     return;
   }
 
@@ -318,7 +356,7 @@ void FilterTabController::OnSupportedTasksFetched(
 void FilterTabController::OnSuggestionGenerated(
     std::optional<UrlFilterSuggestion> suggestion) {
   if (suggestion) {
-    delegate_->OnSuggestionGenerated(
+    delegate_->ShowSuggestion(
         suggestion,
         MultistepFilterUiDelegate::SuggestionUiCallbacks{
             .on_suggestion_shown =
@@ -330,7 +368,7 @@ void FilterTabController::OnSuggestionGenerated(
                 &FilterTabController::OnUserDecision, GetWeakPtr()),
         });
   } else {
-    delegate_->OnSuggestionGenerated(std::nullopt, {});
+    delegate_->ShowSuggestion(std::nullopt, {});
     metrics_tracker_.OnPreservedSuggestionCleared();
   }
   if (observer_for_test_) {
@@ -343,6 +381,8 @@ void FilterTabController::OnExtractionFinished(
     std::optional<FilterAnnotation> annotation) {
   LogSuggestionApplicationOutcome(log_router_, metrics_tracker_, metadata,
                                   metadata.applied_suggestion, annotation);
+  metrics_tracker_.OnExtractionFinished(metadata, annotation);
+
   if (observer_for_test_) {
     observer_for_test_->OnExtractionFinishedForTest(  // IN-TEST
         annotation ? std::optional(annotation->id) : std::nullopt);

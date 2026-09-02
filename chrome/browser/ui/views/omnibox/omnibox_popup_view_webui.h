@@ -50,6 +50,7 @@ class OmniboxPopupViewWebUI : public OmniboxPopupView,
   void StepSelection(OmniboxPopupSelection::Direction direction,
                      OmniboxPopupSelection::Step step) override;
   void OpenCurrentSelection(WindowOpenDisposition disposition) override;
+  void ResetPopupToInitialState() override;
   bool IsSelectionPopupControlled() const override;
 
   // OmniboxEditModel::Observer:
@@ -61,6 +62,8 @@ class OmniboxPopupViewWebUI : public OmniboxPopupView,
 
   // OmniboxPopupView:
   bool IsOpen() const override;
+
+  LocationBar* location_bar() const { return location_bar_; }
 
  protected:
   OmniboxPopupViewWebUI(OmniboxView* omnibox_view,

@@ -38,20 +38,11 @@ class ObservableSupplierImpl<T> extends BaseObservableSupplierImpl<T>
                 SettableMonotonicObservableSupplier<T>,
                 SettableNonNullObservableSupplier<T> {
     protected final ThreadChecker mThreadChecker = new ThreadChecker();
-    protected @Nullable ObserverList<Callback<T>> mObservers = new ObserverList<>();
+    protected @Nullable ObserverList<Callback<T>> mObservers;
     protected T mObject;
+    private boolean mIsDestroyed;
 
-    @Deprecated // Migrate to ObservableSuppliers.*
-    public ObservableSupplierImpl() {
-        this(null, /* allowSetToNull= */ null);
-    }
-
-    @Deprecated // Migrate to ObservableSuppliers.*
-    public ObservableSupplierImpl(T initialValue) {
-        this(initialValue, /* allowSetToNull= */ null);
-    }
-
-    protected ObservableSupplierImpl(@Nullable T initialValue, @Nullable Boolean allowSetToNull) {
+    protected ObservableSupplierImpl(@Nullable T initialValue, boolean allowSetToNull) {
         super(allowSetToNull);
         mObject = initialValue;
         // Guard against creation on Instrumentation thread, since this causes the ThreadChecker
@@ -61,21 +52,28 @@ class ObservableSupplierImpl<T> extends BaseObservableSupplierImpl<T>
 
     @Override
     public T addObserver(Callback<T> obs, @NotifyBehavior int behavior) {
-        assert mObservers != null : "addObserver called on destroyed supplier";
-        if (mObservers == null) {
+        assert !mIsDestroyed : "addObserver called on destroyed supplier";
+        if (mIsDestroyed) {
             return null;
+        }
+        if (mObservers == null) {
+            mObservers = new ObserverList<>();
         }
         // ObserverList has its own ThreadChecker.
         mObservers.addObserver(obs);
 
         T currentObject = mObject;
-        boolean notify = shouldNotifyOnAdd(behavior) && currentObject != null;
+        boolean notify =
+                shouldNotifyOnAdd(behavior)
+                        && (currentObject != null || shouldAllowNullOnAdd(behavior));
         if (notify) {
             if (shouldPostOnAdd(behavior)) {
                 ThreadUtils.assertOnUiThread();
                 ThreadUtils.postOnUiThread(
                         () -> {
-                            if (mObject == currentObject && mObservers.hasObserver(obs)) {
+                            if (mObject == currentObject
+                                    && mObservers != null
+                                    && mObservers.hasObserver(obs)) {
                                 obs.onResult(currentObject);
                             }
                         });
@@ -101,21 +99,28 @@ class ObservableSupplierImpl<T> extends BaseObservableSupplierImpl<T>
         // destroyed, so it's easier to ignore set() after destroy() than to have callers have to
         // track the state. It can also be hard to ensure queued callbacks that call set() are
         // cancelled, so again, just ignore after destroy().
-        if (mObservers != null) {
+        if (!mIsDestroyed) {
             mThreadChecker.assertOnValidThread();
-            assert object != null || !Boolean.FALSE.equals(mAllowSetToNull)
+            assert object != null || mAllowSetToNull
                     : "set(null) called on a non-nullable supplier";
             T prevValue = mObject;
             mObject = object;
-            callObservers(prevValue);
+            if (mObservers != null) {
+                callObservers(prevValue);
+            }
         }
     }
 
     @Override
     @SuppressWarnings("NullAway")
     public void destroy() {
+        mIsDestroyed = true;
         mObservers = null;
         mObject = null;
+    }
+
+    /* package */ boolean isDestroyed() {
+        return mIsDestroyed;
     }
 
     @RequiresNonNull("mObservers")
@@ -149,7 +154,12 @@ class ObservableSupplierImpl<T> extends BaseObservableSupplierImpl<T>
     }
 
     /** Returns whether the observer should be notified asynchronously on being added. */
-    private static boolean shouldPostOnAdd(int behavior) {
+    private static boolean shouldPostOnAdd(@NotifyBehavior int behavior) {
         return (NotifyBehavior.POST_ON_ADD & behavior) != 0;
+    }
+
+    /** Returns whether the observer should be notified on being added even if value is null. */
+    private static boolean shouldAllowNullOnAdd(@NotifyBehavior int behavior) {
+        return (NotifyBehavior.ALLOW_NULL_ON_ADD & behavior) != 0;
     }
 }

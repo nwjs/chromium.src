@@ -451,6 +451,8 @@ public class AccountSelectionCoordinator
         boolean launched = mWindowAndroid.showIntent(intent, new NativeAppIntentCallback(), null);
         if (launched) {
             mMediator.onModalDialogOpened();
+        } else {
+            launchCct(url);
         }
     }
 
@@ -459,8 +461,19 @@ public class AccountSelectionCoordinator
 
         @Override
         public void onIntentCompleted(int resultCode, @Nullable Intent data) {
-            // TODO(crbug.com/521864267): return the result to the RP.
-            mDelegate.onDismissed(IdentityRequestDialogDismissReason.OTHER);
+            String token = null;
+            if (data != null) {
+                token = data.getStringExtra("token");
+            }
+            if (resultCode == Activity.RESULT_OK) {
+                if (token != null) {
+                    mDelegate.onNativeAppResult(token);
+                } else {
+                    mDelegate.onNativeAppLoginFinished();
+                }
+            } else {
+                mMediator.onDismissed(IdentityRequestDialogDismissReason.OTHER);
+            }
             mMediator.onModalDialogClosed();
         }
     }

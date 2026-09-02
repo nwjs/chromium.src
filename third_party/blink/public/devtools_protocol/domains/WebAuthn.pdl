@@ -22,6 +22,7 @@ experimental domain WebAuthn
       ctap2_1
       ctap2_2
 
+  # LINT.IfChange(AuthenticatorTransport)
   type AuthenticatorTransport extends string
     enum
       # Cross-Platform authenticator attachments:
@@ -29,8 +30,11 @@ experimental domain WebAuthn
       nfc
       ble
       cable
+      hybrid
+      smart-card
       # Platform authenticator attachment:
       internal
+  # LINT.ThenChange(//content/browser/devtools/protocol/webauthn_handler.cc:ConvertToFidoTransportProtocol)
 
   type VirtualAuthenticatorOptions extends object
     properties
@@ -102,7 +106,7 @@ experimental domain WebAuthn
       # If -1, the credential won't have an associated signature counter, and
       # every assertion operation will report a value of 0.
       # See https://w3c.github.io/webauthn/#signature-counter
-      optional integer signCount
+      integer signCount
       # The large blob associated with the credential.
       # See https://w3c.github.io/webauthn/#sctn-large-blob-extension
       optional binary largeBlob

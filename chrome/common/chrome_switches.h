@@ -109,6 +109,7 @@ extern const char kEnableExtensionActivityLogTesting[];
 extern const char kEnableHangoutServicesExtensionForTesting[];
 extern const char kEnableNetBenchmarking[];
 extern const char kEnablePotentiallyAnnoyingSecurityFeatures[];
+extern const char kEnableTtcDebugLogs[];
 extern const char kExperimentalAiStableChannel[];
 extern const char kExplicitlyAllowedPorts[];
 extern const char kExtensionAiDataCollection[];
@@ -260,6 +261,7 @@ extern const char kRelauncherProcessDMGDevice[];
 extern const char kMakeChromeDefault[];
 extern const char kCodeSignCloneCleanupProcess[];
 extern const char kUniqueTempDirSuffix[];
+extern const char kNoOpForTestingProcess[];
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
@@ -293,6 +295,7 @@ extern const char kGuest[];
 #endif
 
 extern const char kGlicGuestURL[];
+extern const char kSkillsV2Origin[];
 extern const char kGlicGeminiEnterpriseSettingsOverride[];
 extern const char kGlicAlwaysOpenFre[];
 extern const char kGlicAlwaysSkipFre[];

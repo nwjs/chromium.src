@@ -24,6 +24,7 @@ namespace blink {
 class ClipPaintPropertyNode;
 class ClipPaintPropertyNodeOrAlias;
 class PropertyTreeState;
+class TransformPaintPropertyNode;
 class TransformPaintPropertyNodeOrAlias;
 
 // Effect nodes are abstraction of isolated groups, along with optional effects
@@ -111,13 +112,15 @@ class PLATFORM_EXPORT EffectPaintPropertyNode final
     bool operator==(const CanvasChildState& other) const {
       return id == other.id && paint_state == other.paint_state &&
              content_effect == other.content_effect &&
-             content_clip == other.content_clip;
+             content_clip == other.content_clip &&
+             content_transform == other.content_transform;
     }
 
     DOMNodeId id = kInvalidDOMNodeId;
     CanvasChildPaintState paint_state;
     Member<const EffectPaintPropertyNodeOrAlias> content_effect;
     Member<const ClipPaintPropertyNodeOrAlias> content_clip;
+    Member<const TransformPaintPropertyNodeOrAlias> content_transform;
 
     void Trace(Visitor* visitor) const;
   };
@@ -145,7 +148,7 @@ class PLATFORM_EXPORT EffectPaintPropertyNode final
     float opacity = 1;
     SkBlendMode blend_mode = SkBlendMode::kSrcOver;
     // === End of effects ===
-    CompositingReasons direct_compositing_reasons = CompositingReason::kNone;
+    CompositingReasons direct_compositing_reasons;
     CompositorElementId compositor_element_id;
 
     // An identifier to tag transition element resources generated and cached in
@@ -168,7 +171,9 @@ class PLATFORM_EXPORT EffectPaintPropertyNode final
 
     bool needs_effect_for_2d_scale_transform = false;
 
-    bool is_in_canvas_subtree = false;
+    bool is_in_tainted_subtree = false;
+
+    bool is_in_drawable_canvas_subtree = false;
 
     PaintPropertyChangeType ComputeChange(
         const State& other,
@@ -289,51 +294,56 @@ class PLATFORM_EXPORT EffectPaintPropertyNode final
   gfx::Rect MapRect(const gfx::Rect& input_rect) const;
 
   bool HasDirectCompositingReasons() const {
-    return state_.direct_compositing_reasons != CompositingReason::kNone;
+    return !state_.direct_compositing_reasons.empty();
   }
   bool RequiresCompositingForUnboundedElement() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kUnboundedElement;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kUnboundedElement);
   }
   bool RequiresCompositingForBackdropFilterMask() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kBackdropFilterMask;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kBackdropFilterMask);
   }
   bool RequiresCompositingForCanvasChild() const {
-    return state_.direct_compositing_reasons & CompositingReason::kCanvasChild;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kCanvasChild);
   }
 
-  bool IsInCanvasSubtree() const { return state_.is_in_canvas_subtree; }
+  bool IsInTaintedSubtree() const { return state_.is_in_tainted_subtree; }
+
+  bool IsInDrawableCanvasSubtree() const {
+    return state_.is_in_drawable_canvas_subtree;
+  }
 
   bool FlattensAtLeafOf3DScene() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kTransform3DSceneLeaf;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kTransform3DSceneLeaf);
   }
 
   bool HasActiveOpacityAnimation() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kActiveOpacityAnimation;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kActiveOpacityAnimation);
   }
   bool HasActiveFilterAnimation() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kActiveFilterAnimation;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kActiveFilterAnimation);
   }
   bool HasActiveBackdropFilterAnimation() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kActiveBackdropFilterAnimation;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kActiveBackdropFilterAnimation);
   }
 
   bool RequiresCompositingForWillChangeOpacity() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kWillChangeOpacity;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kWillChangeOpacity);
   }
   bool RequiresCompositingForWillChangeFilter() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kWillChangeFilter;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kWillChangeFilter);
   }
   bool RequiresCompositingForWillChangeBackdropFilter() const {
-    return state_.direct_compositing_reasons &
-           CompositingReason::kWillChangeBackdropFilter;
+    return state_.direct_compositing_reasons.Has(
+        CompositingReason::kWillChangeBackdropFilter);
   }
 
   // True if opacity is not 1.0, or could become non-1.0 without a compositing
@@ -412,6 +422,7 @@ class PLATFORM_EXPORT EffectPaintPropertyNode final
 
   const EffectPaintPropertyNode& CanvasChildContentEffect() const;
   const ClipPaintPropertyNode& CanvasChildContentClip() const;
+  const TransformPaintPropertyNode& CanvasChildContentTransform() const;
 
   bool SelfOrAncestorParticipatesInViewTransition() const {
     return state_.self_or_ancestor_participates_in_view_transition;

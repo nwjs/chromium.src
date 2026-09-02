@@ -91,6 +91,7 @@
 #include "third_party/blink/renderer/platform/widget/input/widget_base_input_handler.h"
 #include "third_party/blink/renderer/platform/widget/widget_base_client.h"
 #include "third_party/blink/renderer/platform/wtf/casting.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
 #include "ui/base/mojom/menu_source_type.mojom-blink-forward.h"
 #include "ui/base/mojom/window_show_state.mojom-blink-forward.h"
@@ -374,6 +375,10 @@ class CORE_EXPORT WebFrameWidgetImpl
   void OnFirstContentfulPaint() override;
   void MarkConditional(const AtomicString& name,
                        base::TimeTicks start_time) override;
+  void MeasureConditional(const AtomicString& name,
+                          const AtomicString& start_mark,
+                          const AtomicString& end_mark,
+                          base::TimeTicks end_time) override;
   // TODO(https://crbug.com/515098190): Below are not FrameWidget overrides.
 
   void SetVirtualKeyboardResizeHeightForTesting(int);
@@ -549,6 +554,17 @@ class CORE_EXPORT WebFrameWidgetImpl
           host_remote,
       ScriptPromiseResolver<IDLUndefined>* resolver);
   void UpdateUnboundedElementBounds(const gfx::Rect& bounds);
+  void IncrementActiveUnboundedElementCount() {
+    active_unbounded_element_count_++;
+  }
+  void DecrementActiveUnboundedElementCount() {
+    DCHECK_GT(active_unbounded_element_count_, 0u);
+    active_unbounded_element_count_--;
+  }
+  bool HasActiveUnboundedElements() const {
+    return active_unbounded_element_count_ > 0;
+  }
+  HTMLElement* GetActiveUnboundedElement() const;
 
   // mojom::blink::FrameWidgetInputHandler overrides:
   void HandleStylusWritingGestureAction(
@@ -1414,12 +1430,13 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   class UnboundedSurfaceState final
       : public GarbageCollected<UnboundedSurfaceState>,
-        public ExecutionContextLifecycleObserver {
+        public ExecutionContextLifecycleObserver,
+        public mojom::blink::UnboundedSurfaceClient {
    public:
     UnboundedSurfaceState(WebFrameWidgetImpl* widget, ExecutionContext* context)
         : ExecutionContextLifecycleObserver(context),
           widget_(widget),
-          client_receiver_(widget, context),
+          client_receiver_(this, context),
           host_(context) {}
 
     void Trace(Visitor* visitor) const override {
@@ -1433,9 +1450,24 @@ class CORE_EXPORT WebFrameWidgetImpl
 
     void ContextDestroyed() override { widget_->UnboundedContextDestroyed(); }
 
+    // mojom::blink::UnboundedSurfaceClient overrides:
+    void OnSurfaceAllocated(
+        const viz::FrameSinkId& frame_sink_id,
+        const viz::LocalSurfaceId& local_surface_id) override {
+      if (widget_ && widget_->unbounded_surface_state_.Get() == this) {
+        widget_->OnSurfaceAllocated(frame_sink_id, local_surface_id);
+      }
+    }
+
+    void OnDismissed() override {
+      if (widget_ && widget_->unbounded_surface_state_.Get() == this) {
+        widget_->OnDismissed();
+      }
+    }
+
     Member<WebFrameWidgetImpl> widget_;
     HeapMojoAssociatedReceiver<mojom::blink::UnboundedSurfaceClient,
-                               WebFrameWidgetImpl>
+                               UnboundedSurfaceState>
         client_receiver_;
     HeapMojoAssociatedRemote<mojom::blink::UnboundedSurfaceHost> host_;
 
@@ -1453,28 +1485,12 @@ class CORE_EXPORT WebFrameWidgetImpl
 
   UnboundedSurfaceState* GetOrCreateUnboundedSurfaceState(
       ExecutionContext* execution_context);
+  void DismissUnboundedSurfaceState(bool is_teardown);
   UnboundedSurfaceState* GetUnboundedSurfaceState() const {
     return unbounded_surface_state_.Get();
   }
   void UnboundedContextDestroyed();
-  HTMLElement* GetActiveUnboundedElement() const;
 
- public:
-  // Unbounded elements shown in any local frame under this local root frame
-  // tree are tracked on the WebFrameWidgetImpl so that they can be checked
-  // globally (e.g. for clip escaping and hit testing).
-  void IncrementActiveUnboundedElementCount() {
-    active_unbounded_element_count_++;
-  }
-  void DecrementActiveUnboundedElementCount() {
-    DCHECK_GT(active_unbounded_element_count_, 0u);
-    active_unbounded_element_count_--;
-  }
-  bool HasActiveUnboundedElements() const {
-    return active_unbounded_element_count_ > 0;
-  }
-
- private:
   // Used during unbounded element show/hide to keep track of whether there is
   // an active unbounded element in this widget.
   // TODO(crbug.com/508672616): This likely can just be a bool, once checks are

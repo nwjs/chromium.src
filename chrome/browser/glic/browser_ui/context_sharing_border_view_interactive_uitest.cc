@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "chrome/browser/glic/browser_ui/context_sharing_border_view.h"
+
 #include <math.h>
 
 #include "base/numerics/ranges.h"
@@ -14,13 +16,12 @@
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/ui/actor_ui_tab_controller.h"
 #include "chrome/browser/glic/actor/glic_actor_test_util.h"
-#include "chrome/browser/glic/browser_ui/context_sharing_border_view.h"
 #include "chrome/browser/glic/browser_ui/context_sharing_border_view_controller_impl.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
 #include "chrome/browser/glic/test_support/interactive_glic_test.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
@@ -71,7 +72,8 @@ static constexpr float kFloatComparisonTolerance = 0.001f;
 
 class WidgetShowStateObserver : public views::WidgetObserver {
  public:
-  WidgetShowStateObserver(Browser* browser, bool should_be_minimized)
+  WidgetShowStateObserver(BrowserWindowInterface* browser,
+                          bool should_be_minimized)
       : browser_(browser), should_be_minimized_(should_be_minimized) {
     widget_observation_.Observe(
         BrowserElementsViews::From(browser)->GetPrimaryWindowWidget());
@@ -92,17 +94,17 @@ class WidgetShowStateObserver : public views::WidgetObserver {
  private:
   base::ScopedObservation<views::Widget, views::WidgetObserver>
       widget_observation_{this};
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
   bool should_be_minimized_ = false;
   base::RunLoop run_loop_;
 };
 
-void WaitForUnminimize(Browser* browser) {
+void WaitForUnminimize(BrowserWindowInterface* browser) {
   WidgetShowStateObserver observer(browser, /*should_be_minimized=*/false);
   observer.Wait();
 }
 
-void WaitForMinimize(Browser* browser) {
+void WaitForMinimize(BrowserWindowInterface* browser) {
   WidgetShowStateObserver observer(browser, /*should_be_minimized=*/true);
   observer.Wait();
 }
@@ -189,7 +191,7 @@ class TesterImpl : public ContextSharingBorderView::Tester {
 class TestBorderView : public ContextSharingBorderView {
  public:
   TestBorderView(std::unique_ptr<ContextSharingBorderViewController> controller,
-                 Browser* browser,
+                 BrowserWindowInterface* browser,
                  ContentsWebView* contents_web_view,
                  std::unique_ptr<Tester> tester)
       : ContextSharingBorderView(std::move(controller),
@@ -209,7 +211,7 @@ class TestFactory : public ContextSharingBorderView::Factory {
  protected:
   std::unique_ptr<ContextSharingBorderView> CreateBorderView(
       std::unique_ptr<ContextSharingBorderViewController> controller,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       ContentsWebView* contents_web_view) override {
     ContextSharingBorderView* new_border =
         new TestBorderView(std::move(controller), browser, contents_web_view,
@@ -290,12 +292,12 @@ class ContextSharingBorderViewUiTestBase : public test::InteractiveGlicTest {
         ExecuteJsAt(kGlicContentsElementId, kShutdownWindowButton, kClickFn));
   }
 
-  void ClickGlicButtonInBrowser(Browser* browser) {
+  void ClickGlicButtonInBrowser(BrowserWindowInterface* browser) {
     RunTestSequenceInContext(BrowserElements::From(browser)->GetContext(),
                              PressButton(kGlicButtonElementId));
   }
 
-  void AppendTabAndNavigate(Browser* browser, const GURL& url) {
+  void AppendTabAndNavigate(BrowserWindowInterface* browser, const GURL& url) {
     auto new_tab_index = browser->tab_strip_model()->active_index() + 1;
     content::TestNavigationObserver navigation_observer(url);
     navigation_observer.StartWatchingNewWebContents();
@@ -342,21 +344,22 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, BorderResize) {
   ui_test_utils::ViewBoundsWaiter border_bounds_waiter(border);
   border_bounds_waiter.WaitForNonEmptyBounds();
 
-  auto* contents_web_view = browser()->GetBrowserView().contents_web_view();
+  auto* contents_web_view =
+      BrowserView::GetBrowserViewForBrowser(browser())->contents_web_view();
   EXPECT_EQ(border->GetVisibleBounds(), contents_web_view->GetVisibleBounds());
 
   // Resize the browser view to closer to its minimum size.
   //
   // Note: the widget will often be larger (for example, if it needs to render
   // a shadow border; this is especially true on Linux.
-  const auto& browser_view = browser()->GetBrowserView();
+  const auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   const int widget_additional_width =
-      browser_view.GetWidget()->GetWindowBoundsInScreen().width() -
-      browser_view.width();
+      browser_view->GetWidget()->GetWindowBoundsInScreen().width() -
+      browser_view->width();
   const int widget_additional_height =
-      browser_view.GetWidget()->GetWindowBoundsInScreen().height() -
-      browser_view.height();
-  const auto minimum_size = browser_view.browser_widget()->GetMinimumSize();
+      browser_view->GetWidget()->GetWindowBoundsInScreen().height() -
+      browser_view->height();
+  const auto minimum_size = browser_view->browser_widget()->GetMinimumSize();
   const int minimum_width = minimum_size.width() + widget_additional_width;
   const int minimum_height =
       std::max(minimum_size.height() + widget_additional_height, 600);
@@ -673,7 +676,7 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, FocusedWindowChange) {
   ASSERT_TRUE(border);
   TesterImpl* tester = static_cast<TesterImpl*>(border->tester());
 
-  Browser* browser2 = CreateBrowser(browser()->GetProfile());
+  BrowserWindowInterface* browser2 = CreateBrowser(browser()->GetProfile());
   ContextSharingBorderView* border2 =
       BrowserView::GetBrowserViewForBrowser(browser2)
           ->GetActiveContentsContainerView()
@@ -682,8 +685,9 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, FocusedWindowChange) {
 
   // Start the animation in the first browser window.
   browser()->GetWindow()->Show();
-  views::test::WaitForWidgetActive(browser()->GetBrowserView().GetWidget(),
-                                   /*active=*/true);
+  views::test::WaitForWidgetActive(
+      BrowserView::GetBrowserViewForBrowser(browser())->GetWidget(),
+      /*active=*/true);
   StartBorderAnimation();
   tester->WaitForAnimationStart();
   EXPECT_TRUE(border->IsShowing());
@@ -698,8 +702,9 @@ IN_PROC_BROWSER_TEST_F(ContextSharingBorderViewUiTest, FocusedWindowChange) {
 
   // Focus on the new window.
   browser2->GetWindow()->Show();
-  views::test::WaitForWidgetActive(browser2->GetBrowserView().GetWidget(),
-                                   /*active=*/true);
+  views::test::WaitForWidgetActive(
+      BrowserView::GetBrowserViewForBrowser(browser2)->GetWidget(),
+      /*active=*/true);
 
   // Flush out the ramp down animation in the old browser window.
   tester->WaitForRampDownStarted();

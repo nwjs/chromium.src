@@ -29,7 +29,6 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
-#include "chrome/browser/ui/views/page_action/page_action_icon_controller.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_interactive_test_mixin.h"
 #include "chrome/browser/ui/views/performance_controls/memory_saver_bubble_view.h"
@@ -285,8 +284,8 @@ class MemorySaverChipInteractiveTest
 
   views::BubbleDialogDelegate* GetMemorySaverBubble() {
     return browser()
-        ->browser_window_features()
-        ->memory_saver_bubble_controller()
+        ->GetFeatures()
+        .memory_saver_bubble_controller()
         ->bubble_for_testing();
   }
 
@@ -743,8 +742,12 @@ class MemorySaverImprovedFaviconTreatmentTest
 
   TabIcon* GetTabIcon(int tab_index) {
     return views::AsViewClass<TabIcon>(
-        GetTabStripView()->GetTabAnchorViewAt(tab_index)->GetViewByElementId(
-            kTabIconElementId));
+        GetTabStripView()
+            ->GetTabAnchorView(browser()
+                                   ->tab_strip_model()
+                                   ->GetTabAtIndex(tab_index)
+                                   ->GetHandle())
+            ->GetViewByElementId(kTabIconElementId));
   }
 
  private:

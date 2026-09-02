@@ -482,18 +482,14 @@ HostResolverManager::HostResolverManager(
   UpdateConnectionType(connection_type);
 
 #if defined(ENABLE_BUILT_IN_DNS)
-  InsecureDnsMode initial_insecure_dns_mode = InsecureDnsMode::kDisabled;
-  if (options.insecure_dns_client_enabled) {
-    initial_insecure_dns_mode = options.insecure_dns_via_platform_apis_enabled
-                                    ? InsecureDnsMode::kEnabledPlatform
-                                    : InsecureDnsMode::kEnabledBuiltIn;
-  }
-  CHECK(initial_insecure_dns_mode != InsecureDnsMode::kEnabledPlatform ||
+  CHECK((options.insecure_dns_mode != InsecureDnsMode::kEnabledPlatform &&
+         options.insecure_dns_mode !=
+             InsecureDnsMode::kEnabledPlatformNoSystem) ||
         features::IsDnsPlatformSupported());
 
   dns_client_ = DnsClient::CreateClient(net_log_);
   dns_client_->SetInsecureEnabled(
-      initial_insecure_dns_mode,
+      options.insecure_dns_mode,
       options.additional_types_via_insecure_dns_enabled);
   dns_client_->SetConfigOverrides(options.dns_config_overrides);
 #else
@@ -646,7 +642,8 @@ void HostResolverManager::SetInsecureDnsClientEnabled(
     InsecureDnsMode mode,
     bool additional_dns_types_enabled) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  CHECK(mode != InsecureDnsMode::kEnabledPlatform ||
+  CHECK((mode != InsecureDnsMode::kEnabledPlatform &&
+         mode != InsecureDnsMode::kEnabledPlatformNoSystem) ||
         features::IsDnsPlatformSupported());
 
   if (!dns_client_)
@@ -821,9 +818,9 @@ void HostResolverManager::InitializeJobKeyAndIPAddress(
   // Disable AAAA queries when we cannot do anything with the results.
   bool use_local_ipv6 = true;
   if (dns_client_) {
-    const DnsConfig* config = dns_client_->GetEffectiveConfig();
-    if (config) {
-      use_local_ipv6 = config->use_local_ipv6;
+    const DnsConfig& config = dns_client_->GetEffectiveConfig();
+    if (!config.nameservers.empty() || !config.doh_config.servers().empty()) {
+      use_local_ipv6 = config.use_local_ipv6;
     }
   }
   // When resolving IPv4 literals, there's no need to probe for IPv6. When
@@ -864,7 +861,8 @@ HostCache::Entry HostResolverManager::ResolveLocally(
     const NetLogWithSource& source_net_log,
     HostCache* cache,
     std::deque<TaskType>* out_tasks,
-    std::optional<HostCache::EntryStaleness>* out_stale_info) {
+    std::optional<HostCache::EntryStaleness>* out_stale_info,
+    bool record_metrics) {
   DCHECK(out_stale_info);
   *out_stale_info = std::nullopt;
 
@@ -938,8 +936,9 @@ HostCache::Entry HostResolverManager::ResolveLocally(
       HostCache::Key key = job_key.ToCacheKey(secure);
 
       bool ignore_secure = task == TaskType::CACHE_LOOKUP;
-      resolved = MaybeServeFromCache(cache, key, cache_usage, ignore_secure,
-                                     source_net_log, out_stale_info);
+      resolved =
+          MaybeServeFromCache(cache, key, cache_usage, ignore_secure,
+                              source_net_log, out_stale_info, record_metrics);
       if (resolved) {
         // |MaybeServeFromCache()| will update |*out_stale_info| as needed.
         DCHECK(out_stale_info->has_value());
@@ -1073,7 +1072,8 @@ std::optional<HostCache::Entry> HostResolverManager::MaybeServeFromCache(
     ResolveHostParameters::CacheUsage cache_usage,
     bool ignore_secure,
     const NetLogWithSource& source_net_log,
-    std::optional<HostCache::EntryStaleness>* out_stale_info) {
+    std::optional<HostCache::EntryStaleness>* out_stale_info,
+    bool record_metrics) {
   DCHECK(out_stale_info);
   *out_stale_info = std::nullopt;
 
@@ -1091,12 +1091,22 @@ std::optional<HostCache::Entry> HostResolverManager::MaybeServeFromCache(
   const std::pair<const HostCache::Key, HostCache::Entry>* cache_result;
   HostCache::EntryStaleness staleness;
   if (cache_usage == ResolveHostParameters::CacheUsage::STALE_ALLOWED) {
-    cache_result = cache->LookupStale(effective_key, tick_clock_->NowTicks(),
-                                      &staleness, ignore_secure);
-  } else {
-    DCHECK(cache_usage == ResolveHostParameters::CacheUsage::ALLOWED);
     cache_result =
-        cache->Lookup(effective_key, tick_clock_->NowTicks(), ignore_secure);
+        cache->LookupStale(effective_key, tick_clock_->NowTicks(), &staleness,
+                           ignore_secure, record_metrics);
+  } else {
+    // If the cache usage is STALE_ALLOWED_WHILE_REFRESHING, the request
+    // allows a stale result. However, stale results are checked and served
+    // synchronously before the background Job is created. When this method is
+    // called from a Job (e.g., as part of an insecure cache lookup fallback),
+    // we must only look for fresh results. Thus, treat it similarly to
+    // ALLOWED.
+    DCHECK(
+        cache_usage == ResolveHostParameters::CacheUsage::ALLOWED ||
+        cache_usage ==
+            ResolveHostParameters::CacheUsage::STALE_ALLOWED_WHILE_REFRESHING);
+    cache_result = cache->Lookup(effective_key, tick_clock_->NowTicks(),
+                                 ignore_secure, record_metrics);
     staleness = HostCache::kNotStale;
   }
   if (cache_result) {
@@ -1301,14 +1311,10 @@ SecureDnsMode HostResolverManager::GetEffectiveSecureDnsMode(
       break;
   }
 
-  const DnsConfig* config =
-      dns_client_ ? dns_client_->GetEffectiveConfig() : nullptr;
-
-  SecureDnsMode secure_dns_mode = SecureDnsMode::kOff;
-  if (config) {
-    secure_dns_mode = config->secure_dns_mode;
+  if (dns_client_) {
+    return dns_client_->GetEffectiveConfig().secure_dns_mode;
   }
-  return secure_dns_mode;
+  return SecureDnsMode::kOff;
 }
 
 bool HostResolverManager::ShouldForceSystemResolverDueToTestOverride() const {
@@ -1316,8 +1322,7 @@ bool HostResolverManager::ShouldForceSystemResolverDueToTestOverride() const {
   // that we are not at risk of sending queries beyond the local network.
   if (HostResolverProc::GetDefault() && system_resolver_disabled_for_testing_) {
     DCHECK(dns_client_);
-    DCHECK(dns_client_->GetEffectiveConfig());
-    DCHECK(std::ranges::none_of(dns_client_->GetEffectiveConfig()->nameservers,
+    DCHECK(std::ranges::none_of(dns_client_->GetEffectiveConfig().nameservers,
                                 &IPAddress::IsPubliclyRoutable,
                                 &IPEndPoint::address))
         << "Test could query a publicly-routable address.";
@@ -1327,24 +1332,26 @@ bool HostResolverManager::ShouldForceSystemResolverDueToTestOverride() const {
          !system_resolver_disabled_for_testing_;
 }
 
-void HostResolverManager::PushDnsTasks(bool system_task_allowed,
+// static
+void HostResolverManager::PushDnsTasks(const DnsClient& dns_client,
+                                       bool dns_tasks_allowed,
+                                       bool allow_fallback_to_systemtask,
+                                       bool system_task_allowed,
                                        SecureDnsMode secure_dns_mode,
                                        InsecureDnsMode insecure_dns_mode,
                                        bool allow_cache,
                                        bool prioritize_local_lookups,
                                        ResolveContext* resolve_context,
                                        std::deque<TaskType>* out_tasks) {
-  DCHECK(dns_client_);
-  DCHECK(dns_client_->GetEffectiveConfig());
 
   // If a catch-all DNS block has been set for unit tests, we shouldn't send
   // DnsTasks. It is still necessary to call this method, however, so that the
   // correct cache tasks for the secure dns mode are added.
-  const bool dns_tasks_allowed = !ShouldForceSystemResolverDueToTestOverride();
   const bool insecure_tasks_allowed =
       (insecure_dns_mode != InsecureDnsMode::kDisabled);
   const TaskType dns_task_type =
-      (insecure_dns_mode == InsecureDnsMode::kEnabledPlatform)
+      (insecure_dns_mode == InsecureDnsMode::kEnabledPlatform ||
+       insecure_dns_mode == InsecureDnsMode::kEnabledPlatformNoSystem)
           ? TaskType::DNS_PLATFORM
           : TaskType::DNS;
   // Upgrade the insecure DnsTask depending on the secure dns mode.
@@ -1354,13 +1361,13 @@ void HostResolverManager::PushDnsTasks(bool system_task_allowed,
              out_tasks->front() == TaskType::SECURE_CACHE_LOOKUP);
       // Policy misconfiguration can put us in secure DNS mode without any DoH
       // servers to query. See https://crbug.com/1326526.
-      if (dns_tasks_allowed && dns_client_->CanUseSecureDnsTransactions())
+      if (dns_tasks_allowed && dns_client.CanUseSecureDnsTransactions()) {
         out_tasks->push_back(TaskType::SECURE_DNS);
+      }
       break;
     case SecureDnsMode::kAutomatic:
       DCHECK(!allow_cache || out_tasks->front() == TaskType::CACHE_LOOKUP);
-      if (dns_client_->FallbackFromSecureTransactionPreferred(
-              resolve_context)) {
+      if (dns_client.FallbackFromSecureTransactionPreferred(resolve_context)) {
         // Don't run a secure DnsTask if there are no available DoH servers.
         if (dns_tasks_allowed && insecure_tasks_allowed)
           out_tasks->push_back(dns_task_type);
@@ -1404,7 +1411,8 @@ void HostResolverManager::PushDnsTasks(bool system_task_allowed,
   // The system resolver can be used as a fallback for a non-existent or
   // failing builtin resolver task, if allowed by the request parameters.
   if (system_task_allowed &&
-      (no_builtin_tasks || allow_fallback_to_systemtask_)) {
+      insecure_dns_mode != InsecureDnsMode::kEnabledPlatformNoSystem &&
+      (no_builtin_tasks || allow_fallback_to_systemtask)) {
     out_tasks->push_back(TaskType::SYSTEM);
   }
 }
@@ -1462,7 +1470,7 @@ void HostResolverManager::CreateTaskSequence(
         bool system_task_allowed =
             has_address_type &&
             job_key.secure_dns_mode != SecureDnsMode::kSecure;
-        if (dns_client_ && dns_client_->GetEffectiveConfig()) {
+        if (dns_client_) {
           InsecureDnsMode insecure_dns_mode = InsecureDnsMode::kDisabled;
           if (dns_client_->CanUseInsecureDnsTransactions() &&
               !dns_client_->FallbackFromInsecureTransactionPreferred() &&
@@ -1470,9 +1478,11 @@ void HostResolverManager::CreateTaskSequence(
                dns_client_->CanQueryAdditionalTypesViaInsecureDns())) {
             insecure_dns_mode = dns_client_->GetInsecureDnsMode();
           }
-          PushDnsTasks(system_task_allowed, job_key.secure_dns_mode,
-                       insecure_dns_mode, allow_cache, prioritize_local_lookups,
-                       &*job_key.resolve_context, out_tasks);
+          PushDnsTasks(
+              *dns_client_, !ShouldForceSystemResolverDueToTestOverride(),
+              allow_fallback_to_systemtask_, system_task_allowed,
+              job_key.secure_dns_mode, insecure_dns_mode, allow_cache,
+              prioritize_local_lookups, &*job_key.resolve_context, out_tasks);
         } else if (system_task_allowed) {
           out_tasks->push_back(TaskType::SYSTEM);
         }
@@ -1489,16 +1499,18 @@ void HostResolverManager::CreateTaskSequence(
       out_tasks->push_back(TaskType::SYSTEM);
       break;
     case HostResolverSource::DNS:
-      if (dns_client_ && dns_client_->GetEffectiveConfig()) {
+      if (dns_client_) {
         InsecureDnsMode insecure_dns_mode = InsecureDnsMode::kDisabled;
         if (dns_client_->CanUseInsecureDnsTransactions() &&
             (has_address_type ||
              dns_client_->CanQueryAdditionalTypesViaInsecureDns())) {
           insecure_dns_mode = dns_client_->GetInsecureDnsMode();
         }
-        PushDnsTasks(false /* system_task_allowed */, job_key.secure_dns_mode,
-                     insecure_dns_mode, allow_cache, prioritize_local_lookups,
-                     &*job_key.resolve_context, out_tasks);
+        PushDnsTasks(
+            *dns_client_, !ShouldForceSystemResolverDueToTestOverride(),
+            allow_fallback_to_systemtask_, false /* system_task_allowed */,
+            job_key.secure_dns_mode, insecure_dns_mode, allow_cache,
+            prioritize_local_lookups, &*job_key.resolve_context, out_tasks);
       }
       break;
     case HostResolverSource::MULTICAST_DNS:
@@ -1763,7 +1775,7 @@ void HostResolverManager::AbortInsecureDnsTasks(int error, bool fallback_only) {
 
 // TODO(crbug.com/40641277): Consider removing this and its usage.
 void HostResolverManager::TryServingAllJobsFromHosts() {
-  if (!dns_client_ || !dns_client_->GetEffectiveConfig())
+  if (!dns_client_)
     return;
 
   // TODO(szym): Do not do this if nsswitch.conf instructs not to.
@@ -1801,14 +1813,12 @@ void HostResolverManager::OnConnectionTypeChanged(
   UpdateConnectionType(type);
 }
 
-void HostResolverManager::OnSystemDnsConfigChanged(
-    std::optional<DnsConfig> config) {
+void HostResolverManager::OnSystemDnsConfigChanged(const DnsConfig& config) {
   DCHECK(!IsBoundToNetwork());
   // If tests have provided a catch-all DNS block and then disabled it, check
   // that we are not at risk of sending queries beyond the local network.
-  if (HostResolverProc::GetDefault() && system_resolver_disabled_for_testing_ &&
-      config.has_value()) {
-    DCHECK(std::ranges::none_of(config->nameservers,
+  if (HostResolverProc::GetDefault() && system_resolver_disabled_for_testing_) {
+    DCHECK(std::ranges::none_of(config.nameservers,
                                 &IPAddress::IsPubliclyRoutable,
                                 &IPEndPoint::address))
         << "Test could query a publicly-routable address.";
@@ -1819,7 +1829,7 @@ void HostResolverManager::OnSystemDnsConfigChanged(
   if (dns_client_) {
     transactions_allowed_before = dns_client_->CanUseSecureDnsTransactions() ||
                                   dns_client_->CanUseInsecureDnsTransactions();
-    changed = dns_client_->SetSystemConfig(std::move(config));
+    changed = dns_client_->SetSystemConfig(config);
   }
 
   // Always invalidate cache, even if no change is seen.

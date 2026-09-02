@@ -6,6 +6,7 @@
 
 #import <memory>
 
+#import "base/run_loop.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
@@ -18,6 +19,8 @@
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
+#import "components/signin/public/identity_manager/identity_test_utils.h"
+#import "components/signin/public/identity_manager/tribool.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "components/tab_groups/tab_group_id.h"
 #import "components/tab_groups/tab_group_visual_data.h"
@@ -89,6 +92,7 @@
 #import "ios/web/public/test/fakes/fake_navigation_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
+#import "net/base/mock_network_change_notifier.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
@@ -126,7 +130,7 @@ class AppBarMediatorTest : public PlatformTest {
                                 BuildIdentityManagerForTests));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegate(
+        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
             std::make_unique<FakeAuthenticationServiceDelegate>()));
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateMockSyncService));
@@ -310,6 +314,36 @@ class AppBarMediatorTest : public PlatformTest {
     signin::UpdateAccountInfoForAccount(identity_manager, account_info);
   }
 
+  void SignInWithTriboolCapability(signin::Tribool capability) {
+    id<SystemIdentity> identity = [FakeSystemIdentity fakeIdentity1];
+    FakeSystemIdentityManager* system_identity_manager =
+        FakeSystemIdentityManager::FromSystemIdentityManager(
+            GetApplicationContext()->GetSystemIdentityManager());
+    system_identity_manager->AddIdentity(identity);
+
+    signin::IdentityManager* identity_manager =
+        IdentityManagerFactory::GetForProfile(regular_profile_.get());
+
+    signin::AccountAvailabilityOptionsBuilder builder;
+    builder.WithGaiaId(identity.gaiaId)
+        .AsPrimary(signin::ConsentLevel::kSignin);
+
+    AccountInfo account_info = signin::MakeAccountAvailable(
+        identity_manager,
+        builder.Build(base::SysNSStringToUTF8(identity.userEmail)));
+
+    AccountCapabilitiesTestMutator mutator(&account_info);
+    if (capability == signin::Tribool::kTrue) {
+      mutator.set_can_use_model_execution_features(true);
+      mutator.set_can_use_gemini_in_chrome(true);
+    } else if (capability == signin::Tribool::kFalse) {
+      mutator.set_can_use_model_execution_features(false);
+      mutator.set_can_use_gemini_in_chrome(false);
+    }
+
+    signin::UpdateAccountInfoForAccount(identity_manager, account_info);
+  }
+
   // Sets the location eligibility.
   void SetLocationEligible(bool eligible) {
     if (eligible) {
@@ -328,6 +362,52 @@ class AppBarMediatorTest : public PlatformTest {
   // Wrapper for `InvokeFloaty`.
   void InvokeFloaty(GeminiBrowserAgent* agent, GeminiConfiguration* config) {
     agent->InvokeFloaty(config);
+  }
+
+  AppBarMediator* CreateMediatorWithCustomGeminiService(
+      GeminiService* gemini_service) {
+    BrowserActionFactory* regular_action_factory =
+        [[BrowserActionFactory alloc] initWithBrowser:regular_browser_.get()
+                                             scenario:kTestMenuScenario];
+    BrowserActionFactory* incognito_action_factory =
+        [[BrowserActionFactory alloc] initWithBrowser:incognito_browser_.get()
+                                             scenario:kTestMenuScenario];
+    AppBarMediator* mediator = [[AppBarMediator alloc]
+            initWithRegularWebStateList:regular_web_state_list_.get()
+                  incognitoWebStateList:incognito_web_state_list_.get()
+            regularFullscreenController:TestFullscreenController::FromBrowser(
+                                            regular_browser_.get())
+          incognitoFullscreenController:TestFullscreenController::FromBrowser(
+                                            incognito_browser_.get())
+          regularFullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                            regular_browser_.get())
+        incognitoFullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                            incognito_browser_.get())
+                   regularActionFactory:regular_action_factory
+                 incognitoActionFactory:incognito_action_factory
+                            prefService:regular_profile_
+                                            ->GetTestingPrefService()
+                     templateURLService:search_engines_test_environment_
+                                            .template_url_service()
+                  authenticationService:auth_service_
+                        identityManager:IdentityManagerFactory::GetForProfile(
+                                            regular_profile_.get())
+                          geminiService:gemini_service
+                     geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(
+                                            regular_browser_.get())
+                  aimEligibilityService:aim_eligibility_service_.get()
+                              URLLoader:url_loader_
+                           tabGridState:tab_grid_state_
+                         incognitoState:incognito_state_
+               lensOverlayStateNotifier:lens_overlay_state_];
+    mediator.consumer = consumer_;
+    mediator.sceneHandler = mock_scene_handler_;
+    mediator.settingsHandler = mock_settings_handler_;
+    mediator.lensOverlayHandler = mock_lens_overlay_handler_;
+    mediator.geminiHandler = mock_gemini_handler_;
+    mediator.regularTabGroupsCommands = mock_tab_groups_handler_;
+    mediator.incognitoTabGroupsCommands = mock_tab_groups_handler_;
+    return mediator;
   }
 
   web::WebTaskEnvironment task_environment_;
@@ -841,8 +921,286 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonStateAsk_GeminiAvailable) {
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
-// Tests that tapping the assistant button in the ask state dispatches the
-// Gemini entry flow command when ChromeNextIa is enabled.
+// Tests that when account capability is unknown and device is offline,
+// the button optimistically falls back to kAsk.
+TEST_F(AppBarMediatorTest, TestOptimisticFallback_WhenCapabilityIsUnknown) {
+  std::unique_ptr<net::test::MockNetworkChangeNotifier> mock_network =
+      net::test::MockNetworkChangeNotifier::Create();
+  mock_network->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kUnknown);
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that when account capability is explicitly false (e.g. child account),
+// optimistic fallback is blocked and the button falls back to Account/AIM.
+TEST_F(AppBarMediatorTest, TestNoFallback_WhenCapabilityExplicitlyFalse) {
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kFalse);
+
+  OCMExpect([consumer_
+      setAssistantButtonState:AppBarAssistantButtonState::kAccount
+                  highlighted:NO
+                      enabled:YES
+                       avatar:[OCMArg any]
+                     signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that when online and workspace check explicitly returns disabled,
+// optimistic fallback is blocked.
+TEST_F(AppBarMediatorTest, TestNoFallback_WhenWorkspaceExplicitlyDisabled) {
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kTrue);
+
+  auto fake_gemini = std::make_unique<FakeGeminiService>();
+  gemini::IneligibilityReasons reasons;
+  reasons.workspace = true;
+  fake_gemini->SetIneligibilityReasons(reasons);
+
+  [mediator_ disconnect];
+  gemini_service_ptr_ = std::move(fake_gemini);
+  mediator_ = CreateMediatorWithCustomGeminiService(gemini_service_ptr_.get());
+
+  OCMExpect([consumer_
+      setAssistantButtonState:AppBarAssistantButtonState::kAccount
+                  highlighted:NO
+                      enabled:YES
+                       avatar:[OCMArg any]
+                     signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that when offline, a failed/false workspace check is bypassed by
+// optimistic fallback and shows kAsk.
+TEST_F(AppBarMediatorTest,
+       TestOptimisticFallback_WhenOfflineAndWorkspaceDisabledDueToNetwork) {
+  std::unique_ptr<net::test::MockNetworkChangeNotifier> mock_network =
+      net::test::MockNetworkChangeNotifier::Create();
+  mock_network->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kTrue);
+
+  auto fake_gemini = std::make_unique<FakeGeminiService>();
+  gemini::IneligibilityReasons reasons;
+  reasons.workspace = true;
+  fake_gemini->SetIneligibilityReasons(reasons);
+
+  [mediator_ disconnect];
+  gemini_service_ptr_ = std::move(fake_gemini);
+  mediator_ = CreateMediatorWithCustomGeminiService(gemini_service_ptr_.get());
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that local enterprise policy disablement overrides optimistic fallback.
+TEST_F(AppBarMediatorTest, TestNoFallback_WhenLocalEnterprisePolicyDisabled) {
+  std::unique_ptr<net::test::MockNetworkChangeNotifier> mock_network =
+      net::test::MockNetworkChangeNotifier::Create();
+  mock_network->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kUnknown);
+
+  regular_profile_->GetTestingPrefService()->SetInteger(
+      prefs::kGenAiEnabledByPolicy,
+      static_cast<int>(gemini::GenAiDefaultSettingsPolicy::kNotAllowed));
+
+  OCMExpect([consumer_
+      setAssistantButtonState:AppBarAssistantButtonState::kAccount
+                  highlighted:NO
+                      enabled:YES
+                       avatar:[OCMArg any]
+                     signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that in incognito mode, the assistant button stays in kAsk state but is
+// disabled.
+TEST_F(AppBarMediatorTest, TestGeminiButtonDisabled_WhenInIncognito) {
+  std::unique_ptr<net::test::MockNetworkChangeNotifier> mock_network =
+      net::test::MockNetworkChangeNotifier::Create();
+  mock_network->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kUnknown);
+  incognito_state_.incognitoContentVisible = YES;
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that the assistant button is in the ask state and enabled when signed
+// in with an unverified primary identity.
+TEST_F(AppBarMediatorTest, TestAssistantButtonStateAsk_UnverifiedIdentity) {
+  SetLocationEligible(true);
+  SignInAndSetCapability(false);
+
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(regular_profile_.get());
+  CoreAccountId account_id =
+      identity_manager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
+  signin::UpdatePersistentErrorOfRefreshTokenForAccount(
+      identity_manager, account_id,
+      GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
+          GoogleServiceAuthError::InvalidGaiaCredentialsReason::
+              CREDENTIALS_REJECTED_BY_SERVER));
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:YES
+                                        avatar:nil
+                                      signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that when account capability is pending (kUnknown) online, the button
+// defaults to kAsk.
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonStateAsk_AccountCapabilitiesPending) {
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kUnknown);
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that when workspace policy check is pending, the button defaults to
+// kAsk.
+TEST_F(AppBarMediatorTest, TestAssistantButtonStateAsk_WorkspacePolicyPending) {
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kTrue);
+
+  auto fake_gemini = std::make_unique<FakeGeminiService>();
+  fake_gemini->SetWorkspacePolicyCheckPending(true);
+
+  [mediator_ disconnect];
+  gemini_service_ptr_ = std::move(fake_gemini);
+  mediator_ = CreateMediatorWithCustomGeminiService(gemini_service_ptr_.get());
+
+  OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
+                                   highlighted:NO
+                                       enabled:NO
+                                        avatar:nil
+                                      signedIn:YES]);
+  [mediator_ updateAssistantButton];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that when workspace policy check completes and returns disabled,
+// the button transitions from kAsk to fallback (kAccount).
+TEST_F(AppBarMediatorTest,
+       TestAssistantButtonState_TransitionsToFallbackWhenWorkspaceDisabled) {
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kTrue);
+
+  auto fake_gemini = std::make_unique<FakeGeminiService>();
+  fake_gemini->SetWorkspacePolicyCheckPending(true);
+  FakeGeminiService* fake_gemini_raw = fake_gemini.get();
+
+  [mediator_ disconnect];
+  gemini_service_ptr_ = std::move(fake_gemini);
+  mediator_ = CreateMediatorWithCustomGeminiService(gemini_service_ptr_.get());
+  mediator_.consumer = consumer_;
+
+  // Initial update configures button for pending state (kAsk).
+  [mediator_ updateAssistantButton];
+
+  // When policy resolves as disabled, expect transition to kAccount.
+  OCMExpect([consumer_
+      setAssistantButtonState:AppBarAssistantButtonState::kAccount
+                  highlighted:NO
+                      enabled:YES
+                       avatar:[OCMArg any]
+                     signedIn:YES]);
+
+  gemini::IneligibilityReasons reasons;
+  reasons.workspace = true;
+  fake_gemini_raw->SetIneligibilityReasons(reasons);
+  fake_gemini_raw->SetWorkspacePolicyCheckPending(false);
+
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that the assistant button state is updated when the network connection
+// changes.
+TEST_F(AppBarMediatorTest, TestAssistantButtonUpdatedOnNetworkChange) {
+  std::unique_ptr<net::test::MockNetworkChangeNotifier> mock_network =
+      net::test::MockNetworkChangeNotifier::Create();
+  mock_network->SetConnectionType(net::NetworkChangeNotifier::CONNECTION_NONE);
+
+  SetLocationEligible(true);
+  SignInWithTriboolCapability(signin::Tribool::kTrue);
+
+  auto fake_gemini = std::make_unique<FakeGeminiService>();
+  gemini::IneligibilityReasons reasons;
+  reasons.workspace = true;
+  fake_gemini->SetIneligibilityReasons(reasons);
+
+  // Re-instantiate the mediator so that it registers with the mock network.
+  [mediator_ disconnect];
+  gemini_service_ptr_ = std::move(fake_gemini);
+  mediator_ = CreateMediatorWithCustomGeminiService(gemini_service_ptr_.get());
+  mediator_.consumer = consumer_;
+
+  // Initial update configures button for offline fallback (kAsk).
+  [mediator_ updateAssistantButton];
+
+  base::RunLoop run_loop;
+  base::RepeatingClosure quit_closure = run_loop.QuitClosure();
+
+  // Expect the consumer to be notified when the network reconnects.
+  // Because the workspace check is disabled, it transitions from optimistic
+  // offline fallback (kAsk) to kAccount when online.
+  OCMExpect([consumer_
+                setAssistantButtonState:AppBarAssistantButtonState::kAccount
+                            highlighted:NO
+                                enabled:YES
+                                 avatar:[OCMArg any]
+                               signedIn:YES])
+      .andDo(^(NSInvocation* invocation) {
+        quit_closure.Run();
+      });
+
+  // Simulate network reconnecting.
+  mock_network->SetConnectionTypeAndNotifyObservers(
+      net::NetworkChangeNotifier::CONNECTION_WIFI);
+
+  // Process the network change notification asynchronously.
+  run_loop.Run();
+
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
 TEST_F(AppBarMediatorTest, TestAssistantButtonTappedEligible) {
   SignInAndSetCapability(true);
   [mediator_ updateAssistantButton];
@@ -1335,6 +1693,84 @@ TEST_F(AppBarMediatorTest, TestGeminiEligibilityChangeUpdatesAssistantButton) {
   [mediator disconnect];
 }
 
+// Tests that when AimEligibilityService's eligibility changes, the mediator
+// receives the notification and updates the assistant button's state on the
+// consumer.
+TEST_F(AppBarMediatorTest, TestAimEligibilityChangeUpdatesAssistantButton) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({kGeminiKillSwitch}, {kPageActionMenu});
+
+  base::RepeatingClosure aim_callback;
+  auto mock_aim_service = std::make_unique<MockAimEligibilityService>(
+      *regular_profile_->GetTestingPrefService(),
+      search_engines_test_environment_.template_url_service(),
+      regular_profile_->GetSharedURLLoaderFactory(),
+      IdentityManagerFactory::GetForProfile(regular_profile_.get()));
+
+  EXPECT_CALL(*mock_aim_service, RegisterEligibilityChangedCallback(testing::_))
+      .WillOnce([&](base::RepeatingClosure callback) {
+        aim_callback = callback;
+        return base::CallbackListSubscription();
+      });
+
+  FakeGeminiService fake_gemini_service;
+  fake_gemini_service.SetIsEligible(false);
+
+  BrowserActionFactory* regular_action_factory =
+      [[BrowserActionFactory alloc] initWithBrowser:regular_browser_.get()
+                                           scenario:kTestMenuScenario];
+  BrowserActionFactory* incognito_action_factory =
+      [[BrowserActionFactory alloc] initWithBrowser:incognito_browser_.get()
+                                           scenario:kTestMenuScenario];
+
+  AppBarMediator* mediator = [[AppBarMediator alloc]
+          initWithRegularWebStateList:regular_web_state_list_.get()
+                incognitoWebStateList:incognito_web_state_list_.get()
+          regularFullscreenController:TestFullscreenController::FromBrowser(
+                                          regular_browser_.get())
+        incognitoFullscreenController:TestFullscreenController::FromBrowser(
+                                          incognito_browser_.get())
+        regularFullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                          regular_browser_.get())
+      incognitoFullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(
+                                          incognito_browser_.get())
+                 regularActionFactory:regular_action_factory
+               incognitoActionFactory:incognito_action_factory
+                          prefService:regular_profile_->GetTestingPrefService()
+                   templateURLService:search_engines_test_environment_
+                                          .template_url_service()
+                authenticationService:auth_service_
+                      identityManager:IdentityManagerFactory::GetForProfile(
+                                          regular_profile_.get())
+                        geminiService:&fake_gemini_service
+                   geminiBrowserAgent:GeminiBrowserAgent::FromBrowser(
+                                          regular_browser_.get())
+                aimEligibilityService:mock_aim_service.get()
+                            URLLoader:url_loader_
+                         tabGridState:tab_grid_state_
+                       incognitoState:incognito_state_
+             lensOverlayStateNotifier:lens_overlay_state_];
+
+  id consumer = OCMProtocolMock(@protocol(TestAppBarConsumer));
+  mediator.consumer = consumer;
+
+  // Change from ineligible to eligible.
+  EXPECT_CALL(*mock_aim_service, IsAimEligible())
+      .WillRepeatedly(testing::Return(true));
+  OCMExpect([consumer setAssistantButtonState:AppBarAssistantButtonState::kAIM
+                                  highlighted:NO
+                                      enabled:YES
+                                       avatar:nil
+                                     signedIn:NO]);
+
+  ASSERT_FALSE(aim_callback.is_null());
+  aim_callback.Run();
+
+  EXPECT_OCMOCK_VERIFY(consumer);
+
+  [mediator disconnect];
+}
+
 // Tests that buttons are enabled/disabled based on policy.
 TEST_F(AppBarMediatorTest, TestSetButtonsEnabledByPolicy) {
   tab_grid_state_.currentPage = TabGridPageRegularTabs;
@@ -1357,10 +1793,22 @@ TEST_F(AppBarMediatorTest, TestSetButtonsEnabledByPolicy) {
   EXPECT_OCMOCK_VERIFY(consumer_);
 }
 
-// Tests that the Gemini button is dimmed (disabled) when the user is signed out
+// Tests that the Gemini button is enabled when the user is signed out
 // but the GeminiSettings policy allows it.
 TEST_F(AppBarMediatorTest,
-       TestAssistantButtonStateAsk_DimmedByPolicyWhenSignedOut) {
+       TestAssistantButtonStateAsk_EnabledByPolicyWhenSignedOut) {
+  // Add active WebState with GeminiTabHelper.
+  auto web_state = std::make_unique<web::FakeWebState>();
+  web_state->SetBrowserState(regular_profile_.get());
+  web_state->SetContentsMimeType("text/html");
+  GeminiTabHelper::CreateForWebState(web_state.get());
+  web_state->SetVisibleURL(GURL("https://example.com"));
+  web_state->WasShown();
+
+  regular_web_state_list_->InsertWebState(
+      std::move(web_state),
+      WebStateList::InsertionParams::AtIndex(0).Activate());
+
   SetLocationEligible(true);
 
   // Ensure GeminiSettings enterprise policy allows Gemini.
@@ -1370,7 +1818,7 @@ TEST_F(AppBarMediatorTest,
 
   OCMExpect([consumer_ setAssistantButtonState:AppBarAssistantButtonState::kAsk
                                    highlighted:NO
-                                       enabled:NO
+                                       enabled:YES
                                         avatar:nil
                                       signedIn:NO]);
   [mediator_ updateAssistantButton];
@@ -1807,5 +2255,29 @@ TEST_F(AppBarMediatorTest, TestAssistantButtonDisabledWhenLensOverlayVisible) {
         EXPECT_FALSE(signedIn);
       });
   [lens_overlay_state_ lensOverlayDidPrepare];
+  EXPECT_OCMOCK_VERIFY(consumer_);
+}
+
+// Tests that WebStateList updates during batch operations are deferred until
+// the batch ends.
+TEST_F(AppBarMediatorTest, TestWebStateListBatchOperation) {
+  WebStateList* web_state_list = regular_browser_->GetWebStateList();
+
+  // Reject intermediate tab count updates during batch insertion.
+  OCMReject([consumer_ updateTabCount:1]);
+  OCMReject([consumer_ updateTabCount:2]);
+
+  // Expect only the final tab count update when the batch operation ends.
+  OCMExpect([consumer_ updateTabCount:3]);
+
+  {
+    WebStateList::ScopedBatchOperation batch =
+        web_state_list->StartBatchOperation();
+    for (int i = 0; i < 3; ++i) {
+      auto web_state = std::make_unique<web::FakeWebState>();
+      web_state_list->InsertWebState(std::move(web_state));
+    }
+  }
+
   EXPECT_OCMOCK_VERIFY(consumer_);
 }

@@ -64,8 +64,7 @@
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/promo/public/features.h"
 #import "ios/chrome/browser/docking_promo/model/docking_promo_scene_agent.h"
-#import "ios/chrome/browser/enterprise/data_protection/model/data_protection_scene_agent.h"
-#import "ios/chrome/browser/enterprise/data_protection/public/features.h"
+#import "ios/chrome/browser/enterprise/data_protection/coordinator/data_protection_scene_agent.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
@@ -109,8 +108,9 @@
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller+OTRProfileDeletion.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_controller_testing.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state_options.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state_prefs.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_ui_provider.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/incognito_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/state/scene_ui_blocker_state.h"
@@ -425,7 +425,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 
 #pragma mark - Setters and Getters
 
-    - (BOOL)isIncognitoDisabled {
+- (BOOL)isIncognitoDisabled {
   return IsIncognitoModeDisabled(
       self.mainInterface.browser->GetProfile()->GetPrefs());
 }
@@ -480,7 +480,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 #pragma mark - NSObject
 
 - (void)dealloc {
-  CHECK(!_authServiceObserverBridge, base::NotFatalUntil::M145);
+  CHECK(!_authServiceObserverBridge);
   CHECK(!self.browserLifecycleManager, base::NotFatalUntil::M152);
 }
 
@@ -881,6 +881,17 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 - (void)profileState:(ProfileState*)profileState
     didTransitionToInitStage:(ProfileInitStage)nextInitStage
                fromInitStage:(ProfileInitStage)fromInitStage {
+  if (nextInitStage >= ProfileInitStage::kProfileLoaded && !_sceneState.prefs) {
+    CHECK(profileState.profile);
+    ProfileManagerIOS* manager = GetApplicationContext()->GetProfileManager();
+    _sceneState.prefs = [[SceneStatePrefs alloc]
+        initWithProfileManager:manager
+                   profileName:profileState.profile->GetProfileName()
+             sessionIdentifier:_sceneState.sceneSessionID
+                  sceneSession:_sceneState.scene.session];
+    [_sceneState.incognitoState preferencesDidLoad];
+  }
+
   [self transitionToSceneActivationLevel:self.sceneState.activationLevel
                         profileInitStage:nextInitStage];
 }
@@ -1713,13 +1724,17 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   }
 }
 
-- (void)connectWithOptions:(SceneStateOptions)options {
+- (void)connectWithProfileState:(ProfileState*)profileState
+                 sceneSessionID:(std::string_view)sceneSessionID {
   DCHECK(!_sceneState.profileState);
-  DCHECK(!options.identifier.empty());
+  DCHECK(!sceneSessionID.empty());
+  DCHECK(profileState);
+
+  // Set the properties to SceneState.
+  _sceneState.profileState = profileState;
+  _sceneState.sceneSessionID = sceneSessionID;
 
   // Connect the ProfileState with the SceneState.
-  ProfileState* profileState = options.profile_state;
-  [_sceneState connectWithOptions:std::move(options)];
   [profileState sceneStateConnected:_sceneState];
 
   // Add agents. They may depend on the ProfileState, so they need to be
@@ -1740,9 +1755,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 
   // The UI should be stopped before the models they observe are stopped.
   [_mainCoordinator stop];
-  if (IsAlertCrashFixKillSwitchEnabled()) {
-    _mainCoordinator = nil;
-  }
 
   _incognitoWebStateObserver.reset();
   _mainWebStateObserver.reset();
@@ -1757,11 +1769,9 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   [self.browserLifecycleManager shutdown];
   self.browserLifecycleManager = nil;
 
-  if (!IsAlertCrashFixKillSwitchEnabled()) {
-    // Keep _mainCoordinator alive until shutdown completes so that any late
-    // command invocations during UI teardown do not hit a deallocated target.
-    _mainCoordinator = nil;
-  }
+  // Keep _mainCoordinator alive until shutdown completes so that any late
+  // command invocations during UI teardown do not hit a deallocated target.
+  _mainCoordinator = nil;
 
   [self.sceneState.profileState removeObserver:self];
   [_sceneState.uiBlockerState removeObserver:self];
@@ -2115,9 +2125,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   [_sceneState addAgent:[[SessionSavingSceneAgent alloc] init]];
   [_sceneState addAgent:[[LayoutGuideSceneAgent alloc] init]];
   [_sceneState addAgent:[[ShareExtensionSceneAgent alloc] init]];
-  if (IsEnableScreenshotProtectionIOSEnabled()) {
-    [_sceneState addAgent:[[DataProtectionSceneAgent alloc] init]];
-  }
+  [_sceneState addAgent:[[DataProtectionSceneAgent alloc] init]];
 
   if (IsEnableNewStartupFlowEnabled()) {
     [_sceneState addAgent:[[TaskUpdaterSceneAgent alloc] init]];
@@ -2203,6 +2211,8 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   }
   __weak __typeof(self) weakSelf = self;
 
+  // TODO(b/541315801): C2PA: Shared image could have C2PA metadata; candidate
+  // to pass raw bytes.
   _imageTranscoder->TranscodeImage(
       _imageSearchData, @"image/jpeg", nil, nil, nil,
       base::BindOnce(
@@ -2223,6 +2233,8 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 
   id<LensCommands> lensHandler = HandlerForProtocol(
       self.currentInterface.browser->GetCommandDispatcher(), LensCommands);
+  // TODO(b/541315801): C2PA: Shared image could have C2PA metadata; candidate
+  // to pass raw bytes.
   UIImage* image = [UIImage imageWithData:imageData];
   SearchImageWithLensCommand* command = [[SearchImageWithLensCommand alloc]
       initWithImage:image
@@ -2663,6 +2675,17 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
       initWithEntryPoint:gemini::EntryPoint::AppSwitcherAISummarization];
   startupState.prepopulatedPrompt =
       l10n_util::GetNSString(IDS_IOS_GEMINI_SUMMARIZE_PAGE_PROMPT);
+
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForProfile(browser->GetProfile());
+  id<SystemIdentity> identity =
+      authService ? authService->GetPrimaryIdentity() : nil;
+  NSString* activeHashedGaiaID = identity ? identity.hashedGaiaID : nil;
+  NSString* targetHashedGaiaID = self.startupParameters.appSwitcherHashedUserID;
+  if (targetHashedGaiaID.length && activeHashedGaiaID.length &&
+      ![targetHashedGaiaID isEqualToString:activeHashedGaiaID]) {
+    startupState.isMismatchedAccount = YES;
+  }
 
   id<GeminiCommands> geminiHandler =
       HandlerForProtocol(browser->GetCommandDispatcher(), GeminiCommands);

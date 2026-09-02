@@ -15,13 +15,15 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
-#include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_close_types_data.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
+#include "chrome/common/webui_url_constants.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
@@ -31,6 +33,16 @@
 
 namespace chrome {
 
+GURL GetNewTabURL(const BrowserWindowInterface* browser) {
+  if (browser) {
+    if (auto* const app_browser_controller =
+            web_app::AppBrowserController::From(browser)) {
+      return app_browser_controller->GetAppNewTabUrl();
+    }
+  }
+  return ChromeUINewTabURLAsGURL();
+}
+
 content::WebContents* AddAndReturnTabAt(
     BrowserWindowInterface* browser,
     const GURL& url,
@@ -38,13 +50,7 @@ content::WebContents* AddAndReturnTabAt(
     bool foreground,
     std::optional<tab_groups::TabGroupId> group,
     bool pinned) {
-  // Time new tab page creation time.  We keep track of the timing data in
-  // WebContents, but we want to include the time it takes to create the
-  // WebContents object too.
-  base::TimeTicks new_tab_start_time = base::TimeTicks::Now();
-  const GURL resolved_url =
-      url.is_empty() ? browser->GetBrowserForMigrationOnly()->GetNewTabURL()
-                     : url;
+  const GURL resolved_url = url.is_empty() ? GetNewTabURL(browser) : url;
   NavigateParams params(browser, resolved_url, ui::PAGE_TRANSITION_TYPED);
   params.disposition = foreground ? WindowOpenDisposition::NEW_FOREGROUND_TAB
                                   : WindowOpenDisposition::NEW_BACKGROUND_TAB;
@@ -61,10 +67,6 @@ content::WebContents* AddAndReturnTabAt(
   if (!params.navigated_or_inserted_contents) {
     return nullptr;
   }
-
-  CoreTabHelper* core_tab_helper =
-      CoreTabHelper::FromWebContents(params.navigated_or_inserted_contents);
-  core_tab_helper->set_new_tab_start_time(new_tab_start_time);
 
   return params.navigated_or_inserted_contents;
 }
@@ -158,10 +160,10 @@ content::WebContents* AddWebContents(
   return params.navigated_or_inserted_contents;
 }
 
-void CloseWebContents(Browser* browser,
+void CloseWebContents(BrowserWindowInterface* browser,
                       content::WebContents* contents,
                       bool add_to_history) {
-  int index = browser->tab_strip_model()->GetIndexOfWebContents(contents);
+  int index = browser->GetTabStripModel()->GetIndexOfWebContents(contents);
   if (index == TabStripModel::kNoTab) {
     DUMP_WILL_BE_NOTREACHED()
         << "CloseWebContents called for tab not in our strip";
@@ -178,7 +180,7 @@ void CloseWebContents(Browser* browser,
     close_types |= TabCloseTypes::CLOSE_CREATE_HISTORICAL_TAB;
   }
 
-  browser->tab_strip_model()->CloseWebContentsAt(index, close_types);
+  browser->GetTabStripModel()->CloseWebContents(contents, close_types);
 }
 
 void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {
@@ -187,13 +189,13 @@ void ConfigureTabGroupForNavigation(NavigateParams* nav_params) {
   }
 
   if (!nav_params->browser ||
-      !nav_params->browser->GetBrowserForMigrationOnly()->SupportsWindowFeature(
-          Browser::WindowFeature::kFeatureTabStrip)) {
+      !WindowFeatureController::From(nav_params->browser)
+           ->SupportsWindowFeature(
+               WindowFeatureController::WindowFeature::kFeatureTabStrip)) {
     return;
   }
 
-  TabStripModel* model =
-      nav_params->browser->GetBrowserForMigrationOnly()->tab_strip_model();
+  TabStripModel* model = nav_params->browser->GetTabStripModel();
   DCHECK(model);
 
   const int source_index =

@@ -1578,6 +1578,10 @@ targets.tests.isolated_script_test(
 )
 
 targets.tests.isolated_script_test(
+    name = "ios_web_content_unittests",
+)
+
+targets.tests.isolated_script_test(
     name = "ios_web_inttests",
 )
 
@@ -1721,6 +1725,14 @@ targets.tests.isolated_script_test(
 
 targets.tests.isolated_script_test(
     name = "module_installer_junit_tests",
+)
+
+targets.tests.gtest_test(
+    name = "mojo_legacy_unittests",
+)
+
+targets.tests.gtest_test(
+    name = "mojo_proxy_unittests",
 )
 
 targets.tests.isolated_script_test(
@@ -1881,54 +1893,6 @@ targets.tests.isolated_script_test(
 #     ],
 #     binary = "litert_lm_advanced_main_legacy_tests",
 # )
-
-targets.tests.isolated_script_test(
-    name = "opt_target_coverage_test",
-)
-
-targets.tests.isolated_script_test(
-    name = "chrome_ai_wpt_tests_gpu",
-    args = [
-        "--framework=llm-inference-engine",
-        "--backend=gpu",
-        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
-        "--expectations-file=AIExpectations_GPU",
-    ],
-    binary = "chrome_ai_wpt_tests",
-)
-
-targets.tests.isolated_script_test(
-    name = "chrome_ai_wpt_tests_cpu",
-    args = [
-        "--framework=llm-inference-engine",
-        "--backend=cpu",
-        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
-        "--expectations-file=AIExpectations_CPU",
-    ],
-    binary = "chrome_ai_wpt_tests",
-)
-
-targets.tests.isolated_script_test(
-    name = "chrome_ai_wpt_tests_litert_cpu",
-    args = [
-        "--framework=litert-lm",
-        "--backend=cpu",
-        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_CPU",
-        "--expectations-file=AIExpectations_LiteRTCPU",
-    ],
-    binary = "chrome_ai_wpt_tests",
-)
-
-targets.tests.isolated_script_test(
-    name = "chrome_ai_wpt_tests_litert_gpu",
-    args = [
-        "--framework=litert-lm",
-        "--backend=gpu",
-        "--performance-hint=ON_DEVICE_MODEL_PERFORMANCE_HINT_FASTEST_INFERENCE",
-        "--expectations-file=AIExpectations_LiteRTGPU",
-    ],
-    binary = "chrome_ai_wpt_tests",
-)
 
 targets.tests.isolated_script_test(
     name = "chrome_ai_wpt_tests_manifest_gpu_high_tier",
@@ -2630,6 +2594,10 @@ targets.tests.isolated_script_test(
     name = "views_perftests",
 )
 
+targets.tests.isolated_script_test(
+    name = "views_perftests_fuchsia",
+)
+
 targets.tests.gtest_test(
     name = "views_unittests",
 )
@@ -3049,6 +3017,13 @@ targets.tests.gpu_telemetry_test(
 
 targets.tests.isolated_script_test(
     name = "webdriver_bidi_unittests",
+    mixins = [
+        "has_native_resultdb_integration",
+    ],
+)
+
+targets.tests.isolated_script_test(
+    name = "webdriver_bidi_e2e_tests",
     mixins = [
         "has_native_resultdb_integration",
     ],

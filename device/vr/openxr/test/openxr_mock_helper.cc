@@ -17,12 +17,24 @@
 #include "base/path_service.h"
 #include "base/threading/thread_restrictions.h"
 #include "base/values.h"
-#include "build/build_config.h"
+#include "device/vr/openxr/openxr_platform_helper.h"
 #include "device/vr/openxr/test/fake_openxr_impl_api.h"
-#include "device/vr/test/test_hook.h"
+#include "device/vr/openxr/test/openxr_test_helper.h"
+#include "device/vr/public/mojom/test/xr_test_hook.test-mojom.h"
+#include "mojo/public/cpp/bindings/pending_remote.h"
+#include "mojo/public/cpp/system/message_pipe.h"
 
 typedef void (*SetMockOpenXrDispatchTableFn)(
     PFN_xrGetInstanceProcAddr get_instance_proc_addr);
+
+// Unwraps the type-erased message pipe handle from the device service into a
+// typed `device_test::mojom::XRTestHook` remote and binds it to the embedded
+// mock OpenXR test helper.
+void BindTestHook(mojo::ScopedMessagePipeHandle receiver) {
+  OpenXrTestHelper::Get().SetTestHook(
+      mojo::PendingRemote<device_test::mojom::XRTestHook>(std::move(receiver),
+                                                          0));
+}
 
 bool InitializeOpenXrMockTrampoline() {
   static bool s_initialized = false;
@@ -88,10 +100,16 @@ bool InitializeOpenXrMockTrampoline() {
 }
 
 namespace {
+// Statically registers the mock trampoline initialization and test hook binding
+// callbacks with `OpenXrPlatformHelper` upon module load in test binaries.
+// This allows `OpenXrPlatformHelper::EnsureInitialized()` to automatically load
+// and wire up the mock runtime trampoline without exposing test dependencies to
+// production targets.
 struct TrampolineRegistrar {
   TrampolineRegistrar() {
-    device::ServiceTestHook::RegisterInitializeOpenXrMockTrampolineFn(
+    device::OpenXrPlatformHelper::RegisterInitializeOpenXrMockTrampolineFn(
         &InitializeOpenXrMockTrampoline);
+    device::OpenXrPlatformHelper::RegisterBindTestHookFn(&BindTestHook);
   }
 };
 TrampolineRegistrar g_trampoline_registrar;

@@ -80,6 +80,7 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/features.h"
 #include "net/dns/public/dns_over_https_config.h"
+#include "net/dns/public/insecure_dns_mode.h"
 #include "net/dns/public/secure_dns_mode.h"
 #include "net/ssl/client_cert_identity.h"
 #include "services/device/public/cpp/geolocation/location_system_permission_status.h"
@@ -544,25 +545,6 @@ bool ShellContentBrowserClient::ShouldUrlUseApplicationIsolationLevel(
       url::Origin::Create(url.ReplaceComponents(replacements)));
 }
 
-bool ShellContentBrowserClient::IsSharedStorageAllowed(
-    content::BrowserContext* browser_context,
-    content::RenderFrameHost* rfh,
-    const url::Origin& top_frame_origin,
-    const url::Origin& accessing_origin,
-    std::string* out_debug_message,
-    bool* out_block_is_site_setting_specific) {
-  return true;
-}
-
-bool ShellContentBrowserClient::IsSharedStorageSelectURLAllowed(
-    content::BrowserContext* browser_context,
-    const url::Origin& top_frame_origin,
-    const url::Origin& accessing_origin,
-    std::string* out_debug_message,
-    bool* out_block_is_site_setting_specific) {
-  return true;
-}
-
 GeneratedCodeCacheSettings
 ShellContentBrowserClient::GetGeneratedCodeCacheSettings(
     content::BrowserContext* context) {
@@ -811,13 +793,11 @@ void ShellContentBrowserClient::OnNetworkServiceCreated(
 #if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(net::features::kAsyncDns)) {
     network_service->ConfigureStubHostResolver(
-        /*insecure_dns_client_enabled=*/true,
+        net::InsecureDnsMode::kEnabledBuiltIn,
         base::FeatureList::IsEnabled(net::features::kHappyEyeballsV3),
-        /*secure_dns_mode=*/net::SecureDnsMode::kAutomatic,
-        net::DnsOverHttpsConfig(),
+        net::SecureDnsMode::kAutomatic, net::DnsOverHttpsConfig(),
         /*additional_dns_types_enabled=*/true,
-        /*fallback_doh_nameservers=*/{},
-        /*insecure_dns_via_platform_apis_enabled=*/false);
+        /*fallback_doh_nameservers=*/{});
   }
 #endif
 }

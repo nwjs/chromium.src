@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 
+#include <memory>
 #include <set>
 #include <utility>
 #include <vector>
@@ -31,8 +32,10 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model_selection_state.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
@@ -42,6 +45,7 @@
 #include "components/sessions/core/session_command.h"
 #include "components/sessions/core/session_constants.h"
 #include "components/sessions/core/session_id.h"
+#include "components/sessions/core/session_service_commands.h"
 #include "components/sessions/core/session_types.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
@@ -133,16 +137,17 @@ class TaskRunnerData : public base::SupportsUserData::Data {
 // -------------------------------------------------------------
 class SessionServiceBaseUserData : public base::SupportsUserData::Data {
  public:
-  explicit SessionServiceBaseUserData(Browser::Type type) : type_(type) {}
+  explicit SessionServiceBaseUserData(BrowserWindowInterface::Type type)
+      : type_(type) {}
   ~SessionServiceBaseUserData() override = default;
   SessionServiceBaseUserData(const SessionServiceBaseUserData&) = delete;
   SessionServiceBaseUserData& operator=(const SessionServiceBaseUserData&) =
       delete;
 
-  Browser::Type type() const { return type_; }
+  BrowserWindowInterface::Type type() const { return type_; }
 
  private:
-  const Browser::Type type_;
+  const BrowserWindowInterface::Type type_;
 };
 
 }  // namespace
@@ -190,7 +195,7 @@ void SessionServiceBase::RemoveObserver(SessionServiceBaseObserver* observer) {
 }
 
 // static
-Browser::Type SessionServiceBase::GetBrowserTypeFromWebContents(
+BrowserWindowInterface::Type SessionServiceBase::GetBrowserTypeFromWebContents(
     content::WebContents* web_contents) {
   SessionServiceBaseUserData* data = static_cast<SessionServiceBaseUserData*>(
       web_contents->GetUserData(&kSessionServiceBaseUserDataKey));
@@ -199,7 +204,7 @@ Browser::Type SessionServiceBase::GetBrowserTypeFromWebContents(
   // possible that WebContents that are not tabs call into this code.
   // In that case, data will be null and we just return TYPE_NORMAL.
   if (!data) {
-    return Browser::Type::TYPE_NORMAL;
+    return BrowserWindowInterface::Type::TYPE_NORMAL;
   }
 
   return data->type();
@@ -671,51 +676,54 @@ void SessionServiceBase::BuildCommandsForTab(
 }
 
 void SessionServiceBase::BuildCommandsForBrowser(
-    Browser* browser,
+    BrowserWindowInterface* browser,
     IdToRange* tab_to_available_range,
     std::set<SessionID>* windows_to_track) {
   DCHECK(is_saving_enabled_);
   DCHECK(browser);
-  DCHECK(browser->session_id().is_valid());
+  DCHECK(browser->GetSessionID().is_valid());
 
   command_storage_manager()->AppendRebuildCommand(
       sessions::CreateSetWindowBoundsCommand(
-          browser->session_id(), browser->GetWindow()->GetRestoredBounds(),
+          browser->GetSessionID(), browser->GetWindow()->GetRestoredBounds(),
           browser->GetWindow()->GetRestoredState()));
 
   command_storage_manager()->AppendRebuildCommand(
       sessions::CreateSetWindowTypeCommand(
-          browser->session_id(), WindowTypeForBrowserType(browser->type())));
+          browser->GetSessionID(),
+          WindowTypeForBrowserType(browser->GetType())));
 
-  if (!browser->app_name().empty()) {
+  if (!BrowserInitState::From(browser)->create_params().app_name.empty()) {
     command_storage_manager()->AppendRebuildCommand(
-        sessions::CreateSetWindowAppNameCommand(browser->session_id(),
-                                                browser->app_name()));
+        sessions::CreateSetWindowAppNameCommand(
+            browser->GetSessionID(),
+            BrowserInitState::From(browser)->create_params().app_name));
   }
 
   if (!WindowMetadataController::From(browser)->user_title().empty()) {
     command_storage_manager()->AppendRebuildCommand(
         sessions::CreateSetWindowUserTitleCommand(
-            browser->session_id(),
+            browser->GetSessionID(),
             WindowMetadataController::From(browser)->user_title()));
   }
 
   command_storage_manager()->AppendRebuildCommand(
       sessions::CreateSetWindowWorkspaceCommand(
-          browser->session_id(),
+          browser->GetSessionID(),
           BrowserWindow::FromBrowser(browser)->GetWorkspace()));
 
   command_storage_manager()->AppendRebuildCommand(
       sessions::CreateSetWindowVisibleOnAllWorkspacesCommand(
-          browser->session_id(),
+          browser->GetSessionID(),
           BrowserWindow::FromBrowser(browser)->IsVisibleOnAllWorkspaces()));
 
   command_storage_manager()->AppendRebuildCommand(
       sessions::CreateSetSelectedTabInWindowCommand(
-          browser->session_id(), browser->tab_strip_model()->active_index()));
+          browser->GetSessionID(),
+          browser->GetTabStripModel()->active_index()));
 
   // Set the visual data for each tab group.
-  TabStripModel* tab_strip = browser->tab_strip_model();
+  TabStripModel* tab_strip = browser->GetTabStripModel();
   if (tab_strip->SupportsTabGroups()) {
     TabGroupModel* group_model = tab_strip->group_model();
     tab_groups::TabGroupSyncService* tab_group_service =
@@ -742,28 +750,41 @@ void SessionServiceBase::BuildCommandsForBrowser(
     }
   }
 
-    for (split_tabs::SplitTabId split_id : tab_strip->ListSplits()) {
+  for (split_tabs::SplitTabId split_id : tab_strip->ListSplits()) {
+    command_storage_manager()->AppendRebuildCommand(
+        sessions::CreateSplitTabDataUpdateCommand(
+            split_id, tab_strip->GetSplitData(split_id)->visual_data()));
+  }
+
+  if (base::FeatureList::IsEnabled(features::kTabGroupsFocusing) &&
+      tab_strip->SupportsTabGroups()) {
+    std::optional<tab_groups::TabGroupId> focused_group =
+        tab_strip->GetFocusedGroup();
+    if (focused_group.has_value()) {
       command_storage_manager()->AppendRebuildCommand(
-          sessions::CreateSplitTabDataUpdateCommand(
-              split_id, tab_strip->GetSplitData(split_id)->visual_data()));
+          sessions::CreateAddWindowExtraDataCommand(
+              browser->GetSessionID(),
+              tabs::TabStripModelSelectionState::kFocusedTabGroupIdKey,
+              focused_group->ToString()));
     }
+  }
 
-    int index = 0;
-    for (const tabs::TabInterface* tab_interface : *tab_strip) {
-      WebContents* tab = tab_interface->GetContents();
-      DCHECK(tab);
-      const std::optional<tab_groups::TabGroupId> group_id =
-          tab_strip->GetTabGroupForTab(index);
-      const std::optional<split_tabs::SplitTabId> split_id =
-          tab_strip->GetSplitForTab(index);
+  int index = 0;
+  for (const tabs::TabInterface* tab_interface : *tab_strip) {
+    WebContents* tab = tab_interface->GetContents();
+    DCHECK(tab);
+    const std::optional<tab_groups::TabGroupId> group_id =
+        tab_strip->GetTabGroupForTab(index);
+    const std::optional<split_tabs::SplitTabId> split_id =
+        tab_strip->GetSplitForTab(index);
 
-      BuildCommandsForTab(browser->session_id(), tab, index, group_id, split_id,
-                          tab_interface->IsPinned(), tab_to_available_range);
+    BuildCommandsForTab(browser->GetSessionID(), tab, index, group_id, split_id,
+                        tab_interface->IsPinned(), tab_to_available_range);
 
-      index++;
-    }
+    index++;
+  }
 
-  windows_to_track->insert(browser->session_id());
+  windows_to_track->insert(browser->GetSessionID());
 }
 
 void SessionServiceBase::BuildCommandsFromBrowsers(
@@ -780,8 +801,8 @@ void SessionServiceBase::BuildCommandsFromBrowsers(
         // about to be deleted, so we ignore it.
         if (ShouldTrackBrowser(browser) &&
             browser->GetTabStripModel()->count() && browser->GetWindow()) {
-          BuildCommandsForBrowser(browser->GetBrowserForMigrationOnly(),
-                                  tab_to_available_range, windows_to_track);
+          BuildCommandsForBrowser(browser, tab_to_available_range,
+                                  windows_to_track);
         }
         return true;
       });

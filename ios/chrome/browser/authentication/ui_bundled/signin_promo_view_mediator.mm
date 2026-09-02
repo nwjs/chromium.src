@@ -152,6 +152,7 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::kOverflowMenu:
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
       return false;
   }
 }
@@ -268,6 +269,7 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kOverflowMenu:
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -385,6 +387,7 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kOverflowMenu:
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -487,6 +490,7 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::kOverflowMenu:
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
       return nullptr;
   }
 }
@@ -588,6 +592,7 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::kOverflowMenu:
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
+    case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
       return nullptr;
   }
 }
@@ -986,11 +991,9 @@ id<SystemIdentity> GetDisplayedIdentity(
   // a post task issue.
   self.initialSyncInProgress = (result == SigninCoordinatorResultSuccess) &&
                                [self shouldWaitForInitialSync];
-  CHECK_EQ(SigninPromoViewState::kUserInteracted, self.signinPromoViewState,
-           base::NotFatalUntil::M144)
+  CHECK_EQ(SigninPromoViewState::kUserInteracted, self.signinPromoViewState)
       << base::SysNSStringToUTF8([self description]);
-  CHECK_NE(self.signinInProgress, signin::Tribool::kFalse,
-           base::NotFatalUntil::M146)
+  CHECK_NE(self.signinInProgress, signin::Tribool::kFalse)
       << base::SysNSStringToUTF8([self description]);
   self.signinInProgress = signin::Tribool::kFalse;
 }
@@ -1055,8 +1058,7 @@ id<SystemIdentity> GetDisplayedIdentity(
           respondsToSelector:@selector(promoProgressStateDidChange)]) {
     [self.consumer promoProgressStateDidChange];
   }
-  [self.consumer configureSigninPromoWithConfigurator:configurator
-                                      identityChanged:NO];
+  [self.consumer configureSigninPromoWithConfigurator:configurator];
 }
 
 - (void)setInitialSyncInProgress:(BOOL)initialSyncInProgress {
@@ -1069,8 +1071,7 @@ id<SystemIdentity> GetDisplayedIdentity(
           respondsToSelector:@selector(promoProgressStateDidChange)]) {
     [self.consumer promoProgressStateDidChange];
   }
-  [self.consumer configureSigninPromoWithConfigurator:configurator
-                                      identityChanged:NO];
+  [self.consumer configureSigninPromoWithConfigurator:configurator];
 }
 
 - (void)setSigninPromoAction:(SigninPromoAction)signinPromoAction {
@@ -1079,8 +1080,7 @@ id<SystemIdentity> GetDisplayedIdentity(
   }
   _signinPromoAction = signinPromoAction;
   SigninPromoViewConfigurator* configurator = [self createConfigurator];
-  [self.consumer configureSigninPromoWithConfigurator:configurator
-                                      identityChanged:NO];
+  [self.consumer configureSigninPromoWithConfigurator:configurator];
 }
 
 #pragma mark - Private
@@ -1088,13 +1088,12 @@ id<SystemIdentity> GetDisplayedIdentity(
 // Sends the update notification to the consumer if the sign-in is not in
 // progress. This is to avoid updating the sign-in promo view in the
 // background.
-- (void)sendConsumerNotificationWithIdentityChanged:(BOOL)identityChanged {
+- (void)sendConsumerNotification {
   if (self.showSpinner) {
     return;
   }
   SigninPromoViewConfigurator* configurator = [self createConfigurator];
-  [self.consumer configureSigninPromoWithConfigurator:configurator
-                                      identityChanged:identityChanged];
+  [self.consumer configureSigninPromoWithConfigurator:configurator];
 }
 
 // Records in histogram, the number of time the sign-in promo is displayed
@@ -1177,12 +1176,12 @@ id<SystemIdentity> GetDisplayedIdentity(
     // Don't update the the sign-in promo if the sign-in is in progress,
     // to avoid flashes of the promo.
     self.displayedIdentity = displayedIdentity;
-    [self sendConsumerNotificationWithIdentityChanged:YES];
+    [self sendConsumerNotification];
   }
 }
 
 - (void)extendedAccountInfoDidUpdate:(const AccountInfo&)info {
-  [self sendConsumerNotificationWithIdentityChanged:NO];
+  [self sendConsumerNotification];
 }
 
 #pragma mark - SigninPromoViewDelegate

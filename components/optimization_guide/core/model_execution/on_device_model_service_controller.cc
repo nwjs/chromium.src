@@ -39,7 +39,6 @@
 #include "components/optimization_guide/core/model_execution/safety_config.h"
 #include "components/optimization_guide/core/model_execution/safety_model_info.h"
 #include "components/optimization_guide/core/model_execution/session_impl.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_enums.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_switches.h"
@@ -641,8 +640,7 @@ OnDeviceModelServiceController::Solution::~Solution() = default;
 
 bool OnDeviceModelServiceController::Solution::IsValid() const {
   return model_controller_ &&
-         (!features::ShouldUseTextSafetyClassifierModel() ||
-          adapter_->CanSkipTextSafety() || safety_checker_->client());
+         (adapter_->CanSkipTextSafety() || safety_checker_->client());
 }
 
 // Creates a config describing this solution;

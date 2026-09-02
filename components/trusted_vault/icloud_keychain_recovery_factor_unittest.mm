@@ -122,10 +122,8 @@ class ICloudKeychainRecoveryFactorTest : public testing::Test {
     storage_ =
         StandaloneTrustedVaultStorage::CreateForTesting(std::move(file_access));
     storage_->ReadDataFromDisk();
-    if (storage_->FindUserVault(account_info.gaia) == nullptr) {
-      storage_->AddUserVault(account_info.gaia);
-      storage_->WriteDataToDisk();
-    }
+    // Create a user vault if none exists yet.
+    storage_->MutateUserVault(account_info.gaia, [](UserVault&) {});
 
     connection_ =
         std::make_unique<NiceMock<MockTrustedVaultThrottlingConnection>>();
@@ -158,16 +156,15 @@ class ICloudKeychainRecoveryFactorTest : public testing::Test {
                  const std::vector<std::vector<uint8_t>>& vault_keys,
                  int last_vault_key_version) {
     CHECK(!vault_keys.empty());
-    trusted_vault_pb::LocalTrustedVaultPerUser* per_user_vault =
-        storage_->FindUserVault(account_info.gaia);
-    CHECK(per_user_vault);
-    per_user_vault->set_last_vault_key_version(last_vault_key_version);
-    per_user_vault->set_keys_marked_as_stale_by_consumer(false);
-    per_user_vault->clear_vault_key();
-    for (const std::vector<uint8_t>& key : vault_keys) {
-      AssignBytesToProtoString(
-          key, per_user_vault->add_vault_key()->mutable_key_material());
-    }
+    storage_->MutateUserVault(account_info.gaia, [&](UserVault& user_vault) {
+      user_vault.set_last_vault_key_version(last_vault_key_version);
+      user_vault.set_keys_marked_as_stale_by_consumer(false);
+      user_vault.clear_vault_key();
+      for (const std::vector<uint8_t>& key : vault_keys) {
+        AssignBytesToProtoString(
+            key, user_vault.add_vault_key()->mutable_key_material());
+      }
+    });
   }
 
   std::unique_ptr<ICloudRecoveryKey> CreateICloudKey(
@@ -243,6 +240,20 @@ class ICloudKeychainRecoveryFactorTest : public testing::Test {
     run_loop.Run();
   }
 
+  void MaybeRegisterAndExpectNotAttempted(
+      TrustedVaultRecoveryFactorRegistrationStateForUMA expected_state) {
+    base::MockCallback<LocalRecoveryFactor::RegisterCallback> register_callback;
+    EXPECT_CALL(
+        register_callback,
+        Run(TrustedVaultRegistrationStatus::kRegistrationNotAttempted, _, _));
+    base::RunLoop run_loop;
+    TrustedVaultRecoveryFactorRegistrationStateForUMA status =
+        recovery_factor()->MaybeRegister(
+            register_callback.Get().Then(run_loop.QuitClosure()));
+    run_loop.Run();
+    EXPECT_EQ(status, expected_state);
+  }
+
   TrustedVaultConnection::DownloadAuthenticationFactorsRegistrationStateCallback
   MaybeRegisterAndExpectDownloadRegistrationState(
       LocalRecoveryFactor::RegisterCallback registration_callback) {
@@ -270,10 +281,10 @@ class ICloudKeychainRecoveryFactorTest : public testing::Test {
               fetch_icloud_key_run_loop.Quit();
               return std::make_unique<TrustedVaultConnection::Request>();
             });
-    TrustedVaultDeviceRegistrationStateForUMA status =
+    TrustedVaultRecoveryFactorRegistrationStateForUMA status =
         recovery_factor()->MaybeRegister(std::move(registration_callback));
-    CHECK(status == TrustedVaultDeviceRegistrationStateForUMA::
-                        kAttemptingRegistrationWithNewKeyPair);
+    CHECK_EQ(status, TrustedVaultRecoveryFactorRegistrationStateForUMA::
+                         kAttemptingRegistrationWithNewKeyPair);
     fetch_icloud_key_run_loop.Run();
 
     CHECK(!download_state_callback.is_null());
@@ -405,10 +416,10 @@ class ICloudKeychainRecoveryFactorTest : public testing::Test {
                 return std::make_unique<TrustedVaultConnection::Request>();
               });
 
-      TrustedVaultDeviceRegistrationStateForUMA status =
+      TrustedVaultRecoveryFactorRegistrationStateForUMA status =
           recovery_factor()->MaybeRegister(
               std::move(registration_callback).Then(run_loop.QuitClosure()));
-      CHECK_EQ(status, TrustedVaultDeviceRegistrationStateForUMA::
+      CHECK_EQ(status, TrustedVaultRecoveryFactorRegistrationStateForUMA::
                            kAttemptingRegistrationWithNewKeyPair);
       fetch_and_create_icloud_key_run_loop.Run();
 
@@ -422,12 +433,10 @@ class ICloudKeychainRecoveryFactorTest : public testing::Test {
     return registered_public_key;
   }
 
-  trusted_vault_pb::ICloudKeychainRegistrationInfo* GetICloudRegistrationInfo(
+  trusted_vault_pb::ICloudKeychainRegistrationInfo GetICloudRegistrationInfo(
       CoreAccountInfo account_info) {
-    trusted_vault_pb::LocalTrustedVaultPerUser* per_user_vault =
-        storage_->FindUserVault(account_info.gaia);
-    CHECK(per_user_vault);
-    return per_user_vault->mutable_icloud_keychain_registration_info();
+    return storage_->GetUserVault(account_info.gaia)
+        .icloud_keychain_registration_info();
   }
 
  private:
@@ -700,68 +709,44 @@ TEST_F(ICloudKeychainRecoveryFactorTest, ShouldSucceedWithMultipleMembers) {
 
 TEST_F(ICloudKeychainRecoveryFactorTest,
        ShouldNotRegisterWhenAlreadyRegistered) {
-  GetICloudRegistrationInfo(account_info())->set_registered(true);
+  storage()->MutateUserVault(account_info().gaia, [](UserVault& user_vault) {
+    user_vault.mutable_icloud_keychain_registration_info()->set_registered(
+        true);
+  });
 
-  base::MockCallback<LocalRecoveryFactor::RegisterCallback> register_callback;
-  EXPECT_CALL(register_callback, Run).Times(0);
-
-  TrustedVaultDeviceRegistrationStateForUMA status =
-      recovery_factor()->MaybeRegister(register_callback.Get());
-  EXPECT_THAT(
-      status,
-      Eq(TrustedVaultDeviceRegistrationStateForUMA::kAlreadyRegisteredV1));
+  MaybeRegisterAndExpectNotAttempted(
+      TrustedVaultRecoveryFactorRegistrationStateForUMA::kAlreadyRegisteredV1);
 }
 
 TEST_F(ICloudKeychainRecoveryFactorTest,
        ShouldNotRegisterWhenLocalDataObsolete) {
-  trusted_vault_pb::LocalTrustedVaultPerUser* per_user_vault =
-      storage()->FindUserVault(account_info().gaia);
-  ASSERT_THAT(per_user_vault, NotNull());
-  per_user_vault->set_last_registration_returned_local_data_obsolete(true);
+  storage()->MutateUserVault(account_info().gaia, [](UserVault& user_vault) {
+    user_vault.set_last_registration_returned_local_data_obsolete(true);
+  });
 
-  base::MockCallback<LocalRecoveryFactor::RegisterCallback> register_callback;
-  EXPECT_CALL(register_callback, Run).Times(0);
-
-  TrustedVaultDeviceRegistrationStateForUMA status =
-      recovery_factor()->MaybeRegister(register_callback.Get());
-  EXPECT_THAT(
-      status,
-      Eq(TrustedVaultDeviceRegistrationStateForUMA::kLocalKeysAreStale));
+  MaybeRegisterAndExpectNotAttempted(
+      TrustedVaultRecoveryFactorRegistrationStateForUMA::kLocalKeysAreStale);
 }
 
 TEST_F(ICloudKeychainRecoveryFactorTest, ShouldNotRegisterWhenThrottled) {
   EXPECT_CALL(*connection(), AreRequestsThrottled).WillOnce(Return(true));
 
-  base::MockCallback<LocalRecoveryFactor::RegisterCallback> register_callback;
-  EXPECT_CALL(register_callback, Run).Times(0);
-
-  TrustedVaultDeviceRegistrationStateForUMA status =
-      recovery_factor()->MaybeRegister(register_callback.Get());
-  EXPECT_THAT(
-      status,
-      Eq(TrustedVaultDeviceRegistrationStateForUMA::kThrottledClientSide));
+  MaybeRegisterAndExpectNotAttempted(
+      TrustedVaultRecoveryFactorRegistrationStateForUMA::kThrottledClientSide);
 }
 
 TEST_F(ICloudKeychainRecoveryFactorTest, ShouldNotRegisterWithoutKeys) {
-  base::MockCallback<LocalRecoveryFactor::RegisterCallback> register_callback;
-  EXPECT_CALL(register_callback, Run).Times(0);
-
-  TrustedVaultDeviceRegistrationStateForUMA status =
-      recovery_factor()->MaybeRegister(register_callback.Get());
-  EXPECT_THAT(status, Eq(TrustedVaultDeviceRegistrationStateForUMA::
-                             kRegistrationWithConstantKeyNotSupported));
+  MaybeRegisterAndExpectNotAttempted(
+      TrustedVaultRecoveryFactorRegistrationStateForUMA::
+          kRegistrationWithConstantKeyNotSupported);
 }
 
 TEST_F(ICloudKeychainRecoveryFactorTest, ShouldNotRegisterWithConstantKeys) {
   StoreKeys(account_info(), {GetConstantTrustedVaultKey()}, kLastKeyVersion);
 
-  base::MockCallback<LocalRecoveryFactor::RegisterCallback> register_callback;
-  EXPECT_CALL(register_callback, Run).Times(0);
-
-  TrustedVaultDeviceRegistrationStateForUMA status =
-      recovery_factor()->MaybeRegister(register_callback.Get());
-  EXPECT_THAT(status, Eq(TrustedVaultDeviceRegistrationStateForUMA::
-                             kRegistrationWithConstantKeyNotSupported));
+  MaybeRegisterAndExpectNotAttempted(
+      TrustedVaultRecoveryFactorRegistrationStateForUMA::
+          kRegistrationWithConstantKeyNotSupported);
 }
 
 TEST_F(
@@ -824,10 +809,9 @@ TEST_F(ICloudKeychainRecoveryFactorTest,
       TrustedVaultRegistrationStatus::kLocalDataObsolete,
       /*registration_key_version=*/0, registration_callback.Get());
 
-  trusted_vault_pb::LocalTrustedVaultPerUser* per_user_vault =
-      storage()->FindUserVault(account_info().gaia);
-  ASSERT_THAT(per_user_vault, NotNull());
-  EXPECT_TRUE(per_user_vault->last_registration_returned_local_data_obsolete());
+  const UserVault& per_user_vault =
+      storage()->GetUserVault(account_info().gaia);
+  EXPECT_TRUE(per_user_vault.last_registration_returned_local_data_obsolete());
 }
 
 TEST_F(ICloudKeychainRecoveryFactorTest, RegistrationShouldSucceed) {
@@ -884,7 +868,10 @@ TEST_F(ICloudKeychainRecoveryFactorTest,
 
 TEST_F(ICloudKeychainRecoveryFactorTest,
        MarkAsNotRegisteredShouldClearRegistrationData) {
-  GetICloudRegistrationInfo(account_info())->set_registered(true);
+  storage()->MutateUserVault(account_info().gaia, [](UserVault& user_vault) {
+    user_vault.mutable_icloud_keychain_registration_info()->set_registered(
+        true);
+  });
 
   EXPECT_TRUE(recovery_factor()->IsRegistered());
 
@@ -892,9 +879,120 @@ TEST_F(ICloudKeychainRecoveryFactorTest,
 
   // Now the device should no longer be registered.
   EXPECT_FALSE(recovery_factor()->IsRegistered());
-  trusted_vault_pb::ICloudKeychainRegistrationInfo* registration_info =
-      GetICloudRegistrationInfo(account_info());
-  EXPECT_FALSE(registration_info->registered());
+  EXPECT_FALSE(GetICloudRegistrationInfo(account_info()).registered());
+}
+
+TEST_F(ICloudKeychainRecoveryFactorTest,
+       ShouldCancelOngoingRegistrationWhenNewRegistrationStarted) {
+  StoreKeys(account_info(), kVaultKeys, kLastKeyVersion);
+
+  TrustedVaultConnection::RegisterAuthenticationFactorCallback
+      first_registration_callback;
+  base::RunLoop first_factor_run_loop;
+  EXPECT_CALL(
+      *connection(),
+      RegisterAuthenticationFactor(
+          Eq(account_info()),
+          MatchTrustedVaultKeyAndVersions(
+              GetTrustedVaultKeysWithVersions(kVaultKeys, kLastKeyVersion)),
+          _,
+          Eq(AuthenticationFactorTypeAndRegistrationParams(ICloudKeychain())),
+          _))
+      .WillOnce([&](const CoreAccountInfo&, const MemberKeysSource&,
+                    const SecureBoxPublicKey&,
+                    AuthenticationFactorTypeAndRegistrationParams,
+                    TrustedVaultConnection::RegisterAuthenticationFactorCallback
+                        callback) {
+        first_registration_callback = std::move(callback);
+        first_factor_run_loop.Quit();
+        return std::make_unique<TrustedVaultConnection::Request>();
+      });
+
+  base::MockCallback<LocalRecoveryFactor::RegisterCallback>
+      first_register_callback;
+  base::RunLoop first_cancelled_run_loop;
+  recovery_factor()->MaybeRegister(first_register_callback.Get().Then(
+      first_cancelled_run_loop.QuitClosure()));
+  first_factor_run_loop.Run();
+  ASSERT_FALSE(first_registration_callback.is_null());
+
+  // Starting a second registration should cancel the first one with
+  // kRegistrationCancelled.
+  EXPECT_CALL(
+      first_register_callback,
+      Run(TrustedVaultRegistrationStatus::kRegistrationCancelled, _, _));
+
+  // The first registration created an iCloud key, so the second registration
+  // will first download the registration state to check if that key is in the
+  // security domain.
+  TrustedVaultConnection::DownloadAuthenticationFactorsRegistrationStateCallback
+      download_state_callback;
+  base::RunLoop download_state_run_loop;
+  EXPECT_CALL(*connection(), DownloadAuthenticationFactorsRegistrationState(
+                                 account_info(), _, _, _))
+      .WillOnce([&](const CoreAccountInfo&,
+                    std::set<trusted_vault_pb::SecurityDomainMember_MemberType>,
+                    TrustedVaultConnection::
+                        DownloadAuthenticationFactorsRegistrationStateCallback
+                            callback,
+                    base::RepeatingClosure) {
+        download_state_callback = std::move(callback);
+        download_state_run_loop.Quit();
+        return std::make_unique<TrustedVaultConnection::Request>();
+      });
+
+  TrustedVaultConnection::RegisterAuthenticationFactorCallback
+      second_registration_callback;
+  base::RunLoop second_factor_run_loop;
+  EXPECT_CALL(
+      *connection(),
+      RegisterAuthenticationFactor(
+          Eq(account_info()),
+          MatchTrustedVaultKeyAndVersions(
+              GetTrustedVaultKeysWithVersions(kVaultKeys, kLastKeyVersion)),
+          _,
+          Eq(AuthenticationFactorTypeAndRegistrationParams(ICloudKeychain())),
+          _))
+      .WillOnce([&](const CoreAccountInfo&, const MemberKeysSource&,
+                    const SecureBoxPublicKey&,
+                    AuthenticationFactorTypeAndRegistrationParams,
+                    TrustedVaultConnection::RegisterAuthenticationFactorCallback
+                        callback) {
+        second_registration_callback = std::move(callback);
+        second_factor_run_loop.Quit();
+        return std::make_unique<TrustedVaultConnection::Request>();
+      });
+
+  base::MockCallback<LocalRecoveryFactor::RegisterCallback>
+      second_register_callback;
+  base::RunLoop second_register_run_loop;
+  recovery_factor()->MaybeRegister(second_register_callback.Get().Then(
+      second_register_run_loop.QuitClosure()));
+
+  // Wait for the first callback to be cancelled and for the download state
+  // request to be sent.
+  first_cancelled_run_loop.Run();
+  download_state_run_loop.Run();
+  ASSERT_FALSE(download_state_callback.is_null());
+
+  // Respond that the key is not in the security domain, which triggers
+  // creation of a new key and subsequent registration.
+  std::move(download_state_callback)
+      .Run(CreateDownloadAuthenticationFactorsRegistrationStateResult(
+          DownloadAuthenticationFactorsRegistrationStateResult::State::
+              kRecoverable,
+          /*vault_members=*/{}));
+
+  second_factor_run_loop.Run();
+  ASSERT_FALSE(second_registration_callback.is_null());
+
+  // Complete the second registration.
+  EXPECT_CALL(
+      second_register_callback,
+      Run(TrustedVaultRegistrationStatus::kSuccess, kLastKeyVersion, _));
+  std::move(second_registration_callback)
+      .Run(TrustedVaultRegistrationStatus::kSuccess, kLastKeyVersion);
+  second_register_run_loop.Run();
 }
 
 }  // namespace

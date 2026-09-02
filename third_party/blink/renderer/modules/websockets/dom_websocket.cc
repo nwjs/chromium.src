@@ -38,13 +38,16 @@
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
+#include "services/network/public/mojom/ip_address_space.mojom-blink.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/switches.h"
 #include "third_party/blink/public/mojom/frame/lifecycle.mojom-shared.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_union_string_stringsequence.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_ip_address_space.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_union_string_stringsequence_websocketinit.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_websocket_init.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
@@ -203,16 +206,14 @@ void DOMWebSocket::LogError(const String& message) {
 DOMWebSocket* DOMWebSocket::Create(ExecutionContext* context,
                                    const String& url,
                                    ExceptionState& exception_state) {
-  return Create(
-      context, url,
-      MakeGarbageCollected<V8UnionStringOrStringSequence>(Vector<String>()),
-      exception_state);
+  return Create(context, url, /*protocols_or_options=*/nullptr,
+                exception_state);
 }
 
 DOMWebSocket* DOMWebSocket::Create(
     ExecutionContext* context,
     const String& url,
-    const V8UnionStringOrStringSequence* protocols,
+    const V8UnionStringOrStringSequenceOrWebSocketInit* protocols_or_options,
     ExceptionState& exception_state) {
   if (url.IsNull()) {
     exception_state.ThrowDOMException(
@@ -221,21 +222,18 @@ DOMWebSocket* DOMWebSocket::Create(
     return nullptr;
   }
 
-  DOMWebSocket* websocket = MakeGarbageCollected<DOMWebSocket>(context);
+  Vector<String> protocols_vector;
+  network::mojom::blink::IPAddressSpace target_address_space =
+      network::mojom::blink::IPAddressSpace::kUnknown;
 
-  DCHECK(protocols);
-  switch (protocols->GetContentType()) {
-    case V8UnionStringOrStringSequence::ContentType::kString: {
-      Vector<String> protocols_vector;
-      protocols_vector.push_back(protocols->GetAsString());
-      websocket->Connect(url, protocols_vector, exception_state);
-      break;
-    }
-    case V8UnionStringOrStringSequence::ContentType::kStringSequence:
-      websocket->Connect(url, protocols->GetAsStringSequence(),
-                         exception_state);
-      break;
+  if (!ParseConstructorOptions(protocols_or_options, protocols_vector,
+                               target_address_space, exception_state)) {
+    return nullptr;
   }
+
+  DOMWebSocket* websocket = MakeGarbageCollected<DOMWebSocket>(context);
+  websocket->Connect(url, protocols_vector, exception_state,
+                     target_address_space);
 
   if (exception_state.HadException())
     return nullptr;
@@ -243,9 +241,74 @@ DOMWebSocket* DOMWebSocket::Create(
   return websocket;
 }
 
-void DOMWebSocket::Connect(const String& url,
-                           const Vector<String>& protocols,
-                           ExceptionState& exception_state) {
+bool DOMWebSocket::ParseConstructorOptions(
+    const V8UnionStringOrStringSequenceOrWebSocketInit* protocols_or_options,
+    Vector<String>& protocols_vector,
+    network::mojom::blink::IPAddressSpace& target_address_space,
+    ExceptionState& exception_state) {
+  if (!protocols_or_options) {
+    return true;
+  }
+
+  switch (protocols_or_options->GetContentType()) {
+    case V8UnionStringOrStringSequenceOrWebSocketInit::ContentType::kString:
+      protocols_vector.push_back(protocols_or_options->GetAsString());
+      return true;
+    case V8UnionStringOrStringSequenceOrWebSocketInit::ContentType::
+        kStringSequence:
+      protocols_vector = protocols_or_options->GetAsStringSequence();
+      return true;
+    case V8UnionStringOrStringSequenceOrWebSocketInit::ContentType::
+        kWebSocketInit: {
+      if (!RuntimeEnabledFeatures::WebSocketOptionBagEnabled()) {
+        exception_state.ThrowDOMException(
+            DOMExceptionCode::kSyntaxError,
+            "The subprotocol '[object Object]' is invalid.");
+        return false;
+      }
+      const WebSocketInit* options = protocols_or_options->GetAsWebSocketInit();
+      CHECK(options);
+      if (RuntimeEnabledFeatures::
+              LocalNetworkAccessWebSocketsTargetAddressSpaceEnabled() &&
+          options->hasTargetAddressSpace()) {
+        switch (options->targetAddressSpace().AsEnum()) {
+          case V8IPAddressSpace::Enum::kLoopback:
+            target_address_space =
+                network::mojom::blink::IPAddressSpace::kLoopback;
+            break;
+          case V8IPAddressSpace::Enum::kLocal:
+            target_address_space =
+                network::mojom::blink::IPAddressSpace::kLocal;
+            break;
+          case V8IPAddressSpace::Enum::kPrivate:
+            exception_state.ThrowTypeError(
+                "The targetAddressSpace option does not support the legacy "
+                "'private' alias; use 'local' instead.");
+            return false;
+          case V8IPAddressSpace::Enum::kPublic:
+            target_address_space =
+                network::mojom::blink::IPAddressSpace::kPublic;
+            break;
+          case V8IPAddressSpace::Enum::kUnknown:
+            exception_state.ThrowTypeError(
+                "The targetAddressSpace option cannot be set to 'unknown'.");
+            return false;
+        }
+      }
+      if (options->hasProtocols()) {
+        protocols_vector = options->protocols();
+      }
+      return true;
+    }
+  }
+  return true;
+}
+
+void DOMWebSocket::Connect(
+    const String& url,
+    const Vector<String>& protocols,
+    ExceptionState& exception_state,
+    network::mojom::blink::IPAddressSpace target_address_space) {
   UseCounter::Count(GetExecutionContext(), WebFeature::kWebSocket);
 
   DVLOG(1) << "WebSocket " << this << " connect() url=" << url;
@@ -259,7 +322,7 @@ void DOMWebSocket::Connect(const String& url,
   }
 
   auto result = common_.Connect(GetExecutionContext(), url, protocols, channel_,
-                                exception_state);
+                                exception_state, target_address_space);
 
   switch (result) {
     case WebSocketCommon::ConnectResult::kSuccess:

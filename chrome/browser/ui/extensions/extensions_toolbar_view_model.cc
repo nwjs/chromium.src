@@ -312,7 +312,8 @@ ExtensionsToolbarViewModel::RequestAccessButtonParams
 ExtensionsToolbarViewModel::GetRequestAccessButtonParams(
     content::WebContents* web_contents) const {
   RequestAccessButtonParams params;
-  if (!web_contents || !permissions_manager_observation_.IsObserving()) {
+  if (!web_contents || !permissions_manager_observation_.IsObserving() ||
+      !actions_model_) {
     return params;
   }
 
@@ -485,6 +486,19 @@ void ExtensionsToolbarViewModel::OnActiveTabChanged(TabListInterface& tab_list,
   }
 }
 
+void ExtensionsToolbarViewModel::OnWebContentsReplaced(
+    TabListInterface& tab_list,
+    tabs::TabInterface* tab,
+    content::WebContents* old_contents,
+    content::WebContents* new_contents) {
+  if (tab == tab_list.GetActiveTab()) {
+    WebContentsObserver::Observe(new_contents);
+    for (Observer& obs : observers_) {
+      obs.OnActiveWebContentsChanged(/*is_same_document=*/false, new_contents);
+    }
+  }
+}
+
 void ExtensionsToolbarViewModel::OnTabListDestroyed(
     TabListInterface& tab_list) {
   tab_list_observation_.Reset();
@@ -597,6 +611,19 @@ void ExtensionsToolbarViewModel::OnShowAccessRequestsInToolbarChanged(
 void ExtensionsToolbarViewModel::OnToolbarActionsModelShutdown() {
   actions_model_observation_.Reset();
   actions_model_ = nullptr;
+
+  // Notify observers for each action being removed so views can be safely
+  // detached and destroyed while their action view models are still valid.
+  std::vector<ToolbarActionsModel::ActionId> action_ids;
+  action_ids.reserve(actions_.size());
+  for (const auto& [action_id, _] : actions_) {
+    action_ids.push_back(action_id);
+  }
+  for (const auto& action_id : action_ids) {
+    OnToolbarActionRemoved(action_id);
+  }
+  // All actions_ elements should be erased in the OnToolbarActionRemoved calls
+  // above, but we clear them here as well just to be safe.
   actions_.clear();
 }
 

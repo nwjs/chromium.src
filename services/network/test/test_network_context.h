@@ -20,6 +20,7 @@
 #include "net/base/address_list.h"
 #include "net/base/ip_endpoint.h"
 #include "net/base/isolation_info.h"
+#include "net/http/http_request_headers.h"
 #include "net/net_buildflags.h"
 #include "net/storage_access_api/status.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
@@ -222,7 +223,8 @@ class TestNetworkContext : public mojom::NetworkContext {
       mojo::PendingRemote<mojom::WebSocketAuthenticationHandler> auth_handler,
       mojo::PendingRemote<mojom::TrustedHeaderClient> header_client,
       const std::optional<base::UnguessableToken>& throttling_profile_id,
-      const base::UnguessableToken& network_restrictions_id) override {}
+      const base::UnguessableToken& network_restrictions_id,
+      mojom::IPAddressSpace target_address_space) override {}
   void CreateWebTransport(
       const GURL& url,
       const url::Origin& origin,
@@ -234,6 +236,8 @@ class TestNetworkContext : public mojom::NetworkContext {
           anticipated_concurrent_incoming_unidirectional_streams,
       std::optional<uint16_t>
           anticipated_concurrent_incoming_bidirectional_streams,
+      std::vector<net::HttpRequestHeaders::HeaderKeyValuePair>
+          additional_headers,
       mojo::PendingRemote<mojom::WebTransportHandshakeClient> handshake_client,
       mojo::PendingRemote<mojom::URLLoaderNetworkServiceObserver>
           url_loader_network_observer,
@@ -401,8 +405,6 @@ class TestNetworkContext : public mojom::NetworkContext {
       const ResourceRequest& request,
       const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
       const base::UnguessableToken& network_restrictions_id) override {}
-  void GetBoundNetworkForTesting(
-      GetBoundNetworkForTestingCallback callback) override {}
   void GetDeviceBoundSessionManager(
       mojo::PendingReceiver<network::mojom::DeviceBoundSessionManager>
           device_bound_session_manager) override {}
@@ -411,6 +413,8 @@ class TestNetworkContext : public mojom::NetworkContext {
       const net::NetworkAnonymizationKey& network_anonymization_key) override {}
   void SetVariationsHeaders(
       variations::mojom::VariationsHeadersPtr variations_headers) override {}
+  void SetExpectedTargetNetworkForTesting(
+      std::optional<int64_t> target_network) override {}
 };
 
 }  // namespace network

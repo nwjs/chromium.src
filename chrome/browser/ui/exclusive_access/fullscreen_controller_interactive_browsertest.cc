@@ -16,9 +16,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
@@ -218,9 +220,11 @@ void FullscreenControllerInteractiveTest::ToggleTabFullscreen_Internal(
     ui_test_utils::FullscreenWaiter waiter(
         browser(), {.tab_fullscreen = enter_fullscreen});
     if (enter_fullscreen) {
-      browser()->EnterFullscreenModeForTab(tab->GetPrimaryMainFrame(), {});
+      BrowserWebContentsDelegate::From(browser())->EnterFullscreenModeForTab(
+          tab->GetPrimaryMainFrame(), {});
     } else {
-      browser()->ExitFullscreenModeForTab(tab);
+      BrowserWebContentsDelegate::From(browser())->ExitFullscreenModeForTab(
+          tab);
     }
     waiter.Wait();
     // Repeat ToggleFullscreenModeForTab until the correct state is entered.
@@ -789,7 +793,7 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
 
   // Enter tab fullscreen.
   ToggleTabFullscreen(true);
-  ui_test_utils::FullscreenWaiter(browser(), {.tab_fullscreen = true}).Wait();
+  ASSERT_TRUE(fullscreen_controller->IsTabFullscreen());
 
   // Request a permission to show the bubble, which should exit fullscreen.
   permissions::PermissionRequestManager* permission_request_manager =
@@ -797,7 +801,7 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   permission_request_manager->AddRequest(
       web_contents->GetPrimaryMainFrame(),
       std::make_unique<permissions::MockPermissionRequest>(
-          permissions::RequestType::kGeolocation));
+          permissions::RequestType::kCameraStream));
 
   ui_test_utils::FullscreenWaiter(browser(), {.tab_fullscreen = false}).Wait();
   ASSERT_FALSE(fullscreen_controller->IsTabFullscreen());
@@ -808,11 +812,12 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   ASSERT_FALSE(fullscreen_controller->IsTabFullscreen());
 
   // Accept the permission request to close the bubble.
+  permissions::PermissionRequestObserver observer(web_contents);
   permission_request_manager->Accept(/*prompt_options=*/std::monostate());
+  observer.Wait();
 
   // Now we should be able to enter tab fullscreen again.
-  EXPECT_TRUE(content::ExecJs(web_contents,
-                              "document.documentElement.requestFullscreen()"));
+  ToggleTabFullscreen(true);
   ASSERT_TRUE(fullscreen_controller->IsTabFullscreen());
 }
 
@@ -836,7 +841,7 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   permission_request_manager->AddRequest(
       web_contents->GetPrimaryMainFrame(),
       std::make_unique<permissions::MockPermissionRequest>(
-          permissions::RequestType::kGeolocation));
+          permissions::RequestType::kCameraStream));
 
   observer.Wait();
   ASSERT_TRUE(observer.request_shown());
@@ -940,6 +945,18 @@ IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
   ui_test_utils::FullscreenWaiter waiter(browser(), {.tab_fullscreen = false});
   BrowserWindowModalDialogDelegate::From(browser())->SetWebContentsBlocked(
       tab, true);
+  waiter.Wait();
+  EXPECT_FALSE(IsWindowFullscreenForTabOrPending());
+}
+
+IN_PROC_BROWSER_TEST_F(FullscreenControllerInteractiveTest,
+                       ShowEmojiPanelExitsFullscreen) {
+  ASSERT_NO_FATAL_FAILURE(ToggleTabFullscreen(true));
+  ASSERT_TRUE(IsWindowFullscreenForTabOrPending());
+
+  ui_test_utils::FullscreenWaiter waiter(browser(), {.tab_fullscreen = false});
+  BrowserWindow::FromBrowser(browser()->GetBrowserForMigrationOnly())
+      ->ShowEmojiPanel();
   waiter.Wait();
   EXPECT_FALSE(IsWindowFullscreenForTabOrPending());
 }
@@ -1723,13 +1740,14 @@ IN_PROC_BROWSER_TEST_F(MAYBE_MultiScreenFullscreenControllerInteractiveTest,
 #endif
 }
 
+// TODO(crbug.com/542615039): Disabled on Mac.
 // TODO(crbug.com/40111905): Disabled on Windows, where views::FullscreenHandler
 // implements fullscreen by directly obtaining MONITORINFO, ignoring the mocked
 // display::Screen configuration used in this test. Disabled on Linux, where the
 // window server's async handling of the fullscreen window state may transition
 // the window into fullscreen on the actual (non-mocked) display bounds before
 // or after the window bounds checks, yielding flaky results.
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_BrowserFullscreenContentFullscreenSwapDisplay \
   BrowserFullscreenContentFullscreenSwapDisplay
 #else
@@ -2094,9 +2112,10 @@ IN_PROC_BROWSER_TEST_F(StartFullscreenInteractiveTest,
   // Create a new browser directly in fullscreen but don't show it yet. This
   // explicitly mimics session restore recovering a fullscreen window better
   // than toggling an unshown browser.
-  Browser::CreateParams params(browser()->GetProfile(), true);
+  BrowserWindowCreateParams params(browser()->GetProfile(),
+                                   /*from_user_gesture=*/true);
   params.initial_show_state = ui::mojom::WindowShowState::kFullscreen;
-  BrowserWindowInterface* new_browser = Browser::Create(params);
+  BrowserWindowInterface* new_browser = CreateBrowserWindow(std::move(params));
 
   // Show the browser and wait for it to become fully initialized.
   AddBlankTabAndShow(new_browser->GetBrowserForMigrationOnly());

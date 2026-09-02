@@ -510,7 +510,7 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") VectorBufferBase {
   wtf_size_t capacity() const { return capacity_; }
 
 #if DCHECK_IS_ON()
-  int64_t Modifications() const { return modifications_; }
+  uint32_t Modifications() const { return modifications_; }
   void RegisterModification() { modifications_++; }
 #else
   ALWAYS_INLINE void RegisterModification() {}
@@ -606,7 +606,7 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") VectorBufferBase {
   wtf_size_t capacity_;
   wtf_size_t size_;
 #if DCHECK_IS_ON()
-  int64_t modifications_ = 0;
+  uint32_t modifications_ = 0;
 #endif
 
   struct ActiveIteratorCounter {
@@ -1115,7 +1115,7 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
   constexpr UncheckedIterator() = default;
   explicit UncheckedIterator(T* cur) : current_(cur) {}
 #if DCHECK_IS_ON()
-  UncheckedIterator(T* cur, const int64_t* modifications_ptr)
+  UncheckedIterator(T* cur, const uint32_t* modifications_ptr)
       : current_(cur),
         modifications_ptr_(modifications_ptr),
         captured_modifications_(modifications_ptr ? *modifications_ptr : 0) {}
@@ -1305,8 +1305,8 @@ class GC_PLUGIN_IGNORE("crbug.com/428987863") UncheckedIterator {
 
   T* current_ = nullptr;
 #if DCHECK_IS_ON()
-  const int64_t* modifications_ptr_ = nullptr;
-  int64_t captured_modifications_ = 0;
+  const uint32_t* modifications_ptr_ = nullptr;
+  uint32_t captured_modifications_ = 0;
 #elif BUILDFLAG(ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS) || \
     BUILDFLAG(ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS)
   wtf_size_t* active_iterator_count_ = nullptr;
@@ -1508,14 +1508,14 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
 
   // Creates a vector with elements copied or moved from an input and sized
   // range, with optional projection. To move elements, use
-  // base::RangeAsRvalues(std::move(range)) as the first parameter.
+  // std::views::as_rvalue(range) as the first parameter.
   template <typename Range, typename Proj = std::identity>
     requires VectorCanAssignFromRange<T, InlineCapacity, Allocator, Range, Proj>
   explicit Vector(Range&&, Proj = {});
 
   // Replaces the vector with elements copied or moved from an input and sized
-  // range. To move elements, use base::RangeAsRvalues(std::move(range)) as the
-  // first parameter.
+  // range. To move elements, use std::views::as_rvalue(range) as the first
+  // parameter.
   template <typename Range, typename Proj = std::identity>
     requires VectorCanAssignFromRange<T, InlineCapacity, Allocator, Range, Proj>
   void assign(Range&&, Proj = {});
@@ -1708,7 +1708,7 @@ class Vector : private VectorBuffer<T, INLINE_CAPACITY, Allocator> {
   //     iterator with `std::make_move_iterator()` will move.
   // append_range(range)
   //     Appends elements in `range` to `this`. May copy or move depending on
-  //     the input type, e.g. wrapping a range with `base::RangeAsRvalues()`
+  //     the input type, e.g. wrapping a range with `std::views::as_rvalue()`
   //     will move.
   // UncheckedAppend(value)
   //     Insert a single element like push_back(), but this function assumes

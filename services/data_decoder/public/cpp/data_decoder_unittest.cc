@@ -8,16 +8,12 @@
 
 #include "base/functional/bind.h"
 #include "base/run_loop.h"
-#include "base/task/thread_pool/thread_pool_instance.h"
 #include "base/test/bind.h"
-#include "base/test/metrics/histogram_tester.h"
 #include "base/test/task_environment.h"
 #include "base/types/expected.h"
-#include "base/values.h"
 #include "build/build_config.h"
 #include "components/facilitated_payments/core/mojom/pix_code_validator.mojom.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
-#include "services/data_decoder/public/mojom/cbor_parser.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace data_decoder {
@@ -30,46 +26,6 @@ class DataDecoderTest : public ::testing::Test {
   base::test::SingleThreadTaskEnvironment task_environment_;
   test::InProcessDataDecoder in_process_data_decoder_;
 };
-
-TEST_F(DataDecoderTest, ReuseCbor) {
-  // Verify that a single DataDecoder with concurrent interface connections will
-  // only use one service instance.
-  DataDecoder decoder;
-  mojo::Remote<mojom::CborParser> parser1;
-  decoder.GetService()->BindCborParser(parser1.BindNewPipeAndPassReceiver());
-  parser1.FlushForTesting();
-  EXPECT_TRUE(parser1.is_connected());
-  EXPECT_EQ(1u, service().receivers().size());
-
-  mojo::Remote<mojom::CborParser> parser2;
-  decoder.GetService()->BindCborParser(parser2.BindNewPipeAndPassReceiver());
-  parser2.FlushForTesting();
-  EXPECT_TRUE(parser1.is_connected());
-  EXPECT_TRUE(parser2.is_connected());
-  EXPECT_EQ(1u, service().receivers().size());
-}
-
-TEST_F(DataDecoderTest, IsolationCbor) {
-  // Verify that separate DataDecoder instances make separate connections to the
-  // service.
-  DataDecoder decoder1;
-  mojo::Remote<mojom::CborParser> parser1;
-  decoder1.GetService()->BindCborParser(parser1.BindNewPipeAndPassReceiver());
-  parser1.FlushForTesting();
-  EXPECT_TRUE(parser1.is_connected());
-  EXPECT_EQ(1u, service().receivers().size());
-
-  DataDecoder decoder2;
-  mojo::Remote<mojom::CborParser> parser2;
-  decoder2.GetService()->BindCborParser(parser2.BindNewPipeAndPassReceiver());
-  parser2.FlushForTesting();
-  EXPECT_TRUE(parser2.is_connected());
-  EXPECT_EQ(2u, service().receivers().size());
-}
-
-
-
-
 
 TEST_F(DataDecoderTest, ValidateAValidPixCode) {
   base::RunLoop run_loop;
@@ -113,37 +69,6 @@ TEST_F(DataDecoderTest, SeparateDecoderInstancesMakeSeparateConnectionsForPix) {
 
   EXPECT_TRUE(validator2.is_connected());
   EXPECT_EQ(2u, service().receivers().size());
-}
-
-class DataDecoderMultiThreadTest : public testing::Test {
- protected:
-  base::test::TaskEnvironment task_environment_;
-  base::HistogramTester histogram_tester_;
-};
-
-// Test basic JSON decoding using Rust, in a threadpool.
-TEST_F(DataDecoderMultiThreadTest, JSONDecode) {
-  base::RunLoop run_loop;
-  DataDecoder decoder;
-  DataDecoder::ValueOrError result;
-  decoder.ParseJson(
-      // The magic 122.416294033786585 number comes from
-      // https://github.com/serde-rs/json/issues/707
-      "[ 122.416294033786585 ]",
-      base::BindLambdaForTesting(
-          [&run_loop, &result](DataDecoder::ValueOrError value_or_error) {
-            result = std::move(value_or_error);
-            run_loop.Quit();
-          }));
-  run_loop.Run();
-  histogram_tester_.ExpectTotalCount("Security.DataDecoder.Json.DecodingTime",
-                                     1);
-  ASSERT_TRUE(result.has_value());
-  ASSERT_TRUE(result->is_list());
-  base::ListValue& list = result->GetList();
-  ASSERT_EQ(1u, list.size());
-  EXPECT_TRUE(list[0].is_double());
-  EXPECT_EQ(122.416294033786585, list[0].GetDouble());
 }
 
 }  // namespace data_decoder

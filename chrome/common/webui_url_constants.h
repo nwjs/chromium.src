@@ -94,6 +94,9 @@ inline constexpr char kChromeUIContextualCueingInternalsHost[] =
 inline constexpr char kChromeUIContextualTasksHost[] = "contextual-tasks";
 inline constexpr char kChromeUIContextualTasksURL[] =
     "chrome://contextual-tasks/";
+inline constexpr char kChromeUIContextualTasksToolbarURL[] =
+    "chrome://contextual-tasks/toolbar.html";
+inline constexpr char kChromeUIContentSettingsHost[] = "content-settings";
 inline constexpr char kChromeUIContentSettingsURL[] =
     "chrome://settings/content";
 inline constexpr char16_t kChromeUICookieSettingsURL[] =
@@ -107,6 +110,10 @@ inline constexpr char kChromeUICrossDeviceSigninQrBubbleHost[] =
     "cross-device-signin-qr-bubble";
 inline constexpr char kChromeUICrossDeviceSigninQrBubbleURL[] =
     "chrome://cross-device-signin-qr-bubble/";
+inline constexpr char kChromeUICustomizeChromeSidePanelHost[] =
+    "customize-chrome-side-panel.top-chrome";
+inline constexpr char kChromeUICustomizeChromeSidePanelURL[] =
+    "chrome://customize-chrome-side-panel.top-chrome";
 inline constexpr char kChromeUIDataSharingInternalsHost[] =
     "data-sharing-internals";
 inline constexpr char kChromeUIDefaultHost[] = "version";
@@ -196,6 +203,9 @@ inline constexpr char kChromeUIInternalsHost[] = "internals";
 inline constexpr char kChromeUIInterstitialHost[] = "interstitials";
 inline constexpr char kChromeUIInterstitialURL[] = "chrome://interstitials/";
 inline constexpr char kChromeUIIwaDevHost[] = "iwa-dev";
+inline constexpr char kChromeUILensOverlayHost[] = "lens-overlay";
+inline constexpr char kChromeUILensOverlayUntrustedURL[] =
+    "chrome-untrusted://lens-overlay/";
 inline constexpr char kChromeUILocalStateHost[] = "local-state";
 inline constexpr char kChromeUILocalStateURL[] = "chrome://local-state";
 inline constexpr char kChromeUILocationInternalsHost[] = "location-internals";
@@ -228,6 +238,8 @@ inline constexpr char kChromeUIUntrustedNtpMicrosoftAuthURL[] =
     "chrome-untrusted://ntp-microsoft-auth/";
 inline constexpr char kChromeUINTPTilesInternalsHost[] = "ntp-tiles-internals";
 inline constexpr char kChromeUIOmniboxHost[] = "omnibox";
+inline constexpr char kChromeUIOmniboxAimEligibilityPage[] =
+    "omnibox/aim-eligibility";
 inline constexpr char kChromeUIOmniboxPopupHost[] = "omnibox-popup.top-chrome";
 inline constexpr char kChromeUIOmniboxEverywhereHost[] =
     "omnibox-everywhere.top-chrome";
@@ -238,6 +250,10 @@ inline constexpr char kChromeUIOmniboxPopupURL[] =
 inline constexpr char kChromeUIOmniboxPopupAimURL[] =
     "chrome://omnibox-popup.top-chrome/omnibox_popup_aim.html";
 inline constexpr char kChromeUIOmniboxURL[] = "chrome://omnibox/";
+inline constexpr char kChromeUIOrganizerPanelHost[] =
+    "organizer-panel.top-chrome";
+inline constexpr char kChromeUIOrganizerPanelURL[] =
+    "chrome://organizer-panel.top-chrome/";
 inline constexpr char kChromeUIOnDeviceTranslationInternalsHost[] =
     "on-device-translation-internals";
 inline constexpr char kChromeUIPasswordManagerCheckupURL[] =
@@ -250,8 +266,6 @@ inline constexpr char kChromeUIPasswordManagerURL[] =
     "chrome://password-manager";
 inline constexpr char kChromeUiPasswordChangeUrl[] =
     "chrome://password-manager/settings/password-change";
-inline constexpr char kChromeUIPersonalContextInternalsHost[] =
-    "personal-context-internals";
 inline constexpr char kChromeUIPolicyHost[] = "policy";
 inline constexpr char kChromeUIPolicyLogsURL[] = "chrome://policy/logs";
 inline constexpr char kChromeUIPolicyTestURL[] = "chrome://policy/test";
@@ -377,10 +391,6 @@ inline constexpr char kChromeUICommentsSidePanelHost[] =
     "comments-side-panel.top-chrome";
 inline constexpr char kChromeUICommentsSidePanelURL[] =
     "chrome://comments-side-panel.top-chrome/";
-inline constexpr char kChromeUICustomizeChromeSidePanelHost[] =
-    "customize-chrome-side-panel.top-chrome";
-inline constexpr char kChromeUICustomizeChromeSidePanelURL[] =
-    "chrome://customize-chrome-side-panel.top-chrome";
 inline constexpr char kChromeUIHistorySidePanelHost[] =
     "history-side-panel.top-chrome";
 inline constexpr char kChromeUIHistorySidePanelURL[] =
@@ -394,9 +404,6 @@ inline constexpr char kChromeUILensUntrustedSidePanelAPIURL[] =
     "chrome-untrusted://lens/side_panel/side_panel.html";
 inline constexpr char kChromeUILensUntrustedSidePanelURL[] =
     "chrome-untrusted://lens/";
-inline constexpr char kChromeUILensOverlayHost[] = "lens-overlay";
-inline constexpr char kChromeUILensOverlayUntrustedURL[] =
-    "chrome-untrusted://lens-overlay/";
 inline constexpr char kChromeUIMultistepFilterInternalsHost[] =
     "multistep-filter-internals";
 inline constexpr char kChromeUINearbyInternalsHost[] = "nearby-internals";
@@ -478,10 +485,11 @@ inline constexpr char kChromeUIIntroDefaultBrowserURL[] =
     "chrome://intro/default-browser";
 inline constexpr char kChromeUIIntroFinishOrContinueSubPage[] =
     "finish-or-continue";
+inline constexpr char kChromeUIIntroHost[] = "intro";
 inline constexpr char kChromeUIIntroSignInCelebrationSubPage[] =
     "sign-in-celebration";
-inline constexpr char kChromeUIIntroHost[] = "intro";
 inline constexpr char kChromeUIIntroURL[] = "chrome://intro";
+inline constexpr char kChromeUIIntroWelcomeSubPage[] = "welcome";
 inline constexpr char kChromeUIManagedUserProfileNoticeHost[] =
     "managed-user-profile-notice";
 inline constexpr char kChromeUIManagedUserProfileNoticeUrl[] =

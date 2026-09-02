@@ -39,9 +39,6 @@ BASE_FEATURE(kBlinkExtensionKiosk, base::FEATURE_DISABLED_BY_DEFAULT);
 // cros-jellybean-team@google.com.
 BASE_FEATURE(kCrosComponents, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the setShape Blink extension for Isolated Web Apps on ChromeOS.
-BASE_FEATURE(kCrosIsolatedWebAppSetShape, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables the allowlist for the setShape Blink extension for Isolated Web Apps
 // on ChromeOS. This is intended to be used as the kill switch for the feature.
 BASE_FEATURE(kCrosIsolatedWebAppSetShapeAllowlist,
@@ -103,12 +100,6 @@ BASE_FEATURE(kOrca, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls enabling / disabling the orca feature for dogfood population.
 BASE_FEATURE(kOrcaDogfood, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables or disables Orca internationalization.
-BASE_FEATURE(kOrcaInternationalize, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls enabling / disabling orca l10n strings.
-BASE_FEATURE(kOrcaUseL10nStrings, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Feature management flag used to gate preinstallation of the Gemini app. This
 // flag is meant to be enabled by the feature management module.
@@ -299,10 +290,6 @@ bool IsCrosComponentsEnabled() {
   return base::FeatureList::IsEnabled(kCrosComponents);
 }
 
-bool IsCrosIsolatedWebAppSetShapeEnabled() {
-  return base::FeatureList::IsEnabled(kCrosIsolatedWebAppSetShape);
-}
-
 bool IsCrosIsolatedWebAppSetShapeAllowlistEnabled() {
   return base::FeatureList::IsEnabled(kCrosIsolatedWebAppSetShapeAllowlist);
 }
@@ -381,15 +368,6 @@ bool IsOrcaEnabled() {
   return base::FeatureList::IsEnabled(chromeos::features::kOrcaDogfood) ||
          (base::FeatureList::IsEnabled(chromeos::features::kOrca) &&
           base::FeatureList::IsEnabled(kFeatureManagementOrca));
-}
-
-bool IsOrcaUseL10nStringsEnabled() {
-  return base::FeatureList::IsEnabled(chromeos::features::kOrcaUseL10nStrings);
-}
-
-bool IsOrcaInternationalizeEnabled() {
-  return base::FeatureList::IsEnabled(
-      chromeos::features::kOrcaInternationalize);
 }
 
 bool ShouldDisableChromeComposeOnChromeOS() {

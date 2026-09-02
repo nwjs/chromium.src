@@ -36,6 +36,7 @@ source_set("dictation") {
     "//chrome/app:branded_strings",
     "//chrome/app:generated_resources",
     "//chrome/app/theme:theme_resources",
+    "//chrome/browser/dictation:metrics",
     "//chrome/browser/ui/tabs:tabs_public",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/interaction",
@@ -56,6 +57,7 @@ source_set("unit_tests") {
   deps = [
     ":dictation",
     "//base",
+    "//base:i18n",
     "//chrome/browser/dictation:test_support",
     "//chrome/test:test_support",
     "//testing/gtest",

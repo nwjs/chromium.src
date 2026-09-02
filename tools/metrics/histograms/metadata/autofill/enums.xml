@@ -329,17 +329,6 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:PersonalContextPrefetchTriggerResult) -->
 
-<!-- LINT.IfChange(AutofillAiPrefMigrationStatus) -->
-
-<enum name="AutofillAiPrefMigrationStatus">
-  <int value="0" label="Pref migrated (set to true)"/>
-  <int value="1" label="Pref migrated (set to false)"/>
-  <int value="2" label="Pref already set"/>
-  <int value="3" label="Pref not migrated (account keyed pref never set)"/>
-</enum>
-
-<!-- LINT.ThenChange(/components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h:AutofillAiPrefMigrationStatus) -->
-
 <enum name="AutofillAiReauthResultByFieldType">
 <!-- Generated from components/autofill/core/browser/field_types.h.
 Called by update_autofill_enums.py.-->
@@ -669,7 +658,7 @@ Called by update_autofill_enums.py.-->
   <int value="15" label="Autofill, Gmail, Calendar, Photos"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/at_memory/memory_search_result.h:MemoryEntrySourceType) -->
+<!-- LINT.ThenChange(//components/autofill/core/browser/integrators/at_memory/memory_data_type.h:MemoryEntrySourceType) -->
 
 <enum name="AutofillAtMemoryQueryCompletedStatus">
   <int value="0" label="Query returned data"/>
@@ -732,6 +721,7 @@ Called by update_autofill_enums.py.-->
   <int value="10" label="WalletablePassSave"/>
   <int value="11" label="OmniboxAutofill"/>
   <int value="12" label="PaymentsChurnedUsers"/>
+  <int value="13" label="WalletReminderNotice"/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/ui/autofill/bubble_controller_base.h:BubbleType) -->
@@ -4290,6 +4280,7 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="SettingsMenu"/>
   <int value="2" label="AutofillAndPasswordsPage"/>
   <int value="3" label="FillingFlowDropdown"/>
+  <int value="4" label="SettingsSearch"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/autofill_settings_metrics.h:AutofillSettingsReferrer, /chrome/browser/resources/settings/metrics_browser_proxy.ts:AutofillSettingsReferrer, /chrome/android/java/src/org/chromium/chrome/browser/autofill/settings/AutofillAndPasswordsFragment.java:AutofillSettingsReferrer) -->
@@ -4516,7 +4507,7 @@ Called by update_autofill_enums.py.-->
   <int value="16" label="Compose delayed proactive nudge"/>
   <int value="17" label="Password manager processed focused field"/>
   <int value="18" label="Autofill AI"/>
-  <int value="19" label="Plus address update in browser process"/>
+  <int value="19" label="(Obsolete) Plus address update in browser process"/>
   <int value="20" label="Proactive password recovery"/>
   <int value="21" label="Glic"/>
   <int value="22" label="AtMemory trigger string"/>
@@ -5554,7 +5545,6 @@ Called by update_autofill_enums.py.-->
   <int value="10" label="CompanyName"/>
   <int value="11" label="Iban"/>
   <int value="12" label="IbanNickname"/>
-  <int value="13" label="Vehicle"/>
   <int value="14" label="VehicleMake"/>
   <int value="15" label="VehicleModel"/>
   <int value="16" label="VehicleYear"/>
@@ -5562,13 +5552,11 @@ Called by update_autofill_enums.py.-->
   <int value="18" label="VehiclePlateNumber"/>
   <int value="19" label="VehiclePlateState"/>
   <int value="20" label="VehicleVin"/>
-  <int value="21" label="PassportFull"/>
   <int value="22" label="PassportName"/>
   <int value="23" label="PassportCountry"/>
   <int value="24" label="PassportNumber"/>
   <int value="25" label="PassportIssueDate"/>
   <int value="26" label="PassportExpirationDate"/>
-  <int value="27" label="FlightReservationFull"/>
   <int value="28" label="FlightReservationFlightNumber"/>
   <int value="29" label="FlightReservationTicketNumber"/>
   <int value="30" label="FlightReservationConfirmationCode"/>
@@ -5577,7 +5565,6 @@ Called by update_autofill_enums.py.-->
   <int value="33" label="FlightReservationArrivalAirport"/>
   <int value="34" label="FlightReservationDepartureDate"/>
   <int value="35" label="FlightReservationArrivalDate"/>
-  <int value="36" label="ShipmentFull"/>
   <int value="37" label="ShipmentTrackingNumber"/>
   <int value="38" label="ShipmentAssociatedOrderId"/>
   <int value="39" label="ShipmentDeliveryAddress"/>
@@ -5586,26 +5573,21 @@ Called by update_autofill_enums.py.-->
   <int value="42" label="ShipmentCarrierDomain"/>
   <int value="43" label="ShipmentEstimatedDeliveryDate"/>
   <int value="44" label="ShipmentShippedDate"/>
-  <int value="45" label="NationalIdCardFull"/>
   <int value="46" label="NationalIdCardName"/>
   <int value="47" label="NationalIdCardCountry"/>
   <int value="48" label="NationalIdCardNumber"/>
   <int value="49" label="NationalIdCardIssueDate"/>
   <int value="50" label="NationalIdCardExpirationDate"/>
-  <int value="51" label="RedressNumberFull"/>
   <int value="52" label="RedressNumberName"/>
   <int value="53" label="RedressNumberNumber"/>
-  <int value="54" label="KnownTravelerNumberFull"/>
   <int value="55" label="KnownTravelerNumberName"/>
   <int value="56" label="KnownTravelerNumberNumber"/>
   <int value="57" label="KnownTravelerNumberExpirationDate"/>
-  <int value="58" label="DriversLicenseFull"/>
   <int value="59" label="DriversLicenseName"/>
   <int value="60" label="DriversLicenseState"/>
   <int value="61" label="DriversLicenseNumber"/>
   <int value="62" label="DriversLicenseIssueDate"/>
   <int value="63" label="DriversLicenseExpirationDate"/>
-  <int value="64" label="OrderFull"/>
   <int value="65" label="OrderId"/>
   <int value="66" label="OrderAccount"/>
   <int value="67" label="OrderDate"/>
@@ -5648,10 +5630,13 @@ Called by update_autofill_enums.py.-->
   <int value="3" label="Aborted; failed to fetch cached form"/>
   <int value="4" label="Aborted; card number or expiration date field missing"/>
   <int value="5" label="Aborted; form or client context not secure"/>
-  <int value="6" label="Aborted; found multiple credit card number fields"/>
+  <int value="6"
+      label="Aborted; found multiple visible credit card number fields"/>
   <int value="7" label="Aborted; OptimizationGuideDecider missing"/>
   <int value="8" label="Aborted; found field from non-allowlisted iframe"/>
   <int value="9" label="All prior checks passed; started IntersectionObserver"/>
+  <int value="10"
+      label="Aborted; form did not contain a visible credit card number field"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/omnibox_autofill_metrics.h:OmniboxAutofillShowChipDecisionPart1) -->
@@ -5686,6 +5671,16 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Not Phishing"/>
 </enum>
 
+<!-- LINT.IfChange(OtpFillingSafeBrowsingCheckResult) -->
+
+<enum name="OtpFillingSafeBrowsingCheckResult">
+  <int value="0" label="Safe"/>
+  <int value="1" label="Unsafe"/>
+  <int value="2" label="Timeout"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/autofill/otp_filling_safe_browsing_checker_client.h:OtpFillingSafeBrowsingCheckResult) -->
+
 <!-- LINT.IfChange(PayLaterTabsFormEvent) -->
 
 <enum name="PayLaterTabsFormEvent">
@@ -5710,6 +5705,26 @@ Called by update_autofill_enums.py.-->
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/metrics/payments/bnpl_metrics.h:PayLaterTabsFormEvent) -->
+
+<enum name="PaymentsChurnedUsersBubbleShowResult">
+  <int value="0" label="Shown successfully"/>
+  <int value="1" label="Off The Record"/>
+  <int value="2" label="No Cached Form"/>
+  <int value="3" label="Strike Database Blocked"/>
+  <int value="4" label="No visible credit card form is present"/>
+  <int value="5" label="Pref Already Turned On"/>
+  <int value="6" label="Pref Not User Controlled"/>
+  <int value="7" label="No Account Info Present"/>
+</enum>
+
+<enum name="PaymentsUiClosedReason">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="Accepted"/>
+  <int value="2" label="Cancelled"/>
+  <int value="3" label="Closed"/>
+  <int value="4" label="Not Interacted"/>
+  <int value="5" label="Lost Focus"/>
+</enum>
 
 <enum name="PaymentsWindowUserConsentDialogResult">
   <int value="0" label="The tab or browser was closed"/>
@@ -6038,7 +6053,7 @@ Called by update_autofill_enums.py.-->
   <int value="44" label="Webauthn sign-in with another device"/>
   <int value="45" label="Title"/>
   <int value="46" label="Separator"/>
-  <int value="47" label="Undo or clear"/>
+  <int value="47" label="Undo"/>
   <int value="48" label="Mixed form message"/>
   <int value="49" label="Devtools test addresses"/>
   <int value="50" label="Devtools test address entry"/>
@@ -6089,6 +6104,8 @@ Called by update_autofill_enums.py.-->
   <int value="94" label="AtMemory AI disclosure"/>
   <int value="95" label="Autofill AI other shipments"/>
   <int value="96" label="AtMemory source attribution"/>
+  <int value="97" label="AtMemory fetching"/>
+  <int value="98" label="Remove Autofill AI info"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/suggestions/suggestion_type.h:SuggestionType) -->

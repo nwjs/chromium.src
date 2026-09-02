@@ -1697,16 +1697,27 @@ void ResourceFetcher::InitializeRevalidation(
               revalidating_request.GetCacheMode());
     if (revalidating_request.GetCacheMode() ==
         mojom::blink::FetchCacheMode::kValidateCache) {
-      revalidating_request.SetHttpHeaderField(http_names::kCacheControl,
-                                              AtomicString("max-age=0"));
+      if (!base::FeatureList::IsEnabled(network::features::kSafeRevalidation)) {
+        revalidating_request.SetHttpHeaderField(http_names::kCacheControl,
+                                                AtomicString("max-age=0"));
+      }
     }
   }
-  if (!last_modified.empty()) {
-    revalidating_request.SetHttpHeaderField(http_names::kIfModifiedSince,
-                                            last_modified);
-  }
-  if (!e_tag.empty()) {
-    revalidating_request.SetHttpHeaderField(http_names::kIfNoneMatch, e_tag);
+  if (base::FeatureList::IsEnabled(network::features::kSafeRevalidation)) {
+    if (!last_modified.empty()) {
+      revalidating_request.SetRevalidationLastModified(last_modified);
+    }
+    if (!e_tag.empty()) {
+      revalidating_request.SetRevalidationEtag(e_tag);
+    }
+  } else {
+    if (!last_modified.empty()) {
+      revalidating_request.SetHttpHeaderField(http_names::kIfModifiedSince,
+                                              last_modified);
+    }
+    if (!e_tag.empty()) {
+      revalidating_request.SetHttpHeaderField(http_names::kIfNoneMatch, e_tag);
+    }
   }
 
   resource->SetRevalidatingRequest(revalidating_request);
@@ -2459,7 +2470,7 @@ void ResourceFetcher::RecordPreconnect(const KURL& url,
   // Preconnects with distinct crossorigin values to the same origin are
   // reported separately.
   const String key =
-      origin + "|" + String::Number(static_cast<int>(crossorigin));
+      StrCat({origin, "|", String::Number(static_cast<int>(crossorigin))});
   auto it = preconnect_records_.find(key);
   if (it == preconnect_records_.end()) {
     PreconnectInfo info;
@@ -3216,10 +3227,9 @@ void ResourceFetcher::RevalidateStaleResource(Resource* stale_resource) {
   // requests.
   ResourceRequest request;
   request.CopyHeadFrom(stale_resource->GetResourceRequest());
-  // TODO(https://crbug.com/1405800): investigate whether it's correct to use a
-  // null `world` in the ResourceLoaderOptions below.
-  FetchParameters params(std::move(request),
-                         ResourceLoaderOptions(/*world=*/nullptr));
+  FetchParameters params(
+      std::move(request),
+      ResourceLoaderOptions(stale_resource->Options().world_for_csp.Get()));
   params.SetStaleRevalidation(true);
   params.MutableResourceRequest().SetSkipServiceWorker(true);
   // Stale revalidation resource requests should be very low regardless of

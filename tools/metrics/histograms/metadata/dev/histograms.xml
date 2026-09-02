@@ -23,7 +23,7 @@ chromium-metrics-reviews@google.com.
 <histograms>
 
 <histogram name="DevTools.ActionTaken" enum="DevToolsAction"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>Specified DevTools action has been taken.</summary>
@@ -48,7 +48,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.CDPCommandFrom{ClientType}" enum="CDPCommands"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>wolfi@google.com</owner>
   <owner>danilsomsikov@google.com</owner>
   <owner>yangguo@google.com</owner>
@@ -63,6 +63,54 @@ chromium-metrics-reviews@google.com.
     <variant name="Other" summary="other sources"/>
     <variant name="RemoteDebugger" summary="remote debugging"/>
   </token>
+</histogram>
+
+<histogram name="DevTools.Comments.ChangeRecorded" units="count"
+    expires_after="2027-08-12">
+  <owner>nharshunova@google.com</owner>
+  <owner>yulunz@google.com</owner>
+  <summary>The number of changes made by the agent in one turn.</summary>
+</histogram>
+
+<histogram name="DevTools.Comments.ChangeSharedWithAgent" units="count"
+    expires_after="2027-08-12">
+  <owner>nharshunova@google.com</owner>
+  <owner>yulunz@google.com</owner>
+  <summary>The number of changes shared with the AI agent in one turn.</summary>
+</histogram>
+
+<histogram name="DevTools.Comments.CommentCreated" units="count"
+    expires_after="2027-08-12">
+  <owner>nharshunova@google.com</owner>
+  <owner>yulunz@google.com</owner>
+  <summary>The number of comments created in one turn.</summary>
+</histogram>
+
+<histogram name="DevTools.Comments.CommentResolvedBy{Resolver}" units="count"
+    expires_after="2027-08-12">
+  <owner>nharshunova@google.com</owner>
+  <owner>yulunz@google.com</owner>
+  <summary>The number of comments resolved by {Resolver} in one turn.</summary>
+  <token key="Resolver">
+    <variant name="Agent" summary="the AI agent"/>
+    <variant name="User" summary="the user"/>
+  </token>
+</histogram>
+
+<histogram name="DevTools.Comments.CommentSharedWithAgent" units="count"
+    expires_after="2027-08-12">
+  <owner>nharshunova@google.com</owner>
+  <owner>yulunz@google.com</owner>
+  <summary>
+    The number of comments shared with the AI agent in one turn.
+  </summary>
+</histogram>
+
+<histogram name="DevTools.Comments.CommentSize" units="characters"
+    expires_after="2027-08-12">
+  <owner>nharshunova@google.com</owner>
+  <owner>yulunz@google.com</owner>
+  <summary>The length of a comment in characters when created.</summary>
 </histogram>
 
 <histogram name="DevTools.DeveloperResourceLoaded"
@@ -115,6 +163,18 @@ chromium-metrics-reviews@google.com.
     The value SchemeUnknown signifies that parsing the scheme from the URL
     failed (note that at the point the enum is recorded, only absolute URLs
     arrive).
+  </summary>
+</histogram>
+
+<histogram name="DevTools.EditResendRequest" enum="DevToolsResendRequestType"
+    expires_after="2027-06-18">
+  <owner>dsv@chromium.org</owner>
+  <owner>dgarber@microsoft.com</owner>
+  <component>1456922</component>
+  <summary>
+    Records the resource type of a network request that the user selects to edit
+    and resend. Fired at the start of resendFromConsole(), at the point that a
+    fetch command is pasted into the console for user edit.
   </summary>
 </histogram>
 
@@ -428,7 +488,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.PanelShown" enum="DevToolsPanel"
-    expires_after="2026-11-29">
+    expires_after="2027-02-07">
   <owner>yangguo@google.com</owner>
   <owner>bmeurer@google.com</owner>
   <summary>Specified DevTools panel was shown.</summary>
@@ -479,6 +539,17 @@ chromium-metrics-reviews@google.com.
   <owner>hablich@google.com</owner>
   <summary>
     Actions taken on the remote debugging server on chrome://inspect.
+  </summary>
+</histogram>
+
+<histogram name="DevTools.ResendRequest" enum="DevToolsResendRequestType"
+    expires_after="2027-06-18">
+  <owner>dsv@chromium.org</owner>
+  <owner>dgarber@microsoft.com</owner>
+  <component>1456922</component>
+  <summary>
+    Records the resource type of a network request resent from DevTools. Fired
+    at the start of resendRequest(), regardless of success or failure.
   </summary>
 </histogram>
 
@@ -549,7 +620,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="DevTools.VisualLogging.ProcessingTime" units="ms"
-    expires_after="2026-11-15">
+    expires_after="2027-01-24">
   <owner>danilsomsikov@google.com</owner>
   <owner>hablich@google.com</owner>
   <summary>

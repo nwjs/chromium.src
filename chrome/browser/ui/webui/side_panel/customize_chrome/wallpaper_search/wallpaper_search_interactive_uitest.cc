@@ -8,6 +8,8 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_view_util.h"
 #include "base/test/scoped_feature_list.h"
+#include "chrome/browser/media/webrtc/desktop_capture_access_handler.h"
+#include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
@@ -78,6 +80,16 @@ class WallpaperSearchInteractiveTest : public InteractiveBrowserTest {
         IdentityManagerFactory::GetForProfile(browser()->GetProfile());
     signin::MakePrimaryAccountAvailable(identity_manager, "user@example.com",
                                         signin::ConsentLevel::kSignin);
+    MediaCaptureDevicesDispatcher::GetInstance()
+        ->desktop_capture_access_handler_for_test()
+        ->SetRequestApprovedForTest(true);
+  }
+
+  void TearDownOnMainThread() override {
+    MediaCaptureDevicesDispatcher::GetInstance()
+        ->desktop_capture_access_handler_for_test()
+        ->SetRequestApprovedForTest(false);
+    InteractiveBrowserTest::TearDownOnMainThread();
   }
 
   std::vector<base::test::FeatureRefAndParams> GetEnabledFeatures() {
@@ -340,8 +352,8 @@ class WallpaperSearchOptimizationGuideInteractiveTest
   base::CallbackListSubscription subscription_;
 };
 
-// TODO(crbug.com/524036564): Flaky on Win.
-#if BUILDFLAG(IS_WIN)
+// TODO(crbug.com/524036564): Flaky on Win and macOS.
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 #define MAYBE_CustomizeButtonsWorkTogether DISABLED_CustomizeButtonsWorkTogether
 #else
 #define MAYBE_CustomizeButtonsWorkTogether CustomizeButtonsWorkTogether

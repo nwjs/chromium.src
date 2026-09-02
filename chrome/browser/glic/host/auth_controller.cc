@@ -13,6 +13,7 @@
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/host/glic_cookie_synchronizer.h"
 #include "chrome/browser/glic/public/features.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/common/chrome_switches.h"
@@ -63,8 +64,7 @@ AuthController::AuthController(Profile* profile,
       identity_manager_->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
   if (identity_manager_->GetErrorStateOfRefreshTokenForAccount(
           primary_account) != GoogleServiceAuthError::AuthErrorNone()) {
-    profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync,
-                                     true);
+    MaybeSetNeedsSync();
   }
 }
 
@@ -153,8 +153,7 @@ void AuthController::OnPrimaryAccountChanged(
     const signin::PrimaryAccountChangeEvent& event_details) {
   switch (event_details.GetEventTypeFor(signin::ConsentLevel::kSignin)) {
     case signin::PrimaryAccountChangeEvent::Type::kSet:
-      if (base::FeatureList::IsEnabled(
-              features::kGlicCookieSyncOnTokenChange)) {
+      if (ShouldSyncCookiesDelayed()) {
         DelayedForceSyncCookies(
             GlicCookieSyncTrigger::kOnPrimaryAccountChanged);
       }
@@ -174,7 +173,7 @@ void AuthController::OnErrorStateOfRefreshTokenUpdatedForAccount(
       account_info.account_id) {
     return;
   }
-  profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync, true);
+  MaybeSetNeedsSync();
 }
 
 void AuthController::OnRefreshTokenUpdatedForAccount(
@@ -183,7 +182,7 @@ void AuthController::OnRefreshTokenUpdatedForAccount(
       account_info.account_id) {
     return;
   }
-  if (!base::FeatureList::IsEnabled(features::kGlicCookieSyncOnTokenChange)) {
+  if (!ShouldSyncCookiesDelayed()) {
     return;
   }
   if (!identity_manager_->AreRefreshTokensLoaded() &&
@@ -192,7 +191,7 @@ void AuthController::OnRefreshTokenUpdatedForAccount(
     // unless a sync is explicitly required.
     return;
   }
-  profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync, true);
+  MaybeSetNeedsSync();
   if (GetTokenState() == TokenState::kOk) {
     DelayedForceSyncCookies(GlicCookieSyncTrigger::kOnRefreshTokenUpdated);
   }
@@ -207,7 +206,7 @@ void AuthController::ForceSyncCookies(GlicCookieSyncTrigger trigger,
 }
 
 void AuthController::OnClientError() {
-  profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync, true);
+  MaybeSetNeedsSync();
   MaybeSyncCookiesOnError();
 }
 
@@ -216,8 +215,7 @@ void AuthController::OnClientTransientError(
   switch (status_code) {
     case mojo_base::mojom::AbslStatusCode::kUnauthenticated:
     case mojo_base::mojom::AbslStatusCode::kInternal:
-      profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync,
-                                       true);
+      MaybeSetNeedsSync();
       MaybeSyncCookiesOnError();
       break;
     default:
@@ -308,6 +306,21 @@ void AuthController::MaybeSyncCookiesOnError() {
     ForceSyncCookies(GlicCookieSyncTrigger::kMaybeSyncCookiesOnError,
                      base::DoNothing());
   }
+}
+
+void AuthController::MaybeSetNeedsSync() {
+  if (!profile_->GetPrefs()->GetBoolean(prefs::kGlicPartitionNeedsCookieSync)) {
+    profile_->GetPrefs()->SetBoolean(prefs::kGlicPartitionNeedsCookieSync,
+                                     true);
+  }
+}
+
+bool AuthController::ShouldSyncCookiesDelayed() {
+  if (!base::FeatureList::IsEnabled(features::kGlicCookieSyncOnTokenChange)) {
+    return false;
+  }
+  return !features::kGlicCookieSyncOnTokenChangeOnlyWhenFreCompleted.Get() ||
+       GlicEnabling::GetCompletedFre(profile_) == prefs::FreStatus::kCompleted;
 }
 
 }  // namespace glic

@@ -8,7 +8,6 @@
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/strcat.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
@@ -201,6 +200,12 @@ ExtensionsMenuEntryView::ExtensionsMenuEntryView(
                   .SetTextStyle(views::style::STYLE_BODY_5)
                   .SetEnabledColor(kColorExtensionsMenuSecondaryText)
                   .SetHorizontalAlignment(gfx::ALIGN_LEFT)
+                  .SetElideBehavior(gfx::ELIDE_TAIL)
+                  .SetProperty(views::kFlexBehaviorKey,
+                               views::FlexSpecification(
+                                   views::LayoutOrientation::kHorizontal,
+                                   views::MinimumFlexSizeRule::kScaleToZero,
+                                   views::MaximumFlexSizeRule::kPreferred))
                   .SetProperty(views::kMarginsKey,
                                gfx::Insets::VH(0, icon_size))
                   .SetBorder(views::CreateEmptyBorder(

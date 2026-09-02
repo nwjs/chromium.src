@@ -26,6 +26,7 @@ public interface GlicKeyedService {
         GlicInvocationSource.TOP_CHROME_BUTTON,
         GlicInvocationSource.NUDGE,
         GlicInvocationSource.THREE_DOTS_MENU,
+        GlicInvocationSource.WEB_CONTENTS_CONTEXT_MENU,
         GlicInvocationSource.TOOLBAR_BUTTON,
         GlicInvocationSource.MAX_VALUE,
     })
@@ -35,6 +36,7 @@ public interface GlicKeyedService {
         int TOP_CHROME_BUTTON = 3;
         int NUDGE = 6;
         int THREE_DOTS_MENU = 7;
+        int WEB_CONTENTS_CONTEXT_MENU = 23;
         int TOOLBAR_BUTTON = 31;
         int MAX_VALUE = 34;
     }
@@ -55,6 +57,9 @@ public interface GlicKeyedService {
             Profile profile,
             @GlicInvocationSource int invocationSource);
 
+    // TODO(b/543136256): Consider consolidating these invoke variants into a single method that
+    // takes an InvokeOptions param, so the public API scales as more options are added. The JNI
+    // layer can keep multiple functions to avoid struct-conversion overhead.
     /**
      * Invokes the Glic service with auto-submit prompt.
      *
@@ -64,6 +69,24 @@ public interface GlicKeyedService {
      * @return true if the service was successfully invoked.
      */
     boolean invokeWithAutoSubmit(Tab tab, String text, @GlicInvocationSource int invocationSource);
+
+    /**
+     * Invokes the Glic service with a prompt prepopulated in the input box.
+     *
+     * @param tab The {@link Tab} to target.
+     * @param text The text prompt to populate.
+     * @param invocationSource How the UI was triggered.
+     */
+    void invokeWithPrompt(Tab tab, String text, @GlicInvocationSource int invocationSource);
+
+    /**
+     * Invokes the Glic service, opening the panel attached to the given tab without
+     * auto-submitting.
+     *
+     * @param tab The {@link Tab} to target.
+     * @param invocationSource How the UI was triggered.
+     */
+    void invoke(Tab tab, @GlicInvocationSource int invocationSource);
 
     /** Observer for global show/hide events. */
     interface GlobalShowHideObserver {

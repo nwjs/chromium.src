@@ -80,11 +80,6 @@ source_set("web_applications") {
   }
 }
 
-# TODO(crbug.com/438226511): web_app_launch_utils.h includes browser.h, and
-# makes use of Browser::CreateParams inner struct, which can not be easily
-# worked around. For this reason, it causes a circular dependency against
-# //c/b/ui:ui from a header. This target confines it, in order to unblock the
-# componentization of the rest of the directory.
 source_set("launch_utils") {
   sources = []
   public_deps = []
@@ -101,12 +96,11 @@ source_set("launch_utils") {
       "//ui/gfx/geometry",
     ]
   }
-  public_deps += [ "//chrome/browser:browser_public_dependencies" ]
 }
 
 source_set("impl") {
   sources = []
-  deps = []
+  deps = [ "//chrome/browser/ui/browser_window:create_browser_window" ]
 
   if (!is_android) {
     sources += [ "web_app_dialog_utils.cc" ]
@@ -123,6 +117,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/web_apps:progress_delay",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications/mojom:mojom_web_apps_enum",
       "//chrome/common:chrome_features",
@@ -185,6 +180,7 @@ source_set("impl") {
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/profiles",
       "//chrome/browser/ui/tabs:tab_menu",
+      "//chrome/browser/ui/views/web_apps:web_app_blocked_migration_infobar_delegate",
       "//chrome/browser/ui/window_metadata",
       "//chrome/browser/web_applications:features",
       "//chrome/browser/web_applications/app_service",
@@ -296,6 +292,8 @@ source_set("browser_tests") {
     "//chrome/browser/shortcuts",
     "//chrome/browser/themes",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/browser_ui_controller",
+    "//chrome/browser/ui/browser_web_contents_delegate",
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/startup",
     "//chrome/browser/ui/window_metadata",
@@ -338,6 +336,10 @@ source_set("browser_tests") {
       "//components/session_manager/core",
       "//components/user_manager",
     ]
+  }
+
+  if (!is_android) {
+    deps += [ "//chrome/browser/ui/window_feature_controller" ]
   }
 }
 

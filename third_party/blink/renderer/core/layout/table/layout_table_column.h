@@ -46,7 +46,8 @@ class CORE_EXPORT LayoutTableColumn : public LayoutBox {
 
   void QuadsInAncestorInternal(Vector<gfx::QuadF>&,
                                const LayoutBoxModelObject* ancestor,
-                               MapCoordinatesFlags) const override;
+                               MapCoordinatesFlags,
+                               BoxQuadType) const override;
 
   // LayoutObject methods start.
 
@@ -60,6 +61,7 @@ class CORE_EXPORT LayoutTableColumn : public LayoutBox {
 
   void StyleDidChange(StyleDifference diff,
                       const ComputedStyle* old_style,
+                      const ComputedStyle& new_style,
                       const StyleChangeContext&) final;
 
   void ImageChanged(WrappedImagePtr, CanDeferInvalidation) final;

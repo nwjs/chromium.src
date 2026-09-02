@@ -54,6 +54,19 @@ const base::FeatureParam<bool> kUseStaleConnectorsForOptimisticDns{
 
 BASE_FEATURE(kAddressSorterConnectCache, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE_PARAM(size_t,
+                   kAddressSorterConnectCacheMaxNetworks,
+                   &kAddressSorterConnectCache,
+                   2);
+BASE_FEATURE_PARAM(size_t,
+                   kAddressSorterConnectCacheMaxNaksPerNetwork,
+                   &kAddressSorterConnectCache,
+                   16);
+BASE_FEATURE_PARAM(size_t,
+                   kAddressSorterConnectCacheMaxPredictionsPerPartition,
+                   &kAddressSorterConnectCache,
+                   1024);
+
 BASE_FEATURE(kDnsTransactionDynamicTimeouts, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<double> kDnsTransactionTimeoutMultiplier{
@@ -328,6 +341,15 @@ BASE_FEATURE(kAsyncQuicSession,
 #else
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
+
+// A flag to use QuicSessionPool::AsyncDnsJob, which resolves hostnames with
+// HostResolver::ServiceEndpointRequest, for direct QUIC sessions.
+BASE_FEATURE(kAsyncDnsQuicJob, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kAsyncDnsQuicJobSlowTimerDelay,
+                   &kAsyncDnsQuicJob,
+                   TcpConnectJob::kIPv6FallbackTime);
 
 // A flag to make multiport context creation asynchronous.
 BASE_FEATURE(kAsyncMultiPortPath,
@@ -650,6 +672,16 @@ BASE_FEATURE_PARAM(size_t,
                    "max_entries",
                    1000);
 
+BASE_FEATURE_PARAM(size_t,
+                   kHttpCacheNoVarySearchCacheMaxPartitionEntries,
+                   &kHttpCacheNoVarySearch,
+                   100);
+
+BASE_FEATURE_PARAM(size_t,
+                   kHttpCacheNoVarySearchCacheMaxPartitions,
+                   &kHttpCacheNoVarySearch,
+                   100);
+
 BASE_FEATURE_PARAM(bool,
                    kHttpCacheNoVarySearchPersistenceEnabled,
                    &kHttpCacheNoVarySearch,
@@ -682,8 +714,6 @@ BASE_FEATURE(kRestrictAbusePortsOnLocalhost, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kTLSTrustAnchorIDs, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNonMtcTrustAnchorIDs, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kTlsMldsaSignatures, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
 BASE_FEATURE(kVerifyMTCs, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -886,6 +916,10 @@ BASE_FEATURE(kDrainSpdySessionSynchronouslyOnRemoteEndpointDisconnect,
 BASE_FEATURE(kLogicalClearHttpCache, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kLogicalClearHttpCacheUserVisiblePriority{
     &kLogicalClearHttpCache, "UserVisiblePriority", true};
+BASE_FEATURE_PARAM(int,
+                   kLogicalClearHttpCacheMaxFilters,
+                   &kLogicalClearHttpCache,
+                   500);
 
 BASE_FEATURE(kSQLitePersistentCookieStoreEarlyInit,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -917,6 +951,11 @@ BASE_FEATURE(kCookieParseRejectEmptyNameAmbiguous,
 
 BASE_FEATURE(kEnablePrivateVerificationTokens,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(std::string,
+                   kPrivateVerificationTokensCustomIssuer,
+                   &kEnablePrivateVerificationTokens,
+                   "");
 
 BASE_FEATURE(kAddTLSServerHandshakePadding, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -979,5 +1018,27 @@ BASE_FEATURE(kEnableBackendCleanupTrackerOnHttpCache,
 
 BASE_FEATURE(kPartitionWebSocketEndpointLocksByNetworkAnonymizationKey,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kInitialDelayForBrokenAlternativeService,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kInitialDelayForBrokenAlternativeServiceParam,
+                   &kInitialDelayForBrokenAlternativeService,
+                   base::Seconds(300));
+
+BASE_FEATURE(kPersistBrokenAlternativeServices,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kMaxDelayForBrokenAlternativeService,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kMaxDelayForBrokenAlternativeServiceParam,
+                   &kMaxDelayForBrokenAlternativeService,
+                   base::Days(2));
+
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kEnableWindowsTcpLoopbackFastFail,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 
 }  // namespace net::features

@@ -495,7 +495,7 @@ TEST_P(GeometryMapperTest, SimpleClipInclusiveIntersect) {
   FloatClipRect actual_clip_rect(gfx::RectF(60, 10, 10, 10));
   GeometryMapper::LocalToAncestorVisualRect(
       LocalState(), AncestorState(), actual_clip_rect,
-      kIgnoreOverlayScrollbarSize, kEdgeInclusive);
+      kIgnoreOverlayScrollbarSize, {VisualRectFlag::kEdgeInclusive});
   EXPECT_CLIP_RECT_EQ(FloatClipRect(gfx::RectF(60, 10, 0, 10)),
                       actual_clip_rect);
 
@@ -526,7 +526,7 @@ TEST_P(GeometryMapperTest, SimpleClipPlusOpacityInclusiveIntersect) {
   FloatClipRect actual_clip_rect(gfx::RectF(10, 10, 10, 0));
   auto intersects = GeometryMapper::LocalToAncestorVisualRect(
       LocalState(), AncestorState(), actual_clip_rect,
-      kIgnoreOverlayScrollbarSize, kEdgeInclusive);
+      kIgnoreOverlayScrollbarSize, {VisualRectFlag::kEdgeInclusive});
 
   EXPECT_TRUE(actual_clip_rect.Rect().IsEmpty());
   EXPECT_TRUE(intersects);
@@ -656,7 +656,7 @@ TEST_P(GeometryMapperTest, ExpandVisualRectWithClipBeforeAnimatingTransform) {
 TEST_P(GeometryMapperTest, ExpandVisualRectWithClipBeforeSticky) {
   expected_transform = MakeTranslationMatrix(0, 100);
   local_transform = CreateTransform(t0(), *expected_transform, gfx::Point3F(),
-                                    CompositingReason::kStickyPosition);
+                                    {CompositingReason::kStickyPosition});
   auto* clip =
       CreateClip(c0(), *local_transform, FloatRoundedRect(10, 10, 50, 50));
   local_clip = clip;
@@ -717,7 +717,7 @@ TEST_P(GeometryMapperTest, ExpandVisualRectWithClipAfterAnimatingTransform) {
 TEST_P(GeometryMapperTest, ExpandVisualRectWithClipAfterSticky) {
   expected_transform = MakeTranslationMatrix(0, 100);
   local_transform = CreateTransform(t0(), *expected_transform, gfx::Point3F(),
-                                    CompositingReason::kStickyPosition);
+                                    {CompositingReason::kStickyPosition});
   auto* clip = CreateClip(c0(), t0(), FloatRoundedRect(10, 10, 200, 200));
   local_clip = clip;
 
@@ -796,7 +796,7 @@ TEST_P(GeometryMapperTest, ExpandVisualRectWithTwoClipsWithStickyBetween) {
   auto* clip1 = CreateClip(c0(), t0(), FloatRoundedRect(10, 10, 200, 200));
   expected_transform = MakeTranslationMatrix(0, 100);
   local_transform = CreateTransform(t0(), *expected_transform, gfx::Point3F(),
-                                    CompositingReason::kStickyPosition);
+                                    {CompositingReason::kStickyPosition});
   auto* clip2 =
       CreateClip(*clip1, *local_transform, FloatRoundedRect(10, 10, 200, 200));
   local_clip = clip2;
@@ -1076,7 +1076,7 @@ TEST_P(GeometryMapperTest, IgnoreFilters) {
   actual_clip_rect.SetRect(gfx::RectF(100, 100, 50, 50));
   GeometryMapper::LocalToAncestorVisualRect(
       LocalState(), AncestorState(), actual_clip_rect,
-      kIgnoreOverlayScrollbarSize, kIgnoreFilters);
+      kIgnoreOverlayScrollbarSize, {VisualRectFlag::kIgnoreFilters});
   FloatClipRect expected_without_filter(gfx::RectF(100, 100, 50, 50));
   // We still conservatively clear the tight flag.
   expected_without_filter.ClearIsTight();

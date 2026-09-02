@@ -151,6 +151,12 @@ void ViewAccessibility::AddVirtualChildViewAt(
   DCHECK(!virtual_view->virtual_parent_view()) << "This |view| already has an "
                                                   "AXVirtualView parent. Call "
                                                   "RemoveChildView first.";
+  // The first virtual child hides the real children. Notify before the insert,
+  // while GetChildren still returns them.
+  if (virtual_children_.empty()) {
+    NotifyChildrenRemoved();
+  }
+
   virtual_view->set_parent_view(this);
   auto insert_iterator =
       virtual_children_.begin() + static_cast<ptrdiff_t>(index);
@@ -158,6 +164,7 @@ void ViewAccessibility::AddVirtualChildViewAt(
 
   AXVirtualView* added_view = virtual_children_[index].get();
   added_view->OnViewHasNewAncestor(view_);
+  added_view->OnOwnerViewChanged();
 
   AXUpdateNotifier::Get()->NotifyChildAdded(added_view, this);
   FireLiveRegionChangedIfNeeded(LiveRegionEventTrigger::kAdditions);
@@ -179,6 +186,7 @@ std::unique_ptr<AXVirtualView> ViewAccessibility::RemoveVirtualChildView(
   FireLiveRegionChangedIfNeeded(LiveRegionEventTrigger::kRemovals);
 
   child->set_parent_view(nullptr);
+  child->OnOwnerViewChanged();
 
   // If the removed child (or any of its descendants) was the active descendant,
   // clear it.
@@ -194,6 +202,11 @@ std::unique_ptr<AXVirtualView> ViewAccessibility::RemoveVirtualChildView(
   }
 
   AXUpdateNotifier::Get()->NotifyChildRemoved(child.get(), this);
+
+  // Removing the last virtual child exposes the real children again.
+  if (virtual_children_.empty()) {
+    NotifyChildrenAdded();
+  }
 
   return child;
 }
@@ -331,13 +344,17 @@ void ViewAccessibility::SetIsLeaf(bool value) {
     return;
   }
 
+  // GetChildren returns nothing for a leaf, so notify while it still returns
+  // the children being hidden, and only once it returns the ones being shown.
   if (value) {
+    NotifyChildrenRemoved();
     PruneSubtree();
+    is_leaf_ = value;
   } else {
+    is_leaf_ = value;
     UnpruneSubtree();
+    NotifyChildrenAdded();
   }
-
-  is_leaf_ = value;
 }
 
 bool ViewAccessibility::IsLeaf() const {
@@ -838,8 +855,9 @@ void ViewAccessibility::SetIsEnabled(bool is_enabled) {
   OnIntAttributeChanged(ax::mojom::IntAttribute::kRestriction,
                         static_cast<int32_t>(data_.GetRestriction()));
 
-  // Ignored nodes are not exposed to the platform accessibility tree. Firing state-change
-  // events on them is incorrect and produces noise that may confuse assistive technologies.
+  // Ignored nodes are not exposed to the platform accessibility tree. Firing
+  // state-change events on them is incorrect and produces noise that may
+  // confuse assistive technologies.
   if (!GetIsIgnored()) {
     NotifyEvent(ax::mojom::Event::kEnabledChanged, true);
   }
@@ -1066,7 +1084,7 @@ void ViewAccessibility::OnTooltipTextChanged(
 }
 
 void ViewAccessibility::OnViewAddedToWidget() {
-  if (ViewAccessibility* parent = GetUnignoredParent()) {
+  if (ViewAccessibility* parent = GetViewAccessibilityParent()) {
     AXUpdateNotifier::Get()->NotifyChildAdded(this, parent);
   }
 
@@ -1102,7 +1120,7 @@ void ViewAccessibility::OnViewRemovedFromWidget() {
   // Unregister virtual children before this view itself.
   OnVirtualViewRemovedFromWidget();
 
-  if (ViewAccessibility* parent = GetUnignoredParent()) {
+  if (ViewAccessibility* parent = GetViewAccessibilityParent()) {
     AXUpdateNotifier::Get()->NotifyChildRemoved(this, parent);
   }
 }
@@ -1118,6 +1136,20 @@ void ViewAccessibility::OnVirtualViewRemovedFromWidget() {
   for (const auto& virtual_child : virtual_children()) {
     virtual_child->OnVirtualViewRemovedFromWidget();
     AXUpdateNotifier::Get()->NotifyChildRemoved(virtual_child.get(), this);
+  }
+}
+
+void ViewAccessibility::NotifyChildrenAdded() {
+  for (ViewAccessibility* child : GetChildren()) {
+    AXUpdateNotifier::Get()->NotifyChildAdded(child, this);
+    child->NotifyChildrenAdded();
+  }
+}
+
+void ViewAccessibility::NotifyChildrenRemoved() {
+  for (ViewAccessibility* child : GetChildren()) {
+    child->NotifyChildrenRemoved();
+    AXUpdateNotifier::Get()->NotifyChildRemoved(child, this);
   }
 }
 
@@ -1769,30 +1801,34 @@ void ViewAccessibility::UpdateInvisibleState() {
 }
 
 void ViewAccessibility::SetChildTreeID(ui::AXTreeID tree_id) {
-  CHECK(view_);
-  if (tree_id != ui::AXTreeIDUnknown()) {
-    data_.AddChildTreeId(tree_id);
+  CHECK_NE(tree_id, ui::AXTreeIDUnknown())
+      << "Call RemoveChildTreeID to remove the bridge to a child tree.";
 
-    const views::Widget* widget = GetWidget();
-    if (widget && widget->GetNativeView() && display::Screen::Get()) {
-      // TODO(accessibility): There potentially could be an issue where the
-      // device scale factor changes from the time the tree ID is set to the
-      // time `GetAccessibleNodeData` is queried. If this ever pops up, a
-      // potential solution could be to make ViewAccessibility a DisplayObserver
-      // and add `this` as an observer when the tree ID is set. Then, when the
-      // display changes, we can update the scale factor in the cache, probably
-      // by implementing `OnDisplayMetricsChanged`.
-      const float scale_factor =
-          display::Screen::Get()
-              ->GetDisplayNearestView(widget->GetNativeView())
-              .device_scale_factor();
-      SetChildTreeScaleFactor(scale_factor);
-    }
+  // The child tree hides the children. Notify before the attribute changes,
+  // while GetChildren still returns them.
+  NotifyChildrenRemoved();
 
-    OnStringAttributeChanged(ax::mojom::StringAttribute::kChildTreeId,
-                             tree_id.ToString());
-    NotifyDataChanged();
+  data_.AddChildTreeId(tree_id);
+
+  const views::Widget* widget = GetWidget();
+  if (widget && widget->GetNativeView() && display::Screen::Get()) {
+    // TODO(accessibility): There potentially could be an issue where the
+    // device scale factor changes from the time the tree ID is set to the
+    // time `GetAccessibleNodeData` is queried. If this ever pops up, a
+    // potential solution could be to make ViewAccessibility a DisplayObserver
+    // and add `this` as an observer when the tree ID is set. Then, when the
+    // display changes, we can update the scale factor in the cache, probably
+    // by implementing `OnDisplayMetricsChanged`.
+    const float scale_factor =
+        display::Screen::Get()
+            ->GetDisplayNearestView(widget->GetNativeView())
+            .device_scale_factor();
+    SetChildTreeScaleFactor(scale_factor);
   }
+
+  OnStringAttributeChanged(ax::mojom::StringAttribute::kChildTreeId,
+                           tree_id.ToString());
+  NotifyDataChanged();
 }
 
 ui::AXTreeID ViewAccessibility::GetChildTreeID() const {
@@ -1801,7 +1837,15 @@ ui::AXTreeID ViewAccessibility::GetChildTreeID() const {
 }
 
 void ViewAccessibility::RemoveChildTreeID() {
+  const bool had_child_tree_id = data_.HasChildTreeID();
+
   data_.RemoveStringAttribute(ax::mojom::StringAttribute::kChildTreeId);
+
+  // Callers remove the child tree id repeatedly, so only notify when this call
+  // is the one that exposes the children again.
+  if (had_child_tree_id) {
+    NotifyChildrenAdded();
+  }
 
   OnStringAttributeChanged(ax::mojom::StringAttribute::kChildTreeId,
                            std::string());
@@ -1873,6 +1917,14 @@ Widget* ViewAccessibility::GetWidget() const {
   return view_->GetWidget();
 }
 
+bool ViewAccessibility::IsRootViewForWidget() const {
+  if (!view_) {
+    return false;
+  }
+  const Widget* widget = view_->GetWidget();
+  return widget && widget->GetRootView() == view_;
+}
+
 AXAuraObjWrapper* ViewAccessibility::GetOrCreateWrapper(AXAuraObjCache* cache) {
 #if defined(USE_AURA)
   if (!view_) {
@@ -1926,24 +1978,32 @@ std::vector<raw_ptr<ViewAccessibility>> ViewAccessibility::GetChildren() const {
     return out;
   }
 
+  WidgetAXManager* ax_manager =
+      IsRootViewForWidget() ? view_->GetWidget()->ax_manager() : nullptr;
+  const size_t child_widget_count =
+      ax_manager ? ax_manager->child_widget_tree_host_count() : 0u;
+
   // The virtual children always override any real children the view might have.
   if (!virtual_children_.empty()) {
-    out.reserve(virtual_children_.size());
+    out.reserve(virtual_children_.size() + child_widget_count);
     for (auto& v : virtual_children_) {
       out.push_back(v.get());
     }
-    return out;
+  } else if (view_) {
+    const auto& view_children = view_->children();
+    out.reserve(view_children.size() + child_widget_count);
+    for (auto child_view : view_children) {
+      out.push_back(&child_view->GetViewAccessibility());
+    }
   }
 
-  if (!view_) {
-    return out;
+  // Child Widgets don't have a corresponding view or virtual view. They are
+  // attached on the RootView through ignored virtual views maintained by the
+  // widget manager.
+  if (ax_manager) {
+    ax_manager->AppendChildWidgetTreeHosts(out);
   }
 
-  const auto& view_children = view_->children();
-  out.reserve(view_children.size());
-  for (auto child_view : view_children) {
-    out.push_back(&child_view->GetViewAccessibility());
-  }
   return out;
 }
 

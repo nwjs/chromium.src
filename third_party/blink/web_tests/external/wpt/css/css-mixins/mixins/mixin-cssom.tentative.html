@@ -22,7 +22,7 @@
         let ss = style1.sheet;
         assert_equals(ss.cssRules.length, 1);
         assert_equals(ss.cssRules[0].cssText,
-`@mixin --m1() {
+`@mixin --m1 {
   @result {
   color: green;
   & { --foo: bar; }
@@ -59,7 +59,7 @@
       test(() => {
         let ss = style3.sheet;
         assert_equals(ss.cssRules[0].cssText,
-`@mixin --m2() {
+`@mixin --m2 {
   @result {
   @contents;
 }
@@ -129,12 +129,31 @@
       test(() => {
         let ss = style7.sheet;
         assert_equals(ss.cssRules[0].cssText,
-`@mixin --m4() {
+`@mixin --m4 {
   @result {
   color: green;
 }
 }`);
       }, 'serialization of @mixin defined without a parameter list');
+    </script>
+
+
+    <style id=style8>
+      @mixin --m5() {
+        @result { color: green; }
+      }
+      #foo {
+        @apply --m5 { }
+      }
+    </style>
+    <script>
+      test(() => {
+        let ss = style8.sheet;
+        assert_equals(ss.cssRules[1].cssText,
+`#foo {
+  @apply --m5 { }
+}`);
+      }, 'serialization of @apply with an empty contents block');
     </script>
   </body>
 </html>

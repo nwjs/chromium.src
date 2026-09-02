@@ -24,6 +24,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_CSS_CSS_SELECTOR_H_
 
 #include <array>
+#include <limits>
 #include <memory>
 #include <utility>
 
@@ -43,11 +44,10 @@
 
 namespace blink {
 
-class ActiveNavigationCondition;
 class CSSParserContext;
 class CSSSelectorList;
 class Document;
-class RouteLocation;
+class NavigationLocation;
 class StyleRule;
 
 // This class represents a simple selector for a StyleRule.
@@ -337,9 +337,9 @@ class CORE_EXPORT CSSSelector {
     kPseudoToolFormActive,
     kPseudoToolSubmitActive,
     kPseudoUnknown,
-    // Something that was unparsable, but contained either a nesting
-    // selector (&), or a :scope pseudo-class, and must therefore be kept
-    // for serialization purposes.
+    // Unparsable due to an invalid selector (e.g. :unknown), or contained
+    // either a nesting selector (&) or a :scope pseudo-class. This must be
+    // kept for serialization purposes.
     kPseudoUnparsed,
     kPseudoUserInvalid,
     kPseudoUserValid,
@@ -424,10 +424,8 @@ class CORE_EXPORT CSSSelector {
     kPseudoOverscrollBackdrop,
     kPseudoOverscrollOpen,
 
-    // :link-to(<route-location>)
+    // :link-to(<navigation-location>)
     kPseudoLinkTo,
-    // :active-navigation(<active-navigation-condition>)
-    kPseudoActiveNavigation,
 
     // https://drafts.csswg.org/selectors/#video-state
     kPseudoPlaying,
@@ -439,6 +437,9 @@ class CORE_EXPORT CSSSelector {
     // https://drafts.csswg.org/selectors/#sound-state
     kPseudoMuted,
     kPseudoVolumeLocked,
+
+    // ::skeleton for preview rendering
+    kPseudoSkeleton,
   };
 
   enum class AttributeMatchType : int {
@@ -458,6 +459,10 @@ class CORE_EXPORT CSSSelector {
                         const CSSParserContext&,
                         bool has_arguments,
                         CSSParserMode);
+  bool IsUnparsedInvalid() const {
+    return GetPseudoType() == kPseudoUnparsed &&
+           GetNestingType() == CSSNestingType::kNone;
+  }
   void SetUnparsedPlaceholder(CSSNestingType, const AtomicString&);
   // If this simple selector contains a parent selector (&), returns kNesting.
   // Otherwise, if this simple selector contains a :scope pseudo-class,
@@ -540,17 +545,11 @@ class CORE_EXPORT CSSSelector {
   const CSSSelectorList* SelectorList() const {
     return HasRareData() ? data_.rare_data_->selector_list_.Get() : nullptr;
   }
-  const RouteLocation* GetRouteLocation() const {
+  const NavigationLocation* GetNavigationLocation() const {
     if (!HasRareData()) {
       return nullptr;
     }
-    return data_.rare_data_->route_location_.Get();
-  }
-  const ActiveNavigationCondition* GetActiveNavigationCondition() const {
-    if (!HasRareData()) {
-      return nullptr;
-    }
-    return data_.rare_data_->active_navigation_condition_.Get();
+    return data_.rare_data_->navigation_location_.Get();
   }
   unsigned NthAValue() const {
     CHECK_EQ(GetPseudoType(), kPseudoNthChild);
@@ -593,8 +592,7 @@ class CORE_EXPORT CSSSelector {
   void SetArgument(const AtomicString&);
   void SetArgumentList(std::unique_ptr<Vector<AtomicString>>);
   void SetSelectorList(CSSSelectorList*);
-  void SetRouteLocation(RouteLocation*);
-  void SetActiveNavigationCondition(ActiveNavigationCondition*);
+  void SetNavigationLocation(NavigationLocation*);
   void SetIdentList(std::unique_ptr<Vector<AtomicString>>);
   void SetContainsPseudoInsideHasPseudoClass();
   void SetContainsComplexLogicalCombinationsInsideHasPseudoClass();
@@ -602,6 +600,36 @@ class CORE_EXPORT CSSSelector {
 
   void SetNth(int a, int b, CSSSelectorList* sub_selector);
   bool MatchNth(unsigned count) const;
+
+  // Returns whether a 1-based sibling index satisfies :nth-child(An + B) for
+  // the given A and B. Shared between the full selector matching and the fast
+  // path for :nth-child() and :first-child.
+  ALWAYS_INLINE static bool MatchNth(int nth_a, int nth_b, unsigned count) {
+    // These very large values for An + B or the index can't ever match, so
+    // give up immediately if we see them.
+    constexpr int kMaxValue = std::numeric_limits<int>::max() / 2;
+    constexpr int kMinValue = std::numeric_limits<int>::min() / 2;
+    if (count > static_cast<unsigned>(kMaxValue) || nth_a > kMaxValue ||
+        nth_a < kMinValue || nth_b > kMaxValue || nth_b < kMinValue)
+        [[unlikely]] {
+      return false;
+    }
+
+    int current_count = static_cast<int>(count);
+    if (nth_a == 0) {
+      return current_count == nth_b;
+    }
+    if (nth_a > 0) {
+      if (current_count < nth_b) {
+        return false;
+      }
+      return (current_count - nth_b) % nth_a == 0;
+    }
+    if (current_count > nth_b) {
+      return false;
+    }
+    return (nth_b - current_count) % (-nth_a) == 0;
+  }
 
   static bool IsAdjacentRelation(RelationType relation) {
     return relation == kDirectAdjacent || relation == kIndirectAdjacent;
@@ -782,8 +810,9 @@ class CORE_EXPORT CSSSelector {
   //
   // Selectors with this flag set trigger "scope activation" during
   // selector matching, see SelectorChecker::MatchForScopeActivation.
-  using IsScopeContainingField = AttributeMatchField::DefineNextValue<bool, 1>;
-  // 3 free bits here.
+  using IsScopeContainingField =
+      LegacyCaseInsensitiveMatchField::DefineNextValue<bool, 1>;
+  // 6 free bits here.
   BitField bits_;
   // 32 padding bits here (on 64-bit platforms).
 
@@ -853,9 +882,7 @@ class CORE_EXPORT CSSSelector {
     std::unique_ptr<Vector<AtomicString>> argument_list_;  // Used for :lang
     Member<CSSSelectorList>
         selector_list_;  // Used :is, :not, :-webkit-any, etc.
-    Member<RouteLocation> route_location_;  // Used for :link-to().
-    Member<ActiveNavigationCondition>
-        active_navigation_condition_;  // Used for :active-navigation().
+    Member<NavigationLocation> navigation_location_;  // Used for :link-to().
     std::unique_ptr<Vector<AtomicString>>
         ident_list_;  // Used for ::part(), :active-view-transition-type().
 

@@ -12,16 +12,14 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/protobuf_matchers.h"
+#include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
-#include "base/version_info/channel.h"
-#include "base/version_info/version_info.h"
 #include "chrome/browser/ai/ai_test_utils.h"
 #include "chrome/browser/ai/features.h"
 #include "chrome/browser/optimization_guide/mock_optimization_guide_keyed_service.h"
-#include "chrome/common/channel_info.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/fake_manifest_broker.h"
 #include "components/optimization_guide/core/model_execution/manifest_broker/test/scenario_builder.h"
 #include "components/optimization_guide/core/model_execution/test/mock_on_device_capability.h"
@@ -866,28 +864,17 @@ class AIRewriterManifestTest : public AITestUtils::AITestManifestBase {
 };
 
 TEST_F(AIRewriterManifestTest, CanCreateAndCreateWithManifestGemma4) {
-  version_info::Channel channel = chrome::GetChannel();
-  if (channel != version_info::Channel::CANARY &&
-      channel != version_info::Channel::DEV &&
-      channel != version_info::Channel::UNKNOWN &&
-      version_info::IsOfficialBuild()) {
-    GTEST_SKIP() << "Experimental use case support is limited to "
-                    "Canary/Dev/Unknown channels and unofficial builds.";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       kAIApiFoundationalModel, {{"model_version", "v4"}});
 
   fake_manifest_broker_->client().RequestAssetsFor("rewriter_gemma4");
-
-  // Verify CanCreateRewriter check passes successfully for default options
-  // mapping to gemma4. We requested assets only for rewriter_gemma4,
-  // so receiving kAvailable implicitly verifies the correct use case mapping.
-  base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
-  ai_manager_->CanCreateRewriter(GetDefaultOptions(), future.GetCallback());
-  EXPECT_EQ(future.Get(),
-            blink::mojom::ModelAvailabilityCheckResult::kAvailable);
+  ASSERT_TRUE(base::test::RunUntil([&] {
+    base::test::TestFuture<blink::mojom::ModelAvailabilityCheckResult> future;
+    ai_manager_->CanCreateRewriter(GetDefaultOptions(), future.GetCallback());
+    return future.Get() ==
+           blink::mojom::ModelAvailabilityCheckResult::kAvailable;
+  }));
 
   // Verify CreateRewriter can retrieve the model successfully.
   TestCreateRewriterClient create_rewriter_client;
@@ -900,15 +887,6 @@ TEST_F(AIRewriterManifestTest, CanCreateAndCreateWithManifestGemma4) {
 }
 
 TEST_F(AIRewriterManifestTest, CanCreateBeforeDownloadGemma4) {
-  version_info::Channel channel = chrome::GetChannel();
-  if (channel != version_info::Channel::CANARY &&
-      channel != version_info::Channel::DEV &&
-      channel != version_info::Channel::UNKNOWN &&
-      version_info::IsOfficialBuild()) {
-    GTEST_SKIP() << "Experimental use case support is limited to "
-                    "Canary/Dev/Unknown channels and unofficial builds.";
-  }
-
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeatureWithParameters(
       kAIApiFoundationalModel, {{"model_version", "v4"}});

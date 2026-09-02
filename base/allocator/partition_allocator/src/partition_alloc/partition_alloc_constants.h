@@ -392,18 +392,7 @@ DirectMapAllocationGranularityOffsetMask() {
 // Limit when downsizing a direct mapping using `realloc`:
 constexpr size_t kMinDirectMappedDownsize =
     BucketIndexLookup::kMaxBucketSize + 1;
-// Intentionally set to less than 2GiB to make sure that a 2GiB allocation
-// fails. This is a security choice in Chrome, to help making size_t vs int bugs
-// harder to exploit.
 
-// The definition of MaxDirectMapped does only depend on constants that are
-// unconditionally constexpr. Therefore it is not necessary to use
-// PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR here.
-PA_ALWAYS_INLINE constexpr size_t MaxDirectMapped() {
-  // Subtract kSuperPageSize to accommodate for granularity inside
-  // PartitionRoot::GetDirectMapReservationSize.
-  return (1UL << 31) - kSuperPageSize;
-}
 
 // Max alignment supported by AlignedAlloc().
 // kSuperPageSize alignment can't be easily supported, because each super page
@@ -463,6 +452,19 @@ inline constexpr uint8_t kIntendedLeakQuarantineRemainder = 0xEB;
 
 }  // namespace internal
 
+// Intentionally set to less than 2GiB to make sure that a 2GiB allocation
+// fails. This is a security choice in Chrome, to help making size_t vs int bugs
+// harder to exploit.
+//
+// The definition of MaxAllocationSize does only depend on constants that are
+// unconditionally constexpr. Therefore it is not necessary to use
+// PAGE_ALLOCATOR_CONSTANTS_DECLARE_CONSTEXPR here.
+PA_ALWAYS_INLINE constexpr size_t MaxAllocationSize() {
+  // Subtract kSuperPageSize to accommodate for granularity inside
+  // PartitionRoot::GetDirectMapReservationSize.
+  return (1UL << 31) - internal::kSuperPageSize;
+}
+
 // When trying to conserve memory, set the thread cache limit to this.
 static inline constexpr size_t kThreadCacheDefaultSizeThreshold = 512;
 
@@ -476,10 +478,6 @@ static_assert(kThreadCacheLargeSizeThreshold <=
 
 // These constants are used outside PartitionAlloc itself, so we provide
 // non-internal aliases here.
-using ::partition_alloc::internal::kMaxSuperPagesInPool;
-using ::partition_alloc::internal::kMaxSupportedAlignment;
-using ::partition_alloc::internal::kSuperPageSize;
-using ::partition_alloc::internal::MaxDirectMapped;
 using ::partition_alloc::internal::PartitionPageSize;
 
 #if PA_BUILDFLAG(ENABLE_AUTO_PARTITIONING)

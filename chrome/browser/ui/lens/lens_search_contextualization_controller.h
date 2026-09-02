@@ -6,8 +6,9 @@
 #define CHROME_BROWSER_UI_LENS_LENS_SEARCH_CONTEXTUALIZATION_CONTROLLER_H_
 
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/lens/core/mojom/geometry.mojom.h"
 #include "chrome/browser/lens/core/mojom/lens_side_panel.mojom.h"
-#include "chrome/browser/ui/lens/lens_overlay_query_controller.h"
+#include "chrome/browser/ui/lens/lens_overlay_query_controller_types.h"
 #include "chrome/common/chrome_render_frame.mojom.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
@@ -44,6 +45,7 @@ using GetIsContextualSearchboxCallback =
 using LensSearchPageContextEligibilityCallback = base::OnceCallback<void(bool)>;
 
 namespace lens {
+class LensOverlayQueryController;
 
 class LensSearchboxController;
 
@@ -181,6 +183,10 @@ class LensSearchContextualizationController {
 
   // Returns whether the protected page feature is enabled.
   bool IsProtectedPageFeatureEnabled();
+
+  // Evaluates page context eligibility for region-only flows without
+  // extracting page contents or taking screenshots.
+  void CheckPageContextEligibilityOnly();
 
   // Override these methods to be able to track calls made to the page context
   // eligibility API.

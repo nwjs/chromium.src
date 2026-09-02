@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Auto-Rotating Image Carousel with Tabs for Slide Control Example</title>
+
+    <!-- JS and CSS for this example -->
+    <link rel="stylesheet" href="css/carousel-tablist.css">
+    <script src="js/carousel-tablist.js"></script>
+  </head>
+  <body>
+        <div id="ex1">
+          <section id="myCarousel" class="carousel-tablist" aria-roledescription="carousel" aria-label="Highlighted television shows">
+            <div class="carousel-inner">
+              <div class="controls">
+                <button class="rotation" type="button">
+                  <svg width="42" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg" class="svg-play">
+                    <rect class="background" x="2" y="2" rx="5" ry="5" width="38" height="24" />
+                    <rect class="border" x="4" y="4" rx="5" ry="5" width="34" height="20" />
+
+                    <polygon class="pause" points="17 8 17 20" />
+
+                    <polygon class="pause" points="24 8 24 20" />
+
+                    <polygon class="play" points="15 8 15 20 27 14" />
+                  </svg>
+                </button>
+
+                <div class="tab-wrapper">
+                  <div role="tablist" aria-label="Slides">
+                    <button id="carousel-tab-1" type="button" role="tab" aria-label="Slide 1" aria-selected="true" aria-controls="carousel-item-1">
+                      <svg width="34" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="border" cx="16" cy="15" r="10" />
+                        <circle class="tab-background" cx="16" cy="15" r="8" />
+                        <circle class="tab" cx="16" cy="15" r="6" />
+                      </svg>
+                    </button>
+                    <button id="carousel-tab-2" type="button" role="tab" tabindex="-1" aria-label="Slide 2" aria-selected="false" aria-controls="carousel-item-2">
+                      <svg width="34" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="border" cx="16" cy="15" r="10" />
+                        <circle class="tab-background" cx="16" cy="15" r="8" />
+                        <circle class="tab" cx="16" cy="15" r="6" />
+                      </svg>
+                    </button>
+                    <button id="carousel-tab-3" type="button" role="tab" tabindex="-1" aria-label="Slide 3" aria-selected="false" aria-controls="carousel-item-3">
+                      <svg width="34" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="border" cx="16" cy="15" r="10" />
+                        <circle class="tab-background" cx="16" cy="15" r="8" />
+                        <circle class="tab" cx="16" cy="15" r="6" />
+                      </svg>
+                    </button>
+                    <button id="carousel-tab-4" type="button" role="tab" tabindex="-1" aria-label="Slide 4" aria-selected="false" aria-controls="carousel-item-4">
+                      <svg width="34" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="border" cx="16" cy="15" r="10" />
+                        <circle class="tab-background" cx="16" cy="15" r="8" />
+                        <circle class="tab" cx="16" cy="15" r="6" />
+                      </svg>
+                    </button>
+                    <button id="carousel-tab-5" type="button" role="tab" tabindex="-1" aria-label="Slide 5" aria-selected="false" aria-controls="carousel-item-5">
+                      <svg width="34" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="border" cx="16" cy="15" r="10" />
+                        <circle class="tab-background" cx="16" cy="15" r="8" />
+                        <circle class="tab" cx="16" cy="15" r="6" />
+                      </svg>
+                    </button>
+                    <button id="carousel-tab-6" type="button" role="tab" tabindex="-1" aria-label="Slide 6" aria-selected="false" aria-controls="carousel-item-6">
+                      <svg width="34" height="34" version="1.1" xmlns="http://www.w3.org/2000/svg">
+                        <circle class="border" cx="16" cy="15" r="10" />
+                        <circle class="tab-background" cx="16" cy="15" r="8" />
+                        <circle class="tab" cx="16" cy="15" r="6" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div id="myCarousel-items" class="carousel-items playing" aria-live="off">
+                <div class="carousel-item active" id="carousel-item-1" role="tabpanel" aria-roledescription="slide" aria-label="1 of 6">
+                  <div class="carousel-image">
+                    <a href="#" id="carousel-image-1">
+                      <img src="images/amsterdamslide__800x600.jpg" alt="Walking Tour in Amsterdam">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#"> Dynamic Europe: Amsterdam, Prague, Berlin </a>
+                    </h3>
+
+                    <div class="hidden-xs hidden-sm">
+                      <p><span class="contrast">7 pm Tuesday, March 3, on TV</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" id="carousel-item-2" role="tabpanel" aria-roledescription="slide" aria-label="2 of 6">
+                  <div class="carousel-image">
+                    <a href="#" id="carousel-image-2">
+                      <img src="images/lands-endslide__800x600.jpg" alt="Land&#039;s End in Cornwall">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#"> Travel to Southwest England and Paris </a>
+                    </h3>
+
+                    <div>
+                      <p><span class="contrast">Sept. 14 to Sept. 24 or 27</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" id="carousel-item-3" role="tabpanel" aria-roledescription="slide" aria-label="3 of 6">
+                  <div class="carousel-image">
+                    <a href="#!" id="carousel-image-3">
+                      <img src="images/trustslide-2__800x600.jpg" alt="Mom and daughter play Daniel Tiger game on notebook computer.">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#"> Great Children's Programming on Public TV </a>
+                    </h3>
+
+                    <div></div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" id="carousel-item-4" role="tabpanel" aria-roledescription="slide" aria-label="4 of 6">
+                  <div class="carousel-image">
+                    <a href="#" id="carousel-image-4">
+                      <img src="images/foyleswarslide__800x600.jpg" alt="A man in a suit and fedora and a woman with coiffed hair look sternly into the camera.">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#"> Foyle&#8217;s War Revisited </a>
+                    </h3>
+
+                    <div>
+                      <p><span class="contrast">8 pm Sunday, March 8, on TV: Sneak peek at the final season.</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" id="carousel-item-5" role="tabpanel" aria-roledescription="slide" aria-label="5 of 6">
+                  <div class="carousel-image">
+                    <a href="#" id="carousel-image-5">
+                      <img src="images/britcomdavidslide__800x600.jpg" alt="British flag with WILL-TV host David Thiel.">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#"> Great Britain Vote: 7 pm Sat. </a>
+                    </h3>
+
+                    <div></div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+
+                <div class="carousel-item" id="carousel-item-6" role="tabpanel" aria-roledescription="slide" aria-label="6 of 6">
+                  <div class="carousel-image">
+                    <a href="#" id="carousel-image-6">
+                      <img src="images/mag800-2__800x600.jpg" alt="Mid-American Gardener panelists on the set">
+                    </a>
+                  </div>
+
+                  <div class="carousel-caption">
+                    <h3>
+                      <a href="#"> Mid-American Gardener: Thursdays at 7 pm </a>
+                    </h3>
+
+                    <div class="hidden-xs hidden-sm">
+                      <p><span class="contrast">Watch the latest episodes.</span></p>
+                    </div>
+                  </div>
+                  <!-- .carousel-caption -->
+                </div>
+                <!-- .item -->
+              </div>
+            </div>
+            <!-- carousel-inner -->
+          </section>
+          <!-- /.carousel -->
+
+          <div class="col-sm-1"></div>
+        </div>
+  </body>
+</html>

@@ -13,6 +13,115 @@ using base::SysUTF8ToNSString;
 
 namespace autofill {
 
+namespace {
+
+constexpr char kActivityTypeBlur[] = "blur";
+constexpr char kActivityTypeChange[] = "change";
+constexpr char kActivityTypeFocus[] = "focus";
+constexpr char kActivityTypeFormChanged[] = "form_changed";
+constexpr char kActivityTypeInput[] = "input";
+constexpr char kActivityTypeKeyUp[] = "keyup";
+constexpr char kActivityTypeUnknown[] = "unknown";
+
+constexpr char kFieldTypeButton[] = "button";
+constexpr char kFieldTypeCheckbox[] = "checkbox";
+constexpr char kFieldTypeColor[] = "color";
+constexpr char kFieldTypeDate[] = "date";
+constexpr char kFieldTypeDateTimeLocal[] = "datetime-local";
+constexpr char kFieldTypeEmail[] = "email";
+constexpr char kFieldTypeFile[] = "file";
+constexpr char kFieldTypeHidden[] = "hidden";
+constexpr char kFieldTypeImage[] = "image";
+constexpr char kFieldTypeMonth[] = "month";
+constexpr char kFieldTypeNumber[] = "number";
+constexpr char kFieldTypePassword[] = "password";
+constexpr char kFieldTypeRadio[] = "radio";
+constexpr char kFieldTypeRange[] = "range";
+constexpr char kFieldTypeReset[] = "reset";
+constexpr char kFieldTypeSearch[] = "search";
+constexpr char kFieldTypeSelectOne[] = "select-one";
+constexpr char kFieldTypeSubmit[] = "submit";
+constexpr char kFieldTypeTel[] = "tel";
+constexpr char kFieldTypeText[] = "text";
+constexpr char kFieldTypeTime[] = "time";
+constexpr char kFieldTypeUrl[] = "url";
+constexpr char kFieldTypeWeek[] = "week";
+constexpr char kFieldTypeUnknown[] = "unknown";
+
+const char* ToString(FormActivityParams::ActivityType type) {
+  switch (type) {
+    case FormActivityParams::ActivityType::kBlur:
+      return kActivityTypeBlur;
+    case FormActivityParams::ActivityType::kChange:
+      return kActivityTypeChange;
+    case FormActivityParams::ActivityType::kFocus:
+      return kActivityTypeFocus;
+    case FormActivityParams::ActivityType::kFormChanged:
+      return kActivityTypeFormChanged;
+    case FormActivityParams::ActivityType::kInput:
+      return kActivityTypeInput;
+    case FormActivityParams::ActivityType::kKeyUp:
+      return kActivityTypeKeyUp;
+    case FormActivityParams::ActivityType::kUnknown:
+      return kActivityTypeUnknown;
+  }
+}
+
+const char* ToString(FormActivityParams::FieldType field_type) {
+  switch (field_type) {
+    case FormActivityParams::FieldType::kButton:
+      return kFieldTypeButton;
+    case FormActivityParams::FieldType::kCheckbox:
+      return kFieldTypeCheckbox;
+    case FormActivityParams::FieldType::kColor:
+      return kFieldTypeColor;
+    case FormActivityParams::FieldType::kDate:
+      return kFieldTypeDate;
+    case FormActivityParams::FieldType::kDateTimeLocal:
+      return kFieldTypeDateTimeLocal;
+    case FormActivityParams::FieldType::kEmail:
+      return kFieldTypeEmail;
+    case FormActivityParams::FieldType::kFile:
+      return kFieldTypeFile;
+    case FormActivityParams::FieldType::kHidden:
+      return kFieldTypeHidden;
+    case FormActivityParams::FieldType::kImage:
+      return kFieldTypeImage;
+    case FormActivityParams::FieldType::kMonth:
+      return kFieldTypeMonth;
+    case FormActivityParams::FieldType::kNumber:
+      return kFieldTypeNumber;
+    case FormActivityParams::FieldType::kObfuscated:
+      return kFieldTypePassword;
+    case FormActivityParams::FieldType::kRadio:
+      return kFieldTypeRadio;
+    case FormActivityParams::FieldType::kRange:
+      return kFieldTypeRange;
+    case FormActivityParams::FieldType::kReset:
+      return kFieldTypeReset;
+    case FormActivityParams::FieldType::kSearch:
+      return kFieldTypeSearch;
+    case FormActivityParams::FieldType::kSelectOne:
+      return kFieldTypeSelectOne;
+    case FormActivityParams::FieldType::kSubmit:
+      return kFieldTypeSubmit;
+    case FormActivityParams::FieldType::kTel:
+      return kFieldTypeTel;
+    case FormActivityParams::FieldType::kText:
+      return kFieldTypeText;
+    case FormActivityParams::FieldType::kTime:
+      return kFieldTypeTime;
+    case FormActivityParams::FieldType::kUrl:
+      return kFieldTypeUrl;
+    case FormActivityParams::FieldType::kWeek:
+      return kFieldTypeWeek;
+    case FormActivityParams::FieldType::kUnknown:
+      return kFieldTypeUnknown;
+  }
+}
+
+}  // namespace
+
 BaseFormActivityParams::BaseFormActivityParams() = default;
 BaseFormActivityParams::BaseFormActivityParams(
     const BaseFormActivityParams& other) = default;
@@ -105,10 +214,10 @@ bool FormActivityParams::FromMessage(const web::ScriptMessage& message,
     base::StringToUint(*field_renderer_id, &params->field_renderer_id.value());
   }
   if (field_type) {
-    params->field_type = *field_type;
+    params->field_type = StringToFieldType(*field_type);
   }
   if (type) {
-    params->type = *type;
+    params->type = StringToActivityType(*type);
   }
   if (value) {
     params->value = *value;
@@ -118,6 +227,111 @@ bool FormActivityParams::FromMessage(const web::ScriptMessage& message,
   }
 
   return true;
+}
+
+FormActivityParams::ActivityType FormActivityParams::StringToActivityType(
+    std::string_view type) {
+  if (type == kActivityTypeBlur) {
+    return ActivityType::kBlur;
+  }
+  if (type == kActivityTypeChange) {
+    return ActivityType::kChange;
+  }
+  if (type == kActivityTypeFocus) {
+    return ActivityType::kFocus;
+  }
+  if (type == kActivityTypeFormChanged) {
+    return ActivityType::kFormChanged;
+  }
+  if (type == kActivityTypeInput) {
+    return ActivityType::kInput;
+  }
+  if (type == kActivityTypeKeyUp) {
+    return ActivityType::kKeyUp;
+  }
+  return ActivityType::kUnknown;
+}
+
+const char* FormActivityParams::ActivityTypeToString(ActivityType type) {
+  return ToString(type);
+}
+
+FormActivityParams::FieldType FormActivityParams::StringToFieldType(
+    std::string_view field_type) {
+  if (field_type == kFieldTypeButton) {
+    return FieldType::kButton;
+  }
+  if (field_type == kFieldTypeCheckbox) {
+    return FieldType::kCheckbox;
+  }
+  if (field_type == kFieldTypeColor) {
+    return FieldType::kColor;
+  }
+  if (field_type == kFieldTypeDate) {
+    return FieldType::kDate;
+  }
+  if (field_type == kFieldTypeDateTimeLocal) {
+    return FieldType::kDateTimeLocal;
+  }
+  if (field_type == kFieldTypeEmail) {
+    return FieldType::kEmail;
+  }
+  if (field_type == kFieldTypeFile) {
+    return FieldType::kFile;
+  }
+  if (field_type == kFieldTypeHidden) {
+    return FieldType::kHidden;
+  }
+  if (field_type == kFieldTypeImage) {
+    return FieldType::kImage;
+  }
+  if (field_type == kFieldTypeMonth) {
+    return FieldType::kMonth;
+  }
+  if (field_type == kFieldTypeNumber) {
+    return FieldType::kNumber;
+  }
+  if (field_type == kFieldTypePassword) {
+    return FieldType::kObfuscated;
+  }
+  if (field_type == kFieldTypeRadio) {
+    return FieldType::kRadio;
+  }
+  if (field_type == kFieldTypeRange) {
+    return FieldType::kRange;
+  }
+  if (field_type == kFieldTypeReset) {
+    return FieldType::kReset;
+  }
+  if (field_type == kFieldTypeSearch) {
+    return FieldType::kSearch;
+  }
+  if (field_type == kFieldTypeSelectOne) {
+    return FieldType::kSelectOne;
+  }
+  if (field_type == kFieldTypeSubmit) {
+    return FieldType::kSubmit;
+  }
+  if (field_type == kFieldTypeTel) {
+    return FieldType::kTel;
+  }
+  if (field_type == kFieldTypeText) {
+    return FieldType::kText;
+  }
+  if (field_type == kFieldTypeTime) {
+    return FieldType::kTime;
+  }
+  if (field_type == kFieldTypeUrl) {
+    return FieldType::kUrl;
+  }
+  if (field_type == kFieldTypeWeek) {
+    return FieldType::kWeek;
+  }
+  return FieldType::kUnknown;
+}
+
+const char* FormActivityParams::FieldTypeToString(FieldType field_type) {
+  return ToString(field_type);
 }
 
 bool FormActivityParams::operator==(const FormActivityParams& params) const {
@@ -136,9 +350,9 @@ std::ostream& operator<<(std::ostream& os, const FormActivityParams& params) {
   os << ", form_renderer_id: " << params.form_renderer_id;
   os << ", field_identifier: " << params.field_identifier;
   os << ", field_renderer_id: " << params.field_renderer_id;
-  os << ", field_type: " << params.field_type;
+  os << ", field_type: " << ToString(params.field_type);
   os << ", value: " << params.value;
-  os << ", type: " << params.type;
+  os << ", type: " << ToString(params.type);
   os << ", has_user_gesture: " << params.has_user_gesture;
   return os;
 }

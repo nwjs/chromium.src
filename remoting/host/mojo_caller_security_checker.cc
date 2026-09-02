@@ -5,6 +5,7 @@
 #include "remoting/host/mojo_caller_security_checker.h"
 
 #include <memory>
+#include <string>
 
 #include "base/containers/fixed_flat_set.h"
 #include "base/files/file_path.h"
@@ -34,7 +35,7 @@
 #include "base/win/access_token.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/sid.h"
-#include "remoting/host/win/trust_util.h"
+#include "base/win/trust_util.h"
 #endif
 
 namespace remoting {
@@ -188,7 +189,7 @@ bool IsTrustedMojoEndpoint(
     return false;
   }
 #if BUILDFLAG(IS_WIN)
-  if (!IsBinaryTrusted(caller_process_image_path)) {
+  if (!base::win::IsBinaryTrusted(caller_process_image_path)) {
     return false;
   }
   return IsWinCallerUserSidValid(caller);

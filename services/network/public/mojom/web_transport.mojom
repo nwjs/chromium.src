@@ -6,6 +6,7 @@ module network.mojom;
 
 import "mojo/public/mojom/base/read_only_buffer.mojom";
 import "mojo/public/mojom/base/time.mojom";
+import "services/network/public/mojom/http_request_headers.mojom";
 import "services/network/public/mojom/http_response_headers.mojom";
 import "services/network/public/mojom/ip_endpoint.mojom";
 import "services/network/public/mojom/network_param.mojom";
@@ -44,6 +45,13 @@ struct WebTransportError {
 struct WebTransportCertificateFingerprint {
   string algorithm;
   string fingerprint;
+};
+
+// Additional HTTP headers attached to a WebTransport CONNECT request, as
+// supplied via WebTransportOptions.headers
+// (https://w3c.github.io/webtransport/#dom-webtransportoptions-headers).
+struct WebTransportHttpRequestHeaders {
+  array<HttpRequestHeaderKeyValuePair> headers;
 };
 
 // Data (possibly) attached when WebTransport is closed gracefully.
@@ -163,6 +171,11 @@ interface WebTransport {
   // This is the last message and it is not allowed to call methods after
   // calling this.
   Close(WebTransportCloseInfo? close_info);
+
+  // Updates the scheduling priority of a previously created outgoing stream
+  // identified by |stream_id|. Corresponds to the JavaScript
+  // WebTransportSendStream.sendGroup and .sendOrder setters.
+  SetStreamPriority(uint32 stream_id, WebTransportStreamPriority priority);
 };
 
 // A mojo interface for the client of WebTransport.
@@ -198,6 +211,15 @@ interface WebTransportClient {
   // This is the last message and it is not allowed to call methods after
   // calling this.
   OnClosed(WebTransportCloseInfo? close_info, WebTransportStats final_stats);
+
+  // Called when the session enters the "draining" state, i.e. the server has
+  // indicated (via a DRAIN_WEBTRANSPORT_SESSION capsule or an HTTP/3 GOAWAY on
+  // the underlying connection) that it intends to gracefully retire this
+  // session. https://w3c.github.io/webtransport/#dom-webtransport-draining
+  // Existing streams remain usable and the session is not closed; this is a
+  // hint to the application to start migrating work to another session. Unlike
+  // OnClosed, this is not the last message and is delivered at most once.
+  OnDraining();
 };
 
 // Used to create a WebTransport session. This is split from WebTransport

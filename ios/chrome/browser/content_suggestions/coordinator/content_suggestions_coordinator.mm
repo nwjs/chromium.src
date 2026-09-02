@@ -227,9 +227,6 @@ using segmentation_platform::TipIdentifier;
 // The mediator used by this coordinator.
 @property(nonatomic, strong)
     ContentSuggestionsMediator* contentSuggestionsMediator;
-// Metrics recorder for the content suggestions.
-@property(nonatomic, strong)
-    ContentSuggestionsMetricsRecorder* contentSuggestionsMetricsRecorder;
 @property(nonatomic, strong) SetUpListMediator* setUpListMediator;
 
 @end
@@ -309,9 +306,6 @@ using segmentation_platform::TipIdentifier;
   ReadingListModel* readingListModel =
       ReadingListModelFactory::GetForProfile(profile);
 
-  self.contentSuggestionsMetricsRecorder =
-      [[ContentSuggestionsMetricsRecorder alloc] init];
-
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForProfile(profile);
 
@@ -332,38 +326,37 @@ using segmentation_platform::TipIdentifier;
 
   NSMutableArray* moduleMediators = [NSMutableArray array];
 
-  _mostVisitedTilesMediator = [[MostVisitedTilesMediator alloc]
-      initWithMostVisitedSite:std::move(mostVisitedFactory)
-               historyService:historyService
-                  prefService:prefs
-             largeIconService:largeIconService
-               largeIconCache:cache
-       URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(self.browser)
-        accountManagerService:accountManagerService
-            engagementTracker:engagementTracker
-            layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)];
-  _mostVisitedTilesMediator.contentSuggestionsDelegate = self.delegate;
-  _mostVisitedTilesMediator.contentSuggestionsMetricsRecorder =
-      self.contentSuggestionsMetricsRecorder;
-  _mostVisitedTilesMediator.actionFactory = [[BrowserActionFactory alloc]
-      initWithBrowser:self.browser
-             scenario:kMenuScenarioHistogramMostVisitedEntry];
-  _mostVisitedTilesMediator.snackbarHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), SnackbarCommands);
-  _mostVisitedTilesMediator.helpHandler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
-  _mostVisitedTilesMediator.NTPActionsDelegate = self.NTPActionsDelegate;
-  [moduleMediators addObject:_mostVisitedTilesMediator];
-  self.contentSuggestionsMediator.mostVisitedTilesMediator =
-      _mostVisitedTilesMediator;
+  if (!IsNTPRedesignEnabled()) {
+    _mostVisitedTilesMediator = [[MostVisitedTilesMediator alloc]
+        initWithMostVisitedSite:std::move(mostVisitedFactory)
+                 historyService:historyService
+                    prefService:prefs
+               largeIconService:largeIconService
+                 largeIconCache:cache
+         URLLoadingBrowserAgent:UrlLoadingBrowserAgent::FromBrowser(
+                                    self.browser)
+          accountManagerService:accountManagerService
+              engagementTracker:engagementTracker
+              layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)];
+    _mostVisitedTilesMediator.contentSuggestionsDelegate = self.delegate;
+    _mostVisitedTilesMediator.actionFactory = [[BrowserActionFactory alloc]
+        initWithBrowser:self.browser
+               scenario:kMenuScenarioHistogramMostVisitedEntry];
+    _mostVisitedTilesMediator.snackbarHandler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), SnackbarCommands);
+    _mostVisitedTilesMediator.helpHandler =
+        HandlerForProtocol(self.browser->GetCommandDispatcher(), HelpCommands);
+    _mostVisitedTilesMediator.NTPActionsDelegate = self.NTPActionsDelegate;
+    [moduleMediators addObject:_mostVisitedTilesMediator];
+    self.contentSuggestionsMediator.mostVisitedTilesMediator =
+        _mostVisitedTilesMediator;
+  }
 
   _shortcutsMediator = [[ShortcutsMediator alloc]
       initWithReadingListModel:readingListModel
       featureEngagementTracker:feature_engagement::TrackerFactory::
                                    GetForProfile(profile)
                identityManager:identityManager];
-  _shortcutsMediator.contentSuggestionsMetricsRecorder =
-      self.contentSuggestionsMetricsRecorder;
   _shortcutsMediator.NTPActionsDelegate = self.NTPActionsDelegate;
   _shortcutsMediator.dispatcher = static_cast<
       id<SceneCommands, BrowserCoordinatorCommands, WhatsNewCommands>>(
@@ -381,8 +374,6 @@ using segmentation_platform::TipIdentifier;
                shoppingService:commerce::ShoppingServiceFactory::GetForProfile(
                                    profile)];
   _tabResumptionMediator.NTPActionsDelegate = self.NTPActionsDelegate;
-  _tabResumptionMediator.contentSuggestionsMetricsRecorder =
-      self.contentSuggestionsMetricsRecorder;
 
   [moduleMediators addObject:_tabResumptionMediator];
   if (IsPriceTrackingPromoCardEnabled(shoppingService, self.authService,
@@ -426,8 +417,6 @@ using segmentation_platform::TipIdentifier;
          impressionLimitService:ImpressionLimitServiceFactory::GetForProfile(
                                     profile)];
     _shopCardMediator.NTPActionsDelegate = self.NTPActionsDelegate;
-    _shopCardMediator.contentSuggestionsMetricsRecorder =
-        self.contentSuggestionsMetricsRecorder;
     [moduleMediators addObject:_shopCardMediator];
     _shopCardMediator.shopCardActionDelegate = self;
   }
@@ -484,8 +473,6 @@ using segmentation_platform::TipIdentifier;
   viewController.audience = self;
   viewController.urlLoadingBrowserAgent =
       UrlLoadingBrowserAgent::FromBrowser(self.browser);
-  viewController.contentSuggestionsMetricsRecorder =
-      self.contentSuggestionsMetricsRecorder;
   self.contentSuggestionsViewController = viewController;
 
   BOOL isSetupListEnabled = set_up_list_utils::IsSetUpListActive(
@@ -504,8 +491,6 @@ using segmentation_platform::TipIdentifier;
         isDefaultSearchEngine:isDefaultSearchEngine
          priceTrackingEnabled:IsPriceTrackingEnabled(self.profile)];
     _setUpListMediator.commandHandler = self;
-    _setUpListMediator.contentSuggestionsMetricsRecorder =
-        self.contentSuggestionsMetricsRecorder;
     _setUpListMediator.delegate = self.delegate;
     self.contentSuggestionsMediator.setUpListMediator = _setUpListMediator;
     [moduleMediators addObject:_setUpListMediator];
@@ -528,8 +513,6 @@ using segmentation_platform::TipIdentifier;
                                       self.profile)
                    levelUpService:LevelUpServiceFactory::GetForProfile(
                                       self.profile)];
-  _magicStackRankingModel.contentSuggestionsMetricsRecorder =
-      self.contentSuggestionsMetricsRecorder;
   self.contentSuggestionsMediator.magicStackRankingModel =
       _magicStackRankingModel;
   _magicStackRankingModel.delegate = self.contentSuggestionsMediator;
@@ -537,7 +520,9 @@ using segmentation_platform::TipIdentifier;
 
   _magicStackCollectionView = [[MagicStackCollectionViewController alloc] init];
   _magicStackCollectionView.audience = self;
-  _mostVisitedTilesMediator.consumer = self.contentSuggestionsViewController;
+  if (!IsNTPRedesignEnabled()) {
+    _mostVisitedTilesMediator.consumer = self.contentSuggestionsViewController;
+  }
 
   self.contentSuggestionsMediator.magicStackConsumer =
       _magicStackCollectionView;
@@ -546,8 +531,10 @@ using segmentation_platform::TipIdentifier;
   [self.browser->GetCommandDispatcher()
       startDispatchingToTarget:self
                    forProtocol:@protocol(ContentSuggestionsCommands)];
-  _mostVisitedTilesMediator.contentSuggestionsHandler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), ContentSuggestionsCommands);
+  if (!IsNTPRedesignEnabled()) {
+    _mostVisitedTilesMediator.contentSuggestionsHandler = HandlerForProtocol(
+        self.browser->GetCommandDispatcher(), ContentSuggestionsCommands);
+  }
 }
 
 - (void)stop {
@@ -562,8 +549,10 @@ using segmentation_platform::TipIdentifier;
   _tipsMediator = nil;
   [_setUpListMediator disconnect];
   _setUpListMediator = nil;
-  [_mostVisitedTilesMediator disconnect];
-  _mostVisitedTilesMediator = nil;
+  if (!IsNTPRedesignEnabled()) {
+    [_mostVisitedTilesMediator disconnect];
+    _mostVisitedTilesMediator = nil;
+  }
   [_tabResumptionMediator disconnect];
   _tabResumptionMediator = nil;
   [_magicStackRankingModel disconnect];
@@ -578,8 +567,6 @@ using segmentation_platform::TipIdentifier;
   _shopCardMediator = nil;
   [self.contentSuggestionsMediator disconnect];
   self.contentSuggestionsMediator = nil;
-  [self.contentSuggestionsMetricsRecorder disconnect];
-  self.contentSuggestionsMetricsRecorder = nil;
   self.contentSuggestionsViewController.audience = nil;
   self.contentSuggestionsViewController = nil;
   [self clearPresentedState];
@@ -605,7 +592,9 @@ using segmentation_platform::TipIdentifier;
 - (void)refresh {
   [_magicStackCollectionView reset];
   // Refresh in case there are new MVT to show.
-  [_mostVisitedTilesMediator refreshMostVisitedTiles];
+  if (!IsNTPRedesignEnabled()) {
+    [_mostVisitedTilesMediator refreshMostVisitedTiles];
+  }
   [_safetyCheckMediator reset];
   [_priceTrackingPromoMediator reset];
   [_magicStackRankingModel fetchLatestMagicStackRanking];
@@ -669,7 +658,9 @@ using segmentation_platform::TipIdentifier;
   }
   PinnedSiteFormViewController* viewController =
       [[PinnedSiteFormViewController alloc] initWithAction:action forItem:item];
-  viewController.mutator = _mostVisitedTilesMediator;
+  if (!IsNTPRedesignEnabled()) {
+    viewController.mutator = _mostVisitedTilesMediator;
+  }
   UINavigationController* navController = [[UINavigationController alloc]
       initWithRootViewController:viewController];
   navController.modalPresentationStyle = UIModalPresentationFormSheet;
@@ -757,6 +748,7 @@ using segmentation_platform::TipIdentifier;
             [UIImage imageWithData:_tipsMediator.config.productImageData];
 
         if (productImage) {
+          // C2PA: Product image would not have C2PA metadata. b/541315801
           SearchImageWithLensCommand* command =
               [[SearchImageWithLensCommand alloc] initWithImage:productImage
                                                      entryPoint:entryPoint];
@@ -906,7 +898,9 @@ using segmentation_platform::TipIdentifier;
 - (void)neverShowModuleType:(ContentSuggestionsModuleType)type {
   switch (type) {
     case ContentSuggestionsModuleType::kMostVisited:
-      [_mostVisitedTilesMediator disableModule];
+      if (!IsNTPRedesignEnabled()) {
+        [_mostVisitedTilesMediator disableModule];
+      }
       break;
     case ContentSuggestionsModuleType::kTabResumption:
       [_tabResumptionMediator disableModule];
@@ -1186,7 +1180,7 @@ using segmentation_platform::TipIdentifier;
         logMagicStackEngagementForType:SetUpListModuleTypeForSetUpListType(
                                            type)];
   }
-  [self.contentSuggestionsMetricsRecorder recordSetUpListItemSelected:type];
+  [ContentSuggestionsMetricsRecorder recordSetUpListItemSelected:type];
   [self.NTPActionsDelegate setUpListItemOpened];
   PrefService* localState = GetApplicationContext()->GetLocalState();
   set_up_list_prefs::RecordInteraction(localState);
@@ -1390,7 +1384,7 @@ using segmentation_platform::TipIdentifier;
 
 // Display the notification settings.
 - (void)showNotificationSettings {
-  [self.contentSuggestionsMetricsRecorder
+  [ContentSuggestionsMetricsRecorder
       recordContentNotificationSnackbarEvent:ContentNotificationSnackbarEvent::
                                                  kActionButtonTapped];
   id<SettingsCommands> settingsHandler = HandlerForProtocol(

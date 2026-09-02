@@ -7,11 +7,6 @@
 
 #include "components/page_load_metrics/browser/page_load_metrics_observer.h"
 
-// TODO(crbug.com/517725655):
-// components/page_load_metrics/browser/navigation_handle_user_data.h is planned
-// to be moved to //chrome. This observer is placed in //chrome to avoid
-// blocking that refactoring.
-//
 // Observer that records page load metrics based on the navigation's initiator.
 class NavigationInitiatorPageLoadMetricsObserver
     : public page_load_metrics::PageLoadMetricsObserver {
@@ -20,6 +15,11 @@ class NavigationInitiatorPageLoadMetricsObserver
   ~NavigationInitiatorPageLoadMetricsObserver() override = default;
 
   // page_load_metrics::PageLoadMetricsObserver:
+  ObservePolicy OnEnterBackForwardCache(
+      const page_load_metrics::mojom::PageLoadTiming& timing) override;
+  void OnRestoreFromBackForwardCache(
+      const page_load_metrics::mojom::PageLoadTiming& timing,
+      content::NavigationHandle* navigation_handle) override;
   void DidActivatePrerenderedPage(
       content::NavigationHandle* navigation_handle) override;
   ObservePolicy OnCommit(content::NavigationHandle* navigation_handle) override;

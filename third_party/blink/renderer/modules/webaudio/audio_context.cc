@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/modules/webaudio/media_element_audio_source_node.h"
 #include "third_party/blink/renderer/modules/webaudio/media_stream_audio_destination_node.h"
 #include "third_party/blink/renderer/modules/webaudio/media_stream_audio_source_node.h"
+#include "third_party/blink/renderer/modules/webaudio/realtime_audio_destination_handler.h"
 #include "third_party/blink/renderer/modules/webaudio/realtime_audio_destination_node.h"
 #include "third_party/blink/renderer/platform/audio/audio_utilities.h"
 #include "third_party/blink/renderer/platform/audio/vector_math.h"
@@ -61,6 +62,7 @@
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/post_cross_thread_task.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/strcat.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 
@@ -141,15 +143,15 @@ String GetAudioContextLogString(const WebAudioLatencyHint& latency_hint,
   StringBuilder builder;
   builder.Append("({latency_hint=");
   builder.Append(LatencyCategoryToString(latency_hint.Category()));
-  builder.Append("}");
+  builder.Append('}');
   if (latency_hint.Category() == WebAudioLatencyHint::kCategoryExact) {
-    builder.AppendFormat(", {seconds=%.3f}", latency_hint.Seconds());
+    FormatTo(builder, ", {{seconds={:.3f}}}", latency_hint.Seconds());
   }
   if (sample_rate.has_value()) {
-    builder.AppendFormat(", {sample_rate=%.0f}", sample_rate.value());
+    FormatTo(builder, ", {{sample_rate={:.0f}}}", sample_rate.value());
   }
-  builder.Append(String(")"));
-  return builder.ToString();
+  builder.Append(')');
+  return builder.ReleaseString();
 }
 
 bool IsAudible(const AudioBus* rendered_data) {
@@ -282,7 +284,7 @@ void AudioContext::SetSinkIdResolver::Start() {
     OnSetSinkIdComplete(
         media::OutputDeviceStatus::OUTPUT_DEVICE_STATUS_ERROR_NOT_FOUND);
   } else {
-    auto* audio_destination = audio_context_->destination();
+    auto* audio_destination = audio_context_->destinationNode();
     // A sanity check to make sure we have valid audio_destination node from
     // `audio_context_`.
     if (!audio_destination) {
@@ -585,7 +587,7 @@ AudioContext* AudioContext::Create(ExecutionContext* context,
 #endif
 
   base::UmaHistogramSparse("WebAudio.AudioContext.MaxChannelsAvailable",
-                           audio_context->destination()->maxChannelCount());
+                           audio_context->destinationNode()->maxChannelCount());
 
   probe::DidCreateAudioContext(&window);
 
@@ -669,18 +671,14 @@ AudioContext::AudioContext(LocalDOMWindow& window,
   // AudioContext caused by the rendering quantum size or the hardware buffer
   // size, whichever is greater.
   //
-  // TODO(crbug.com/512526279): Due to the incompatible constructor between
-  // AudioDestinationNode and RealtimeAudioDestinationNode, casting directly
-  // from `destination()` is impossible. This is a temporary workaround until
-  // the refactoring is completed.
   size_t base_latency_frames =
-      std::max(static_cast<size_t>(GetRealtimeAudioDestinationNode()
-                                       ->GetOwnHandler()
+      std::max(static_cast<size_t>(destinationNode()
+                                       ->GetAudioDestinationHandler()
                                        .GetFramesPerBuffer()),
                static_cast<size_t>(renderQuantumSize()));
   base_latency_ = base_latency_frames / static_cast<double>(sampleRate());
-  SendLogMessage(__func__, String::Format("=> (base latency=%.3f seconds))",
-                                          base_latency_));
+  SendLogMessage(__func__,
+                 Format("=> (base latency={:.3f} seconds))", base_latency_));
 
   // Perform the initial permission check for the output latency precision.
   auto microphone_permission_name = mojom::blink::PermissionName::AUDIO_CAPTURE;
@@ -769,7 +767,6 @@ void AudioContext::Trace(Visitor* visitor) const {
   visitor->Trace(media_player_receiver_);
   visitor->Trace(media_player_observer_);
   visitor->Trace(pending_resume_resolvers_);
-  visitor->Trace(pending_suspend_resolvers_);
   visitor->Trace(deferred_resume_resolvers_);
   BaseAudioContext::Trace(visitor);
   PageVisibilityObserver::Trace(visitor);
@@ -804,10 +801,7 @@ ScriptPromise<IDLUndefined> AudioContext::suspendContext(
         script_state, exception_state.GetContext());
     promise = resolver->Promise();
 
-    {
-      DeferredTaskHandler::GraphAutoLocker locker(GetDeferredTaskHandler());
-      pending_suspend_resolvers_.push_back(resolver);
-    }
+    AddPendingPromiseResolver(resolver);
 
     // Probe reports the user action to the inspector synchronously.
     probe::DidSuspendAudioContext(GetExecutionContext());
@@ -816,7 +810,7 @@ ScriptPromise<IDLUndefined> AudioContext::suspendContext(
                                WrapWeakPersistent(this));
   } else {
     // Stop rendering now.
-    if (destination()) {
+    if (destinationNode()) {
       SuspendRendering();
     }
 
@@ -926,7 +920,7 @@ std::optional<AudioContext::ResumeError> AudioContext::ResumeInternal() {
   }
 
   // Restart the destination node to pull on the audio graph.
-  if (destination()) {
+  if (destinationNode()) {
     MaybeAllowAutoplayWithUnlockType(AutoplayUnlockType::kContextResume);
     if (IsAllowedToStart()) {
       // Do not set the state to running here.  We wait for the
@@ -975,14 +969,12 @@ void AudioContext::ProcessDeferredResume() {
 bool AudioContext::IsPullingAudioGraph() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
 
-  if (!destination()) {
+  if (!destinationNode()) {
     return false;
   }
 
-  // The realtime context is pulling on the audio graph if the realtime
-  // destination allows it.
-  return GetRealtimeAudioDestinationNode()
-      ->GetOwnHandler()
+  return destinationNode()
+      ->GetAudioDestinationHandler()
       .IsPullingAudioGraphAllowed();
 }
 
@@ -1066,16 +1058,8 @@ void AudioContext::DidClose() {
   }
   set_sink_id_resolvers_.clear();
 
-  // Reject all pending suspend promises.
-  {
-    DeferredTaskHandler::GraphAutoLocker locker(GetDeferredTaskHandler());
-    for (auto& resolver : pending_suspend_resolvers_) {
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kInvalidStateError,
-          "AudioContext closed before a pending suspend() could complete."));
-    }
-    pending_suspend_resolvers_.clear();
-  }
+  RejectPendingPromiseResolversWithException(
+      "AudioContext closed before a pending suspend() could complete.");
 
   // Reject all resume() promises that are still deferred waiting for the
   // frame's visibility to become known. They can never settle now that the
@@ -1159,30 +1143,19 @@ void AudioContext::PerformTransitionToSuspended() {
 
   pending_transition_to_suspend_ = false;
 
-  HeapVector<Member<ScriptPromiseResolver<IDLUndefined>>> resolvers;
-  {
-    DeferredTaskHandler::GraphAutoLocker locker(GetDeferredTaskHandler());
-    resolvers.swap(pending_suspend_resolvers_);
-  }
-
   // If the context has already been closed, reject pending suspend promises.
   if (ContextState() == V8AudioContextState::Enum::kClosed) {
-    for (auto& resolver : resolvers) {
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kInvalidStateError,
-          "Cannot suspend a closed AudioContext."));
-    }
+    RejectPendingPromiseResolversWithException(
+        "Cannot suspend a closed AudioContext.");
     return;
   }
 
   // Stop rendering unless resume() was called after this task was scheduled.
-  if (suspended_by_user_ && destination()) {
+  if (suspended_by_user_ && destinationNode()) {
     SuspendRendering();
   }
 
-  for (auto& resolver : resolvers) {
-    resolver->Resolve();
-  }
+  ResolvePendingPromiseResolvers();
 }
 
 void AudioContext::StartRendering() {
@@ -1199,7 +1172,7 @@ void AudioContext::StartRendering() {
 }
 
 void AudioContext::StopRendering() {
-  DCHECK(destination());
+  DCHECK(destinationNode());
   SendLogMessage(__func__, "");
   TRACE_EVENT1("webaudio", __func__, "UUID", Uuid());
 
@@ -1207,10 +1180,9 @@ void AudioContext::StopRendering() {
   // this method gets called from ExecutionContext::ContextDestroyed() meaning
   // the AudioContext is already unreachable from the user code.
   if (ContextState() != V8AudioContextState::Enum::kClosed) {
-    destination()->GetAudioDestinationHandler().StopRendering();
+    destinationNode()->GetAudioDestinationHandler().StopRendering();
 
     ClearAudibilityState();
-
     SetContextState(V8AudioContextState::Enum::kClosed);
     GetDeferredTaskHandler().ClearHandlersToBeDeleted();
     keep_alive_.Clear();
@@ -1218,7 +1190,7 @@ void AudioContext::StopRendering() {
 }
 
 void AudioContext::SuspendRendering() {
-  DCHECK(destination());
+  DCHECK(destinationNode());
   SendLogMessage(__func__, "");
   TRACE_EVENT2("webaudio", __func__, "UUID", Uuid(), "state",
                static_cast<int>(ContextState()));
@@ -1229,7 +1201,7 @@ void AudioContext::SuspendRendering() {
   if (is_interrupted_while_suspended_) {
     should_transition_to_running_after_interruption_ = false;
   }
-  destination()->GetAudioDestinationHandler().StopRendering();
+  destinationNode()->GetAudioDestinationHandler().StopRendering();
 
   ClearAudibilityState();
 
@@ -1268,14 +1240,14 @@ V8AudioContextState AudioContext::state() const {
 
 double AudioContext::baseLatency() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
-  DCHECK(destination());
+  DCHECK(destinationNode());
 
   return base_latency_;
 }
 
 double AudioContext::outputLatency() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_thread_sequence_checker_);
-  DCHECK(destination());
+  DCHECK(destinationNode());
 
   DeferredTaskHandler::GraphAutoLocker locker(GetDeferredTaskHandler());
 
@@ -1401,6 +1373,8 @@ void AudioContext::NotifySourceNodeStart() {
       !suspended_by_user_ && IsAllowedToStart()) {
     StartRendering();
     SetContextState(V8AudioContextState::Enum::kRunning);
+
+    ResolvePendingResumeResolvers();
   }
 }
 
@@ -1558,9 +1532,9 @@ bool AudioContext::HasPendingActivity() const {
          permission_receiver_.is_bound();
 }
 
-RealtimeAudioDestinationNode* AudioContext::GetRealtimeAudioDestinationNode()
-    const {
-  return static_cast<RealtimeAudioDestinationNode*>(destination());
+RealtimeAudioDestinationNode* AudioContext::destinationNode() const {
+  return static_cast<RealtimeAudioDestinationNode*>(
+      BaseAudioContext::destinationNode());
 }
 
 bool AudioContext::HandlePreRenderTasks(
@@ -1792,8 +1766,8 @@ AudioCallbackMetric AudioContext::GetCallbackMetric() const {
 }
 
 base::TimeDelta AudioContext::PlatformBufferDuration() const {
-  return GetRealtimeAudioDestinationNode()
-      ->GetOwnHandler()
+  return destinationNode()
+      ->GetAudioDestinationHandler()
       .GetPlatformBufferDuration();
 }
 
@@ -1861,7 +1835,7 @@ void AudioContext::NotifySetSinkIdBegins() {
   // https://webaudio.github.io/web-audio-api/#dom-audiocontext-setsinkid-domstring-or-audiosinkoptions-sinkid
   sink_transition_flag_was_running_ =
       ContextState() == V8AudioContextState::Enum::kRunning;
-  destination()->GetAudioDestinationHandler().StopRendering();
+  destinationNode()->GetAudioDestinationHandler().StopRendering();
   if (sink_transition_flag_was_running_) {
     SetContextState(V8AudioContextState::Enum::kSuspended);
   }
@@ -1878,7 +1852,7 @@ void AudioContext::NotifySetSinkIdIsDone(
   sink_descriptor_ = pending_sink_descriptor;
 
   if (sink_transition_flag_was_running_) {
-    destination()->GetAudioDestinationHandler().StartRendering();
+    destinationNode()->GetAudioDestinationHandler().StartRendering();
   }
 
   // The sink ID was given and has been accepted; it will be used as an output
@@ -2025,7 +1999,7 @@ void AudioContext::OnDevicesChanged(mojom::blink::MediaDeviceType device_type,
       sink_descriptor_ = WebAudioSinkDescriptor(
           g_empty_string,
           To<LocalDOMWindow>(GetExecutionContext())->GetLocalFrameToken());
-      auto* destination_node = GetRealtimeAudioDestinationNode();
+      auto* destination_node = destinationNode();
       if (destination_node) {
         destination_node->SetSinkDescriptor(sink_descriptor_,
                                             base::DoNothing());
@@ -2175,7 +2149,7 @@ void AudioContext::StartContextInterruption() {
 
   if (context_state == V8AudioContextState::Enum::kRunning) {
     // The context is running, so we need to stop the rendering.
-    destination()->GetAudioDestinationHandler().StopRendering();
+    destinationNode()->GetAudioDestinationHandler().StopRendering();
     ClearAudibilityState();
     should_transition_to_running_after_interruption_ = true;
     SetContextState(V8AudioContextState::Enum::kInterrupted);
@@ -2198,7 +2172,7 @@ void AudioContext::EndContextInterruption() {
   }
 
   if (should_transition_to_running_after_interruption_) {
-    destination()->GetAudioDestinationHandler().StartRendering();
+    destinationNode()->GetAudioDestinationHandler().StartRendering();
     should_transition_to_running_after_interruption_ = false;
     SetContextState(V8AudioContextState::Enum::kRunning);
   }
@@ -2223,7 +2197,7 @@ void AudioContext::HandleRenderError() {
     case V8AudioContextState::Enum::kInterrupted:
       // TODO(https://crbug.com/353641602): starting or stopping the renderer
       // should happen on the render thread, but this is the current convention.
-      destination()->GetAudioDestinationHandler().StopRendering();
+      destinationNode()->GetAudioDestinationHandler().StopRendering();
       ClearAudibilityState();
 
       DispatchEvent(*Event::Create(event_type_names::kError));
@@ -2241,8 +2215,8 @@ void AudioContext::HandleRenderError() {
 }
 
 void AudioContext::invoke_onrendererror_from_platform_for_testing() {
-  GetRealtimeAudioDestinationNode()
-      ->GetOwnHandler()
+  destinationNode()
+      ->GetAudioDestinationHandler()
       .invoke_onrendererror_from_platform_for_testing();
 }
 

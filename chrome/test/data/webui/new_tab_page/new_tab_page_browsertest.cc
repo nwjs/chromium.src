@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <tuple>
+
+#include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
@@ -105,7 +108,13 @@ IN_PROC_BROWSER_TEST_F(NewTabPageTest, Transparency) {
   RunTest("new_tab_page/transparency_test.js", "mocha.run()");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageTest, Composebox) {
+// TODO(crbug.com/545788432): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_Composebox DISABLED_Composebox
+#else
+#define MAYBE_Composebox Composebox
+#endif
+IN_PROC_BROWSER_TEST_F(NewTabPageTest, MAYBE_Composebox) {
   RunTest("new_tab_page/composebox/composebox_test.js",
           "runMochaSuite('NewTabPageComposeboxTest')");
 }
@@ -350,6 +359,33 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, Composebox) {
   RunTest("new_tab_page/app_test.js",
           "runMochaSuite('NewTabPageAppTest Composebox')");
 }
+
+class NewTabPageAppComposeboxInvariantTest
+    : public NewTabPageBrowserTest,
+      public testing::WithParamInterface<std::tuple<const char*, bool>> {
+ public:
+  const char* GetVariant() const { return std::get<0>(GetParam()); }
+  bool GetAnimationEnabled() const { return std::get<1>(GetParam()); }
+};
+
+IN_PROC_BROWSER_TEST_P(NewTabPageAppComposeboxInvariantTest, InvariantChecks) {
+  RunTest("new_tab_page/app_test.js",
+          base::StringPrintf("runMochaSuite('NewTabPageAppTest "
+                             "ComposeboxInvariantChecks_%s_%s')",
+                             GetVariant(),
+                             GetAnimationEnabled() ? "AnimationEnabled"
+                                                   : "AnimationDisabled"));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    NewTabPageAppComposeboxInvariantTest,
+    testing::Combine(testing::Values("Control",
+                                     "energy-effect-original",
+                                     "energy-effect-darker-shadow",
+                                     "pre-energy-effect-with-border",
+                                     "energy-effect-fusebox"),
+                     testing::Bool()));
 
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, ComposeEntryPoint) {
   RunTest("new_tab_page/app_test.js",

@@ -55,7 +55,7 @@ const PromoStyleValues kStandardPromoStyle = {
     12.0,  // kButtonTitleHorizontalContentInset
     8.0,   // kButtonTitleVerticalContentInset
     8.0,   // kButtonCornerRadius
-    5.0,   // kCloseButtonTrailingMargin
+    0.0,   // kCloseButtonTrailingMargin
     0.0,   // kCloseButtonTopMargin
     13.0,  // kMainPromoSubViewSpacing
     13.0,  // kButtonStackViewSubViewSpacing
@@ -315,12 +315,7 @@ constexpr CGFloat kNonProfileBackgroundImageCompactHeightWidth = 54.0;
       // Add subview and constraints to current UIImageView which represents the
       // logo's solid background.
       [self.imageView addSubview:logoImageView];
-      [NSLayoutConstraint activateConstraints:@[
-        [logoImageView.centerXAnchor
-            constraintEqualToAnchor:self.imageView.centerXAnchor],
-        [logoImageView.centerYAnchor
-            constraintEqualToAnchor:self.imageView.centerYAnchor]
-      ]];
+      AddSameCenterConstraints(logoImageView, self.imageView);
       break;
     }
     case SigninPromoViewStyleOnlyButton:
@@ -347,12 +342,7 @@ constexpr CGFloat kNonProfileBackgroundImageCompactHeightWidth = 54.0;
   _activityIndicatorView.accessibilityIdentifier =
       kSigninPromoActivityIndicatorId;
   [self addSubview:_activityIndicatorView];
-  [NSLayoutConstraint activateConstraints:@[
-    [_activityIndicatorView.centerXAnchor
-        constraintEqualToAnchor:self.primaryButton.centerXAnchor],
-    [_activityIndicatorView.centerYAnchor
-        constraintEqualToAnchor:self.primaryButton.centerYAnchor],
-  ]];
+  AddSameCenterConstraints(_activityIndicatorView, self.primaryButton);
   self.primaryButton.enabled = NO;
   self.secondaryButton.enabled = NO;
   self.closeButton.enabled = NO;

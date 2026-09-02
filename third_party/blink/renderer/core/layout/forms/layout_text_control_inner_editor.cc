@@ -54,7 +54,8 @@ void LayoutTextControlInnerEditor::AddChild(LayoutObject* new_child,
       last_anonymous->AddChild(new_child);
       return;
     }
-    auto* anonymous = LayoutBlockFlow::CreateAnonymous(&GetDocument(), Style());
+    auto* anonymous =
+        LayoutBlockFlow::CreateAnonymous(GetDocument(), StyleRef());
     LayoutBlockFlow::AddChild(anonymous);
     anonymous->AddChild(new_child);
     return;
@@ -74,7 +75,8 @@ void LayoutTextControlInnerEditor::AddChild(LayoutObject* new_child,
         return;
       }
     }
-    auto* anonymous = LayoutBlockFlow::CreateAnonymous(&GetDocument(), Style());
+    auto* anonymous =
+        LayoutBlockFlow::CreateAnonymous(GetDocument(), StyleRef());
     LayoutBlockFlow::AddChild(anonymous, before_child);
     anonymous->AddChild(new_child);
     return;
@@ -84,7 +86,7 @@ void LayoutTextControlInnerEditor::AddChild(LayoutObject* new_child,
     before_parent->AddChild(new_child, before_child);
     return;
   }
-  auto* anonymous = LayoutBlockFlow::CreateAnonymous(&GetDocument(), Style());
+  auto* anonymous = LayoutBlockFlow::CreateAnonymous(GetDocument(), StyleRef());
   LayoutBlockFlow::AddChild(anonymous, before_parent);
   before_parent->MoveChildrenTo(anonymous, before_parent->FirstChild(),
                                 before_child, /* full_remove_insert */ true);
@@ -94,10 +96,12 @@ void LayoutTextControlInnerEditor::AddChild(LayoutObject* new_child,
 void LayoutTextControlInnerEditor::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
-  LayoutBlockFlow::StyleDidChange(diff, old_style, style_change_context);
+  LayoutBlockFlow::StyleDidChange(diff, old_style, new_style,
+                                  style_change_context);
 
-  if (old_style && old_style->UsedUserModify() != StyleRef().UsedUserModify() &&
+  if (old_style && old_style->UsedUserModify() != new_style.UsedUserModify() &&
       !FirstChild()) {
     // If this has no children and the UserModify state is changed from
     // non-editable to editable, the box height was zero and this box should be

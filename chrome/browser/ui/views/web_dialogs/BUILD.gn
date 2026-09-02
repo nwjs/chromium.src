@@ -11,15 +11,16 @@ source_set("web_dialogs") {
     "//chrome/browser/ui/webui/top_chrome",
     "//ui/base",
     "//ui/views",
+    "//ui/views/controls/webview",
   ]
 
   deps = [
+    "//chrome/browser/ui/tabs:tabs_public",
     "//components/constrained_window",
     "//components/tabs:public",
     "//content/public/browser",
     "//ui/base/mojom:ui_base_types",
     "//ui/display",
-    "//ui/views/controls/webview",
   ]
 }
 
@@ -31,8 +32,10 @@ source_set("unit_tests") {
     ":web_dialogs",
     "//base",
     "//chrome/test:test_support",
+    "//content/public/common",
     "//content/test:test_support",
     "//testing/gtest",
+    "//ui/base",
     "//ui/views",
   ]
 }

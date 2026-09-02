@@ -85,6 +85,7 @@ class CONTENT_EXPORT ClipboardHostImpl
   FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplWriteTest,
                            WriteBookmark_InvalidUrl_DoesNotCrash);
   FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplWriteTest, WriteBookmark_EmptyUrl);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplWriteTest, WriteBookmark_FileUrl);
   FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplWriteTest, WriteBitmap);
   FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplWriteTest, WriteBitmap_Empty);
   FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplWriteTest,
@@ -106,6 +107,10 @@ class CONTENT_EXPORT ClipboardHostImpl
                            ClipboardListenerDisconnect);
   FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplChangeTest,
                            NoNotificationToInactiveDocument);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplChangeTest,
+                           NoNotificationWhenDocumentBecomesInactiveDuringRead);
+  FRIEND_TEST_ALL_PREFIXES(ClipboardHostImplChangeTest,
+                           NoNotificationWhenListenerDisconnectsDuringRead);
 
   // mojom::ClipboardHost
   void RegisterClipboardListener(
@@ -285,6 +290,8 @@ class CONTENT_EXPORT ClipboardHostImpl
       ui::ClipboardSequenceNumberToken seqno,
       ReadUnsanitizedCustomFormatCallback callback,
       std::map<std::string, std::string> custom_format_names);
+
+  bool CanSendClipboardChangeNotification() const;
 
   void OnReadAvailableTypesForUpdate(absl::uint128 change_id,
                                      std::vector<std::u16string> types);

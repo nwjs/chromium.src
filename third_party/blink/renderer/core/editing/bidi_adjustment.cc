@@ -58,7 +58,7 @@ class AbstractInlineBox {
   STACK_ALLOCATED();
 
  public:
-  AbstractInlineBox() : type_(InstanceType::kNull) {}
+  AbstractInlineBox() = default;
 
   explicit AbstractInlineBox(const InlineCursor& cursor)
       : type_(InstanceType::kNG),
@@ -145,7 +145,7 @@ class AbstractInlineBox {
   }
 
   enum class InstanceType { kNull, kNG };
-  InstanceType type_;
+  InstanceType type_ = InstanceType::kNull;
 
   // Because of |MoveToContainingLine()| isn't cheap and we avoid to call each
   // |MoveTo{Next,Previous}InlineLeaf()|, we hold containing line rooted cursor
@@ -334,7 +334,7 @@ AbstractInlineBoxAndSideAffinity AbstractInlineBoxAndBackwardSideAffinity(
 // such a box doesn't exist.
 template <typename TraversalStrategy>
 AbstractInlineBox FindBidiRun(const AbstractInlineBox& start,
-                              unsigned bidi_level) {
+                              UBiDiLevel bidi_level) {
   DCHECK(start.IsNotNull());
   for (AbstractInlineBox runner = TraversalStrategy::Forward(start);
        runner.IsNotNull(); runner = TraversalStrategy::Forward(runner)) {
@@ -349,7 +349,7 @@ AbstractInlineBox FindBidiRun(const AbstractInlineBox& start,
 template <typename TraversalStrategy>
 AbstractInlineBox FindBoundaryOfBidiRunIgnoringLineBreak(
     const AbstractInlineBox& start,
-    unsigned bidi_level) {
+    UBiDiLevel bidi_level) {
   DCHECK(start.IsNotNull());
   AbstractInlineBox last_runner = start;
   for (AbstractInlineBox runner =
@@ -368,7 +368,7 @@ AbstractInlineBox FindBoundaryOfBidiRunIgnoringLineBreak(
 // may not be ignored, depending of the passed |forward| function.
 AbstractInlineBox FindBoundaryOfEntireBidiRunInternal(
     const AbstractInlineBox& start,
-    unsigned bidi_level,
+    UBiDiLevel bidi_level,
     AbstractInlineBox (*forward)(const AbstractInlineBox&)) {
   DCHECK(start.IsNotNull());
   AbstractInlineBox last_runner = start;
@@ -384,7 +384,7 @@ AbstractInlineBox FindBoundaryOfEntireBidiRunInternal(
 // Variant of |FindBoundaryOfEntireBidiRun| preserving line break boxes.
 template <typename TraversalStrategy>
 AbstractInlineBox FindBoundaryOfEntireBidiRun(const AbstractInlineBox& start,
-                                              unsigned bidi_level) {
+                                              UBiDiLevel bidi_level) {
   return FindBoundaryOfEntireBidiRunInternal(start, bidi_level,
                                              TraversalStrategy::Forward);
 }
@@ -393,7 +393,7 @@ AbstractInlineBox FindBoundaryOfEntireBidiRun(const AbstractInlineBox& start,
 template <typename TraversalStrategy>
 AbstractInlineBox FindBoundaryOfEntireBidiRunIgnoringLineBreak(
     const AbstractInlineBox& start,
-    unsigned bidi_level) {
+    UBiDiLevel bidi_level) {
   return FindBoundaryOfEntireBidiRunInternal(
       start, bidi_level, TraversalStrategy::ForwardIgnoringLineBreak);
 }
@@ -419,7 +419,7 @@ class InlineCaretPositionResolutionAdjuster {
     if (IsStartOfDifferentDirection(box))
       return UnadjustedInlineCaretPosition(box);
 
-    const unsigned level = TraversalStrategy::Backward(box).BidiLevel();
+    const UBiDiLevel level = TraversalStrategy::Backward(box).BidiLevel();
     const AbstractInlineBox forward_box =
         FindBidiRun<TraversalStrategy>(box, level);
 
@@ -442,7 +442,7 @@ class InlineCaretPositionResolutionAdjuster {
     if (box.Direction() == primary_direction)
       return AdjustForPrimaryDirectionAlgorithm(box);
 
-    const unsigned char level = box.BidiLevel();
+    const UBiDiLevel level = box.BidiLevel();
     const AbstractInlineBox backward_box =
         TraversalStrategy::BackwardIgnoringLineBreak(box);
     if (backward_box.IsNull() || backward_box.BidiLevel() < level) {

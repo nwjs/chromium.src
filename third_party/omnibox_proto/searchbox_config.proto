@@ -19,7 +19,7 @@ import "section_config.proto";
 import "tool_config.proto";
 
 // Configuration for the AI searchbox (e.g. input plate and fusebox)
-// Next ID: 13
+// Next ID: 15
 message SearchboxConfig {
   // The rule set to use for the searchbox.
   // This is deprecated (only used for legacy xGA client and Chrome)
@@ -30,12 +30,15 @@ message SearchboxConfig {
 
   // Configurations for server allowed input types.
   // This is the source of truth for what input types are allowed.
+  // Client should render input types in the same order.
   repeated InputTypeConfig input_type_configs = 4;
   // Configurations for server allowed tools.
   // This is the source of truth for what tools are allowed.
+  // Client should render tools in the same order.
   repeated ToolConfig tool_configs = 5;
   // Configurations for server allowed models.
   // This is the source of truth for what models are allowed.
+  // Client should render models in the same order.
   repeated ModelConfig model_configs = 6;
 
   // Configuration for the tools section in menu.
@@ -47,4 +50,9 @@ message SearchboxConfig {
   optional string hint_text = 9;
 
 
+
+  // Account check token and timestamp for Safari-to-iGA redirect
+  // reconciliation.
+  string account_check_token = 13;
+  string account_check_timestamp = 14;
 }

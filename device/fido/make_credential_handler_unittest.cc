@@ -11,6 +11,7 @@
 
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
@@ -38,7 +39,6 @@
 #include "device/fido/fido_device.h"
 #include "device/fido/fido_device_authenticator.h"
 #include "device/fido/fido_discovery_base.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/fido_test_data.h"
 #include "device/fido/make_credential_request_handler.h"
 #include "device/fido/make_credential_task.h"
@@ -98,9 +98,8 @@ class FidoMakeCredentialHandlerTest : public ::testing::Test {
       AuthenticatorSelectionCriteria authenticator_selection_criteria = {}) {
     ForgeDiscoveries();
     PublicKeyCredentialRpEntity rp(test_data::kRelyingPartyId);
-    PublicKeyCredentialUserEntity user(
-        fido_parsing_utils::Materialize(test_data::kUserId), "nia",
-        std::nullopt);
+    PublicKeyCredentialUserEntity user(base::ToVector(test_data::kUserId),
+                                       "nia", std::nullopt);
     PublicKeyCredentialParams credential_params(
         std::vector<PublicKeyCredentialParams::CredentialInfo>(1));
 

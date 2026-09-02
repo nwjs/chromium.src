@@ -22,10 +22,13 @@
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/extensions/chrome_app_deprecation.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/common/webui_url_constants.h"
+#include "ui/base/base_window.h"
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 namespace apps {
@@ -141,8 +144,9 @@ bool OpenDeprecatedApplicationPrompt(Profile* profile,
   if (!extensions::IsExtensionUnsupportedDeprecatedApp(profile, app_id))
     return false;
 
-  Browser::CreateParams create_params(profile, /*user_gesture=*/false);
-  Browser* browser = Browser::Create(create_params);
+  BrowserWindowCreateParams create_params(profile, /*from_user_gesture=*/false);
+  BrowserWindowInterface* browser =
+      CreateBrowserWindow(std::move(create_params));
 
   GURL url;
   if (extensions::util::IsExtensionForceInstalled(app_id, profile)) {

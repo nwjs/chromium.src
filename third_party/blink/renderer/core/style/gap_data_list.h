@@ -94,6 +94,11 @@ class CORE_EXPORT GapDataList {
     return gap_data_list_.size() == 1 && !gap_data_list_[0].IsRepeaterData();
   }
 
+  const T GetSingleValue() const {
+    DCHECK(HasSingleValue());
+    return gap_data_list_[0].GetValue();
+  }
+
   const T GetLegacyValue() const {
     return gap_data_list_[0].GetValue();
   }
@@ -138,6 +143,9 @@ class CORE_EXPORT GapDataListIterator {
       region_ = kAuto;
       current_region_slots_remaining_ = auto_repeat_slot_count_;
       repeated_value_idx_ = 0;
+      if (current_region_slots_remaining_ == 0) {
+        TransitionToNextRegion();
+      }
     } else {
       // Auto-repeater is not the first item, start at kLeading region.
       region_ = kLeading;

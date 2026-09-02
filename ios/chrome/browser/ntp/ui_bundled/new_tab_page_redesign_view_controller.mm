@@ -7,6 +7,11 @@
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_redesign_view_controller.h"
 
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_module_background_view.h"
+#import "ios/chrome/browser/content_suggestions/model/content_suggestions_metrics_recorder.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_item.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_collection_view.h"
+#import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_config.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_framing_coordinates.h"
 #import "ios/chrome/browser/home_customization/ui/home_customization_image_view.h"
@@ -15,18 +20,22 @@
 #import "ios/chrome/browser/ntp/ui_bundled/fake_location_bar_view.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_bottom_sheet_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_color_palette.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_commands.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_view.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_image_background_trait.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mutator.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_quick_actions_view_controller.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_shortcuts_handler.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_trait.h"
 #import "ios/chrome/browser/ntp/ui_bundled/ntp_identity_disc_button.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/toolbar/ui/toolbar_constants.h"
 #import "ios/chrome/common/NSString+Chromium.h"
 #import "ios/chrome/common/material_timing.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -38,12 +47,6 @@ namespace {
 // Animation duration for wallpaper transition.
 constexpr CGFloat kBackgroundImageAnimationDuration = 0.25;
 
-// Spacing between fake omnibox and most visited tiles (MVTs) container.
-constexpr CGFloat kOmniboxToMVTSpacing = 16.0;
-
-// Spacing between the Google logo and the fake location bar.
-constexpr CGFloat kLogoToOmniboxSpacing = 24.0;
-
 // Spacing from the top of the bottom sheet to the omnibox when expanded.
 constexpr CGFloat kExpandedSheetOmniboxTopMargin = 16.0;
 
@@ -51,11 +54,16 @@ constexpr CGFloat kExpandedSheetOmniboxTopMargin = 16.0;
 // resting/collapsed.
 constexpr CGFloat kRestingSheetMVTTopMargin = 12.0;
 
-// Default fallback height for the MVTs container before initial layout.
-constexpr CGFloat kDefaultMVTHeightFallback = 124.0;
+// Bottom padding between the MVT collection view and the bottom of its
+// container.
+constexpr CGFloat kMVTContainerBottomPadding = 10.0;
+
+// Corner radius for the MVT container when rendered with squircle styling.
+constexpr CGFloat kMVTContainerCornerRadius = 24.0;
 
 // Top margin of the Google logo view.
 constexpr CGFloat kLogoTopMargin = 40.0;
+constexpr CGFloat kLandscapeLogoTopMargin = 8.0;
 
 // Width dimensions for Doodle and Google logo layouts.
 constexpr CGFloat kDoodleLogoWidth = 320.0;
@@ -77,6 +85,8 @@ constexpr CGFloat kFakeboxPlusLeadingSpace = 18.0;
 // Vertical visual alignment nudges for fakebox elements.
 constexpr CGFloat kLogoViewYOffset = 1.0;
 constexpr CGFloat kHintLabelYOffset = -1.0;
+
+const CGFloat kMinDragHandleHeight = 24.0;
 }  // namespace
 
 @interface NTPRedesignTouchAreaOverflowStackView : UIStackView
@@ -119,13 +129,20 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
 
   FakeLocationBarView* _fakeLocationBar;
   UIView* _mostVisitedContainerView;
+  UIView* _mostVisitedView;
   NSLayoutConstraint* _fakeLocationBarTopConstraint;
   NTPIdentityDiscButton* _identityDiscButton;
 
   UIImage* _avatarImage;
+  BOOL _hasAITier;
   NSString* _avatarName;
   NSString* _avatarEmail;
   BOOL _avatarImageLoaded;
+
+  // Layout constraints for top content.
+  NSLayoutConstraint* _mvtTopConstraint;
+  NSLayoutConstraint* _qaTopConstraint;
+  NewTabPageQuickActionsViewController* _quickActionsViewController;
 
   // Fake omnibox subviews and state
   NTPRedesignTouchAreaOverflowStackView* _buttonStack;
@@ -149,6 +166,7 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
   NSLayoutConstraint* _leadingViewConstraint;
   NSLayoutConstraint* _hintLabelLeadingConstraint;
   NSLayoutConstraint* _hintLabelTrailingConstraint;
+  BOOL _isBottomOmnibox;
 }
 
 - (void)viewDidLoad {
@@ -181,7 +199,12 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
              forControlEvents:UIControlEventTouchUpInside];
   _fakeLocationBar.isAccessibilityElement = YES;
   _fakeLocationBar.accessibilityIdentifier = @"ntp-redesign-fake-omnibox";
-  [self.view addSubview:_fakeLocationBar];
+  if (IsNTPRedesignStaticFakeboxEnabled()) {
+    [self.view insertSubview:_fakeLocationBar
+                belowSubview:_bottomSheetViewController.view];
+  } else {
+    [self.view addSubview:_fakeLocationBar];
+  }
 
   _hintLabel = [[UILabel alloc] init];
   _hintLabel.translatesAutoresizingMaskIntoConstraints = NO;
@@ -210,13 +233,32 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
   [_fakeLocationBar applyBackgroundTheme];
   [_fakeLocationBar updateColorsWithProgress:0.0 colorPalette:nil];
 
-  // Add Most Visited Tiles (MVTs) container.
-  _mostVisitedContainerView = [[UIView alloc] init];
-  _mostVisitedContainerView.translatesAutoresizingMaskIntoConstraints = NO;
-  [self.view insertSubview:_mostVisitedContainerView
-              belowSubview:_bottomSheetViewController.view];
+  if (IsAimEnabledInNtp()) {
+    _quickActionsViewController =
+        [[NewTabPageQuickActionsViewController alloc] init];
+    _quickActionsViewController.layoutGuideCenter = self.layoutGuideCenter;
+    _quickActionsViewController.NTPShortcutsHandler = self.NTPShortcutsHandler;
+    [self addChildViewController:_quickActionsViewController];
 
-  // Configure layout constraints for fake location bar and MVTs.
+    // Insert BELOW the sheet.
+    _quickActionsViewController.view.translatesAutoresizingMaskIntoConstraints =
+        NO;
+    [self.view insertSubview:_quickActionsViewController.view
+                belowSubview:_bottomSheetViewController.view];
+    [_quickActionsViewController didMoveToParentViewController:self];
+    _quickActionsViewController.view.hidden = !self.quickActionsVisible;
+  }
+
+  // Add Most Visited Tiles (MVTs) container if not in bottom sheet.
+  if (!IsMVTInBottomSheetEnabled()) {
+    _mostVisitedContainerView = [[UIView alloc] init];
+    _mostVisitedContainerView.translatesAutoresizingMaskIntoConstraints = NO;
+    // Insert BELOW the sheet.
+    [self.view insertSubview:_mostVisitedContainerView
+                belowSubview:_bottomSheetViewController.view];
+  }
+
+  // Configure layout constraints
   _fakeLocationBarTopConstraint = [_fakeLocationBar.topAnchor
       constraintEqualToAnchor:self.view.topAnchor
                      constant:[self centeredFakeOmniboxTop]];
@@ -236,22 +278,54 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
         constraintEqualToAnchor:_fakeLocationBar.trailingAnchor],
     [_buttonStack.centerYAnchor
         constraintEqualToAnchor:_fakeLocationBar.centerYAnchor],
-
-    [_mostVisitedContainerView.topAnchor
-        constraintEqualToAnchor:_fakeLocationBar.bottomAnchor
-                       constant:kOmniboxToMVTSpacing],
-    [_mostVisitedContainerView.centerXAnchor
-        constraintEqualToAnchor:self.view.centerXAnchor],
-    [_mostVisitedContainerView.widthAnchor
-        constraintEqualToAnchor:_fakeLocationBar.widthAnchor],
   ]];
+
+  if (!IsMVTInBottomSheetEnabled()) {
+    [NSLayoutConstraint activateConstraints:@[
+      [_mostVisitedContainerView.widthAnchor
+          constraintEqualToAnchor:_fakeLocationBar.widthAnchor],
+      [_mostVisitedContainerView.centerXAnchor
+          constraintEqualToAnchor:_fakeLocationBar.centerXAnchor],
+    ]];
+  }
+
+  if (IsAimEnabledInNtp()) {
+    _qaTopConstraint = [_quickActionsViewController.view.topAnchor
+        constraintEqualToAnchor:_fakeLocationBar.bottomAnchor
+                       constant:content_suggestions::QuickActionsTopPadding()];
+
+    [NSLayoutConstraint activateConstraints:@[
+      _qaTopConstraint,
+      [_quickActionsViewController.view.widthAnchor
+          constraintEqualToAnchor:_fakeLocationBar.widthAnchor],
+      [_quickActionsViewController.view.centerXAnchor
+          constraintEqualToAnchor:_fakeLocationBar.centerXAnchor],
+    ]];
+  }
+
+  if (!IsMVTInBottomSheetEnabled()) {
+    UIView* anchorView = self.quickActionsVisible
+                             ? _quickActionsViewController.view
+                             : _fakeLocationBar;
+    CGFloat constant = content_suggestions::MostVisitedTopPadding();
+
+    _mvtTopConstraint = [_mostVisitedContainerView.topAnchor
+        constraintEqualToAnchor:anchorView.bottomAnchor
+                       constant:constant];
+    _mvtTopConstraint.active = YES;
+  }
+
   _fakeLocationBar.layer.cornerRadius =
       _fakeLocationBarHeightConstraint.constant / 2.0;
 
   [self refreshFakeboxContent];
 
-  if (_mostVisitedViewController) {
-    [self embedMostVisitedViewController];
+  if (_mostVisitedView) {
+    if (IsMVTInBottomSheetEnabled()) {
+      [_bottomSheetViewController embedMostVisitedView:_mostVisitedView];
+    } else {
+      [self embedMostVisitedView];
+    }
   }
 
   if (_searchEngineLogoView) {
@@ -277,9 +351,10 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
 
   if (_avatarImageLoaded) {
     if (_avatarImage) {
-      [_identityDiscButton updateAccountImage:_avatarImage
-                                         name:_avatarName
-                                        email:_avatarEmail];
+      [_identityDiscButton updateAccountWithName:_avatarName
+                                           email:_avatarEmail
+                                     avatarImage:_avatarImage
+                                       hasAITier:_hasAITier];
     } else {
       [_identityDiscButton setSignedOutAccountImage];
     }
@@ -302,13 +377,6 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
       content_suggestions::FakeOmniboxHeight();
   _fakeLocationBar.layer.cornerRadius =
       _fakeLocationBarHeightConstraint.constant / 2.0;
-
-  // Update fake omnibox top if the bottom sheet is not pushing it
-  if (_bottomSheetViewController) {
-    CGFloat currentTopOffset = _bottomSheetViewController.view.frame.origin.y;
-    [self bottomSheetViewController:_bottomSheetViewController
-                 didUpdateTopOffset:currentTopOffset];
-  }
 }
 
 #pragma mark - UIViewController Overrides
@@ -316,6 +384,12 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
 - (void)viewDidAppear:(BOOL)animated {
   [super viewDidAppear:animated];
   self.viewDidAppear = YES;
+
+  if (self.focusAccessibilityOmniboxWhenViewAppears) {
+    UIAccessibilityPostNotification(UIAccessibilityLayoutChangedNotification,
+                                    _fakeLocationBar);
+    self.focusAccessibilityOmniboxWhenViewAppears = NO;
+  }
 
   if (_lensButton && self.useNewBadgeForLensButton &&
       !_didNotifyLensBadgeDisplay) {
@@ -329,6 +403,10 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
 - (void)handleTraitChanges {
   [self updateLogoConstraints];
   [self refreshFakeboxContent];
+  _fakeLocationBarTopConstraint.constant = [self centeredFakeOmniboxTop];
+  if (_bottomSheetViewController) {
+    [_bottomSheetViewController updateBottomSheetPositionAnimated:NO];
+  }
 }
 
 - (void)setUseNewBadgeForLensButton:(BOOL)useNewBadgeForLensButton {
@@ -346,7 +424,7 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
   self.searchEngineLogoView = nil;
   self.NTPContentDelegate = nil;
   self.NTPShortcutsHandler = nil;
-  self.mostVisitedViewController = nil;
+  _mostVisitedView = nil;
   self.magicStackViewController = nil;
   [self setFeedViewController:nil];
   [_bottomSheetViewController invalidate];
@@ -373,27 +451,46 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
 
 - (CGFloat)restingOffsetForBottomSheetViewController:
     (NewTabPageBottomSheetViewController*)viewController {
-  CGFloat mvtHeight = CGRectGetHeight(_mostVisitedContainerView.bounds);
-  if (mvtHeight <= 0) {
-    mvtHeight = kDefaultMVTHeightFallback;
+  CGFloat offset = [self centeredFakeOmniboxTop] + [self topContentHeight];
+  if (!IsMVTInBottomSheetEnabled()) {
+    offset += kRestingSheetMVTTopMargin;
   }
-  return [self centeredFakeOmniboxTop] +
-         content_suggestions::FakeOmniboxHeight() + kOmniboxToMVTSpacing +
-         mvtHeight + kRestingSheetMVTTopMargin;
+
+  // Safety guard: guarantee the drag handle is always visible and reachable
+  CGFloat screenHeight = self.view.bounds.size.height;
+  CGFloat safeAreaBottom = self.view.safeAreaInsets.bottom;
+  CGFloat maxAllowedOffset =
+      screenHeight - safeAreaBottom - kMinDragHandleHeight;
+
+  return MIN(offset, maxAllowedOffset);
 }
 
 - (CGFloat)collapsedOffsetForBottomSheetViewController:
     (NewTabPageBottomSheetViewController*)viewController {
   UIView* superview = self.view;
   CGFloat safeAreaBottom = superview.safeAreaInsets.bottom;
+  if ([self isCompactHeight]) {
+    return superview.bounds.size.height - safeAreaBottom - kMinDragHandleHeight;
+  }
   CGFloat collapsedHeight = safeAreaBottom + 80.0;
   return superview.bounds.size.height - collapsedHeight;
+}
+
+- (CGFloat)expandedOffsetForBottomSheetViewController:
+    (NewTabPageBottomSheetViewController*)viewController {
+  CGFloat safeAreaTop = self.view.safeAreaInsets.top;
+  if (!IsNTPRedesignStaticFakeboxEnabled()) {
+    return safeAreaTop + 20.0;
+  }
+  if (_isBottomOmnibox && !CanShowTabStrip(self)) {
+    return safeAreaTop;
+  }
+  return safeAreaTop + kToolbarHeight;
 }
 
 - (void)bottomSheetViewController:
             (NewTabPageBottomSheetViewController*)bottomSheetViewController
                didUpdateTopOffset:(CGFloat)topOffset {
-  // Interpolate fake omnibox position relative to the sheet top
   CGFloat expandedOffset = [_bottomSheetViewController expandedOffset];
   CGFloat restingOffset = [_bottomSheetViewController restingOffset];
 
@@ -403,28 +500,94 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
     progress = MIN(1.0, MAX(0.0, progress));
   }
 
-  // Read height dynamically from bounds, falling back to
-  // kDefaultMVTHeightFallback if not laid out yet.
-  CGFloat mvtHeight = CGRectGetHeight(_mostVisitedContainerView.bounds);
-  if (mvtHeight <= 0) {
-    mvtHeight = kDefaultMVTHeightFallback;
+  if (IsNTPRedesignStaticFakeboxEnabled()) {
+    if (topOffset > restingOffset) {
+      // Collapsed range: Move top content down with sheet
+      CGFloat downwardDelta = topOffset - restingOffset;
+      _fakeLocationBarTopConstraint.constant =
+          [self centeredFakeOmniboxTop] + downwardDelta;
+      _fakeLocationBar.alpha = 1.0;
+      [self.NTPContentDelegate didUpdateNTPTabOmniboxScrollProgress:0.0];
+    } else {
+      // Expanded range: Fakebox stays static at centered position & fades out
+      _fakeLocationBarTopConstraint.constant = [self centeredFakeOmniboxTop];
+      _fakeLocationBar.alpha = progress;
+      CGFloat expansionProgress = 1.0 - progress;
+      [self.NTPContentDelegate
+          didUpdateNTPTabOmniboxScrollProgress:expansionProgress];
+    }
+  } else {
+    // Default legacy behavior: Shift fakebox to the top of the sheet
+    CGFloat restingOffsetFromSheet =
+        -([self topContentHeight] + kRestingSheetMVTTopMargin);
+    CGFloat offsetFromSheet = progress * restingOffsetFromSheet +
+                              (1.0 - progress) * kExpandedSheetOmniboxTopMargin;
+    _fakeLocationBarTopConstraint.constant = topOffset + offsetFromSheet;
+    _fakeLocationBar.alpha = 1.0;
   }
-  CGFloat restingOffsetFromSheet =
-      -(content_suggestions::FakeOmniboxHeight() + kOmniboxToMVTSpacing +
-        mvtHeight + kRestingSheetMVTTopMargin);
 
-  // Spacing offset from sheet top: restingOffsetFromSheet when
-  // resting/collapsed (above sheet), +16 pt when expanded (inside sheet)
-  CGFloat offsetFromSheet = progress * restingOffsetFromSheet +
-                            (1.0 - progress) * kExpandedSheetOmniboxTopMargin;
-  _fakeLocationBarTopConstraint.constant = topOffset + offsetFromSheet;
-
-  // Interpolate opacity for logo, MVTs row, and identity disc
+  // Opacity for Logo, MVT, Identity Disc, and Quick Actions
   _searchEngineLogoView.alpha = progress;
-  _mostVisitedContainerView.alpha = progress;
+  if (!IsMVTInBottomSheetEnabled()) {
+    _mostVisitedContainerView.alpha = progress;
+  }
   _identityDiscButton.alpha = progress;
+  if (_quickActionsViewController) {
+    _quickActionsViewController.view.alpha = progress;
+  }
 
   [self.view layoutIfNeeded];
+}
+
+- (void)bottomSheetViewControllerDidEscape:
+    (NewTabPageBottomSheetViewController*)bottomSheetViewController {
+  if (_fakeLocationBar) {
+    UIAccessibilityPostNotification(UIAccessibilityScreenChangedNotification,
+                                    _fakeLocationBar);
+  }
+}
+
+#pragma mark - ContentSuggestionsConsumer
+
+- (void)setMostVisitedTilesConfig:(MostVisitedTilesConfig*)config {
+  if (_mostVisitedView) {
+    [_mostVisitedView removeFromSuperview];
+  }
+  if (!config) {
+    _mostVisitedView = nil;
+    return;
+  }
+
+  MostVisitedTilesCollectionView* collectionView =
+      [[MostVisitedTilesCollectionView alloc] initWithConfig:config];
+
+  if (!IsMVTInBottomSheetEnabled()) {
+    __weak __typeof(_bottomSheetViewController) weakBottomSheetViewController =
+        _bottomSheetViewController;
+    collectionView.onContentSizeChanged = ^(CGSize) {
+      [weakBottomSheetViewController updateBottomSheetPositionAnimated:YES];
+    };
+  }
+
+  _mostVisitedView =
+      [self createContainerForMostVisitedCollectionView:collectionView
+                                             inSquircle:YES];
+
+  if (IsMVTInBottomSheetEnabled()) {
+    if (_bottomSheetViewController) {
+      [_bottomSheetViewController embedMostVisitedView:_mostVisitedView];
+    }
+  } else {
+    if (self.isViewLoaded) {
+      [self embedMostVisitedView];
+    }
+  }
+
+  for (MostVisitedItem* item in config.mostVisitedItems) {
+    [ContentSuggestionsMetricsRecorder recordMostVisitedTileShown:item
+                                                          atIndex:item.index];
+  }
+  [ContentSuggestionsMetricsRecorder recordMostVisitedTilesShown];
 }
 
 #pragma mark - NewTabPageConsumer
@@ -518,36 +681,59 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
   }
 }
 
-- (void)setMostVisitedViewController:
-    (UIViewController*)mostVisitedViewController {
-  if (_mostVisitedViewController == mostVisitedViewController) {
-    return;
-  }
-  if (_mostVisitedViewController) {
-    [_mostVisitedViewController willMoveToParentViewController:nil];
-    [_mostVisitedViewController.view removeFromSuperview];
-    [_mostVisitedViewController removeFromParentViewController];
-  }
-  _mostVisitedViewController = mostVisitedViewController;
-  if (self.isViewLoaded && _mostVisitedViewController) {
-    [self embedMostVisitedViewController];
-  }
-}
-
-- (void)embedMostVisitedViewController {
-  if (!_mostVisitedViewController || !_mostVisitedContainerView) {
-    return;
-  }
-  [self addChildViewController:_mostVisitedViewController];
-  _mostVisitedViewController.view.translatesAutoresizingMaskIntoConstraints =
-      NO;
-  [_mostVisitedContainerView addSubview:_mostVisitedViewController.view];
-  AddSameConstraints(_mostVisitedViewController.view,
-                     _mostVisitedContainerView);
-  [_mostVisitedViewController didMoveToParentViewController:self];
-}
-
 #pragma mark - Private
+
+// Creates a container view that wraps `collectionView` with bottom padding and
+// optional squircle background styling.
+- (UIView*)createContainerForMostVisitedCollectionView:
+               (MostVisitedTilesCollectionView*)collectionView
+                                            inSquircle:(BOOL)inSquircle {
+  UIView* container = [[UIView alloc] init];
+  container.translatesAutoresizingMaskIntoConstraints = NO;
+
+  if (inSquircle) {
+    UIView* backgroundView = [[MagicStackModuleBackgroundView alloc] init];
+    backgroundView.translatesAutoresizingMaskIntoConstraints = NO;
+    [container addSubview:backgroundView];
+    AddSameConstraints(container, backgroundView);
+    container.layer.cornerRadius = kMVTContainerCornerRadius;
+    container.clipsToBounds = YES;
+  }
+
+  collectionView.translatesAutoresizingMaskIntoConstraints = NO;
+  [container addSubview:collectionView];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [collectionView.topAnchor constraintEqualToAnchor:container.topAnchor],
+    [collectionView.leadingAnchor
+        constraintEqualToAnchor:container.leadingAnchor],
+    [collectionView.trailingAnchor
+        constraintEqualToAnchor:container.trailingAnchor],
+    [collectionView.bottomAnchor
+        constraintEqualToAnchor:container.bottomAnchor
+                       constant:-kMVTContainerBottomPadding],
+  ]];
+
+  return container;
+}
+
+// Add _mostVisitedView to the view hierarchy.
+- (void)embedMostVisitedView {
+  if (IsMVTInBottomSheetEnabled()) {
+    return;
+  }
+  if (!_mostVisitedView || !_mostVisitedContainerView) {
+    return;
+  }
+  _mostVisitedView.translatesAutoresizingMaskIntoConstraints = NO;
+  [_mostVisitedContainerView addSubview:_mostVisitedView];
+  AddSameConstraints(_mostVisitedView, _mostVisitedContainerView);
+  [self.view setNeedsLayout];
+  [self.view layoutIfNeeded];
+  if (_bottomSheetViewController) {
+    [_bottomSheetViewController updateBottomSheetPositionAnimated:NO];
+  }
+}
 
 - (void)addSearchEngineLogoView {
   if (!_searchEngineLogoView || !_bottomSheetViewController.view) {
@@ -578,33 +764,70 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
         constraintEqualToAnchor:self.view.centerXAnchor],
     [_searchEngineLogoView.bottomAnchor
         constraintEqualToAnchor:_fakeLocationBar.topAnchor
-                       constant:-kLogoToOmniboxSpacing],
+                       constant:-content_suggestions::LogoToFakeboxPadding(
+                                    _logoState)],
     [_searchEngineLogoView.widthAnchor constraintEqualToConstant:width],
     [_searchEngineLogoView.heightAnchor constraintEqualToConstant:height]
   ];
   [NSLayoutConstraint activateConstraints:_logoConstraints];
 }
 
-- (CGFloat)centeredFakeOmniboxTop {
-  CGFloat screenHeight = self.view.bounds.size.height;
-  // During the initial view loading sequence (e.g. before initial layout pass
-  // occurs), screen height bounds will be 0. We fallback to the dynamic
-  // top-down logo offset to avoid negative constraint values during early
-  // configuration.
-  if (screenHeight <= 0) {
-    CGFloat safeAreaTop = self.view.safeAreaInsets.top;
-    CGFloat logoHeight =
-        content_suggestions::DoodleHeight(_logoState, self.traitCollection);
-    return safeAreaTop + kLogoTopMargin + logoHeight + kLogoToOmniboxSpacing;
+- (CGFloat)topContentHeight {
+  CGFloat height = content_suggestions::FakeOmniboxHeight();
+
+  if (self.quickActionsVisible && _quickActionsViewController) {
+    height += content_suggestions::QuickActionsTopPadding();
+    height += _quickActionsViewController.preferredContentSize.height;
+    height += content_suggestions::MostVisitedTopPadding();
+  } else {
+    height += content_suggestions::MostVisitedTopPadding();
   }
-  return screenHeight * 0.35;
+
+  if (!IsMVTInBottomSheetEnabled()) {
+    CGFloat mvtHeight = CGRectGetHeight(_mostVisitedContainerView.bounds);
+    if (mvtHeight <= 0 && _mostVisitedView) {
+      mvtHeight = [_mostVisitedView
+                      systemLayoutSizeFittingSize:UILayoutFittingCompressedSize]
+                      .height;
+    }
+    height += mvtHeight;
+  }
+
+  return height;
 }
+- (BOOL)isCompactHeight {
+  return self.traitCollection.verticalSizeClass ==
+         UIUserInterfaceSizeClassCompact;
+}
+
+- (CGFloat)logoTopPaddingForCurrentOrientation {
+  if ([self isCompactHeight]) {
+    return kLandscapeLogoTopMargin;
+  }
+  if (base::FeatureList::IsEnabled(kNewTabPageUICleanup)) {
+    return content_suggestions::LogoTopPadding(_logoState,
+                                               self.traitCollection);
+  }
+  return kLogoTopMargin;
+}
+
+- (CGFloat)centeredFakeOmniboxTop {
+  CGFloat safeAreaTop = self.view.safeAreaInsets.top;
+  CGFloat logoHeight =
+      content_suggestions::DoodleHeight(_logoState, self.traitCollection);
+  CGFloat logoTopMargin = [self logoTopPaddingForCurrentOrientation];
+  return safeAreaTop + logoTopMargin + logoHeight +
+         content_suggestions::LogoToFakeboxPadding(_logoState);
+}
+
+
 
 #pragma mark - SearchEngineLogoConsumer
 
 - (void)searchEngineLogoStateDidChange:(SearchEngineLogoState)logoState {
   _logoState = logoState;
   [self updateLogoConstraints];
+  _fakeLocationBarTopConstraint.constant = [self centeredFakeOmniboxTop];
   if (_bottomSheetViewController) {
     CGFloat currentTopOffset = _bottomSheetViewController.view.frame.origin.y;
     [self bottomSheetViewController:_bottomSheetViewController
@@ -630,15 +853,20 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
   }
 }
 
-- (void)updateAccountImage:(UIImage*)image
-                      name:(NSString*)name
-                     email:(NSString*)email {
-  _avatarImage = image;
+- (void)updateAccountWithName:(NSString*)name
+                        email:(NSString*)email
+                  avatarImage:(UIImage*)avatarImage
+                    hasAITier:(BOOL)hasAITier {
+  _avatarImage = avatarImage;
+  _hasAITier = hasAITier;
   _avatarName = name;
   _avatarEmail = email;
   _avatarImageLoaded = YES;
   if (_identityDiscButton) {
-    [_identityDiscButton updateAccountImage:image name:name email:email];
+    [_identityDiscButton updateAccountWithName:name
+                                         email:email
+                                   avatarImage:avatarImage
+                                     hasAITier:hasAITier];
   }
 }
 
@@ -673,11 +901,35 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
   [self refreshFakeboxContent];
 }
 
+// Whether the quick actions button row is visible.
+- (BOOL)quickActionsVisible {
+  return _isAIMAllowed && IsAimEnabledInNtp();
+}
+
 - (void)setAIMAllowed:(BOOL)allowed {
   if (_isAIMAllowed == allowed) {
     return;
   }
   _isAIMAllowed = allowed;
+  if (_quickActionsViewController) {
+    BOOL isVisible = self.quickActionsVisible;
+    _quickActionsViewController.view.hidden = !isVisible;
+
+    if (!IsMVTInBottomSheetEnabled()) {
+      _mvtTopConstraint.active = NO;
+
+      UIView* anchorView =
+          isVisible ? _quickActionsViewController.view : _fakeLocationBar;
+      CGFloat constant = content_suggestions::MostVisitedTopPadding();
+
+      _mvtTopConstraint = [_mostVisitedContainerView.topAnchor
+          constraintEqualToAnchor:anchorView.bottomAnchor
+                         constant:constant];
+      _mvtTopConstraint.active = YES;
+    }
+
+    [self.view layoutIfNeeded];
+  }
   [self refreshFakeboxContent];
 }
 
@@ -690,7 +942,18 @@ constexpr CGFloat kHintLabelYOffset = -1.0;
 }
 
 - (void)setOmniboxInBottomPosition:(BOOL)isBottomOmnibox {
-  // No-op for redesign.
+  if (!IsNTPRedesignStaticFakeboxEnabled()) {
+    return;
+  }
+  if (_isBottomOmnibox == isBottomOmnibox) {
+    return;
+  }
+  _isBottomOmnibox = isBottomOmnibox;
+  [_bottomSheetViewController setOmniboxInBottomPosition:isBottomOmnibox];
+  if (self.isViewLoaded) {
+    [_bottomSheetViewController updateBottomSheetPositionAnimated:YES];
+    [self.view setNeedsLayout];
+  }
 }
 
 - (void)updateADPBadgeWithErrorFound:(BOOL)hasAccountError

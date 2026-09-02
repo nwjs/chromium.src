@@ -310,13 +310,13 @@ ParsedSessionDescription ParsedSessionDescription::Parse(const String& sdp_type,
 
 void ParsedSessionDescription::DoParse() {
   std::optional<webrtc::SdpType> maybe_type =
-      webrtc::SdpTypeFromString(type_.Utf8().c_str());
+      webrtc::SdpTypeFromString(type_.Utf8());
   if (!maybe_type.has_value()) {
     description_.reset();
     return;
   }
-  description_ = webrtc::CreateSessionDescription(*maybe_type,
-                                                  sdp_.Utf8().c_str(), &error_);
+  description_ =
+      webrtc::CreateSessionDescription(*maybe_type, sdp_.Utf8(), &error_);
 }
 
 // Processes the resulting state changes of a SetLocalDescription() or
@@ -1910,7 +1910,6 @@ void RTCPeerConnectionHandler::OnIceConnectionChange(
     webrtc::PeerConnectionInterface::IceConnectionState new_state) {
   TRACE_EVENT0("webrtc", "RTCPeerConnectionHandler::OnIceConnectionChange");
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  ReportICEState(new_state);
   track_metrics_.IceConnectionChange(new_state);
 }
 
@@ -2218,17 +2217,6 @@ scoped_refptr<base::SingleThreadTaskRunner>
 RTCPeerConnectionHandler::signaling_thread() const {
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
   return signaling_thread_;
-}
-
-void RTCPeerConnectionHandler::ReportICEState(
-    webrtc::PeerConnectionInterface::IceConnectionState new_state) {
-  DCHECK(task_runner_->RunsTasksInCurrentSequence());
-  if (ice_state_seen_[new_state]) {
-    return;
-  }
-  ice_state_seen_[new_state] = true;
-  UMA_HISTOGRAM_ENUMERATION("WebRTC.PeerConnection.ConnectionState", new_state,
-                            webrtc::PeerConnectionInterface::kIceConnectionMax);
 }
 
 }  // namespace blink

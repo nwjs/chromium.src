@@ -44,7 +44,13 @@ enum KeywordType {
   kInstant,
 };
 
-struct KeywordModel {
+struct InputKeywordModel {
+  KeywordType type;
+  string keyword;
+  string display_text;
+};
+
+struct MatchKeywordModel {
   KeywordType type;
   string chip_hint;
   string chip_a11y;
@@ -95,6 +101,8 @@ struct AutocompleteMatch {
   string type;  // Result of AutocompleteMatchType::ToString().
   mojo_base.mojom.String16 remove_button_a11y_label;
   bool swap_contents_and_description;
+  // Whether to show the description for a contextual match.
+  bool show_contextual_description;
   // ID of the group the suggestion belongs to. 0 if it does not belong to any.
   int32 suggestion_group_id;
   bool supports_deletion;
@@ -104,7 +112,7 @@ struct AutocompleteMatch {
   // would be the text following "sale".
   mojo_base.mojom.String16? tail_suggest_common_prefix;
   // Keyword UI state for this match. Empty if not a keyword suggestion.
-  KeywordModel? keyword_model;
+  MatchKeywordModel? keyword_model;
 };
 
 // Information about a suggested tab in the WebUI.
@@ -151,6 +159,23 @@ struct FileAttachment {
   url.mojom.Url? thumbnail_url;
 };
 
+// The source/origin of a tab attachment. Used to track how a tab was
+// added to the composebox.
+enum TabAttachmentSource {
+  // Unknown or unspecified source.
+  kOther = 0,
+  // Added via the WebUI context menu.
+  kContextMenu = 1,
+  // Added via the "Current Tab" chip.
+  kCurrentTabChip = 2,
+  // Added via a searchbox action chip.
+  kActionChip = 3,
+  // Automatically added because it was the active tab when the session started.
+  kAutoActive = 4,
+  // Automatically added through cobrowse entrypoints.
+  kAutoAdded = 5,
+};
+
 // Represents a tab attachment chosen browser-side and communicated to WebUI.
 struct TabAttachment {
   // The unique identifier of the tab.
@@ -159,6 +184,8 @@ struct TabAttachment {
   string title;
   // The URL of the tab.
   url.mojom.Url url;
+  // The source/origin of the tab attachment.
+  TabAttachmentSource source;
 };
 
 // Represents a single attachment to the search context, either a file or a tab.
@@ -305,6 +332,9 @@ enum SuggestInventory {
   kAimTakeover = 2,
   kImageGenTakeover = 3,
   kConversationStarters = 4,
+  kBrainstorm = 5,
+  kHelpMeLearn = 6,
+  kWriteOrEdit = 7,
 };
 
 // LINT.IfChange(InputMethod)
@@ -365,7 +395,8 @@ interface PageHandler {
                     uint32 cursor_position,
                     SuggestInventory suggest_inventory,
                     bool is_on_focus,
-                    string keyword);
+                    string keyword,
+                    InputMethod input_method);
 
   // Cancels the current autocomplete query. Clears the result set if
   // |clear_result| is true.
@@ -386,9 +417,6 @@ interface PageHandler {
   // Sets the Smart Compose stats to be passed during the next navigation.
   SetSmartComposeStats(SmartComposeStats smart_compose_stats);
 
-  // Sets the WebUI-specific input method. Used to for querying autocomplete
-  // and gets reset in the browser every time autocomplete is queried.
-  SetInputMethod(InputMethod input_method);
 
   // Sets the native OmniboxEditModel popup selection.
   // TODO(crbug.com/483117840): This drives some omnibox state affecting
@@ -439,7 +467,7 @@ interface PageHandler {
 
   // Returns configuration data leveraged when displaying cycling placeholder
   // texts on the searchbox UI.
-  GetPlaceholderConfig() => (PlaceholderConfig config);
+  GetCyclingPlaceholderConfig() => (PlaceholderConfig config);
 
   // Returns information about recent tabs.
   GetRecentTabs() => (array<TabInfo> tabs);
@@ -477,7 +505,7 @@ interface PageHandler {
   // Attach a tab to the query context. If the tab cannot be attached, the
   // result will contain an error, otherwise it will contain the token
   // identifying the tab context.
-  AddTabContext(int32 tab_id, bool delay_upload)
+  AddTabContext(int32 tab_id, bool delay_upload, TabAttachmentSource source)
       => result<mojo_base.mojom.UnguessableToken, composebox_query.mojom.ContextUploadErrorType>;
 
   // Notify handler of context deletion. This removes the context data (e.g.
@@ -507,11 +535,14 @@ interface PageHandler {
   // Opens the Lens search UI.
   OpenLensSearch();
 
-  // Called when a user enables a tool.
-  SetActiveToolMode(composebox_query.mojom.ToolMode tool);
+  // Called when a tool is enabled (either manually or via server auto tool
+  // add).
+  SetActiveToolMode(composebox_query.mojom.ToolMode tool,
+                    bool is_set_by_server);
 
   // Called when a user enables a model.
-  SetActiveModelMode(composebox_query.mojom.ModelMode model);
+  SetActiveModelMode(composebox_query.mojom.ModelMode model,
+                     bool is_set_by_aim);
 
   // Activates a metrics funnel for the session.
   ActivateMetricsFunnel(string funnel_name);
@@ -533,6 +564,19 @@ interface PageHandler {
 
   // Opens the profile picker for switching profiles.
   OpenProfilePicker();
+
+  // Triggers screensharing (window or entire screen picker).
+  // `prefer_entire_screen` is a hint indicating whether the screen picker
+  // should default to selecting the entire screen (true) or a window
+  // (false).
+  // Returns a token on success, or null if the selection was cancelled, failed
+  // to start, or if there is already an active screensharing session.
+  // The token is used by the WebUI to create a placeholder chip synchronously,
+  // and subsequently to associate it with the captured screenshot details
+  // delivered asynchronously via `Page.AddFileContext()`. It can also be used
+  // to delete the context via `DeleteContext()`.
+  StartScreenshare(bool prefer_entire_screen)
+      => (mojo_base.mojom.UnguessableToken? token);
 
   // Gets the page classification for the current context.
   GetPageClassification() => (string metricSource);
@@ -567,6 +611,11 @@ interface Page {
   // TODO(crbug.com/483117840): This is driven by interaction with
   //  OmniboxViewViews and can be eliminated once we have full webui popup.
   OpenCurrentSelection(ui.mojom.WindowOpenDisposition disposition);
+
+  // Resets the popup selection to the initial state.
+  // TODO(crbug.com/483117840): This is driven by interaction with
+  //  OmniboxViewViews and can be eliminated once we have full webui popup.
+  ResetPopupToInitialState();
 
   // Updates visibility of the AIM button (on right side of OmniboxViewViews).
   // TODO(crbug.com/483117840): This is driven by interaction with

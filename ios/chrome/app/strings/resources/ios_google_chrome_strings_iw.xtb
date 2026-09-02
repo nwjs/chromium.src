@@ -17,6 +17,7 @@
 <translation id="1237769345474105984">‏מ-Chrome</translation>
 <translation id="124228879633599436">‏‫Chrome לא מעודכן. צריך לעדכן אותו כדי לשמור על הבטיחות.</translation>
 <translation id="1258531953614971819">‏טיפ ל-Chrome: כדאי להעביר את Chrome למסך הבית</translation>
+<translation id="1333577334443425318">‏כדי לפתוח קישורים מאפליקציות אחרות בלי להעתיק אותם, כדאי להגדיר את Chrome כדפדפן ברירת המחדל.</translation>
 <translation id="1333745675627230582">‏הפעלת המשחק Chrome Dino</translation>
 <translation id="1343830902827845050">‏כניסה ל-Chrome</translation>
 <translation id="1352919863522755794">‏למנהל הסיסמאות של Google לא הייתה אפשרות לבדוק את הסיסמאות. יש לבדוק את החיבור לאינטרנט.</translation>
@@ -26,7 +27,6 @@
 <translation id="1493827051843127077">‏כדאי להגדיר את Chrome כדפדפן ברירת המחדל כדי לסנכרן את הכרטיסיות, הסיסמאות ופרטי התשלומים שלך בכל המכשירים שלך</translation>
 <translation id="1504372625950710826">‏Chrome לא הצליח לחפש עדכונים. יש לבדוק את החיבור לאינטרנט.</translation>
 <translation id="1516692594929310090">‏תיפתח תצוגת הכרטיסיות ב-Chrome.</translation>
-<translation id="152319127067424683">‏אפשר לגשת מהר יותר ל-Chrome דרך ה-Dock של האייפון.</translation>
 <translation id="1526327845902180576">‏כשהאפשרות פועלת:
 <ph name="BEGIN_INDENT" />  • עוזרים לשפר את Chrome אצל אנשים שמשתמשים בדפדפן בצורה דומה.<ph name="END_INDENT" />
 
@@ -39,6 +39,7 @@
 <translation id="1554731936187952550">‏האבטחה החזקה ביותר של Chrome מגינה עליך מפני אתרים מזיקים</translation>
 <translation id="155816064895200734">‏הגדרת Chrome כדפדפן ברירת המחדל</translation>
 <translation id="1580570086594302477">‏פתיחת כרטיסייה פרטית חדשה ב-Chrome.</translation>
+<translation id="1605168141396675642">‏לא צריך יותר להעתיק קישורים. אפשר לפתוח אותם ישירות ב-Chrome.</translation>
 <translation id="1646463005043273333">‏פתיחה של הגדרות Chrome כדי להגדיר את Chrome כדפדפן ברירת המחדל.</translation>
 <translation id="1670609221633730681">‏טיפ ל-Chrome: אפשר לבחור את המיקום של סרגל הכתובות</translation>
 <translation id="1683863426423719967">‏כדי לקבל תזכורות לגבי כרטיסיות מ-Chrome, צריך להפעיל את ההתראות בהגדרות iOS.</translation>
@@ -64,7 +65,6 @@
 <translation id="2212318912894837281">‏כדי לשמור את הסיסמה הזו ולקבל את הנתונים של Chrome בכל המכשירים, צריך להקליד את ביטוי הסיסמה</translation>
 <translation id="2213327331203157297">‏כדי להשבית את האפשרות 'ללא 'ביטול נעילה עם טביעת אצבע'' ב-Chrome, צריך להשבית אותה ב-iPhone.</translation>
 <translation id="2242467532204595597">‏שימוש ב-Chrome בכל פעם שלוחצים על קישורים בהודעות, במסמכים ובאפליקציות אחרות.</translation>
-<translation id="2256384876478573507">‏אפשר לפתוח את Chrome מהר יותר כשרוצים לגלוש באייפון.</translation>
 <translation id="2270691132923135296">‏מידע בסיסי על Chrome שיעזור לך להתחיל</translation>
 <translation id="2311240109311056604">‏פתיחת המשחק Chrome Dino.</translation>
 <translation id="2339201583852607431">‏הסיסמה שלך תישמר בחשבון Google‏ (<ph name="EMAIL" />).</translation>
@@ -73,8 +73,8 @@
 <translation id="2423077901494354337">‏עכשיו אפשר ליהנות מהמיטב של Chrome במכשיר.</translation>
 <translation id="2427791862912929107">‏דפדפן Chrome כולל תכונות שעוזרות לנהל את נתוני האינטרנט ואת מהירות הטעינה של דפי אינטרנט.
 <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
+<translation id="2450221499140985490">‏רוצה לפתוח קישורים מהודעות וממסמכים ישירות ב-Chrome?</translation>
 <translation id="2464852008153767546">{THRESHOLD,plural, =1{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך דקה ({THRESHOLD}). זה יכול לכלול את נתוני ההיסטוריה והמילוי האוטומטי.}one{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות. זה יכול לכלול את נתוני ההיסטוריה והמילוי האוטומטי.}two{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות. זה יכול לכלול את נתוני ההיסטוריה והמילוי האוטומטי.}other{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות. זה יכול לכלול את נתוני ההיסטוריה והמילוי האוטומטי.}}</translation>
-<translation id="2531823184391665648">‏אפשר לפתוח את Chrome מהר יותר כשרוצים לגלוש באייפד.</translation>
 <translation id="2561231791489583059">‏כדאי להשתמש ב-Chrome כדפדפן ברירת המחדל כדי ליהנות מהגנה מפני אתרים מסוכנים ולשמור על אבטחת הסיסמאות</translation>
 <translation id="2574249610672786438">‏כדי לראות את הכרטיסיות שלך מכל מקום שבו פתחת את Chrome יש להיכנס לחשבון בכל המכשירים</translation>
 <translation id="2576431527583832481">‏‫Chrome ממשיך להשתפר! קיימת גירסה חדשה.</translation>
@@ -107,10 +107,10 @@
 <translation id="3140589780564632473">‏חיפוש רכיבים חזותיים ב-Chrome</translation>
 <translation id="314782365035065913">‏גישה מהירה יותר ל-Chrome דרך ה-Dock של מסך הבית</translation>
 <translation id="3167189358072330585">‏החשבון שלך לא פועל ב-Google Chrome. יש לפנות אל מנהל הדומיין או להשתמש בחשבון Google רגיל כדי להיכנס לחשבון.</translation>
-<translation id="320747600144551583">‏טיפ ל-Chrome: הגרסה המשופרת של הגלישה הבטוחה תשמור עליך</translation>
 <translation id="322254490661677575">‏כדי להשתמש בנתוני Chrome ולשמור אותם בחשבון Google, עליך להזין את ביטוי הסיסמה שלך.</translation>
 <translation id="3303503998967553377">‏שימוש בפעולות ב-Chrome ב-iOS</translation>
 <translation id="3348862487678490430">‏הוספת פריט מרשימת הקריאה ל-Chrome</translation>
+<translation id="3350281376951945723">‏הקישורים נפתחים מהר יותר כשמגדירים את Chrome כדפדפן ברירת המחדל</translation>
 <translation id="3357827134511189025">‏רוצה להיכנס לחשבון באמצעות הסיסמאות ומפתחות הגישה השמורים שלך מכל אפליקציה באמצעות Chrome למילוי אוטומטי?</translation>
 <translation id="3360031466389132716">{THRESHOLD,plural, =1{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך דקה ({THRESHOLD})}one{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות}two{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות}other{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות}}</translation>
 <translation id="3367797402528056312">‏לא סיימת להגדיר את Chrome</translation>
@@ -131,15 +131,17 @@
 <translation id="3827545470516145620">במכשיר הזה יש אבטחה ברמה רגילה</translation>
 <translation id="384394811301901750">‏Google Chrome לא יכול להשתמש עכשיו במצלמה</translation>
 <translation id="3863841106411295595">‏הוספה של כתובות ה-URL שהוזנו לרשימת הקריאה ב-Chrome.</translation>
+<translation id="3878515067127964393">‏לא צריך יותר להעתיק כתובות. אפשר פשוט להגדיר את Chrome כדפדפן ברירת המחדל ב-iOS.</translation>
 <translation id="3901001113120561395">‏ליהנות מכל מה ש-Chrome מציע.</translation>
 <translation id="3913386780052199712">‏נכנסת ל-Chrome</translation>
+<translation id="3913747277937572860">‏כדי לפתוח תוכן מהאינטרנט ב-Chrome באופן אוטומטי, כדאי להגדיר אותו כדפדפן ברירת המחדל.</translation>
 <translation id="3984746313391923992">‏לפי דרישת הארגון שלך, אין אפשרות להתחבר לחשבון ב-Chrome.</translation>
 <translation id="3988789688219830639">‏ל-Google Chrome אין גישה לתמונות או לסרטונים שלך. אפשר גישה ב'הגדרות iOS' &gt; 'פרטיות' &gt; 'תמונות'.</translation>
 <translation id="4064699917955374540">‏כדי להשתמש בנתוני Chrome ולשמור אותם בחשבון Google, עליך לאמת את הזהות שלך.</translation>
 <translation id="411154422556990518">‏אפשר לקבל עדכונים לגבי מעקב אחר מחירים וטיפים לגבי Chrome.</translation>
-<translation id="4167555379306984168">‏מה חדש ב-Chrome</translation>
 <translation id="417201473131094001">‏אין תמיכה ב-Chrome Canary</translation>
 <translation id="424864128008805179">‏האם לצאת מ-Chrome?</translation>
+<translation id="4314240881330431451">‏את כל מה שמופיע על המסך אפשר לחפש עם Google Lens ב-Chrome</translation>
 <translation id="4409545895715116037">‏מפתחות הגישה הבאים לא יובאו למנהל הסיסמאות של Google כי הן לא עומדות בדרישות.</translation>
 <translation id="4430797724889237570">‏פתיחת קישורים מ-Gmail, מפות Google‏, YouTube ואפליקציות אחרות ב-Chrome</translation>
 <translation id="447252321002412580">‏עזרה בשיפור התכונות והביצועים של Chrome</translation>
@@ -150,7 +152,6 @@
 <translation id="4636900170638246267">‏יש להיכנס לאתר הזה ול-Chrome.</translation>
 <translation id="4647910807533196601">‏פתיחת הכרטיסייה האחרונה שלי ב-Chrome.</translation>
 <translation id="4693084815234024320">‏במצב פרטי ב-Chrome</translation>
-<translation id="4708857722625759026">‏אפשר לגשת מהר יותר ל-Chrome דרך ה-Dock של האייפד.</translation>
 <translation id="4713740144985377441">‏כדי להעלות את הקובץ, צריך לחזור ל-Chrome</translation>
 <translation id="4724297637870447613">‏אפשר להשתמש ב-Chrome בכל מקום</translation>
 <translation id="4738647308035481133">‏דף Google Chrome</translation>
@@ -164,12 +165,12 @@
 <translation id="4903674399067644695">‏בכרטיס הזה מוצגות הצעות שיעזרו לך ליהנות מהמיטב של Chrome.</translation>
 <translation id="49200511069271369">‏הארגון שלך, <ph name="DOMAIN" />, מנהל את החשבון שבחרת להיכנס אליו ואת אופן השימוש ב-Chrome. לאדמין יש אפשרות להגדיר תכונות מסוימות או להגביל אותן.</translation>
 <translation id="4925322001044117929">‏שימוש ב-Chrome באייפד כברירת מחדל</translation>
-<translation id="4934496192263958600">‏כדי לקבל את הנתונים שלך, צריך להיכנס ל-Chrome</translation>
 <translation id="496747131578053942">‏טיפ ל-Chrome: מחפשים את מה שרואים באמצעות Google Lens</translation>
 <translation id="498985224078955265">‏כדי לשלוח את הכרטיסייה הזו למכשיר אחר, יש להיכנס ל-Chrome בשני המכשירים.</translation>
 <translation id="5030102366287574140">‏Chrome יכול להגן עליך מפני פרצות באבטחת מידע, אתרים לא בטוחים וסכנות נוספות.</translation>
 <translation id="5109169629909011627">‏הצגת הסימניות ב-Chrome</translation>
 <translation id="5112925986883715005">‏הצגה של רשימת הקריאה ב-Chrome</translation>
+<translation id="5116239826668864748">‏אפשר להשתמש ב-Chrome בכל פעם שלוחצים על קישורים בהודעות, במסמכים ובאפליקציות אחרות.</translation>
 <translation id="5119391094379141756">‏בוחרים באפשרות Chrome</translation>
 <translation id="5123188916260706415">‏חיפוש קולי ב-Chrome</translation>
 <translation id="5162467219239570114">‏Chrome אינו מעודכן. אם אין עדכון זמין ב-<ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, ייתכן שהמכשיר שלך אינו תומך עוד בגרסאות חדשות של Chrome.</translation>
@@ -242,6 +243,7 @@
 <translation id="6533470733797826516">‏כניסה מהירה יותר עם המילוי האוטומטי של Chrome</translation>
 <translation id="6536544321553662809">‏אפשר להגדיר את Chrome כדפדפן ברירת המחדל כדי לשתף ולפתוח קישורים בקלות</translation>
 <translation id="6545449117344801102">‏Chrome מזהה כתובות ונעזר במפות Google כדי לספק מסלולים ומידע מקומי.</translation>
+<translation id="660537754475262202">‏כדי שקישורים יפתחו ישירות ב-Chrome, כדאי להגדיר אותו כדפדפן ברירת המחדל.</translation>
 <translation id="6611692150236062461">‏כדי לגשת בקלות לסיסמאות השמורות שלך באפליקציות אחרות, אפשר לבחור ב-Chrome למילוי אוטומטי.</translation>
 <translation id="6636941099779251629">‏לפי דרישת הארגון שלך, עליך להיכנס לחשבון כדי להשתמש ב-Chrome. <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
 <translation id="6646696210740573446">‏שליחת קטע קוד מעורפל מכתובת ה-URL ל-Google דרך שרת פרטיות שמסתיר את כתובת ה-IP. אם באתר כלשהו מתבצע ניסיון לגנוב את הסיסמה שלך, או אם המערכת מזהה הורדה של קובץ מזיק, Chrome עשוי גם לשלוח כתובות URL לבדיקה באמצעות 'גלישה בטוחה'. הנתונים שנשלחים לבדיקה כוללים קטעי תוכן מדפים.</translation>
@@ -249,7 +251,6 @@
 <translation id="6684809838922667136">‏משפרים את Chrome</translation>
 <translation id="6695698548122852044">{THRESHOLD,plural, =1{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך דקה ({THRESHOLD}). נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}one{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות. נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}two{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות. נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}other{‏הפעולה הזו מתבצעת כשלא משתמשים ב-Chrome במשך {THRESHOLD} דקות. נתונים שנשמרו רק במכשיר הזה בזמן שהיית מחובר לחשבון יימחקו. הנתונים האלה יכולים לכלול היסטוריה וסיסמאות.}}</translation>
 <translation id="6709398533399187136">‏הסיסמה שלך נחשפה בעקבות פרצה באבטחת מידע. לפי מנהל הסיסמאות של Google, מומלץ לשנות אותה עכשיו.</translation>
-<translation id="6718973358446066955">‏כמעט סיימת להגדיר את Chrome!</translation>
 <translation id="6820553595690137150">‏הצפנה בעזרת ביטוי סיסמה לא כוללת אמצעי תשלום וכתובות.
 
 כדי לשנות את ההגדרה הזו, עליך <ph name="BEGIN_LINK" />למחוק את נתוני Chrome בחשבון<ph name="END_LINK" />.</translation>
@@ -277,6 +278,7 @@
 <translation id="722167379782941918">‏ההמלצה של Chrome היא הגנה משופרת</translation>
 <translation id="723787869754590019">‏שימוש ב-Chrome למילוי אוטומטי</translation>
 <translation id="7261678641327190792">‏Chrome לא יכול לבדוק את הסיסמאות שלך</translation>
+<translation id="7272091023280308138">‏בפעם הבאה, אפשר לפתוח קישורים ישירות ב-Chrome בלי להעתיק קודם את הכתובות שלהם.</translation>
 <translation id="7272930098487145294">‏כדי לשמור תמונות צריך ללחוץ על 'הגדרות' על מנת לאפשר ל-Chrome להוסיף תמונות לגלריה שלך</translation>
 <translation id="7275945473750112644">‏החשבון שלך מנוהל על ידי <ph name="HOSTED_DOMAIN" />, ולכן הנתונים שלך מ-Chrome יימחקו מהמכשיר הזה</translation>
 <translation id="7284245284340063465">‏אם שכחת את ביטוי הסיסמה או שברצונך לשנות את ההגדרה הזו, <ph name="BEGIN_LINK" />עליך למחוק את נתוני Chrome בחשבון<ph name="END_LINK" />.</translation>
@@ -292,6 +294,7 @@
 <translation id="7466693328838535498">‏בתיבה לחיפוש ווידג'טים, מזינים 'Chrome'</translation>
 <translation id="7477056987201678345">‏נתוני Chrome נמחקים…</translation>
 <translation id="7492574581995589075">‏הארגון שלך השבית את האפשרות להשתמש בנתוני Chrome ולשמור אותם בחשבון Google. סימניות, סיסמאות ונתונים נוספים חדשים יישמרו רק במכשיר הזה.</translation>
+<translation id="752120807649195785">‏כדי לפתוח קישורים בלחיצה אחת בלי להעתיק ולהדביק, כדאי להגדיר את Chrome כדפדפן ברירת המחדל.</translation>
 <translation id="7540272326042438331">‏שיתוף Chrome</translation>
 <translation id="7575971113404272499">‏טיפ ל-Chrome: כדאי להגדיר את Chrome כדפדפן ברירת המחדל</translation>
 <translation id="7581063337314642333">‏ביקור בתצוגת הכרטיסיות ב-Chrome</translation>
@@ -331,13 +334,13 @@
 <translation id="8245080522851805544">‏אפשר לשמור על פרטיות הגלישה באמצעות אימות המכשיר כשסוגרים את Chrome</translation>
 <translation id="8248887045858762645">‏טיפ ל-Chrome</translation>
 <translation id="8265730590513812063">‏פתיחת תפריט Chrome</translation>
+<translation id="8276803169904409881">‏כדי לפתוח ברגע קישורים מאפליקציות אחרות ישירות ב-Chrome, כדאי להגדיר אותו כדפדפן ברירת המחדל.</translation>
 <translation id="8284376267694582021">‏כדי להפעיל תכונות בטיחות ילדים, אפשר להשתמש בחשבון Google שהוגדר לילד או ילדה או להשתמש ב-Chrome ללא חשבון. <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
 <translation id="8317674518145175158">‏אמצעי תשלום וכתובות לא יוצפנו. היסטוריית הגלישה ב-Chrome לא תסונכרן.
 
 רק מי שיודע את ביטוי הסיסמה יכול לקרוא את הנתונים המוצפנים. ביטוי הסיסמה לא נשלח אל Google ולא מאוחסן ב-Google. אם שכחת את ביטוי הסיסמה או שברצונך לשנות את ההגדרה הזו, <ph name="BEGIN_LINK" />עליך למחוק את נתוני Chrome בחשבון<ph name="END_LINK" />.</translation>
 <translation id="8370517070665726704">‏Copyright <ph name="YEAR" /> Google LLC.‎ כל הזכויות שמורות.</translation>
 <translation id="8371138994040262994">‏ייפתחו ההגדרות ב-Chrome.</translation>
-<translation id="8375378038757507658">‏אפשר להשתמש ב-Chrome בקלות בכל פעם שלוחצים על קישורים בהודעות או באפליקציות אחרות.</translation>
 <translation id="8387459386171870978">‏המשך השימוש ב-Chrome</translation>
 <translation id="8392023217086447677">‏נפתח במצב פרטי ב-Chrome</translation>
 <translation id="840168496893712993">‏תוספים מסוימים גורמים ל-Chrome לקרוס. יש לנסות להסיר את ההתקנה שלהם.</translation>
@@ -369,6 +372,7 @@
 <translation id="8865415417596392024">‏נתוני Chrome בחשבון שלך</translation>
 <translation id="8874688701962049679">‏טיפים שיעזרו לך ליהנות מהמיטב של Chrome.</translation>
 <translation id="8897749957032330183">‏סיסמאות נשמרות במנהל הסיסמאות של Google במכשיר הזה.</translation>
+<translation id="898288749595466683">‏כדי לפתוח דפים ישירות בלי להעתיק כתובות, אפשר להגדיר את Chrome כדפדפן ברירת המחדל.</translation>
 <translation id="9004772704776174843">‏יצאת מהחשבון ב-Chrome</translation>
 <translation id="9068336935206019333">‏פתיחה במצב פרטי ב-Chrome</translation>
 <translation id="9082304295862405388">‏‫Gemini עשוי להשתמש במיקום המדויק שלך, בהתאם להרשאה שכבר נתת ל-Chrome</translation>

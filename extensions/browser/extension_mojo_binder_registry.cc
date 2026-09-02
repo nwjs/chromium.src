@@ -4,43 +4,78 @@
 
 #include "extensions/browser/extension_mojo_binder_registry.h"
 
-#include <string_view>
 #include <utility>
 
 #include "base/check.h"
-#include "base/containers/fixed_flat_set.h"
-#include "base/functional/bind.h"
-#include "base/no_destructor.h"
+#include "base/command_line.h"
+#include "base/containers/map_util.h"
+#include "components/version_info/version_info.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/service_worker_version_base_info.h"
 #include "content/public/browser/site_instance.h"
 #include "extensions/browser/extension_util.h"
-#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/manifest.h"
+#include "extensions/common/switches.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
+
+class AimEligibilityExtensionBinderProvider;
+
+namespace contextual_tasks {
+class ContextualTasksExtensionBinderProvider;
+}
 
 namespace extensions {
 
-// static
-ExtensionMojoBinderRegistry* ExtensionMojoBinderRegistry::GetInstance() {
-  static base::NoDestructor<ExtensionMojoBinderRegistry> instance;
-  return instance.get();
+class ExtensionMojoBinderRegistryTest;
+
+bool ExtensionMojoBinderProvider::IsJsErrorReportingEnabled() const {
+  return false;
+}
+
+bool ExtensionMojoBinderProvider::ShouldCrashOnJsErrorInDevelopmentBuild()
+    const {
+  return false;
 }
 
 ExtensionMojoBinderRegistry::ExtensionMojoBinderRegistry() = default;
 
 ExtensionMojoBinderRegistry::~ExtensionMojoBinderRegistry() = default;
 
+// These explicit specializations effectively allow exposing additional mojo
+// interfaces to different renderers. Thus, additions to these specializations
+// require review from IPC_SECURITY_OWNERS. To enforce this via presubmit,
+// binder provider files files must be named *_extension_binder_provider.h/cc.
+template <>
 void ExtensionMojoBinderRegistry::RegisterProvider(
+    base::PassKey<AimEligibilityExtensionBinderProvider>,
+    std::unique_ptr<ExtensionMojoBinderProvider> provider) {
+  RegisterProviderImpl(std::move(provider));
+}
+
+template <>
+void ExtensionMojoBinderRegistry::RegisterProvider(
+    base::PassKey<contextual_tasks::ContextualTasksExtensionBinderProvider>,
+    std::unique_ptr<ExtensionMojoBinderProvider> provider) {
+  RegisterProviderImpl(std::move(provider));
+}
+
+template <>
+void ExtensionMojoBinderRegistry::RegisterProvider(
+    base::PassKey<ExtensionMojoBinderRegistryTest>,
+    std::unique_ptr<ExtensionMojoBinderProvider> provider) {
+  RegisterProviderImpl(std::move(provider));
+}
+
+void ExtensionMojoBinderRegistry::RegisterProviderImpl(
     std::unique_ptr<ExtensionMojoBinderProvider> provider) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(provider);
+  CHECK(provider);
   ExtensionId extension_id = provider->GetExtensionId();
   auto [it, inserted] =
       providers_.emplace(std::move(extension_id), std::move(provider));
-  DCHECK(inserted) << "A provider for component extension '" << it->first
-                   << "' is already registered.";
+  CHECK(inserted) << "A provider for component extension '" << it->first
+                  << "' is already registered.";
 }
 
 void ExtensionMojoBinderRegistry::PopulateFrameBinders(
@@ -48,7 +83,9 @@ void ExtensionMojoBinderRegistry::PopulateFrameBinders(
     content::RenderFrameHost* render_frame_host,
     const Extension* extension) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!extension || !Manifest::IsComponentLocation(extension->location())) {
+  CHECK(binder_map);
+  ExtensionMojoBinderProvider* provider = GetProviderIfAllowed(extension);
+  if (!provider) {
     return;
   }
   if (render_frame_host &&
@@ -56,16 +93,7 @@ void ExtensionMojoBinderRegistry::PopulateFrameBinders(
           *render_frame_host->GetSiteInstance()) != extension->id()) {
     return;
   }
-  auto it = providers_.find(extension->id());
-  if (it == providers_.end()) {
-    return;
-  }
-  ExtensionBinderMap<content::RenderFrameHost*> filtered_map(
-      binder_map, extension,
-      base::BindRepeating(
-          &ExtensionMojoBinderRegistry::IsAllowedInterfaceForExtension,
-          base::Unretained(this)));
-  it->second->PopulateFrameBinders(filtered_map, render_frame_host, extension);
+  provider->PopulateFrameBinders(*binder_map, render_frame_host, extension);
 }
 
 void ExtensionMojoBinderRegistry::PopulateServiceWorkerBinders(
@@ -74,49 +102,53 @@ void ExtensionMojoBinderRegistry::PopulateServiceWorkerBinders(
     content::BrowserContext* browser_context,
     const Extension* extension) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!extension || !Manifest::IsComponentLocation(extension->location())) {
+  CHECK(binder_map);
+  ExtensionMojoBinderProvider* provider = GetProviderIfAllowed(extension);
+  if (!provider) {
     return;
   }
-  auto it = providers_.find(extension->id());
-  if (it == providers_.end()) {
-    return;
-  }
-  ExtensionBinderMap<const content::ServiceWorkerVersionBaseInfo&> filtered_map(
-      binder_map, extension,
-      base::BindRepeating(
-          &ExtensionMojoBinderRegistry::IsAllowedInterfaceForExtension,
-          base::Unretained(this)));
-  it->second->PopulateServiceWorkerBinders(filtered_map, browser_context,
-                                           extension);
+  provider->PopulateServiceWorkerBinders(*binder_map, browser_context,
+                                         extension);
 }
 
-bool ExtensionMojoBinderRegistry::IsAllowedInterfaceForExtension(
-    const Extension* extension,
-    std::string_view interface_name) const {
-  if (bypass_allowlist_for_testing_) {
-    return true;
-  }
-
-  // Additions to this allowlist require a review from IPC_SECURITY_OWNERS.
-  static constexpr auto kAllowedComponentExtensionInterfaces =
-      base::MakeFixedFlatSet<std::pair<std::string_view, std::string_view>>({
-          {extension_misc::kAimEligibilityExtensionId,
-           "aim_eligibility.mojom.PageHandlerFactory"},
-          {extension_misc::kAimEligibilityExtensionId,
-           "color_change_listener.mojom.PageHandler"},
-      });
-  return kAllowedComponentExtensionInterfaces.contains(
-      {extension->id(), interface_name});
-}
-
-void ExtensionMojoBinderRegistry::SetBypassAllowlistForTesting(bool bypass) {
+bool ExtensionMojoBinderRegistry::IsMojoJsEnabled(
+    const Extension* extension) const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  bypass_allowlist_for_testing_ = bypass;
+  return GetProviderIfAllowed(extension) != nullptr;
+}
+
+bool ExtensionMojoBinderRegistry::IsJsErrorReportingEnabled(
+    const Extension* extension) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  ExtensionMojoBinderProvider* provider = GetProviderIfAllowed(extension);
+  return provider && provider->IsJsErrorReportingEnabled();
+}
+
+bool ExtensionMojoBinderRegistry::ShouldCrashOnJsErrorInDevelopmentBuild(
+    const Extension* extension) const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (version_info::IsOfficialBuild()) {
+    return false;
+  }
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableCrashOnComponentExtensionJsError)) {
+    return false;
+  }
+  ExtensionMojoBinderProvider* provider = GetProviderIfAllowed(extension);
+  return provider && provider->ShouldCrashOnJsErrorInDevelopmentBuild();
 }
 
 void ExtensionMojoBinderRegistry::ClearProvidersForTesting() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   providers_.clear();
+}
+
+ExtensionMojoBinderProvider* ExtensionMojoBinderRegistry::GetProviderIfAllowed(
+    const Extension* extension) const {
+  if (!extension || !Manifest::IsComponentLocation(extension->location())) {
+    return nullptr;
+  }
+  return base::FindPtrOrNull(providers_, extension->id());
 }
 
 }  // namespace extensions

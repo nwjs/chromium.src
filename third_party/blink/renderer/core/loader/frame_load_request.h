@@ -61,6 +61,9 @@ struct CORE_EXPORT FrameLoadRequest {
   STACK_ALLOCATED();
 
  public:
+  // Automatically populates resource_request.has_user_gesture from
+  // `origin_window`'s transient user activation state when `origin_window` is
+  // non-null (defaults to false otherwise, unless already set).
   FrameLoadRequest(LocalDOMWindow* origin_window, const ResourceRequest&);
   FrameLoadRequest(LocalDOMWindow* origin_window, const ResourceRequestHead&);
   FrameLoadRequest(const FrameLoadRequest&) = delete;
@@ -197,6 +200,22 @@ struct CORE_EXPORT FrameLoadRequest {
   }
   const LocalFrameToken* GetInitiatorFrameToken() const;
 
+  void SetInitiatorStateToken(
+      const base::UnguessableToken& initiator_state_token) {
+    initiator_state_token_ = initiator_state_token;
+  }
+  const base::UnguessableToken& GetInitiatorStateToken() const {
+    return initiator_state_token_;
+  }
+
+  void SetInitiatorDocumentToken(
+      const DocumentToken& initiator_document_token) {
+    initiator_document_token_ = initiator_document_token;
+  }
+  const std::optional<DocumentToken>& GetInitiatorDocumentToken() const {
+    return initiator_document_token_;
+  }
+
   bool IsUnfencedTopNavigation() const { return is_unfenced_top_navigation_; }
   void SetIsUnfencedTopNavigation(bool is_unfenced_top_navigation) {
     is_unfenced_top_navigation_ = is_unfenced_top_navigation;
@@ -254,6 +273,8 @@ struct CORE_EXPORT FrameLoadRequest {
   std::optional<WebPictureInPictureWindowOptions>
       picture_in_picture_window_options_;
   std::optional<LocalFrameToken> initiator_frame_token_;
+  base::UnguessableToken initiator_state_token_;
+  std::optional<DocumentToken> initiator_document_token_;
   mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle>
       initiator_navigation_state_keep_alive_handle_;
   SourceLocation* source_location_ = nullptr;

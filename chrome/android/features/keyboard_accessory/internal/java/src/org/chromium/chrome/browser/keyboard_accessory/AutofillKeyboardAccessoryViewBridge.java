@@ -20,6 +20,7 @@ import org.jni_zero.NativeMethods;
 import org.chromium.base.Callback;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.components.autofill.Acceptability;
 import org.chromium.components.autofill.AutofillDelegate;
 import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.components.autofill.AutofillSuggestion.Payload;
@@ -59,12 +60,12 @@ public class AutofillKeyboardAccessoryViewBridge implements AutofillDelegate {
     }
 
     @Override
-    public void suggestionSelected(int listIndex) {
-        suggestionSelected(listIndex, false);
+    public void suggestionAccepted(int listIndex) {
+        suggestionAccepted(listIndex, false);
     }
 
     @Override
-    public void suggestionSelected(int listIndex, boolean showLoadingOnAcceptance) {
+    public void suggestionAccepted(int listIndex, boolean showLoadingOnAcceptance) {
         if (mManualFillingComponent != null) {
             if (showLoadingOnAcceptance) {
                 mManualFillingComponent.setWaitingForFetch(true);
@@ -75,7 +76,7 @@ public class AutofillKeyboardAccessoryViewBridge implements AutofillDelegate {
         }
         if (mNativeAutofillKeyboardAccessory == 0) return;
         AutofillKeyboardAccessoryViewBridgeJni.get()
-                .suggestionSelected(mNativeAutofillKeyboardAccessory, listIndex);
+                .suggestionAccepted(mNativeAutofillKeyboardAccessory, listIndex);
     }
 
     @Override
@@ -236,6 +237,8 @@ public class AutofillKeyboardAccessoryViewBridge implements AutofillDelegate {
      * @param iphDescriptionText If set, it will be used as the help text for the IPH bubble.
      * @param customIconUrl The url used to fetch the custom icon to be displayed in the autofill
      *     suggestion chip.
+     * @param originalIndex The index of the suggestion in the list provided by the C++
+     *     AutofillKeyboardAccessoryController.
      * @return an AutofillSuggestion containing the above information.
      */
     @CalledByNative
@@ -249,9 +252,10 @@ public class AutofillKeyboardAccessoryViewBridge implements AutofillDelegate {
             @JniType("std::string") String featureForIph,
             @JniType("std::u16string") String iphDescriptionText,
             GURL customIconUrl,
-            boolean applyDeactivatedStyle,
+            @Acceptability int acceptability,
             boolean isLoading,
-            @Nullable Payload payload) {
+            @Nullable Payload payload,
+            int originalIndex) {
         int drawableId = iconId == 0 ? DropdownItem.NO_ICON : iconId;
         return new AutofillSuggestion.Builder()
                 .setLabel(label)
@@ -263,9 +267,10 @@ public class AutofillKeyboardAccessoryViewBridge implements AutofillDelegate {
                 .setFeatureForIph(featureForIph)
                 .setIphDescriptionText(iphDescriptionText)
                 .setCustomIconUrl(customIconUrl)
-                .setApplyDeactivatedStyle(applyDeactivatedStyle)
+                .setAcceptability(acceptability)
                 .setIsLoading(isLoading)
                 .setPayload(payload)
+                .setOriginalIndex(originalIndex)
                 .build();
     }
 
@@ -284,7 +289,7 @@ public class AutofillKeyboardAccessoryViewBridge implements AutofillDelegate {
     interface Natives {
         void viewDismissed(long nativeAutofillKeyboardAccessoryViewImpl);
 
-        void suggestionSelected(long nativeAutofillKeyboardAccessoryViewImpl, int listIndex);
+        void suggestionAccepted(long nativeAutofillKeyboardAccessoryViewImpl, int listIndex);
 
         void deletionRequested(long nativeAutofillKeyboardAccessoryViewImpl, int listIndex);
 

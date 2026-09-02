@@ -17,7 +17,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -87,24 +86,26 @@ import java.util.concurrent.ExecutionException;
 public class VoiceRecognitionHandlerUnitTest {
     private static final GURL DEFAULT_URL = JUnitTestGURLs.URL_1;
     private static final GURL DEFAULT_SEARCH_URL = JUnitTestGURLs.SEARCH_URL;
-    public @Rule MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    private @Mock Tab mTab;
-    private @Mock VoiceRecognitionHandler.Observer mObserver;
-    private @Mock AutocompleteController mAutocompleteController;
-    private @Mock AutocompleteController.Natives mAutocompleteControllerJniMock;
-    private @Mock AutocompleteMatch mMatch;
-    private @Mock AutocompleteCoordinator mAutocompleteCoordinator;
-    private @Mock LocationBarDataProvider mDataProvider;
-    private @Mock OmniboxStub mOmniboxStub;
-    private @Mock AndroidPermissionDelegate mPermissionDelegate;
-    private @Mock FuseboxSessionState mFuseboxSessionState;
-    private @Mock AutocompleteInput mAutocompleteInput;
-    private @Mock Profile mProfile;
-    private @Mock PrefService mPrefs;
-    private @Mock TemplateUrlService mTemplateUrlService;
-    private @Captor ArgumentCaptor<List<VoiceResult>> mVoiceResults;
-    private @Captor ArgumentCaptor<WindowAndroid.IntentCallback> mIntentCallback;
+    @Mock private Tab mTab;
+    @Mock private VoiceRecognitionHandler.Observer mObserver;
+    @Mock private AutocompleteController mAutocompleteController;
+    @Mock private AutocompleteController.Natives mAutocompleteControllerJniMock;
+    @Mock private AutocompleteMatch mMatch;
+    @Mock private AutocompleteCoordinator mAutocompleteCoordinator;
+    @Mock private LocationBarDataProvider mDataProvider;
+    @Mock private OmniboxStub mOmniboxStub;
+    @Mock private AndroidPermissionDelegate mPermissionDelegate;
+    @Mock private FuseboxSessionState mFuseboxSessionState;
+    @Mock private AutocompleteInput mAutocompleteInput;
+    @Mock private Profile mProfile;
+    @Mock private Profile mProfile2;
+    @Mock private PrefService mPrefs;
+    @Mock private TemplateUrlService mTemplateUrlService;
+    @Captor private ArgumentCaptor<List<VoiceResult>> mVoiceResults;
+    @Captor private ArgumentCaptor<WindowAndroid.IntentCallback> mIntentCallback;
+    @Captor private ArgumentCaptor<AutocompleteInput> mInputCaptor;
 
     private VoiceRecognitionIntentHandler mIntentHandler;
     private VoiceRecognitionHandler mHandler;
@@ -293,7 +294,7 @@ public class VoiceRecognitionHandlerUnitTest {
         clearInvocations(mObserver);
 
         mHandler.destroy();
-        mProfileSupplier.set(mock(Profile.class));
+        mProfileSupplier.set(mProfile2);
         // Stop propagating changes after destroy.
         verifyNoInteractions(mObserver);
     }
@@ -521,9 +522,7 @@ public class VoiceRecognitionHandlerUnitTest {
 
         mHandler.startVoiceRecognition(VoiceInteractionSource.OMNIBOX, () -> {});
 
-        ArgumentCaptor<AutocompleteInput> inputCaptor =
-                ArgumentCaptor.forClass(AutocompleteInput.class);
-        verify(mOmniboxStub).beginInput(inputCaptor.capture());
-        assertEquals(AutocompleteRequestType.AI_MODE, inputCaptor.getValue().getRequestType());
+        verify(mOmniboxStub).beginInput(mInputCaptor.capture());
+        assertEquals(AutocompleteRequestType.AI_MODE, mInputCaptor.getValue().getRequestType());
     }
 }

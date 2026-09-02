@@ -4,7 +4,10 @@
 
 #include "chrome/browser/webid/identity_provider_service.h"
 
+#include <vector>
+
 #include "base/android/jni_android.h"
+#include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "chrome/browser/webid/jni_headers/IdentityProviderService_jni.h"
 
@@ -23,10 +26,23 @@ IdentityProviderService::~IdentityProviderService() {
 }
 
 void IdentityProviderService::Fetch(
+    const std::string& url,
+    const std::optional<std::string>& body,
+    const base::flat_map<std::string, std::string>& headers,
     base::OnceCallback<void(const std::optional<std::string>&)> callback) {
+  DCHECK(!callback_);
   JNIEnv* env = base::android::AttachCurrentThread();
   callback_ = std::move(callback);
-  Java_IdentityProviderService_fetch(env, java_obj_);
+  std::vector<std::string> header_keys;
+  std::vector<std::string> header_values;
+  header_keys.reserve(headers.size());
+  header_values.reserve(headers.size());
+  for (const auto& [key, value] : headers) {
+    header_keys.push_back(key);
+    header_values.push_back(value);
+  }
+  Java_IdentityProviderService_fetch(env, java_obj_, url, body, header_keys,
+                                     header_values);
 }
 
 void IdentityProviderService::Connect(const std::string& package_name,
@@ -46,15 +62,33 @@ void IdentityProviderService::Disconnect(base::OnceCallback<void()> callback) {
 
 void IdentityProviderService::OnDataFetched(JNIEnv* env,
                                             std::optional<std::string> data) {
-  std::move(callback_).Run(data);
+  if (callback_) {
+    std::move(callback_).Run(data);
+  }
 }
 
 void IdentityProviderService::OnConnected(JNIEnv* env, bool success) {
-  std::move(connect_callback_).Run(success);
+  if (connect_callback_) {
+    std::move(connect_callback_).Run(success);
+  }
 }
 
 void IdentityProviderService::OnDisconnected(JNIEnv* env) {
-  std::move(disconnect_callback_).Run();
+  auto connect_callback = std::move(connect_callback_);
+  auto callback = std::move(callback_);
+  auto disconnect_callback = std::move(disconnect_callback_);
+
+  // If the service disconnects/dies while a fetch or connection is in flight,
+  // resolve those callbacks with an error so the caller doesn't hang forever.
+  if (connect_callback) {
+    std::move(connect_callback).Run(false);
+  }
+  if (callback) {
+    std::move(callback).Run(std::nullopt);
+  }
+  if (disconnect_callback) {
+    std::move(disconnect_callback).Run();
+  }
 }
 
 DEFINE_JNI(IdentityProviderService)

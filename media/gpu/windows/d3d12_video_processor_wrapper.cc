@@ -95,6 +95,37 @@ bool D3D12VideoProcessorWrapper::Wait(D3D12FenceAndValue fence_and_value) {
   return true;
 }
 
+bool D3D12VideoProcessorWrapper::CheckVideoProcessorSupport(
+    UINT input_width,
+    UINT input_height,
+    DXGI_FORMAT input_format,
+    const gfx::ColorSpace& input_color_space,
+    DXGI_FORMAT output_format,
+    const gfx::ColorSpace& output_color_space) {
+  D3D12_FEATURE_DATA_VIDEO_PROCESS_SUPPORT support{
+      .InputSample = {.Width = input_width,
+                      .Height = input_height,
+                      .Format = {.Format = input_format,
+                                 .ColorSpace =
+                                     gfx::ColorSpaceWin::GetDXGIColorSpace(
+                                         input_color_space)}},
+      .InputFrameRate = {30, 1},
+      .OutputFormat = {.Format = output_format,
+                       .ColorSpace = gfx::ColorSpaceWin::GetDXGIColorSpace(
+                           output_color_space)},
+      .OutputFrameRate = {30, 1},
+  };
+  HRESULT hr = video_device_->CheckFeatureSupport(
+      D3D12_FEATURE_VIDEO_PROCESS_SUPPORT, &support, sizeof(support));
+  if (FAILED(hr)) {
+    DLOG(ERROR) << "CheckFeatureSupport for "
+                   "D3D12_FEATURE_VIDEO_PROCESS_SUPPORT failed: "
+                << logging::SystemErrorCodeToString(hr);
+    return false;
+  }
+  return support.SupportFlags == D3D12_VIDEO_PROCESS_SUPPORT_FLAG_SUPPORTED;
+}
+
 D3D12FenceAndValue D3D12VideoProcessorWrapper::ProcessFrames(
     ID3D12Resource* input_texture,
     UINT input_subresource,
@@ -105,11 +136,13 @@ D3D12FenceAndValue D3D12VideoProcessorWrapper::ProcessFrames(
     const gfx::ColorSpace& output_color_space,
     const gfx::Rect& output_rectangle) {
   DCHECK(command_queue_ && command_allocator_ && command_list_ && fence_);
+  DCHECK(!input_rectangle.IsEmpty());
   D3D12_RESOURCE_DESC input_texture_desc = input_texture->GetDesc();
   D3D12_RESOURCE_DESC output_texture_desc = output_texture->GetDesc();
   D3D12_VIDEO_SIZE_RANGE source_size_range{
       static_cast<UINT>(input_texture_desc.Width), input_texture_desc.Height,
-      static_cast<UINT>(input_texture_desc.Width), input_texture_desc.Height};
+      static_cast<UINT>(input_rectangle.width()),
+      static_cast<UINT>(input_rectangle.height())};
   D3D12_VIDEO_SIZE_RANGE destination_size_range{
       static_cast<UINT>(output_texture_desc.Width), output_texture_desc.Height,
       static_cast<UINT>(output_texture_desc.Width), output_texture_desc.Height};
@@ -132,24 +165,14 @@ D3D12FenceAndValue D3D12VideoProcessorWrapper::ProcessFrames(
       UNSAFE_TODO(memcmp(&output_stream_desc, &output_stream_desc_,
                          sizeof(D3D12_VIDEO_PROCESS_OUTPUT_STREAM_DESC))) !=
           0) {
-    D3D12_FEATURE_DATA_VIDEO_PROCESS_SUPPORT support{
-        .InputSample = {.Width = static_cast<UINT>(input_texture_desc.Width),
-                        .Height = input_texture_desc.Height,
-                        .Format = {.Format = input_texture_desc.Format,
-                                   .ColorSpace = input_stream_desc.ColorSpace}},
-        .InputFrameRate = {30, 1},
-        .OutputFormat = {.Format = output_texture_desc.Format,
-                         .ColorSpace = output_stream_desc.ColorSpace},
-        .OutputFrameRate = {30, 1},
-    };
-    hr = video_device_->CheckFeatureSupport(D3D12_FEATURE_VIDEO_PROCESS_SUPPORT,
-                                            &support, sizeof(support));
-    if (FAILED(hr)) {
-      DLOG(ERROR) << "CheckFeatureSupport for "
-                     "D3D12_FEATURE_VIDEO_PROCESS_SUPPORT failed: "
-                  << logging::SystemErrorCodeToString(hr);
-    }
-    if (support.SupportFlags != D3D12_VIDEO_PROCESS_SUPPORT_FLAG_SUPPORTED) {
+    // Query for the source rectangle rather than the whole input texture: that
+    // is the region ProcessFrames() below samples, and the driver's answer
+    // depends on the size it is asked to read and scale.
+    if (!CheckVideoProcessorSupport(
+            static_cast<UINT>(input_rectangle.width()),
+            static_cast<UINT>(input_rectangle.height()),
+            input_texture_desc.Format, input_color_space,
+            output_texture_desc.Format, output_color_space)) {
       DLOG(ERROR) << "D3D12 cannot support video processing.";
       return {};
     }

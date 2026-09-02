@@ -35,6 +35,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupTest, Searchbox) {
   RunTest("omnibox_popup/omnibox_popup_searchbox_test.js", "mocha.run();");
 }
 
+IN_PROC_BROWSER_TEST_F(OmniboxPopupTest, TextfieldModel) {
+  RunTest("omnibox_popup/textfield_model_test.js", "mocha.run();");
+}
+
 class OmniboxPopupFullTest : public WebUIMochaBrowserTest {
  protected:
   OmniboxPopupFullTest() {
@@ -65,7 +69,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupAimTest, App) {
   RunTest("omnibox_popup/aim_app_test.js", "mocha.run();");
 }
 
-IN_PROC_BROWSER_TEST_F(OmniboxPopupAimTest, ContextualEntrypointButton) {
+IN_PROC_BROWSER_TEST_F(OmniboxPopupAimTest, PopupContextualEntrypointButton) {
   RunTest("omnibox_popup/omnibox_popup_contextual_entrypoint_button_test.js",
           "mocha.run();");
 }

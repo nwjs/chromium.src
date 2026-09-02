@@ -7,6 +7,7 @@
 #include "base/command_line.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback_helpers.h"
+#include "base/strings/string_view_util.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -20,7 +21,7 @@
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
 #include "components/safe_browsing/core/common/safebrowsing_switches.h"
-#include "crypto/sha2.h"
+#include "crypto/hash.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
@@ -815,10 +816,12 @@ TEST_P(V5SearchHashesCacheTest, TestOnHistoryDeletions_PartialHistory) {
                                                     /*is_unsafe=*/true);
 
   std::string prefix_url1_foo =
-      crypto::SHA256HashString("example.com/foo").substr(0, 4);
-  std::string prefix_url1_root =
-      crypto::SHA256HashString("example.com/").substr(0, 4);
-  std::string prefix_url2 = crypto::SHA256HashString("other.com/").substr(0, 4);
+      std::string(base::as_string_view(crypto::hash::Sha256("example.com/foo"))
+                      .substr(0, 4));
+  std::string prefix_url1_root = std::string(
+      base::as_string_view(crypto::hash::Sha256("example.com/")).substr(0, 4));
+  std::string prefix_url2 = std::string(
+      base::as_string_view(crypto::hash::Sha256("other.com/")).substr(0, 4));
 
   EXPECT_TRUE(cache->SearchCache({prefix_url1_foo}).contains(prefix_url1_foo));
   EXPECT_TRUE(
@@ -904,6 +907,39 @@ TEST_P(ArtificialV5SearchHashesCacheTest, TestCachePopulated) {
   EXPECT_FALSE(cache_results.empty());
   EXPECT_TRUE(cache_results.contains(hash_prefix));
   EXPECT_EQ(cache_results[hash_prefix][0].full_hash(), full_hash);
+}
+
+TEST_P(V5SearchHashesCacheTest, CacheArtificialVerdictWithThreatType) {
+  auto cache =
+      std::make_unique<V5SearchHashesCache>(/*history_service=*/nullptr);
+  GURL test_url("https://example.com/malware.html");
+
+  cache->CacheArtificialV5SearchHashesLookupVerdict(test_url,
+                                                    V5::ThreatType::MALWARE);
+  FullHashStr full_hash = SBProtocolManagerUtil::GetFullHash(test_url);
+  std::string hash_prefix = SBProtocolManagerUtil::GetHashPrefix(full_hash);
+
+  auto cache_results = cache->SearchCache({hash_prefix});
+  ASSERT_EQ(cache_results.size(), 1u);
+  ASSERT_EQ(cache_results[hash_prefix].size(), 1u);
+  EXPECT_EQ(cache_results[hash_prefix][0].full_hash(), full_hash);
+  ASSERT_EQ(cache_results[hash_prefix][0].full_hash_details_size(), 1);
+  EXPECT_EQ(cache_results[hash_prefix][0].full_hash_details(0).threat_type(),
+            V5::ThreatType::MALWARE);
+
+  // Cache a second threat type for the same URL and verify both details
+  // persist.
+  cache->CacheArtificialV5SearchHashesLookupVerdict(
+      test_url, V5::ThreatType::UNWANTED_SOFTWARE);
+  cache_results = cache->SearchCache({hash_prefix});
+  ASSERT_EQ(cache_results[hash_prefix].size(), 1u);
+  EXPECT_EQ(cache_results[hash_prefix][0].full_hash_details_size(), 2);
+
+  // Caching a safe verdict clears prior threat details.
+  cache->CacheArtificialV5SearchHashesLookupVerdict(
+      test_url, V5::ThreatType::THREAT_TYPE_UNSPECIFIED);
+  cache_results = cache->SearchCache({hash_prefix});
+  EXPECT_TRUE(cache_results.empty() || cache_results[hash_prefix].empty());
 }
 
 INSTANTIATE_TEST_SUITE_P(All, V5SearchHashesCacheTest, ::testing::Bool());

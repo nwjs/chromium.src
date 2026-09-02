@@ -29,9 +29,6 @@ public class SelectionUtils {
     /** Google search doesn't support requests slightly larger than this. */
     public static final int MAX_SEARCH_QUERY_LENGTH = 1000;
 
-    /** Maximum length of selected text to display in context menus before truncating. */
-    public static final int MAX_SELECTION_TEXT_LENGTH_FOR_CONTEXT_MENU = 50;
-
     /**
      * Trim a given string query to be processed safely.
      *
@@ -45,13 +42,16 @@ public class SelectionUtils {
     }
 
     /**
-     * Truncates oversized selected text for display in menu items.
+     * Sanitizes and truncates oversized selected text for display in menu items.
      *
      * @param text The selected text.
-     * @return Truncated text with an ellipsis if it exceeds MAX_SELECTION_TEXT_LENGTH_FOR_MENU.
+     * @return Sanitized text with single-line whitespace, truncated if it exceeds
+     *     MAX_SEARCH_QUERY_LENGTH.
      */
     public static String sanitizeTextForMenu(String text) {
-        return sanitizeQuery(text, MAX_SELECTION_TEXT_LENGTH_FOR_CONTEXT_MENU);
+        if (TextUtils.isEmpty(text)) return "";
+        String cleanText = text.replaceAll("\\s+", " ").trim();
+        return sanitizeQuery(cleanText, MAX_SEARCH_QUERY_LENGTH);
     }
 
     /**
@@ -84,8 +84,19 @@ public class SelectionUtils {
      * @param context Context used to start activity.
      * @param text The selected text to search.
      */
-    @SuppressWarnings(value = "UnsafeImplicitIntentLaunch")
     public static void webSearch(Context context, String text) {
+        webSearch(context, text, /* setPackage= */ false);
+    }
+
+    /**
+     * Perform a search action.
+     *
+     * @param context Context used to start activity.
+     * @param text The selected text to search.
+     * @param setPackage Whether to set the package of the intent to the context's package.
+     */
+    @SuppressWarnings(value = "UnsafeImplicitIntentLaunch")
+    public static void webSearch(Context context, String text, boolean setPackage) {
         String query = sanitizeQuery(text, MAX_SEARCH_QUERY_LENGTH);
         if (TextUtils.isEmpty(query)) return;
 
@@ -94,6 +105,9 @@ public class SelectionUtils {
         i.putExtra(SearchManager.QUERY, query);
         i.putExtra(Browser.EXTRA_APPLICATION_ID, context.getPackageName());
         i.putExtra(Browser.EXTRA_CREATE_NEW_TAB, true);
+        if (setPackage) {
+            i.setPackage(context.getPackageName());
+        }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         try {
             context.startActivity(i);

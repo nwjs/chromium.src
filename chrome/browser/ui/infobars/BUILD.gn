@@ -9,13 +9,25 @@ source_set("infobars") {
   ]
   deps = [
     "//base",
+    "//chrome/app:branded_strings",
     "//chrome/app:generated_resources",
     "//chrome/browser:browser_process",
     "//chrome/browser/infobars",
+    "//chrome/browser/obsolete_system",
+    "//chrome/browser/ssl",
+    "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/page_info",
     "//components/infobars/core",
+    "//components/omnibox/browser:vector_icons",
+    "//components/strings:components_strings",
     "//components/vector_icons",
+    "//components/version_info",
     "//content/public/browser",
+    "//google_apis",
     "//ui/base",
   ]
+
+  if (is_win || is_mac) {
+    deps += [ "//chrome/browser/ui/startup/default_browser_prompt/pin_infobar" ]
+  }
 }

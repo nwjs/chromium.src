@@ -33,7 +33,6 @@ source_set("startup_tab") {
 source_set("startup") {
   sources = [
     "bad_flags_prompt.h",
-    "bidding_and_auction_consented_debugging_infobar_delegate.h",
     "url_util.h",
   ]
   public_deps = [
@@ -128,7 +127,6 @@ source_set("startup") {
 source_set("impl") {
   sources = [
     "bad_flags_prompt.cc",
-    "bidding_and_auction_consented_debugging_infobar_delegate.cc",
     "url_util.cc",
   ]
   deps = [
@@ -153,6 +151,7 @@ source_set("impl") {
     "//chrome/browser/sync",
     "//chrome/browser/sync:factories",
     "//chrome/browser/ui:simple_message_box_headers",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/dialogs",
     "//chrome/browser/ui/profiles",
     "//chrome/browser/webauthn",
@@ -228,7 +227,6 @@ source_set("impl") {
       "//chrome/browser/prefs",
       "//chrome/browser/prefs:util",
       "//chrome/browser/privacy_sandbox:headers",
-      "//chrome/browser/privacy_sandbox/notice:desktop_entrypoint_handlers_helper",
       "//chrome/browser/profile_resetter",
       "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile_io_data",
@@ -496,6 +494,7 @@ if (!is_android) {
       "//chrome/browser/ui/search:test_support_ui",
       "//chrome/browser/ui/startup/focus:browser_tests",
       "//chrome/browser/ui/toasts",
+      "//chrome/browser/ui/views/web_apps:launch_dialogs",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/ui/window_metadata",
       "//chrome/browser/web_applications",

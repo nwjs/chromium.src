@@ -5,12 +5,12 @@
 #ifndef COMPONENTS_ENTERPRISE_CONNECTORS_CORE_REPORTING_TEST_UTILS_H_
 #define COMPONENTS_ENTERPRISE_CONNECTORS_CORE_REPORTING_TEST_UTILS_H_
 
-#include <map>
 #include <memory>
-#include <set>
 #include <string>
 #include <vector>
 
+#include "base/containers/flat_map.h"
+#include "base/containers/flat_set.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/values.h"
@@ -65,26 +65,6 @@ class EventReportValidatorBase {
   // Closure to run once all expected events are validated.
   void SetDoneClosure(base::RepeatingClosure closure);
 
- protected:
-  void ValidateField(const base::DictValue* value,
-                     const std::string& field_key,
-                     const std::optional<std::string>& expected_value);
-  void ValidateField(const base::DictValue* value,
-                     const std::string& field_key,
-                     const std::optional<std::u16string>& expected_value);
-  void ValidateField(const base::DictValue* value,
-                     const std::string& field_key,
-                     const std::optional<int>& expected_value);
-  void ValidateField(const base::DictValue* value,
-                     const std::string& field_key,
-                     int expected_value);
-  void ValidateField(const base::DictValue* value,
-                     const std::string& field_key,
-                     bool expected_value);
-  void ValidateField(const base::DictValue* value,
-                     const std::string& field_key,
-                     int64_t expected_value);
-
   raw_ptr<policy::MockCloudPolicyClient> client_;
   base::RepeatingClosure done_closure_;
 };
@@ -93,16 +73,18 @@ class EventReportValidatorBase {
 void SetOnSecurityEventReporting(
     PrefService* prefs,
     bool enabled,
-    const std::set<std::string>& enabled_event_names = std::set<std::string>(),
-    const std::map<std::string, std::vector<std::string>>&
+    const base::flat_set<std::string>& enabled_event_names =
+        base::flat_set<std::string>(),
+    const base::flat_map<std::string, std::vector<std::string>>&
         enabled_opt_in_events =
-            std::map<std::string, std::vector<std::string>>(),
+            base::flat_map<std::string, std::vector<std::string>>(),
     bool machine_scope = true);
 
 // Helper function to create a TriggeredRuleInfo for tests.
 ::chrome::cros::reporting::proto::TriggeredRuleInfo MakeTriggeredRuleInfo(
     ::chrome::cros::reporting::proto::TriggeredRuleInfo::Action action,
-    bool has_watermark);
+    bool has_watermark,
+    bool has_screenshot_protection = false);
 
 // Helper function to create a ReferrerChainEntry referrer for tests.
 safe_browsing::ReferrerChainEntry MakeReferrerChainEntry();
@@ -115,10 +97,11 @@ safe_browsing::ReferrerChainEntry MakeReferrerChainEntry();
 // `nullptr` if the server could not be created.
 std::unique_ptr<policy::EmbeddedPolicyTestServer>
 CreatePolicyTestServerForSecurityEvents(
-    const std::set<std::string>& enabled_event_names = std::set<std::string>(),
-    const std::map<std::string, std::vector<std::string>>&
+    const base::flat_set<std::string>& enabled_event_names =
+        base::flat_set<std::string>(),
+    const base::flat_map<std::string, std::vector<std::string>>&
         enabled_opt_in_events =
-            std::map<std::string, std::vector<std::string>>());
+            base::flat_map<std::string, std::vector<std::string>>());
 
 }  // namespace enterprise_connectors::test
 

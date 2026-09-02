@@ -1,409 +1,667 @@
-// Copyright 2018 The Chromium Authors
+// Copyright 2025 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
 import 'chrome://settings/settings.js';
-import 'chrome://settings/lazy_load.js';
 
-// clang-format off
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {AiEnterpriseFeaturePrefName, AutofillManagerImpl, EntityDataManagerProxyImpl, PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
+import {CrSettingsPrefs, ModelExecutionEnterprisePolicyValue} from 'chrome://settings/settings.js';
+import type {SettingsAutofillPageElement, SettingsPrefsElement} from 'chrome://settings/settings.js';
+import {loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PasswordManagerImpl, PasswordManagerPage, resetRouterForTesting, Router, YourSavedInfoDataCategory, YourSavedInfoDataChip, YourSavedInfoRelatedService} from 'chrome://settings/settings.js';
+import {assertDeepEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
-import type {SettingsAutofillSectionElement, SettingsPaymentsSectionElement} from 'chrome://settings/lazy_load.js';
-import {AutofillManagerImpl, PaymentsManagerImpl} from 'chrome://settings/lazy_load.js';
-import type {CrLinkRowElement, SettingsAutofillPageElement, SettingsPrefsElement} from 'chrome://settings/settings.js';
-import {AutofillSettingsReferrer, CrSettingsPrefs, loadTimeData, MetricsBrowserProxyImpl, OpenWindowProxyImpl, PasswordManagerImpl, PasswordManagerPage, resetRouterForTesting, SettingsPluralStringProxyImpl} from 'chrome://settings/settings.js';
-import {assertEquals, assertDeepEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {FakeSettingsPrivate} from 'chrome://webui-test/fake_settings_private.js';
-import {TestPluralStringProxy} from 'chrome://webui-test/test_plural_string_proxy.js';
 import {TestOpenWindowProxy} from 'chrome://webui-test/test_open_window_proxy.js';
+import {isChildVisible} from 'chrome://webui-test/test_util.js';
+import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 
-import {AutofillManagerExpectations, createAddressEntry, createCreditCardEntry, createIbanEntry, createPayOverTimeIssuerEntry, PaymentsManagerExpectations, STUB_USER_ACCOUNT_INFO, TestAutofillManager, TestPaymentsManager} from './autofill_fake_data.js';
-import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
+
+import {createAddressEntry, createCreditCardEntry, createIbanEntry, createPayOverTimeIssuerEntry, TestAutofillManager, TestPaymentsManager} from './autofill_fake_data.js';
+import {TestEntityDataManagerProxy} from './test_entity_data_manager_proxy.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
+import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
 
-// clang-format on
-
-/**
- * Creates a new passwords and forms element.
- */
-function createAutofillElement(prefsElement: SettingsPrefsElement):
-    SettingsAutofillPageElement {
-  const element = document.createElement('settings-autofill-page');
-  element.prefs = prefsElement.prefs!;
-  document.body.appendChild(element);
-  flush();
-  return element;
+function setDefaultPrefs(objectToSetup: SettingsPrefsElement) {
+  objectToSetup.set(
+      `prefs.${AiEnterpriseFeaturePrefName.AUTOFILL_AI}.value`,
+      ModelExecutionEnterprisePolicyValue.ALLOW);
+  objectToSetup.set(
+      'prefs.optimization_guide.model_execution.autofill_prediction_improvements_enterprise_policy_allowed.value',
+      ModelExecutionEnterprisePolicyValue.ALLOW);
 }
 
-suite('PasswordsAndForms', function() {
-  function createPaymentSectionElement(prefsElement: SettingsPrefsElement) {
-    const element = document.createElement('settings-payments-section');
-    element.prefs = prefsElement.prefs!;
-    document.body.appendChild(element);
-    flush();
-    return element;
-  }
-
-  function createAutofillSectionElement(prefsElement: SettingsPrefsElement) {
-    const element = document.createElement('settings-autofill-section');
-    element.prefs = prefsElement.prefs!;
-    document.body.appendChild(element);
-    flush();
-    return element;
-  }
-
-  /**
-   * @param autofill Whether autofill is enabled or not.
-   * @param passwords Whether passwords are enabled or not.
-   */
-  async function createPrefs(
-      autofill: boolean, passwords: boolean): Promise<SettingsPrefsElement> {
-    CrSettingsPrefs.deferInitialization = true;
-    const prefs = document.createElement('settings-prefs');
-    prefs.initialize(new FakeSettingsPrivate([
-      {
-        key: 'autofill.enabled',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: autofill,
-      },
-      {
-        key: 'autofill.profile_enabled',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: true,
-      },
-      {
-        key: 'autofill.credit_card_enabled',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: true,
-      },
-      {
-        key: 'credentials_enable_service',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: passwords,
-      },
-      {
-        key: 'credentials_enable_autosignin',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: true,
-      },
-      {
-        key: 'payments.can_make_payment_enabled',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: true,
-      },
-      {
-        key: 'autofill.payment_methods_mandatory_reauth',
-        type: chrome.settingsPrivate.PrefType.BOOLEAN,
-        value: true,
-      },
-      {
-        key: 'autofill.email_verification_state',
-        type: chrome.settingsPrivate.PrefType.DICTIONARY,
-        value: {},
-      },
-    ]));
-    document.body.appendChild(prefs);
-
-    await CrSettingsPrefs.initialized;
-    return prefs;
-  }
-
-  /**
-   * Cleans up prefs so tests can continue to run.
-   * @param prefs The prefs element.
-   */
-  function destroyPrefs(prefs: SettingsPrefsElement) {
-    CrSettingsPrefs.resetForTesting();
-    CrSettingsPrefs.deferInitialization = false;
-    prefs.resetForTesting();
-  }
-
-  /**
-   * Creates AutofillManagerExpectations with the values expected after first
-   * creating the element.
-   */
-  function baseAutofillExpectations(): AutofillManagerExpectations {
-    const expected = new AutofillManagerExpectations();
-    expected.requestedAddresses = 1;
-    expected.listeningAddresses = 1;
-    return expected;
-  }
-
-  /**
-   * Creates PaymentsManagerExpectations with the values expected after first
-   * creating the element.
-   */
-  function basePaymentsExpectations(): PaymentsManagerExpectations {
-    const expected = new PaymentsManagerExpectations();
-    expected.requestedCreditCards = 1;
-    expected.listeningCreditCards = 1;
-    expected.requestedIbans = 1;
-    expected.requestedPayOverTimeIssuers = 1;
-    return expected;
-  }
-
+suite('AutofillPage', function() {
+  let autofillPage: SettingsAutofillPageElement;
   let autofillManager: TestAutofillManager;
+  let passwordManager: TestPasswordManagerProxy;
   let paymentsManager: TestPaymentsManager;
-  let prefs: SettingsPrefsElement;
+  let metricsBrowserProxy: TestMetricsBrowserProxy;
+  let settingsPrefs: SettingsPrefsElement;
 
-  let element: SettingsAutofillPageElement;
-  let paymentsSection: SettingsPaymentsSectionElement;
-  let autofillSection: SettingsAutofillSectionElement;
+  suiteSetup(function() {
+    settingsPrefs = document.createElement('settings-prefs');
+    return CrSettingsPrefs.initialized;
+  });
 
   setup(async function() {
-    loadTimeData.overrideValues({
-      enableYourSavedInfoSettingsPage: false,
-      shouldShowPayOverTimeSettings: true,
-    });
-
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-
-    // Override the AutofillManagerImpl for testing.
+    // Override for testing.
     autofillManager = new TestAutofillManager();
+    autofillManager.data.addresses = [createAddressEntry()];
     AutofillManagerImpl.setInstance(autofillManager);
-
-    // Override the PaymentsManagerImpl for testing.
+    passwordManager = new TestPasswordManagerProxy();
+    PasswordManagerImpl.setInstance(passwordManager);
     paymentsManager = new TestPaymentsManager();
     PaymentsManagerImpl.setInstance(paymentsManager);
+    metricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
 
-    prefs = await createPrefs(true, true);
-    element = createAutofillElement(prefs);
-    paymentsSection = createPaymentSectionElement(prefs);
-    autofillSection = createAutofillSectionElement(prefs);
+    await setupPage({
+      showIbansSettings: true,
+      shouldShowPayOverTimeSettings: true,
+      shoppingIntegrationEnabled: true,
+      showSuggestionsFromGeminiSettings: true,
+    });
   });
+
+  async function setupPage(overrides: {[key: string]: boolean}) {
+    loadTimeData.overrideValues(overrides);
+    resetRouterForTesting();
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    autofillPage = document.createElement('settings-autofill-page');
+    setDefaultPrefs(settingsPrefs);
+    autofillPage.prefs = settingsPrefs.prefs!;
+    document.body.appendChild(autofillPage);
+    await flushTasks();
+  }
+
+  function getChipCount(chipLabel: string): number|undefined {
+    const cards = autofillPage.shadowRoot!.querySelectorAll(
+        'category-reference-card');
+    for (const card of cards) {
+      const chips = card.shadowRoot!.querySelectorAll('cr-button');
+      for (const chip of chips) {
+        const labelSpan = chip.querySelector('span:not(.counter)');
+        if (labelSpan && labelSpan.textContent === chipLabel) {
+          const counter = chip.querySelector<HTMLElement>('.counter')!;
+          if (counter.hidden) {
+            return undefined;
+          }
+          const match = counter.textContent.match(/\((\d+)\)/);
+          return match ? +match[1]! : undefined;
+        }
+      }
+    }
+    return undefined;
+  }
 
   teardown(function() {
-    destroyPrefs(prefs);
+    CrSettingsPrefs.resetForTesting();
   });
 
-  test('baseLoadAndRemove', function() {
-    const autofillExpectations = baseAutofillExpectations();
-    autofillManager.assertExpectations(autofillExpectations);
-
-    const paymentsExpectations = basePaymentsExpectations();
-    paymentsManager.assertExpectations(paymentsExpectations);
-
-    element.remove();
-    paymentsSection.remove();
-    autofillSection.remove();
-    flush();
-
-    autofillExpectations.listeningAddresses = 0;
-    autofillManager.assertExpectations(autofillExpectations);
-
-    paymentsExpectations.listeningCreditCards = 0;
-    paymentsManager.assertExpectations(paymentsExpectations);
+  test('TitleExists', function() {
+    const autofillPageTitleElement =
+        autofillPage.shadowRoot!.querySelector('#autofillPageTitle');
+    assertTrue(!!autofillPageTitleElement);
   });
 
-  test('autofillAiButtonHidden', async function() {
-    loadTimeData.overrideValues({
-      showAutofillAiControl: false,
+  test('ShoppingCategoryHiddenWhenFlagDisabled', async function() {
+    await setupPage({
+      shoppingIntegrationEnabled: false,
     });
-    // Recreate the element with the new `loadTimeData`.
-    element.remove();
-    element = createAutofillElement(prefs);
-    // Make sure that the button is not created asynchronously.
-    await flushTasks();
-    // Assert that the button is not visible.
-    const autofillAiManagerButton =
-        element.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#autofillAiManagerButton');
-    assertTrue(autofillAiManagerButton === null);
+
+    const shoppingCard =
+        autofillPage.shadowRoot!.querySelector<HTMLElement>(
+            '#shoppingManagerButton');
+    assertFalse(!!shoppingCard);
   });
 
-  test('AutofillAIButtonVisible', function() {
-    loadTimeData.overrideValues({
-      showAutofillAiControl: true,
+  test('CardsRenderCorrectly', function() {
+    const cards = autofillPage.shadowRoot!.querySelectorAll(
+        'category-reference-card');
+    const expectedCardTitles = [
+      loadTimeData.getString('localPasswordManager'),
+      loadTimeData.getString('paymentsTitle'),
+      loadTimeData.getString('contactInfoTitle'),
+      loadTimeData.getString('identityDocsCardTitle'),
+      loadTimeData.getString('travelCardTitle'),
+      loadTimeData.getString('shoppingCardTitle'),
+    ];
+
+    assertEquals(expectedCardTitles.length, cards.length);
+    for (let i = 0; i < expectedCardTitles.length; i++) {
+      assertEquals(expectedCardTitles[i], cards[i]!.cardTitle);
+    }
+  });
+
+  test('passwordsCardOpensPasswordManager', async function() {
+    const passwordsCard =
+        autofillPage.shadowRoot!.querySelector<HTMLElement>(`
+        category-reference-card[card-title="${
+            loadTimeData.getString('localPasswordManager')}"]`);
+    assertTrue(!!passwordsCard);
+
+    passwordsCard.shadowRoot!.querySelector<HTMLElement>(
+                                 'cr-link-row')!.click();
+
+    const page = await passwordManager.whenCalled('showPasswordManager');
+    assertEquals(PasswordManagerPage.PASSWORDS, page);
+    const [category] = await metricsBrowserProxy.whenCalled(
+        'recordYourSavedInfoCategoryClick');
+    assertEquals(YourSavedInfoDataCategory.PASSWORD_MANAGER, category);
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
+    assertEquals(
+        'Settings.YourSavedInfo.CategoryClick.PASSWORD_MANAGER', action);
+  });
+
+  // Do not use route constants (like `routes.PAYMENTS`) as expectedRoute
+  // values. The `expectedRoute` is calculated and cached before `setup()` or
+  // `suiteSetup()` when the `yourSavedInfo` feature flag is disabled, which
+  // results in some path values being undefined. Instead, use the literal
+  // string path, e.g., use `'/payments'` instead of `routes.PAYMENTS`.
+  [{
+    cardTitle: 'paymentsTitle',
+    expectedRoute: '/payments',
+    expectedCategory: YourSavedInfoDataCategory.PAYMENTS,
+  },
+   {
+     cardTitle: 'contactInfoTitle',
+     expectedRoute: '/contactInfo',
+     expectedCategory: YourSavedInfoDataCategory.CONTACT_INFO,
+   },
+   {
+     cardTitle: 'identityDocsCardTitle',
+     expectedRoute: '/identityDocs',
+     expectedCategory: YourSavedInfoDataCategory.IDENTITY_DOCS,
+   },
+   {
+     cardTitle: 'travelCardTitle',
+     expectedRoute: '/travel',
+     expectedCategory: YourSavedInfoDataCategory.TRAVEL,
+   },
+   {
+     cardTitle: 'shoppingCardTitle',
+     expectedRoute: '/shopping',
+     expectedCategory: YourSavedInfoDataCategory.SHOPPING,
+   },
+  ].forEach(({cardTitle, expectedRoute, expectedCategory}) => {
+    test(`${cardTitle} card navigates to the correct route`, async function() {
+      const card = autofillPage.shadowRoot!.querySelector<HTMLElement>(
+          `category-reference-card[card-title="${
+              loadTimeData.getString(cardTitle)}"]`);
+      assertTrue(!!card);
+
+      card.shadowRoot!.querySelector('cr-link-row')!.click();
+      assertEquals(expectedRoute, Router.getInstance().currentRoute.path);
+      const [category] = await metricsBrowserProxy.whenCalled(
+          'recordYourSavedInfoCategoryClick');
+      assertEquals(expectedCategory, category);
+      const action = await metricsBrowserProxy.whenCalled('recordAction');
+      assertEquals(
+          `Settings.YourSavedInfo.CategoryClick.${
+              YourSavedInfoDataCategory[expectedCategory]}`,
+          action);
     });
-    // Recreate the element with the new `loadTimeData`.
-    element.remove();
-    element = createAutofillElement(prefs);
-    // Assert that the button is visible.
-    const autofillAiManagerButton =
-        element.shadowRoot!.querySelector<CrLinkRowElement>(
-            '#autofillAiManagerButton');
-    assertTrue(autofillAiManagerButton !== null);
   });
 
-  test('loadAddressesAsync', function() {
+  test('AddressesAndPaymentsCountersAreUpdated', async function() {
+    await autofillManager.whenCalled('getAddressList');
+    await paymentsManager.whenCalled('getCreditCardList');
+    await paymentsManager.whenCalled('getIbanList');
+    await paymentsManager.whenCalled('getPayOverTimeIssuerList');
+
+    assertEquals(1, getChipCount(loadTimeData.getString('addresses')));
+    assertEquals(
+        undefined,
+        getChipCount(loadTimeData.getString('creditAndDebitCardTitle')));
+    assertEquals(undefined, getChipCount(loadTimeData.getString('ibanTitle')));
+    assertEquals(
+        undefined,
+        getChipCount(
+            loadTimeData.getString('autofillPayOverTimeSettingsLabel')));
+
     const addressList = [createAddressEntry(), createAddressEntry()];
-    const cardList = [createCreditCardEntry(), createCreditCardEntry()];
-    const ibanList = [createIbanEntry(), createIbanEntry()];
-    const payOverTimeIssuerList =
-        [createPayOverTimeIssuerEntry(), createPayOverTimeIssuerEntry()];
-    const accountInfo = {
-      ...STUB_USER_ACCOUNT_INFO,
-      isSyncEnabledForAutofillProfiles: true,
-    };
+    const cardList = [createCreditCardEntry()];
+    const ibanList = [createIbanEntry(), createIbanEntry(), createIbanEntry()];
+    const payOverTimeIssuerList = [createPayOverTimeIssuerEntry()];
     autofillManager.lastCallback.setPersonalDataManagerListener!
-        (addressList, cardList, ibanList, payOverTimeIssuerList, accountInfo);
-    flush();
+        (addressList, cardList, ibanList, payOverTimeIssuerList);
+    await flushTasks();
 
-    assertDeepEquals(addressList, autofillSection.addresses);
-
-    // The callback is coming from the manager, so the element shouldn't
-    // have additional calls to the manager after the base expectations.
-    autofillManager.assertExpectations(baseAutofillExpectations());
-    paymentsManager.assertExpectations(basePaymentsExpectations());
+    assertEquals(2, getChipCount(loadTimeData.getString('addresses')));
+    assertEquals(
+        1, getChipCount(loadTimeData.getString('creditAndDebitCardTitle')));
+    assertEquals(3, getChipCount(loadTimeData.getString('ibanTitle')));
+    assertEquals(
+        1,
+        getChipCount(
+            loadTimeData.getString('autofillPayOverTimeSettingsLabel')));
   });
 
-  test('loadPaymentMethodsAsync', function() {
-    const addressList = [createAddressEntry(), createAddressEntry()];
-    const cardList = [createCreditCardEntry(), createCreditCardEntry()];
-    const ibanList = [createIbanEntry(), createIbanEntry()];
-    const issuerList =
-        [createPayOverTimeIssuerEntry(), createPayOverTimeIssuerEntry()];
-    const accountInfo = {
-      ...STUB_USER_ACCOUNT_INFO,
-      isSyncEnabledForAutofillProfiles: true,
-    };
-    paymentsManager.lastCallback.setPersonalDataManagerListener!
-        (addressList, cardList, ibanList, issuerList, accountInfo);
-    flush();
+  test('ClickOnChipNavigatesToLeafPage', async function() {
+    const card = autofillPage.shadowRoot!.querySelector<HTMLElement>(
+        `category-reference-card[card-title="${
+            loadTimeData.getString('contactInfoTitle')}"]`);
+    assertTrue(!!card);
+    const chips: HTMLElement[] =
+        Array.from(card.shadowRoot!.querySelectorAll('cr-button'));
+    const chip: HTMLElement = chips.find(chip => {
+      const labelSpan = chip.querySelector('span:not(.counter)');
+      return labelSpan &&
+          labelSpan.textContent === loadTimeData.getString('addresses');
+    })!;
 
-    assertTrue(!!paymentsSection);
-    assertEquals(
-        cardList, paymentsSection.creditCards,
-        'The cardList should be loaded into the paymentsSection');
-    assertEquals(
-        ibanList, paymentsSection.ibans,
-        'The ibanList should be loaded into the paymentsSection');
-    assertEquals(
-        issuerList, paymentsSection.payOverTimeIssuers,
-        'The issuerList should be loaded into the paymentsSection');
+    chip.click();
+    assertEquals('/contactInfo', Router.getInstance().currentRoute.path);
+    const [metricChip] = await metricsBrowserProxy.whenCalled(
+        'recordYourSavedInfoDataChipClick');
+    assertEquals(YourSavedInfoDataChip.ADDRESSES, metricChip);
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
+    assertEquals('Settings.YourSavedInfo.ChipClick.ADDRESSES', action);
+  });
 
-    // The callback is coming from the manager, so the element shouldn't
-    // have additional calls to the manager after the base expectations.
-    autofillManager.assertExpectations(baseAutofillExpectations());
-    paymentsManager.assertExpectations(basePaymentsExpectations());
+  test('ClickOnShoppingChipNavigatesToLeafPage', async function() {
+    const card = autofillPage.shadowRoot!.querySelector<HTMLElement>(
+        `category-reference-card[card-title="${
+            loadTimeData.getString('shoppingCardTitle')}"]`);
+    assertTrue(!!card);
+    const chips: HTMLElement[] =
+        Array.from(card.shadowRoot!.querySelectorAll('cr-button'));
+    const chip: HTMLElement = chips.find(chip => {
+      const labelSpan = chip.querySelector('span:not(.counter)');
+      return labelSpan &&
+          labelSpan.textContent ===
+          loadTimeData.getString('yourSavedInfoOrdersChip');
+    })!;
+
+    chip.click();
+    assertEquals('/shopping', Router.getInstance().currentRoute.path);
+    const [metricChip] = await metricsBrowserProxy.whenCalled(
+        'recordYourSavedInfoDataChipClick');
+    assertEquals(YourSavedInfoDataChip.ORDERS, metricChip);
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
+    assertEquals('Settings.YourSavedInfo.ChipClick.ORDERS', action);
+  });
+
+  test('SuggestionsFromGeminiHiddenWhenFlagDisabled', async function() {
+    await setupPage({
+      showSuggestionsFromGeminiSettings: false,
+    });
+
+    const geminiCard = autofillPage.shadowRoot!.querySelector<HTMLElement>(
+        '#suggestionsFromGeminiCard');
+    assertFalse(!!geminiCard);
+  });
+
+  test('SuggestionsFromGeminiCardNavigates', async function() {
+    const geminiCard = autofillPage.shadowRoot!.querySelector<HTMLElement>(
+        '#suggestionsFromGeminiCard');
+    assertTrue(!!geminiCard);
+
+    const button = autofillPage.shadowRoot!.querySelector<HTMLElement>(
+        '#suggestionsFromGeminiLinkRow');
+    assertTrue(!!button);
+
+    const icon = autofillPage.shadowRoot!.querySelector<CrIconElement>(
+        '#suggestionsFromGeminiSubLabel cr-icon');
+    assertTrue(!!icon);
+    // <if expr="_google_chrome">
+    assertEquals(
+        loadTimeData.getBoolean('glicAssetsV2Enabled') ?
+            'settings-internal:sparkv2' :
+            'settings-internal:spark',
+        icon.icon);
+    // </if>
+    // <if expr="not _google_chrome">
+    assertEquals('settings20:lightbulb', icon.icon);
+    // </if>
+
+    button.click();
+    assertEquals('/enhancedAutofill', Router.getInstance().currentRoute.path);
+
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
+    assertEquals(
+        'PersonalContext.Settings.EntryPoint.AutofillAndPasswordsSettings',
+        action);
   });
 });
 
-function createAutofillPageSection() {
-  // Create a passwords-section to use for testing.
-  const autofillPage = document.createElement('settings-autofill-page');
-  autofillPage.prefs = {
-    profile: {
-      password_manager_leak_detection: {},
-    },
-    credentials_enable_service: {
-      enforcement: chrome.settingsPrivate.Enforcement.ENFORCED,
-      value: false,
-    },
-    autofill: {
-      email_verification_state: {value: {}},
-    },
-  };
-  document.body.innerHTML = window.trustedTypes!.emptyHTML;
-  document.body.appendChild(autofillPage);
-  flush();
-  return autofillPage;
-}
+suite('DataChipsVisibility', function() {
+  let settingsPrefs: SettingsPrefsElement;
+  let entityDataManager: TestEntityDataManagerProxy;
 
-suite('PasswordsUITest', function() {
+  suiteSetup(function() {
+    settingsPrefs = document.createElement('settings-prefs');
+    return CrSettingsPrefs.initialized;
+  });
+
+  setup(function() {
+    entityDataManager = new TestEntityDataManagerProxy();
+    entityDataManager.setGetWritableEntityTypesResponse([
+      {
+        typeName: 0,
+        typeNameAsString: 'Passport',
+        addEntityTypeString: 'Add passport',
+        editEntityTypeString: 'Edit passport',
+        deleteEntityTypeString: 'Delete passport',
+        supportsWalletStorage: false,
+        passType: chrome.autofillPrivate.EntityPassType.PRIVATE_PASS,
+      },
+      {
+        typeName: 1,
+        typeNameAsString: 'Driver\'s license',
+        addEntityTypeString: 'Add driver\'s license',
+        editEntityTypeString: 'Edit driver\'s license',
+        deleteEntityTypeString: 'Delete driver\'s license',
+        supportsWalletStorage: false,
+        passType: chrome.autofillPrivate.EntityPassType.PRIVATE_PASS,
+      },
+      {
+        typeName: 2,
+        typeNameAsString: 'Vehicle',
+        addEntityTypeString: 'Add vehicle',
+        editEntityTypeString: 'Edit vehicle',
+        deleteEntityTypeString: 'Delete vehicle',
+        supportsWalletStorage: false,
+        passType: chrome.autofillPrivate.EntityPassType.PUBLIC_PASS,
+      },
+    ]);
+    EntityDataManagerProxyImpl.setInstance(entityDataManager);
+  });
+
+  async function setupPage(overrides: {[key: string]: boolean}):
+      Promise<SettingsAutofillPageElement> {
+    loadTimeData.overrideValues(overrides);
+    resetRouterForTesting();
+
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    const autofillPage: SettingsAutofillPageElement =
+        document.createElement('settings-autofill-page');
+    setDefaultPrefs(settingsPrefs);
+    autofillPage.prefs = settingsPrefs.prefs!;
+    document.body.appendChild(autofillPage);
+    await flushTasks();
+    return autofillPage;
+  }
+
+  teardown(function() {
+    CrSettingsPrefs.resetForTesting();
+  });
+
+  function getChipLabels(
+      autofillPage: SettingsAutofillPageElement,
+      cardSelector: string): string[] {
+    const card =
+        autofillPage.shadowRoot!.querySelector<HTMLElement>(cardSelector);
+    assertTrue(!!card);
+    const chips: HTMLElement[] =
+        Array.from(card.shadowRoot!.querySelectorAll('cr-button'));
+    return chips.map(chip => chip.querySelector('span')!.textContent);
+  }
+
+  test('AllChipsVisible', async function() {
+    const autofillPage = await setupPage({
+      showIbansSettings: true,
+      shouldShowPayOverTimeSettings: true,
+      shoppingIntegrationEnabled: true,
+    });
+    await entityDataManager.whenCalled('getWritableEntityTypes');
+
+    assertDeepEquals(
+        [
+          loadTimeData.getString('creditAndDebitCardTitle'),
+          loadTimeData.getString('ibanTitle'),
+          loadTimeData.getString('autofillPayOverTimeSettingsLabel'),
+          loadTimeData.getString('loyaltyCardsTitle'),
+        ],
+        getChipLabels(autofillPage, '#paymentManagerButton'));
+
+    assertTrue(
+        isChildVisible(autofillPage, '#identityManagerButton'),
+        'Identity docs category should be visible');
+    assertDeepEquals(
+        [
+          loadTimeData.getString('yourSavedInfoDriverLicenseChip'),
+          loadTimeData.getString('yourSavedInfoPassportChip'),
+        ],
+        getChipLabels(autofillPage, '#identityManagerButton'));
+
+    assertTrue(
+        isChildVisible(autofillPage, '#travelManagerButton'),
+        'Travel category should be visible');
+    assertDeepEquals(
+        [
+          loadTimeData.getString('yourSavedInfoVehiclesChip'),
+        ],
+        getChipLabels(autofillPage, '#travelManagerButton'));
+
+    assertTrue(
+        isChildVisible(autofillPage, '#shoppingManagerButton'),
+        'Shopping category should be visible');
+    assertDeepEquals(
+        [
+          loadTimeData.getString('yourSavedInfoOrdersChip'),
+          loadTimeData.getString('yourSavedInfoShipmentsChip'),
+        ],
+        getChipLabels(autofillPage, '#shoppingManagerButton'));
+  });
+
+  test('DisabledIbans', async function() {
+    const autofillPage = await setupPage({
+      showIbansSettings: false,
+      shouldShowPayOverTimeSettings: true,
+    });
+    assertDeepEquals(
+        [
+          loadTimeData.getString('creditAndDebitCardTitle'),
+          loadTimeData.getString('autofillPayOverTimeSettingsLabel'),
+          loadTimeData.getString('loyaltyCardsTitle'),
+        ],
+        getChipLabels(autofillPage, '#paymentManagerButton'));
+  });
+
+  test('DisabledIbansButAlreadyExisting', async function() {
+    const autofillManager = new TestAutofillManager();
+    AutofillManagerImpl.setInstance(autofillManager);
+    const autofillPage = await setupPage({
+      showIbansSettings: false,
+      shouldShowPayOverTimeSettings: true,
+    });
+    autofillManager.lastCallback.setPersonalDataManagerListener!
+        ([], [], [createIbanEntry()], []);
+    await flushTasks();
+
+    assertDeepEquals(
+        [
+          loadTimeData.getString('creditAndDebitCardTitle'),
+          loadTimeData.getString('ibanTitle'),
+          loadTimeData.getString('autofillPayOverTimeSettingsLabel'),
+          loadTimeData.getString('loyaltyCardsTitle'),
+        ],
+        getChipLabels(autofillPage, '#paymentManagerButton'));
+  });
+
+  test('DisabledPayOverTime', async function() {
+    // Disable Pay over time
+    const autofillPage = await setupPage({
+      showIbansSettings: true,
+      shouldShowPayOverTimeSettings: false,
+    });
+    assertDeepEquals(
+        [
+          loadTimeData.getString('creditAndDebitCardTitle'),
+          loadTimeData.getString('ibanTitle'),
+          loadTimeData.getString('loyaltyCardsTitle'),
+        ],
+        getChipLabels(autofillPage, '#paymentManagerButton'));
+  });
+
+  test('DisabledAutofillAi', async function() {
+    const autofillPage = await setupPage({});
+    assertTrue(
+        isChildVisible(autofillPage, '#identityManagerButton'),
+        'Identity docs category should be visible');
+    assertTrue(
+        isChildVisible(autofillPage, '#travelManagerButton'),
+        'Travel category should be visible');
+    assertTrue(
+        isChildVisible(autofillPage, '#shoppingManagerButton'),
+        'Shopping category should be visible');
+  });
+
+  test('DisabledAmbientAutofill', async function() {
+    const autofillPage = await setupPage({
+      shoppingIntegrationEnabled: false,
+    });
+    assertFalse(
+        isChildVisible(autofillPage, '#shoppingManagerButton'),
+        'Shopping category should not be visible');
+  });
+
+  test('UnsupportedAutofillAiDataTypeWithExistingItems', async function() {
+    // National ID card type is not supported, but user has an existing item
+    // already.
+    const testEntityInstancesWithLabels:
+        chrome.autofillPrivate.EntityInstanceWithLabels[] = [
+      {
+        guid: '1fd09cdc-35b8-4367-8f1a-18c8c0733af0',
+        type: {
+          typeName: 3,
+          typeNameAsString: 'National ID card',
+          addEntityTypeString: 'Add ID',
+          editEntityTypeString: 'Edit ID',
+          deleteEntityTypeString: 'Delete ID',
+          supportsWalletStorage: false,
+          passType: chrome.autofillPrivate.EntityPassType.PRIVATE_PASS,
+        },
+        entityInstanceLabel: 'John Doe',
+        entityInstanceSubLabel: 'ID card',
+        storedInWallet: false,
+      },
+    ];
+    entityDataManager.setLoadEntityInstancesResponse(
+        testEntityInstancesWithLabels);
+    const autofillPage = await setupPage({});
+    await entityDataManager.whenCalled('loadEntityInstances');
+
+    assertTrue(
+        isChildVisible(autofillPage, '#identityManagerButton'),
+        'Identity docs category should be visible');
+    assertDeepEquals(
+        [
+          loadTimeData.getString('yourSavedInfoDriverLicenseChip'),
+          loadTimeData.getString('yourSavedInfoNationalIdsChip'),
+          loadTimeData.getString('yourSavedInfoPassportChip'),
+        ],
+        getChipLabels(autofillPage, '#identityManagerButton'),
+        'Extra national ID cards chip should be visible');
+    assertTrue(
+        isChildVisible(autofillPage, '#travelManagerButton'),
+        'Travel category should be visible');
+    assertDeepEquals(
+        [
+          loadTimeData.getString('yourSavedInfoVehiclesChip'),
+        ],
+        getChipLabels(autofillPage, '#travelManagerButton'));
+  });
+});
+
+suite('RelatedServices', function() {
   let autofillPage: SettingsAutofillPageElement;
   let openWindowProxy: TestOpenWindowProxy;
   let passwordManager: TestPasswordManagerProxy;
-  let pluralString: TestPluralStringProxy;
+  let settingsPrefs: SettingsPrefsElement;
+  let metricsBrowserProxy: TestMetricsBrowserProxy;
+
+  suiteSetup(function() {
+    settingsPrefs = document.createElement('settings-prefs');
+    return CrSettingsPrefs.initialized;
+  });
 
   setup(function() {
+    resetRouterForTesting();
+
     openWindowProxy = new TestOpenWindowProxy();
     OpenWindowProxyImpl.setInstance(openWindowProxy);
+
     // Override the PasswordManagerImpl for testing.
     passwordManager = new TestPasswordManagerProxy();
     PasswordManagerImpl.setInstance(passwordManager);
-    pluralString = new TestPluralStringProxy();
-    SettingsPluralStringProxyImpl.setInstance(pluralString);
+    metricsBrowserProxy = new TestMetricsBrowserProxy();
+    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
 
-    autofillPage = createAutofillPageSection();
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    autofillPage = document.createElement('settings-autofill-page');
+    setDefaultPrefs(settingsPrefs);
+    autofillPage.prefs = settingsPrefs.prefs!;
+    document.body.appendChild(autofillPage);
   });
 
   teardown(function() {
-    autofillPage.remove();
+    CrSettingsPrefs.resetForTesting();
   });
 
-  test('Clicking Password Manager item', async function() {
-    resetRouterForTesting();
+  async function testRowOpensUrl(selector: string, urlStringId: string) {
+    const row =
+        autofillPage.shadowRoot!.querySelector<HTMLElement>(selector);
+    assertTrue(!!row);
+    row.click();
+    const url = await openWindowProxy.whenCalled('openUrl');
+    assertEquals(loadTimeData.getString(urlStringId), url);
+  }
 
-    const autofillSection = createAutofillPageSection();
-    assertTrue(autofillSection.$.passwordManagerButton.external);
-
-    autofillSection.$.passwordManagerButton.click();
-    const param = await passwordManager.whenCalled('showPasswordManager');
-    assertEquals(PasswordManagerPage.PASSWORDS, param);
-  });
-});
-
-suite('AutofillPageMetricsTest', function() {
-  let autofillPage: SettingsAutofillPageElement;
-  let metricsBrowserProxy: TestMetricsBrowserProxy;
-
-  setup(function() {
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    metricsBrowserProxy = new TestMetricsBrowserProxy();
-    MetricsBrowserProxyImpl.setInstance(metricsBrowserProxy);
-    loadTimeData.overrideValues({
-      showAutofillAiControl: false,
-    });
-    resetRouterForTesting();
-
-    autofillPage = document.createElement('settings-autofill-page');
-    document.body.appendChild(autofillPage);
-    return flushTasks();
-  });
-
-  test('recordMetricsWhenClickingAddresses', async function() {
-    const addressesManagerButton =
+  test('CardRendersCorrectly', function() {
+    const relatedServicesCard =
         autofillPage.shadowRoot!.querySelector<HTMLElement>(
-            '#addressesManagerButton');
-    assertTrue(!!addressesManagerButton);
-    addressesManagerButton.click();
+            `settings-section[page-title="${
+                loadTimeData.getString(
+                    'yourSavedInfoRelatedServicesTitle')}"]`);
+    assertTrue(!!relatedServicesCard);
 
-    const [histogramName, referrer] = await metricsBrowserProxy.whenCalled(
-        'recordAutofillSettingsReferrer');
-    assertEquals('Autofill.AddressesSettingsPage.VisitReferrer', histogramName);
-    assertEquals(
-        AutofillSettingsReferrer.AUTOFILL_AND_PASSWORDS_PAGE, referrer);
+    assertTrue(
+        !!relatedServicesCard.querySelector('#passwordManagerButton'),
+        'Password manager button not found');
+    assertTrue(
+        !!relatedServicesCard.querySelector('#googleWalletButton'),
+        'Wallet button not found');
+    assertTrue(
+        !!relatedServicesCard.querySelector('#googleAccountButton'),
+        'Profile button not found');
   });
 
-  test('recordMetricsWhenClickingPayments', async function() {
-    const paymentManagerButton =
+  test('PasswordManagerRowOpensPasswordManager', async function() {
+    const passwordManagerRow =
         autofillPage.shadowRoot!.querySelector<HTMLElement>(
-            '#paymentManagerButton');
-    assertTrue(!!paymentManagerButton);
-    paymentManagerButton.click();
-
-    const [histogramName, referrer] = await metricsBrowserProxy.whenCalled(
-        'recordAutofillSettingsReferrer');
-    assertEquals('Autofill.PaymentMethodsSettingsPage.VisitReferrer',
-      histogramName);
+            '#passwordManagerButton');
+    assertTrue(!!passwordManagerRow);
+    passwordManagerRow.click();
+    const page = await passwordManager.whenCalled('showPasswordManager');
+    assertEquals(PasswordManagerPage.PASSWORDS, page);
+    const [service] = await metricsBrowserProxy.whenCalled(
+        'recordYourSavedInfoRelatedServiceClick');
+    assertEquals(YourSavedInfoRelatedService.GOOGLE_PASSWORD_MANAGER, service);
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
     assertEquals(
-        AutofillSettingsReferrer.AUTOFILL_AND_PASSWORDS_PAGE, referrer);
+        'Settings.YourSavedInfo.RelatedServiceClick.GOOGLE_PASSWORD_MANAGER',
+        action);
   });
 
-  test('recordMetricsWhenClickingAutofillAi', async function() {
-    loadTimeData.overrideValues({
-      showAutofillAiControl: true,
-    });
-    resetRouterForTesting();
-
-    document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    const prefs = document.createElement('settings-prefs');
-    autofillPage = createAutofillElement(prefs);
-    autofillPage = document.createElement('settings-autofill-page');
-    document.body.appendChild(autofillPage);
-    await flushTasks();
-
-    const autofillAiManagerButton =
-        autofillPage.shadowRoot!.querySelector<HTMLElement>(
-            '#autofillAiManagerButton');
-    assertTrue(!!autofillAiManagerButton);
-    autofillAiManagerButton.click();
-
-    const [histogramName, referrer] = await metricsBrowserProxy.whenCalled(
-        'recordAutofillSettingsReferrer');
-    assertEquals('Autofill.FormsAiSettingsPage.VisitReferrer', histogramName);
+  test('WalletRowOpensWallet', async function() {
+    await testRowOpensUrl('#googleWalletButton', 'googleWalletUrl');
+    const [service] = await metricsBrowserProxy.whenCalled(
+        'recordYourSavedInfoRelatedServiceClick');
+    assertEquals(YourSavedInfoRelatedService.GOOGLE_WALLET, service);
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
     assertEquals(
-        AutofillSettingsReferrer.AUTOFILL_AND_PASSWORDS_PAGE, referrer);
+        'Settings.YourSavedInfo.RelatedServiceClick.GOOGLE_WALLET', action);
+  });
+
+  test('ProfileRowOpensProfile', async function() {
+    await testRowOpensUrl('#googleAccountButton', 'googleAccountUrl');
+    const [service] = await metricsBrowserProxy.whenCalled(
+        'recordYourSavedInfoRelatedServiceClick');
+    assertEquals(YourSavedInfoRelatedService.GOOGLE_ACCOUNT, service);
+    const action = await metricsBrowserProxy.whenCalled('recordAction');
+    assertEquals(
+        'Settings.YourSavedInfo.RelatedServiceClick.GOOGLE_ACCOUNT', action);
   });
 });

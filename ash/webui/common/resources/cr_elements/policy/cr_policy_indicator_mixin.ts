@@ -94,22 +94,22 @@ export const CrPolicyIndicatorMixin = dedupingMixin(
           };
         }
 
-        indicatorType: CrPolicyIndicatorType;
-        indicatorSourceName: string;
-        indicatorVisible: boolean;
-        indicatorIcon: string;
+        declare indicatorType: CrPolicyIndicatorType;
+        declare indicatorSourceName: string;
+        declare indicatorVisible: boolean;
+        declare indicatorIcon: string;
 
         /**
          * @return True if the indicator should be shown.
          */
-        private getIndicatorVisible_(type: CrPolicyIndicatorType): boolean {
+        protected getIndicatorVisible_(type: CrPolicyIndicatorType): boolean {
           return type !== CrPolicyIndicatorType.NONE;
         }
 
         /**
          * @return {string} The iron-icon icon name.
          */
-        private getIndicatorIcon_(type: CrPolicyIndicatorType): string {
+        protected getIndicatorIcon_(type: CrPolicyIndicatorType): string {
           switch (type) {
             case CrPolicyIndicatorType.EXTENSION:
               return 'cr:extension';

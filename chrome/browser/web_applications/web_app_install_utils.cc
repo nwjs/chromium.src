@@ -30,19 +30,16 @@
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/shortcuts/shortcut_icon_generator.h"
-#include "chrome/browser/ssl/chrome_security_state_tab_helper.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/web_applications/jobs/finalize_install_job.h"
+#include "chrome/browser/web_applications/jobs/finalize_install_or_update_job.h"
 #include "chrome/browser/web_applications/model/display_override.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
-#include "chrome/browser/web_applications/os_integration/web_app_file_handler_manager.h"
 #include "chrome/browser/web_applications/policy/pre_redirection_url_observer.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_chromeos_data.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_icon_generator.h"
-#include "chrome/browser/web_applications/web_app_install_finalizer.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_management_type.h"
@@ -92,8 +89,9 @@ void AddSquareIconsFromMap(std::vector<SkBitmap>* square_icons,
                            const IconsMap& icons_map) {
   for (const auto& url_icon : icons_map) {
     for (const SkBitmap& icon : url_icon.second) {
-      if (!icon.empty() && icon.width() == icon.height())
+      if (!icon.empty() && icon.width() == icon.height()) {
         square_icons->push_back(icon);
+      }
     }
   }
 }
@@ -229,53 +227,6 @@ void PopulateShortcutItemIcons(WebAppInstallInfo* web_app_info,
            web_app_info->shortcuts_menu_item_infos.size());
 }
 
-// Reconcile the file handling icons that were specified in the manifest with
-// the icons we were successfully able to download. Store the actual bitmaps and
-// update the icon metadata in `web_app_info`.
-void PopulateFileHandlingIcons(WebAppInstallInfo* web_app_info,
-                               const IconsMap& icons_map,
-                               IconsMap& other_icon_bitmaps) {
-  // Before starting, each `apps::IconInfo` in `web_app_info` has a source URL
-  // and a purpose, but no size. Replace with structs that copy the URL and
-  // purpose and set the size based on what is found in `icons_map`.
-  for (auto& file_handler : web_app_info->file_handlers) {
-    if (!WebAppFileHandlerManager::IconsEnabled()) {
-      DCHECK(file_handler.downloaded_icons.empty());
-      continue;
-    }
-
-    std::vector<apps::IconInfo> manifest_icons;
-
-    for (const auto& icon_info_without_size : file_handler.downloaded_icons) {
-      const GURL& src = icon_info_without_size.url;
-      // Only store bitmaps for this URL if it's the first time we've seen it.
-      bool bitmaps_already_saved_for_url =
-          other_icon_bitmaps.find(src) != other_icon_bitmaps.end();
-      const auto& downloaded_bitmaps_for_url = icons_map.find(src);
-      if (downloaded_bitmaps_for_url == icons_map.end())
-        continue;
-
-      for (const SkBitmap& bitmap : downloaded_bitmaps_for_url->second) {
-        // Filter out bitmaps that are empty, non-square or are too large.
-        if (bitmap.empty() || bitmap.width() != bitmap.height() ||
-            bitmap.width() > kMaxIconSize) {
-          continue;
-        }
-
-        // Add the size to the FileHandler icon metadata.
-        apps::IconInfo icon_info_with_size(icon_info_without_size);
-        icon_info_with_size.square_size_px = bitmap.width();
-        manifest_icons.push_back(std::move(icon_info_with_size));
-
-        // Add the bitmap to `other_icon_bitmaps`.
-        if (!bitmaps_already_saved_for_url)
-          other_icon_bitmaps[src].push_back(bitmap);
-      }
-    }
-    file_handler.downloaded_icons = std::move(manifest_icons);
-  }
-}
-
 // Reconcile the home tab icons that were specified in the manifest with
 // the icons we were successfully able to download. Store the actual bitmaps and
 // update the icon metadata in `web_app_info`.
@@ -383,39 +334,6 @@ void PopulateFileHandlerInfoFromManifest(
       web_app_file_handler.accept.push_back(std::move(web_app_accept_entry));
     }
 
-    if (WebAppFileHandlerManager::IconsEnabled()) {
-      for (const auto& image_resource : manifest_file_handler->icons) {
-        for (const auto manifest_purpose : image_resource.purpose) {
-          apps::IconInfo icon_info;
-          icon_info.url = image_resource.src;
-          icon_info.purpose =
-              ManifestPurposeToIconInfoPurpose(manifest_purpose);
-          if (std::ranges::contains(image_resource.sizes, gfx::Size()) &&
-              image_resource.src.spec().find(".svg") != std::string::npos) {
-            web_app_info->icons_with_size_any
-                .file_handling_icons[manifest_purpose] = image_resource.src;
-          }
-
-          web_app_file_handler.downloaded_icons.push_back(std::move(icon_info));
-          // The list will be pruned and the sizes will be filled in when images
-          // are actually downloaded.
-        }
-
-        // Keep track of the sizes passed in via the manifest which will be
-        // later used to compute how many SVG icons of size:any we need to
-        // download.
-        if (!web_app_info->icons_with_size_any.file_handling_icons.empty()) {
-          for (const auto& icon_size : image_resource.sizes) {
-            if (icon_size == gfx::Size()) {
-              continue;
-            }
-            web_app_info->icons_with_size_any.file_handling_icon_provided_sizes
-                .emplace(icon_size);
-          }
-        }
-      }
-    }
-
     web_app_file_handlers.push_back(std::move(web_app_file_handler));
   }
 
@@ -427,7 +345,6 @@ void PopulateOtherIcons(WebAppInstallInfo* web_app_info,
   IconsMap& other_icon_bitmaps = web_app_info->other_icon_bitmaps;
   other_icon_bitmaps.clear();
   PopulateShortcutItemIcons(web_app_info, icons_map);
-  PopulateFileHandlingIcons(web_app_info, icons_map, other_icon_bitmaps);
   PopulateHomeTabIcons(web_app_info, icons_map, other_icon_bitmaps);
 }
 
@@ -461,8 +378,9 @@ void PopulateProductIcons(WebAppInstallInfo* web_app_info,
         &square_icons_monochrome, manifest_icons_monochrome, *icons_map);
     // Fall back to using all icons from |icons_map| if none match
     // manifest_icons.
-    if (square_icons_any.empty())
+    if (square_icons_any.empty()) {
       AddSquareIconsFromMap(&square_icons_any, *icons_map);
+    }
   }
   AddSquareIconsFromBitmaps(&square_icons_any, web_app_info->icon_bitmaps.any);
 
@@ -550,8 +468,9 @@ void RecordDownloadedIconsHttpResultsCodeClass(
     std::string_view histogram_name,
     IconsDownloadedResult result,
     const DownloadedIconsHttpResults& icons_http_results) {
-  if (result != IconsDownloadedResult::kCompleted)
+  if (result != IconsDownloadedResult::kCompleted) {
     return;
+  }
 
   for (const auto& url_and_http_status_code : icons_http_results) {
     int http_status_code = url_and_http_status_code.second;
@@ -567,8 +486,9 @@ void RecordDownloadedIconsHttpResultsCodeClass(
 void RecordDownloadedIconHttpStatusCodes(
     std::string_view histogram_name,
     const DownloadedIconsHttpResults& icons_http_results) {
-  if (icons_http_results.empty())
+  if (icons_http_results.empty()) {
     return;
+  }
 
   // Do not use UMA_HISTOGRAM_... macros here, as it caches the Histogram
   // instance and thus only works if |histogram_name| is constant.
@@ -581,13 +501,15 @@ void RecordDownloadedIconHttpStatusCodes(
   // code only once.
   std::vector<int> http_status_codes;
   http_status_codes.reserve(icons_http_results.size());
-  for (const auto& url_and_http_status_code : icons_http_results)
+  for (const auto& url_and_http_status_code : icons_http_results) {
     http_status_codes.push_back(url_and_http_status_code.second);
+  }
 
   base::flat_set<int> unique_http_status_codes{std::move(http_status_codes)};
 
-  for (int http_status_code : unique_http_status_codes)
+  for (int http_status_code : unique_http_status_codes) {
     counter->Add(net::HttpUtil::MapStatusCodeForHistogram(http_status_code));
+  }
 }
 
 WebAppManagement::Type ConvertExternalInstallSourceToSource(
@@ -710,7 +632,6 @@ WebAppManagement::Type ConvertInstallSurfaceToWebAppSource(
 
 void CreateWebAppInstallTabHelpers(content::WebContents* web_contents) {
   webapps::InstallableManager::CreateForWebContents(web_contents);
-  ChromeSecurityStateTabHelper::CreateForWebContents(web_contents);
   favicon::CreateContentFaviconDriverForWebContents(web_contents);
   webapps::PreRedirectionURLObserver::CreateForWebContents(web_contents);
 }
@@ -774,8 +695,9 @@ void SetWebAppManifestFields(const WebAppInstallInfo& web_app_info,
   web_app.SetProtocolHandlers(web_app_info.protocol_handlers);
   web_app.SetScopeExtensions(web_app_info.scope_extensions);
 
-  if (base::FeatureList::IsEnabled(features::kWebLockScreenApi))
+  if (base::FeatureList::IsEnabled(features::kWebLockScreenApi)) {
     web_app.SetLockScreenStartUrl(web_app_info.lock_screen_start_url);
+  }
 
   web_app.SetNoteTakingNewNoteUrl(web_app_info.note_taking_new_note_url);
 
@@ -820,23 +742,27 @@ void SetWebAppProductIconFields(const WebAppInstallInfo& web_app_info,
 
 void ApplyParamsToWebAppInstallInfo(const WebAppInstallParams& install_params,
                                     WebAppInstallInfo& web_app_info) {
-  if (install_params.user_display_mode.has_value())
+  if (install_params.user_display_mode.has_value()) {
     web_app_info.user_display_mode = install_params.user_display_mode;
+  }
 
   // If `additional_search_terms` was a manifest property, it would be
   // sanitized while parsing the manifest. Since it's not, we sanitize it
   // here.
   for (const std::string& search_term :
        install_params.additional_search_terms) {
-    if (!search_term.empty())
+    if (!search_term.empty()) {
       web_app_info.additional_search_terms.push_back(search_term);
+    }
   }
 
-  if (install_params.launch_query_params)
+  if (install_params.launch_query_params) {
     web_app_info.launch_query_params = install_params.launch_query_params;
+  }
 
-  if (install_params.install_url.is_valid())
+  if (install_params.install_url.is_valid()) {
     web_app_info.install_url = install_params.install_url;
+  }
 }
 
 void ApplyParamsToFinalizeOptions(const WebAppInstallParams& install_params,

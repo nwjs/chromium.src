@@ -16,6 +16,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback.h"
+#include "base/functional/function_ref.h"
 #include "base/i18n/language_tag.h"
 #include "base/i18n/tag_converters.h"
 #include "base/path_service.h"
@@ -1172,6 +1173,33 @@ TEST_P(PDFiumEngineTest, MultiPagesPdfInTwoUpViewAfterSelectedText) {
   EXPECT_EQ("Goodbye", engine->GetSelectedText());
 }
 
+TEST_P(PDFiumEngineTest, MoveRangeSelectionExtentInvalidBase) {
+  NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("hello_world2.pdf"));
+  ASSERT_TRUE(engine);
+  engine->PluginSizeUpdated({300, 300});
+
+  // Base is out of page bounds while extent is on "Goodbye" on page 0.
+  constexpr gfx::Point kPage0GoodbyePosition(100, 125);
+  engine->SetSelectionBase(gfx::Point(-50, -50));
+  engine->MoveRangeSelectionExtent(kPage0GoodbyePosition);
+
+  // Selection between "Goodbye" on page 0 and "Goodbye" on page 1.
+  constexpr gfx::Point kPage0TextPosition(85, 125);
+  constexpr gfx::Point kPage1TextPosition(105, 410);
+  engine->SetSelectionBase(kPage0TextPosition);
+  engine->MoveRangeSelectionExtent(kPage1TextPosition);
+
+  // Scroll shifts page 0 offscreen so its original viewport position is in the
+  // margin (char_index = -1).
+  engine->ScrolledToYPosition(250);
+
+  // Drag extent handle on "Goodbye" on page 1 (410 - 250 = 160).
+  constexpr gfx::Point kPage1ScrolledTextPosition(105, 160);
+  engine->MoveRangeSelectionExtent(kPage1ScrolledTextPosition);
+}
+
 TEST_P(PDFiumEngineTest, GetCharUnicode) {
   TestClient client(/*use_skia_renderer=*/GetParam());
   std::unique_ptr<PDFiumEngine> engine =
@@ -1395,8 +1423,7 @@ TEST_P(PDFiumEngineSelectionTest, SelectActualTextRtl) {
   ASSERT_TRUE(engine);
 
   engine->SelectAll();
-  // TODO(crbug.com/525087036): `kExpectedText` is wrong. RTL text is backwards.
-  constexpr char kExpectedText[] = "Hello is םולש\nWater is water םימ";
+  constexpr char kExpectedText[] = "Hello is שלום\nWater is water מים";
   EXPECT_EQ(GetPlatformTextExpectation(kExpectedText),
             engine->GetSelectedText());
 }
@@ -1858,6 +1885,16 @@ class PDFiumEnginePageMutationTest : public PDFiumEngineTest {
   void SetLastFocusedPage(PDFiumEngine* engine, int page_index) {
     engine->last_focused_page_ = page_index;
   }
+
+  void ForEachPage(PDFiumEngine* engine,
+                   base::FunctionRef<void(PDFiumPage*)> callback) {
+    engine->ForEachPage(callback);
+  }
+
+  bool ForEachPageUntilTrue(PDFiumEngine* engine,
+                            base::FunctionRef<bool(PDFiumPage*)> callback) {
+    return engine->ForEachPageUntilTrue(callback);
+  }
 };
 
 // Simulates an XFA page deletion when handling a char event.
@@ -1936,6 +1973,71 @@ TEST_P(PDFiumEnginePageMutationTest, DeferPageDestructionWithPreventer) {
     // kept alive, and its destruction should be deferred. This should complete
     // without crashing.
   }
+}
+
+TEST_P(PDFiumEnginePageMutationTest, ForEachPage) {
+  NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
+      &client, FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(2, engine->GetNumberOfPages());
+
+  int visited_count = 0;
+  ForEachPage(engine.get(), [&](PDFiumPage* page) {
+    EXPECT_TRUE(page);
+    ++visited_count;
+  });
+  EXPECT_EQ(2, visited_count);
+}
+
+TEST_P(PDFiumEnginePageMutationTest, ForEachPageUntilTrue) {
+  NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
+      &client, FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(2, engine->GetNumberOfPages());
+
+  int visited_count = 0;
+  const bool stopped_early =
+      ForEachPageUntilTrue(engine.get(), [&](PDFiumPage* page) {
+        EXPECT_TRUE(page);
+        ++visited_count;
+        return true;
+      });
+  EXPECT_TRUE(stopped_early);
+  EXPECT_EQ(1, visited_count);
+
+  visited_count = 0;
+  const bool completed_all =
+      ForEachPageUntilTrue(engine.get(), [&](PDFiumPage* page) {
+        EXPECT_TRUE(page);
+        ++visited_count;
+        return false;
+      });
+  EXPECT_FALSE(completed_all);
+  EXPECT_EQ(2, visited_count);
+}
+
+TEST_P(PDFiumEnginePageMutationTest, ForEachPageMidIterationPageDeletion) {
+  NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
+      &client, FILE_PATH_LITERAL("annotation_form_fields.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(2, engine->GetNumberOfPages());
+
+  int visited_count = 0;
+  ForEachPage(engine.get(), [&](PDFiumPage* page) {
+    ++visited_count;
+    if (visited_count == 1) {
+      // Delete page 2 in the document and update layout mid-iteration.
+      FPDFPage_Delete(GetDoc(engine.get()), 1);
+      InvalidateAllPages(engine.get());
+    }
+  });
+
+  // Iteration should complete safely without crashing or accessing deleted
+  // page.
+  EXPECT_EQ(1, visited_count);
 }
 
 INSTANTIATE_TEST_SUITE_P(All, PDFiumEnginePageMutationTest, testing::Bool());
@@ -2516,6 +2618,77 @@ TEST_P(PDFiumEngineTabbingTest, RetainSelectionOnFocusNotInFormTextArea) {
   EXPECT_EQ(1u, GetSelectionSize(engine.get()));
 }
 
+TEST_P(PDFiumEngineTabbingTest, TextDirectionOnFocusedFormField) {
+  TestClient client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("form_text_fields.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+
+  // Initially no focus.
+  EXPECT_EQ(std::nullopt, engine->GetFocusedFormTextDirection());
+
+  // Setting text direction when no form field is focused should not crash
+  // and should be a no-op (i.e. direction remains unknown).
+  EXPECT_FALSE(engine->SetFocusedFormTextDirection(base::i18n::RIGHT_TO_LEFT));
+  EXPECT_EQ(std::nullopt, engine->GetFocusedFormTextDirection());
+
+  // Tab to bring focus to a form text area annotation.
+  // Tab into the document.
+  ASSERT_TRUE(HandleTabEvent(engine.get(), 0));
+  // Tab into the page.
+  ASSERT_TRUE(HandleTabEvent(engine.get(), 0));
+  EXPECT_EQ(PDFiumEngine::FocusElementType::kPage,
+            GetFocusedElementType(engine.get()));
+
+  // The default text direction for the field.
+  EXPECT_THAT(engine->GetFocusedFormTextDirection(),
+              Optional(base::i18n::UNKNOWN_DIRECTION));
+
+  EXPECT_TRUE(engine->SetFocusedFormTextDirection(base::i18n::RIGHT_TO_LEFT));
+  EXPECT_THAT(engine->GetFocusedFormTextDirection(),
+              Optional(base::i18n::RIGHT_TO_LEFT));
+
+  EXPECT_TRUE(engine->SetFocusedFormTextDirection(base::i18n::LEFT_TO_RIGHT));
+  EXPECT_THAT(engine->GetFocusedFormTextDirection(),
+              Optional(base::i18n::LEFT_TO_RIGHT));
+}
+
+TEST_P(PDFiumEngineTabbingTest, TextDirectionOnFocusedNonTextFormField) {
+  TestClient client(/*use_skia_renderer=*/GetParam());
+  std::unique_ptr<PDFiumEngine> engine =
+      InitializeEngine(&client, FILE_PATH_LITERAL("annots.pdf"));
+  ASSERT_TRUE(engine);
+  ASSERT_EQ(1, engine->GetNumberOfPages());
+
+  // Bring focus to the document.
+  ASSERT_TRUE(HandleTabEvent(engine.get(), 0));
+
+  // Bring focus to the text field.
+  ASSERT_TRUE(HandleTabEvent(engine.get(), 0));
+  ASSERT_EQ(PDFiumEngineClient::FocusFieldType::kText,
+            FormFocusFieldType(engine.get()));
+
+  // Setting text direction should succeed on a text field.
+  EXPECT_TRUE(engine->SetFocusedFormTextDirection(base::i18n::RIGHT_TO_LEFT));
+  EXPECT_THAT(engine->GetFocusedFormTextDirection(),
+              Optional(base::i18n::RIGHT_TO_LEFT));
+
+  // Bring focus to the button.
+  ASSERT_TRUE(HandleTabEvent(engine.get(), 0));
+  ASSERT_EQ(PDFiumEngineClient::FocusFieldType::kNonText,
+            FormFocusFieldType(engine.get()));
+
+  // Bring focus to the link.
+  ASSERT_TRUE(HandleTabEvent(engine.get(), 0));
+  ASSERT_EQ(PDFiumEngineClient::FocusFieldType::kNoFocus,
+            FormFocusFieldType(engine.get()));
+
+  // Setting text direction should fail on a link.
+  EXPECT_FALSE(engine->SetFocusedFormTextDirection(base::i18n::LEFT_TO_RIGHT));
+  EXPECT_EQ(std::nullopt, engine->GetFocusedFormTextDirection());
+}
+
 TEST_P(PDFiumEngineTabbingTest, SetFormHighlight) {
   NiceMock<MockTestClient> client(/*use_skia_renderer=*/GetParam());
   std::unique_ptr<PDFiumEngine> engine = InitializeEngine(
@@ -2837,8 +3010,7 @@ TEST_P(PDFiumEngineInkTest, LoadV2InkPathsForPage) {
   ASSERT_EQ(1u, ink_shapes.size());
   const auto ink_shapes_it = ink_shapes.begin();
 
-  const std::map<InkModeledShapeId, FPDF_PAGEOBJECT>& pdf_shapes =
-      engine->ink_modeled_shape_map_for_testing();
+  const auto& pdf_shapes = engine->ink_modeled_shape_map_for_testing();
   ASSERT_EQ(1u, pdf_shapes.size());
   const auto pdf_shapes_it = pdf_shapes.begin();
 
@@ -3519,17 +3691,18 @@ class PDFiumEngineInkDrawTextTest : public PDFiumTestBase {
   }
 
   static InkTextBoxAttributes SampleInkTextBoxAttributes() {
-    return InkTextBoxAttributes(
-        /*rect=*/gfx::RectF(20.0f, 20.0f, 100.0f, 100.0f),
-        /*color=*/SK_ColorBLACK,
-        /*css_font_size=*/10.0f,
-        /*typeface=*/TextTypeface::kSansSerif,
-        /*alignment=*/TextAlignment::kLeft,
-        /*orientation=*/0,
-        /*viewport_orientation=*/PageOrientation::kOriginal,
-        /*is_bold=*/false,
-        /*is_italic=*/false,
-        /*text=*/"Hello!");
+    return InkTextBoxAttributes{
+        .rect = gfx::RectF(20.0f, 20.0f, 100.0f, 100.0f),
+        .color = SK_ColorBLACK,
+        .css_font_size = 10.0f,
+        .typeface = TextTypeface::kSansSerif,
+        .alignment = TextAlignment::kLeft,
+        .orientation = 0,
+        .viewport_orientation = PageOrientation::kOriginal,
+        .is_bold = false,
+        .is_italic = false,
+        .text = "Hello!",
+    };
   }
 
   float FontAscent(PDFiumEngine* engine, FontId font_id, float css_font_size) {
@@ -3721,17 +3894,18 @@ TEST_P(PDFiumEngineInkDrawTextTest, StrokeTextStrokeOverlap) {
 
   // Place the text box such that it overlaps the first stroke (which is at
   // y=25). The text box rect will be from y=15 to y=35.
-  InkTextBoxAttributes attributes(
-      /*rect=*/gfx::RectF(10.0f, 15.0f, 80.0f, 20.0f),
-      /*color=*/SK_ColorBLACK,
-      /*css_font_size=*/20.0f,
-      /*typeface=*/TextTypeface::kSansSerif,
-      /*alignment=*/TextAlignment::kLeft,
-      /*orientation=*/0,
-      /*viewport_orientation=*/PageOrientation::kOriginal,
-      /*is_bold=*/false,
-      /*is_italic=*/false,
-      /*text=*/kTextToDraw);
+  InkTextBoxAttributes attributes{
+      .rect = gfx::RectF(10.0f, 15.0f, 80.0f, 20.0f),
+      .color = SK_ColorBLACK,
+      .css_font_size = 20.0f,
+      .typeface = TextTypeface::kSansSerif,
+      .alignment = TextAlignment::kLeft,
+      .orientation = 0,
+      .viewport_orientation = PageOrientation::kOriginal,
+      .is_bold = false,
+      .is_italic = false,
+      .text = kTextToDraw,
+  };
   engine->DrawText(
       kPageIndex, InkTextId(0),
       {InkTextInfo(font_id, text_data.glyphs, text_data.glyph_positions,
@@ -4478,12 +4652,7 @@ TEST_P(PDFiumEngineInkDrawTextTest, DrawTextSaveAndLoad) {
 
   // Verify the loaded attributes have the exact same bounds and properties
   // as the original drawn annotation.
-  EXPECT_THAT(page_boxes[0].attributes,
-              InkTextBoxAttributesEq(
-                  kOriginalRect, attribute.color, attribute.css_font_size,
-                  attribute.typeface, attribute.alignment,
-                  attribute.orientation, attribute.viewport_orientation,
-                  attribute.is_bold, attribute.is_italic, attribute.text));
+  EXPECT_EQ(page_boxes[0].attributes, attribute);
 }
 
 TEST_P(PDFiumEngineInkDrawTextTest, LoadTextAnnotationsFromPdfMultiPages) {

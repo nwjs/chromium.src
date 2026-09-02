@@ -118,7 +118,8 @@ class AimEligibilityServiceTest : public testing::Test {
   void TearDown() override { aim_eligibility_service_ = nullptr; }
 
  protected:
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   variations::test::ScopedVariationsIdsProvider scoped_variations_ids_provider_{
       variations::VariationsIdsProvider::Mode::kUseSignedInState};
   search_engines::SearchEnginesTestEnvironment search_engines_test_environment_;
@@ -252,13 +253,8 @@ TEST_F(AimEligibilityServiceTest, IsAimUrl_HostWildcard) {
   rule.mutable_required_params()->Add(CreateQueryParam("b", "2"));
   response.mutable_aim_detection_url_rule()->Add(std::move(rule));
 
-  // The example here does not represent what should be sent from the
-  // backend. If a zero-or-one subdomain needs to be accounted for two
-  // rules should be sent instead:
-  //  - google.com
-  //  - *.google.com
-  // This will avoid catching cases like fakegoogle.com.
-  response.mutable_interception_allowed_hosts()->Add(".*.?google.com");
+  response.mutable_interception_allowed_hosts()->Add("google.com");
+  response.mutable_interception_allowed_hosts()->Add("*.google.com");
 
   response.mutable_interception_allowed_paths()->Add("/search");
 
@@ -275,6 +271,47 @@ TEST_F(AimEligibilityServiceTest, IsAimUrl_HostWildcard) {
   // Invalid host
   EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
       GURL("https://google.example.com/search?a=1&b=2"), std::nullopt));
+}
+
+TEST_F(AimEligibilityServiceTest, IsAimUrl_SecurityNearDomains) {
+  omnibox::AimEligibilityResponse response;
+
+  omnibox::AimEligibilityResponse::AimDetectionUrlRule rule;
+  rule.mutable_required_params()->Add(CreateQueryParam("udm", "50"));
+  response.mutable_aim_detection_url_rule()->Add(std::move(rule));
+
+  response.mutable_interception_allowed_hosts()->Add("www.google.com");
+  response.mutable_interception_allowed_hosts()->Add("google.com");
+
+  response.mutable_interception_allowed_paths()->Add("/search");
+
+  aim_eligibility_service_->SetAimEligibilityResponse(std::move(response));
+
+  // Legitimate domains match.
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://www.google.com/search?udm=50"), std::nullopt));
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://google.com/search?udm=50"), std::nullopt));
+  EXPECT_TRUE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://WWW.GOOGLE.COM/search?udm=50"), std::nullopt));
+
+  // Attacker-controlled near-domains and similar strings MUST NOT match.
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://www0google.com/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://wwwagoogle.com/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://www-google.com/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://google0com/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://googleicom/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://fakegoogle.com/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://google.com.evil.com/search?udm=50"), std::nullopt));
+  EXPECT_FALSE(aim_eligibility_service_->IsAimUrl(
+      GURL("https://notgoogle.com/search?udm=50"), std::nullopt));
 }
 
 TEST_F(AimEligibilityServiceTest, HasNoCobrowseParams_ExactMatch) {
@@ -531,6 +568,80 @@ TEST_F(AimEligibilityServiceTest, FetchEligibility) {
   aim_eligibility_service_->FetchEligibility(
       AimEligibilityService::RequestSource::kAimUrlNavigation);
 
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
+}
+
+TEST_F(AimEligibilityServiceTest, ManualOverrideBlocksAutomaticRequests) {
+  // Initial state: No override. Automatic request should go through.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
+
+  // Clean up pending request.
+  test_url_loader_factory_.pending_requests()->clear();
+
+  // Set manual override.
+  omnibox::AimEligibilityResponse response;
+  response.set_is_eligible(true);
+  std::string response_string;
+  response.SerializeToString(&response_string);
+  std::string encoded_response = base::Base64Encode(response_string);
+  EXPECT_TRUE(aim_eligibility_service_->SetEligibilityResponseForDebugging(
+      encoded_response));
+
+  // Automatic request should now be blocked.
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+
+  // Re-create the service to simulate a browser restart.
+  CreateService();
+
+  // Automatic request should still be blocked after "restart".
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+
+  // Manual request (kUser) should still go through.
+  aim_eligibility_service_->StartServerEligibilityRequestForDebugging();
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
+
+  // After starting a manual request, the override should be cleared,
+  // so subsequent automatic requests should go through.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
+}
+
+TEST_F(AimEligibilityServiceTest, ManualOverrideExpires) {
+  // Set manual override.
+  omnibox::AimEligibilityResponse response;
+  response.set_is_eligible(true);
+  std::string response_string;
+  response.SerializeToString(&response_string);
+  std::string encoded_response = base::Base64Encode(response_string);
+  EXPECT_TRUE(aim_eligibility_service_->SetEligibilityResponseForDebugging(
+      encoded_response));
+
+  // Automatic request should now be blocked.
+  test_url_loader_factory_.pending_requests()->clear();
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+
+  // Fast forward time by 23 hours. Should still be blocked.
+  task_environment_.FastForwardBy(base::Hours(23));
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+
+  // Fast forward time by another 2 hours (total 25 hours, > 24 hours).
+  // The override should expire and the request should go through.
+  task_environment_.FastForwardBy(base::Hours(2));
+  aim_eligibility_service_->FetchEligibility(
+      AimEligibilityService::RequestSource::kAimUrlNavigation);
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
 }
 

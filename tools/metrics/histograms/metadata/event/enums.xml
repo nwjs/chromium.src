@@ -273,17 +273,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//third_party/blink/renderer/core/input/mouse_event_manager.h:DragAndDropToolType) -->
 
-<enum name="EventResultType">
-  <int value="0" label="Passive"/>
-  <int value="1" label="Uncancelable"/>
-  <int value="2" label="Suppressed"/>
-  <int value="3" label="Cancelable and not canceled"/>
-  <int value="4" label="Cancelable and canceled"/>
-  <int value="5" label="Forced Non-Blocking Due to Fling"/>
-  <int value="6"
-      label="Forced Non-Blocking Due to Unresponsive Main Thread (deprecated)"/>
-</enum>
-
 <!-- LINT.IfChange(FrameStageScrollIdBasedCalculationIssues) -->
 
 <enum name="FrameStageScrollIdBasedCalculationIssues">
@@ -358,29 +347,6 @@ chromium-metrics-reviews@google.com.
   <int value="34" label="Edge swipe"/>
   <int value="35" label="One-finger swipe"/>
   <int value="36" label="Tap unconfirmed"/>
-</enum>
-
-<enum name="UserActivationTriggerEnum">
-  <summary>
-    The user activation trigger types as defined in
-    blink.mojom.UserActivationNotificationType.
-  </summary>
-  <int value="0" label="kNone"/>
-  <int value="1" label="kInteraction"/>
-  <int value="2" label="kDevTools"/>
-  <int value="3" label="kExtensionEvent"/>
-  <int value="4" label="kExtensionGuestView"/>
-  <int value="5" label="kExtensionMessaging"/>
-  <int value="6" label="kMedia"/>
-  <int value="7" label="kNativeFileSystem"/>
-  <int value="8" label="kPlugin"/>
-  <int value="9" label="kTest"/>
-  <int value="10" label="kWebScriptExec"/>
-  <int value="11" label="kVoiceSearch"/>
-  <int value="12" label="kExtensionMessagingBothPrivileged"/>
-  <int value="13" label="kExtensionMessagingSenderPrivileged"/>
-  <int value="14" label="kExtensionMessagingReceiverPrivileged"/>
-  <int value="15" label="kExtensionMessagingNeitherPrivileged"/>
 </enum>
 
 </enums>

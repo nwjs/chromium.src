@@ -442,9 +442,9 @@ reviewer.
   <owner>payments-autofill-team@google.com</owner>
   <summary>
     Logs true when a payment link is detected on a merchant webpage and the user
-    is eligible for the eWallet New Account Linking (NAL) onboarding flow
-    (meaning they have no linked eWallet accounts but have unlinked creation
-    options available). [Trigger] A payment link is detected and the user has no
+    is eligible for the eWallet new account linking onboarding flow (meaning
+    they have no linked eWallet accounts but have unlinked creation options
+    available). [Trigger] A payment link is detected and the user has no
     standard linked eWallet accounts but has matching eWallet creation options.
     [Frequency] Logged once per page load.
   </summary>
@@ -597,7 +597,7 @@ reviewer.
 
 <histogram name="FacilitatedPayments.Pix.PaymentCodeValidation.RustResult"
     enum="FacilitatedPayments.Pix.PaymentCodeValidation.RustResult"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>dcheng@chromium.org</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -637,7 +637,7 @@ reviewer.
 <histogram
     name="FacilitatedPayments.Pix.PaymentCodeValidation.{PaymentCodeValidationResult}.ResultVsRust"
     enum="FacilitatedPayments.PixCodeValidationResult"
-    expires_after="2026-12-01">
+    expires_after="2027-02-07">
   <owner>dcheng@chromium.org</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>

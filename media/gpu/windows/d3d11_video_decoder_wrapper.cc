@@ -30,17 +30,14 @@ BufferTypeToD3D11BufferType(D3DVideoDecoderWrapper::BufferType type) {
   NOTREACHED();
 }
 
-template <typename D3D11VideoContext, typename D3D11VideoDecoderBufferDesc>
 class ScopedD3D11DecoderBuffer;
 
-template <typename D3D11VideoContext, typename D3D11VideoDecoderBufferDesc>
 class D3D11VideoDecoderWrapperImpl : public D3D11VideoDecoderWrapper {
  public:
-  D3D11VideoDecoderWrapperImpl(
-      MediaLog* media_log,
-      ComD3D11VideoDevice video_device,
-      Microsoft::WRL::ComPtr<D3D11VideoContext> video_context,
-      ComD3D11VideoDecoder video_decoder)
+  D3D11VideoDecoderWrapperImpl(MediaLog* media_log,
+                               ComD3D11VideoDevice1 video_device,
+                               ComD3D11VideoContext1 video_context,
+                               ComD3D11VideoDecoder video_decoder)
       : D3D11VideoDecoderWrapper(media_log),
         video_device_(std::move(video_device)),
         video_context_(std::move(video_context)),
@@ -159,16 +156,10 @@ class D3D11VideoDecoderWrapperImpl : public D3D11VideoDecoderWrapper {
   }
 
  private:
-  friend class ScopedD3D11DecoderBuffer<D3D11VideoContext,
-                                        D3D11VideoDecoderBufferDesc>;
+  friend class ScopedD3D11DecoderBuffer;
 
   std::unique_ptr<ScopedD3DBuffer> GetBuffer(BufferType type,
-                                             uint32_t desired_size) override {
-    return std::make_unique<ScopedD3D11DecoderBuffer<
-        D3D11VideoContext, D3D11VideoDecoderBufferDesc>>(
-        this, BufferTypeToD3D11BufferType(type), desired_size,
-        media_log_.get());
-  }
+                                             uint32_t desired_size) override;
 
   bool SubmitBitstreamBuffer() {
     DCHECK(bitstream_buffer_);
@@ -179,16 +170,13 @@ class D3D11VideoDecoderWrapperImpl : public D3D11VideoDecoderWrapper {
 
   bool SubmitDecoderBuffers();
 
-  ComD3D11VideoDevice video_device_;
-  Microsoft::WRL::ComPtr<D3D11VideoContext> video_context_;
+  ComD3D11VideoDevice1 video_device_;
+  ComD3D11VideoContext1 video_context_;
   ComD3D11VideoDecoder video_decoder_;
-  absl::InlinedVector<D3D11VideoDecoderBufferDesc, 4> video_buffers_;
+  absl::InlinedVector<D3D11_VIDEO_DECODER_BUFFER_DESC, 4> video_buffers_;
 };
 
-template <>
-bool D3D11VideoDecoderWrapperImpl<
-    ID3D11VideoContext,
-    D3D11_VIDEO_DECODER_BUFFER_DESC>::SubmitDecoderBuffers() {
+bool D3D11VideoDecoderWrapperImpl::SubmitDecoderBuffers() {
   DCHECK_LE(video_buffers_.size(), 4ull);
   HRESULT hr = video_context_->SubmitDecoderBuffers(
       video_decoder_.Get(), video_buffers_.size(), video_buffers_.data());
@@ -201,31 +189,12 @@ bool D3D11VideoDecoderWrapperImpl<
   return true;
 }
 
-template <>
-bool D3D11VideoDecoderWrapperImpl<
-    ID3D11VideoContext1,
-    D3D11_VIDEO_DECODER_BUFFER_DESC1>::SubmitDecoderBuffers() {
-  DCHECK_LE(video_buffers_.size(), 4ull);
-  HRESULT hr = video_context_->SubmitDecoderBuffers1(
-      video_decoder_.Get(), video_buffers_.size(), video_buffers_.data());
-  video_buffers_.clear();
-  if (FAILED(hr)) {
-    MEDIA_PLOG(ERROR, hr, media_log_) << "SubmitDecoderBuffers failed";
-    return false;
-  }
-
-  return true;
-}
-
-template <typename D3D11VideoContext, typename D3D11VideoDecoderBufferDesc>
 class ScopedD3D11DecoderBuffer : public ScopedD3DBuffer {
  public:
-  ScopedD3D11DecoderBuffer(
-      D3D11VideoDecoderWrapperImpl<D3D11VideoContext,
-                                   D3D11VideoDecoderBufferDesc>* decoder,
-      D3D11_VIDEO_DECODER_BUFFER_TYPE type,
-      uint32_t desired_size,
-      MediaLog* media_log)
+  ScopedD3D11DecoderBuffer(D3D11VideoDecoderWrapperImpl* decoder,
+                           D3D11_VIDEO_DECODER_BUFFER_TYPE type,
+                           uint32_t desired_size,
+                           MediaLog* media_log)
       : decoder_(decoder),
         type_(type),
         desired_size_(desired_size),
@@ -308,7 +277,7 @@ class ScopedD3D11DecoderBuffer : public ScopedD3DBuffer {
       return false;
     }
 
-    decoder_->video_buffers_.emplace_back(D3D11VideoDecoderBufferDesc{
+    decoder_->video_buffers_.emplace_back(D3D11_VIDEO_DECODER_BUFFER_DESC{
         .BufferType = type_,
         .DataOffset = 0,
         .DataSize = written_size,
@@ -318,23 +287,27 @@ class ScopedD3D11DecoderBuffer : public ScopedD3DBuffer {
   }
 
  private:
-  const raw_ptr<D3D11VideoDecoderWrapperImpl<D3D11VideoContext,
-                                             D3D11VideoDecoderBufferDesc>>
-      decoder_;
+  const raw_ptr<D3D11VideoDecoderWrapperImpl> decoder_;
   const D3D11_VIDEO_DECODER_BUFFER_TYPE type_;
   const uint32_t desired_size_;
   const std::unique_ptr<MediaLog> media_log_;
 };
+
+std::unique_ptr<ScopedD3DBuffer> D3D11VideoDecoderWrapperImpl::GetBuffer(
+    BufferType type,
+    uint32_t desired_size) {
+  return std::make_unique<ScopedD3D11DecoderBuffer>(
+      this, BufferTypeToD3D11BufferType(type), desired_size, media_log_.get());
+}
 
 }  // namespace
 
 // static
 std::unique_ptr<D3D11VideoDecoderWrapper> D3D11VideoDecoderWrapper::Create(
     MediaLog* media_log,
-    ComD3D11VideoDevice video_device,
-    ComD3D11VideoContext video_context,
+    ComD3D11VideoDevice1 video_device,
+    ComD3D11VideoContext1 video_context,
     const D3D11DecoderConfigurator* decoder_configurator,
-    D3D_FEATURE_LEVEL supported_d3d11_version,
     VideoDecoderConfig config) {
   UINT config_count = 0;
   HRESULT hr = video_device->GetVideoDecoderConfigCount(
@@ -385,26 +358,9 @@ std::unique_ptr<D3D11VideoDecoderWrapper> D3D11VideoDecoderWrapper::Create(
     return nullptr;
   }
 
-  // If we got an 11.1 D3D11 Device, we can use a |ID3D11VideoContext1|,
-  // otherwise we have to make sure we only use a |ID3D11VideoContext|.
-  if (supported_d3d11_version == D3D_FEATURE_LEVEL_11_0) {
-    return std::make_unique<D3D11VideoDecoderWrapperImpl<
-        ID3D11VideoContext, D3D11_VIDEO_DECODER_BUFFER_DESC>>(
-        media_log, std::move(video_device), std::move(video_context),
-        std::move(video_decoder));
-  }
-
-  if (supported_d3d11_version >= D3D_FEATURE_LEVEL_11_1) {
-    ComD3D11VideoContext1 video_context1;
-    hr = video_context.As(&video_context1);
-    CHECK_EQ(hr, S_OK);
-    return std::make_unique<D3D11VideoDecoderWrapperImpl<
-        ID3D11VideoContext1, D3D11_VIDEO_DECODER_BUFFER_DESC1>>(
-        media_log, std::move(video_device), std::move(video_context1),
-        std::move(video_decoder));
-  }
-
-  return nullptr;
+  return std::make_unique<D3D11VideoDecoderWrapperImpl>(
+      media_log, std::move(video_device), std::move(video_context),
+      std::move(video_decoder));
 }
 
 D3D11VideoDecoderWrapper::~D3D11VideoDecoderWrapper() = default;

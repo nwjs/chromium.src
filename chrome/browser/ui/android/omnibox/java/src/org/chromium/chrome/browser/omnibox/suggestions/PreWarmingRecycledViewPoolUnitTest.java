@@ -1,0 +1,186 @@
+// Copyright 2023 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+package org.chromium.chrome.browser.omnibox.suggestions;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.mockito.Mockito.spy;
+
+import android.content.Context;
+import android.view.View;
+import android.view.ViewGroup;
+
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.test.core.app.ApplicationProvider;
+
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
+
+import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.Features.DisableFeatures;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.base.test.util.HistogramWatcher;
+import org.chromium.components.omnibox.OmniboxCapabilities;
+import org.chromium.components.omnibox.OmniboxFeatureList;
+import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
+import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
+
+import java.util.Arrays;
+
+/** Unit tests for {@link PreWarmingRecycledViewPool}. */
+@RunWith(BaseRobolectricTestRunner.class)
+public class PreWarmingRecycledViewPoolUnitTest {
+    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Mock private View mView;
+
+    private Context mContext;
+    private OmniboxViewHolderFactory mFactory;
+    private PreWarmingRecycledViewPool mPool;
+
+    @Before
+    public void setUp() {
+        mContext = ApplicationProvider.getApplicationContext();
+        mFactory =
+                spy(
+                        new OmniboxViewHolderFactory() {
+                            @Override
+                            protected SimpleRecyclerViewAdapter.ViewHolder createViewHolderForType(
+                                    ViewGroup parent, int viewType) {
+                                return new SimpleRecyclerViewAdapter.ViewHolder(mView, null);
+                            }
+                        });
+
+        mPool = new PreWarmingRecycledViewPool(mFactory, mContext);
+    }
+
+    private void ensureNoViewsCreated() {
+        assertEquals(0, mPool.getRecycledViewCount(OmniboxSuggestionUiType.EDIT_URL_SUGGESTION));
+        assertEquals(0, mPool.getRecycledViewCount(OmniboxSuggestionUiType.TILE_NAVSUGGEST));
+        assertEquals(0, mPool.getRecycledViewCount(OmniboxSuggestionUiType.CLIPBOARD_SUGGESTION));
+        assertEquals(0, mPool.getRecycledViewCount(OmniboxSuggestionUiType.DEFAULT));
+        assertEquals(0, mPool.getRecycledViewCount(OmniboxSuggestionUiType.ENTITY_SUGGESTION));
+    }
+
+    private void ensureAllViewsCreated() {
+        assertEquals(
+                PreWarmingRecycledViewPool.PRE_WARMED_EDIT_URL_SUGGESTION_VIEW_COUNT,
+                mPool.getRecycledViewCount(OmniboxSuggestionUiType.EDIT_URL_SUGGESTION));
+        assertEquals(
+                PreWarmingRecycledViewPool.PRE_WARMED_TILE_NAVSUGGEST_VIEW_COUNT,
+                mPool.getRecycledViewCount(OmniboxSuggestionUiType.TILE_NAVSUGGEST));
+        assertEquals(
+                PreWarmingRecycledViewPool.PRE_WARMED_CLIPBOARD_SUGGESTION_VIEW_COUNT,
+                mPool.getRecycledViewCount(OmniboxSuggestionUiType.CLIPBOARD_SUGGESTION));
+        assertEquals(
+                PreWarmingRecycledViewPool.PRE_WARMED_DEFAULT_VIEW_COUNT,
+                mPool.getRecycledViewCount(OmniboxSuggestionUiType.DEFAULT));
+        assertEquals(
+                PreWarmingRecycledViewPool.PRE_WARMED_ENTITY_SUGGESTION_VIEW_COUNT,
+                mPool.getRecycledViewCount(OmniboxSuggestionUiType.ENTITY_SUGGESTION));
+
+        View expectedView = mView;
+        // null out mView so that newly-created ViewHolders will be distinct from pre-warmed ones.
+        mView = null;
+        for (var uiType :
+                Arrays.asList(
+                        OmniboxSuggestionUiType.EDIT_URL_SUGGESTION,
+                        OmniboxSuggestionUiType.TILE_NAVSUGGEST,
+                        OmniboxSuggestionUiType.CLIPBOARD_SUGGESTION,
+                        OmniboxSuggestionUiType.DEFAULT,
+                        OmniboxSuggestionUiType.ENTITY_SUGGESTION)) {
+            RecyclerView.ViewHolder viewHolder = mPool.getRecycledView(uiType);
+            assertNotNull(viewHolder);
+            assertEquals(expectedView, viewHolder.itemView);
+        }
+    }
+
+    @DisableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void testCreateViewsSync() {
+        mPool.onNativeInitialized();
+        ensureNoViewsCreated();
+
+        // Run first, then cancel.
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+        mPool.stopCreatingViews();
+        ensureAllViewsCreated();
+    }
+
+    @DisableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void stopCreatingViews_noViewsCreatedWhenCanceled() {
+        mPool.onNativeInitialized();
+        ensureNoViewsCreated();
+
+        // Cancel, then run.
+        mPool.stopCreatingViews();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+        ensureNoViewsCreated();
+    }
+
+    @DisableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void destroy_cancelsViewCreation() {
+        mPool.onNativeInitialized();
+        ensureNoViewsCreated();
+
+        // Destroy, then run.
+        mPool.destroy();
+        RobolectricUtil.runAllBackgroundAndUiIncludingDelayed();
+        ensureNoViewsCreated();
+    }
+
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void testCreateViewsAsync() {
+        mPool.destroy();
+        mPool = new PreWarmingRecycledViewPool(mFactory, mContext, /* handler= */ null);
+        ensureAllViewsCreated();
+    }
+
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void createViews_noViewsCreatedOnLowEndDevices() {
+        OmniboxCapabilities.setIsLowMemoryDeviceForTesting(true);
+        mPool = new PreWarmingRecycledViewPool(mFactory, mContext);
+        ensureNoViewsCreated();
+    }
+
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void createViews_recordViewCreated() {
+        mPool.clear();
+        ensureNoViewsCreated();
+
+        try (var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Omnibox.SuggestionView.CreatedType",
+                        OmniboxSuggestionUiType.DEFAULT)) {
+            assertNull(mPool.getRecycledView(OmniboxSuggestionUiType.DEFAULT));
+        }
+    }
+
+    @EnableFeatures(OmniboxFeatureList.OMNIBOX_ASYNC_VIEW_INFLATION)
+    @Test
+    public void createViews_recordViewReused() {
+        mPool.destroy();
+        mPool = new PreWarmingRecycledViewPool(mFactory, mContext, /* handler= */ null);
+        ensureAllViewsCreated();
+
+        try (var watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Omnibox.SuggestionView.ReusedType",
+                        OmniboxSuggestionUiType.DEFAULT)) {
+            assertNotNull(mPool.getRecycledView(OmniboxSuggestionUiType.DEFAULT));
+        }
+    }
+}

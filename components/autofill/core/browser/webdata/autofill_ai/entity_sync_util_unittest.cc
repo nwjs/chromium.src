@@ -9,11 +9,13 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance_test_api.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/proto/autofill_ai_chrome_metadata.pb.h"
 #include "components/autofill/core/browser/test_utils/entity_data_test_utils.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/sync/protocol/autofill_valuable_metadata_specifics.pb.h"
 #include "components/sync/protocol/autofill_valuable_specifics.pb.h"
 #include "components/sync/test/unknown_field_util.h"
@@ -200,6 +202,40 @@ sync_pb::AutofillValuableSpecifics TestKnownTravelerNumberSpecifics(
   return specifics;
 }
 
+// Returns a `sync_pb::AutofillValuableSpecifics` message with the order
+// entity type.
+sync_pb::AutofillValuableSpecifics TestOrderSpecifics(
+    test::OrderOptions options = {}) {
+  sync_pb::AutofillValuableSpecifics specifics;
+  specifics.set_id(std::string(options.guid));
+  sync_pb::Order* order = specifics.mutable_order();
+  order->set_id(base::UTF16ToUTF8(options.id));
+  order->set_account(base::UTF16ToUTF8(options.account));
+  *order->mutable_order_date() = StringToProtoDate(options.date);
+  order->set_merchant_name(base::UTF16ToUTF8(options.merchant_name));
+  order->set_merchant_domain(base::UTF16ToUTF8(options.merchant_domain));
+  order->add_product_names("Product 1");
+  order->add_product_names("Product 2");
+  return specifics;
+}
+
+// Returns a `sync_pb::AutofillValuableSpecifics` message with the shipment
+// entity type.
+sync_pb::AutofillValuableSpecifics TestShipmentSpecifics(
+    test::ShipmentOptions options = {}) {
+  sync_pb::AutofillValuableSpecifics specifics;
+  specifics.set_id(std::string(options.guid));
+  sync_pb::Shipment* shipment = specifics.mutable_shipment();
+  shipment->set_tracking_number(base::UTF16ToUTF8(options.tracking_number));
+  shipment->set_delivery_zip_code(base::UTF16ToUTF8(options.delivery_zip_code));
+  *shipment->mutable_shipping_date() = StringToProtoDate(options.shipped_date);
+  shipment->set_carrier_name(base::UTF16ToUTF8(options.carrier_name));
+  shipment->set_carrier_domain(base::UTF16ToUTF8(options.carrier_domain));
+  shipment->add_associated_order_ids("Order 1");
+  shipment->add_associated_order_ids("Order 2");
+  return specifics;
+}
+
 TEST(EntitySyncUtilTest, CreateEntityDataFromEntityInstance) {
   EntityInstance vehicle_entity = test::GetVehicleEntityInstance();
   std::unique_ptr<syncer::EntityData> entity_data =
@@ -378,7 +414,7 @@ TEST(EntitySyncUtilTest,
       EntityType(EntityTypeName::kVehicle), std::move(attributes),
       EntityInstance::EntityId("00000000-0000-4000-8000-200000000000"),
       /*nickname=*/"", /*date_modified=*/{}, /*use_count=*/0, /*use_date=*/{},
-      EntityInstance::RecordType::kServerWallet,
+      EntityInstance::WalletRecordTypePayload{},
       EntityInstance::AreAttributesReadOnly(false),
       /*frecency_override=*/"");
 
@@ -442,7 +478,7 @@ TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_FlightReservation) {
 TEST(EntitySyncUtilTest,
      CreateEntityInstanceFromSpecifics_FlightReservation_EmptyDepartureTime) {
   sync_pb::AutofillValuableSpecifics specifics =
-      TestFlightReservationSpecifics();
+      TestFlightReservationSpecifics({.departure_time = std::nullopt});
 
   std::optional<EntityInstance> flight_reservation =
       CreateEntityInstanceFromSpecifics(specifics);
@@ -760,7 +796,43 @@ TEST(EntitySyncUtilTest, EntityTypeToPassType) {
             sync_pb::AutofillValuableMetadataSpecifics::REDRESS_NUMBER);
   EXPECT_EQ(EntityTypeToPassType(EntityType(kKnownTravelerNumber)),
             sync_pb::AutofillValuableMetadataSpecifics::KNOWN_TRAVELER_NUMBER);
-  EXPECT_FALSE(EntityTypeToPassType(EntityType(kOrder)).has_value());
+  EXPECT_EQ(EntityTypeToPassType(EntityType(kOrder)),
+            sync_pb::AutofillValuableMetadataSpecifics::ORDER);
+  EXPECT_EQ(EntityTypeToPassType(EntityType(kShipment)),
+            sync_pb::AutofillValuableMetadataSpecifics::SHIPMENT);
+}
+
+// Tests that no attributes are created for fields with unset or empty values.
+TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_EmptyFields) {
+  base::test::ScopedFeatureList feature{
+      features::kAutofillAiImportConstraintsForSync};
+  // Passport is used as an example here. This is representative of the general
+  // case because the implementation uses generic helpers across all entities.
+  sync_pb::AutofillValuableSpecifics specifics;
+  specifics.mutable_passport()->set_owner_name("florian");
+  // Empty, explicitly set values are expected to be omitted.
+  specifics.mutable_passport()->set_country_code("");
+  // Incomplete dates and unset values like passport number and issue date are
+  // expected to be omitted.
+  specifics.mutable_passport()->mutable_expiration_date()->set_year(2030);
+  std::optional<EntityInstance> passport =
+      CreateEntityInstanceFromSpecifics(specifics);
+  ASSERT_TRUE(passport.has_value());
+  EXPECT_EQ(GetStringValue(*passport, AttributeTypeName::kPassportName),
+            "florian");
+  EXPECT_FALSE(
+      passport->attribute(AttributeType(AttributeTypeName::kPassportCountry))
+          .has_value());
+  EXPECT_FALSE(
+      passport->attribute(AttributeType(AttributeTypeName::kPassportNumber))
+          .has_value());
+  EXPECT_FALSE(
+      passport->attribute(AttributeType(AttributeTypeName::kPassportIssueDate))
+          .has_value());
+  EXPECT_FALSE(
+      passport
+          ->attribute(AttributeType(AttributeTypeName::kPassportExpirationDate))
+          .has_value());
 }
 
 // Tests that `CreateEntityInstanceFromSpecifics` correctly deserializes
@@ -1022,6 +1094,64 @@ TEST(EntitySyncUtilTest,
   EXPECT_EQ(
       ProtoDateToString(specifics.known_traveler_number().expiration_date()),
       options.expiration_date);
+}
+
+// Tests that `CreateEntityInstanceFromSpecifics` correctly deserializes
+// the order entity from its proto representation.
+TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_Order) {
+  // Overwrite the default date for compatibility with `StringToProtoDate()`.
+  test::OrderOptions options{.date = u"15/01/2025"};
+  sync_pb::AutofillValuableSpecifics specifics = TestOrderSpecifics(options);
+  std::optional<EntityInstance> order =
+      CreateEntityInstanceFromSpecifics(specifics);
+
+  ASSERT_TRUE(order.has_value());
+  EXPECT_EQ(order->guid().value(), options.guid);
+  EXPECT_EQ(order->type().name(), EntityTypeName::kOrder);
+  EXPECT_EQ(order->record_type(), EntityInstance::RecordType::kServerWallet);
+  EXPECT_EQ(GetStringValue(*order, AttributeTypeName::kOrderId),
+            base::UTF16ToUTF8(options.id));
+  EXPECT_EQ(GetStringValue(*order, AttributeTypeName::kOrderAccount),
+            base::UTF16ToUTF8(options.account));
+  EXPECT_EQ(GetDateValue(*order, AttributeTypeName::kOrderDate, u"DD/MM/YYYY"),
+            base::UTF16ToUTF8(options.date));
+  EXPECT_EQ(GetStringValue(*order, AttributeTypeName::kOrderMerchantName),
+            base::UTF16ToUTF8(options.merchant_name));
+  EXPECT_EQ(GetStringValue(*order, AttributeTypeName::kOrderMerchantDomain),
+            base::UTF16ToUTF8(options.merchant_domain));
+  EXPECT_EQ(GetStringValue(*order, AttributeTypeName::kOrderProductNames),
+            "Product 1, Product 2");
+}
+
+// Tests that `CreateEntityInstanceFromSpecifics` correctly deserializes
+// the shipment entity from its proto representation.
+TEST(EntitySyncUtilTest, CreateEntityInstanceFromSpecifics_Shipment) {
+  // Overwrite the default date for compatibility with `StringToProtoDate()`.
+  test::ShipmentOptions options{.shipped_date = u"01/12/2025"};
+  sync_pb::AutofillValuableSpecifics specifics = TestShipmentSpecifics(options);
+  std::optional<EntityInstance> shipment =
+      CreateEntityInstanceFromSpecifics(specifics);
+
+  ASSERT_TRUE(shipment.has_value());
+  EXPECT_EQ(shipment->guid().value(), options.guid);
+  EXPECT_EQ(shipment->type().name(), EntityTypeName::kShipment);
+  EXPECT_EQ(shipment->record_type(), EntityInstance::RecordType::kServerWallet);
+  EXPECT_EQ(
+      GetStringValue(*shipment, AttributeTypeName::kShipmentTrackingNumber),
+      base::UTF16ToUTF8(options.tracking_number));
+  EXPECT_EQ(
+      GetStringValue(*shipment, AttributeTypeName::kShipmentDeliveryZipCode),
+      base::UTF16ToUTF8(options.delivery_zip_code));
+  EXPECT_EQ(GetDateValue(*shipment, AttributeTypeName::kShipmentShippedDate,
+                         u"DD/MM/YYYY"),
+            base::UTF16ToUTF8(options.shipped_date));
+  EXPECT_EQ(GetStringValue(*shipment, AttributeTypeName::kShipmentCarrierName),
+            base::UTF16ToUTF8(options.carrier_name));
+  EXPECT_EQ(
+      GetStringValue(*shipment, AttributeTypeName::kShipmentCarrierDomain),
+      base::UTF16ToUTF8(options.carrier_domain));
+  EXPECT_EQ(GetStringValue(*shipment, AttributeTypeName::kShipmentOrderIds),
+            "Order 1, Order 2");
 }
 
 }  // namespace

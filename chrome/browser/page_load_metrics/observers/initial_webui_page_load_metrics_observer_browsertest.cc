@@ -8,6 +8,8 @@
 #include <memory>
 
 #include "base/metrics/statistics_recorder.h"
+#include "base/run_loop.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -18,6 +20,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
@@ -80,11 +83,16 @@ class WebUIControllerInitalizer : protected content::WebContentsObserver {
 
  protected:
   void DidFinishNavigation(content::NavigationHandle* handle) override {
+    if (!handle->IsInPrimaryMainFrame() || !handle->HasCommitted()) {
+      return;
+    }
     if (handle->GetWebContents() && handle->GetWebContents()->GetWebUI()) {
       auto* controller = handle->GetWebContents()->GetWebUI()->GetController();
-      Init(controller);
+      if (controller) {
+        Init(controller);
+        content::WebContentsObserver::Observe(nullptr);
+      }
     }
-    content::WebContentsObserver::Observe(nullptr);
   }
 };
 
@@ -134,6 +142,8 @@ class WebUIToolbarInitializer : public WebUIControllerInitalizer {
   explicit WebUIToolbarInitializer(Browser* browser) : injector_(browser) {}
   ~WebUIToolbarInitializer() override = default;
 
+  ToolbarDependencyProvider& injector() { return injector_; }
+
   void Init(content::WebUIController* controller) override {
     if (controller && controller->GetType()) {
       if (auto* toolbar_controller = controller->GetAs<WebUIToolbarUI>()) {
@@ -168,6 +178,11 @@ class InitialWebUIPageLoadMetricsObserverBrowserTest
     InProcessBrowserTest::PreRunTestOnMainThread();
     histogram_tester_ = std::make_unique<base::HistogramTester>();
     ukm_recorder_ = std::make_unique<ukm::TestAutoSetUkmRecorder>();
+  }
+
+  void TearDownOnMainThread() override {
+    initializer_.reset();
+    InProcessBrowserTest::TearDownOnMainThread();
   }
 
   std::unique_ptr<page_load_metrics::PageLoadMetricsTestWaiter>
@@ -214,8 +229,8 @@ class InitialWebUIPageLoadMetricsObserverBrowserTest
     std::unique_ptr<content::WebContents> new_web_contents(
         content::WebContents::Create(new_contents_params));
 
-    WebUIToolbarInitializer initializer(browser());
-    initializer.Watch(new_web_contents.get());
+    initializer_ = std::make_unique<WebUIToolbarInitializer>(browser());
+    initializer_->Watch(new_web_contents.get());
 
     InitializePageLoadMetricsForWebContents(new_web_contents.get());
 
@@ -231,6 +246,9 @@ class InitialWebUIPageLoadMetricsObserverBrowserTest
       metrics_waiter->AddPageExpectation(
           page_load_metrics::PageLoadMetricsTestWaiter::TimingField::
               kMonotonicFirstContentfulPaint);
+      metrics_waiter->AddPageExpectation(
+          page_load_metrics::PageLoadMetricsTestWaiter::TimingField::
+              kLoadEvent);
     }
 
     content::TestNavigationObserver navigation_observer(url);
@@ -247,9 +265,7 @@ class InitialWebUIPageLoadMetricsObserverBrowserTest
     }
 
     if (close_tab) {
-      int index =
-          browser()->tab_strip_model()->GetIndexOfWebContents(raw_contents);
-      browser()->tab_strip_model()->CloseWebContentsAt(index, 0);
+      browser()->tab_strip_model()->CloseWebContents(raw_contents, 0);
     }
     return raw_contents;
   }
@@ -270,42 +286,123 @@ class InitialWebUIPageLoadMetricsObserverBrowserTest
 
   std::unique_ptr<base::HistogramTester> histogram_tester_;
   std::unique_ptr<ukm::TestAutoSetUkmRecorder> ukm_recorder_;
+  std::unique_ptr<WebUIToolbarInitializer> initializer_;
 
  private:
   base::test::ScopedFeatureList feature_list_;
 };
 
-// Verify PageLoad event is recorded with valid Paint Milestones in the expected
+// Verify PageLoad event is recorded with valid paint milestones in the expected
 // sequence of lifecycle events.
-// Verify that the InitialWebUIPageLoad UKM event is recorded with all expected
-// metrics in the correct sequence of lifecycle events.
+// Verify that the `InitialWebUIPageLoad` UKM event is recorded with all
+// expected metrics in the correct sequence of lifecycle events.
 IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
                        VerifyLifecycleMetrics) {
   GURL url(chrome::kChromeUIWebUIToolbarURL);
-  NavigateAndWaitForMetrics(url);
+  content::WebContents* web_contents =
+      NavigateAndWaitForMetrics(url, /*close_tab=*/false);
+
+  // Wait for the asynchronous Mojo callbacks to complete and record the
+  // renderer milestones in an `InitialWebUIPageLoad` UKM entry.
+  auto has_renderer_milestones = [&]() {
+    for (const auto* entry : GetEntriesForUrl(
+             ukm::builders::InitialWebUIPageLoad::kEntryName, url)) {
+      if (ukm_recorder_->GetEntryMetric(
+              entry, "PaintTiming.JsCompositionCompleteMs")) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (!has_renderer_milestones()) {
+    base::RunLoop run_loop;
+    ukm_recorder_->SetOnAddEntryCallback(
+        ukm::builders::InitialWebUIPageLoad::kEntryName,
+        base::BindLambdaForTesting([&]() {
+          if (has_renderer_milestones()) {
+            run_loop.Quit();
+          }
+        }));
+    run_loop.Run();
+    // Clear the callback so that subsequent UKM entry additions during browser
+    // teardown do not invoke the lambda with destroyed stack references.
+    ukm_recorder_->SetOnAddEntryCallback(
+        ukm::builders::InitialWebUIPageLoad::kEntryName,
+        base::RepeatingClosure());
+  }
+
+  // Manually close the tab now to trigger page end metrics.
+  browser()->tab_strip_model()->CloseWebContents(web_contents, 0);
+
   auto page_load_entries = GetEntriesForUrl("InitialWebUIPageLoad", url);
 
   EXPECT_THAT(
       page_load_entries,
-      ElementsAre(
-          // 1. OnFirstContentfulPaintInPage
-          HasMetric("PaintTiming.NavigationToFirstContentfulPaint"),
-          // 2. RecordPageLoadMetrics
+      UnorderedElementsAre(
+          // OnFirstContentfulPaintInPage
+          AllOf(HasMetric("PaintTiming.NavigationToFirstContentfulPaint"),
+                HasMetric("PaintTiming.FirstContentfulPaintSubmittedMs")),
+          // RecordPageLoadMetrics
           AllOf(HasMetric("HourOfDay"), HasMetric("DayOfWeek"),
                 HasMetric("PageTiming.ForegroundDurationMs")),
-          // 3. RecordRendererUsageMetrics
+          // RecordRendererUsageMetrics
           HasMetric("SiteInstanceRenderProcessAssignment"),
-          // 4. RecordTimingMetrics
+          // RecordTimingMetrics
           AllOf(HasMetric("ParseTiming.NavigationToParseStart"),
                 HasMetric(
                     "DocumentTiming.NavigationToDOMContentLoadedEventFired"),
                 HasMetric("DocumentTiming.NavigationToLoadEventFired"),
                 HasMetric("PaintTiming.NavigationToFirstPaint"),
                 HasMetric("CPUTimeMs")),
-          // 5. RecordPageEndMetrics
+          // RecordPageEndMetrics
           AllOf(HasMetric("Navigation.PageTransition"),
                 HasMetric("Navigation.PageEndReason3"),
-                HasMetric("PageTiming.TotalForegroundDurationMs"))));
+                HasMetric("PageTiming.TotalForegroundDurationMs")),
+          // RecordRendererMilestones
+          AllOf(HasMetric("PaintTiming.JsCompositionCompleteMs"),
+                HasMetric("PaintTiming.JsResourcesLoadedMs"),
+                HasMetric("PaintTiming.LoadTimeDataReadMs"))));
+
+  const ukm::mojom::UkmEntry* renderer_milestones_entry = nullptr;
+  const ukm::mojom::UkmEntry* fcp_entry = nullptr;
+  for (const auto* entry : page_load_entries) {
+    if (ukm_recorder_->GetEntryMetric(entry,
+                                      "PaintTiming.JsCompositionCompleteMs")) {
+      renderer_milestones_entry = entry;
+    }
+    if (ukm_recorder_->GetEntryMetric(
+            entry, "PaintTiming.NavigationToFirstContentfulPaint")) {
+      fcp_entry = entry;
+    }
+  }
+  ASSERT_TRUE(renderer_milestones_entry);
+  ASSERT_TRUE(fcp_entry);
+
+  const int64_t* js_composition_complete = ukm_recorder_->GetEntryMetric(
+      renderer_milestones_entry, "PaintTiming.JsCompositionCompleteMs");
+  const int64_t* js_resources_loaded = ukm_recorder_->GetEntryMetric(
+      renderer_milestones_entry, "PaintTiming.JsResourcesLoadedMs");
+  const int64_t* load_time_data_read = ukm_recorder_->GetEntryMetric(
+      renderer_milestones_entry, "PaintTiming.LoadTimeDataReadMs");
+
+  const int64_t* fcp_submitted = ukm_recorder_->GetEntryMetric(
+      fcp_entry, "PaintTiming.FirstContentfulPaintSubmittedMs");
+  const int64_t* fcp_presented = ukm_recorder_->GetEntryMetric(
+      fcp_entry, "PaintTiming.NavigationToFirstContentfulPaint");
+
+  ASSERT_TRUE(js_composition_complete);
+  ASSERT_TRUE(js_resources_loaded);
+  ASSERT_TRUE(load_time_data_read);
+  ASSERT_TRUE(fcp_submitted);
+  ASSERT_TRUE(fcp_presented);
+
+  // Assert chronological ordering of rendering pipeline stages.
+  EXPECT_GE(*js_resources_loaded, 0);
+  EXPECT_GE(*load_time_data_read, 0);
+  EXPECT_GE(*js_composition_complete, *js_resources_loaded);
+  EXPECT_GE(*fcp_submitted, *js_composition_complete);
+  EXPECT_GE(*fcp_presented, *fcp_submitted);
 }
 
 // Verify NavigationTiming event is recorded with all 7 sub-metrics.
@@ -433,8 +530,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   metrics_waiter->Wait();
 
   // Close the tab to trigger OnComplete and OnHidden.
-  int index = browser()->tab_strip_model()->GetIndexOfWebContents(bg_contents);
-  browser()->tab_strip_model()->CloseWebContentsAt(index, 0);
+  browser()->tab_strip_model()->CloseWebContents(bg_contents, 0);
 
   // Verify InitialWebUIPageLoad has Page Load, Renderer Usage, Timing, and
   // Page End metrics. Note that paint metrics are not recorded for background
@@ -592,8 +688,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   chrome::Reload(browser(), WindowOpenDisposition::CURRENT_TAB);
   reload_observer.Wait();
 
-  int index = browser()->tab_strip_model()->GetIndexOfWebContents(contents);
-  browser()->tab_strip_model()->CloseWebContentsAt(index, 0);
+  browser()->tab_strip_model()->CloseWebContents(contents, 0);
 
   // We expect entries for both the original load and the reload.
   auto page_load_entries = GetEntriesForUrl("InitialWebUIPageLoad", url);
@@ -657,8 +752,10 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   base::HistogramTester histograms;
 
   // Create a new window
-  Browser::CreateParams params(browser()->GetProfile(), true);
-  Browser* new_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(browser()->GetProfile(),
+                                   /*from_user_gesture=*/true);
+  Browser* new_browser =
+      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
 
   auto* manager = InitialWebUIWindowMetricsManager::From(new_browser);
   ASSERT_TRUE(manager);
@@ -747,8 +844,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   observer->FlushMetricsOnAppEnterBackground();
 
   // Close the WebContents to finish recording and upload UKM
-  int index = browser()->tab_strip_model()->GetIndexOfWebContents(contents);
-  browser()->tab_strip_model()->CloseWebContentsAt(index, 0);
+  browser()->tab_strip_model()->CloseWebContents(contents, 0);
 
   // Verify that PageEndReason of END_APP_ENTER_BACKGROUND (value 6) is logged
   auto entries = GetEntriesForUrl("InitialWebUIPageLoad", url);
@@ -814,9 +910,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIPageLoadMetricsObserverBrowserTest,
   // Close the tab. This triggers OnComplete and RecordPageEndMetrics.
   // Since it is currently in foreground, the final foreground session will be
   // added to TotalForegroundDuration.
-  int index =
-      browser()->tab_strip_model()->GetIndexOfWebContents(active_contents);
-  browser()->tab_strip_model()->CloseWebContentsAt(index, 0);
+  browser()->tab_strip_model()->CloseWebContents(active_contents, 0);
 
   entries = GetEntriesForUrl("InitialWebUIPageLoad", url);
   EXPECT_THAT(entries,

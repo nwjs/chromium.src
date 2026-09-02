@@ -39,14 +39,10 @@ void SetUpFontUniqueLookupIfNecessary() {
 }  // namespace
 
 FontMetadata::FontMetadata(const FontEnumerationEntry& entry)
-    : postscriptName_(entry.postscript_name),
-      fullName_(entry.full_name),
+    : postscript_name_(entry.postscript_name),
+      full_name_(entry.full_name),
       family_(entry.family),
       style_(entry.style) {}
-
-FontMetadata* FontMetadata::Create(const FontEnumerationEntry& entry) {
-  return MakeGarbageCollected<FontMetadata>(entry);
-}
 
 ScriptPromise<Blob> FontMetadata::blob(ScriptState* script_state) {
   auto* resolver =
@@ -57,18 +53,14 @@ ScriptPromise<Blob> FontMetadata::blob(ScriptState* script_state) {
       ->GetTaskRunner(TaskType::kFontLoading)
       ->PostTask(FROM_HERE,
                  BindOnce(&FontMetadata::BlobImpl, WrapPersistent(resolver),
-                          postscriptName_));
+                          postscript_name_));
 
   return promise;
 }
 
-void FontMetadata::Trace(blink::Visitor* visitor) const {
-  ScriptWrappable::Trace(visitor);
-}
-
 // static
 void FontMetadata::BlobImpl(ScriptPromiseResolver<Blob>* resolver,
-                            const String& postscriptName) {
+                            const String& postscript_name) {
   if (!resolver->GetScriptState()->ContextIsValid())
     return;
 
@@ -76,14 +68,13 @@ void FontMetadata::BlobImpl(ScriptPromiseResolver<Blob>* resolver,
 
   FontDescription description;
   const SimpleFontData* font_data =
-      FontCache::Get().GetFontData(description, AtomicString(postscriptName),
+      FontCache::Get().GetFontData(description, AtomicString(postscript_name),
                                    AlternateFontName::kLocalUniqueFace);
   if (!font_data) {
-    auto message = String::Format("The font %s could not be accessed.",
-                                  postscriptName.Latin1().c_str());
     ScriptState::Scope scope(resolver->GetScriptState());
     resolver->Reject(V8ThrowException::CreateTypeError(
-        resolver->GetScriptState()->GetIsolate(), message));
+        resolver->GetScriptState()->GetIsolate(),
+        StrCat({"The font ", postscript_name, " could not be accessed."})));
     return;
   }
 
@@ -99,11 +90,11 @@ void FontMetadata::BlobImpl(ScriptPromiseResolver<Blob>* resolver,
     // TODO(https://crbug.com/1086840): openStream rarely fails, but it happens
     // sometimes. A potential remediation is to synthesize a font from tables
     // at the cost of memory and throughput.
-    auto message = String::Format("Font data for %s could not be accessed.",
-                                  postscriptName.Latin1().c_str());
     ScriptState::Scope scope(resolver->GetScriptState());
     resolver->Reject(V8ThrowException::CreateTypeError(
-        resolver->GetScriptState()->GetIsolate(), message));
+        resolver->GetScriptState()->GetIsolate(),
+        StrCat(
+            {"Font data for ", postscript_name, " could not be accessed."})));
     return;
   }
 

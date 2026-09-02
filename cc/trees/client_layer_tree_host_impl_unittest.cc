@@ -2669,10 +2669,8 @@ TEST_P(PendingTreeLayerTreeHostImplTest, ActivateTreeScrollingNodeDisappeared) {
           .get(),
       ui::ScrollInputType::kWheel);
   EXPECT_EQ(ScrollThread::kScrollOnImplThread, status.thread);
-  EXPECT_EQ(MainThreadScrollingReason::kNotScrollingOnMain,
-            status.main_thread_repaint_reasons);
-  EXPECT_EQ(MainThreadScrollingReason::kNotScrollingOnMain,
-            status.main_thread_hit_test_reasons);
+  EXPECT_TRUE(status.main_thread_repaint_reasons.empty());
+  EXPECT_TRUE(status.main_thread_hit_test_reasons.empty());
   GetInputHandler().ScrollUpdate(UpdateState(gfx::Point(), gfx::Vector2d(0, 10),
                                              ui::ScrollInputType::kWheel));
   EXPECT_TRUE(host_impl_->active_tree()->CurrentlyScrollingNode());
@@ -3541,6 +3539,8 @@ TEST_P(PendingTreeLayerTreeHostImplTest,
       scroll_state.get(), ui::ScrollInputType::kTouchscreen);
   EXPECT_EQ(true, status.raster_inducing);
 
+  base::TimeTicks scroll_begin_generated_timestamp =
+      base::TimeTicks::Now() - base::Milliseconds(1);
   base::TimeTicks scroll_begin_arrival_timestamp = base::TimeTicks::Now();
   GetInputHandler().RecordScrollBegin(
       ui::ScrollInputType::kTouchscreen,
@@ -3559,7 +3559,7 @@ TEST_P(PendingTreeLayerTreeHostImplTest,
         /*arrived_in_browser_main_timestamp=*/now + base::Milliseconds(1),
         /*blocking_touch_dispatched_to_renderer=*/base::TimeTicks(),
         /*trace_id=*/base::IdType64<class ui::LatencyInfo>(123),
-        scroll_begin_arrival_timestamp);
+        scroll_begin_generated_timestamp, scroll_begin_arrival_timestamp);
 
     // Associate metrics with the scoped metrics monitor by registering a done
     // callback.

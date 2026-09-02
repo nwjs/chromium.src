@@ -4,6 +4,7 @@
 
 import("//build/config/cast.gni")
 import("//build/config/ui.gni")
+import("//components/vrp_flags/features.gni")
 import("//content/common/features.gni")
 import("//media/media_options.gni")
 import("//printing/buildflags/buildflags.gni")
@@ -73,8 +74,6 @@ target(link_target_type, "renderer") {
     "gpu_benchmarking_extension.h",
     "in_process_renderer_thread.cc",
     "in_process_renderer_thread.h",
-    "lazy_shared_url_loader_factory.cc",
-    "lazy_shared_url_loader_factory.h",
     "local_resource_url_loader_factory.cc",
     "local_resource_url_loader_factory.h",
     "media/audio_decoder.cc",
@@ -251,6 +250,7 @@ target(link_target_type, "renderer") {
     "//components/variations/net",
     "//components/viz/client",
     "//components/viz/common",
+    "//components/vrp_flags:buildflags",
     "//content:content_resources",
     "//content/child",
     "//content/common",
@@ -423,6 +423,13 @@ target(link_target_type, "renderer") {
 
   if (enable_ipc_fuzzer) {
     configs += [ "//tools/ipc_fuzzer:ipc_fuzzer_config" ]
+  }
+
+  if (enable_vrp_flags) {
+    deps += [
+      "//components/vrp_flags",
+      "//components/vrp_flags:mojom",
+    ]
   }
 }
 

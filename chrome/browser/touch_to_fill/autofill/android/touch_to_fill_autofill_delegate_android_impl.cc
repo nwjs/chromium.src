@@ -6,6 +6,7 @@
 
 #include "base/check_deref.h"
 #include "chrome/browser/android/preferences/autofill/settings_navigation_helper.h"
+#include "chrome/browser/ui/autofill/autofill_suggestion_controller.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
@@ -16,6 +17,7 @@
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_field_data.h"
+#include "components/personal_context/first_run/personal_context_first_run_service.h"
 
 namespace autofill {
 
@@ -33,7 +35,9 @@ bool TouchToFillAutofillDelegateAndroidImpl::IntendsToShowTouchToFill(
       field_id == query_field_id_) {
     return false;
   }
-  if (!manager_->client().ShouldShowPersonalContextAmbientAutofillNotice()) {
+  personal_context::PersonalContextFirstRunService* service =
+      manager_->client().GetPersonalContextFirstRunService();
+  if (!service || !service->ShouldShowPersonalContextAmbientAutofillNotice()) {
     return false;
   }
 
@@ -98,7 +102,12 @@ bool TouchToFillAutofillDelegateAndroidImpl::TryToShowTouchToFill(
           weak_ptr_factory_.GetWeakPtr())) {
     ttf_autofill_state_ = TouchToFillAutofillState::kShowing;
     query_field_id_ = field.global_id();
-    OnShow();
+    if (personal_context::PersonalContextFirstRunService* service =
+            manager_->client().GetPersonalContextFirstRunService()) {
+      service->RecordAmbientAutofillNoticeImpression(
+          AutofillSuggestionController::GenerateSuggestionUiSessionId()
+              .value());
+    }
     return true;
   }
   return false;
@@ -128,12 +137,11 @@ void TouchToFillAutofillDelegateAndroidImpl::HideTouchToFill() {
   }
 }
 
-void TouchToFillAutofillDelegateAndroidImpl::OnShow() {
-  // TODO(crbug.com/521716313): Record shown metrics.
-}
-
 void TouchToFillAutofillDelegateAndroidImpl::OnNoticeAcknowledged() {
-  manager_->client().MarkPersonalContextAmbientAutofillNoticeAsAcknowledged();
+  if (personal_context::PersonalContextFirstRunService* service =
+          manager_->client().GetPersonalContextFirstRunService()) {
+    service->MarkPersonalContextAmbientAutofillNoticeAsAcknowledged();
+  }
 }
 
 void TouchToFillAutofillDelegateAndroidImpl::OnSettingsLinkClicked() {

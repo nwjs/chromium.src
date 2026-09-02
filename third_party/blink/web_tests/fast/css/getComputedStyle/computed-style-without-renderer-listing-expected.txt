@@ -290,6 +290,7 @@ math-depth: 0
 math-shift: normal
 math-style: normal
 max-block-size: none
+max-content-sizing: auto
 max-height: none
 max-inline-size: none
 max-lines: auto
@@ -327,6 +328,7 @@ overscroll-behavior-block: auto
 overscroll-behavior-inline: auto
 overscroll-behavior-x: auto
 overscroll-behavior-y: auto
+overscroll-container-type: auto
 padding-block-end: 0px
 padding-block-start: 0px
 padding-bottom: 0px
@@ -426,6 +428,7 @@ text-box-trim: none
 text-combine-upright: none
 text-decoration: none
 text-decoration-color: rgb(0, 0, 0)
+text-decoration-inset: 0px
 text-decoration-line: none
 text-decoration-skip-ink: auto
 text-decoration-skip-spaces: none

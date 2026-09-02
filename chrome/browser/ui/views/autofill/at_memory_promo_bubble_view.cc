@@ -81,7 +81,7 @@ AtMemoryPromoBubbleView::AtMemoryPromoBubbleView(
   SetButtonLabel(ui::mojom::DialogButton::kCancel,
                  l10n_util::GetStringUTF16(IDS_AT_MEMORY_PROMO_GOT_IT_BUTTON));
   SetButtonStyle(ui::mojom::DialogButton::kOk, ui::ButtonStyle::kProminent);
-  SetButtonStyle(ui::mojom::DialogButton::kCancel, ui::ButtonStyle::kDefault);
+  SetButtonStyle(ui::mojom::DialogButton::kCancel, ui::ButtonStyle::kTonal);
   SetDefaultButton(static_cast<int>(ui::mojom::DialogButton::kNone));
 
   SetAcceptCallback(base::BindOnce(&AtMemoryPromoBubbleView::OnLearnMoreClicked,
@@ -108,7 +108,7 @@ void AtMemoryPromoBubbleView::OnLearnMoreClicked() {
     // it destroys the view before navigation can be initiated.
     base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(
-                       [](base::WeakPtr<Browser> browser) {
+                       [](base::WeakPtr<BrowserWindowInterface> browser) {
                          if (!browser) {
                            return;
                          }
@@ -121,7 +121,7 @@ void AtMemoryPromoBubbleView::OnLearnMoreClicked() {
                              WindowOpenDisposition::NEW_FOREGROUND_TAB;
                          Navigate(&params);
                        },
-                       browser->AsWeakPtr()));
+                       browser->GetWeakPtr()));
   }
 
   NotifyUserAction(CustomHelpBubbleUi::UserAction::kDismiss);

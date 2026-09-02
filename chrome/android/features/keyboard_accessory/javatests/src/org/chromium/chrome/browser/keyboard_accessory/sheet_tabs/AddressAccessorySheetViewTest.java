@@ -29,6 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
@@ -55,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** View tests for the address accessory sheet. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@Batch(Batch.PER_CLASS)
 public class AddressAccessorySheetViewTest {
     private WebPageStation mPage;
     private AccessorySheetTabItemsModel mModel;
@@ -126,11 +128,10 @@ public class AddressAccessorySheetViewTest {
         assertThat(mView.get().getChildCount(), is(0));
 
         ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    mModel.add(
-                            new AccessorySheetDataPiece(
-                                    "Addresses", AccessorySheetDataPiece.Type.TITLE));
-                });
+                () ->
+                        mModel.add(
+                                new AccessorySheetDataPiece(
+                                        "Addresses", AccessorySheetDataPiece.Type.TITLE)));
 
         CriteriaHelper.pollUiThread(() -> Criteria.checkThat(mView.get().getChildCount(), is(1)));
         View title = mView.get().findViewById(R.id.tab_title);

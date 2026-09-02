@@ -4,9 +4,10 @@
 
 #include "components/autofill/core/browser/metrics/prediction_quality_metrics.h"
 
+#include <ranges>
+
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "base/types/zip.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
@@ -35,6 +36,7 @@ using ::autofill::test::CreateTestFormField;
 using ::base::Bucket;
 using ::base::BucketsAre;
 using ::testing::ElementsAre;
+using ::testing::Values;
 using ::testing::WithParamInterface;
 
 class PredictionQualityMetricsTest : public AutofillMetricsBaseTest,
@@ -80,8 +82,8 @@ TEST_F(PredictionQualityMetricsTest, SaneMetricsWithCacheMismatch) {
   std::unique_ptr<FormStructure> form_structure =
       std::make_unique<FormStructure>(test::WithoutValues(form));
 
-  for (auto [field, heuristic_type, server_type] :
-       base::zip(form_structure->fields(), heuristic_types, server_types)) {
+  for (auto [field, heuristic_type, server_type] : std::views::zip(
+           form_structure->fields(), heuristic_types, server_types)) {
     field->set_heuristic_type(GetActiveHeuristicSource(), heuristic_type);
     field->set_server_predictions({test::CreateFieldPrediction(server_type)});
   }
@@ -541,6 +543,151 @@ TEST_F(PredictionQualityMetricsTest, FieldTypeAtSubmission) {
           Bucket(get_bucket(PHONE_HOME_CITY_AND_NUMBER,
                             AutofillPredictionSource::kHeuristics),
                  1)));
+}
+
+AutofillField CreateAutofillFieldForLowQualityLabelTest(
+    FormFieldData::LabelSource label_source =
+        FormFieldData::LabelSource::kLabelTag) {
+  AutofillField field;
+  field.set_label(u"Label");
+  field.set_placeholder(u"placeholder");
+  field.set_label_source(label_source);
+  field.set_regex_match_info(MatchInfo{
+      .matched_attribute = MatchInfo::MatchAttribute::kLowQualityLabel});
+  return field;
+}
+
+// Validates that no metrics are reported when `regex_match_info` is missing.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_MissingMatchInfo) {
+  base::HistogramTester histogram_tester;
+  AutofillField field = CreateAutofillFieldForLowQualityLabelTest();
+  field.set_regex_match_info(std::nullopt);
+
+  LogHeuristicPredictionQualityForLowQualityLabels(
+      field, /*was_prediction_correct=*/true);
+
+  EXPECT_EQ(histogram_tester.GetTotalSum(), 0);
+}
+
+// Validates that no metrics are reported when the field label is empty.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_EmptyLabel) {
+  base::HistogramTester histogram_tester;
+  AutofillField field = CreateAutofillFieldForLowQualityLabelTest();
+  field.set_label(u"");
+
+  LogHeuristicPredictionQualityForLowQualityLabels(
+      field, /*was_prediction_correct=*/true);
+
+  EXPECT_EQ(histogram_tester.GetTotalSum(), 0);
+}
+
+// Validates that no metrics are reported when the field placeholder is empty.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_EmptyPlaceholder) {
+  base::HistogramTester histogram_tester;
+  AutofillField field = CreateAutofillFieldForLowQualityLabelTest();
+  field.set_placeholder(u"");
+
+  LogHeuristicPredictionQualityForLowQualityLabels(
+      field, /*was_prediction_correct=*/true);
+
+  EXPECT_EQ(histogram_tester.GetTotalSum(), 0);
+}
+
+// Validates that no metrics are reported when `matched_attribute` is not
+// `kLowQualityLabel`.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_HighQualityMatchAttribute) {
+  base::HistogramTester histogram_tester;
+  AutofillField field = CreateAutofillFieldForLowQualityLabelTest();
+  field.set_regex_match_info(MatchInfo{
+      .matched_attribute = MatchInfo::MatchAttribute::kHighQualityLabel});
+
+  LogHeuristicPredictionQualityForLowQualityLabels(
+      field, /*was_prediction_correct=*/true);
+
+  EXPECT_EQ(histogram_tester.GetTotalSum(), 0);
+}
+
+// Validates that `PlaceholderMatchWithHighQualityLabelPresent` metric is
+// reported correctly for a field with a high quality label and placeholder
+// match.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_PlaceholderMatch) {
+  base::HistogramTester histogram_tester;
+  AutofillField field = CreateAutofillFieldForLowQualityLabelTest();
+
+  LogHeuristicPredictionQualityForLowQualityLabels(
+      field, /*was_prediction_correct=*/true);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FieldPredictionQuality.Aggregate.Heuristic."
+      "PlaceholderMatchWithHighQualityLabelPresent",
+      true, 1);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.FieldPredictionQuality.Aggregate.Heuristic."
+      "LowQualityLabelMatchWithPlaceholderPresent",
+      0);
+}
+
+// Validates that `LowQualityLabelMatchWithPlaceholderPresent` metric is
+// reported correctly for a field with placeholder and low quality label match.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_LabelMatch) {
+  base::HistogramTester histogram_tester;
+  AutofillField field = CreateAutofillFieldForLowQualityLabelTest(
+      FormFieldData::LabelSource::kAriaLabel);
+
+  LogHeuristicPredictionQualityForLowQualityLabels(
+      field, /*was_prediction_correct=*/true);
+
+  histogram_tester.ExpectTotalCount(
+      "Autofill.FieldPredictionQuality.Aggregate.Heuristic."
+      "PlaceholderMatchWithHighQualityLabelPresent",
+      0);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FieldPredictionQuality.Aggregate.Heuristic."
+      "LowQualityLabelMatchWithPlaceholderPresent",
+      true, 1);
+}
+
+// Validates that metrics for low quality label matches are reported
+// for each field in the form upon form submission with correct
+// parameters.
+TEST_F(PredictionQualityMetricsTest,
+       PredictionQualityForLowQualityLabels_LoggingTriggeredForEachField) {
+  base::HistogramTester histogram_tester;
+  FormData form = GetAndAddSeenForm(
+      {.fields = {{.role = NAME_FIRST,
+                   .label = u"First Name",
+                   .value = u"Elvis",
+                   .placeholder = u"placeholder",
+                   .label_source = FormFieldData::LabelSource::kLabelTag},
+                  {.role = NAME_LAST,
+                   .label = u"Last Name",
+                   .value = u"Presley",
+                   .placeholder = u"placeholder",
+                   .label_source = FormFieldData::LabelSource::kAriaLabel}}});
+  FormStructure* form_structure =
+      test_api(autofill_manager()).FindCachedFormById(form.global_id());
+  ASSERT_TRUE(form_structure);
+  for (const std::unique_ptr<AutofillField>& field : form_structure->fields()) {
+    field->set_regex_match_info(MatchInfo{
+        .matched_attribute = MatchInfo::MatchAttribute::kLowQualityLabel});
+  }
+
+  SubmitForm(form);
+
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FieldPredictionQuality.Aggregate.Heuristic."
+      "PlaceholderMatchWithHighQualityLabelPresent",
+      true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.FieldPredictionQuality.Aggregate.Heuristic."
+      "LowQualityLabelMatchWithPlaceholderPresent",
+      true, 1);
 }
 
 }  // namespace

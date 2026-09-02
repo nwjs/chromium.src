@@ -277,6 +277,19 @@ VerifySaveDataNotInAccessControlRequestHeader(
   return std::move(http_response);
 }
 
+std::unique_ptr<net::test_server::HttpResponse> HandleServerTimingRequest(
+    const net::test_server::HttpRequest& request) {
+  if (request.relative_url != "/server_timing_test") {
+    return nullptr;
+  }
+  auto response = std::make_unique<net::test_server::BasicHttpResponse>();
+  response->set_code(net::HTTP_OK);
+  response->set_content_type("text/plain");
+  response->AddCustomHeader("Server-Timing", "db;dur=53");
+  response->set_content("sample content for timing test");
+  return response;
+}
+
 void CountScriptResources(ServiceWorkerContextWrapper* wrapper,
                           const GURL& scope,
                           int* num_resources) {
@@ -1128,6 +1141,191 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest, GetRunningServiceWorkerInfos) {
       running_info.render_process_id);
 }
 
+// A document hosted by a privileged WebContents that disallows service worker
+// control is permanently ineligible to be controlled: even a service worker
+// that skipWaiting()s and calls clients.claim() cannot claim it, while an
+// ordinary tab at the same origin is claimed.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest,
+                       PrivilegedWebContentsCannotBeClaimed) {
+  StartServerAndNavigateToSetup();
+  const GURL in_scope =
+      embedded_test_server()->GetURL("/service_worker/empty.html");
+
+  // Load an ordinary tab and a privileged WebContents at the same in-scope URL,
+  // both uncontrolled (no service worker yet).
+  EXPECT_TRUE(NavigateToURL(shell(), in_scope));
+  RenderFrameHostImpl* ordinary_main = static_cast<RenderFrameHostImpl*>(
+      shell()->web_contents()->GetPrimaryMainFrame());
+
+  WebContents::CreateParams params(
+      shell()->web_contents()->GetBrowserContext());
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  marker.disallow_service_worker_control = true;
+  params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(WebContents::Create(params));
+  EXPECT_TRUE(NavigateToURL(privileged.get(), in_scope));
+  RenderFrameHostImpl* privileged_main =
+      static_cast<RenderFrameHostImpl*>(privileged->GetPrimaryMainFrame());
+  ASSERT_TRUE(privileged_main->GetLastCommittedServiceWorkerClient());
+  EXPECT_FALSE(privileged_main->GetLastCommittedServiceWorkerClient()
+                   ->IsEligibleForServiceWorkerController());
+
+  // Register a service worker that immediately activates and claims all
+  // clients, from the ordinary tab, and wait for the ordinary tab to be
+  // claimed.
+  EXPECT_EQ("claimed", EvalJs(ordinary_main, R"(
+    (async () => {
+      await navigator.serviceWorker.register(
+          'skip_waiting_and_clients_claim_worker.js');
+      if (navigator.serviceWorker.controller) return 'claimed';
+      await new Promise(resolve =>
+          navigator.serviceWorker.addEventListener(
+              'controllerchange', resolve, {once: true}));
+      return 'claimed';
+    })()
+  )"));
+
+  // The ordinary tab is now controlled; the privileged WebContents was skipped
+  // by clients.claim() and remains uncontrolled.
+  ASSERT_TRUE(ordinary_main->GetLastCommittedServiceWorkerClient());
+  EXPECT_TRUE(
+      ordinary_main->GetLastCommittedServiceWorkerClient()->controller());
+  ASSERT_TRUE(privileged_main->GetLastCommittedServiceWorkerClient());
+  EXPECT_FALSE(
+      privileged_main->GetLastCommittedServiceWorkerClient()->controller());
+}
+
+// A window client hosted by a privileged WebContents that disallows service
+// worker control is invisible to a same-origin service worker's
+// clients.matchAll({includeUncontrolled: true}); an ordinary same-origin client
+// remains visible.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest,
+                       PrivilegedWebContentsHiddenFromMatchAll) {
+  StartServerAndNavigateToSetup();
+  const GURL ordinary_url =
+      embedded_test_server()->GetURL("/service_worker/empty.html");
+  const GURL privileged_url =
+      embedded_test_server()->GetURL("/service_worker/empty.html?privileged");
+
+  // An ordinary tab registers a worker that reports window clients, and waits
+  // for it to become active.
+  EXPECT_TRUE(NavigateToURL(shell(), ordinary_url));
+  EXPECT_EQ("ok", EvalJs(shell(), R"(
+    (async () => {
+      await navigator.serviceWorker.register('matchall_windows_worker.js');
+      await navigator.serviceWorker.ready;
+      return 'ok';
+    })()
+  )"));
+
+  // A privileged WebContents at a distinct same-origin, in-scope URL.
+  WebContents::CreateParams params(
+      shell()->web_contents()->GetBrowserContext());
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  marker.disallow_service_worker_control = true;
+  params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(WebContents::Create(params));
+  ASSERT_TRUE(NavigateToURL(privileged.get(), privileged_url));
+
+  // Ask the worker to enumerate window clients and report their URLs. The
+  // ordinary client is present; the privileged client is not.
+  const std::string urls = EvalJs(shell(), R"(
+    (async () => {
+      const reg = await navigator.serviceWorker.ready;
+      const list = await new Promise((resolve) => {
+        navigator.serviceWorker.addEventListener(
+            'message', (e) => resolve(e.data), {once: true});
+        reg.active.postMessage('list');
+      });
+      return list.join(',');
+    })()
+  )")
+                               .ExtractString();
+  EXPECT_THAT(urls, ::testing::HasSubstr(ordinary_url.spec()));
+  EXPECT_THAT(urls, ::testing::Not(::testing::HasSubstr("?privileged")));
+}
+
+// A WebContents created with PrivilegedParams
+// (`disallow_service_worker_control`) must not be able to register a service
+// worker or reach a registration; an ordinary WebContents at the same URL still
+// can. register() and the other container-host methods all funnel through
+// AllowServiceWorker, which denies them for such a WebContents.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest,
+                       PrivilegedWebContentsCannotRegisterServiceWorker) {
+  StartServerAndNavigateToSetup();
+  const GURL page_url = embedded_test_server()->GetURL(
+      "/service_worker/create_service_worker.html");
+
+  // A privileged WebContents that disallows service worker control has its
+  // register() rejected with a permission-denied error.
+  WebContents::CreateParams privileged_params(
+      shell()->web_contents()->GetBrowserContext());
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  marker.disallow_service_worker_control = true;
+  privileged_params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(
+      WebContents::Create(privileged_params));
+  ASSERT_TRUE(NavigateToURL(privileged.get(), page_url));
+  EXPECT_THAT(
+      EvalJs(privileged.get(), "register('fetch_event.js');").ExtractString(),
+      ::testing::HasSubstr("denied permission to use Service Worker"));
+
+  // Control: an ordinary WebContents at the same URL registers successfully.
+  ASSERT_TRUE(NavigateToURL(shell(), page_url));
+  EXPECT_EQ("DONE", EvalJs(shell(), "register('fetch_event.js');"));
+
+  // TODO(crbug.com/539909218): This CL only blocks registration from a
+  // privileged WebContents. Add coverage that a service worker already
+  // registered for the origin (e.g. by the ordinary tab above) cannot control
+  // a same-origin privileged WebContents, once that control restriction lands.
+}
+
+// A privileged WebContents that disallows service worker control skips the
+// service worker for its navigations: a document it commits is uncontrolled
+// even when an active registration exists for the origin, while an ordinary
+// tab at the same URL is controlled.
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest,
+                       PrivilegedWebContentsSkipsServiceWorker) {
+  StartServerAndNavigateToSetup();
+
+  // Register a service worker that controls /service_worker/.
+  EXPECT_TRUE(NavigateToURL(shell(),
+                            embedded_test_server()->GetURL(
+                                "/service_worker/create_service_worker.html")));
+  EXPECT_EQ("DONE",
+            EvalJs(shell(), "register('fetch_event_pass_through.js');"));
+
+  const GURL in_scope =
+      embedded_test_server()->GetURL("/service_worker/empty.html");
+
+  // An ordinary tab in the scope is controlled (positive control).
+  EXPECT_TRUE(NavigateToURL(shell(), in_scope));
+  RenderFrameHostImpl* ordinary_main = static_cast<RenderFrameHostImpl*>(
+      shell()->web_contents()->GetPrimaryMainFrame());
+  ASSERT_TRUE(ordinary_main->GetLastCommittedServiceWorkerClient());
+  EXPECT_TRUE(
+      ordinary_main->GetLastCommittedServiceWorkerClient()->controller());
+
+  // A privileged WebContents that disallows service worker control is not
+  // controlled at the same URL.
+  WebContents::CreateParams params(
+      shell()->web_contents()->GetBrowserContext());
+  WebContents::PrivilegedParams marker;
+  marker.feature_id = 42;
+  marker.disallow_service_worker_control = true;
+  params.privileged_params = marker;
+  std::unique_ptr<WebContents> privileged(WebContents::Create(params));
+  EXPECT_TRUE(NavigateToURL(privileged.get(), in_scope));
+  RenderFrameHostImpl* privileged_main =
+      static_cast<RenderFrameHostImpl*>(privileged->GetPrimaryMainFrame());
+  auto privileged_client =
+      privileged_main->GetLastCommittedServiceWorkerClient();
+  EXPECT_TRUE(!privileged_client || !privileged_client->controller());
+}
+
 // A document that commits with an opaque origin because its response carries a
 // `Content-Security-Policy: sandbox` header (without `allow-same-origin`) must
 // not be given a service worker container in the browser process, even if its
@@ -1225,6 +1423,44 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest,
       shell()->web_contents()->GetPrimaryMainFrame());
   EXPECT_TRUE(main_frame->GetLastCommittedOrigin().opaque());
   EXPECT_FALSE(main_frame->GetLastCommittedServiceWorkerClient());
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerBrowserTest, SubresourceTimingAllowPassed) {
+  StartServerAndNavigateToSetup();
+
+  net::EmbeddedTestServer cross_origin_server;
+  cross_origin_server.ServeFilesFromSourceDirectory(GetTestDataFilePath());
+  cross_origin_server.RegisterRequestHandler(
+      base::BindRepeating(&HandleServerTimingRequest));
+  ASSERT_TRUE(cross_origin_server.Start());
+
+  EXPECT_TRUE(NavigateToURL(shell(),
+                            embedded_test_server()->GetURL(
+                                "/service_worker/create_service_worker.html")));
+  EXPECT_EQ("DONE",
+            EvalJs(shell(), "register('fetch_event_respond_with_fetch.js');"));
+
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("/service_worker/empty.html")));
+
+  const std::string script = base::StringPrintf(
+      "new Promise(resolve => {\n"
+      "  const target = '%s';\n"
+      "  const check = () => {\n"
+      "    const entries = performance.getEntriesByName(target);\n"
+      "    if (entries.length > 0) {\n"
+      "      resolve(entries[0].serverTiming.length === 0 && "
+      "entries[0].encodedBodySize === 0 && "
+      "entries[0].decodedBodySize === 0);\n"
+      "    }\n"
+      "  };\n"
+      "  new PerformanceObserver(() => check()).observe({type: 'resource', "
+      "buffered: true});\n"
+      "  fetch(target, {mode: 'no-cors'}).then(() => check());\n"
+      "});",
+      cross_origin_server.GetURL("/server_timing_test").spec().c_str());
+
+  EXPECT_EQ(true, EvalJs(shell(), script));
 }
 
 // A document that commits with a non-opaque origin because its response carries
@@ -8299,7 +8535,10 @@ class MockContentBrowserClientWithInterceptor
   URLLoaderRequestHandler
   CreateURLLoaderHandlerForServiceWorkerInitiatedNavigationRequest(
       FrameTreeNodeId frame_tree_node_id,
-      const network::ResourceRequest& resource_request) override {
+      const network::ResourceRequest& resource_request,
+      int64_t navigation_id,
+      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner)
+      override {
     if (intercept_) {
       return base::BindOnce(
           &MockContentBrowserClientWithInterceptor::HandleRequest,

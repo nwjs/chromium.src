@@ -45,12 +45,17 @@ import org.robolectric.android.controller.ActivityController;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.cc.input.BrowserControlsState;
+import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListProperties.RailCollapseState;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.AnchorSide;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
+import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.ui.base.ViewUtils;
 
 /** Unit tests for {@link VerticalTabsSideUiCoordinator}. */
@@ -61,11 +66,14 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
     @Mock private VerticalTabListCoordinator mMockTabListCoordinator;
     @Mock private SideUiCoordinator mMockSideUiCoordinator;
 
+    private BrowserStateBrowserControlsVisibilityDelegate mBrowserControlsVisibilityDelegate;
     private VerticalTabRailCollapseController mCollapseController;
     private VerticalTabsSideUiCoordinator mCoordinator;
     private ActivityController<Activity> mActivityController;
     private Activity mActivity;
+    private View mTabListView;
     private @Px int mWideWindowWidth;
+    private @Px int mMediumWindowWidth;
     private @Px int mNarrowWindowWidth;
     private @Px int mExpandedRailWidth;
     private @Px int mCollapsedRailWidth;
@@ -77,24 +85,29 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
         mActivityController = Robolectric.buildActivity(Activity.class).setup();
         mActivity = mActivityController.get();
         mWideWindowWidth = ViewUtils.dpToPx(mActivity, 800);
-        mNarrowWindowWidth = ViewUtils.dpToPx(mActivity, 600);
+        mMediumWindowWidth = ViewUtils.dpToPx(mActivity, 600);
+        mNarrowWindowWidth = ViewUtils.dpToPx(mActivity, 500);
         mExpandedRailWidth = ViewUtils.dpToPx(mActivity, VIEW_WIDTH_DP);
         mCollapsedRailWidth =
                 ViewUtils.dpToPx(mActivity, VerticalTabsSideUiCoordinator.COLLAPSED_WIDTH_DP);
         // Initialize window width to wide before mCoordinator creation to avoid
         // triggering a layout change event during constructor setup.
         setWindowWidthPx(mWideWindowWidth);
-        View mockView = new View(mActivity);
-        when(mMockTabListCoordinator.getView()).thenReturn(mockView);
+        mTabListView = new View(mActivity);
+        when(mMockTabListCoordinator.getView()).thenReturn(mTabListView);
         mCollapseController =
                 new VerticalTabRailCollapseController(
                         mMockTabListCoordinator::setRailCollapseState);
         when(mMockTabListCoordinator.getCollapseController()).thenReturn(mCollapseController);
+        mBrowserControlsVisibilityDelegate =
+                new BrowserStateBrowserControlsVisibilityDelegate(
+                        ObservableSuppliers.alwaysFalse());
 
         mCoordinator =
                 new VerticalTabsSideUiCoordinator(
                         mActivity,
                         mMockSideUiCoordinator,
+                        mBrowserControlsVisibilityDelegate,
                         mMockTabListCoordinator,
                         mIsVerticalTabsActiveSupplier);
     }
@@ -130,6 +143,25 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
 
     @Test
     @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS + ":auto_resize/true"})
+    public void testDetermineShowableSize_isAutoHiddenSupplierWhenHiddenDueToNarrow_autoResize() {
+        mCoordinator.setVisible(/* show= */ true, /* suppressAnimations= */ false);
+        mCoordinator.determineShowableSize(
+                mCollapsedRailWidth - 1, mWideWindowWidth, /* isFullscreen= */ false);
+
+        assertTrue(mCoordinator.getIsAutoHiddenSupplier().get());
+
+        mCoordinator.determineShowableSize(
+                mCollapsedRailWidth, mWideWindowWidth, /* isFullscreen= */ false);
+
+        assertFalse(mCoordinator.getIsAutoHiddenSupplier().get());
+
+        mCoordinator.setVisible(/* show= */ false, /* suppressAnimations= */ false);
+        assertFalse(mCoordinator.getIsAutoHiddenSupplier().get());
+    }
+
+    @Test
+    @SmallTest
     public void testObserverRegistration() {
         // Constructor is called in setUp(), verify registration happened.
         verify(mMockSideUiCoordinator).addObserver(mCoordinator);
@@ -146,10 +178,35 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
                 HeightType.TOOLBAR);
         assertTrue(mIsVerticalTabsActiveSupplier.get());
 
+        assertEquals(BrowserControlsState.SHOWN, (int) mBrowserControlsVisibilityDelegate.get());
+
         mCoordinator.destroy();
         verify(mMockSideUiCoordinator).removeObserver(mCoordinator);
         verify(mMockTabListCoordinator).destroy();
         assertFalse(mIsVerticalTabsActiveSupplier.get());
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+    }
+
+    @Test
+    @SmallTest
+    public void testBrowserControlsVisibility_whenVisibleAndDisabled() {
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+
+        // Set visible -> browser controls should be locked to SHOWN.
+        mCoordinator.setVisible(/* show= */ true, /* suppressAnimations= */ false);
+        assertEquals(BrowserControlsState.SHOWN, (int) mBrowserControlsVisibilityDelegate.get());
+
+        // Calling setVisible(false) -> browser controls should return to BOTH.
+        mCoordinator.setVisible(/* show= */ false, /* suppressAnimations= */ false);
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+    }
+
+    @Test
+    @SmallTest
+    public void testBrowserControlsVisibility_destroyWithoutBeingVisible() {
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
+        mCoordinator.destroy();
+        assertEquals(BrowserControlsState.BOTH, (int) mBrowserControlsVisibilityDelegate.get());
     }
 
     @Test
@@ -173,6 +230,24 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
                 new SideUiSize(0, HeightType.NOT_APPLICABLE),
                 mCoordinator.determineShowableSize(
                         /* availableWidth= */ mExpandedRailWidth - 1,
+                        /* windowWidth= */ mWideWindowWidth,
+                        /* isFullscreen= */ false));
+        assertEquals(
+                new SideUiSize(mExpandedRailWidth, HeightType.TOOLBAR),
+                mCoordinator.determineShowableSize(
+                        /* availableWidth= */ mExpandedRailWidth,
+                        /* windowWidth= */ mWideWindowWidth,
+                        /* isFullscreen= */ false));
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS + ":auto_resize/true"})
+    public void testDetermineShowableSize_autoResize() {
+        assertEquals(
+                new SideUiSize(0, HeightType.NOT_APPLICABLE),
+                mCoordinator.determineShowableSize(
+                        /* availableWidth= */ mCollapsedRailWidth - 1,
                         /* windowWidth= */ mWideWindowWidth,
                         /* isFullscreen= */ false));
         assertEquals(
@@ -454,14 +529,69 @@ public class VerticalTabsSideUiCoordinatorUnitTest {
         verify(mMockTabListCoordinator).setCollapseButtonEnabled(true);
     }
 
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS + ":auto_resize/true"})
+    public void testAutoResizingWindow_ScalesWidthWithWindow() {
+        setWindowWidthPx(mMediumWindowWidth);
+        int minWebContentsWidthPx =
+                ViewUtils.dpToPx(mActivity, SideUiCoordinator.MIN_WEB_CONTENTS_WIDTH_DP);
+        int availableWidthPx = mMediumWindowWidth - minWebContentsWidthPx;
+        int expectedMediumWidth =
+                Math.min(
+                        mExpandedRailWidth,
+                        Math.min(
+                                Math.round(
+                                        mMediumWindowWidth
+                                                * VerticalTabUtils.EXPANDED_WINDOW_WIDTH_RATIO),
+                                availableWidthPx));
+        assertShowableWidth(expectedMediumWidth, mMediumWindowWidth);
+        verify(mMockTabListCoordinator).setRailCollapseState(RailCollapseState.EXPANDED);
+        verify(mMockTabListCoordinator).setCollapseButtonEnabled(true);
+    }
+
+    @Test
+    @SmallTest
+    @EnableFeatures({ChromeFeatureList.ANDROID_VERTICAL_TABS + ":auto_resize/true"})
+    public void testWindowWidthBelowMinWebContents_HidesVT() {
+        @Px int hiddenWindowWidth = ViewUtils.dpToPx(mActivity, 400);
+        setWindowWidthPx(hiddenWindowWidth);
+        assertShowableWidth(0, hiddenWindowWidth);
+        verify(mMockTabListCoordinator).setRailCollapseState(RailCollapseState.COLLAPSED);
+        verify(mMockTabListCoordinator).setCollapseButtonEnabled(false);
+    }
+
+    @Test
+    @SmallTest
+    public void testRequestKeyboardFocus_DelegatesToTabListCoordinator() {
+        mCoordinator.requestKeyboardFocus();
+        verify(mMockTabListCoordinator).requestKeyboardFocus();
+    }
+
+    @Test
+    @SmallTest
+    public void testContainsKeyboardFocus() {
+        assertFalse(mCoordinator.containsKeyboardFocus());
+
+        mTabListView.setFocusableInTouchMode(true);
+        mTabListView.requestFocus();
+        assertTrue(mCoordinator.containsKeyboardFocus());
+
+        when(mMockTabListCoordinator.getView()).thenReturn(null);
+        assertFalse(mCoordinator.containsKeyboardFocus());
+    }
+
     private void assertShowableWidth(@Px int expectedWidth, @Px int windowWidth) {
+        int minWebContentsWidthPx =
+                ViewUtils.dpToPx(mActivity, SideUiCoordinator.MIN_WEB_CONTENTS_WIDTH_DP);
+        int availableWidth = windowWidth - minWebContentsWidthPx;
         assertEquals(
                 expectedWidth,
                 mCoordinator.determineShowableSize(
-                                /* availableWidth= */ mExpandedRailWidth,
+                                /* availableWidth= */ availableWidth,
                                 windowWidth,
                                 /* isFullscreen= */ false)
-                        .width);
+                        .mWidth);
     }
 
     private void setWindowWidthPx(@Px int widthPx) {

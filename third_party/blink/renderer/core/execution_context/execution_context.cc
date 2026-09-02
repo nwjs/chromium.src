@@ -324,10 +324,6 @@ bool ExecutionContext::IsContextPaused() const {
   return lifecycle_state_ == mojom::blink::FrameLifecycleState::kPaused;
 }
 
-bool ExecutionContext::IsContextFrozen() const {
-  return lifecycle_state_ == mojom::blink::FrameLifecycleState::kFrozen;
-}
-
 LoaderFreezeMode ExecutionContext::GetLoaderFreezeMode() const {
   if (is_in_back_forward_cache_) {
     DCHECK_EQ(lifecycle_state_, mojom::blink::FrameLifecycleState::kFrozen);
@@ -521,7 +517,11 @@ void ExecutionContext::SetReferrerPolicy(
   if (GetReferrerPolicy() != network::mojom::ReferrerPolicy::kDefault)
     UseCounter::Count(this, WebFeature::kResetReferrerPolicy);
 
-  policy_container_->UpdateReferrerPolicy(referrer_policy);
+  base::UnguessableToken new_initiator_state_token =
+      base::UnguessableToken::Create();
+  policy_container_->UpdateReferrerPolicy(referrer_policy,
+                                          new_initiator_state_token);
+  SetInitiatorStateToken(new_initiator_state_token);
 }
 
 void ExecutionContext::SetPolicyContainer(

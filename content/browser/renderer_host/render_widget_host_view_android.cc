@@ -77,6 +77,7 @@
 #include "content/browser/renderer_host/render_view_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/render_widget_host_view_base.h"
+#include "content/browser/renderer_host/unbounded_surface_window_android.h"
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/browser/screen_orientation/screen_orientation_provider.h"
 #include "content/common/features.h"
@@ -1221,6 +1222,12 @@ void RenderWidgetHostViewAndroid::OnRootScrollOffsetChanged(
   gesture_listener_manager_->OnRootScrollOffsetChanged(root_scroll_offset_dip);
 }
 
+void RenderWidgetHostViewAndroid::OnReportScrollJankStats(
+    uint32_t total_frames,
+    uint32_t janky_frames) {
+  ReportScrollJankStats(total_frames, janky_frames);
+}
+
 void RenderWidgetHostViewAndroid::Focus() {
   if (view_.HasFocus())
     GotFocus();
@@ -1657,10 +1664,7 @@ bool RenderWidgetHostViewAndroid::OnTouchEvent(
   // when a touch sequence is handled on Browser, as it will try to compare a
   // lingering transferred event's touch id and touch id of acked event that the
   // Browser is now handling.
-  if (input_transfer_handler_ &&
-      (!base::FeatureList::IsEnabled(
-           blink::features::kDropInputEventsWhilePaintHolding) ||
-       host()->input_router()->IsActive())) {
+  if (input_transfer_handler_ && host()->input_router()->IsActive()) {
     bool is_ignoring_input_events =
         host()->delegate()->ShouldIgnoreInputEvents();
     if (input_transfer_handler_->OnTouchEvent(event,
@@ -1845,6 +1849,7 @@ void RenderWidgetHostViewAndroid::RenderProcessGone() {
 }
 
 void RenderWidgetHostViewAndroid::Destroy() {
+  in_destroy_ = true;
   host()->render_frame_metadata_provider()->RemoveObserver(this);
   host()->ViewDestroyed();
   host()->RemoveInputEventObserver(
@@ -1874,6 +1879,18 @@ void RenderWidgetHostViewAndroid::Destroy() {
   RenderWidgetHostViewBase::Destroy();
 
   delete this;
+}
+
+void RenderWidgetHostViewAndroid::CreateUnboundedSurface(
+    mojo::PendingAssociatedReceiver<blink::mojom::UnboundedSurfaceHost> host,
+    mojo::PendingAssociatedRemote<blink::mojom::UnboundedSurfaceClient> client,
+    const gfx::Rect& bounds_in_dips,
+    base::WeakPtr<RenderWidgetHostViewBase> subframe_view) {
+  gfx::Rect bounds_in_screen =
+      ConvertSubframeBoundsToScreen(bounds_in_dips, subframe_view.get());
+  unbounded_surface_window_ = UnboundedSurfaceWindowAndroid::Create(
+      this, std::move(host), std::move(client), bounds_in_screen,
+      std::move(subframe_view));
 }
 
 void RenderWidgetHostViewAndroid::UpdateTooltipUnderCursor(
@@ -1997,48 +2014,12 @@ void RenderWidgetHostViewAndroid::CopyFromSurface(
             std::move(callback).Run(ToCopyFromSurfaceResult(result));
           },
           std::move(callback)),
-      /*capture_exact_surface_id=*/false,
-      /*ipc_delay=*/base::TimeDelta());
+      /*capture_exact_surface_id=*/false);
 }
 
 ui::FilteredGestureProvider*
 RenderWidgetHostViewAndroid::GetFilteredGestureProviderForTesting() {
   return gesture_provider_.get();
-}
-
-void RenderWidgetHostViewAndroid::CopyFromExactSurface(
-    const gfx::Rect& src_rect,
-    const gfx::Size& output_size,
-    base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback) {
-  CopyFromExactSurfaceWithIpcDelay(src_rect, output_size, std::move(callback),
-                                   /*ipc_delay=*/base::TimeDelta());
-}
-
-void RenderWidgetHostViewAndroid::CopyFromExactSurfaceWithIpcDelay(
-    const gfx::Rect& src_rect,
-    const gfx::Size& output_size,
-    base::OnceCallback<void(const content::CopyFromSurfaceResult&)> callback,
-    base::TimeDelta ipc_delay) {
-  CHECK(IsSurfaceAvailableForCopy())
-      << "To copy the exact surface, it must be available for copy (embedded "
-         "via the browser).";
-  CHECK(using_browser_compositor_);
-  CHECK(delegated_frame_host_);
-
-  delegated_frame_host_->CopyFromCompositingSurface(
-      src_rect, output_size, base::TimeDelta(),
-      base::BindOnce(
-          [](base::OnceCallback<void(const content::CopyFromSurfaceResult&)>
-                 callback,
-             const base::expected<viz::CopyOutputBitmapWithMetadata,
-                                  viz::CopyOutputResult::Error>& result) {
-            TRACE_EVENT0("cc",
-                         "RenderWidgetHostViewAndroid::"
-                         "CopyFromCompositingSurface finished");
-            std::move(callback).Run(ToCopyFromSurfaceResult(result));
-          },
-          std::move(callback)),
-      /*capture_exact_surface_id=*/true, ipc_delay);
 }
 
 void RenderWidgetHostViewAndroid::CopySharedImageFromExactSurface(
@@ -2431,8 +2412,13 @@ bool RenderWidgetHostViewAndroid::VisibilityNeedsDrawing() const {
 }
 
 void RenderWidgetHostViewAndroid::UpdateVisibility() {
-  bool should_be_showing = VisibilityNeedsDrawing() &&
-                           is_window_activity_started_ && is_window_visible_;
+  if (in_destroy_) {
+    return;
+  }
+  bool should_be_showing =
+      VisibilityNeedsDrawing() &&
+      ((is_window_activity_started_ && is_window_visible_) ||
+       !view_.GetWindowAndroid());
   if (should_be_showing) {
     ShowInternal();
   } else {
@@ -3265,6 +3251,7 @@ void RenderWidgetHostViewAndroid::OnAttachedToWindow() {
   CHECK(view_.GetWindowAndroid(), base::NotFatalUntil::M152);
   if (view_.GetWindowAndroid()->GetCompositor())
     OnAttachCompositor();
+  UpdateVisibility();
 }
 
 void RenderWidgetHostViewAndroid::OnDetachedFromWindow() {
@@ -3272,6 +3259,9 @@ void RenderWidgetHostViewAndroid::OnDetachedFromWindow() {
   OnDetachCompositor();
   if (input_transfer_handler_) {
     input_transfer_handler_->OnDetachedFromWindow();
+  }
+  if (touch_selection_controller_) {
+    touch_selection_controller_->HideAndDestroy();
   }
 }
 
@@ -3970,6 +3960,11 @@ void RenderWidgetHostViewAndroid::SetTouchpadOverscrollHistoryNavigation(
   if (overscroll_controller_) {
     overscroll_controller_->SetTouchpadOverscrollHistoryNavigation(enabled);
   }
+}
+
+void RenderWidgetHostViewAndroid::ReportScrollJankStats(uint32_t total_frames,
+                                                        uint32_t janky_frames) {
+  view_.ReportScrollJankStats(total_frames, janky_frames);
 }
 
 void RenderWidgetHostViewAndroid::OnUnconfirmedTapConvertedToTap() {

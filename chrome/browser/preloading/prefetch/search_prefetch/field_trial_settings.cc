@@ -133,16 +133,6 @@ bool IsTouchDownPrefetchEnabled() {
                                                  "touch_down", true);
 }
 
-bool AllowTopNavigationPrefetch() {
-  return base::GetFieldTrialParamByFeatureAsBool(kSearchNavigationPrefetch,
-                                                 "allow_top_selection", true);
-}
-
-bool PrefetchSearchHistorySuggestions() {
-  return base::GetFieldTrialParamByFeatureAsBool(
-      kSearchNavigationPrefetch, "prefetch_search_history", true);
-}
-
 BASE_FEATURE(kSearchPrefetchOnlyAllowDefaultMatchPreloading,
              base::FEATURE_ENABLED_BY_DEFAULT);
 

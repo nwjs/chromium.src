@@ -71,6 +71,9 @@ public class TabBottomSheetMediator extends GestureStateListener {
     }
 
     void onSheetStateChanged(@SheetState int state) {
+        if (mCurrentSheetState == state) {
+            return;
+        }
         mCurrentSheetState = state;
         if (state == SheetState.PEEK) {
             mModel.set(TabBottomSheetProperties.PEEK_STATE_ALPHA, 1.0f);
@@ -132,8 +135,8 @@ public class TabBottomSheetMediator extends GestureStateListener {
         return mTouchArbitrator;
     }
 
-    boolean isMaximized() {
-        return mCurrentSheetState == SheetState.FULL;
+    boolean isNotPeeking() {
+        return mCurrentSheetState == SheetState.FULL || mCurrentSheetState == SheetState.HALF;
     }
 
     private boolean isShowing() {
@@ -166,7 +169,7 @@ public class TabBottomSheetMediator extends GestureStateListener {
 
                 // If the touch starts in the gesture zone (measured from the top of the
                 // container), intercept the gesture for the bottom sheet.
-                mInterceptForSheet = (!isMaximized() || e.getY() <= gestureZoneHeight);
+                mInterceptForSheet = (!isNotPeeking() || e.getY() <= gestureZoneHeight);
             }
 
             if (mInterceptForSheet) {

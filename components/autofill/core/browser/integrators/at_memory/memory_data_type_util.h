@@ -11,17 +11,52 @@
 
 #include "base/containers/span.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
 #include "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
+#include "components/autofill/core/browser/suggestions/suggestion.h"
+#include "components/autofill/core/browser/suggestions/suggestion_type.h"
 
 namespace personal_context::proto {
 class AtMemoryQueryResponse;
 class AtMemorySearchResult;
 class Entity;
+class TypedValue;
 enum MemoryDataType : int;
 }  // namespace personal_context::proto
 
 namespace autofill {
+
+// Groups MemoryDataType values into semantic categories.
+enum class MemoryDataTypeCategory {
+  kUnknown,
+  kContactInfo,  // Name, Address, Phone, Email, Company
+  kCreditCard,
+  kIban,
+  kPassport,
+  kDriversLicense,
+  kNationalIdCard,
+  kFlightReservation,
+  kKnownTravelerNumber,
+  kRedressNumber,
+  kVehicle,
+  kOrder,
+  kShipment,
+};
+
+// Returns the semantic category for a given `type`.
+MemoryDataTypeCategory GetMemoryDataTypeCategory(MemoryDataType type);
+
+// Translates a MemoryDataType to a FieldType, if applicable.
+std::optional<FieldType> ToFieldType(MemoryDataType type);
+
+// Translates a MemoryDataType to an AttributeType, if applicable.
+std::optional<AttributeType> ToAttributeType(MemoryDataType type);
+
+// Maps MemoryDataType to AutofillPolicyDataCategory directly.
+std::optional<AutofillClient::AutofillPolicyDataCategory>
+ToAutofillPolicyDataCategory(MemoryDataType type);
 
 // Returns true if the given `type` is considered sensitive personal
 // information.
@@ -31,9 +66,11 @@ bool IsSpiiMemoryDataType(MemoryDataType type);
 // `value` is the primary value of the memory entry corresponding to the
 // `memory_data_type` (for example, the actual passport number if the type is
 // `kPassportNumber`). `metadata_list` contains the associated attributes (e.g.,
-// expiration date, issuing country) for the memory entry.
+// expiration date, issuing country) for the memory entry. If `typed_value` is
+// provided, it is used directly instead of parsing `value`.
 personal_context::proto::Entity ToPersonalContextEntity(
     std::u16string_view value,
+    const std::optional<personal_context::proto::TypedValue>& typed_value,
     MemoryDataType memory_data_type,
     base::span<const EntryMetadata> metadata_list);
 
@@ -49,9 +86,17 @@ std::vector<MemorySearchResult> ExtractRemoteResults(
     const personal_context::proto::AtMemoryQueryResponse& response,
     std::string_view app_locale);
 
+// Extracts the unmasked PII value from `entity` based on the requested
+// `data_type`.
+std::optional<std::u16string> GetUnmaskedPiiFromEntity(
+    const personal_context::proto::Entity& entity,
+    MemoryDataType data_type);
+
 // The following functions are exposed in the header for testing purposes only:
 
-// Converts a `proto::MemoryDataType` to a local `MemoryDataType`.
+// Converts a `proto::MemoryDataType` to a local `MemoryDataType`. Returns
+// `MemoryDataType::kUnknown` if `data_type` is outside the bounds of its enum
+// range.
 MemoryDataType ToMemoryDataType(
     personal_context::proto::MemoryDataType data_type);
 
@@ -70,6 +115,29 @@ std::vector<EntryMetadata> ExtractMetadata(
 MemorySearchResult ConvertToMemorySearchResult(
     const personal_context::proto::AtMemorySearchResult& proto_result,
     std::string_view app_locale);
+
+// Returns the formatted label representation for `value`. If `typed_value` is
+// provided, it's used to format the label (for example, flight dates).
+std::u16string FormatMemoryDataTypeLabelValue(
+    MemoryDataType type,
+    std::u16string_view value,
+    const std::optional<personal_context::proto::TypedValue>& typed_value,
+    std::string_view app_locale);
+
+// Returns the primary attribute type for a given entity type.
+AttributeType GetPrimaryAttributeType(EntityType entity_type);
+
+// Returns true if `data_type` represents a dynamic transaction type (e.g.
+// Shipment or Order).
+bool IsDynamicTransactionType(MemoryDataType data_type);
+
+// Returns a suggestion for managing the given `type`. Returns std::nullopt
+// if the type does not support management.
+std::optional<Suggestion> CreateManageSuggestion(MemoryDataType type);
+
+// Returns the icon for a suggestion of the given `type`. `is_autofill_only`
+// should be true if the data source is only Autofill (no AI).
+Suggestion::Icon GetSuggestionIcon(MemoryDataType type, bool is_autofill_only);
 
 }  // namespace autofill
 

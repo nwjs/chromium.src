@@ -28,6 +28,7 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
     return new Promise<never>(() => {});
   }
   onPageInitialized() {}
+  onContentSettingImagePointerDown() {}
   showContentSettingsBubble() {
     return new Promise<never>(() => {});
   }
@@ -81,6 +82,10 @@ class TestToolbarUiHandler extends TestBrowserProxy implements
       pageTitle: null,
     });
   }
+
+  onPerformanceInterventionButtonClicked(_isMouseInteraction: boolean) {}
+
+  onPerformanceInterventionButtonMousePressed() {}
 }
 
 class TestToolbarBrowserProxy extends TestBrowserProxy implements BrowserProxy {
@@ -121,6 +126,10 @@ suite('PageActionIconTest', function() {
       accessibleName: 'Translate',
       tooltipText: 'Translate this page',
       icon: {handleId: 0n},
+      text: '',
+      shouldShowChip: false,
+      shouldAnimateChipIn: false,
+      shouldAnimateChipOut: false,
     };
   }
 
@@ -137,10 +146,9 @@ suite('PageActionIconTest', function() {
   });
 
   test('Render', function() {
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
-    assertEquals('Translate this page', button.getAttribute('title'));
-    assertEquals('Translate', button.getAttribute('aria-label'));
+    const button = icon.$.button;
+    assertEquals('Translate this page', button.tooltip);
+    assertEquals('Translate', button.ariaLabel);
   });
 
   test('Render without accessible name', async function() {
@@ -149,15 +157,13 @@ suite('PageActionIconTest', function() {
       accessibleName: '',
     };
     await microtasksFinished();
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
+    const button = icon.$.button;
     // Should NOT fallback to tooltipText
-    assertEquals('', button.getAttribute('aria-label') || '');
+    assertEquals('', button.ariaLabel || '');
   });
 
   test('Mouse click triggers Action with kMouse', async function() {
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
+    const button = icon.$.button;
     button.dispatchEvent(new MouseEvent('click', {
       bubbles: true,
       composed: true,
@@ -171,8 +177,7 @@ suite('PageActionIconTest', function() {
   });
 
   test('Keyboard click triggers Action with kKeyboard', async function() {
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
+    const button = icon.$.button;
     // button.click() triggers click with detail: 0, simulating keyboard.
     button.click();
 
@@ -183,8 +188,7 @@ suite('PageActionIconTest', function() {
   });
 
   test('Touch tap triggers Action with kGesture', async function() {
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
+    const button = icon.$.button;
     button.dispatchEvent(new PointerEvent('click', {
       bubbles: true,
       composed: true,
@@ -198,8 +202,7 @@ suite('PageActionIconTest', function() {
   });
 
   test('Pen click triggers Action with kGesture', async function() {
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
+    const button = icon.$.button;
     button.dispatchEvent(new PointerEvent('click', {
       bubbles: true,
       composed: true,
@@ -213,8 +216,7 @@ suite('PageActionIconTest', function() {
   });
 
   test('Pointer events fired', function() {
-    const button = icon.shadowRoot.querySelector('cr-icon-button');
-    assertTrue(!!button);
+    const button = icon.$.button;
 
     let enterFired = false;
     icon.addEventListener('chip-pointerenter', () => {

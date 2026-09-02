@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.settings;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,8 +25,13 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.native_page.NativePageHost;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
+import org.chromium.components.browser_ui.widget.gesture.BackPressHandlerRegistry;
+import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.ui.base.TestActivity;
 
 /**
@@ -32,6 +39,8 @@ import org.chromium.ui.base.TestActivity;
  * and {@link NativePageFactory}.
  */
 @RunWith(BaseRobolectricTestRunner.class)
+// Needed for {@link BasicNativePage.setBackPressHandler()}. See {@link SettingsActivityUnitTest}.
+@EnableFeatures(ChromeFeatureList.ENABLE_ESCAPE_HANDLING_FOR_SECONDARY_ACTIVITIES)
 public class SettingsPageUnitTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -42,6 +51,8 @@ public class SettingsPageUnitTest {
     @Mock private Profile mProfile;
     @Mock private NativePageHost mNativePageHost;
     @Mock private SettingsPage.FragmentDelegate mFragmentDelegate;
+    @Mock private BackPressHandler mBackPressHandler;
+    @Mock private BackPressHandlerRegistry mBackPressHandlerRegistry;
 
     private Activity mActivity;
     private SettingsPage mSettingsPage;
@@ -51,7 +62,15 @@ public class SettingsPageUnitTest {
         mActivityScenarios.getScenario().onActivity(activity -> mActivity = activity);
         when(mNativePageHost.getContext()).thenReturn(mActivity);
 
-        mSettingsPage = new SettingsPage(mActivity, mProfile, mNativePageHost, mFragmentDelegate);
+        mSettingsPage =
+                new SettingsPage(
+                        mActivity,
+                        mProfile,
+                        mNativePageHost,
+                        mFragmentDelegate,
+                        mBackPressHandler,
+                        mBackPressHandlerRegistry,
+                        UrlConstants.SETTINGS_URL);
     }
 
     @Test
@@ -63,7 +82,7 @@ public class SettingsPageUnitTest {
     @Test
     public void testInitSettings() {
         // initSettings() should be called once, in the constructor.
-        verify(mFragmentDelegate).initSettings(any(ViewGroup.class));
+        verify(mFragmentDelegate).initSettings(any(ViewGroup.class), eq(UrlConstants.SETTINGS_URL));
     }
 
     @Test
@@ -71,5 +90,22 @@ public class SettingsPageUnitTest {
         // destroySettings() should be called once, in destroy().
         mSettingsPage.destroy();
         verify(mFragmentDelegate).destroySettings();
+    }
+
+    @Test
+    public void testSetBackPressHandler() {
+        BackPressHandlerRegistry registry = mock(BackPressHandlerRegistry.class);
+        BackPressHandler handler = mock(BackPressHandler.class);
+        SettingsPage page =
+                new SettingsPage(
+                        mActivity,
+                        mProfile,
+                        mNativePageHost,
+                        mFragmentDelegate,
+                        handler,
+                        registry,
+                        UrlConstants.SETTINGS_URL);
+        mActivity.setContentView(page.getView());
+        verify(registry).addHandler(eq(handler), eq(BackPressHandler.Type.NATIVE_PAGE));
     }
 }

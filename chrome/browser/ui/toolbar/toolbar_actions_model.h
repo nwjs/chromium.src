@@ -66,7 +66,9 @@ class ToolbarActionsModel
     kNotPinnedFeatureDisabled = 2,
     kOverriddenByPolicy = 3,
     kNotPinnedNoAction = 4,
-    kMaxValue = kNotPinnedNoAction,
+    kNotPinnedEnterpriseExtension = 5,
+    kNotPinnedInstalledFromSync = 6,
+    kMaxValue = kNotPinnedInstalledFromSync,
   };
 
   // A class which is informed of changes to the model; represents the view of
@@ -148,6 +150,9 @@ class ToolbarActionsModel
   const std::vector<ActionId>& pinned_action_ids() const {
     return pinned_action_ids_;
   }
+
+  // Re-initializes the action list and re-emits startup histograms for testing.
+  void ReinitializeForTesting();
 
  private:
   // Callback when actions are ready.

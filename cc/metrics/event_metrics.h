@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "base/types/id_type.h"
 #include "cc/cc_export.h"
+#include "cc/paint/element_id.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "ui/events/types/event_type.h"
 #include "ui/events/types/scroll_input_type.h"
@@ -303,8 +304,9 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
   // scrolls which corresponding TouchMove was blocking.
   //
   // If `type` is `ui::EventType::kGestureScrollBegin`, this method ignores
-  // `scroll_begin_arrival_timestamp` and sets the returned object's
-  // `scroll_begin_arrival_timestamp()` to the same value as
+  // `scroll_begin_generated_timestamp` and uses `timestamp` instead. This
+  // method likewise ignores `scroll_begin_arrival_timestamp` and sets the
+  // returned object's `scroll_begin_arrival_timestamp()` to the same value as
   // `GetDispatchStageTimestamp(DispatchStage::kArrivedInRendererCompositor)`,
   // i.e. the current timestamp.
   // TODO(b/224960731): Fix tests and stop supporting the case when
@@ -317,6 +319,7 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
       base::TimeTicks arrived_in_browser_main_timestamp,
       base::TimeTicks blocking_touch_dispatched_to_renderer,
       std::optional<TraceId> trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Prefer to use `Create()` above. This method is used only by the Browser
@@ -329,6 +332,7 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
       bool is_inertial,
       base::TimeTicks timestamp,
       std::optional<TraceId> trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Similar to `Create()` with an extra `base::TickClock` to use in tests.
@@ -340,6 +344,7 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
       base::TimeTicks timestamp,
       base::TimeTicks arrived_in_browser_main_timestamp,
       const base::TickClock* tick_clock,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Used to create an instance for an event generated based on an existing
@@ -355,6 +360,7 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
       bool is_inertial,
       DispatchStage last_dispatch_stage,
       const EventMetrics* existing,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   ~ScrollEventMetrics() override;
@@ -385,6 +391,10 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
     return scroll_jank_v4_result_id_;
   }
 
+  base::TimeTicks scroll_begin_generated_timestamp() const {
+    return scroll_begin_generated_timestamp_;
+  }
+
   base::TimeTicks scroll_begin_arrival_timestamp() const {
     return scroll_begin_arrival_timestamp_;
   }
@@ -396,6 +406,7 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
                      base::TimeTicks arrived_in_browser_main_timestamp,
                      const base::TickClock* tick_clock,
                      std::optional<TraceId> trace_id,
+                     base::TimeTicks scroll_begin_generated_timestamp,
                      base::TimeTicks scroll_begin_arrival_timestamp);
   ScrollEventMetrics(const ScrollEventMetrics&);
 
@@ -410,6 +421,7 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
       base::TimeTicks arrived_in_browser_main_timestamp,
       const base::TickClock* tick_clock,
       std::optional<TraceId> trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Type of the input device for the event.
@@ -432,6 +444,27 @@ class CC_EXPORT ScrollEventMetrics : public EventMetrics {
   // mapping between "EventLatency" and "ScrollJankV4" slices in traces. Only
   // set for scroll updates and ends.
   std::optional<uint64_t> scroll_jank_v4_result_id_;
+
+  // The `DispatchStage::kGenerated` timestamp of the scroll begin event which
+  // started the scroll containing this scroll event, i.e. the timestamp the
+  // input pipeline assigned to the gesture at its source. Propagated to the
+  // scroll's later events exactly like `scroll_begin_arrival_timestamp_` below.
+  //
+  // Null before the first scroll begin is seen, and also when the scroll begin
+  // produced no `EventMetrics` (e.g. an inertial scroll begin, which is not an
+  // interesting event type).
+  //
+  // In that second case `scroll_begin_arrival_timestamp_` is still set, so the
+  // two fields are not guaranteed to be both null or both non-null:
+  // `ScrollSequenceTracker` observes the scroll begin as it arrives, so `Now()`
+  // is an accurate stand-in for the arrival timestamp, but nothing can stand in
+  // for a timestamp minted upstream of the renderer.
+  //
+  // Not ordered against the carrying event's own timestamp, because it comes
+  // from whichever component produced the scroll begin. A scroll end
+  // synthesized by `input::FlingController::EndCurrentFling()`, for example,
+  // can be older than the scroll begin timestamp it carries.
+  const base::TimeTicks scroll_begin_generated_timestamp_;
 
   // The timestamp of when the scroll begin event which started the scroll
   // containing this scroll event arrived in the renderer compositor.
@@ -477,6 +510,22 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
     kMaxValue = kContinued,
   };
 
+  // Records that content actually moved while applying a scroll update, and
+  // which scroller moved. The aggregated scroll delta does not identify the
+  // target, and the target can change within a gesture.
+  struct AppliedScrollObservation {
+    // `GetDispatchStageTimestamp(DispatchStage::kGenerated)` of the
+    // `ScrollUpdateEventMetrics` this observation was recorded on. A frame's
+    // observations come from several `ScrollUpdateEventMetrics` objects and
+    // `EventMetrics::List` is not required to be sorted, so the consumer needs
+    // a per-observation timestamp to order them.
+    base::TimeTicks update_input_timestamp;
+
+    ElementId element_id;
+
+    bool operator==(const AppliedScrollObservation&) const = default;
+  };
+
   // Returns a new instance if the event is of a type we are interested in.
   // Otherwise, returns `nullptr`. Should only be used for scroll-update events.
   // The `arrived_in_browser_main_timestamp` can be null for events that were
@@ -495,6 +544,7 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
       base::TimeTicks arrived_in_browser_main_timestamp,
       base::TimeTicks blocking_touch_dispatched_to_renderer,
       std::optional<TraceId> trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Prefer to use `Create()` above. This method is used only by the Browser
@@ -509,6 +559,7 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
       float delta,
       base::TimeTicks timestamp,
       TraceId trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Similar to `Create()` with an extra `base::TickClock` to use in tests.
@@ -523,6 +574,7 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
       base::TimeTicks arrived_in_browser_main_timestamp,
       const base::TickClock* tick_clock,
       std::optional<TraceId> trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   // Used to create an instance for an event generated based on an existing
@@ -540,6 +592,7 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
       float delta,
       DispatchStage last_dispatch_stage,
       const EventMetrics* existing,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   ~ScrollUpdateEventMetrics() override;
@@ -577,6 +630,18 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
   void set_is_synthetic(bool is_synthetic) { is_synthetic_ = is_synthetic; }
   bool is_synthetic() const { return is_synthetic_; }
 
+  // Ordered oldest first. An empty vector is valid: an update can consume delta
+  // without moving content (e.g. moving only browser controls), which sets
+  // `did_scroll()` but records no observation.
+  const std::vector<AppliedScrollObservation>& applied_scroll_observations()
+      const {
+    return applied_scroll_observations_;
+  }
+
+  // Records that `element_id`'s scroller moved for this update; see
+  // `AppliedScrollObservation`. `element_id` must be valid.
+  void AddAppliedScrollObservation(ElementId element_id);
+
  protected:
   ScrollUpdateEventMetrics(EventType type,
                            ScrollType scroll_type,
@@ -586,6 +651,7 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
                            base::TimeTicks arrived_in_browser_main_timestamp,
                            const base::TickClock* tick_clock,
                            std::optional<TraceId> trace_id,
+                           base::TimeTicks scroll_begin_generated_timestamp,
                            base::TimeTicks scroll_begin_arrival_timestamp);
   ScrollUpdateEventMetrics(const ScrollUpdateEventMetrics&);
 
@@ -600,6 +666,7 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
       base::TimeTicks arrived_in_browser_main_timestamp,
       const base::TickClock* tick_clock,
       std::optional<TraceId> trace_id,
+      base::TimeTicks scroll_begin_generated_timestamp,
       base::TimeTicks scroll_begin_arrival_timestamp);
 
   float delta_;
@@ -630,6 +697,8 @@ class CC_EXPORT ScrollUpdateEventMetrics : public ScrollEventMetrics {
   // `blink::ScrollPredictor::GenerateSyntheticScrollUpdate()` once the metric
   // fully supports synthetic scroll updates.
   bool is_synthetic_ = false;
+
+  std::vector<AppliedScrollObservation> applied_scroll_observations_;
 };
 
 class CC_EXPORT PinchEventMetrics : public EventMetrics {

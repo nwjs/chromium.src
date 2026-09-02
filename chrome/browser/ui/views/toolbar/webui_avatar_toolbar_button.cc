@@ -8,7 +8,6 @@
 #include "base/functional/bind.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
@@ -74,12 +73,17 @@ toolbar_ui_api::mojom::AvatarToolbarButtonState MapAvatarState(
 }  // namespace
 
 WebUIAvatarToolbarButton::WebUIAvatarToolbarButton(
-    WebUIToolbarControlDelegate* delegate,
-    Browser* browser)
+    WebUIToolbarControlDelegate* delegate)
     : delegate_(delegate) {
-  if (browser) {
-    state_manager_ =
-        std::make_unique<AvatarToolbarButtonStateManager>(*this, browser);
+  // Only build the state manager when `delegate_` is backed by a real,
+  // legacy Browser -- lightweight test doubles that stub out
+  // GetBrowserForMigrationOnly() to return null (see e.g.
+  // WebUILocationBarTest) don't set up a full browser_process environment
+  // (notably no ProfileManager), which AvatarToolbarButtonStateManager's
+  // initialization depends on.
+  if (delegate_->GetBrowser()->GetBrowserForMigrationOnly()) {
+    state_manager_ = std::make_unique<AvatarToolbarButtonStateManager>(
+        *this, delegate_->GetBrowser());
     state_manager_->InitializeStates();
   }
 }

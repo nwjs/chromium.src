@@ -257,9 +257,9 @@ CreateMockDemuxerStream(DemuxerStream::Type type, bool encrypted);
 //   YYYYRRRR
 //   BBBBGGGG
 //
-// Supports 8-bit xRGB, BGRx, NV12x, and I4xxx formats. If `xor_mask` is
-// provided the standard four colors will be XOR'd with the provided 00RRGGBB
-// value (alpha value must be zero).
+// Supports 8-bit xRGB, BGRx, NV12x, NV16, NV24, and I4xxx formats. If
+// `xor_mask` is provided the standard four colors will be XOR'd with the
+// provided 00RRGGBB value (alpha value must be zero).
 void FillFourColors(VideoFrame& dest_frame,
                     std::optional<uint32_t> xor_mask = std::nullopt);
 
@@ -269,7 +269,9 @@ int CountDifferentPixels(const VideoFrame& frame1,
                          int tolerance);
 
 // Convert RGB color to YUV.
-std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> RGBToYUV(uint32_t argb);
+std::tuple<uint8_t, uint8_t, uint8_t, uint8_t> RGBToYUV(
+    uint32_t argb,
+    const gfx::ColorSpace& cs);
 
 // Compares two media::Status by StatusCode only.  Also allows the ok helper to
 // match kOk.  It's a special case because we don't know the TypedStatus traits

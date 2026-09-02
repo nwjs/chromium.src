@@ -30,8 +30,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/open_search_description_document_handler.mojom.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/renderer/actor/chrome_page_stability_monitor_delegate.h"
 #include "chrome/renderer/actor/journal.h"
-#include "chrome/renderer/actor/page_stability_monitor_delegate.h"
 #include "chrome/renderer/actor/tool_executor.h"
 #include "chrome/renderer/benchmarking_bindings.h"
 #include "chrome/renderer/chrome_content_settings_agent_delegate.h"
@@ -89,8 +89,8 @@
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-#include "components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.h"
-#include "components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder_delegate.h"
+#include "components/safe_browsing/content/renderer/phishing_classifier/content_phishing_classifier_delegate.h"
+#include "components/safe_browsing/content/renderer/phishing_classifier/content_phishing_image_embedder_delegate.h"
 #endif
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
@@ -728,7 +728,7 @@ void ChromeRenderFrameObserver::CreatePageStabilityMonitor(
   page_stability_monitor_ = std::make_unique<
       page_content_annotations::PageStabilityMonitor>(
       *render_frame(), supports_paint_stability,
-      std::make_unique<actor::PageStabilityMonitorDelegate>(
+      std::make_unique<actor::ChromePageStabilityMonitorDelegate>(
           task_id, *actor_journal_,
           actor::PageStabilityMonitorDelegate::Thresholds{
               .timeout_delay = features::kGlicActorPageStabilityTimeout.Get(),
@@ -743,10 +743,12 @@ void ChromeRenderFrameObserver::CreatePageStabilityMonitor(
 
 void ChromeRenderFrameObserver::SetClientSidePhishingDetection() {
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  phishing_classifier_ = safe_browsing::PhishingClassifierDelegate::Create(
-      render_frame(), nullptr);
+  phishing_classifier_ =
+      safe_browsing::ContentPhishingClassifierDelegate::Create(render_frame(),
+                                                               nullptr);
   phishing_image_embedder_ =
-      safe_browsing::PhishingImageEmbedderDelegate::Create(render_frame());
+      safe_browsing::ContentPhishingImageEmbedderDelegate::Create(
+          render_frame());
 #endif
 }
 

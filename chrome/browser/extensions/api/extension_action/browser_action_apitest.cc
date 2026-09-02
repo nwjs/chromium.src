@@ -21,9 +21,9 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/test_extension_action_dispatcher_observer.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/views/extensions/extensions_toolbar_desktop.h"
@@ -77,9 +77,10 @@ using content::WebContents;
 namespace extensions {
 namespace {
 
-void ExecuteExtensionAction(Browser* browser, const Extension* extension) {
+void ExecuteExtensionAction(BrowserWindowInterface* browser,
+                            const Extension* extension) {
   ExtensionActionRunner::GetForWebContents(
-      browser->tab_strip_model()->GetActiveWebContents())
+      browser->GetTabStripModel()->GetActiveWebContents())
       ->RunAction(extension, true);
 }
 
@@ -114,7 +115,7 @@ class BrowserActionApiTest : public ExtensionApiTest {
   BrowserActionApiTest& operator=(const BrowserActionApiTest&) = delete;
 
  protected:
-  ExtensionAction* GetBrowserAction(Browser* browser,
+  ExtensionAction* GetBrowserAction(BrowserWindowInterface* browser,
                                     const Extension& extension) {
     ExtensionAction* extension_action =
         ExtensionActionManager::Get(browser->GetProfile())
@@ -131,7 +132,9 @@ class BrowserActionApiTest : public ExtensionApiTest {
   }
 
   ExtensionsToolbarDesktop* extensions_container() {
-    return browser()->GetBrowserView().toolbar()->extensions_container();
+    return BrowserView::GetBrowserViewForBrowser(browser())
+        ->toolbar()
+        ->extensions_container();
   }
 };
 
@@ -691,9 +694,11 @@ IN_PROC_BROWSER_TEST_P(BrowserActionApiTestWithContextType,
 
   // Open an incognito window and test that the browser action isn't there by
   // default.
-  Browser* incognito_browser = CreateIncognitoBrowser(profile());
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser(profile());
   ExtensionsToolbarDesktop* extensions_container_incognito =
-      incognito_browser->GetBrowserView().toolbar()->extensions_container();
+      BrowserView::GetBrowserViewForBrowser(incognito_browser)
+          ->toolbar()
+          ->extensions_container();
   ASSERT_EQ(0, extensions_container_incognito->GetNumberOfActionsForTesting());
 
   ASSERT_TRUE(ready_listener.WaitUntilSatisfied());
@@ -746,9 +751,11 @@ IN_PROC_BROWSER_TEST_P(BrowserActionApiTestWithContextType,
 
   // Open an incognito window and test that the browser action isn't there by
   // default.
-  Browser* incognito_browser = CreateIncognitoBrowser(profile());
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser(profile());
   ExtensionsToolbarDesktop* extensions_container_incognito =
-      incognito_browser->GetBrowserView().toolbar()->extensions_container();
+      BrowserView::GetBrowserViewForBrowser(incognito_browser)
+          ->toolbar()
+          ->extensions_container();
   ASSERT_EQ(0, extensions_container_incognito->GetNumberOfActionsForTesting());
 
   // Set up a listener so we can reply for the extension to do the update.
@@ -801,7 +808,7 @@ IN_PROC_BROWSER_TEST_P(BrowserActionApiTestWithContextType, IncognitoSplit) {
   // Open an incognito browser.
   // Note: It is important that we create incognito profile before loading
   // |extension| below. "event_page" based test fails otherwise.
-  Browser* incognito_browser = CreateIncognitoBrowser(profile());
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser(profile());
 
   ResultCatcher catcher;
   const Extension* extension =

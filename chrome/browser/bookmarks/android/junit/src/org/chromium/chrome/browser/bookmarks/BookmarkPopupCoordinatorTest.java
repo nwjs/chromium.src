@@ -8,6 +8,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
+import android.util.DisplayMetrics;
 import android.view.View;
 
 import org.junit.Before;
@@ -24,10 +25,12 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridge;
 import org.chromium.chrome.browser.page_image_service.ImageServiceBridgeJni;
+import org.chromium.chrome.browser.price_tracking.PriceDropNotificationManager;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkType;
+import org.chromium.components.commerce.core.ShoppingService;
 
 /** Unit tests for {@link BookmarkPopupCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -35,6 +38,10 @@ public class BookmarkPopupCoordinatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private Profile mProfile;
+
+    @Mock private ShoppingService mShoppingService;
+    @Mock private PriceDropNotificationManager mPriceDropNotificationManager;
+
     @Mock private BookmarkManagerOpener mBookmarkManagerOpener;
     @Mock private BookmarkModel mBookmarkModel;
     @Mock private FaviconHelperJni mFaviconHelperJni;
@@ -56,7 +63,13 @@ public class BookmarkPopupCoordinatorTest {
         mActivity.setContentView(mAnchor);
 
         mCoordinator =
-                new BookmarkPopupCoordinator(mActivity, mProfile, mAnchor, mBookmarkManagerOpener);
+                new BookmarkPopupCoordinator(
+                        mActivity,
+                        mProfile,
+                        mAnchor,
+                        mBookmarkManagerOpener,
+                        mShoppingService,
+                        mPriceDropNotificationManager);
     }
 
     @Test
@@ -78,5 +91,45 @@ public class BookmarkPopupCoordinatorTest {
         ShadowLooper.shadowMainLooper().idle();
 
         assertFalse(mCoordinator.getPopupWindowForTesting().isShowing());
+    }
+
+    @Test
+    public void testNarrowWindowHidesImage() {
+        DisplayMetrics displayMetrics = mActivity.getResources().getDisplayMetrics();
+        displayMetrics.widthPixels = 400;
+
+        BookmarkPopupCoordinator coordinator =
+                new BookmarkPopupCoordinator(
+                        mActivity,
+                        mProfile,
+                        mAnchor,
+                        mBookmarkManagerOpener,
+                        mShoppingService,
+                        mPriceDropNotificationManager);
+
+        assertFalse(
+                coordinator
+                        .getPropertyModelForTesting()
+                        .get(BookmarkPopupProperties.IMAGE_VISIBLE));
+    }
+
+    @Test
+    public void testWideWindowShowsImage() {
+        DisplayMetrics displayMetrics = mActivity.getResources().getDisplayMetrics();
+        displayMetrics.widthPixels = 600;
+
+        BookmarkPopupCoordinator coordinator =
+                new BookmarkPopupCoordinator(
+                        mActivity,
+                        mProfile,
+                        mAnchor,
+                        mBookmarkManagerOpener,
+                        mShoppingService,
+                        mPriceDropNotificationManager);
+
+        assertTrue(
+                coordinator
+                        .getPropertyModelForTesting()
+                        .get(BookmarkPopupProperties.IMAGE_VISIBLE));
     }
 }

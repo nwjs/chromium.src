@@ -41,6 +41,7 @@ class OAuthConsumerRegistry {
   virtual OAuthConsumer GetOAuthConsumerForGlicInvokeApi() const = 0;
   virtual OAuthConsumer GetOAuthConsumerForSkillsService() const = 0;
   virtual OAuthConsumer GetOAuthConsumerForContextualTasks() const = 0;
+  virtual OAuthConsumer GetOAuthConsumerForDrivePickerHost() const = 0;
 
   // TODO: b/502940191 - Remove this and hard-code the scope after Indigo is
   // launched.
@@ -48,6 +49,7 @@ class OAuthConsumerRegistry {
   // TODO(crbug.com/536892467): Remove this and hard-code the scope after
   // BrowserActuator is launched.
   virtual OAuthConsumer GetOAuthConsumerForBrowserActuator() const = 0;
+  virtual OAuthConsumer GetOAuthConsumerForSiteTokenProvider() const = 0;
 };
 
 }  // namespace signin

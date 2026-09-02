@@ -194,7 +194,6 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoInterestTarget:
     case CSSSelector::kPseudoHasSlotted:
     case CSSSelector::kPseudoLinkTo:
-    case CSSSelector::kPseudoActiveNavigation:
     case CSSSelector::kPseudoPlaying:
     case CSSSelector::kPseudoPaused:
     case CSSSelector::kPseudoSeeking:
@@ -204,6 +203,7 @@ bool SupportsInvalidation(CSSSelector::PseudoType type) {
     case CSSSelector::kPseudoVolumeLocked:
     case CSSSelector::kPseudoToolFormActive:
     case CSSSelector::kPseudoToolSubmitActive:
+    case CSSSelector::kPseudoSkeleton:
       return true;
     case CSSSelector::kPseudoUnknown:
     case CSSSelector::kPseudoLeftPage:

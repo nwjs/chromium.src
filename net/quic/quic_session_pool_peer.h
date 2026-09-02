@@ -19,6 +19,7 @@
 #include "net/base/session_usage.h"
 #include "net/quic/quic_session_key.h"
 #include "net/quic/quic_session_pool.h"
+#include "net/quic/quic_session_pool_async_dns_job.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_packets.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_server_id.h"
 #include "net/third_party/quiche/src/quiche/quic/core/quic_time.h"
@@ -39,6 +40,8 @@ namespace test {
 
 class QuicSessionPoolPeer {
  public:
+  using AsyncDnsJob = QuicSessionPool::AsyncDnsJob;
+
   QuicSessionPoolPeer(const QuicSessionPoolPeer&) = delete;
   QuicSessionPoolPeer& operator=(const QuicSessionPoolPeer&) = delete;
 
@@ -85,6 +88,8 @@ class QuicSessionPoolPeer {
   static bool IsLiveSession(QuicSessionPool* pool,
                             QuicChromiumClientSession* session);
 
+  static size_t GetNumLiveSessions(QuicSessionPool* pool);
+
   static void SetTickClock(QuicSessionPool* pool,
                            const base::TickClock* tick_clock);
 
@@ -111,6 +116,12 @@ class QuicSessionPoolPeer {
       QuicSessionPool::QuicCryptoClientConfigKey key);
 
   static size_t GetNumDegradingSessions(QuicSessionPool* pool);
+
+  // Returns the session establishment reason for a given key. For testing only.
+  static QuicSessionEstablishmentReason
+  DetermineQuicSessionEstablishmentReasonForTesting(
+      QuicSessionPool* pool,
+      const QuicSessionKey& session_key);
 
   static void SetAlarmFactory(
       QuicSessionPool* pool,

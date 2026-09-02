@@ -278,11 +278,9 @@
     geminiTabHelper->SetLocationBarBadgeCommandsHandler(
         id<LocationBarBadgeCommands>(_commandDispatcher));
 
-    if (IsGeminiImageRemixToolEnabled()) {
-      id<HelpCommands> helpCommandsHandler =
-          HandlerForProtocol(_commandDispatcher, HelpCommands);
-      geminiTabHelper->SetHelpCommandsHandler(helpCommandsHandler);
-    }
+    id<HelpCommands> helpCommandsHandler =
+        HandlerForProtocol(_commandDispatcher, HelpCommands);
+    geminiTabHelper->SetHelpCommandsHandler(helpCommandsHandler);
   }
 
   FindTabHelper* findTabHelper = FindTabHelper::FromWebState(webState);
@@ -298,13 +296,11 @@
     }
   }
 
-  if (base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu)) {
-    ChooseFileTabHelper* chooseFileTabHelper =
-        ChooseFileTabHelper::FromWebState(webState);
-    if (chooseFileTabHelper) {
-      chooseFileTabHelper->SetFileUploadPanelHandler(
-          HandlerForProtocol(_commandDispatcher, FileUploadPanelCommands));
-    }
+  ChooseFileTabHelper* chooseFileTabHelper =
+      ChooseFileTabHelper::FromWebState(webState);
+  if (chooseFileTabHelper) {
+    chooseFileTabHelper->SetFileUploadPanelHandler(
+        HandlerForProtocol(_commandDispatcher, FileUploadPanelCommands));
   }
 }
 
@@ -428,9 +424,7 @@
   if (geminiTabHelper) {
     geminiTabHelper->SetGeminiHandler(nil);
     geminiTabHelper->SetLocationBarBadgeCommandsHandler(nil);
-    if (IsGeminiImageRemixToolEnabled()) {
-      geminiTabHelper->SetHelpCommandsHandler(nil);
-    }
+    geminiTabHelper->SetHelpCommandsHandler(nil);
   }
 
   FindTabHelper* findTabHelper = FindTabHelper::FromWebState(webState);
@@ -442,12 +436,10 @@
     }
   }
 
-  if (base::FeatureList::IsEnabled(kIOSCustomFileUploadMenu)) {
-    ChooseFileTabHelper* chooseFileTabHelper =
-        ChooseFileTabHelper::FromWebState(webState);
-    if (chooseFileTabHelper) {
-      chooseFileTabHelper->SetFileUploadPanelHandler(nil);
-    }
+  ChooseFileTabHelper* chooseFileTabHelper =
+      ChooseFileTabHelper::FromWebState(webState);
+  if (chooseFileTabHelper) {
+    chooseFileTabHelper->SetFileUploadPanelHandler(nil);
   }
 }
 

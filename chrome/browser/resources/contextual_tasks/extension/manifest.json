@@ -1,5 +1,5 @@
 {
-  "name": "Contextual Tasks",
+  "name": "google.com",
   "version": "1.0",
   "manifest_version": 3,
   "description": "Provides Contextual Tasks Private APIs",
@@ -9,8 +9,15 @@
     "type": "module"
   },
   "permissions": [
-    "contextualTasksPrivate"
+    "contextualTasksPrivate",
+    "metricsPrivate"
   ],
+  "host_permissions": [
+    "chrome://resources/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' chrome://resources; object-src 'self';"
+  },
   "externally_connectable": {
     "matches": [
       "https://google.com/search*",
@@ -30,6 +37,10 @@
         "https://*.corp.google.com/*",
         "https://*.prod.google.com/*",
         "https://*.googlers.com/*"
+// <if expr="not is_official_build">
+        ,"http://localhost/*",
+        "file:///*"
+// </if>
       ]
     }
   ]

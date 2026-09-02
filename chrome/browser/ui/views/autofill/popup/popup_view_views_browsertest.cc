@@ -126,7 +126,7 @@ std::vector<Suggestion> CreateLoyaltyCardSuggestions() {
 
 std::vector<Suggestion> CreatePasswordSuggestions(
     Suggestion::Acceptability acceptability =
-        Suggestion::Acceptability::kAcceptable) {
+        Suggestion::Acceptability::kSelectableAndAcceptable) {
   std::vector<Suggestion> suggestions;
   suggestions.emplace_back(u"Title suggestion", SuggestionType::kTitle);
   suggestions.back().acceptability = acceptability;
@@ -152,7 +152,7 @@ std::vector<Suggestion> CreatePasswordSuggestions(
 
 std::vector<Suggestion> CreateWebAuthnSuggestions(
     Suggestion::Acceptability acceptability =
-        Suggestion::Acceptability::kAcceptable) {
+        Suggestion::Acceptability::kSelectableAndAcceptable) {
   std::vector<Suggestion> suggestions;
   suggestions.push_back(Suggestion(
       u"cool passkey",
@@ -185,7 +185,7 @@ std::vector<Suggestion> CreateWebAuthnSuggestions(
 
 std::vector<Suggestion> CreatePasswordAndWebAuthnSuggestions(
     Suggestion::Acceptability acceptability =
-        Suggestion::Acceptability::kAcceptable) {
+        Suggestion::Acceptability::kSelectableAndAcceptable) {
   std::vector<Suggestion> suggestions =
       CreatePasswordSuggestions(acceptability);
   suggestions.pop_back();
@@ -212,8 +212,18 @@ Suggestion CreateBnplEntrySuggestion() {
 
 Suggestion CreateBnplFootnoteSuggestion() {
   Suggestion bnpl_footnote = Suggestion(SuggestionType::kBnplFootnote);
-  bnpl_footnote.acceptability = Suggestion::Acceptability::kUnacceptable;
+  bnpl_footnote.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
   return bnpl_footnote;
+}
+
+Suggestion CreateAtMemoryFetchingSuggestion() {
+  Suggestion suggestion(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_AT_MEMORY_FETCHING),
+      SuggestionType::kAtMemoryFetching);
+  suggestion.acceptability =
+      Suggestion::Acceptability::kSelectableButUnacceptable;
+  return suggestion;
 }
 
 class PopupViewViewsBrowsertestBase
@@ -392,7 +402,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
 IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                        InvokeUi_Passwords_And_WebAuthn_Deactivated) {
   PrepareSuggestions(CreatePasswordAndWebAuthnSuggestions(
-      Suggestion::Acceptability::kUnacceptableWithDeactivatedStyle));
+      Suggestion::Acceptability::kUnselectableAndUnacceptable));
   ShowAndVerifyUi();
 }
 
@@ -481,6 +491,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, SearchBarViewProvided) {
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
       AutofillPopupView::SearchBarConfig{.placeholder = u"Search",
+                                         .initial_value = {},
                                          .no_results_message = u""});
 }
 
@@ -490,6 +501,7 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
   ShowAndVerifyUi(
       /*popup_has_parent=*/false,
       AutofillPopupView::SearchBarConfig{.placeholder = u"Search",
+                                         .initial_value = {},
                                          .no_results_message = u""});
 }
 
@@ -500,9 +512,10 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
       {SuggestionType::kSeparator, SuggestionType::kManageAddress});
   ON_CALL(controller(), HasFilteredOutSuggestions).WillByDefault(Return(true));
   ShowAndVerifyUi(
-      /*popup_has_parent=*/false,
-      AutofillPopupView::SearchBarConfig{
-          .placeholder = u"Search", .no_results_message = u"No suggestions"});
+      /*popup_has_parent=*/false, AutofillPopupView::SearchBarConfig{
+                                      .placeholder = u"Search",
+                                      .initial_value = {},
+                                      .no_results_message = u"No suggestions"});
 }
 
 IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, InvokeUi_BnplFootnote) {
@@ -538,6 +551,56 @@ IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
                   AutofillPopupView::TabbedPaneConfig(
                       {{TabbedPaneTabType::kPayNow, u"Pay now"},
                        {TabbedPaneTabType::kPayLater, u"Pay later"}}));
+}
+
+IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, InvokeUi_AtMemoryFetching) {
+  PrepareSuggestions({CreateAtMemoryFetchingSuggestion()});
+  ShowAndVerifyUi(
+      /*popup_has_parent=*/false,
+      AutofillPopupView::SearchBarConfig{.placeholder = u"Find and fill",
+                                         .initial_value = {},
+                                         .no_results_message = u""});
+}
+
+IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
+                       InvokeUi_MultiSuggestionNotice) {
+  ON_CALL(controller(), GetMainFillingProduct())
+      .WillByDefault(Return(FillingProduct::kAutofillAi));
+  Suggestion fill_suggestion(u"John Doe", u"Passport",
+                             Suggestion::Icon::kPassport,
+                             SuggestionType::kFillAutofillAi);
+  Suggestion notice_suggestion(SuggestionType::kPersonalContextNotice);
+  PrepareSuggestions({fill_suggestion, notice_suggestion});
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
+                       InvokeUi_SuggestionNoticeIsTheOnlySuggestion) {
+  ON_CALL(controller(), GetMainFillingProduct())
+      .WillByDefault(Return(FillingProduct::kAutofillAi));
+  Suggestion notice_suggestion(SuggestionType::kPersonalContextNotice);
+  PrepareSuggestions({notice_suggestion});
+  ShowAndVerifyUi();
+}
+
+IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest, InvokeUi_AutofillAi_SubMenu) {
+  Suggestion remove_suggestion(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_REMOVE_INFO),
+      SuggestionType::kRemoveAutofillAi);
+  remove_suggestion.icon = Suggestion::Icon::kClose;
+  PrepareSuggestions({std::move(remove_suggestion)});
+  ShowAndVerifyUi(/*popup_has_parent=*/true);
+}
+
+IN_PROC_BROWSER_TEST_P(PopupViewViewsBrowsertest,
+                       InvokeUi_AutofillAi_SubMenu_Selected) {
+  Suggestion remove_suggestion(
+      l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_REMOVE_INFO),
+      SuggestionType::kRemoveAutofillAi);
+  remove_suggestion.icon = Suggestion::Icon::kClose;
+  PrepareSuggestions({std::move(remove_suggestion)});
+  PrepareSelectedCell(CellIndex{0, CellType::kContent});
+  ShowAndVerifyUi(/*popup_has_parent=*/true);
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

@@ -6,16 +6,26 @@
 
 #import "base/strings/string_util.h"
 #import "components/account_settings/account_setting_service.h"
+#import "components/autofill/core/browser/at_memory/at_memory_enablement_utils.h"
 #import "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
+#import "components/autofill/core/browser/foundations/autofill_client.h"
+#import "components/autofill/core/browser/integrators/personal_context/personal_context_autofill_util.h"
 #import "components/autofill/core/browser/permissions/autofill_ai/autofill_ai_permission_utils.h"
 #import "components/autofill/core/common/autofill_features.h"
+#import "components/autofill/core/common/autofill_prefs.h"
+#import "components/personal_context/core/personal_context_eligibility_service.h"
 #import "components/personal_context/core/personal_context_types.h"
+#import "components/personal_context/first_run/personal_context_first_run_service.h"
 #import "components/subscription_eligibility/subscription_eligibility_service.h"
 #import "components/variations/service/variations_service.h"
 #import "ios/chrome/browser/account_settings/model/ios_account_setting_service_factory.h"
 #import "ios/chrome/browser/autofill/model/ios_autofill_entity_data_manager_factory.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/metrics/model/google_groups_manager_factory.h"
+#import "ios/chrome/browser/personal_context/model/ios_personal_context_eligibility_service_factory.h"
+#import "ios/chrome/browser/personal_context/model/ios_personal_context_first_run_service_factory.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -24,7 +34,20 @@
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 
+namespace {
+
+// Returns true if the user has completed the Gemini First Run Experience.
+bool IsGeminiFirstRunCompleted(ProfileIOS* profile) {
+  return gemini::CurrentFirstRunState(profile->GetPrefs()) ==
+         gemini::FirstRunState::kCompleted;
+}
+
+}  // namespace
+
 namespace autofill {
+
+using personal_context::PersonalContextEligibilityService;
+using personal_context::PersonalContextEligibilityState;
 
 const std::string GetCountryCodeFromVariations() {
   variations::VariationsService* variations_service =
@@ -70,6 +93,14 @@ bool CanPerformAutofillAiAction(ProfileIOS* profile,
   // for Bling since the management of data is done in Settings, which is not
   // in Incognito. No save. No model inference on forms. Therefore, there will
   // be no sync service if the profile is an Incognito profile.
+
+  PersonalContextEligibilityService* personal_context_eligibility_service =
+      IOSPersonalContextEligibilityServiceFactory::GetForProfile(profile);
+  const PersonalContextEligibilityState personal_context_eligibility_state =
+      personal_context_eligibility_service
+          ? personal_context_eligibility_service->GetEligibilityState()
+          : PersonalContextEligibilityState::kDisabledNotEligible;
+
   return MayPerformAutofillAiAction(
       GoogleGroupsManagerFactory::GetForProfile(profile->GetOriginalProfile()),
       profile->GetPrefs(), entity_data_manager,
@@ -78,16 +109,42 @@ bool CanPerformAutofillAiAction(ProfileIOS* profile,
       IsWalletPublicPassStorageEnabled(profile), profile->IsOffTheRecord(),
       GeoIpCountryCode(GetCountryCodeFromVariations()),
       SubscriptionEligibilityServiceFactory::GetForProfile(profile),
-      personal_context::PersonalContextEligibilityState::kDisabledNotEligible,
-      action, entity_type);
+      personal_context_eligibility_state, action, entity_type);
 }
 
-bool IsAmbientAutofillEnabled() {
+bool IsAmbientAutofillEnabled(ProfileIOS* profile) {
+  CHECK(profile);
+  if (profile->IsOffTheRecord()) {
+    return false;
+  }
+
+  // Check Gemini First Run state before any pcontext features.
+  if (!IsGeminiFirstRunCompleted(profile)) {
+    return false;
+  }
+
+  return CanPerformAutofillAiAction(profile,
+                                    AutofillAiAction::kAmbientAutofill);
+}
+
+bool IsAmbientAutofillFeatureEnabled() {
   return base::FeatureList::IsEnabled(features::kAutofillAmbientAutofill);
+}
+
+bool IsAutofillShoppingEnabled() {
+  return IsAmbientAutofillFeatureEnabled() ||
+         base::FeatureList::IsEnabled(features::kAutofillAiWalletShopping);
 }
 
 bool IsAutofillAtMemoryEnabled() {
   return base::FeatureList::IsEnabled(features::kAutofillAtMemory);
+}
+
+bool IsAutofillAtMemorySearchUIEnabled(const AutofillClient* client) {
+  if (!client) {
+    return false;
+  }
+  return MayPerformAtMemoryAction(AtMemoryAction::kTriggerSearchUI, *client);
 }
 
 bool IsEnhancedAutofillEnabled(ProfileIOS* profile) {
@@ -95,6 +152,12 @@ bool IsEnhancedAutofillEnabled(ProfileIOS* profile) {
   return GetAutofillAiOptInStatus(
       original_profile->GetPrefs(),
       IdentityManagerFactory::GetForProfile(original_profile));
+}
+
+const char* GetAutofillAiOptInPreferenceKeyName() {
+  return base::FeatureList::IsEnabled(features::kAutofillAiUsePrivateAi)
+             ? prefs::kAutofillAiPrivateInferenceOptInStatus
+             : prefs::kAutofillAiOptInStatus;
 }
 
 void SetEnhancedAutofillEnabled(ProfileIOS* profile, bool enabled) {
@@ -109,7 +172,7 @@ void SetEnhancedAutofillEnabled(ProfileIOS* profile, bool enabled) {
       original_profile->IsOffTheRecord(),
       GeoIpCountryCode(GetCountryCodeFromVariations()),
       SubscriptionEligibilityServiceFactory::GetForProfile(original_profile),
-      personal_context::PersonalContextEligibilityState::kDisabledNotEligible,
+      PersonalContextEligibilityState::kDisabledNotEligible,
       enabled ? AutofillAiOptInStatus::kOptedIn
               : AutofillAiOptInStatus::kOptedOut);
 }
@@ -140,6 +203,20 @@ base::optional_ref<const EntityInstance> GetEntityInstance(
 
   return edm->GetEntityInstance(
       EntityInstance::EntityId(base::Uuid::ParseCaseInsensitive(guid)));
+}
+
+bool ShouldShowPersonalContextAutofillSetting(ProfileIOS* profile) {
+  CHECK(profile);
+  return ShouldShowPersonalContextAutofillSetting(
+      GoogleGroupsManagerFactory::GetForProfile(profile->GetOriginalProfile()),
+      profile->GetPrefs(),
+      IOSAutofillEntityDataManagerFactory::GetForProfile(profile),
+      IdentityManagerFactory::GetForProfile(profile->GetOriginalProfile()),
+      SyncServiceFactory::GetForProfile(profile),
+      IsWalletPublicPassStorageEnabled(profile), profile->IsOffTheRecord(),
+      GeoIpCountryCode(GetCountryCodeFromVariations()),
+      IOSPersonalContextEligibilityServiceFactory::GetForProfile(profile),
+      SubscriptionEligibilityServiceFactory::GetForProfile(profile));
 }
 
 }  // namespace autofill

@@ -33,6 +33,7 @@ import org.chromium.components.browser_ui.notifications.NotificationWrapper;
 /** Implementation of ActorForegroundService. */
 @NullMarked
 public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
+    private static final String TAG = "ActorFGS";
     private static final String START_ACTOR_FOREGROUND_SERVICE =
             "org.chromium.chrome.browser.actor.START_ACTOR_FOREGROUND_SERVICE";
     private static final String EXTRA_GLIC_TRIGGER_MESSAGE_ID =
@@ -42,9 +43,6 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
     private long mStartTime;
     private boolean mIsForeground;
     private boolean mStopReasonRecorded;
-    private @Nullable ActorBackgroundActuationManager mBackgroundManager;
-
-    private static final String TAG = "Actor";
 
     /**
      * Start the foreground service with this given context.
@@ -95,7 +93,7 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
         if (!mIsForeground) {
             ActorForegroundServiceUmaHelper.recordLifecycleHistogram(ForegroundLifecycle.STARTED);
             mIsForeground = true;
-            if (ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC_BACKGROUND_TRIGGERING)) {
+            if (ChromeFeatureList.sGlicBackgroundTriggering.isEnabled()) {
                 ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
             }
         } else {
@@ -122,13 +120,21 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
 
     @Override
     public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
-        Log.d(TAG, "GlicTrigger: ActorForegroundService onStartCommand");
+        boolean isGlicBackgroundTriggerEnabled =
+                ChromeFeatureList.sGlicBackgroundTriggering.isEnabled();
+        Log.d(
+                TAG,
+                "ActorForegroundService onStartCommand. mIsForeground: "
+                        + mIsForeground
+                        + ", featureEnabled: "
+                        + isGlicBackgroundTriggerEnabled);
         if (mStartTime == 0) {
             mStartTime = SystemClock.elapsedRealtime();
         }
 
         if (!mIsForeground
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC_BACKGROUND_TRIGGERING)) {
+                && isGlicBackgroundTriggerEnabled
+                && intent != null && START_ACTOR_FOREGROUND_SERVICE.equals(intent.getAction())) {
             Log.d(TAG, "GlicTrigger: Promoting to foreground");
             NotificationWrapper taskStartsSoonNotificationWrapper =
                     ActorNotificationFactory.buildTaskStartsSoonNotification();
@@ -144,7 +150,7 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
         }
 
         if (intent != null && START_ACTOR_FOREGROUND_SERVICE.equals(intent.getAction())) {
-            if (!ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC_BACKGROUND_TRIGGERING)) {
+            if (!isGlicBackgroundTriggerEnabled) {
                 Log.w(TAG, "Background triggering disabled, ignoring start intent.");
                 return Service.START_NOT_STICKY;
             }
@@ -161,15 +167,14 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
             Log.d(TAG, "Received start Intent for glicTriggerMessageId=" + glicTriggerMessageId);
 
             if (glicTriggerMessageId != null && !glicTriggerMessageId.isEmpty()) {
-                if (mBackgroundManager == null) {
-                    mBackgroundManager = new ActorBackgroundActuationManager();
-                }
                 Log.d(
                         TAG,
                         "Triggering background actuation flow for glicTriggerMessageId="
                                 + glicTriggerMessageId);
                 Profile profile = ProfileManager.getLastUsedRegularProfile();
-                mBackgroundManager.startBackgroundActuation(profile, glicTriggerMessageId);
+                ActorBackgroundActuationManager backgroundManager = getBackgroundActuationManager();
+                assert backgroundManager != null;
+                backgroundManager.startBackgroundActuation(profile, glicTriggerMessageId);
             } else {
                 Log.w(TAG, "Start intent was ignored as there was no glic trigger message id.");
             }
@@ -178,6 +183,14 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
         // Return START_NOT_STICKY so the system doesn't attempt to recreate the service if it is
         // killed.
         return Service.START_NOT_STICKY;
+    }
+
+    private static @Nullable ActorBackgroundActuationManager getBackgroundActuationManager() {
+        ActorForegroundServiceController controller = ActorForegroundServiceController.get();
+        if (controller instanceof ActorForegroundServiceControllerImpl impl) {
+            return impl.getBackgroundActuationManager();
+        }
+        return null;
     }
 
     @Override
@@ -200,10 +213,7 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
             recordStopReason(StopReason.DESTROYED);
         }
 
-        if (mBackgroundManager != null) {
-            mBackgroundManager.destroy();
-            mBackgroundManager = null;
-        }
+        ActorForegroundServiceController.get().destroyBackgroundActuationManager();
 
         // TODO(ritkagup) : Notify observers so they can perform cleanup or pause active tasks.
         super.onDestroy();
@@ -232,10 +242,6 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
         setService(service);
     }
 
-    void setBackgroundManagerForTesting(ActorBackgroundActuationManager backgroundManager) {
-        mBackgroundManager = backgroundManager;
-    }
-
     @VisibleForTesting
     void startForegroundInternal(int notificationId, Notification notification) {
         ForegroundServiceUtils.getInstance()
@@ -244,6 +250,7 @@ public class ActorForegroundServiceImpl extends SplitCompatService.Impl {
                         notificationId,
                         notification,
                         ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+        Log.d(TAG, "Successfully promoted to foreground");
     }
 
     @VisibleForTesting

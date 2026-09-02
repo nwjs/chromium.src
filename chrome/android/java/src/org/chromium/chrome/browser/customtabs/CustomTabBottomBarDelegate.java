@@ -29,6 +29,7 @@ import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.Callback;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.SupplierUtils;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -425,13 +426,10 @@ public class CustomTabBottomBarDelegate
                 .setInterpolator(Interpolators.FAST_OUT_SLOW_IN_INTERPOLATOR)
                 .setDuration(SLIDE_ANIMATION_DURATION_MS)
                 .withEndAction(
-                        new Runnable() {
-                            @Override
-                            public void run() {
-                                assumeNonNull(mBottomBarView);
-                                ((ViewGroup) mBottomBarView.getParent()).removeView(mBottomBarView);
-                                mBottomBarView = null;
-                            }
+                        () -> {
+                            assumeNonNull(mBottomBarView);
+                            ((ViewGroup) mBottomBarView.getParent()).removeView(mBottomBarView);
+                            mBottomBarView = null;
                         })
                 .start();
         setBottomControlsHeight(0);
@@ -639,7 +637,7 @@ public class CustomTabBottomBarDelegate
                 mSwipeUpPendingIntent,
                 null,
                 mActivity,
-                () -> null,
+                SupplierUtils.ofNull(),
                 mDataProvider,
                 /* viewId= */ null);
     }

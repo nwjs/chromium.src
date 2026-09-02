@@ -34,12 +34,12 @@ constexpr size_t kJsAutofillMaxFieldsChanged = 10;
 // same JS autofill event.
 constexpr base::TimeDelta kJsAutofillMaxTimeGap = base::Milliseconds(200);
 
+// Returns true if `element` can act as the anchor for a custom JS-autofill
+// popup. Custom autofill dropdowns are typically attached to text-like input
+// fields (e.g., text, search, email, telephone, url) or textarea elements.
+// Non-textual controls (e.g., checkboxes, radio buttons, select elements,
+// date pickers) return false to avoid tracking unrelated user interactions.
 bool IsPossibleAnchorElement(blink::WebFormControlElement element) {
-  // A JS-autofill picker would usually be anchored on a text-like input or
-  // textarea element. We exclude select elements to avoid false positives
-  // from country/state dropdowns resetting other fields and checkboxes and
-  // radio buttons to avoid false positives caused by checking boxes like
-  // "Billing address is similar to shipping address".
   std::optional<mojom::FormControlType> field_type =
       form_util::GetAutofillFormControlType(element);
   if (!field_type) {
@@ -54,6 +54,9 @@ bool IsPossibleAnchorElement(blink::WebFormControlElement element) {
     case mojom::FormControlType::kTextArea:
       return true;
     case mojom::FormControlType::kContentEditable:
+      // Contenteditable elements are not extracted by default in Autofill and
+      // are excluded in this function for simplicity.
+      return false;
     case mojom::FormControlType::kInputCheckbox:
     case mojom::FormControlType::kInputMonth:
     case mojom::FormControlType::kInputNumber:
@@ -61,10 +64,26 @@ bool IsPossibleAnchorElement(blink::WebFormControlElement element) {
     case mojom::FormControlType::kInputRadio:
     case mojom::FormControlType::kSelectOne:
     case mojom::FormControlType::kInputDate:
-    case mojom::FormControlType::kInputHiddenEmailVerification:
       return false;
   }
   NOTREACHED();
+}
+
+// Returns true if `target_node` represents a plausible custom JS-autofill
+// dropdown suggestion. Custom dropdown items are rendered using non-form DOM
+// elements (e.g., <div>, <li>, <span>).This is simply a heuristic ruling out
+// common cases and is not exhaustive.
+bool IsPossibleMouseClickTargetElement(blink::WebNode target_node) {
+  // If `target_node` is a non-element node (e.g. text inside a <button> or
+  // <div>), walk up to its parent element to determine the actual DOM control
+  // element.
+  while (target_node && !target_node.IsElementNode()) {
+    target_node = target_node.ParentNode();
+  }
+  // Custom JS dropdown options (e.g. <div>, <li>, <span>) are non-form
+  // elements. Clicking any form control element (buttons, checkboxes, radio
+  // buttons, etc.) should not start the custom JS autofill detection timer.
+  return !target_node.DynamicTo<blink::WebFormControlElement>();
 }
 
 mojom::JavaScriptModificationType GetJavaScriptModificationType(
@@ -107,19 +126,24 @@ void JavaScriptAutofillTracker::OnJavaScriptChangedValue(
   // be satisfied:
 
   // (1) A mousedown event must have started the timer not earlier than
-  // `kMaxTimeGap` milliseconds ago.
+  // `kMaxTimeGap` milliseconds ago. This is to increase the likelihood of the
+  // JS change being caused by the click itself.
   if (!timer_.IsRunning()) {
     return;
   }
 
-  // (2) The element whose value was set by JS should be autofillable.
-  if (!form_util::IsAutofillableElement(element)) {
+  // (2) `js_logs_` must still have less than `kJsAutofillMaxFieldsChanged`
+  // records. If more than that many fields are modified in such a small window
+  // of time, it is likely not an autofill dropdown. This is also a performance
+  // guard since string analysis is performed below.
+  if (js_logs_.size() >= kJsAutofillMaxFieldsChanged) {
     return;
   }
 
-  // (3) `js_logs_` must still have less than `kJsAutofillMaxFieldsChanged`
-  // records.
-  if (js_logs_.size() >= kJsAutofillMaxFieldsChanged) {
+  // (3) The element whose value was set by JS should be autofillable and
+  // focusable (which is an approximation of "visible"). Other JS modifications
+  // are not interesting from a JS-autofill dropdown perspective.
+  if (!form_util::IsAutofillableElement(element) || !element.IsFocusable()) {
     return;
   }
 
@@ -134,25 +158,38 @@ void JavaScriptAutofillTracker::Reset() {
   timer_.Stop();
 }
 
-void JavaScriptAutofillTracker::HandleMousedown() {
+void JavaScriptAutofillTracker::HandleMousedown(
+    const blink::WebNode& target_node) {
   // In order to start recording logs to `js_logs_`, the following conditions
   // must be satisfied:
 
-  // (1) The frame must have transient user activation.
+  // (1) The frame must have transient user activation. This excludes events
+  // happening without user interaction.
   blink::WebDocument document = web_frame_->GetDocument();
   if (!document || !web_frame_->HasTransientUserActivation()) {
     return;
   }
 
-  // (2) The frame should have a non-null focused element whose type can be that
-  // of an anchor element.
+  // (2) The target of the mousedown event should be a possible target element
+  // (e.g. not a checkbox, radio button, button element, etc.). This is to
+  // exclude common cases where the user clicks away from an input element, but
+  // not on a dropdown option.
+  if (!IsPossibleMouseClickTargetElement(target_node)) {
+    return;
+  }
+
+  // (3) The frame should have a non-null focused element whose type can be that
+  // of an anchor element. This element will be used as the trigger field of the
+  // JS autofill operation.
   blink::WebFormControlElement focused_element =
       document.FocusedElement().DynamicTo<blink::WebFormControlElement>();
   if (!focused_element || !IsPossibleAnchorElement(focused_element)) {
     return;
   }
 
-  // (3) The timer isn't already running.
+  // (4) The timer isn't already running. This is to rule out cases where mouse
+  // clicks happen repeatedly and quickly and keep extending the tracking window
+  // indefinitely.
   if (timer_.IsRunning()) {
     return;
   }

@@ -33,6 +33,8 @@ import static androidx.browser.trusted.LaunchHandlerClientMode.NAVIGATE_NEW;
 
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.chrome.browser.app.tab_activity_glue.PopupCreatorImpl.EXTRA_REQUESTED_WINDOW_FEATURES;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.sCctTabSwitcherEnabledForChromeExperiment;
+import static org.chromium.chrome.browser.flags.ChromeFeatureList.sCctTabSwitcherEnabledForEmbedderExperiment;
 
 import android.app.Activity;
 import android.app.ActivityOptions;
@@ -129,9 +131,6 @@ import java.util.function.Supplier;
 @NullMarked
 public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvider {
     private static final String TAG = "CustomTabIntentData";
-    // Special menu item title used to induce a Java crash for testing purposes.
-    // TODO (crbug.com/527591870): Remove before kSessionRestoreAfterCrash launches.
-    private static final String CRASH_MENU_TITLE = "Induce CCT Crash";
 
     @IntDef({LaunchSourceType.OTHER, LaunchSourceType.MEDIA_LAUNCHER_ACTIVITY})
     @Retention(RetentionPolicy.SOURCE)
@@ -176,6 +175,11 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     /** Indicates the type of UI Custom Tab should use. */
     public static final String EXTRA_UI_TYPE =
             "org.chromium.chrome.browser.customtabs.EXTRA_UI_TYPE";
+
+    public static final String EXTRA_CCT_TAB_SWITCHER_ENABLED_FOR_CHROME_EXPERIMENT =
+            "org.chromium.chrome.browser.customtabs.EXTRA_CCT_TAB_SWITCHER_ENABLED_FOR_CHROME_EXPERIMENT";
+    public static final String EXTRA_CCT_TAB_SWITCHER_ENABLED_FOR_EMBEDDER_EXPERIMENT =
+            "org.chromium.chrome.browser.customtabs.EXTRA_CCT_TAB_SWITCHER_ENABLED_FOR_EMBEDDER_EXPERIMENT";
 
     /** Extra that defines the initial background color (RGB color stored as an integer). */
     public static final String EXTRA_INITIAL_BACKGROUND_COLOR =
@@ -256,6 +260,14 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             "org.chromium.chrome.browser.customtabs.EXPERIMENTS_ENABLE";
     public static final String EXPERIMENTS_DISABLE =
             "org.chromium.chrome.browser.customtabs.EXPERIMENTS_DISABLE";
+
+    /** Extra that contains the verified FileHandlingData bundle. */
+    public static final String EXTRA_VERIFIED_FILE_HANDLING_DATA =
+            "org.chromium.chrome.browser.customtabs.EXTRA_VERIFIED_FILE_HANDLING_DATA";
+
+    /** Extra that contains the boolean array indicating write permissions for verified files. */
+    public static final String EXTRA_VERIFIED_FILE_CAN_WRITE =
+            "org.chromium.chrome.browser.customtabs.EXTRA_VERIFIED_FILE_CAN_WRITE";
 
     /**
      * Extra that, if set, makes the Custom Tab Activity's height to be x pixels, the Custom Tab
@@ -388,6 +400,8 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
     private final boolean mIsPartialCustomTabFixedHeight;
     private final boolean mContentScrollMayResizeTab;
+    private final boolean mCctTabSwitcherEnabledForChromeExperiment;
+    private final boolean mCctTabSwitcherEnabledForEmbedderExperiment;
 
     /**
      * {@link Network} to be bound when launching a custom tab or tabs that have been pre-created.
@@ -721,6 +735,13 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
         mGsaExperimentIds = IntentUtils.safeGetIntArrayExtra(intent, EXPERIMENT_IDS);
 
+        mCctTabSwitcherEnabledForChromeExperiment =
+                IntentUtils.safeGetBooleanExtra(
+                        intent, EXTRA_CCT_TAB_SWITCHER_ENABLED_FOR_CHROME_EXPERIMENT, false);
+        mCctTabSwitcherEnabledForEmbedderExperiment =
+                IntentUtils.safeGetBooleanExtra(
+                        intent, EXTRA_CCT_TAB_SWITCHER_ENABLED_FOR_EMBEDDER_EXPERIMENT, false);
+
         mBreakPointDp = getActivityBreakPointFromIntent(intent);
         mInitialActivityHeight = getInitialActivityHeightFromIntent(intent);
         mInitialActivityWidth = getInitialActivityWidthFromIntent(intent);
@@ -801,10 +822,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             if (TextUtils.isEmpty(title) || pendingIntent == null) {
                 continue;
             }
-            if (CRASH_MENU_TITLE.equals(title)
-                    && !ChromeFeatureList.sSessionRestoreAfterCrash.isEnabled()) {
-                continue;
-            }
             mMenuEntries.add(new Pair<>(title, pendingIntent));
         }
     }
@@ -827,10 +844,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             // Media viewers pass in PendingIntents that contain CHOOSER Intents.  Setting the data
             // in these cases prevents the Intent from firing correctly.
             String menuTitle = mMenuEntries.get(menuIndex).first;
-            if (CRASH_MENU_TITLE.equals(menuTitle)
-                    && ChromeFeatureList.sSessionRestoreAfterCrash.isEnabled()) {
-                throw new RuntimeException("Intentional Java Crash via CCT Menu Option");
-            }
             PendingIntent pendingIntent = mMenuEntries.get(menuIndex).second;
             ActivityOptions options = ActivityOptions.makeBasic();
             ApiCompatibilityUtils.setActivityOptionsBackgroundActivityStartAllowAlways(options);
@@ -1991,5 +2004,18 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         CustomTabsConnection.getInstance()
                 .maybeAddAdditionalContentExtrasToOutboundIntent(
                         tabProvider, this, outboundIntent, viewId);
+    }
+
+    @Override
+    public boolean isCctTabSwitcherEnabled() {
+        boolean isEnabledForEmbedderExperiment =
+                sCctTabSwitcherEnabledForEmbedderExperiment.isEnabled()
+                        && mCctTabSwitcherEnabledForEmbedderExperiment;
+
+        boolean isEnabledForChromeExperiment =
+                sCctTabSwitcherEnabledForChromeExperiment.isEnabled()
+                        && mCctTabSwitcherEnabledForChromeExperiment;
+
+        return isEnabledForEmbedderExperiment || isEnabledForChromeExperiment;
     }
 }

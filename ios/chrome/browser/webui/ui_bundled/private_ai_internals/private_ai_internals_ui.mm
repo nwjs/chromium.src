@@ -36,7 +36,9 @@ web::WebUIIOSDataSource* CreatePrivateAiInternalsHTMLSource() {
   source->AddString("default_url", private_ai::kPrivateAiUrl.Get());
   source->AddString(
       "default_api_key",
-      private_ai::PrivateAiInternalsPageHandler::kApiKeyPlaceholder);
+      private_ai::PrivateAiService::GetApiKey(::GetChannel()).empty()
+          ? ""
+          : private_ai::PrivateAiInternalsPageHandler::kApiKeyPlaceholder);
   source->AddString("default_proxy_url",
                     private_ai::kPrivateAiProxyServerUrl.Get());
   source->AddBoolean(
@@ -69,10 +71,12 @@ void PrivateAiInternalsUI::BindInterface(
   auto* private_ai_service = PrivateAiServiceFactory::GetForProfile(profile);
 
   if (!private_ai_service) {
+    receiver.reset();
     return;
   }
   auto* token_manager = private_ai_service->GetTokenManager();
   if (!token_manager) {
+    receiver.reset();
     return;
   }
 

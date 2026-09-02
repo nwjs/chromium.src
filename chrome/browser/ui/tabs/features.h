@@ -12,8 +12,6 @@
 
 namespace tabs {
 
-// TODO(crbug.com/346837232): move all flags to this file.
-
 BASE_DECLARE_FEATURE(kTabGroupHome);
 
 // Whether the throbber should be shown for a restored tab after it becomes
@@ -95,6 +93,8 @@ BASE_DECLARE_FEATURE(kBackToOpener);
 BASE_DECLARE_FEATURE(kTabStripUnification);
 
 BASE_DECLARE_FEATURE(kMigrateEverythingMenuPinnedToTabstrip);
+
+bool IsSplitViewHorizontalIndirectAccessEnabled();
 
 bool IsVerticalTabsFeatureEnabled();
 

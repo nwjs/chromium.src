@@ -12,6 +12,7 @@
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_eligibility_manager.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service.h"
@@ -19,7 +20,6 @@
 #include "chrome/browser/signin/chrome_signin_pref_names.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/signin_promo_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/search_ai_mode/signin_promo_controller.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -300,10 +300,8 @@ IN_PROC_BROWSER_TEST_F(SearchAiModePromoTabHelperBrowserTest,
   // The helper will still be alive for now, but when the users interacts
   // with the promo it will detect the initiator's destruction and will be
   // destroyed.
-  int source_index =
-      browser()->tab_strip_model()->GetIndexOfWebContents(source_contents);
-  browser()->tab_strip_model()->CloseWebContentsAt(
-      source_index, TabCloseTypes::CLOSE_USER_GESTURE);
+  browser()->tab_strip_model()->CloseWebContents(
+      source_contents, TabCloseTypes::CLOSE_USER_GESTURE);
 
   // Verify helper is alive (listening for sign-in).
   ASSERT_TRUE(SearchAiModePromoTabHelper::FromWebContents(new_contents));

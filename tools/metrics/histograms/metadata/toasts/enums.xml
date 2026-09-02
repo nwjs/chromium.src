@@ -60,7 +60,8 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Non-milestone Update"/>
   <int value="6" label="Added to comparison table"/>
   <int value="7" label="Clear Browsing Data"/>
-  <int value="8" label="Automatic plus address replacement during Autofill"/>
+  <int value="8"
+      label="(Deprecated) Automatic plus address replacement during Autofill"/>
   <int value="9"
       label="ESB value was synced to 'turned on' - for non security settings
              page"/>
@@ -113,6 +114,7 @@ chromium-metrics-reviews@google.com.
   <int value="52" label="Enterprise copy blocked toast"/>
   <int value="53" label="Indigo delete uploaded photo error"/>
   <int value="54" label="Indigo delete uploaded photo success"/>
+  <int value="55" label="Showed AtMemory SPII fetch error message"/>
 </enum>
 
 <!-- LINT.ThenChange(/chrome/browser/ui/toasts/api/toast_id.h:ToastId) -->

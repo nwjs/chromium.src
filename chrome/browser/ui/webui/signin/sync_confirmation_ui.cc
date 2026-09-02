@@ -23,7 +23,7 @@
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/webui/signin/signin_url_utils.h"
 #include "chrome/browser/ui/webui/signin/sync_confirmation_handler.h"
@@ -39,6 +39,7 @@
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
@@ -213,7 +214,8 @@ SyncConfirmationUI::SyncConfirmationUI(content::WebUI* web_ui)
 
 SyncConfirmationUI::~SyncConfirmationUI() = default;
 
-void SyncConfirmationUI::InitializeMessageHandlerWithBrowser(Browser* browser) {
+void SyncConfirmationUI::InitializeMessageHandlerWithBrowser(
+    BrowserWindowInterface* browser) {
   web_ui()->AddMessageHandler(std::make_unique<SyncConfirmationHandler>(
       profile_, js_localized_string_to_ids_map_, browser));
 }
@@ -266,11 +268,11 @@ void SyncConfirmationUI::InitializeForSyncConfirmation(
         "sync_confirmation_app_refresh.html.js",
         IDR_SIGNIN_SYNC_CONFIRMATION_SYNC_CONFIRMATION_APP_REFRESH_HTML_JS);
     source->AddResourcePath(
-        "images/profile_picker_light_background.svg",
-        IDR_SIGNIN_IMAGES_PROFILE_PICKER_LIGHT_BACKGROUND_SVG);
+        "images/shared_gradient_light_background.svg",
+        IDR_SIGNIN_IMAGES_SHARED_GRADIENT_LIGHT_BACKGROUND_SVG);
     source->AddResourcePath(
-        "images/profile_picker_dark_background.svg",
-        IDR_SIGNIN_IMAGES_PROFILE_PICKER_DARK_BACKGROUND_SVG);
+        "images/shared_gradient_dark_background.svg",
+        IDR_SIGNIN_IMAGES_SHARED_GRADIENT_DARK_BACKGROUND_SVG);
   }
 
   // TODO(crbug.com/40242558): Refactor SyncConfirmationStyle based on the

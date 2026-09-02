@@ -2,9 +2,12 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/features.gni")
+
 static_library("browser") {
   public = [
     "base_signals_collector.h",
+    "browser_utils.h",
     "file_system_signals_collector.h",
     "metrics_utils.h",
     "pref_names.h",
@@ -23,6 +26,7 @@ static_library("browser") {
 
   sources = [
     "base_signals_collector.cc",
+    "browser_utils.cc",
     "file_system_signals_collector.cc",
     "metrics_utils.cc",
     "pref_names.cc",
@@ -41,9 +45,12 @@ static_library("browser") {
   ]
 
   deps = [
+    "//build:blink_buildflags",
+    "//build:chromeos_buildflags",
     "//components/device_signals/core/common",
     "//components/device_signals/core/common:features",
     "//components/enterprise/connectors/core:constants",
+    "//components/policy/core/browser",
     "//components/policy/core/common",
     "//components/prefs",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -52,14 +59,8 @@ static_library("browser") {
     "//net",
   ]
 
-  if (!is_ios) {
-    public += [ "browser_utils.h" ]
-    sources += [ "browser_utils.cc" ]
-
-    deps += [
-      "//components/policy/core/browser",
-      "//content/public/browser",
-    ]
+  if (use_blink) {
+    deps += [ "//content/public/browser" ]
   }
 
   if (is_android) {
@@ -95,12 +96,12 @@ static_library("browser") {
     sources += [ "mac/browser_utils_mac.cc" ]
   }
 
-  if (is_linux) {
+  if (is_linux || is_chromeos) {
     sources += [ "linux/browser_utils_linux.cc" ]
   }
 
   if (is_chromeos) {
-    sources += [ "chromeos/browser_utils_chromeos.cc" ]
+    deps += [ "//chromeos/dbus/constants" ]
   }
 
   if (is_android) {

@@ -97,7 +97,7 @@ class MockDaemonProcess : public DaemonProcess {
 
   MOCK_METHOD(std::unique_ptr<WorkerProcessLauncher::Delegate>,
               CreatePeerConnectionProcessLauncherDelegate,
-              (int),
+              (),
               (override));
 };
 
@@ -151,7 +151,7 @@ class DaemonProcessTest : public testing::Test {
 
   void StartDaemonProcess();
 
-  const DaemonProcess::DesktopSessionList& desktop_sessions() const {
+  const DaemonProcess::DesktopSessionMap& desktop_sessions() const {
     return daemon_process_->desktop_sessions();
   }
 
@@ -229,9 +229,10 @@ TEST_F(DaemonProcessTest, OpenClose) {
   StartDaemonProcess();
 
   int id = terminal_id_++;
-  daemon_process_->CreateDesktopSession(id, CreateSessionOptions());
+  daemon_process_->CreateDesktopSession(
+      id, mojo::NullReceiver(), mojo::NullRemote(), CreateSessionOptions());
   EXPECT_EQ(desktop_sessions().size(), 1u);
-  EXPECT_EQ(id, desktop_sessions().front()->id());
+  EXPECT_EQ(id, desktop_sessions().begin()->second->id());
 
   daemon_process_->CloseDesktopSession(id);
   EXPECT_TRUE(desktop_sessions().empty());
@@ -245,9 +246,10 @@ TEST_F(DaemonProcessTest, CallCloseDesktopSession) {
   StartDaemonProcess();
 
   int id = terminal_id_++;
-  daemon_process_->CreateDesktopSession(id, CreateSessionOptions());
+  daemon_process_->CreateDesktopSession(
+      id, mojo::NullReceiver(), mojo::NullRemote(), CreateSessionOptions());
   EXPECT_EQ(desktop_sessions().size(), 1u);
-  EXPECT_EQ(id, desktop_sessions().front()->id());
+  EXPECT_EQ(id, desktop_sessions().begin()->second->id());
 
   daemon_process_->CloseDesktopSession(id);
   EXPECT_TRUE(desktop_sessions().empty());
@@ -263,9 +265,10 @@ TEST_F(DaemonProcessTest, DoubleDisconnectTerminal) {
   StartDaemonProcess();
 
   int id = terminal_id_++;
-  daemon_process_->CreateDesktopSession(id, CreateSessionOptions());
+  daemon_process_->CreateDesktopSession(
+      id, mojo::NullReceiver(), mojo::NullRemote(), CreateSessionOptions());
   EXPECT_EQ(desktop_sessions().size(), 1u);
-  EXPECT_EQ(id, desktop_sessions().front()->id());
+  EXPECT_EQ(id, desktop_sessions().begin()->second->id());
 
   daemon_process_->CloseDesktopSession(id);
   EXPECT_TRUE(desktop_sessions().empty());
@@ -306,35 +309,28 @@ TEST_F(DaemonProcessTest, InvalidConnectTerminal) {
   StartDaemonProcess();
 
   int id = terminal_id_++;
-  daemon_process_->CreateDesktopSession(id, CreateSessionOptions());
+  daemon_process_->CreateDesktopSession(
+      id, mojo::NullReceiver(), mojo::NullRemote(), CreateSessionOptions());
   EXPECT_EQ(desktop_sessions().size(), 1u);
-  EXPECT_EQ(id, desktop_sessions().front()->id());
+  EXPECT_EQ(id, desktop_sessions().begin()->second->id());
 
-  daemon_process_->CreateDesktopSession(id, CreateSessionOptions());
+  daemon_process_->CreateDesktopSession(
+      id, mojo::NullReceiver(), mojo::NullRemote(), CreateSessionOptions());
   EXPECT_TRUE(desktop_sessions().empty());
   EXPECT_EQ(terminal_id_, 0);
 }
 
 TEST_F(DaemonProcessTest, LaunchPeerConnectionProcess) {
-  base::test::ScopedCommandLine scoped_command_line;
-  scoped_command_line.GetProcessCommandLine()->AppendSwitch(
-      kEnablePeerConnectionProcessSwitch);
-
   InSequence s;
   EXPECT_CALL(*daemon_process_, SendHostConfigToNetworkProcess(_));
-  EXPECT_CALL(*daemon_process_, CreatePeerConnectionProcessLauncherDelegate(_))
+  EXPECT_CALL(*daemon_process_, CreatePeerConnectionProcessLauncherDelegate())
       .WillOnce(testing::ReturnNull());
-  EXPECT_CALL(*daemon_process_, SendTerminalDisconnected(_, _, _, _));
 
   StartDaemonProcess();
 
-  int id = terminal_id_++;
-  daemon_process_->CreateDesktopSession(id, CreateSessionOptions());
-  EXPECT_EQ(desktop_sessions().size(), 1u);
-  EXPECT_EQ(id, desktop_sessions().front()->id());
-
-  daemon_process_->CloseDesktopSession(id);
-  EXPECT_TRUE(desktop_sessions().empty());
+  mojo::PendingRemote<mojom::PeerSession> peer_session_remote;
+  daemon_process_->LaunchPeerSession(
+      peer_session_remote.InitWithNewPipeAndPassReceiver());
 }
 
 }  // namespace remoting

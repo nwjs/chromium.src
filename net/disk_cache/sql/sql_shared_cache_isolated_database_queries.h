@@ -23,7 +23,7 @@ inline constexpr char kSharedCacheIsolatedCreateResourcesTable[] =
     "is_ready INTEGER NOT NULL)";
 
 inline constexpr char kSharedCacheIsolatedCreateResourcesTableIndex[] =
-    "CREATE INDEX index_resources_hash ON resources(hash)";
+    "CREATE INDEX index_resources_hash ON resources(hash) WHERE is_ready = 1";
 
 inline constexpr char kSharedCacheIsolatedInsertResource[] =
     "INSERT INTO resources (hash, url, headers, body, is_ready) "
@@ -41,6 +41,12 @@ inline constexpr char kSharedCacheIsolatedReaderSelectResource[] =
 inline constexpr char kSharedCacheIsolatedDeleteResourceByRowId[] =
     "DELETE FROM resources WHERE rowid = ?";
 
+inline constexpr char kSharedCacheIsolatedSelectRowidLimit1[] =
+    "SELECT rowid FROM resources LIMIT 1";
+
+inline constexpr char kSharedCacheIsolatedSelectHashes[] =
+    "SELECT hash FROM resources WHERE is_ready = 1";
+
 }  // namespace internal
 
 enum class SharedCacheIsolatedDatabaseQuery {
@@ -51,7 +57,9 @@ enum class SharedCacheIsolatedDatabaseQuery {
   kSelectUrlAndReadyByRowId = 4,
   kReaderSelectResource = 5,
   kDeleteResourceByRowId = 6,
-  kMaxValue = kDeleteResourceByRowId,
+  kSelectRowidLimit1 = 7,
+  kSelectHashes = 8,
+  kMaxValue = kSelectHashes,
 };
 
 inline constexpr base::cstring_view GetSharedCacheIsolatedDatabaseQuery(
@@ -71,6 +79,10 @@ inline constexpr base::cstring_view GetSharedCacheIsolatedDatabaseQuery(
       return internal::kSharedCacheIsolatedReaderSelectResource;
     case SharedCacheIsolatedDatabaseQuery::kDeleteResourceByRowId:
       return internal::kSharedCacheIsolatedDeleteResourceByRowId;
+    case SharedCacheIsolatedDatabaseQuery::kSelectRowidLimit1:
+      return internal::kSharedCacheIsolatedSelectRowidLimit1;
+    case SharedCacheIsolatedDatabaseQuery::kSelectHashes:
+      return internal::kSharedCacheIsolatedSelectHashes;
   }
 }
 

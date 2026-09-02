@@ -473,6 +473,7 @@ source_set("ios_web_web_state_ui_unittests") {
 
   sources = [
     "web_state/ui/crw_html_element_fetch_request_unittest.mm",
+    "web_state/ui/crw_viewport_insets_animator_unittest.mm",
     "web_state/ui/crw_web_controller_unittest.mm",
     "web_state/ui/crw_web_view_content_view_unittest.mm",
     "web_state/ui/crw_web_view_proxy_impl_unittest.mm",
@@ -594,6 +595,7 @@ test("ios_web_inttests") {
     "web_state/keep_render_process_alive_inttest.mm",
     "web_state/permissions_inttest.mm",
     "web_state/ui/crw_context_menu_element_fetcher_inttest.mm",
+    "web_state/web_state_impl_inttest.mm",
     "web_state/web_state_observer_inttest.mm",
     "webui/web_ui_inttest.mm",
     "webui/web_ui_mojo_inttest.mm",
@@ -613,6 +615,14 @@ bundle_data("navigation_resources") {
 
 grit("resources") {
   source = "ios_web_resources.grd"
+
+  inputs = [
+    "${root_gen_dir}/mojo/public/js/mojo_bindings.js",
+    "${root_gen_dir}/ui/webui/resources/tsc/mojo/url/mojom/url.mojom-webui.js",
+    "${root_gen_dir}/ui/webui/resources/tsc/mojo/url/mojom/origin.mojom-webui.js",
+    "${root_gen_dir}/ui/webui/resources/tsc/mojo/ui/base/mojom/window_open_disposition.mojom-webui.js",
+    "${root_gen_dir}/ui/webui/resources/tsc/mojo/ui/base/mojom/ui_base_types.mojom-webui.js",
+  ]
 
   outputs = [
     "grit/ios_web_resources.h",

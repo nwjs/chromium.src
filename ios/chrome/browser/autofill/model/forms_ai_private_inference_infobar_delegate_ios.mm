@@ -4,18 +4,40 @@
 
 #import "ios/chrome/browser/autofill/model/forms_ai_private_inference_infobar_delegate_ios.h"
 
+#import "base/metrics/histogram_functions.h"
 #import "base/time/time.h"
 #import "components/autofill/core/common/autofill_prefs.h"
 #import "components/grit/components_scaled_resources.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/models/image_model.h"
+#import "ui/gfx/image/image.h"
+
+namespace {
+
+// Outcomes of interaction with the Forms AI Private Inference notice infobar.
+// LINT.IfChange(PopupNoticeInteractions)
+enum class PopupNoticeInteractions {
+  kShown = 0,
+  kAcknowledged = 1,
+  kDismissed = 2,
+  kLinkButtonClicked = 3,
+  kMaxValue = kLinkButtonClicked,
+};
+// LINT.ThenChange(tools/metrics/histograms/metadata/personal_context/enums.xml:PopupNoticeInteractions)
+
+}  // namespace
 
 FormsAiPrivateInferenceInfoBarDelegateIOS::
     FormsAiPrivateInferenceInfoBarDelegateIOS(PrefService* prefs)
-    : prefs_(prefs) {}
+    : prefs_(prefs) {
+  base::UmaHistogramEnumeration(
+      "Autofill.Ai.PrivateInferenceNoticeInteractions",
+      PopupNoticeInteractions::kShown);
+}
 
 FormsAiPrivateInferenceInfoBarDelegateIOS::
     ~FormsAiPrivateInferenceInfoBarDelegateIOS() = default;
@@ -26,7 +48,9 @@ FormsAiPrivateInferenceInfoBarDelegateIOS::GetIdentifier() const {
 }
 
 ui::ImageModel FormsAiPrivateInferenceInfoBarDelegateIOS::GetIcon() const {
-  return ui::ImageModel::FromResourceId(IDR_INFOBAR_AUTOFILL_CC);
+  UIImage* image =
+      SymbolWithPointSize(SymbolChromeProduct, kInfobarSymbolPointSize);
+  return ui::ImageModel::FromImage(gfx::Image(image));
 }
 
 std::u16string FormsAiPrivateInferenceInfoBarDelegateIOS::GetTitleText() const {
@@ -52,10 +76,27 @@ std::u16string FormsAiPrivateInferenceInfoBarDelegateIOS::GetButtonLabel(
 }
 
 bool FormsAiPrivateInferenceInfoBarDelegateIOS::Accept() {
+  interaction_logged_ = true;
+  base::UmaHistogramEnumeration(
+      "Autofill.Ai.PrivateInferenceNoticeInteractions",
+      PopupNoticeInteractions::kAcknowledged);
   prefs_->SetTime(
       autofill::prefs::kAutofillAiPrivateInferenceNoticeAcknowledgedTimestamp,
       base::Time::Now());
   return true;
 }
 
-void FormsAiPrivateInferenceInfoBarDelegateIOS::InfoBarDismissed() {}
+void FormsAiPrivateInferenceInfoBarDelegateIOS::InfoBarDismissed() {
+  if (!interaction_logged_) {
+    base::UmaHistogramEnumeration(
+        "Autofill.Ai.PrivateInferenceNoticeInteractions",
+        PopupNoticeInteractions::kDismissed);
+  }
+}
+
+void FormsAiPrivateInferenceInfoBarDelegateIOS::OnSettingsLinkClicked() {
+  interaction_logged_ = true;
+  base::UmaHistogramEnumeration(
+      "Autofill.Ai.PrivateInferenceNoticeInteractions",
+      PopupNoticeInteractions::kLinkButtonClicked);
+}

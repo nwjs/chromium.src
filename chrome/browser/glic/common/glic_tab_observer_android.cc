@@ -93,6 +93,12 @@ void GlicTabObserverAndroid::StartObservingTab(TabAndroid* tab) {
                             base::Unretained(this)));
   }
 
+  if (!tab_detach_subscriptions_.contains(tab)) {
+    tab_detach_subscriptions_[tab] =
+        tab->RegisterWillDetach(base::BindRepeating(
+            &GlicTabObserverAndroid::OnTabWillDetach, base::Unretained(this)));
+  }
+
   content::WebContents* web_contents = tab->web_contents();
   // `web_contents` may be null if a tab has been frozen in the
   // background. It can also be null temporarily during reparenting.
@@ -116,10 +122,21 @@ void GlicTabObserverAndroid::StopObservingTab(TabAndroid* tab) {
   if (!tab) {
     return;
   }
+  tab_detach_subscriptions_.erase(tab);
   tab_group_subscriptions_.erase(tab);
   tab_observers_.erase(tab);
   if (observed_tabs_.IsObservingSource(tab)) {
     observed_tabs_.RemoveObservation(tab);
+  }
+  absl::erase_if(last_active_tab_map_,
+                 [tab](const auto& pair) { return pair.second == tab; });
+}
+
+void GlicTabObserverAndroid::OnTabWillDetach(
+    tabs::TabInterface* tab,
+    tabs::TabInterface::DetachReason reason) {
+  if (reason == tabs::TabInterface::DetachReason::kDelete) {
+    StopObservingTab(static_cast<TabAndroid*>(tab));
   }
 }
 
@@ -190,6 +207,7 @@ void GlicTabObserverAndroid::DidSelectTab(TabAndroid* tab,
 }
 
 void GlicTabObserverAndroid::TabClosureCommitted(TabAndroid* tab) {
+  StopObservingTab(tab);
   ResetLastActiveTab(TabModelList::GetTabModelForTabAndroid(tab));
   callback_.Run(TabMutationEvent{});
 }
@@ -241,6 +259,25 @@ void GlicTabObserverAndroid::OnTabCloseUndone(
   }
 }
 
+void GlicTabObserverAndroid::WillCloseTabs(
+    const std::vector<TabAndroid*>& tabs,
+    bool is_all_tabs,
+    bool allow_undo) {
+  if (tabs.empty()) {
+    return;
+  }
+  // This is the last event when `tabs` are attached to a tab model.
+  TabModel* closing_tab_tab_model =
+      TabModelList::GetTabModelForTabAndroid(tabs.front());
+  CHECK(closing_tab_tab_model);
+
+  // Remove closing tabs from `last_active_tab_map_` before they get detached
+  // from their model.
+  for (auto* tab : tabs) {
+    MaybeClearLastActiveTab(closing_tab_tab_model, tab);
+  }
+}
+
 void GlicTabObserverAndroid::WillCloseTab(TabAndroid* tab) {
   // This is the last event when `tab` is attached to a tab model.
   TabModel* closing_tab_tab_model = TabModelList::GetTabModelForTabAndroid(tab);
@@ -284,4 +321,8 @@ void GlicTabObserverAndroid::OnTabGroupChanged(
   } else {
     callback_.Run(TabGroupingChangedEvent{tab, /*is_added=*/false});
   }
+}
+
+void GlicTabObserverAndroid::OnTabModelDestroyed(TabModel& tab_model) {
+  OnTabModelRemoved(&tab_model);
 }

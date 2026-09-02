@@ -75,6 +75,8 @@ export class PolicyAppElement extends CrLitElement {
       status_: {type: Object},
       policyGroups_: {type: Array},
       shouldShowPromo_: {type: Boolean},
+      shouldShowCommandLineArgumentsWarning_: {type: Boolean},
+      commandLineArguments_: {type: String},
       toastText_: {type: String},
       reloadButtonDisabled_: {type: Boolean},
       uploadReportButtonDisabled_: {type: Boolean},
@@ -89,6 +91,8 @@ export class PolicyAppElement extends CrLitElement {
   protected accessor status_: Record<string, Status> = {};
   protected accessor policyGroups_: PolicyTableModel[] = [];
   protected accessor shouldShowPromo_: boolean = false;
+  protected accessor shouldShowCommandLineArgumentsWarning_: boolean = false;
+  protected accessor commandLineArguments_: string = '';
   protected accessor toastText_: string = '';
   protected accessor reloadButtonDisabled_: boolean = false;
   protected accessor uploadReportButtonDisabled_: boolean = false;
@@ -120,6 +124,13 @@ export class PolicyAppElement extends CrLitElement {
 
     // <if expr="not is_ios and not is_android">
     this.shouldShowPromo_ = await BrowserProxy.checkPromotionEligibility();
+    // </if>
+
+    // <if expr="not is_ios and not is_android and not is_chromeos">
+    this.shouldShowCommandLineArgumentsWarning_ =
+        loadTimeData.getBoolean('hasCustomCommandLineArguments');
+    this.commandLineArguments_ =
+        loadTimeData.getString('customCommandLineArguments');
     // </if>
 
     this.hideExportButton_ = loadTimeData.valueExists('hideExportButton') &&

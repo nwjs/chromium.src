@@ -134,8 +134,8 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
   // the insertion target, or discard the element. Returns the adjusted
   // insertion target, or null if the element is to be discarded.
   // This is used for streaming.
+  bool IsElementAllowed(const QualifiedName& name) const;
   Action SanitizeSingleNode(Node* node, Mode safe) const;
-  bool ShouldReplaceNodeWithChildren(Node* node) const;
   void ProcessElement(Element* element, Mode safe) const;
   bool AllowIsAttribute(const QualifiedName& element_name) const;
 
@@ -196,16 +196,21 @@ class CORE_EXPORT Sanitizer final : public ScriptWrappable {
 
 class StreamingSanitizer : public GarbageCollected<StreamingSanitizer> {
  public:
-  StreamingSanitizer(Sanitizer* sanitizer, Sanitizer::Mode mode)
+  StreamingSanitizer(const Sanitizer* sanitizer, Sanitizer::Mode mode)
       : sanitizer_(sanitizer), mode_(mode) {}
 
+  static StreamingSanitizer* SafeFor(StreamingSanitizer*);
   bool Sanitize(Node* node) {
     return sanitizer_->SanitizeSingleNode(node, mode_) ==
            Sanitizer::Action::kKeep;
   }
 
-  bool ShouldReplaceWithChildren(Node* node) const {
-    return sanitizer_->ShouldReplaceNodeWithChildren(node);
+  Sanitizer::Action SanitizeAndReturnAction(Node* node) {
+    return sanitizer_->SanitizeSingleNode(node, mode_);
+  }
+
+  Sanitizer::Action CheckSanitizerAction(Node* node) const {
+    return sanitizer_->ActionForNode(node, node);
   }
 
   // Special treaming for parser-processed HTML feature:
@@ -215,11 +220,15 @@ class StreamingSanitizer : public GarbageCollected<StreamingSanitizer> {
     return sanitizer_->AllowIsAttribute(element_name);
   }
 
+  bool IsElementAllowed(const QualifiedName& element_name) const {
+    return sanitizer_->IsElementAllowed(element_name);
+  }
+
   void DidParseDocument(Document* document);
   void Trace(Visitor* visitor) const { visitor->Trace(sanitizer_); }
 
  private:
-  Member<Sanitizer> sanitizer_;
+  Member<const Sanitizer> sanitizer_;
   Sanitizer::Mode mode_;
 };
 

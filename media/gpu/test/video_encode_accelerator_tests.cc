@@ -10,6 +10,7 @@
 #include "base/files/file_path.h"
 #include "base/logging.h"
 #include "base/strings/string_number_conversions.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "media/base/media_switches.h"
 #include "media/base/media_util.h"
@@ -31,6 +32,9 @@
 #include "media/gpu/test/video_test_environment.h"
 #include "media/gpu/test/video_test_helpers.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#if BUILDFLAG(IS_WIN)
+#include "media/gpu/windows/mf_video_encoder_switches.h"
+#endif  // BUILDFLAG(IS_WIN)
 #if BUILDFLAG(IS_ANDROID)
 #include "media/gpu/android/ndk_media_codec_wrapper.h"
 #endif
@@ -71,7 +75,8 @@ The following arguments are supported:
   --vmodule             enable verbose mode for the specified module,
                         e.g. --vmodule=*media/gpu*=2.
   --codec               codec profile to encode, "h264" (baseline),
-                        "h264main, "h264high", "vp8", "vp9", "av1".
+                        "h264main, "h264high", "vp8", "vp9", "av1",
+                        "hevc", "hevcmain10".
                         H264 Baseline is selected if unspecified.
   --num_spatial_layers  the number of spatial layers of the encoded
                         bitstream. A default value is 1. Only affected
@@ -658,8 +663,9 @@ TEST_F(VideoEncoderTest, BitrateCheck) {
 }
 
 #if BUILDFLAG(IS_WIN)
-// Test frame dropping by Bitrate Controller for H.264 video encoding.
-TEST_F(VideoEncoderTest, DropFrameCheck) {
+// Test delta frame dropping by the software bitrate controller for H.264
+// camera video encoding.
+TEST_F(VideoEncoderTest, CameraDropFrameCheck) {
   if (g_env->SpatialLayers().size() > 1) {
     GTEST_SKIP() << "Skip SHMEM input test cases in spatial SVC encoding";
   }
@@ -673,7 +679,53 @@ TEST_F(VideoEncoderTest, DropFrameCheck) {
     GTEST_SKIP() << "Drop frame doesn't support in VBR encoding";
   }
 
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kMediaFoundationUseSWBRCForH264Camera);
+
   auto config = GetDefaultConfig();
+  config.content_type = VideoEncodeAccelerator::Config::ContentType::kCamera;
+  constexpr uint8_t kDropFrameThreshold = 80;
+  config.drop_frame_thresh = kDropFrameThreshold;
+  config.bitrate_allocation = AllocateDefaultBitrateForTesting(
+      config.num_spatial_layers, config.num_temporal_layers,
+      Bitrate::ConstantBitrate(config.bitrate_allocation.GetSumBps() / 10));
+  auto encoder = CreateVideoEncoder(g_env->Video(), config);
+
+  encoder->Encode();
+  EXPECT_TRUE(encoder->WaitForFlushDone());
+  EXPECT_EQ(encoder->GetFlushDoneCount(), 1u);
+  EXPECT_EQ(encoder->GetFrameReleasedCount(), g_env->Video()->NumFrames());
+  EXPECT_TRUE(encoder->WaitForBitstreamProcessors());
+
+  auto stats = encoder->GetStats();
+  VLOG(1) << "Dropped frames: " << stats.num_dropped_frames << " / "
+          << stats.total_num_encoded_frames;
+  EXPECT_GT(stats.num_dropped_frames, 0u);
+}
+
+// Test delta frame dropping by the software bitrate controller for H.264
+// desktop video encoding.
+TEST_F(VideoEncoderTest, DesktopDropFrameCheck) {
+  if (g_env->SpatialLayers().size() > 1) {
+    GTEST_SKIP() << "Skip SHMEM input test cases in spatial SVC encoding";
+  }
+  const VideoCodec codec = VideoCodecProfileToVideoCodec(g_env->Profile());
+  if (codec != media::VideoCodec::kH264) {
+    GTEST_SKIP()
+        << "VideoEncodeAccelerator on this device doesn't support drop "
+        << "frame with codec=" << GetCodecName(codec);
+  }
+  if (g_env->BitrateAllocation().GetMode() == Bitrate::Mode::kVariable) {
+    GTEST_SKIP() << "Drop frame doesn't support in VBR encoding";
+  }
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      kMediaFoundationUseSWBRCForH264Desktop);
+
+  auto config = GetDefaultConfig();
+  config.content_type = VideoEncodeAccelerator::Config::ContentType::kDisplay;
   constexpr uint8_t kDropFrameThreshold = 80;
   config.drop_frame_thresh = kDropFrameThreshold;
   config.bitrate_allocation = AllocateDefaultBitrateForTesting(

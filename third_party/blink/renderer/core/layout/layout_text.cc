@@ -185,10 +185,10 @@ void LayoutText::Trace(Visitor* visitor) const {
   LayoutObject::Trace(visitor);
 }
 
-LayoutText* LayoutText::CreateEmptyAnonymous(Document& doc,
+LayoutText* LayoutText::CreateEmptyAnonymous(Document& document,
                                              const ComputedStyle* style) {
   auto* text = MakeGarbageCollected<LayoutText>(nullptr, StringImpl::empty_);
-  text->SetDocumentForAnonymous(&doc);
+  text->SetDocumentForAnonymous(document);
   text->SetStyle(style);
   return text;
 }
@@ -201,6 +201,7 @@ bool LayoutText::IsWordBreak() const {
 void LayoutText::StyleDidChange(
     StyleDifference diff,
     const ComputedStyle* old_style,
+    const ComputedStyle& new_style,
     const StyleChangeContext& style_change_context) {
   NOT_DESTROYED();
   // There is no need to ever schedule paint invalidations from a style change
@@ -211,8 +212,6 @@ void LayoutText::StyleDidChange(
     SetNeedsLayoutAndIntrinsicWidthsRecalc(
         layout_invalidation_reason::kStyleChange);
   }
-
-  const ComputedStyle& new_style = StyleRef();
   ETextTransform old_transform =
       old_style ? old_style->TextTransform() : ETextTransform::kNone;
   ETextSecurity old_security =
@@ -242,7 +241,7 @@ void LayoutText::StyleDidChange(
     }
   }
 
-  SetHorizontalWritingMode(new_style.IsHorizontalWritingMode());
+  SetIsHorizontalWritingMode(new_style.IsHorizontalWritingMode());
 }
 
 void LayoutText::RemoveAndDestroyTextBoxes() {
@@ -501,7 +500,8 @@ void LayoutText::CollectLineBoxRects(const PhysicalRectCollector& yield,
 
 void LayoutText::QuadsInAncestorInternal(Vector<gfx::QuadF>& quads,
                                          const LayoutBoxModelObject* ancestor,
-                                         MapCoordinatesFlags mode) const {
+                                         MapCoordinatesFlags mode,
+                                         BoxQuadType) const {
   NOT_DESTROYED();
   CollectLineBoxRects([this, &quads, ancestor, mode](const PhysicalRect& r) {
     quads.push_back(LocalRectToAncestorQuad(r, ancestor, mode));
@@ -888,35 +888,34 @@ void LayoutText::SetTextInternal(String text) {
 String LayoutText::TransformAndSecureText(const String& original,
                                           TextOffsetMap& offset_map) const {
   NOT_DESTROYED();
-  if (const ComputedStyle* style = Style()) {
-    String transformed =
-        style->ApplyTextTransform(original, PreviousCharacter(), &offset_map);
 
-    UChar mask = 0;
-    // We use the same characters here as for list markers.
-    // See CollectUACounterStyleRules() in ua_counter_style_map.cc.
-    switch (style->TextSecurity()) {
-      case ETextSecurity::kNone:
-        return transformed;
-      case ETextSecurity::kCircle:
-        mask = uchar::kWhiteBullet;
-        break;
-      case ETextSecurity::kDisc:
-        mask = uchar::kBullet;
-        break;
-      case ETextSecurity::kSquare:
-        mask = uchar::kBlackSquare;
-        break;
-    }
-    auto [masked, secure_map] = SecureText(transformed, mask);
-    if (!secure_map.IsEmpty()) {
-      offset_map =
-          TextOffsetMap(original.length(), offset_map, transformed.length(),
-                        secure_map, masked.length());
-    }
-    return masked;
+  const ComputedStyle& style = StyleRef();
+  String transformed =
+      style.ApplyTextTransform(original, PreviousCharacter(), &offset_map);
+
+  UChar mask = 0;
+  // We use the same characters here as for list markers.
+  // See CollectUACounterStyleRules() in ua_counter_style_map.cc.
+  switch (style.TextSecurity()) {
+    case ETextSecurity::kNone:
+      return transformed;
+    case ETextSecurity::kCircle:
+      mask = uchar::kWhiteBullet;
+      break;
+    case ETextSecurity::kDisc:
+      mask = uchar::kBullet;
+      break;
+    case ETextSecurity::kSquare:
+      mask = uchar::kBlackSquare;
+      break;
   }
-  return original;
+  auto [masked, secure_map] = SecureText(transformed, mask);
+  if (!secure_map.IsEmpty()) {
+    offset_map =
+        TextOffsetMap(original.length(), offset_map, transformed.length(),
+                      secure_map, masked.length());
+  }
+  return masked;
 }
 
 std::pair<String, TextOffsetMap> LayoutText::SecureText(const String& plain,

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/glic/widget/browser_conditions.h"
 
+#include "base/check_deref.h"
 #include "base/memory/raw_ptr.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
@@ -19,7 +20,6 @@
 #include "ui/base/base_window.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "ui/views/widget/widget_observer.h"
 #endif
@@ -179,7 +179,8 @@ class BrowserAttachObservationImpl : public BrowserAttachObservation,
   void OnBrowserCreated(BrowserWindowInterface* browser) override {
     if (IsBrowserGlicCompatible(profile_, browser)) {
       browser_widget_observations_.AddObservation(
-          browser->GetBrowserForMigrationOnly()->GetBrowserView().GetWidget());
+          CHECK_DEREF(BrowserView::GetBrowserViewForBrowser(browser))
+              .GetWidget());
     }
   }
   void OnBrowserClosed(BrowserWindowInterface* browser) override {

@@ -8,8 +8,8 @@
 #include "chrome/browser/glic/host/glic_page_handler.h"
 #include "chrome/browser/glic/service/glic_instance_impl.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
+#include "chrome/browser/glic/widget/glic_view.h"
 #include "chrome/browser/ui/zoom/chrome_zoom_level_prefs.h"
-#include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -20,15 +20,7 @@
 
 namespace glic {
 
-class GlicZoomBrowserTest : public GlicBrowserTest {
- public:
-  GlicZoomBrowserTest() {
-    scoped_feature_list_.InitAndEnableFeature(features::kGlicClientZoomControl);
-  }
-
- protected:
-  base::test::ScopedFeatureList scoped_feature_list_;
-};
+using GlicZoomBrowserTest = GlicBrowserTest;
 
 IN_PROC_BROWSER_TEST_F(GlicZoomBrowserTest, ZoomHotkeys) {
   ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
@@ -90,20 +82,20 @@ IN_PROC_BROWSER_TEST_F(GlicZoomBrowserTest, ZoomHotkeys) {
   ASSERT_GT(zoom_reset_accels.size(), 1u);
   ASSERT_TRUE(zoom_reset_accels[1].modifiers() & ui::EF_SHIFT_DOWN);
 
-  // Trigger accelerator for zoom-in with Shift
+  // Trigger accelerator for zoom-in with Shift.
   EXPECT_TRUE(focus_manager->ProcessAccelerator(zoom_in_accels[1]));
   ASSERT_OK(RunUntilEqual<double>(
       [&]() { return GetZoomLevel(instance); }, 1.1,
       "Zoom level did not increase to 1.1 with Shift modifier"));
 
-  // Trigger accelerator for zoom-out with Shift
+  // Trigger accelerator for zoom-out with Shift.
   EXPECT_TRUE(focus_manager->ProcessAccelerator(zoom_out_accels[1]));
   ASSERT_OK(RunUntilEqual<double>(
       [&]() { return GetZoomLevel(instance); }, 1.0,
       "Zoom level did not decrease to 1.0 with Shift modifier"));
 
-  // Trigger accelerator for zoom-reset with Shift
-  // (First zoom in again so we can prove that reset scales it back)
+  // Trigger accelerator for zoom-reset with Shift.
+  // (First zoom in again so we can prove that reset scales it back.)
   EXPECT_TRUE(focus_manager->ProcessAccelerator(zoom_in_accels[1]));
   ASSERT_OK(RunUntilEqual<double>(
       [&]() { return GetZoomLevel(instance); }, 1.1,
@@ -113,8 +105,37 @@ IN_PROC_BROWSER_TEST_F(GlicZoomBrowserTest, ZoomHotkeys) {
   ASSERT_OK(RunUntilEqual<double>(
       [&]() { return GetZoomLevel(instance); }, 1.0,
       "Zoom level did not reset to 1.0 with Shift modifier"));
+}
 
-  // --- END NEW TEST CODE ---
+IN_PROC_BROWSER_TEST_F(GlicZoomBrowserTest, ZoomScroll) {
+  ASSERT_OK_AND_ASSIGN(GlicInstanceImpl * instance, OpenGlicForActiveTab());
+
+  // Wait for WebUI to be ready.
+  ASSERT_TRUE(WaitForWebUiState(mojom::WebUiState::kReady).has_value());
+
+  views::View* generic_view = instance->GetActiveEmbedderGlicViewForTesting();
+  ASSERT_TRUE(generic_view);
+  GlicView* glic_view = static_cast<GlicView*>(generic_view);
+
+  // Initial zoom level should be 1.0.
+  EXPECT_DOUBLE_EQ(GetZoomLevel(instance), 1.0);
+
+  // Simulate Ctrl+Wheel up (zoom in) via ContentsZoomChange(true) and verify
+  // zoom level increased.
+  glic_view->ContentsZoomChange(true);
+  ASSERT_OK(RunUntilEqual<double>([&]() { return GetZoomLevel(instance); }, 1.1,
+                                  "Zoom level did not increase to 1.1"));
+
+  // Simulate another scroll and verify zoom level increased.
+  glic_view->ContentsZoomChange(true);
+  ASSERT_OK(RunUntilEqual<double>([&]() { return GetZoomLevel(instance); },
+                                  1.25, "Zoom level did not increase to 1.25"));
+
+  // Simulate Ctrl+Wheel down (zoom out) via ContentsZoomChange(false) and
+  // verify zoom level decreased.
+  glic_view->ContentsZoomChange(false);
+  ASSERT_OK(RunUntilEqual<double>([&]() { return GetZoomLevel(instance); }, 1.1,
+                                  "Zoom level did not decrease to 1.1"));
 }
 
 IN_PROC_BROWSER_TEST_F(GlicZoomBrowserTest, ZoomHotkeysPersisted) {

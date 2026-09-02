@@ -44,8 +44,9 @@ FormSuggestionProviderQuery* CreateFormSuggestionProviderQuery() {
         formRendererID:autofill::test::MakeFormRendererId()
        fieldIdentifier:@"fieldIdentifier"
        fieldRendererID:autofill::test::MakeFieldRendererId()
-             fieldType:kObfuscatedFieldType  // Ensures this is a password form.
-                  type:@"focus"
+             fieldType:FieldType::kObfuscated  // Ensures this is a password
+                                               // form.
+                  type:autofill::FormActivityParams::ActivityType::kFocus
             typedValue:@""
                frameID:kTestFrameID
           onlyPassword:YES];

@@ -24,109 +24,98 @@ from itertools import chain
 # FIXME: Put alignment sizes into code form, rather than linking to a CL
 # which may disappear.
 ALIGNMENT_ORDER = [
-    # Aligns like double
-    'ScaleTransformOperation',
-    'RotateTransformOperation',
-    'TranslateTransformOperation',
-    'GridTrackList',
-    'StyleHighlightData',
-    'FilterOperations',
-    'DynamicRangeLimit',
-    'std::optional<gfx::Size>',
-    'double',
-    'StyleViewTransitionGroup',
+    # Aligns like double (always 64 bits)
+    'StyleInterestDelay',
     'Superellipse',
-    'FlowTolerance',
     # Aligns like a pointer (can be 32 or 64 bits)
-    'NamedGridLinesMap',
-    'NamedGridAreaMap',
-    'TransformOperations',
-    'Vector<CSSPropertyID>',
-    'Vector<AtomicString>',
-    'Vector<TimelineAttachment>',
-    'Vector<TimelineAxis>',
-    'Vector<TimelineInset>',
-    'HeapVector<Member<StyleTriggerAttachmentVector>>',
-    'GridPosition',
     'AtomicString',
-    'scoped_refptr',
-    'std::unique_ptr',
-    'Vector<String>',
-    'Font',
-    'FillLayer',
-    'NinePieceImage',
-    'SVGPaint',
-    'IntrinsicLength',
-    'TextBoxEdge',
-    'TextDecorationThickness',
-    'TextOverflowData',
-    'StyleAnchorScope',
-    'StyleAspectRatio',
-    'StyleIntrinsicLength',
-    'StyleInheritedVariables',
-    'StyleNameScope',
-    'StyleNonInheritedVariables',
-    'StylePositionAnchor',
-    'StyleTimelineScope',
-    'StyleTriggerScope',
-    'std::optional<StyleOverflowClipMargin>',
-    'std::optional<blink::PositionAreaOffsets>',
-    'std::optional<PhysicalOffset>',
+    'FilterOperations',
+    'GapDataList<EBorderStyle>',
     'GapDataList<StyleColor>',
     'GapDataList<int>',
-    'GapDataList<EBorderStyle>',
-    'gfx::Size',
+    'GridPosition',
+    'GridTrackList',
+    'StyleHighlightData',
+    'StyleTimelineScope',
+    'StyleViewTransitionGroup',
+    'TextOverflowData',
+    'TransformOperations',
+    'Vector<AtomicString>',
+    'Vector<String>',
+    'Vector<TimelineAxis>',
+    'Vector<TimelineInset>',
+    'scoped_refptr',
+    'std::unique_ptr',
     # Compressed builds a Member can be 32 bits, vs. a pointer will be 64.
+    'FillLayer',
     'Member',
-    # Aligns like float
-    'std::optional<Length>',
-    'StyleInitialLetter',
-    'StyleOffsetRotation',
-    'TransformOrigin',
-    'ScrollPadding',
-    'ScrollMargin',
-    'LengthBox',
-    'LengthSize',
-    'gfx::SizeF',
-    'LengthPoint',
+    'NinePieceImage',
+    'SVGPaint',
+    'StyleAnchorScope',
+    'StyleInheritedVariables',
+    'StyleNonInheritedVariables',
+    'StyleTriggerScope',
+    # Aligns like float (32 bits)
+    'DynamicRangeLimit',
+    'FlowTolerance',
     'Length',
-    'UnzoomedLength',
-    'TextSizeAdjust',
-    'TextFit',
+    'LengthBox',
+    'LengthPoint',
+    'LengthSize',
+    'StyleAspectRatio',
+    'StyleInitialLetter',
+    'StyleIntrinsicLength',
+    'StyleOffsetRotation',
+    'StylePositionAnchor',
     'TabSize',
+    'TextDecorationInset',
+    'TextDecorationThickness',
+    'TextFit',
+    'TextSizeAdjust',
+    'TransformOrigin',
+    'UnzoomedLength',
     'float',
-    'StyleInterestDelay',
-    # Aligns like int
-    'cc::ScrollSnapType',
-    'cc::ScrollSnapAlign',
-    'BorderValue',
-    'StyleColor',
+    'gfx::SizeF',
+    'std::optional<Length>',
+    # Aligns like int (32 bits)
+    'GridLanesDirection',
     'StyleAutoColor',
     'StyleCaretColor',
-    'Color',
-    'StyleHyphenateLimitChars',
-    'LayoutUnit',
-    'MaxLinesData',
-    'OutlineValue',
-    'unsigned',
-    'size_t',
-    'wtf_size_t',
-    'int',
-    'PositionArea',
-    'GridLanesDirection',
-    # Aligns like short
-    'unsigned short',
-    'uint16_t',
-    'short',
-    # Aligns like char
-    'StyleSelfAlignmentData',
+    'StyleColor',
     'StyleContentAlignmentData',
+    'StyleSelfAlignmentData',
+    'cc::ScrollSnapAlign',
+    'cc::ScrollSnapType',
+    'gfx::Size',
+    'int',
+    'std::optional<PhysicalOffset>',
+    'std::optional<StyleOverflowClipMargin>',
+    'std::optional<blink::PositionAreaOffsets>',
+    'unsigned',
+    # Aligns like short (16 bits)
+    'MaxLinesData',
+    'short',
+    'uint16_t',
+    'unsigned short',
+    # Aligns like char (8 bits)
+    'PositionArea',
     'StyleFlexWrapData',
-    'uint8_t',
-    'char',
-    # Aligns like bool
+    'StyleHyphenateLimitChars',
+    'TextBoxEdge',
+    # Aligns like bool (8 bits)
     'bool'
 ]
+
+
+def _check_unused_alignment_types(fields):
+    """Check if the ALIGNMENT_ORDER order list contains type entries that are
+    not used by any fields.
+    """
+    diff = set(ALIGNMENT_ORDER).difference(
+        {field.alignment_type
+         for field in fields})
+    assert len(diff) == 0, \
+        "Unused alignment types in ALIGNMENT_ORDER: {}".format(list(diff))
 
 # FIXME: Improve documentation and add docstrings.
 
@@ -535,6 +524,7 @@ class ComputedStyleBaseWriter(json5_generator.Writer):
         _evaluate_misc_group(self._properties, bitfield_properties, False)
         _evaluate_misc_group(self._properties, bitfield_properties, True)
         self._root_group = _create_groups(self._properties)
+        _check_unused_alignment_types(self._root_group.all_fields)
         # We create separate groups/fields for generating ComputedStyle-
         # BuilderBase. The only difference between these fields and the regular
         # fields, is that the builder fields have the "builder" flag set, which

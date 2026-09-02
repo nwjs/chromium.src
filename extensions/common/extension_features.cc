@@ -18,6 +18,8 @@ BASE_FEATURE(kApiActionSetBadgeTextByteLimit, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiAlarmsCreateLengthLimit, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kApiTabsSplitView, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kApiContentSettingsClipboard, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiEnterpriseKioskInput, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -35,11 +37,18 @@ BASE_FEATURE(kApiGlicPrivate, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kApiEnterpriseReportingPrivateOnDataMaskingRulesTriggered,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kApiEnterpriseReportingPrivateReportForceSaveToCloudEventHandled,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kApiGlicAccessFromGoogleWebpage,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiGlicAccessFromPromotionPage,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kApiGlicAccessFromWebContinuity,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 const base::FeatureParam<std::string> kProdPromptEndpointUrlParam(
     &kApiGlicAccessFromGoogleWebpage,
     /*name=*/"prod_prompt_endpoint_url",
@@ -72,6 +81,8 @@ const base::FeatureParam<GlicOpenNewTabDisposition>
         GlicOpenNewTabDisposition::kForegroundIfNotConsented,
         &kGlicOpenNewTabDispositionOptions};
 
+BASE_FEATURE(kApiEnterpriseWebrtc, base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kApiProxyOverrideRulesPrivate, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiRuntimeGetPlatformInfoNaClArch,
@@ -80,6 +91,9 @@ BASE_FEATURE(kApiRuntimeGetPlatformInfoNaClArch,
 BASE_FEATURE(kWebRequestSecurityInfo, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebRequestPerContextEventDispatch,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kApiDesktopAndroidNativeMessaging,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,6 +105,9 @@ BASE_FEATURE(kWebRequestPerContextEventDispatch,
 BASE_FEATURE(kAllowWithholdingExtensionPermissionsOnInstall,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kBlockBackgroundContentsOffExtentNavigation,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs,
              "EMF_NO_EXTENSION_ID_FOR_EXTENSION_SOURCE",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -98,14 +115,11 @@ BASE_FEATURE(kCheckingNoExtensionIdInExtensionIpcs,
 BASE_FEATURE(kComponentExtensionAllowWorkerChromeResources,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kEnableWebHidInWebView, base::FEATURE_ENABLED_BY_DEFAULT);
-
-#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
-// Disabled by default because on first-run we don't have a Finch seed yet, so
-// we want to default to the safe behavior of no extensions.
-BASE_FEATURE(kEnableExtensionsForCorpDesktopAndroid,
+BASE_FEATURE(kCWSReviewPromptingNativeUI,
+             "CWSReviewPromptingNativeUI",
              base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
+
+BASE_FEATURE(kEnableWebHidInWebView, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionAutoRejectIncognitoConnectability,
              base::FEATURE_ENABLED_BY_DEFAULT);

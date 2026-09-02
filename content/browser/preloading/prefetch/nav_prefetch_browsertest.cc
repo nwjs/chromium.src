@@ -889,7 +889,7 @@ IN_PROC_BROWSER_TEST_P(PrefetchActivationBeaconBrowserTest,
         }
         if (params->url_request.url == beacon_url) {
           beacon_seen = true;
-          EXPECT_EQ(params->url_request.method, "HEAD");
+          EXPECT_EQ(params->url_request.method, "GET");
           URLLoaderInterceptor::WriteResponse("", "", params->client.get());
           beacon_run_loop.Quit();
           return true;
@@ -1458,8 +1458,8 @@ class PreloadActivationReportInterceptionBrowserClient
       bool* bypass_redirect_checks,
       bool* disable_secure_dns,
       network::mojom::URLLoaderFactoryOverridePtr* factory_override,
-      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner)
-      override {
+      scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner,
+      bool is_for_network_service) override {
     if (type == URLLoaderFactoryType::kDocumentSubResource &&
         factory_override) {
       auto factory_override_ptr =
@@ -1485,7 +1485,7 @@ class PreloadActivationReportInterceptionBrowserClient
         isolation_info, std::move(navigation_id), ukm_source_id,
         factory_builder, header_client, bypass_redirect_checks,
         disable_secure_dns, factory_override,
-        std::move(navigation_response_task_runner));
+        std::move(navigation_response_task_runner), is_for_network_service);
   }
 
   void OnRequest(const GURL& url) { intercepted_urls_.push_back(url); }
@@ -1583,7 +1583,7 @@ IN_PROC_BROWSER_TEST_P(PrefetchActivationBeaconInterceptionBrowserTest,
 
   beacon_response_->WaitForRequest();
   EXPECT_EQ(beacon_response_->http_request()->method,
-            net::test_server::METHOD_HEAD);
+            net::test_server::METHOD_GET);
   beacon_response_->Send("HTTP/1.1 200 OK\r\n\r\n");
   beacon_response_->Done();
 

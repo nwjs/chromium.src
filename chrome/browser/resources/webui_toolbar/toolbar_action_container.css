@@ -1,0 +1,81 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=//resources/cr_elements/cr_hidden_style_lit.css.js
+ * #scheme=relative
+ * #include=cr-hidden-style-lit
+ * #css_wrapper_metadata_end */
+
+:host {
+  /* Vertically center action buttons and dividers. */
+  align-items: center;
+  display: flex;
+  /* Matches native views::AnimatingLayoutManager default FAST_OUT_SLOW_IN_3
+   * configuration for pinned toolbar actions. */
+  --fast-out-slow-in-3-cubic-bezier: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Disable transitions during the initial load of the container. This prevents
+ * all existing items from animating in when the page is first rendered. */
+:host(.initial-load) pinned-toolbar-action,
+:host(.initial-load) webui-toolbar-extension,
+:host(.initial-load) toolbar-divider {
+  transition: none;
+}
+
+/* Transitions handle entrance animations (via @starting-style on .animate-in),
+ * exit animations (.exiting collapsing to 0), and reversing exit animations
+ * mid-flight. */
+pinned-toolbar-action,
+webui-toolbar-extension,
+toolbar-divider {
+  transition: width 300ms var(--fast-out-slow-in-3-cubic-bezier),
+              margin-inline-end 300ms var(--fast-out-slow-in-3-cubic-bezier),
+              margin-inline-start 300ms var(--fast-out-slow-in-3-cubic-bezier),
+              opacity 200ms linear;
+
+  margin-inline-end: var(--toolbar-icon-default-margin);
+}
+
+@starting-style {
+  pinned-toolbar-action.animate-in,
+  webui-toolbar-extension.animate-in,
+  toolbar-divider.animate-in {
+    width: 0;
+    margin-inline-start: 0;
+    margin-inline-end: 0;
+    opacity: 0;
+  }
+}
+
+toolbar-divider {
+  margin-inline-end: var(--toolbar-divider-spacing);
+}
+
+toolbar-divider:last-child {
+  margin-inline-end: calc(var(--toolbar-divider-spacing) -
+                          var(--toolbar-icon-default-margin));
+}
+
+.exiting {
+  pointer-events: none;
+  width: 0 !important;
+  margin-inline-start: 0 !important;
+  margin-inline-end: 0 !important;
+  opacity: 0 !important;
+}
+
+pinned-toolbar-action.drag-placeholder,
+webui-toolbar-extension.drag-placeholder {
+  opacity: 0 !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  pinned-toolbar-action,
+  webui-toolbar-extension,
+  toolbar-divider {
+    transition: none !important;
+  }
+}

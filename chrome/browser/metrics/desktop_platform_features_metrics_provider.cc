@@ -13,7 +13,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -59,6 +58,10 @@ void DesktopPlatformFeaturesMetricsProvider::ProvideCurrentSessionData(
             : DarkModeStatus::kLight;
   }
   base::UmaHistogramEnumeration("Browser.DarkModeStatus", status);
+
+  base::UmaHistogramBoolean(
+      "Browser.OverlayScrollbarsEnabled",
+      ui::OsSettingsProvider::Get().PrefersOverlayScrollbars());
 
   // Record how many items are in the reading list.
   std::vector<Profile*> profiles =

@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_TABS_COMMON_TAB_VIEW_H_
 #define CHROME_BROWSER_UI_VIEWS_TABS_COMMON_TAB_VIEW_H_
 
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -15,6 +16,7 @@
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/views/tabs/hovercard/hover_card_anchor_target.h"
+#include "chrome/browser/ui/views/tabs/shared/tab_strip_types.h"
 #include "chrome/browser/ui/views/tabs/tab/alert_indicator_button.h"
 #include "chrome/browser/ui/views/tabs/tab/tab_context_menu_controller.h"
 #include "chrome/common/buildflags.h"
@@ -24,8 +26,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/context_menu_controller.h"
-#include "ui/views/layout/delegating_layout_manager.h"
-#include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/layout_manager_base.h"
 #include "ui/views/masked_targeter_delegate.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
@@ -35,6 +36,7 @@ class TabCloseButton;
 class TabCollectionNode;
 class TabIcon;
 class TabTitle;
+class TabStyleViews;
 
 namespace base {
 class TimeDelta;
@@ -50,13 +52,13 @@ class TabUnderlineView;
 // its states. The tab view implements its own layout and avoids using
 // FlexLayout for performance reasons.
 class TabView : public views::View,
-                public views::LayoutDelegate,
                 public views::MaskedTargeterDelegate,
                 public AlertIndicatorButton::Delegate,
                 public views::ContextMenuController,
                 public HoverCardAnchorTarget,
                 public views::ViewObserver {
   METADATA_HEADER(TabView, views::View)
+  friend class TabStyleViewDelegateImpl;
 
  public:
   static constexpr base::TimeDelta kGlowHoverAnimationDuration =
@@ -67,27 +69,46 @@ class TabView : public views::View,
   TabView& operator=(const TabView&) = delete;
   ~TabView() override;
 
+  class LayoutManager : public views::LayoutManagerBase {
+   protected:
+    // views::LayoutManagerBase:
+    void OnInstalled(views::View* host) override;
+
+    // Casts host_view() to a TabView const ref, using static_cast. Avoids
+    // views::AsViewClass as it incurs overhead when checking metadata.
+    const TabView& TabView() const;
+  };
+
   void StepLoadingAnimation(const base::TimeDelta& elapsed_time);
 
-  void CreateFreezingVote();
-  void ReleaseFreezingVote();
-  bool HasFreezingVote() const { return freezing_vote_.has_value(); }
+  void CreateFreezingVote(FreezingVoteReason reason);
+  void ReleaseFreezingVote(FreezingVoteReason reason);
+  bool HasFreezingVote(FreezingVoteReason reason) const;
+  bool HasFreezingVote() const;
+  void UpdateFocusFreezing();
 
   void UpdateHovered(bool hovered);
   bool IsHoverAnimationActive() const;
 
   std::optional<SkColor> GetBackgroundColor();
-  SkColor GetCurrentTabBackgroundColor(
-      TabStyle::TabSelectionState selection_state) const;
   SkPath GetPath() const;
 
   const TabCollectionNode* collection_node() const { return collection_node_; }
-  const TabStyle* tab_style() const { return tab_style_; }
+  TabStyleViews* tab_styling() { return tab_styling_.get(); }
+  const TabStyleViews* tab_styling() const { return tab_styling_.get(); }
   float radial_highlight_opacity() { return radial_highlight_opacity_; }
   const tabs::TabData& data() const { return tab_data_; }
   bool IsActive() const { return active_; }
+  bool IsClosing() const { return !collection_node_; }
+  bool split() const { return split_; }
+  const tabs::TabInterface* GetTabInterface() const;
+
+  GlowHoverController* GetHoverControllerForTesting() {
+    return hover_controller_.get();
+  }
 
   TabCloseButton* close_button_for_testing() { return close_button_; }
+  TabIcon* GetTabIconForTesting() { return icon_; }
   void SetDataForTesting(tabs::TabData data);
 
   // HoverCardAnchorTarget:
@@ -97,7 +118,11 @@ class TabView : public views::View,
   views::BubbleBorder::Arrow GetAnchorPosition() const override;
 
  private:
+  friend class TabViewVerticalLayout;
+  friend class TabViewHorizontalLayout;
+
   // views::View
+  gfx::Size GetMinimumSize() const override;
   void Layout(PassKey) override;
   bool OnKeyPressed(const ui::KeyEvent& event) override;
   bool OnKeyReleased(const ui::KeyEvent& event) override;
@@ -120,43 +145,6 @@ class TabView : public views::View,
   // views::ViewObserver:
   void OnViewFocused(views::View* observed_view) override;
   void OnViewBlurred(views::View* observed_view) override;
-
-  // Tab Painting Helpers
-  void PaintTabBackgroundWithImages(gfx::Canvas* canvas,
-                                    std::optional<int> active_tab_fill_id,
-                                    std::optional<int> inactive_tab_fill_id);
-  float GetCurrentActiveOpacity() const;
-  void PaintTabBackgroundFill(gfx::Canvas* canvas,
-                              TabStyle::TabSelectionState selection_state,
-                              bool hovered,
-                              std::optional<int> fill_id);
-  bool ShouldPaintTabBackgroundColor(
-      TabStyle::TabSelectionState selection_state,
-      bool has_custom_background,
-      bool hovered) const;
-
-  struct TabChildConfig {
-    raw_ptr<views::View> view;
-    int min_width;
-    int padding;
-    bool align_leading;
-    bool expand;
-    // Some alert indicators need to decorate the close button when the tab
-    // strip is collapsed. In that case, center the child and set a size of (0,
-    // 0).
-    bool decorate_on_collapse;
-  };
-
-  gfx::Rect GetChildBounds(const gfx::Rect& container,
-                           const TabChildConfig& config,
-                           const bool center) const;
-
-  // Calculates the visibility of child view based on various states.
-  bool IsChildVisible(const views::View* child, const int width) const;
-
-  // views::LayoutDelegate
-  views::ProposedLayout CalculateProposedLayout(
-      const views::SizeBounds& size_bounds) const override;
 
   // views::MaskedTargeterDelegate:
   bool GetHitTestMask(SkPath* mask) const override;
@@ -187,7 +175,6 @@ class TabView : public views::View,
 
   void UpdateTitle(std::u16string title, bool should_render_loading_title);
   void UpdateBorder();
-  void UpdateThemeColors();
   void UpdateColors();
   void UpdateContrastRatioValues();
 
@@ -210,18 +197,15 @@ class TabView : public views::View,
 
   bool IsInExpandOnHover(int width) const;
 
-  const tabs::TabInterface* GetTabInterface() const;
-
   SkScalar GetCornerRadius() const;
 
   // Applies rounded corners to the view's layer.
   void UpdateLayerRoundedCorners();
 
   raw_ptr<TabCollectionNode> collection_node_ = nullptr;
+  TabStripOrientation orientation_ = TabStripOrientation::kHorizontal;
 
-  std::vector<TabChildConfig> tab_children_configs_;
-
-  const raw_ptr<const TabStyle> tab_style_;
+  std::unique_ptr<TabStyleViews> tab_styling_;
 
   const raw_ptr<TabIcon> icon_;
   const raw_ptr<TabTitle> title_;
@@ -244,17 +228,22 @@ class TabView : public views::View,
   bool collapsed_ = false;
   bool pinned_ = false;
   bool shift_pressed_on_mouse_down_ = false;
+  bool should_fill_background_tab_color_ = false;
 
   std::unique_ptr<GlowHoverController> hover_controller_;
   float hover_opacity_min_;
   float hover_opacity_max_;
   float radial_highlight_opacity_;
 
-  std::optional<int> active_tab_fill_id_;
-  std::optional<int> inactive_tab_fill_id_;
-  bool should_fill_background_tab_color_ = false;
+  std::optional<performance_manager::freezing::FreezingVote>& GetFreezingVote(
+      FreezingVoteReason reason);
 
-  std::optional<performance_manager::freezing::FreezingVote> freezing_vote_;
+  // Freezing vote held while the tab's group is collapsed.
+  std::optional<performance_manager::freezing::FreezingVote>
+      collapsed_freezing_vote_;
+  // Freezing vote held while another group is focused in focus mode.
+  std::optional<performance_manager::freezing::FreezingVote>
+      focus_mode_freezing_vote_;
 
   std::unique_ptr<tabs::TabDataObserver> tab_data_observer_;
 

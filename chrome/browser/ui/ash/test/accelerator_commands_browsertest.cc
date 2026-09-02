@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/common/chrome_switches.h"
@@ -82,7 +83,7 @@ IN_PROC_BROWSER_TEST_P(AcceleratorCommandsFullscreenBrowserTest,
   // 1) Browser windows.
   aura::Window* window = browser()->GetWindow()->GetNativeWindow();
   views::Widget* widget = views::Widget::GetWidgetForNativeWindow(window);
-  ASSERT_TRUE(browser()->is_type_normal());
+  ASSERT_EQ(browser()->GetType(), BrowserWindowInterface::Type::TYPE_NORMAL);
   ASSERT_TRUE(widget->IsActive());
   SetToInitialShowState(widget);
   EXPECT_TRUE(IsInitialShowState(widget));
@@ -102,14 +103,18 @@ IN_PROC_BROWSER_TEST_P(AcceleratorCommandsFullscreenBrowserTest,
   EXPECT_TRUE(IsInitialShowState(widget));
 
   // 3) Hosted apps.
-  Browser::CreateParams browser_create_params(
-      Browser::CreateParams::CreateForApp("Test", true /* trusted_source */,
-                                          gfx::Rect(), browser()->GetProfile(),
-                                          true));
+  BrowserWindowCreateParams browser_create_params(
+      BrowserWindowCreateParams::CreateForApp(
+          "Test", /*trusted_source=*/true, gfx::Rect(), browser()->GetProfile(),
+          /*user_gesture=*/true));
 
-  Browser* app_host_browser = Browser::Create(browser_create_params);
-  ASSERT_FALSE(app_host_browser->is_type_popup());
-  ASSERT_TRUE(app_host_browser->is_type_app());
+  Browser* app_host_browser =
+      CreateBrowserWindow(std::move(browser_create_params))
+          ->GetBrowserForMigrationOnly();
+  ASSERT_NE(app_host_browser->GetType(),
+            BrowserWindowInterface::Type::TYPE_POPUP);
+  ASSERT_EQ(app_host_browser->GetType(),
+            BrowserWindowInterface::Type::TYPE_APP);
   AddBlankTabAndShow(app_host_browser);
   window = app_host_browser->GetWindow()->GetNativeWindow();
   widget = views::Widget::GetWidgetForNativeWindow(window);
@@ -125,11 +130,13 @@ IN_PROC_BROWSER_TEST_P(AcceleratorCommandsFullscreenBrowserTest,
   EXPECT_TRUE(IsInitialShowState(widget));
 
   // 4) Popup browser windows.
-  browser_create_params =
-      Browser::CreateParams(Browser::TYPE_POPUP, browser()->GetProfile(), true);
-  Browser* popup_browser = Browser::Create(browser_create_params);
-  ASSERT_TRUE(popup_browser->is_type_popup());
-  ASSERT_FALSE(popup_browser->is_type_app());
+  browser_create_params = BrowserWindowCreateParams(
+      BrowserWindowInterface::TYPE_POPUP, browser()->GetProfile(),
+      /*from_user_gesture=*/true);
+  Browser* popup_browser = CreateBrowserWindow(std::move(browser_create_params))
+                               ->GetBrowserForMigrationOnly();
+  ASSERT_EQ(popup_browser->GetType(), BrowserWindowInterface::Type::TYPE_POPUP);
+  ASSERT_NE(popup_browser->GetType(), BrowserWindowInterface::Type::TYPE_APP);
   AddBlankTabAndShow(popup_browser);
   window = popup_browser->GetWindow()->GetNativeWindow();
   widget = views::Widget::GetWidgetForNativeWindow(window);

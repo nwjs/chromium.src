@@ -141,6 +141,8 @@ ManagePasswordsStateTest::CreateFormManager(
           base::span<const StoredCredential>(federated_matches_storage_)));
   EXPECT_CALL(*form_manager, GetURL())
       .WillOnce(testing::ReturnRef(saved_match_.url));
+  EXPECT_CALL(*form_manager, IsFetchCompleted())
+      .WillOnce(testing::Return(true));
   return form_manager;
 }
 
@@ -154,7 +156,7 @@ void ManagePasswordsStateTest::TestNoisyUpdates() {
   StoredCredential cred;
   cred.url = GURL("http://3rdparty.com");
   cred.username_value = u"username";
-  cred.password_value = u"12345";
+  cred.password_value = password_manager::PasswordString(u"12345");
   PasswordStoreChange change(PasswordStoreChange::ADD, std::move(cred));
   PasswordStoreChangeList list(1, change);
   passwords_data().ProcessLoginsChanged(list);
@@ -166,7 +168,7 @@ void ManagePasswordsStateTest::TestNoisyUpdates() {
   StoredCredential updated_cred;
   updated_cred.url = GURL("http://3rdparty.com");
   updated_cred.username_value = u"username";
-  updated_cred.password_value = u"password";
+  updated_cred.password_value = password_manager::PasswordString(u"password");
   list[0] =
       PasswordStoreChange(PasswordStoreChange::UPDATE, std::move(updated_cred));
   passwords_data().ProcessLoginsChanged(list);
@@ -178,7 +180,7 @@ void ManagePasswordsStateTest::TestNoisyUpdates() {
   StoredCredential removed_cred;
   removed_cred.url = GURL("http://3rdparty.com");
   removed_cred.username_value = u"username";
-  removed_cred.password_value = u"password";
+  removed_cred.password_value = password_manager::PasswordString(u"password");
   list[0] =
       PasswordStoreChange(PasswordStoreChange::REMOVE, std::move(removed_cred));
   passwords_data().ProcessLoginsChanged(list);
@@ -201,7 +203,7 @@ void ManagePasswordsStateTest::TestAllUpdates() {
     c.url = origin.GetURL().ReplaceComponents(replace_path);
     c.signon_realm = c.url.DeprecatedGetOriginAsURL().spec();
     c.username_value = u"user15";
-    c.password_value = u"12345";
+    c.password_value = password_manager::PasswordString(u"12345");
     return c;
   };
 
@@ -228,7 +230,7 @@ void ManagePasswordsStateTest::TestAllUpdates() {
 
   // Update the form.
   StoredCredential cred = create_cred();
-  cred.password_value = u"password";
+  cred.password_value = password_manager::PasswordString(u"password");
   list[0] = PasswordStoreChange(PasswordStoreChange::UPDATE,
                                 CloneStoredCredential(cred));
   EXPECT_CALL(mock_client_, UpdateFormManagers()).Times(0);
@@ -638,6 +640,7 @@ TEST_F(ManagePasswordsStateTest, AutofillCausedByInternalFormManager) {
     base::span<const StoredCredential> GetBestMatches() const override {
       return best_matches;
     }
+    bool IsFetchCompleted() const override { return true; }
     base::span<const StoredCredential> GetFederatedMatches() const override {
       return federated_matches;
     }

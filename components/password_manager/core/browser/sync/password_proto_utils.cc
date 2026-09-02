@@ -6,11 +6,13 @@
 
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
+#include "base/strings/escape.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/sync/protocol/password_specifics.pb.h"
+#include "url/gurl.h"
 
 using autofill::FormData;
 using autofill::FormFieldData;
@@ -244,7 +246,7 @@ sync_pb::PasswordSpecificsData SpecificsDataFromStoredCredential(
   password_data.set_username_value(
       base::UTF16ToUTF8(credential.username_value));
   password_data.set_password_value(
-      base::UTF16ToUTF8(credential.password_value));
+      base::UTF16ToUTF8(credential.password_value.value()));
   password_data.set_date_last_used(
       credential.date_last_used.ToDeltaSinceWindowsEpoch().InMicroseconds());
   password_data.set_date_last_filled_windows_epoch_micros(
@@ -329,7 +331,8 @@ StoredCredential StoredCredentialFromSpecifics(
   cred.username_element = base::UTF8ToUTF16(password_data.username_element());
   cred.password_element = base::UTF8ToUTF16(password_data.password_element());
   cred.username_value = base::UTF8ToUTF16(password_data.username_value());
-  cred.password_value = base::UTF8ToUTF16(password_data.password_value());
+  cred.password_value = password_manager::PasswordString(
+      base::UTF8ToUTF16(password_data.password_value()));
   if (password_data.has_date_last_used()) {
     cred.date_last_used = ConvertToBaseTime(password_data.date_last_used());
   } else if (password_data.preferred()) {
@@ -374,6 +377,16 @@ StoredCredential StoredCredentialFromSpecifics(
     cred.actor_login_approved = password_data.actor_login_approved();
   }
   return cred;
+}
+
+std::string GetClientTag(const sync_pb::PasswordSpecificsData& password_data) {
+  GURL origin(password_data.origin());
+
+  return base::EscapePath(origin.is_valid() ? origin.spec() : "") + "|" +
+         base::EscapePath(password_data.username_element()) + "|" +
+         base::EscapePath(password_data.username_value()) + "|" +
+         base::EscapePath(password_data.password_element()) + "|" +
+         base::EscapePath(password_data.signon_realm());
 }
 
 }  // namespace password_manager

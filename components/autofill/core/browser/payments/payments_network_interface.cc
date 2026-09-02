@@ -34,7 +34,9 @@
 #include "components/autofill/core/browser/payments/payments_requests/get_details_for_update_bnpl_payment_instrument_request.h"
 #include "components/autofill/core/browser/payments/payments_requests/get_iban_upload_details_request.h"
 #include "components/autofill/core/browser/payments/payments_requests/get_unmask_details_request.h"
+#include "components/autofill/core/browser/payments/payments_requests/get_wallet_reminder_notice_request.h"
 #include "components/autofill/core/browser/payments/payments_requests/opt_change_request.h"
+#include "components/autofill/core/browser/payments/payments_requests/record_legal_reminder_acknowledgment_request.h"
 #include "components/autofill/core/browser/payments/payments_requests/select_challenge_option_request.h"
 #include "components/autofill/core/browser/payments/payments_requests/unmask_card_request.h"
 #include "components/autofill/core/browser/payments/payments_requests/unmask_iban_request.h"
@@ -263,6 +265,22 @@ void PaymentsNetworkInterface::UpdateBnplPaymentInstrument(
       /*full_sync_enabled=*/
       account_info_getter_->IsSyncFeatureEnabledForPaymentsServerMetrics(),
       std::move(callback)));
+}
+
+void PaymentsNetworkInterface::GetWalletReminderNotice(
+    const GetWalletReminderNoticeRequestDetails& request_details,
+    base::OnceCallback<void(PaymentsRpcResult,
+                            const GetWalletReminderNoticeResponseDetails&)>
+        callback) {
+  IssueRequest(std::make_unique<GetWalletReminderNoticeRequest>(
+      request_details, std::move(callback)));
+}
+
+void PaymentsNetworkInterface::RecordLegalReminderAcknowledgment(
+    const RecordLegalReminderAcknowledgmentRequestDetails& request_details,
+    base::OnceCallback<void(PaymentsRpcResult)> callback) {
+  IssueRequest(std::make_unique<RecordLegalReminderAcknowledgmentRequest>(
+      request_details, std::move(callback)));
 }
 
 }  // namespace autofill::payments

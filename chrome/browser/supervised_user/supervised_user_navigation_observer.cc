@@ -20,7 +20,9 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/profiles/profile_key.h"
 #include "chrome/browser/supervised_user/classify_url_navigation_throttle.h"
+#include "chrome/browser/supervised_user/family_link_settings_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_url_filtering_service_factory.h"
@@ -31,6 +33,7 @@
 #include "components/history/core/browser/history_types.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/sessions/content/content_serialized_navigation_builder.h"
+#include "components/supervised_user/core/browser/family_link_settings_service.h"
 #include "components/supervised_user/core/browser/supervised_user_interstitial.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
@@ -101,19 +104,14 @@ SupervisedUserNavigationObserver::SupervisedUserNavigationObserver(
           *web_contents),
       content::WebContentsObserver(web_contents),
       receivers_(web_contents, this) {
+  url_filtering_service_observation_.Observe(
+      supervised_user_url_filtering_service());
+
+#if BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/543033880): Extract this feature to a separate class.
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
 
-  if (base::FeatureList::IsEnabled(
-          supervised_user::kSupervisedUserUseUrlFilteringService)) {
-    url_filtering_service_observation_.Observe(
-        supervised_user_url_filtering_service());
-  } else {
-    supervised_user_service_observation_.Observe(
-        supervised_user::SupervisedUserServiceFactory::GetForProfile(profile));
-  }
-
-#if BUILDFLAG(IS_ANDROID)
   pref_change_registrar_.Init(profile->GetPrefs());
   pref_change_registrar_.Add(
       policy::policy_prefs::kForceGoogleSafeSearch,
@@ -259,10 +257,6 @@ void SupervisedUserNavigationObserver::RecordPageLoadUKM(
           .Record(ukm_recorder);
     }
   }
-}
-
-void SupervisedUserNavigationObserver::OnURLFilterChanged() {
-  OnUrlFilteringServiceChanged();
 }
 
 void SupervisedUserNavigationObserver::OnUrlFilteringServiceChanged() {
@@ -425,13 +419,17 @@ void SupervisedUserNavigationObserver::MaybeShowInterstitial(
   Profile* profile =
       Profile::FromBrowserContext(web_contents()->GetBrowserContext());
   CHECK(profile);
+  supervised_user::FamilyLinkSettingsService* family_link_settings_service =
+      supervised_user::FamilyLinkSettingsServiceFactory::GetForKey(
+          profile->GetProfileKey());
+  CHECK(family_link_settings_service);
   auto web_content_handler = CreateWebContentHandler(
       web_contents(), filtering_result.url, profile, frame_id, navigation_id);
   CHECK(web_content_handler);
   std::unique_ptr<supervised_user::SupervisedUserInterstitial> interstitial =
       supervised_user::SupervisedUserInterstitial::Create(
           std::move(web_content_handler), *supervised_user_service(),
-          filtering_result,
+          *family_link_settings_service, filtering_result,
           base::UTF8ToUTF16(supervised_user::GetAccountGivenName(*profile)));
   supervised_user_interstitials_[frame_id] = std::move(interstitial);
 
@@ -450,7 +448,7 @@ void SupervisedUserNavigationObserver::FilterRenderFrame(
   // If the RenderFrameHost is not live return.
   // If the RenderFrameHost belongs to the main frame, return. This is because
   // the main frame is already filtered in
-  // |SupervisedUserNavigationObserver::OnURLFilterChanged|.
+  // |SupervisedUserNavigationObserver::OnUrlFilteringServiceChanged|.
   if (!render_frame_host->IsRenderFrameLive() ||
       render_frame_host->IsInPrimaryMainFrame()) {
     return;

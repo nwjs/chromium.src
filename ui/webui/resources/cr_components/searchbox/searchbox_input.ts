@@ -10,13 +10,12 @@ import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {MetricsReporterImpl} from '//resources/js/metrics_reporter/metrics_reporter.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
-import type {AutocompleteMatch, PageCallbackRouter} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteMatch, InputKeywordModel, PageCallbackRouter} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 
 import {SearchboxBrowserProxy} from './searchbox_browser_proxy.js';
 import type {SearchboxIconElement} from './searchbox_icon.js';
 import {getCss} from './searchbox_input.css.js';
 import {getHtml} from './searchbox_input.html.js';
-import type {InputKeywordModel} from './searchbox_mixin.js';
 
 // Register --placeholder-opacity as type <number> so that we can animate it.
 CSS.registerProperty({
@@ -37,6 +36,7 @@ export interface InputUpdate {
   text?: string;
   inline?: string;
   moveCursorToEnd?: boolean;
+  isDeletingInput?: boolean;
 }
 
 const SearchboxInputElementBase = I18nMixinLit(CrLitElement);
@@ -70,6 +70,12 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
       searchboxAriaDescription: {type: String},
       searchboxIcon: {type: String},
       selectedMatch: {type: Object},
+      /**
+       * The URL of the current webpage when focused in the searchbox before
+       * typing, used to load the page's favicon. Empty when typing, on the NTP,
+       * or for consumers that do not provide a page URL.
+       */
+      pageUrl: {type: String},
       inputKeywordModel: {type: Object},
       inputHasMatches: {type: Boolean},
       allowFilePaste: {type: Boolean},
@@ -83,6 +89,7 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   accessor searchboxAriaDescription: string = '';
   accessor searchboxIcon: string = '';
   accessor selectedMatch: AutocompleteMatch|null = null;
+  accessor pageUrl: string = '';
   accessor inputKeywordModel: InputKeywordModel|null = null;
   accessor inputHasMatches: boolean = false;
   accessor allowFilePaste: boolean = false;
@@ -244,9 +251,9 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   }
 
   protected onInputKeydown_(e: KeyboardEvent) {
-    this.fire('input-keydown', {key: e.key});
-    // Ignore this event if the input does not have any inline autocompletion.
-    if (!this.lastInput_.inline) {
+    // Ignore this event during IME composition or if the input does not have
+    // inline autocompletion.
+    if (e.isComposing || !this.lastInput_.inline) {
       return;
     }
 
@@ -282,7 +289,14 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
           metricsReporter.mark('CharTyped');
         }
       }
+      // The above code already updated the text and selection. Prevent default
+      // keydown handling muddling the updated state.
       e.preventDefault();
+      // The above code already identified this is a text-changing keydown event
+      // and fired 'searchbox-input-text-updated' to update state accordingly
+      // text update. Prevent event bubbling from triggering other custom
+      // keydown handlers treating this as a generic keydown event.
+      e.stopPropagation();
     }
   }
 
@@ -350,8 +364,9 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
           preserveSelection ? oldSelectionEnd : newInputValue.length;
     }
 
-    this.isDeletingInput_ = lastInputValue.length > newInputValue.length &&
-        lastInputValue.startsWith(newInputValue);
+    this.isDeletingInput_ = update.isDeletingInput ??
+        (lastInputValue.length > newInputValue.length &&
+         lastInputValue.startsWith(newInputValue));
     this.lastInput_ = newInput;
   }
 

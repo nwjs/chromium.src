@@ -11,6 +11,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ref.h"
 #include "base/timer/timer.h"
+#include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/views/controls/textfield/textfield_controller.h"
@@ -72,6 +73,7 @@ class PopupSearchBarView : public views::View,
   // `debounce_delay`.
   PopupSearchBarView(
       const std::u16string& placeholder,
+      const std::u16string& initial_value,
       Delegate& delegate,
       bool show_indicator = false,
       bool show_search_icon_sparkle = false,
@@ -99,6 +101,9 @@ class PopupSearchBarView : public views::View,
 
   // Sets the loading state of the search bar, showing a throbber if loading.
   void SetLoading(bool is_loading);
+
+  // Handles key press events from child views (input field and clear button).
+  bool HandleKeyPressed(views::View* sender, const ui::KeyEvent& event);
 
   void SetInputTextForTesting(const std::u16string& text);
   gfx::Point GetClearButtonScreenCenterPointForTesting() const;

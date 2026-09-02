@@ -206,11 +206,12 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
                base::OnceCallback<void(const std::string&)>),
               (override));
   MOCK_METHOD(void,
+              GetNonceForEmailVerification,
+              (FieldRendererId, GetNonceForEmailVerificationCallback),
+              (override));
+  MOCK_METHOD(void,
               SendEmailVerificationToken,
-              (FieldRendererId email_field_id,
-               const std::string& email,
-               FieldRendererId token_field_id,
-               const std::string& token),
+              (FieldRendererId, const std::string&, const std::string&),
               (override));
   MOCK_METHOD(void,
               UpdateEmailVerificationState,
@@ -232,6 +233,7 @@ class FakeAutofillAgent : public mojom::AutofillAgent {
 
   // mojom::AutofillAgent:
   void TriggerFormExtraction() override {}
+  void ClearFormCache() override {}
 
   void ApplyFieldsAction(mojom::FormActionType action_type,
                          mojom::ActionPersistence action_persistence,
@@ -722,7 +724,7 @@ TEST_F(ContentAutofillDriverTestWithAddressForm,
   driver().browser_events().ApplyFormAction(
       mojom::FormActionType::kFill, mojom::ActionPersistence::kFill,
       address_form().fields(), FillId::Create(),
-      /*supports_refill=*/false, triggered_origin, field_type_map(), Section());
+      /*supports_refill=*/false, triggered_origin, field_type_map());
 
   run_loop.RunUntilIdle();
 
@@ -749,7 +751,7 @@ TEST_F(ContentAutofillDriverTestWithAddressForm,
   driver().browser_events().ApplyFormAction(
       mojom::FormActionType::kFill, mojom::ActionPersistence::kPreview,
       address_form().fields(), FillId::Create(),
-      /*supports_refill=*/false, triggered_origin, field_type_map(), Section());
+      /*supports_refill=*/false, triggered_origin, field_type_map());
 
   run_loop.RunUntilIdle();
 
@@ -950,20 +952,6 @@ TEST_F(ContentAutofillDriverTest,
       }));
   run_loop.Run();
   EXPECT_EQ(expected_matches, actual_matches);
-}
-
-// Tests that calls from the renderer with trigger source
-// kPlusAddressUpdatedInBrowserProcess are classified as bad messages.
-TEST_F(ContentAutofillDriverTest, AskForValuesToFillChecksTriggerSource) {
-  BadMessageHelper bad_message_helper;
-  EXPECT_CALL(manager(), OnAskForValuesToFill).Times(0);
-  EXPECT_CALL(bad_message_helper.callback(),
-              Run("PlusAddressUpdatedInBrowserProcess is not a permitted "
-                  "trigger source in the renderer"));
-  driver().renderer_events().AskForValuesToFill(
-      FormData(), FieldRendererId(), gfx::Rect(),
-      AutofillSuggestionTriggerSource::kPlusAddressUpdatedInBrowserProcess,
-      std::nullopt);
 }
 
 // Test that the inactive render frame does not trigger the DOM search and

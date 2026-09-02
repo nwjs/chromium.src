@@ -6,6 +6,7 @@
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_FORM_PARSING_FIELD_CANDIDATES_H_
 
 #include <array>
+#include <optional>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -66,26 +67,29 @@ struct FieldCandidate {
 // types and determines which type is the most likely.
 class FieldCandidates {
  public:
-  FieldCandidates();
+  FieldCandidates(FieldType type,
+                  MatchInfo match_info,
+                  FieldCandidatePriority priority);
   FieldCandidates(FieldCandidates&& other);
   FieldCandidates& operator=(FieldCandidates&& other);
   ~FieldCandidates();
 
-  // Includes a possible |type| for a given field.
+  // Includes a possible `type` for a given field.
   //
   // Callers are responsible for the scores they add. FieldCandidates is
   // agnostic to the source of these scores and will select the best candidate
-  // based solely on their numeric values. BestHeuristicType() uses |score| to
-  // determine the most likely type for this given field. Please see
-  // field_candidates.cc for details on how this type is actually chosen.
+  // based solely on their numeric values. `BestHeuristicCandidate()` uses
+  // `priority` to determine the most likely type for this given field. Please
+  // see field_candidates.cc for details on how this type is actually chosen.
   void AddFieldCandidate(FieldType type,
                          MatchInfo match_info,
                          FieldCandidatePriority priority);
 
-  // Determines the best type based on the current possible types.
-  FieldType BestHeuristicType() const;
+  // Determines the best type based on `field_candidates_` and returns
+  // the corresponding `FieldCandidate`.
+  FieldCandidate BestHeuristicCandidate() const;
 
-  // The MatchAttributes responsible for determining `BestHeuristicType()`.
+  // The MatchAttributes responsible for determining `BestHeuristicCandidate()`.
   DenseSet<MatchAttribute> BestHeuristicTypeReason() const;
 
  private:

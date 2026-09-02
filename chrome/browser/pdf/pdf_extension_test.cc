@@ -11,6 +11,7 @@
 #include <variant>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/feature_list.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
@@ -47,6 +48,7 @@
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_browsertest_util.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_manager_service.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -990,6 +992,27 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTestWithoutOopifOverride,
   ASSERT_TRUE(extension_host);
 
   TestGetSelectedTextReply(extension_host, true);
+}
+
+// Ensure that the PDF viewer is loaded for the text/pdf MIME type.
+IN_PROC_BROWSER_TEST_P(PDFExtensionTest, EnsureTextPdfExtensionLoaded) {
+  GURL test_pdf_url;
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    base::FilePath test_data_file =
+        base::PathService::CheckedGet(chrome::DIR_TEST_DATA)
+            .AppendASCII("pdf")
+            .AppendASCII("test.pdf");
+    ASSERT_TRUE(base::PathExists(test_data_file));
+
+    std::optional<std::vector<uint8_t>> contents =
+        base::ReadFileToBytes(test_data_file);
+    ASSERT_TRUE(contents.has_value());
+    test_pdf_url =
+        GURL("data:text/pdf;base64," + base::Base64Encode(contents.value()));
+  }
+
+  ASSERT_TRUE(LoadPdf(test_pdf_url));
 }
 
 // TODO(crbug.com/40647731): Should be allowed?
@@ -3658,7 +3681,7 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionTestWithoutOopifOverride,
   // objects and the rest of the browser process and appears to be unsupported
   // in tests.
   chrome::CloseWindow(incognito);
-  incognito->SynchronouslyDestroyBrowser();
+  BrowserManagerService::SynchronouslyDestroyBrowser(incognito);
 
   // The test succeeds if it doesn't crash when the posted PDF task attempts to
   // run (the task should be canceled/ignored), so wait for this to happen.
@@ -4448,7 +4471,7 @@ IN_PROC_BROWSER_TEST_F(PDFExtensionOopifTest,
   // The `content::WebContents` needs to be deleted before the browser can be
   // destroyed.
   incognito->tab_strip_model()->DetachAndDeleteWebContentsAt(0);
-  incognito->SynchronouslyDestroyBrowser();
+  BrowserManagerService::SynchronouslyDestroyBrowser(incognito);
 
   // The test succeeds if it doesn't crash when the posted PDF task attempts to
   // run (the task should be canceled/ignored), so wait for this to happen.

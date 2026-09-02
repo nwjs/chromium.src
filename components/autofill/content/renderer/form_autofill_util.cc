@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <string>
 #include <string_view>
@@ -21,6 +22,7 @@
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/flat_set.h"
+#include "base/containers/map_util.h"
 #include "base/containers/span.h"
 #include "base/containers/to_vector.h"
 #include "base/debug/crash_logging.h"
@@ -38,7 +40,6 @@
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/types/zip.h"
 #include "build/build_config.h"
 #include "components/autofill/content/renderer/synchronous_form_cache.h"
 #include "components/autofill/content/renderer/timing.h"
@@ -277,7 +278,6 @@ bool IsTextInput(const WebFormControlElement& element) {
   switch (*type) {
     case FormControlType::kContentEditable:
     case FormControlType::kInputCheckbox:
-    case FormControlType::kInputHiddenEmailVerification:
     case FormControlType::kInputMonth:
     case FormControlType::kInputDate:
     case FormControlType::kInputRadio:
@@ -1352,7 +1352,6 @@ void FillFormField(const FormFieldData::FillData& data,
   switch (*type) {
     case FormControlType::kInputCheckbox:
     case FormControlType::kInputRadio:
-    case FormControlType::kInputHiddenEmailVerification:
       return;
     case FormControlType::kContentEditable:
       NOTREACHED();
@@ -1426,7 +1425,6 @@ void PreviewFormField(const FormFieldData::FillData& data,
   switch (*type) {
     case FormControlType::kInputCheckbox:
     case FormControlType::kInputRadio:
-    case FormControlType::kInputHiddenEmailVerification:
       return;
     case FormControlType::kContentEditable:
       NOTREACHED();
@@ -1647,27 +1645,22 @@ bool IsWebElementVisible(const WebElement& element) {
           HasMinSize(element.GetScrollSize()));
 }
 
-// Returns the topmost <form> ancestor of |node|, or an IsNull() pointer.
-//
-// Generally, WebFormElements must not be nested [1]. When parsing HTML, Blink
-// ignores nested form tags; the inner forms therefore never make it into the
-// DOM. However, nested forms can be created and added to the DOM dynamically,
-// in which case Blink associates each field with its closest ancestor.
-//
-// For some elements, Autofill determines the associated form without Blink's
-// help (currently, these are only iframe elements). For consistency with
-// Blink's behaviour, we associate them with their closest form element
-// ancestor.
-//
-// [1] https://html.spec.whatwg.org/multipage/forms.html#the-form-element
-WebFormElement GetClosestAncestorFormElement(WebNode n) {
+// Returns the outermost <form> ancestor of |node|, or an IsNull() pointer.
+// See README.md for the relevant terminology.
+WebFormElement GetOutermostAncestorFormElement(WebNode n) {
+  const bool should_return_closest_ancestor =
+      !base::FeatureList::IsEnabled(features::kAutofillFixIframeOwnership);
+  WebFormElement form;
   while (n) {
     if (HasTagName<kForm>(n)) {
-      return n.To<WebFormElement>();
+      form = n.To<WebFormElement>();
+      if (should_return_closest_ancestor) {
+        return form;
+      }
     }
-    n = n.ParentNode();
+    n = n.ParentOrShadowHostNode();
   }
-  return WebFormElement();
+  return form;
 }
 
 // Returns true if a DOM traversal (pre-order, depth-first) visits `x` before
@@ -1683,7 +1676,7 @@ bool IsDOMPredecessor(const WebNode& x,
   DCHECK(x.GetDocument() == y.GetDocument());
   DCHECK(!ancestor_hint || x.GetDocument() == ancestor_hint.GetDocument());
   // Extends the `path` up to `end` (exclusive) or the document root.
-  // Paths are backwards: the last element is the top-most node.
+  // Paths are backwards: the last element is the outermost node.
   auto BuildPath = [](std::vector<WebNode> path, const WebNode& end) {
     DCHECK(!path.empty());
     path.reserve(path.size() + 16);
@@ -1785,11 +1778,15 @@ bool IsRelevantChildFrame(const WebElement& element) {
 }
 
 // Returns the <iframe> elements that are associated with `form_element`.
-// An iframe is associated with `form_element` iff
+//
+// An iframe is owned by `form_element` iff it is in the light DOM and
 // - if `form_element` is non-null:
-//   `form_element` is the iframe's closest <form> ancestor
+//   `form_element` is the iframe's outermost <form> ancestor
 // - if `form_element` is null:
 //   the iframe has no <form> ancestor.
+//
+// The restriction to the light DOM is only because Blink currently does not
+// provide a shadow-including way of listing iframes.
 std::vector<WebElement> GetIframeElements(const WebDocument& document,
                                           const WebFormElement& form_element) {
   std::vector<WebElement> relevant_iframes;
@@ -1797,7 +1794,7 @@ std::vector<WebElement> GetIframeElements(const WebDocument& document,
       document.GetElementsByHTMLTagName(GetWebString<kIframe>());
   for (WebElement iframe = iframes.FirstItem(); iframe;
        iframe = iframes.NextItem()) {
-    if (GetClosestAncestorFormElement(iframe) == form_element &&
+    if (GetOutermostAncestorFormElement(iframe) == form_element &&
         IsRelevantChildFrame(iframe)) {
       relevant_iframes.push_back(iframe);
     }
@@ -1917,27 +1914,6 @@ bool HasFormAncestor(WebNode node) {
     node = node.ParentOrShadowHostNode();
   }
   return false;
-}
-
-// Returns all connected form control elements
-// - owned by `form_element` if `!form_element.IsNull()`;
-// - owned by no form otherwise.
-std::vector<WebFormControlElement> GetOwnedFormControls(
-    const WebDocument& document,
-    const WebFormElement& form_element) {
-  std::vector<WebFormControlElement> form_controls;
-  if (form_element) {
-    form_controls = form_element.GetFormControlElements();  // nocheck
-  } else {
-    form_controls = document.UnassociatedFormControls();  // nocheck
-    // A form control element may be unassociated inside its Shadow DOM, but
-    // owned (in the Autofill sense) by a <form> containing the shadow host.
-    std::erase_if(form_controls, [](const WebFormControlElement& e) {
-      return e.OwnerShadowHost() && HasFormAncestor(e);
-    });
-  }
-  std::erase_if(form_controls, std::not_fn(&IsAccessible));
-  return form_controls;
 }
 
 // Populates out a FormFieldData object from a given autofillable
@@ -2101,7 +2077,7 @@ void WebFormControlElementToFormField(
 
     CHECK_EQ(field->options().size(), select_option_elements.size());
     for (const auto [option, option_element] :
-         base::zip(field->options(), select_option_elements)) {
+         std::views::zip(field->options(), select_option_elements)) {
       if (option_element.IsSelected()) {
         field->set_selected_option_text(option.text);
         break;
@@ -2241,7 +2217,7 @@ std::optional<FormData> ExtractFormDataWithFieldsAndFrames(
   // Extracts the frame tokens of |iframe_elements|.
   DCHECK_EQ(child_frames.size(), iframe_elements.size());
   for (auto [iframe_element, child_frame] :
-       base::zip(iframe_elements, child_frames)) {
+       std::views::zip(iframe_elements, child_frames)) {
     WebFrame* iframe = WebFrame::FromFrameOwnerElement(iframe_element);
     if (iframe && iframe->IsWebLocalFrame()) {
       child_frame.token = LocalFrameToken(
@@ -2377,8 +2353,6 @@ std::optional<FormControlType> GetAutofillFormControlType(
   // shared with other tests.
   static const bool g_autofill_ignore_checkable_elements_enabled =
       base::FeatureList::IsEnabled(features::kAutofillIgnoreCheckableElements);
-  static const bool g_email_verification_protocol_enabled =
-      base::FeatureList::IsEnabled(::features::kEmailVerificationProtocol);
 
   // Note that adding a new field type here automatically makes
   // IsAutofillableElement() return true.
@@ -2391,13 +2365,6 @@ std::optional<FormControlType> GetAutofillFormControlType(
     case blink::mojom::FormControlType::kInputEmail:
       return FormControlType::kInputEmail;
     case blink::mojom::FormControlType::kInputHidden:
-      if (g_email_verification_protocol_enabled) {
-        std::optional<AutocompleteParsingResult> parsed =
-            ParseAutocompleteAttribute(GetAutocompleteAttribute(element));
-        if (parsed && parsed->email_verification_token) {
-          return FormControlType::kInputHiddenEmailVerification;
-        }
-      }
       break;
     case blink::mojom::FormControlType::kInputMonth:
       return FormControlType::kInputMonth;
@@ -2496,6 +2463,27 @@ base::i18n::TextDirection GetTextDirectionForElement(
   }
 }
 
+// Returns all connected form control elements
+// - owned by `form_element` if `!form_element.IsNull()`;
+// - owned by no form otherwise.
+std::vector<WebFormControlElement> GetOwnedFormControls(
+    const WebDocument& document,
+    const WebFormElement& form_element) {
+  std::vector<WebFormControlElement> form_controls;
+  if (form_element) {
+    form_controls = form_element.GetFormControlElements();  // nocheck
+  } else {
+    form_controls = document.UnassociatedFormControls();  // nocheck
+    // A form control element may be unassociated inside its Shadow DOM, but
+    // owned (in the Autofill sense) by a <form> containing the shadow host.
+    std::erase_if(form_controls, [](const WebFormControlElement& e) {
+      return e.OwnerShadowHost() && HasFormAncestor(e);
+    });
+  }
+  std::erase_if(form_controls, std::not_fn(&IsAccessible));
+  return form_controls;
+}
+
 std::vector<WebFormControlElement> GetOwnedAutofillableFormControls(
     const WebDocument& document,
     const WebFormElement& form_element) {
@@ -2505,8 +2493,7 @@ std::vector<WebFormControlElement> GetOwnedAutofillableFormControls(
   return elements;
 }
 
-std::optional<std::pair<FormData, raw_ref<const FormFieldData>>>
-FindFormAndFieldForFormControlElement(
+std::optional<FormAndField> FindFormAndFieldForFormControlElement(
     const WebFormControlElement& element,
     const FieldDataManager& field_data_manager,
     const CallTimerState& timer_state,
@@ -2539,7 +2526,7 @@ FindFormAndFieldForFormControlElement(
   if (auto it = std::ranges::find(form->fields(), GetFieldRendererId(element),
                                   &FormFieldData::renderer_id);
       it != form->fields().end()) {
-    return std::make_optional(std::make_pair(std::move(*form), raw_ref(*it)));
+    return FormAndField{std::move(*form), *it};
   }
 
   // This is not reachable if the following holds:
@@ -2556,7 +2543,7 @@ FindFormAndFieldForFormControlElement(
   auto get_id = [](const WebElement& e) {
     return e ? e.GetIdAttribute().Utf8() : "";
   };
-  auto is_top_level = [](const WebFormElement form) {
+  auto is_outermost = [](const WebFormElement form) {
     WebNode n = form;
     while (n && (n = n.ParentOrShadowHostNode())) {
       if (n.DynamicTo<WebFormElement>()) {
@@ -2609,7 +2596,7 @@ FindFormAndFieldForFormControlElement(
   SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_owns_element", f && std::ranges::contains(get_form_control_elements(f), element)); \
   SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_in_shadow_dom", f && !!f.OwnerShadowHost());                                \
   SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_in_same_dom", f && element.OwnerShadowHost() == f.OwnerShadowHost());       \
-  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_is_top_level", is_top_level(f));                                            \
+  SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_is_outermost", is_outermost(f));                                            \
   SCOPED_CRASH_KEY_BOOL("Autofill", #prefix "_form_has_nested_form", has_nested_form(f, element));                             \
   SCOPED_CRASH_KEY_NUMBER("Autofill", #prefix "_form_size", get_form_size(f));                                                 \
   SCOPED_CRASH_KEY_STRING64("Autofill", #prefix "_form_id", get_id(f));
@@ -2876,13 +2863,15 @@ ButtonTitleList GetButtonTitles(const WebFormElement& web_form,
     return InferButtonTitlesForForm(web_form);
   }
 
-  auto [form_position, cache_miss] = button_titles_cache->emplace(
-      GetFormRendererId(web_form), ButtonTitleList());
-  if (!cache_miss)
-    return form_position->second;
+  FormRendererId form_id = GetFormRendererId(web_form);
+  if (const ButtonTitleList* titles =
+          base::FindOrNull(*button_titles_cache, form_id)) {
+    return *titles;
+  }
 
-  form_position->second = InferButtonTitlesForForm(web_form);
-  return form_position->second;
+  ButtonTitleList button_titles = InferButtonTitlesForForm(web_form);
+  button_titles_cache->insert_or_assign(form_id, button_titles);
+  return button_titles;
 }
 
 WebFormElement GetFormByRendererId(FormRendererId form_renderer_id) {
@@ -2925,7 +2914,7 @@ void TraverseDomForFourDigitCombinations(
   // elements nearby in search of four digit combinations.
   std::vector<WebFormControlElement> form_control_elements;
 
-  for (const WebFormElement& form : document.GetTopLevelForms()) {
+  for (const WebFormElement& form : document.GetOutermostForms()) {
     std::ranges::move(GetOwnedFormControls(document, form),
                       std::back_inserter(form_control_elements));
   }
@@ -3172,8 +3161,9 @@ bool IsVisibleIframeForTesting(  // IN-TEST
   return IsVisibleIframe(iframe_element);
 }
 
-WebFormElement GetClosestAncestorFormElementForTesting(WebNode n) {  // IN-TEST
-  return GetClosestAncestorFormElement(n);
+WebFormElement GetOutermostAncestorFormElementForTesting(  // IN-TEST
+    WebNode n) {
+  return GetOutermostAncestorFormElement(n);
 }
 
 bool IsDOMPredecessorForTesting(const WebNode& x,  // IN-TEST

@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
@@ -526,8 +527,8 @@ IN_PROC_BROWSER_TEST_F(PrewarmedWebUINavigationTimelineBrowserTest,
 
   // 2) Create a new browser window. This should trigger pre-warming of the
   // toolbar WebUI.
-  Browser::CreateParams params(browser()->GetProfile(), true);
-  Browser::Create(params);
+  CreateBrowserWindow(BrowserWindowCreateParams(browser()->GetProfile(),
+                                                /*from_user_gesture=*/true));
 
   // Wait for the navigation to commit and record UKM.
   if (ukm_recorder().GetEntriesByName(NavigationTimeline::kEntryName).empty()) {
@@ -570,8 +571,10 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
   base::StatisticsRecorder::HistogramWaiter waiter(expected_metric);
 
   // Create a new browser window without actively showing/painting it yet.
-  Browser::CreateParams params(browser()->GetProfile(), true);
-  Browser* new_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(browser()->GetProfile(),
+                                   /*from_user_gesture=*/true);
+  Browser* new_browser =
+      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
 
   if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
     manager->SkipStartupForTesting();
@@ -654,8 +657,8 @@ IN_PROC_BROWSER_TEST_F(InitialWebUIMetricsMappingBrowserTest,
   EXPECT_GE(total_webium_count, 1);
 }
 
-// TODO(crbug.com/491012584): Flaky on ChromeOS MSan.
-#if BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)
+// TODO(crbug.com/491012584): Flaky on ChromeOS MSan and Win.
+#if (BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)) || BUILDFLAG(IS_WIN)
 #define MAYBE_NormalRendererMetricsAreNotMapped \
   DISABLED_NormalRendererMetricsAreNotMapped
 #else
@@ -844,8 +847,10 @@ IN_PROC_BROWSER_TEST_F(InitialWebUISurfaceSyncBrowserTest,
   base::StatisticsRecorder::HistogramWaiter waiter(expected_metric);
 
   // Create a new window.
-  Browser::CreateParams params(browser()->GetProfile(), true);
-  Browser* new_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(browser()->GetProfile(),
+                                   /*from_user_gesture=*/true);
+  Browser* new_browser =
+      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
 
   if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
     manager->SkipStartupForTesting();
@@ -868,16 +873,27 @@ IN_PROC_BROWSER_TEST_F(InitialWebUISurfaceSyncBrowserTest,
 
 #if BUILDFLAG(IS_WIN)
 
+class InitialWebUIMinimizedWindowBrowserTest
+    : public InitialWebUIBrowserTestBase {
+ public:
+  InitialWebUIMinimizedWindowBrowserTest()
+      : InitialWebUIBrowserTestBase(
+            {{features::kWebUIReloadButton,
+              {{"WebUIReloadButtonDeferBrowserViewShow", "true"}}}}) {}
+};
+
 // Tests that the duration metrics are not recorded for windows created as
 // minimized.
-IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(InitialWebUIMinimizedWindowBrowserTest,
                        InitiallyMinimizedWindowSkipsMetrics) {
   base::HistogramTester histogram_tester;
 
   // Create a minimized browser window.
-  Browser::CreateParams params(browser()->GetProfile(), true);
+  BrowserWindowCreateParams params(browser()->GetProfile(),
+                                   /*from_user_gesture=*/true);
   params.initial_show_state = ui::mojom::WindowShowState::kMinimized;
-  Browser* new_browser = Browser::Create(params);
+  Browser* new_browser =
+      CreateBrowserWindow(std::move(params))->GetBrowserForMigrationOnly();
 
   if (auto* manager = InitialWebUIWindowMetricsManager::From(new_browser)) {
     manager->SkipStartupForTesting();
@@ -917,7 +933,7 @@ IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
 
 // Tests that the duration metrics should be skipped for the windows that are
 // restored as minimized.
-IN_PROC_BROWSER_TEST_F(InitialWebUINavigationBrowserTest,
+IN_PROC_BROWSER_TEST_F(InitialWebUIMinimizedWindowBrowserTest,
                        SessionRestoreMinimizedWindow) {
   Profile* profile = browser()->GetProfile();
 
@@ -1007,13 +1023,17 @@ IN_PROC_BROWSER_TEST_F(InitialWebUISameStartupPopupBrowserTest,
   ASSERT_TRUE(profile);
 
   // Create popup browser.
-  Browser::CreateParams popup_params(Browser::TYPE_POPUP, profile, true);
-  Browser* popup_browser = Browser::Create(popup_params);
+  BrowserWindowCreateParams popup_params(BrowserWindowInterface::TYPE_POPUP,
+                                         profile, /*from_user_gesture=*/true);
+  Browser* popup_browser = CreateBrowserWindow(std::move(popup_params))
+                               ->GetBrowserForMigrationOnly();
   ASSERT_TRUE(popup_browser);
 
   // Create normal browser.
-  Browser::CreateParams normal_params(Browser::TYPE_NORMAL, profile, true);
-  Browser* normal_browser = Browser::Create(normal_params);
+  BrowserWindowCreateParams normal_params(BrowserWindowInterface::TYPE_NORMAL,
+                                          profile, /*from_user_gesture=*/true);
+  Browser* normal_browser = CreateBrowserWindow(std::move(normal_params))
+                                ->GetBrowserForMigrationOnly();
   ASSERT_TRUE(normal_browser);
 
   auto* popup_manager = InitialWebUIWindowMetricsManager::From(popup_browser);

@@ -21,7 +21,6 @@
 #include "base/time/clock.h"
 #include "base/values.h"
 #include "chrome/browser/history/profile_based_browsing_history_driver.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/webui/top_chrome/top_chrome_web_ui_controller.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -33,6 +32,10 @@
 namespace content {
 class WebContents;
 }  // namespace content
+
+namespace critical_actions {
+struct CriticalActionEntry;
+}  // namespace critical_actions
 
 // The handler for Javascript messages related to the "history" view.
 class BrowsingHistoryHandler : public history::mojom::PageHandler,
@@ -149,6 +152,12 @@ class BrowsingHistoryHandler : public history::mojom::PageHandler,
 
   // signin::IdentityManager::Observer:
   void OnExtendedAccountInfoUpdated(const AccountInfo& info) override;
+
+  void HandleQueryResults(
+      const std::vector<history::BrowsingHistoryService::HistoryEntry>& results,
+      const history::BrowsingHistoryService::QueryResultsInfo&
+          query_results_info,
+      std::vector<critical_actions::CriticalActionEntry> critical_actions);
 
   raw_ptr<Profile> profile_;
   raw_ptr<content::WebContents> web_contents_;

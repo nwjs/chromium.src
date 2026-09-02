@@ -6,12 +6,15 @@
 #define CHROME_BROWSER_UI_TABS_TAB_DRAG_API_DESKTOP_TAB_DRAG_IMPL_TAB_DRAG_WINDOW_ADAPTER_IMPL_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "base/types/expected.h"
 #include "components/browser_apis/tab_drag/adapters/tab_drag_window_adapter.h"
 #include "components/browser_apis/tab_strip/types/node_id.h"
 #include "mojo/public/mojom/base/error.mojom-forward.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/vector2d.h"
+#include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
 
 class BrowserWindowInterface;
@@ -32,7 +35,7 @@ class TabDragWindowAdapterImpl : public tabs_api::TabDragWindowAdapter,
   tabs_api::TabDragWindowId GetWindowId() const override;
   gfx::NativeWindow GetNativeWindow() const override;
   gfx::Rect GetBoundsInScreen() const override;
-  bool IsDraggingEntireWindow(size_t dragged_tab_count) const override;
+  bool ShouldDragWholeWindow(size_t dragged_tab_count) const override;
   gfx::Point ConvertScreenPointToLocal(
       gfx::NativeView target_view,
       const gfx::Point& screen_point) const override;
@@ -40,6 +43,7 @@ class TabDragWindowAdapterImpl : public tabs_api::TabDragWindowAdapter,
   void SetCapture() override;
   void ReleaseCapture() override;
   bool HasCapture() const override;
+  void Activate() override;
 
   base::expected<tabs_api::TabDragWindowId, mojo_base::mojom::ErrorPtr>
   DetachToNewWindow(const std::vector<tabs_api::NodeId>& tab_ids,
@@ -61,12 +65,16 @@ class TabDragWindowAdapterImpl : public tabs_api::TabDragWindowAdapter,
   // views::WidgetObserver:
   void OnWidgetBoundsChanged(views::Widget* widget,
                              const gfx::Rect& new_bounds) override;
+  void OnWidgetDestroyed(views::Widget* widget) override;
 
  private:
   raw_ptr<BrowserWindowInterface> browser_window_;
   raw_ptr<tabs_api::TabDragWindowRegistry> registry_;
   tabs_api::TabDragWindowId id_;
   tabs_api::TabDragWindowAdapter::WindowMoveCallback move_callback_;
+  base::ScopedObservation<views::Widget, views::WidgetObserver>
+      widget_observation_{this};
+  base::WeakPtrFactory<TabDragWindowAdapterImpl> weak_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_UI_TABS_TAB_DRAG_API_DESKTOP_TAB_DRAG_IMPL_TAB_DRAG_WINDOW_ADAPTER_IMPL_H_

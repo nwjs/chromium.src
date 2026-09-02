@@ -518,6 +518,26 @@ export class HistoryListElement extends HistoryListElementBase {
     this.closeMenu_();
   }
 
+  private isCriticalActionsEnabled_(): boolean {
+    return loadTimeData.getBoolean('isCriticalActionsEnabled');
+  }
+
+  protected canShowReviewGeminiActivity_(): boolean {
+    return this.isCriticalActionsEnabled_() &&
+        !!this.actionMenuModel_?.item.isActorVisit;
+  }
+
+  protected onReviewGeminiActivityClick_(e: MouseEvent) {
+    BrowserProxyImpl.getInstance().recordAction(
+        'EntryMenuReviewGeminiActivity');
+    this.recordContextMenuActionsHistogram_(
+        VisitContextMenuAction.REVIEW_GEMINI_ACTIVITY_CLICKED);
+
+    BrowserProxyImpl.getInstance().navigateToUrl(
+        loadTimeData.getString('myActivityGeminiAppsUrl'), '_blank', e);
+    this.closeMenu_();
+  }
+
   protected onRemoveFromHistoryClick_() {
     BrowserProxyImpl.getInstance().recordAction('EntryMenuRemoveFromHistory');
     this.recordContextMenuActionsHistogram_(
@@ -716,6 +736,10 @@ export class HistoryListElement extends HistoryListElementBase {
 
   protected onListBlurredChanged_(e: CustomEvent<{value: boolean}>) {
     this.listBlurred_ = e.detail.value;
+  }
+
+  protected onRestoreListFocus_() {
+    this.listBlurred_ = false;
   }
 
   private getSelectedEntries_(): HistoryEntry[] {

@@ -91,8 +91,6 @@ constexpr wchar_t kLoggingRegistryKeyName[] = L"SOFTWARE\\Chromoting\\logging";
 constexpr wchar_t kLogToFileRegistryValue[] = L"LogToFile";
 constexpr wchar_t kLogToEventLogRegistryValue[] = L"LogToEventLog";
 
-const char* const kCopiedSwitchNames[] = {switches::kV, switches::kVModule};
-
 }  // namespace
 
 namespace remoting {
@@ -132,7 +130,7 @@ class DaemonProcessWin : public DaemonProcess {
       const mojom::DesktopSessionOptions& options) override;
   void LaunchNetworkProcess() override;
   std::unique_ptr<WorkerProcessLauncher::Delegate>
-  CreatePeerConnectionProcessLauncherDelegate(int terminal_id) override;
+  CreatePeerConnectionProcessLauncherDelegate() override;
 
   bool OnInitAfterChannelConnected(int32_t peer_pid) override;
 
@@ -212,13 +210,13 @@ void DaemonProcessWin::LaunchNetworkProcess() {
   auto delegate = std::make_unique<UnprivilegedProcessDelegate>(
       io_task_runner(), std::move(target),
       UnprivilegedProcessDelegate::IntegrityLevel::kLow);
-  delegate->UseAppContainer(L"chromoting.network");
-
+  // TODO(joedow): Address software-backed cert issues and then configure
+  // this process to run in an app container again.
   SetNetworkLauncherDelegate(std::move(delegate));
 }
 
 std::unique_ptr<WorkerProcessLauncher::Delegate>
-DaemonProcessWin::CreatePeerConnectionProcessLauncherDelegate(int terminal_id) {
+DaemonProcessWin::CreatePeerConnectionProcessLauncherDelegate() {
   DCHECK(caller_task_runner()->BelongsToCurrentThread());
 
   base::FilePath host_binary;
@@ -382,16 +380,15 @@ void DaemonProcessWin::BindSessionServices(
 
   uint32_t peer_session_id =
       host_services_receivers().current_context()->session_id;
-  auto& sessions = desktop_sessions();
-  auto it =
-      std::ranges::find_if(sessions, [peer_session_id](DesktopSession* s) {
-        return static_cast<DesktopSessionWin*>(s)->windows_session_id() ==
-               peer_session_id;
-      });
+  const auto& sessions = desktop_sessions();
+  auto it = std::ranges::find_if(sessions, [peer_session_id](const auto& pair) {
+    return static_cast<DesktopSessionWin*>(pair.second.get())
+               ->windows_session_id() == peer_session_id;
+  });
 
-  if (it != sessions.end()) {
-    desktop_session_connection_events()->OnSessionServicesClientConnected(
-        (*it)->id(), std::move(receiver));
+  if (it != sessions.end() && it->second->events_remote()) {
+    it->second->events_remote()->OnSessionServicesClientConnected(
+        std::move(receiver));
   } else {
     LOG(WARNING) << "No desktop session found for Windows session ID "
                  << peer_session_id;

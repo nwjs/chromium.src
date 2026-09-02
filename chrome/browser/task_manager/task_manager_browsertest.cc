@@ -28,9 +28,9 @@
 #include "chrome/browser/task_manager/task_manager_browsertest_util.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
 #include "chrome/browser/task_manager/task_manager_tester.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/dialogs/browser_dialogs.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -1217,13 +1217,6 @@ IN_PROC_BROWSER_TEST_P(TaskManagerOOPIFBrowserTest,
   }
 }
 
-// TODO(crbug.com/488090097): Re-enable this test on Linux.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_CrossSiteIframeBecomesSameSite \
-  DISABLED_CrossSiteIframeBecomesSameSite
-#else
-#define MAYBE_CrossSiteIframeBecomesSameSite CrossSiteIframeBecomesSameSite
-#endif
 // Tests what happens when a tab navigates a cross-frame iframe (to b.com)
 // back to the site of the parent document (a.com).
 IN_PROC_BROWSER_TEST_P(TaskManagerOOPIFBrowserTest,
@@ -2000,7 +1993,7 @@ class FencedFrameTaskBrowserTest : public TaskManagerBrowserTest {
     https_server()->StartAcceptingConnections();
   }
 
-  void NavigateTo(Browser* browser,
+  void NavigateTo(BrowserWindowInterface* browser,
                   std::string_view host,
                   std::string_view rel_url) {
     ASSERT_TRUE(ui_test_utils::NavigateToURL(

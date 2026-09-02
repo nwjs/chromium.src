@@ -24,7 +24,6 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewPropertyAnimator;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
@@ -46,9 +45,12 @@ import org.chromium.base.Callback;
 import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties.ImageVisibility;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
+import org.chromium.components.browser_ui.widget.RoundedCornerImageView;
 import org.chromium.ui.base.TestActivity;
 import org.chromium.ui.listmenu.BasicListMenu;
 import org.chromium.ui.listmenu.ListMenu;
@@ -63,6 +65,7 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 /** Unit tests for {@link ImprovedBookmarkRow}. */
 @RunWith(BaseRobolectricTestRunner.class)
 @Config(manifest = Config.NONE)
+@DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_LAYOUT)
 public class ImprovedBookmarkRowTest {
     private static final String TITLE = "Test title";
     private static final String DESCRIPTION = "Test description";
@@ -80,7 +83,7 @@ public class ImprovedBookmarkRowTest {
     @Mock Runnable mOpenBookmarkCallback;
     @Mock LazyOneshotSupplier<Drawable> mMockDrawableSupplier;
 
-    ImageView mStartImageView;
+    RoundedCornerImageView mStartImageView;
     @Spy ViewPropertyAnimator mStartImageViewAnimator;
 
     @Captor ArgumentCaptor<Callback<Drawable>> mDrawableCallbackCaptor;
@@ -97,7 +100,7 @@ public class ImprovedBookmarkRowTest {
         mActivityScenarioRule.getScenario().onActivity((activity) -> mActivity = activity);
         mStartImageView =
                 spy(
-                        new ImageView(mActivity) {
+                        new RoundedCornerImageView(mActivity) {
                             @Override
                             public ViewPropertyAnimator animate() {
                                 ViewPropertyAnimator animator = super.animate();

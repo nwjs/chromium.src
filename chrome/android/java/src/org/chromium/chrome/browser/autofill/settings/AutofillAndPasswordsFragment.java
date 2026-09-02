@@ -25,6 +25,7 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsMediator;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
 import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
 import org.chromium.chrome.browser.device_lock.DeviceLockActivityLauncherImpl;
@@ -78,10 +79,13 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
     // These values are persisted to logs. Entries should not be renumbered and
     // numeric values should never be reused.
     //
-    // Needs to stay in sync with AutofillSettingsReferrer in enums.xml. Clank currently uses only
-    // the SETTINGS_MENU value.
+    // Needs to stay in sync with AutofillSettingsReferrer in enums.xml.
     // LINT.IfChange(AutofillSettingsReferrer)
-    @IntDef({AutofillSettingsReferrer.SETTINGS_MENU, AutofillSettingsReferrer.COUNT})
+    @IntDef({
+        AutofillSettingsReferrer.SETTINGS_MENU,
+        AutofillSettingsReferrer.SETTINGS_SEARCH,
+        AutofillSettingsReferrer.COUNT
+    })
     @Retention(RetentionPolicy.SOURCE)
     public @interface AutofillSettingsReferrer {
 
@@ -93,7 +97,10 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
         // int AUTOFILL_AND_PASSWORDS_PAGE = 2,
         // int FILLING_FLOW_DROPDOWN = 3,
 
-        int COUNT = 4;
+        /** Corresponds to opening Autofill and Passwords from Settings search. */
+        int SETTINGS_SEARCH = 4;
+
+        int COUNT = 5;
     }
 
     // LINT.ThenChange(//tools/metrics/histograms/metadata/autofill/enums.xml:AutofillSettingsReferrer)
@@ -136,22 +143,24 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
     private OneshotSupplier<BottomSheetController> mBottomSheetControllerSupplier;
     private OneshotSupplier<SnackbarManager> mSnackbarManagerSupplier;
     private @Nullable SigninPromoCoordinator mSigninPromoCoordinator;
+    private @AutofillSettingsReferrer int mReferrer;
 
     @Override
     public void onCreatePreferences(@Nullable Bundle savedInstanceState, @Nullable String rootKey) {
         mPageTitle.set(getString(R.string.autofill_and_passwords_settings_title));
 
-        @AutofillSettingsReferrer
-        int referrer =
+        // Search is the default. Multiple implicit search entry points exist and the single
+        // alternative is the main settings menu which sets the referrer to SETTINGS_MENU.
+        mReferrer =
                 getArguments() != null
                         ? getArguments()
-                                .getInt(EXTRA_REFERRER, AutofillSettingsReferrer.SETTINGS_MENU)
-                        : AutofillSettingsReferrer.SETTINGS_MENU;
+                                .getInt(EXTRA_REFERRER, AutofillSettingsReferrer.SETTINGS_SEARCH)
+                        : AutofillSettingsReferrer.SETTINGS_SEARCH;
 
         if (savedInstanceState == null) {
             RecordHistogram.recordEnumeratedHistogram(
                     "Autofill.YourSavedInfoSettingsPage.VisitReferrer",
-                    referrer,
+                    mReferrer,
                     AutofillSettingsReferrer.COUNT);
         }
 
@@ -230,19 +239,20 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
                     return SettingsNavigationHelper.showAutofillShoppingSettings(getActivity());
                 });
 
-        findPreference(PREF_AUTOFILL_SETTINGS)
-                .setOnPreferenceClickListener(
-                        preference -> {
-                            SettingsNavigationFactory.createSettingsNavigation()
-                                    .startSettings(
-                                            getContext(),
-                                            AutofillOptionsFragment.class,
-                                            AutofillOptionsFragment.createRequiredArgs(
-                                                    AutofillOptionsReferrer
-                                                            .AUTOFILL_AND_PASSWORDS_FRAGMENT),
-                                            /* addToBackStack= */ true);
-                            return true;
-                        });
+        Preference autofillSettingsPref = findPreference(PREF_AUTOFILL_SETTINGS);
+        autofillSettingsPref.setTitle(AutofillOptionsMediator.getFragmentTitle(getContext()));
+        autofillSettingsPref.setOnPreferenceClickListener(
+                preference -> {
+                    SettingsNavigationFactory.createSettingsNavigation()
+                            .startSettings(
+                                    getContext(),
+                                    AutofillOptionsFragment.class,
+                                    AutofillOptionsFragment.createRequiredArgs(
+                                            AutofillOptionsReferrer
+                                                    .AUTOFILL_AND_PASSWORDS_FRAGMENT),
+                                    /* addToBackStack= */ true);
+                    return true;
+                });
     }
 
     @Initializer
@@ -303,7 +313,12 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
 
     private void updateSignInPromo() {
         SigninPromoPreference promoPreference = findPreference(PREF_SIGNIN_PROMO);
-        if (mSigninPromoCoordinator != null && mSigninPromoCoordinator.canShowPromo()) {
+        // TODO(crbug.com/542166217): Remove the sign-in promo.
+        // The sign-in promo is not shown when the user enters the settings page via search due to
+        // async update of the screen, which would lead to incorrect highlighting.
+        if (mReferrer != AutofillSettingsReferrer.SETTINGS_SEARCH
+                && mSigninPromoCoordinator != null
+                && mSigninPromoCoordinator.canShowPromo()) {
             promoPreference.setVisible(true);
         } else {
             promoPreference.setVisible(false);
@@ -313,6 +328,11 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
     @Override
     public MonotonicObservableSupplier<String> getPageTitle() {
         return mPageTitle;
+    }
+
+    @Override
+    public @Nullable String getMainMenuKey() {
+        return "autofill_and_passwords";
     }
 
     @Override
@@ -327,7 +347,9 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
 
     private static boolean shouldShowShopping() {
         return shouldShowAutofillAiSettings()
-                && ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AMBIENT_AUTOFILL);
+                && (ChromeFeatureList.isEnabled(ChromeFeatureList.AUTOFILL_AMBIENT_AUTOFILL)
+                        || ChromeFeatureList.isEnabled(
+                                ChromeFeatureList.AUTOFILL_AI_WALLET_SHOPPING));
     }
 
     private ManagedPreferenceDelegate createManagedPreferenceDelegate() {
@@ -385,6 +407,21 @@ public class AutofillAndPasswordsFragment extends ChromeBaseSettingsFragment {
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_SHOPPING));
                         indexData.removeEntry(getUniqueId(PREF_AUTOFILL_PERSONAL_CONTEXT));
                     } else {
+                        // TODO(crbug.com/440022435): Remove the PREF_AUTOFILL_SETTINGS index update
+                        // once Autofill AI is launched.
+                        String autofillSettingsEntryId = getUniqueId(PREF_AUTOFILL_SETTINGS);
+                        SettingsIndexData.Entry autofillSettingsEntry =
+                                indexData.getEntry(autofillSettingsEntryId);
+                        if (autofillSettingsEntry != null) {
+                            indexData.updateEntry(
+                                    autofillSettingsEntryId,
+                                    new SettingsIndexData.Entry.Builder(autofillSettingsEntry)
+                                            .setTitle(
+                                                    AutofillOptionsMediator.getFragmentTitle(
+                                                            context))
+                                            .build());
+                        }
+
                         if (!shouldShowAutofillAiSettings()) {
                             indexData.removeEntry(getUniqueId(PREF_AUTOFILL_IDENTITY_DOCS));
                             indexData.removeEntry(getUniqueId(PREF_AUTOFILL_TRAVEL));

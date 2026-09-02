@@ -18,6 +18,7 @@ import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
+import android.view.View;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.SmallTest;
@@ -34,6 +35,8 @@ import org.mockito.junit.MockitoRule;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.bookmarks.R;
 import org.chromium.ui.base.TestActivity;
+import org.chromium.ui.modelutil.PropertyModel;
+import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 import org.chromium.ui.util.ClickWithMetaStateCallback;
 
 /** Unit tests for the {@link BookmarkBarButton}. */
@@ -46,6 +49,7 @@ public class BookmarkBarButtonTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
     @Mock private ClickWithMetaStateCallback mClickCallback;
+    @Mock private View.OnLongClickListener mLongClickListener;
 
     private Activity mActivity;
     private BookmarkBarButton mButton;
@@ -164,9 +168,14 @@ public class BookmarkBarButtonTest {
 
     @Test
     @SmallTest
-    public void testOnLongClick_FiresCallbackWithSecondaryButton() {
-        mButton.performLongClick();
-        verify(mClickCallback).onClickWithMeta(0, MotionEvent.BUTTON_SECONDARY);
+    public void testOnLongClick_FiresLongClickListener() {
+        View.OnLongClickListener longClickListener = Mockito.mock(View.OnLongClickListener.class);
+        when(longClickListener.onLongClick(mButton)).thenReturn(true);
+        mButton.setOnLongClickListener(longClickListener);
+
+        assertTrue(mButton.performLongClick());
+        verify(longClickListener).onLongClick(mButton);
+        verify(mClickCallback, never()).onClickWithMeta(anyInt(), anyInt());
     }
 
     @Test
@@ -200,5 +209,57 @@ public class BookmarkBarButtonTest {
         Point point = mButton.getLastClickPoint();
         assertEquals(123, point.x);
         assertEquals(456, point.y);
+    }
+
+    @Test
+    @SmallTest
+    public void testDoubleTrigger_OnlyFiresOnce() {
+        // Down event (touch)
+        MotionEvent downEvent = Mockito.mock(MotionEvent.class);
+        when(downEvent.getButtonState()).thenReturn(MotionEvent.BUTTON_TERTIARY);
+        when(downEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_DOWN);
+        assertTrue(mButton.onTouchEvent(downEvent));
+
+        // Press event (generic)
+        MotionEvent pressEvent = Mockito.mock(MotionEvent.class);
+        when(pressEvent.getSource()).thenReturn(InputDevice.SOURCE_MOUSE);
+        when(pressEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_BUTTON_PRESS);
+        when(pressEvent.getActionButton()).thenReturn(MotionEvent.BUTTON_TERTIARY);
+        when(pressEvent.getButtonState()).thenReturn(MotionEvent.BUTTON_TERTIARY);
+        mButton.onGenericMotionEvent(pressEvent);
+
+        // Release event (generic) -> should trigger click
+        MotionEvent releaseEvent = Mockito.mock(MotionEvent.class);
+        when(releaseEvent.getSource()).thenReturn(InputDevice.SOURCE_MOUSE);
+        when(releaseEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_BUTTON_RELEASE);
+        when(releaseEvent.getActionButton()).thenReturn(MotionEvent.BUTTON_TERTIARY);
+        when(releaseEvent.getMetaState()).thenReturn(0);
+        when(releaseEvent.getButtonState()).thenReturn(0);
+        assertTrue(mButton.onGenericMotionEvent(releaseEvent));
+        verify(mClickCallback).onClickWithMeta(0, MotionEvent.BUTTON_TERTIARY);
+
+        // Reset mock to verify it's not called again
+        Mockito.reset(mClickCallback);
+
+        // Up event (touch) -> should NOT trigger click again
+        MotionEvent upEvent = Mockito.mock(MotionEvent.class);
+        when(upEvent.getActionMasked()).thenReturn(MotionEvent.ACTION_UP);
+        assertTrue(mButton.onTouchEvent(upEvent));
+        verify(mClickCallback, never()).onClickWithMeta(anyInt(), anyInt());
+    }
+
+    @Test
+    @SmallTest
+    public void testLongClickListenerProperty() {
+        when(mLongClickListener.onLongClick(mButton)).thenReturn(true);
+
+        PropertyModel model =
+                new PropertyModel.Builder(BookmarkBarButtonProperties.ALL_KEYS)
+                        .with(BookmarkBarButtonProperties.LONG_CLICK_LISTENER, mLongClickListener)
+                        .build();
+        PropertyModelChangeProcessor.create(model, mButton, BookmarkBarButtonViewBinder::bind);
+
+        assertTrue(mButton.performLongClick());
+        verify(mLongClickListener).onLongClick(mButton);
     }
 }

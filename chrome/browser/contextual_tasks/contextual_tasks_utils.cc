@@ -11,6 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/timer/elapsed_timer.h"
 #include "build/build_config.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/contextual_tasks/aim_message_poster.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_host.h"
@@ -22,16 +23,20 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/themes/theme_service.h"
+#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_actions.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "components/omnibox/common/omnibox_features.h"
 #endif
 #include "chrome/common/webui_url_constants.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/contextual_tasks/public/prefs.h"
+#include "components/contextual_tasks/public/utils.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/location_bar_model_util.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -120,6 +125,21 @@ ContextualTasksUIInterface* GetWebUiInterface(
   }
 
   return controller->GetAs<ContextualTasksUI>();
+}
+
+bool IsTabSharingEligible(Profile* profile) {
+  // Forcing entry point eligibility should ONLY be used for local testing and
+  // debugging purposes to bypass server and backend eligibility checks.
+  if (base::FeatureList::IsEnabled(
+          kContextualTasksForceEntryPointEligibility)) {
+    return true;
+  }
+  if (!profile || profile->IsOffTheRecord()) {
+    return false;
+  }
+  auto* aim_service = AimEligibilityServiceFactory::GetForProfile(profile);
+  return aim_service && aim_service->IsAimEligible() &&
+         aim_service->IsFuseboxEligible();
 }
 
 bool IsValidUrlForSuggestedTab(const GURL& url,
@@ -316,12 +336,12 @@ bool GetEffectivePinState(Profile* profile) {
 #if !BUILDFLAG(IS_ANDROID)
 void UpdatePinButtonVisibilityState(BrowserWindowInterface* browser_window,
                                     bool eligible) {
-  if (!browser_window || !browser_window->GetActions()) {
+  if (!browser_window || !BrowserActions::From(browser_window)) {
     return;
   }
 
   actions::ActionItem* const scope_action =
-      browser_window->GetActions()->root_action_item();
+      BrowserActions::From(browser_window)->root_action_item();
   if (!scope_action) {
     return;
   }
@@ -345,5 +365,60 @@ void UpdatePinButtonVisibilityState(BrowserWindowInterface* browser_window,
   }
 }
 #endif
+
+lens::ClientToAimMessage GetHandshakeMessageProto() {
+  lens::ClientToAimMessage message;
+  lens::HandshakePing* ping = message.mutable_handshake_ping();
+  ping->add_capabilities(lens::FeatureCapability::DEFAULT);
+  ping->add_capabilities(lens::FeatureCapability::OPEN_THREADS_VIEW);
+  ping->add_capabilities(lens::FeatureCapability::COBROWSING_DISPLAY_CONTROL);
+  if (base::FeatureList::IsEnabled(kContextualTasksContextLibrary)) {
+    ping->add_capabilities(lens::FeatureCapability::THREAD_CONTEXT_LIBRARY);
+  }
+  if (base::FeatureList::IsEnabled(kEnableNotifyZeroStateRenderedCapability)) {
+    ping->add_capabilities(lens::FeatureCapability::NOTIFY_ZERO_STATE_RENDERED);
+  }
+  if (ShouldEnableLockAndUnlockInputCapability()) {
+    ping->add_capabilities(lens::FeatureCapability::UNLOCK_INPUT);
+    ping->add_capabilities(lens::FeatureCapability::LOCK_INPUT);
+  }
+  return message;
+}
+
+std::vector<uint8_t> GetSerializedHandshakeMessage() {
+  lens::ClientToAimMessage message = GetHandshakeMessageProto();
+  const size_t size = message.ByteSizeLong();
+  std::vector<uint8_t> serialized_message(size);
+  message.SerializeToArray(serialized_message.data(), size);
+  return serialized_message;
+}
+
+bool ShouldUseDarkMode(Profile* profile, const GURL& url) {
+  std::optional<bool> url_dark_mode = GetDarkModeFromUrl(url);
+  if (url_dark_mode.has_value()) {
+    return *url_dark_mode;
+  }
+  return ShouldUseDarkMode(profile);
+}
+
+bool ShouldUseDarkMode(Profile* profile) {
+#if !BUILDFLAG(IS_ANDROID)
+  // Assume light mode as fallback.
+  if (!profile) {
+    return false;
+  }
+
+  // Always use dark mode in incognito.
+  if (profile->IsOffTheRecord()) {
+    return true;
+  }
+
+  // In all other cases, respect the theme service dark mode preferences.
+  ThemeService* theme_service = ThemeServiceFactory::GetForProfile(profile);
+  return theme_service && theme_service->BrowserUsesDarkColors();
+#else
+  return false;
+#endif
+}
 
 }  // namespace contextual_tasks

@@ -57,6 +57,7 @@ RegistrationFetcherParam::~RegistrationFetcherParam() = default;
 
 RegistrationFetcherParam::RegistrationFetcherParam(
     GURL registration_endpoint,
+    url::Origin referring_origin,
     std::vector<crypto::SignatureVerifier::SignatureAlgorithm> supported_algos,
     std::optional<std::string> challenge,
     std::optional<std::string> authorization,
@@ -65,6 +66,7 @@ RegistrationFetcherParam::RegistrationFetcherParam(
     std::optional<Session::Id> provider_session_id,
     AttestationMode attestation_mode)
     : registration_endpoint_(std::move(registration_endpoint)),
+      referring_origin_(std::move(referring_origin)),
       supported_algos_(std::move(supported_algos)),
       challenge_(std::move(challenge)),
       authorization_(std::move(authorization)),
@@ -78,9 +80,9 @@ std::optional<RegistrationFetcherParam> RegistrationFetcherParam::ParseItem(
     const structured_headers::ParameterizedMember& session_registration) {
   std::vector<crypto::SignatureVerifier::SignatureAlgorithm> supported_algos;
   for (const auto& algo_token : session_registration.member) {
-    if (algo_token.item.is_token()) {
+    if (const std::string* token = algo_token.item.GetIfToken()) {
       std::optional<crypto::SignatureVerifier::SignatureAlgorithm> algo =
-          AlgoFromString(algo_token.item.GetString());
+          AlgoFromString(*token);
       if (algo) {
         supported_algos.push_back(*algo);
       };
@@ -102,11 +104,12 @@ std::optional<RegistrationFetcherParam> RegistrationFetcherParam::ParseItem(
     // Quiche (https://quiche.googlesource.com/quiche), used here,
     // will currently pick the last if there is more than one.
     if (key == kPathParamKey) {
-      if (!value.is_string()) {
+      const std::string* string = value.GetIfString();
+      if (!string) {
         return std::nullopt;
       }
       std::string unescaped_path = base::UnescapeURLComponent(
-          value.GetString(),
+          *string,
           base::UnescapeRule::PATH_SEPARATORS |
               base::UnescapeRule::URL_SPECIAL_CHARS_EXCEPT_PATH_SEPARATORS);
       // Registration endpoint can be a full URL (samesite with request origin)
@@ -122,37 +125,43 @@ std::optional<RegistrationFetcherParam> RegistrationFetcherParam::ParseItem(
         registration_endpoint = std::move(candidate_registration_endpoint);
       }
     } else if (key == kChallengeParamKey) {
-      if (!value.is_string()) {
+      const std::string* string = value.GetIfString();
+      if (!string) {
         return std::nullopt;
       }
-      challenge = value.GetString();
+      challenge = *string;
     } else if (key == kAuthCodeParamKey) {
-      if (!value.is_string()) {
+      const std::string* string = value.GetIfString();
+      if (!string) {
         return std::nullopt;
       }
-      authorization = value.GetString();
+      authorization = *string;
     } else if (key == kProviderKeyParamKey) {
-      if (!value.is_string()) {
+      const std::string* string = value.GetIfString();
+      if (!string) {
         return std::nullopt;
       }
-      provider_key = value.GetString();
+      provider_key = *string;
     } else if (key == kProviderUrlParamKey) {
-      if (!value.is_string()) {
+      const std::string* string = value.GetIfString();
+      if (!string) {
         return std::nullopt;
       }
-      provider_url = GURL(value.GetString());
+      provider_url = GURL(*string);
     } else if (key == kProviderSessionIdParamKey) {
-      if (!value.is_string()) {
+      const std::string* string = value.GetIfString();
+      if (!string) {
         return std::nullopt;
       }
-      provider_session_id = Session::Id(value.GetString());
+      provider_session_id = Session::Id(*string);
     } else if (key == kAikRequiredParamKey &&
                base::FeatureList::IsEnabled(
                    features::kDeviceBoundSessionsForSingleSignOn)) {
-      if (!value.is_boolean()) {
+      const bool* boolean = value.GetIfBoolean();
+      if (!boolean) {
         return std::nullopt;
       }
-      aik_required = value.GetBoolean();
+      aik_required = *boolean;
     }
 
     // Other params are ignored
@@ -190,8 +199,9 @@ std::optional<RegistrationFetcherParam> RegistrationFetcherParam::ParseItem(
   }
 
   return RegistrationFetcherParam(
-      std::move(registration_endpoint), std::move(supported_algos),
-      std::move(challenge), std::move(authorization), std::move(provider_key),
+      std::move(registration_endpoint), url::Origin::Create(request_url),
+      std::move(supported_algos), std::move(challenge),
+      std::move(authorization), std::move(provider_key),
       std::move(provider_url), std::move(provider_session_id),
       aik_required ? AttestationMode::kRequired : AttestationMode::kNone);
 }
@@ -249,10 +259,15 @@ RegistrationFetcherParam RegistrationFetcherParam::CreateInstanceForTesting(
     std::optional<std::string> provider_key,
     std::optional<GURL> provider_url,
     std::optional<Session::Id> provider_session_id,
-    AttestationMode attestation_mode) {
+    AttestationMode attestation_mode,
+    std::optional<url::Origin> maybe_referring_origin) {
+  url::Origin referring_origin =
+      maybe_referring_origin ? std::move(*maybe_referring_origin)
+                             : url::Origin::Create(registration_endpoint);
   return RegistrationFetcherParam(
-      std::move(registration_endpoint), std::move(supported_algos),
-      std::move(challenge), std::move(authorization), std::move(provider_key),
+      std::move(registration_endpoint), std::move(referring_origin),
+      std::move(supported_algos), std::move(challenge),
+      std::move(authorization), std::move(provider_key),
       std::move(provider_url), std::move(provider_session_id),
       attestation_mode);
 }

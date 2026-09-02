@@ -10,8 +10,10 @@
 #include <optional>
 #include <string>
 
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -19,7 +21,10 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "base/values.h"
 #include "base/version.h"
+#include "chrome/updater/get_updater_scope.h"
+#include "chrome/updater/util/path_util.h"
 #include "chrome/updater/win/ui/progress_wnd.h"
 #include "chrome/updater/win/ui/webview2ui.h"
 #include "ui/gfx/geometry/rect.h"
@@ -75,8 +80,14 @@ void WebView2ProgressWnd::UpdateUI(const std::string& status_text,
     return;
   }
 
+  std::optional<std::string> json_status = base::WriteJson(status_text);
+  if (!json_status) {
+    LOG(ERROR) << "Failed to encode status text to JSON.";
+    return;
+  }
+
   browser_->ExecuteScript(base::UTF8ToWide(base::StrCat(
-      {"updateUI('", status_text, "', ", base::NumberToString(progress_pos),
+      {"updateUI(", *json_status, ", ", base::NumberToString(progress_pos),
        ", ", (is_marquee ? "true" : "false"), ")"})));
 }
 
@@ -133,21 +144,28 @@ LRESULT WebView2ProgressWnd::OnCreate(UINT, WPARAM, LPARAM) {
   ::GetClientRect(hwnd(), &client_rect);
 
   browser_ = std::make_unique<WebView2UI>();
-  const HRESULT hr =
-      browser_->Create(hwnd(), client_rect,
-                       base::BindOnce(&WebView2ProgressWnd::OnWebViewCreated,
-                                      msg_handler_weak_factory_.GetWeakPtr()));
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to create WebView2: " << std::hex << hr;
-    // TODO(crbug.com/409590312): Handle UI creation error.
+
+  std::optional<base::FilePath> install_dir =
+      GetInstallDirectory(GetUpdaterScope());
+  if (!install_dir) {
+    LOG(ERROR) << "Failed to resolve installation directory.";
+    return -1;
   }
+  base::FilePath user_data_dir =
+      install_dir->Append(FILE_PATH_LITERAL("UserData"));
+
+  browser_->Create(hwnd(), client_rect, user_data_dir,
+                   base::BindOnce(&WebView2ProgressWnd::OnWebViewCreated,
+                                  msg_handler_weak_factory_.GetWeakPtr()));
 
   return 0;
 }
 
-void WebView2ProgressWnd::OnWebViewCreated(bool success) {
-  if (!success) {
-    LOG(ERROR) << "WebView2 creation callback reported failure.";
+void WebView2ProgressWnd::OnWebViewCreated(HRESULT result) {
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed to create WebView2: " << std::hex << result;
+    // TODO(crbug.com/409590312): Handle UI creation error.
+    ::PostMessage(hwnd(), WM_CLOSE, 0, 0);
     return;
   }
   is_webview_ready_ = true;
@@ -156,7 +174,8 @@ void WebView2ProgressWnd::OnWebViewCreated(bool success) {
       base::BindRepeating(&WebView2ProgressWnd::OnWebMessageReceived,
                           msg_handler_weak_factory_.GetWeakPtr()));
 
-  browser_->NavigateToString(std::wstring(LR"DDDD(
+  browser_->NavigateToString(
+      std::wstring(LR"DDDD(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -175,6 +194,8 @@ void WebView2ProgressWnd::OnWebViewCreated(bool success) {
             height: 100vh;
             margin: 0;
             overflow: hidden; /* Prevent scrollbars during resize. */
+            user-select: none;
+            -webkit-user-select: none;
         }
         .container {
             width: 80%;
@@ -279,6 +300,8 @@ void WebView2ProgressWnd::OnWebMessageReceived(const std::wstring& message) {
   } else if (message == L"ui_ready") {
     VLOG(2) << "HTML UI DOM is loaded and ready.";
     UpdateUI("Initializing...", 0, true);
+  } else {
+    LOG(FATAL) << "Unrecognized web message: " << message;
   }
 }
 

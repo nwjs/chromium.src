@@ -81,7 +81,11 @@ BASE_DECLARE_FEATURE(kOnlyUseWindowResizeHelperOnResize);
 COMPONENT_EXPORT(UI_BASE_FEATURES) BASE_DECLARE_FEATURE(kCATransactionV2);
 inline constexpr base::FeatureParam<size_t> kCAContextMaxFencePorts{
     &kCATransactionV2, "ca_context_max_fence_ports", 4};
+
 COMPONENT_EXPORT(UI_BASE_FEATURES) BASE_DECLARE_FEATURE(kAsyncLiveResize);
+
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE(kAlphaInsteadOfCATransaction);
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -329,11 +333,6 @@ BASE_DECLARE_FEATURE_PARAM(int, kCompensationExpectedLatencyMs);
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE_PARAM(int, kCompensationAcceptableLatencyMs);
 
-// When enabled, Ctrl+Alt+Click (Cmd+Alt+Click on macOS) opens a link in a
-// split view alongside the current tab.
-COMPONENT_EXPORT(UI_BASE_FEATURES)
-BASE_DECLARE_FEATURE(kSplitViewLinkOpen);
-
 // All feature flags associated with Glow Up, apart from those in ui_features.h
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kDesktopGlowUp);
@@ -348,6 +347,8 @@ BASE_DECLARE_FEATURE_PARAM(double, kGlassExpandOnHoverOpacity);
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE_PARAM(double, kGlassExpandOnHoverBlurRadius);
 COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE_PARAM(bool, kGlassRoundContentCorner);
+COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kRoundedIcons);
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kWebUIRoundedIcons);
@@ -355,6 +356,19 @@ BASE_DECLARE_FEATURE(kWebUIRoundedIcons);
 // Updates the default dark neutrals for the theme palette.
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kChromeDarkNeutrals26);
+
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+// When enabled, reads the system accent color from the xdg-desktop-portal (the
+// org.freedesktop.appearance "accent-color" setting) and applies it as the
+// NativeTheme user color.
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE(kUsePortalAccentColor);
+#endif
+
+// Enables performance optimizations for theme changes, including caching
+// ColorProviderKey, hierarchical theme observation, and coalescing updates.
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE(kThemeChangeOptimization);
 
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 bool IsGlassFrameEnabled();

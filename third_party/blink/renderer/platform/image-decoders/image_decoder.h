@@ -39,6 +39,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
+#include "skia/ext/color_profile.h"
 #include "third_party/blink/renderer/platform/graphics/color_behavior.h"
 #include "third_party/blink/renderer/platform/graphics/image_orientation_enum.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_image.h"
@@ -50,28 +51,19 @@
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/shared_buffer.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
+#include "third_party/skia/include/core/SkAlphaType.h"
+#include "third_party/skia/include/core/SkColorType.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
+#include "third_party/skia/include/core/SkPixmap.h"
+#include "third_party/skia/include/core/SkRect.h"
+#include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/modules/skcms/skcms.h"
 #include "ui/gfx/hdr_metadata.h"
 
 class SkColorSpace;
 class SkData;
 
-namespace SkCodecs {
-class ICCProfileChromium;
-}
-
 namespace blink {
-
-#if SK_B32_SHIFT
-inline skcms_PixelFormat XformColorFormat() {
-  return skcms_PixelFormat_RGBA_8888;
-}
-#else
-inline skcms_PixelFormat XformColorFormat() {
-  return skcms_PixelFormat_BGRA_8888;
-}
-#endif
 
 // ImagePlanes can be used to decode color components into provided buffers
 // instead of using an ImageFrame.
@@ -116,43 +108,6 @@ class PLATFORM_EXPORT ImagePlanes final {
   bool has_complete_scan_ = false;
   HighBitDepthOutputType hbd_output_type_ =
       HighBitDepthOutputType::kScaledTo16Bits;
-};
-
-class PLATFORM_EXPORT ColorProfile final {
-  USING_FAST_MALLOC(ColorProfile);
-
- public:
-  explicit ColorProfile(const skcms_ICCProfile&);
-  explicit ColorProfile(std::unique_ptr<SkCodecs::ICCProfileChromium>);
-  ColorProfile(const ColorProfile&) = delete;
-  ColorProfile& operator=(const ColorProfile&) = delete;
-  static std::unique_ptr<ColorProfile> Create(base::span<const uint8_t> buffer);
-  ~ColorProfile();
-
-  const skcms_ICCProfile* GetProfile() const { return &profile_; }
-
- private:
-  skcms_ICCProfile profile_;
-  // Retains the parsed profile data so that pointers in profile_ remain valid.
-  std::unique_ptr<SkCodecs::ICCProfileChromium> skia_profile_;
-};
-
-class PLATFORM_EXPORT ColorProfileTransform final {
-  USING_FAST_MALLOC(ColorProfileTransform);
-
- public:
-  ColorProfileTransform(const skcms_ICCProfile* src_profile,
-                        const skcms_ICCProfile* dst_profile);
-  ColorProfileTransform(const ColorProfileTransform&) = delete;
-  ColorProfileTransform& operator=(const ColorProfileTransform&) = delete;
-  ~ColorProfileTransform();
-
-  const skcms_ICCProfile* SrcProfile() const;
-  const skcms_ICCProfile* DstProfile() const;
-
- private:
-  raw_ptr<const skcms_ICCProfile> src_profile_;
-  skcms_ICCProfile dst_profile_;
 };
 
 // ImageDecoder is a base for all format-specific decoders
@@ -260,8 +215,12 @@ class PLATFORM_EXPORT ImageDecoder {
 
   // Returns true if the buffer holds enough data to instantiate a decoder.
   // This is useful for callers to determine whether a decoder instantiation
-  // failure is due to insufficient or bad data.
-  static bool HasSufficientDataToSniffMimeType(const SharedBuffer&);
+  // failure is due to insufficient or bad data. If |all_data_received| is
+  // true, the data is always considered sufficient, since no more data will
+  // ever arrive. Pass all_data_received=false to be conservative if the value
+  // of all_data_received is unknown.
+  static bool HasSufficientDataToSniffMimeType(const SharedBuffer&,
+                                               bool all_data_received);
 
   // Looks at the image data to determine and return the image MIME type.
   static String SniffMimeType(scoped_refptr<SharedBuffer> image_data);
@@ -406,7 +365,9 @@ class PLATFORM_EXPORT ImageDecoder {
   // This returns the color space that will be included in the SkImageInfo of
   // SkImages created from this decoder. This will be nullptr unless the
   // decoder was created with the option ColorSpaceTagged.
-  sk_sp<SkColorSpace> ColorSpaceForSkImages();
+  sk_sp<SkColorSpace> ColorSpaceForSkImages() const {
+    return sk_image_color_space_;
+  }
 
   // This returns whether or not the image included a not-ignored embedded
   // color profile. This is independent of whether or not that profile's
@@ -416,10 +377,22 @@ class PLATFORM_EXPORT ImageDecoder {
   // Return the HDR metadata from the image and its color profile.
   const gfx::HDRMetadata& GetHDRMetadata() const { return hdr_metadata_; }
 
-  void SetEmbeddedColorProfile(std::unique_ptr<ColorProfile> profile);
+  void SetEmbeddedColorProfile(sk_sp<skia::ColorProfile> profile);
+  bool NeedsDecodeTimeColorTransform() const {
+    return needs_decode_time_color_transform_;
+  }
 
-  // Transformation from embedded color space to target color space.
-  ColorProfileTransform* ColorTransform();
+  // Performs color transformation on the specified rect of buffer if needed.
+  // The WebP decoder fuses pixel format and alpha conversion with color space
+  // conversion. To accommodate this, the optional `src_color_type` and
+  // `src_alpha_type` parameters can be provided to indicate the input format
+  // of the data in `buffer` (the conversion will convert to the expected
+  // format).
+  void DoDecodeTimeColorTransformIfNeeded(
+      ImageFrame& buffer,
+      const SkIRect& rect,
+      std::optional<SkColorType> src_color_type = std::nullopt,
+      std::optional<SkAlphaType> src_alpha_type = std::nullopt);
 
   AlphaOption GetAlphaOption() const {
     return premultiply_alpha_ ? kAlphaPremultiplied : kAlphaNotPremultiplied;
@@ -619,10 +592,6 @@ class PLATFORM_EXPORT ImageDecoder {
 
   bool purge_aggressively_;
 
-  // Update `sk_image_color_space_` and `embedded_to_sk_image_transform_`, if
-  // needed.
-  void UpdateSkImageColorSpaceAndTransform();
-
   // This methods gets called at the end of InitFrameBuffer. Subclasses can do
   // format specific initialization, for e.g. alpha settings, here.
   virtual void OnInitFrameBuffer(wtf_size_t) {}
@@ -637,7 +606,7 @@ class PLATFORM_EXPORT ImageDecoder {
   bool failed_ = false;
 
   // The precise color profile of the image.
-  std::unique_ptr<ColorProfile> embedded_color_profile_;
+  sk_sp<skia::ColorProfile> embedded_color_profile_;
 
   // The color space for the SkImage that will be produced.  If
   // `color_behavior_` is tag, then this is the SkColorSpace representation of
@@ -645,10 +614,9 @@ class PLATFORM_EXPORT ImageDecoder {
   // this is sRGB.
   sk_sp<SkColorSpace> sk_image_color_space_;
 
-  // Transforms `embedded_color_profile_` to `sk_image_color_space_`. This
-  // is needed if `sk_image_color_space_` is not an exact representation of
-  // `embedded_color_profile_`.
-  std::unique_ptr<ColorProfileTransform> embedded_to_sk_image_transform_;
+  // Set if decode-time color space conversion from `embedded_color_profile_`
+  // to `sk_image_color_space_` is needed.
+  bool needs_decode_time_color_transform_ = false;
 };
 
 // static

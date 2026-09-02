@@ -95,7 +95,7 @@ import org.chromium.chrome.browser.ntp_customization.theme.daily_refresh.NtpThem
 import org.chromium.chrome.browser.ntp_customization.theme.theme_collections.CustomBackgroundInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.BackgroundImageInfo;
 import org.chromium.chrome.browser.ntp_customization.theme.upload_image.CropImageUtils;
-import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataBase;
+import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataImageBase;
 import org.chromium.chrome.browser.ntp_customization.theme_sync.data.NtpBackgroundDataUtils;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
@@ -516,12 +516,15 @@ public class NtpCustomizationUtils {
     /**
      * Saves the background image.
      *
+     * @param imageData The instance of the {@link NtpBackgroundDataImageBase}.
      * @param backgroundImageBitmap The bitmap of the theme collection or uploaded image.
      */
     public static void saveBackgroundImageFile(
-            @Nullable String filePath, @Nullable Bitmap backgroundImageBitmap) {
+            NtpBackgroundDataImageBase imageData, @Nullable Bitmap backgroundImageBitmap) {
+        String filePath = imageData.getLastUploadImageFilePath();
         File file = getBackgroundImageFileFromPath(filePath);
         saveBitmapImageToFile(backgroundImageBitmap, file);
+        imageData.setIsBitmapSaved(backgroundImageBitmap != null);
     }
 
     /**
@@ -594,17 +597,25 @@ public class NtpCustomizationUtils {
 
     /** Returns whether a white background should be applied on fake search box. */
     public static boolean shouldApplyWhiteBackgroundOnSearchBox() {
-        if (!NtpCustomizationUtils.isNtpThemeCustomizationEnabled()) return false;
+        return shouldApplyWhiteBackgroundOnComposeplate();
+    }
 
-        return shouldApplyWhiteBackgroundOnSearchBox(
+    /** Returns whether a white background should be applied on the composeplate. */
+    public static boolean shouldApplyWhiteBackgroundOnComposeplate() {
+        if (!NtpCustomizationUtils.isNtpThemeCustomizationEnabled()) {
+            return false;
+        }
+
+        return shouldApplyWhiteBackgroundForNtpBackgroundType(
                 NtpCustomizationConfigManager.getInstance().getBackgroundType());
     }
 
     /**
-     * Returns whether a white background should be applied on fake search box based on the provided
-     * background image type.
+     * Returns whether a white background should be applied based on the provided background image
+     * type.
      */
-    public static boolean shouldApplyWhiteBackgroundOnSearchBox(@NtpBackgroundType int type) {
+    @VisibleForTesting
+    static boolean shouldApplyWhiteBackgroundForNtpBackgroundType(@NtpBackgroundType int type) {
         return type == NtpBackgroundType.IMAGE_FROM_DISK
                 || type == NtpBackgroundType.THEME_COLLECTION;
     }
@@ -653,6 +664,24 @@ public class NtpCustomizationUtils {
         }
 
         return new File(themeImageDir, fileName);
+    }
+
+    /** Returns a unique file name from the path. */
+    public static @Nullable String getFileName(@Nullable String path) {
+        if (path == null || path.isEmpty()) {
+            return null;
+        }
+
+        // Find the position of the last File.separator ("/").
+        int lastFileSeparatorIndex = path.lastIndexOf(File.separator);
+
+        // If lastFileSeparatorIndex is -1, it means file separator wasn't found in the string.
+        if (lastFileSeparatorIndex == -1) {
+            return path;
+        }
+
+        // Extract everything after the last file separator.
+        return path.substring(lastFileSeparatorIndex + 1);
     }
 
     /**
@@ -1496,37 +1525,36 @@ public class NtpCustomizationUtils {
      * Updates the necessary preferences and files for theme collection image or user uploaded
      * image.
      *
-     * @param customBackgroundInfo The {@link CustomBackgroundInfo} containing the theme collection
-     *     info if passed in a theme collection image.
+     * @param imageData The instance of the {@link NtpBackgroundDataImageBase}.
      * @param bitmap The bitmap of the theme collection or uploaded image.
      * @param backgroundImageInfo The {@link BackgroundImageInfo} containing the portrait and
      *     landscape transformation matrices of the image.
      * @param skipSavingPrimaryColor True if color selection and saving are deferred until the
      *     bottom sheet is dismissed.
-     * @param primaryColor The previously picked primary color if not null.
-     * @param filePath The instance of the {@link NtpBackgroundDataBase}.
      */
     public static @Nullable @ColorInt Integer saveBackgroundInfo(
-            @Nullable CustomBackgroundInfo customBackgroundInfo,
+            NtpBackgroundDataImageBase imageData,
             @Nullable Bitmap bitmap,
             BackgroundImageInfo backgroundImageInfo,
-            boolean skipSavingPrimaryColor,
-            @Nullable @ColorInt Integer primaryColor,
-            @Nullable String filePath) {
+            boolean skipSavingPrimaryColor) {
         if (bitmap != null) {
-            saveBackgroundImageFile(filePath, bitmap);
+            saveBackgroundImageFile(imageData, bitmap);
         }
 
+        CustomBackgroundInfo customBackgroundInfo = imageData.getCustomBackgroundInfo();
         if (customBackgroundInfo != null) {
             setCustomBackgroundInfoToSharedPreference(customBackgroundInfo);
         } else {
             removeCustomBackgroundInfoFromSharedPreference();
         }
 
+        @ColorInt Integer primaryColor = imageData.getPrimaryColor();
         @ColorInt Integer primaryColorPicked = null;
-        if (!skipSavingPrimaryColor && bitmap != null) {
-            primaryColorPicked = pickAndSavePrimaryColor(bitmap);
-        } else if (primaryColor != null) {
+        if (primaryColor == null) {
+            if (!skipSavingPrimaryColor && bitmap != null) {
+                primaryColorPicked = pickAndSavePrimaryColor(bitmap);
+            }
+        } else {
             setCustomizedPrimaryColorToSharedPreference(primaryColor);
         }
 
@@ -1873,5 +1901,26 @@ public class NtpCustomizationUtils {
     @NativeMethods
     public interface Natives {
         void decodeImage(@JniType("std::vector<uint8_t>") byte[] data, Callback<Bitmap> callback);
+    }
+
+    /**
+     * Applies or removes a drop shadow on the given view. When enabled, sets elevation and tints
+     * the shadow with the primary theme color at 30% opacity.
+     *
+     * @param context Context used to retrieve color and dimension resources.
+     * @param view The target view to apply or remove the shadow from.
+     * @param enableShadow Whether the drop shadow should be applied.
+     */
+    public static void applyShadow(Context context, View view, boolean enableShadow) {
+        if (enableShadow) {
+            float elevation =
+                    context.getResources().getDimensionPixelSize(R.dimen.fake_search_box_elevation);
+            view.setElevation(elevation);
+            int shadowColor = context.getColor(R.color.color_primary_with_alpha_50);
+            view.setOutlineAmbientShadowColor(shadowColor);
+            view.setOutlineSpotShadowColor(shadowColor);
+        } else {
+            view.setElevation(0f);
+        }
     }
 }

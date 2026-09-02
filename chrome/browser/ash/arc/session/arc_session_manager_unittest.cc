@@ -13,6 +13,8 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/public/cpp/notification_utils.h"
+#include "base/check_deref.h"
 #include "base/check_op.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -25,11 +27,13 @@
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/run_until.h"
+#include "base/test/scoped_amount_of_physical_memory_override.h"
 #include "base/test/scoped_command_line.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_test.h"
+#include "chrome/browser/ash/arc/arc_migration_guide_notification.h"
 #include "chrome/browser/ash/arc/arc_optin_uma.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/optin/arc_terms_of_service_oobe_negotiator.h"
@@ -46,7 +50,6 @@
 #include "chrome/browser/ash/policy/arc/fake_android_management_client.h"
 #include "chrome/browser/ash/settings/scoped_cros_settings_test_helper.h"
 #include "chrome/browser/global_features.h"
-#include "chrome/browser/notifications/notification_display_service_tester.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
@@ -58,6 +61,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/concierge/concierge_client.h"
 #include "chromeos/ash/components/dbus/dlcservice/dlcservice_client.h"
 #include "chromeos/ash/components/dbus/dlcservice/fake_dlcservice_client.h"
@@ -83,6 +87,7 @@
 #include "components/policy/proto/chrome_device_policy.pb.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/testing_pref_service.h"
+#include "components/services/app_service/public/cpp/app_service_registry.h"
 #include "components/session_manager/core/fake_session_manager_delegate.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
@@ -92,6 +97,7 @@
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/test_helper.h"
+#include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_manager_impl.h"
 #include "components/user_manager/user_names.h"
@@ -102,6 +108,7 @@
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/http/http_status_code.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/message_center/message_center.h"
 
 // TODO(b/254819616): Replace base::RunLoop().RunUntilIdle() with
 // task_environment_.RunUntilIdle() or Run() & Quit() to make the tests less
@@ -323,6 +330,12 @@ class ArcSessionManagerTestBase : public testing::Test {
     ash::DlcserviceClient::InitializeFake();
     chromeos::PowerManagerClient::InitializeFake();
     ash::SessionManagerClient::InitializeFakeInMemory();
+    // Default physical memory to 8GB so tests run deterministically regardless
+    // of host test runner RAM size.
+    memory_override_ =
+        std::make_unique<base::test::ScopedAmountOfPhysicalMemoryOverride>(
+            base::GiBU(8));
+
     ash::UpstartClient::InitializeFake();
 
     SetArcAvailableCommandLineForTesting(
@@ -420,6 +433,26 @@ class ArcSessionManagerTestBase : public testing::Test {
         /*new_user=*/false, /*has_active_session=*/false);
   }
 
+  // Helper method to simulate successful ARC OOBE provisioning for testing.
+  void SimulateOobeProvisioning() {
+    PrefService* const prefs = profile()->GetPrefs();
+    prefs->SetBoolean(prefs::kArcTermsAccepted, true);
+    prefs->SetBoolean(prefs::kArcProvisioningInitiatedFromOobe, true);
+
+    arc_session_manager()->SetProfile(profile());
+    arc_session_manager()->Initialize();
+    arc_session_manager()->RequestEnable();
+    arc_session_manager()->StartArcForTesting();
+
+    EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
+
+    arc::mojom::ArcSignInResultPtr result =
+        arc::mojom::ArcSignInResult::NewSuccess(
+            arc::mojom::ArcSignInSuccess::SUCCESS);
+    arc_session_manager()->OnProvisioningFinished(
+        ArcProvisioningResult(std::move(result)));
+  }
+
  private:
   void StartPreferenceSyncing() const {
     PrefServiceSyncableFromProfile(profile_.get())
@@ -430,6 +463,8 @@ class ArcSessionManagerTestBase : public testing::Test {
   }
 
   content::BrowserTaskEnvironment task_environment_;
+
+  apps::AppServiceRegistry app_service_registry_;
   TestingProfileManager profile_manager_;
   std::unique_ptr<session_manager::SessionManager> session_manager_;
   user_manager::ScopedUserManager user_manager_;
@@ -439,6 +474,8 @@ class ArcSessionManagerTestBase : public testing::Test {
   std::unique_ptr<ArcDlcInstaller> arc_dlc_installer_;
   std::unique_ptr<ArcSessionManager> arc_session_manager_;
   std::unique_ptr<ash::AuthEventsRecorder> auth_events_recorder_;
+  std::unique_ptr<base::test::ScopedAmountOfPhysicalMemoryOverride>
+      memory_override_;
 };
 
 class ArcSessionManagerTest : public ArcSessionManagerTestBase {
@@ -465,6 +502,19 @@ class ArcSessionManagerTest : public ArcSessionManagerTestBase {
  protected:
   ash::ScopedCrosSettingsTestHelper cros_settings_test_helper_;
   raw_ptr<ash::FakeResourcedClient> resourced_client_ = nullptr;
+};
+
+class ArcSessionManagerNotificationTest : public ArcSessionManagerTest {
+ public:
+  void SetUp() override {
+    ArcSessionManagerTest::SetUp();
+    message_center::MessageCenter::Initialize();
+  }
+
+  void TearDown() override {
+    message_center::MessageCenter::Shutdown();
+    ArcSessionManagerTest::TearDown();
+  }
 };
 
 TEST_F(ArcSessionManagerTest, BaseWorkflow) {
@@ -769,12 +819,10 @@ TEST_F(ArcSessionManagerTest, SignedInWorkflow_ActivationIsAlreadyAllowed) {
 
 // Tests that tying to enable ARC++ with an incompatible file system fails and
 // shows the user a notification to that effect.
-TEST_F(ArcSessionManagerTest, MigrationGuideNotification) {
+TEST_F(ArcSessionManagerNotificationTest, MigrationGuideNotification) {
   ArcSessionManager::SetUiEnabledForTesting(true);
   ArcSessionManager::EnableCheckAndroidManagementForTesting(false);
   SetArcBlockedDueToIncompatibleFileSystemForTesting(true);
-
-  NotificationDisplayServiceTester notification_service(profile());
 
   arc_session_manager()->SetProfile(profile());
   arc_session_manager()->Initialize();
@@ -782,10 +830,14 @@ TEST_F(ArcSessionManagerTest, MigrationGuideNotification) {
   base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ(ArcSessionManager::State::STOPPED, arc_session_manager()->state());
-  auto notifications = notification_service.GetDisplayedNotificationsForType(
-      NotificationHandler::Type::TRANSIENT);
-  ASSERT_EQ(1U, notifications.size());
-  EXPECT_EQ("arc_fs_migration/suggest", notifications[0].id());
+  EXPECT_EQ(
+      1U,
+      message_center::MessageCenter::Get()->GetVisibleNotifications().size());
+  const user_manager::User& user = CHECK_DEREF(
+      ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile()));
+  EXPECT_TRUE(message_center::MessageCenter::Get()->FindVisibleNotificationById(
+      ash::CreateUserScopedNotificationId(kSuggestNotificationId,
+                                          user.username_hash())));
 }
 
 // Tests that OnArcInitialStart is called  after the successful ARC provisioning
@@ -1095,6 +1147,60 @@ TEST_F(ArcSessionManagerTest, PlayStoreSuppressed) {
   EXPECT_FALSE(arc_session_manager()->IsPlaystoreLaunchRequestedForTesting());
 
   // Correctly stop service.
+  arc_session_manager()->Shutdown();
+}
+
+TEST_F(ArcSessionManagerTest, PostOobeProvisioningShutdown_4GbDevice) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(arc::kShutDownArcPostOobeProvisioning);
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ash::switches::kEnableArcVm);
+  base::test::ScopedAmountOfPhysicalMemoryOverride memory_override(
+      base::GiBU(4));
+
+  SimulateOobeProvisioning();
+
+  // On 4GB device, provisioning initiated from OOBE shuts down ARCVM and
+  // transitions state to READY.
+  EXPECT_EQ(ArcSessionManager::State::READY, arc_session_manager()->state());
+
+  // Subsequent user action (e.g. launching Play Store) activates ARCVM.
+  arc_session_manager()->AllowActivation(
+      ArcSessionManager::AllowActivationReason::kUserLaunchAction);
+  EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
+
+  arc_session_manager()->Shutdown();
+}
+
+TEST_F(ArcSessionManagerTest, PostOobeProvisioningShutdown_8GbDevice) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(arc::kShutDownArcPostOobeProvisioning);
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ash::switches::kEnableArcVm);
+  base::test::ScopedAmountOfPhysicalMemoryOverride memory_override(
+      base::GiBU(8));
+
+  SimulateOobeProvisioning();
+
+  // On 8GB device, ARCVM remains active after OOBE provisioning.
+  EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
+
+  arc_session_manager()->Shutdown();
+}
+
+TEST_F(ArcSessionManagerTest, PostOobeProvisioningShutdown_FeatureDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(arc::kShutDownArcPostOobeProvisioning);
+  base::CommandLine::ForCurrentProcess()->AppendSwitch(
+      ash::switches::kEnableArcVm);
+  base::test::ScopedAmountOfPhysicalMemoryOverride memory_override(
+      base::GiBU(4));
+
+  SimulateOobeProvisioning();
+
+  // When feature is disabled, ARCVM remains active even on 4GB device.
+  EXPECT_EQ(ArcSessionManager::State::ACTIVE, arc_session_manager()->state());
+
   arc_session_manager()->Shutdown();
 }
 

@@ -450,7 +450,7 @@ DownloadToolbarUIController::DownloadToolbarUIController(
           *this) {
   Browser* const browser = browser_view_->browser();
   action_item_ = actions::ActionManager::Get().FindAction(
-      kActionShowDownloads, browser->browser_actions()->root_action_item());
+      kActionShowDownloads, BrowserActions::From(browser)->root_action_item());
   CHECK(action_item_);
   tooltip_texts_[0] = l10n_util::GetStringUTF16(IDS_TOOLTIP_DOWNLOAD_ICON);
   action_item_->SetTooltipText(tooltip_texts_.at(0));
@@ -1000,8 +1000,8 @@ void DownloadToolbarUIController::OnBubbleAnchorAssembled(
       base::BindOnce(&DownloadToolbarUIController::OnBubbleClosing,
                      weak_factory_.GetWeakPtr()));
   auto bubble_contents = std::make_unique<DownloadBubbleContentsView>(
-      browser_view_->browser()->AsWeakPtr(), bubble_controller_->GetWeakPtr(),
-      GetWeakPtr(), primary_view_mode_,
+      browser_view_->browser(), bubble_controller_->GetWeakPtr(), GetWeakPtr(),
+      primary_view_mode_,
       std::make_unique<DownloadBubbleContentsViewInfo>(
           std::move(primary_view_models)),
       bubble_delegate.get());

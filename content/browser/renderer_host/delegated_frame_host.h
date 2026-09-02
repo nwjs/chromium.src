@@ -46,8 +46,7 @@ class CONTENT_EXPORT DelegatedFrameHostClient {
  public:
   virtual ~DelegatedFrameHostClient() {}
 
-  // TODO(b:522627357): Update layer type returned by this method.
-  virtual ui::Layer* DelegatedFrameHostGetLayer() const = 0;
+  virtual ui::LayerSurface* GetDelegatedFrameHostLayer() const = 0;
   virtual bool DelegatedFrameHostIsVisible() const = 0;
   // Returns the color that the resize gutters should be drawn with.
   virtual SkColor DelegatedFrameHostGetGutterColor() const = 0;
@@ -195,6 +194,7 @@ class CONTENT_EXPORT DelegatedFrameHost
   void ActivatedOrEvictedFromBackForwardCache();
 
   void WindowTitleChanged(const std::string& title);
+  void OptOutFrameEviction();
 
   // If our SurfaceLayer doesn't have a fallback, use the fallback info of
   // |other|.

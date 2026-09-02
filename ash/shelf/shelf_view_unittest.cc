@@ -481,8 +481,7 @@ class ShelfViewTest : public AshTestBase {
     test_api_ = std::make_unique<ShelfViewTestAPI>(GetShelfView());
     test_api_->SetAnimationDuration(base::Milliseconds(1));
 
-    // Add a browser shortcut shelf item, as chrome does, for testing.
-    AddItem(TYPE_BROWSER_SHORTCUT, true);
+    // Browser shortcut shelf item is added in AshTestBase::SetUp()`.
   }
 
   void TearDown() override {
@@ -888,21 +887,12 @@ TEST_P(LtrRtlShelfViewTest, EnforceDragType) {
   EXPECT_TRUE(test_api_->SameDragType(TYPE_APP, TYPE_APP));
   EXPECT_FALSE(test_api_->SameDragType(TYPE_APP, TYPE_PINNED_APP));
   EXPECT_FALSE(test_api_->SameDragType(TYPE_APP, TYPE_BROWSER_SHORTCUT));
-  EXPECT_FALSE(
-      test_api_->SameDragType(TYPE_APP, TYPE_UNPINNED_BROWSER_SHORTCUT));
 
   EXPECT_TRUE(test_api_->SameDragType(TYPE_PINNED_APP, TYPE_PINNED_APP));
   EXPECT_TRUE(test_api_->SameDragType(TYPE_PINNED_APP, TYPE_BROWSER_SHORTCUT));
-  EXPECT_FALSE(
-      test_api_->SameDragType(TYPE_PINNED_APP, TYPE_UNPINNED_BROWSER_SHORTCUT));
 
   EXPECT_TRUE(
       test_api_->SameDragType(TYPE_BROWSER_SHORTCUT, TYPE_BROWSER_SHORTCUT));
-  EXPECT_TRUE(test_api_->SameDragType(TYPE_UNPINNED_BROWSER_SHORTCUT,
-                                      TYPE_UNPINNED_BROWSER_SHORTCUT));
-
-  // No test for TYPE_BROWSER_SHORTCUT and TYPE_UNPINNED_BROWSER_SHORTCUT,
-  // because they should be mutually exclusive.
 }
 
 // Check that model changes are handled correctly while a shelf icon is being

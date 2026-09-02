@@ -146,10 +146,10 @@ class GPU_GLES2_EXPORT SharedContextState
 
   bool IsGLInitialized() const { return !!feature_info_; }
 
-  void FlushAndSubmit(bool sync_to_cpu);
+  bool FlushAndSubmit(bool sync_to_cpu);
   bool FlushGraphiteRecorder();
   bool FlushWriteAccess(SkiaImageRepresentation::ScopedWriteAccess* access);
-  void SubmitIfNecessary(std::vector<GrBackendSemaphore> signal_semaphores,
+  bool SubmitIfNecessary(std::vector<GrBackendSemaphore> signal_semaphores,
                          bool need_graphite_submit);
 
   // Returns true if context state is using GL, either for Skia to run on
@@ -218,6 +218,9 @@ class GPU_GLES2_EXPORT SharedContextState
   bool context_lost() const { return !!context_lost_reason_; }
   std::optional<error::ContextLostReason> context_lost_reason() {
     return context_lost_reason_;
+  }
+  base::WeakPtr<SharedContextState> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
   }
   bool need_context_state_reset() const { return need_context_state_reset_; }
   void set_need_context_state_reset(bool reset) {

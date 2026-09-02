@@ -4,17 +4,20 @@
 
 #include "chrome/browser/vr/test/mock_xr_device_hook_base.h"
 
+#include <algorithm>
+#include <utility>
+
+#include "base/check.h"
+#include "base/task/single_thread_task_runner.h"
 #include "content/public/test/xr_test_utils.h"
 #include "device/vr/buildflags/buildflags.h"
 #include "device/vr/public/mojom/isolated_xr_service.mojom.h"
-#include "mojo/public/cpp/bindings/sync_call_restrictions.h"
-
-#if BUILDFLAG(ENABLE_OPENXR)
-#include "device/vr/openxr/test/openxr_mock_helper.h"
-#endif
+#include "device/vr/public/mojom/test/controller_frame_data.h"
+#include "ui/gfx/geometry/decomposed_transform.h"
 
 #if BUILDFLAG(IS_ANDROID)
-#include "components/webxr/android/openxr_device_provider.h"
+#include "components/webxr/android/openxr_platform_helper_android.h"
+#include "device/vr/openxr/test/openxr_test_helper.h"
 #endif
 
 MockXRDeviceHookBase::MockXRDeviceHookBase() {
@@ -30,22 +33,11 @@ MockXRDeviceHookBase::MockXRDeviceHookBase() {
   // spinning up/holding onto and setting the test hook on the XrRuntimeManager,
   // which could pass on to providers.
 #if BUILDFLAG(IS_WIN)
-  content::GetXRDeviceServiceForTesting()->BindTestHook(
-      service_test_hook_.BindNewPipeAndPassReceiver());
-
-  mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
-  service_test_hook_->SetTestHook(
-      receiver_.BindNewPipeAndPassRemote(thread_->task_runner()));
+  content::GetXRDeviceServiceForTesting()->BindHookForTesting(
+      receiver_.BindNewPipeAndPassRemote(thread_->task_runner()).PassPipe());
 #elif BUILDFLAG(IS_ANDROID)
-  mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
-  // On Windows we have to rely on the ServiceTestHook to initialize the
-  // trampoline, since the device code is embedded in the utility process.
-  // However, on Android since the device code is embedded in our process/the
-  // browser process we need to ensure that we initialize the trampoline.
-#if BUILDFLAG(ENABLE_OPENXR)
-  InitializeOpenXrMockTrampoline();
-#endif
-  webxr::OpenXrDeviceProvider::SetTestHook(
+  webxr::OpenXrPlatformHelperAndroid::SetXrHostActivityDisabledForTesting(true);
+  OpenXrTestHelper::Get().SetTestHook(
       receiver_.BindNewPipeAndPassRemote(thread_->task_runner()));
 #endif
 }
@@ -62,10 +54,14 @@ void MockXRDeviceHookBase::StopHooking() {
   // Ensure that this is being called from our main thread, and not the mock
   // device thread.
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
-  // We don't call service_test_hook_->SetTestHook(mojo::NullRemote()), since
-  // that will potentially deadlock with reentrant or crossing synchronous mojo
-  // calls.
-  service_test_hook_.reset();
+  // Note: On Windows we do not attempt to clear the test hook in the service
+  // process with a synchronous call, since that could deadlock with reentrant
+  // or crossing synchronous Mojo calls from active frames. Instead, resetting
+  // `receiver_` below will close the pipe and trigger disconnection handling
+  // in the service process's OpenXrTestHelper.
+#if BUILDFLAG(IS_ANDROID)
+  OpenXrTestHelper::Get().SetTestHook(mojo::NullRemote());
+#endif
   // Unretained is safe here because we are going to block until this message
   // has been processed.
   thread_->task_runner()->PostTask(
@@ -84,7 +80,6 @@ void MockXRDeviceHookBase::WaitNumFrames(uint32_t num_frames) {
 }
 
 void MockXRDeviceHookBase::WaitForTotalFrameCount(uint32_t total_count) {
-  DCHECK(!can_signal_wait_loop_);
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
   target_frame_count_ = total_count;
 
@@ -93,14 +88,18 @@ void MockXRDeviceHookBase::WaitForTotalFrameCount(uint32_t total_count) {
   if (frame_count_ >= target_frame_count_) {
     return;
   }
-  wait_loop_ = std::make_unique<base::RunLoop>(
-      base::RunLoop::Type::kNestableTasksAllowed);
-  can_signal_wait_loop_ = true;
+  base::RunLoop wait_loop(base::RunLoop::Type::kNestableTasksAllowed);
+  {
+    base::AutoLock lock(lock_);
+    wait_loop_quit_closure_ = wait_loop.QuitClosure();
+  }
 
-  wait_loop_->Run();
+  wait_loop.Run();
 
-  can_signal_wait_loop_ = false;
-  wait_loop_.reset();
+  {
+    base::AutoLock lock(lock_);
+    wait_loop_quit_closure_.Reset();
+  }
 }
 
 void MockXRDeviceHookBase::OnFrameSubmitted(
@@ -110,69 +109,57 @@ void MockXRDeviceHookBase::OnFrameSubmitted(
   DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
   frame_count_++;
   ProcessSubmittedFrameUnlocked(views, layers);
-  if (can_signal_wait_loop_ && frame_count_ >= target_frame_count_) {
-    wait_loop_->Quit();
-    can_signal_wait_loop_ = false;
-  }
 
+  // This method is called synchronously by the mock device in the child
+  // process. Run the Mojo reply callback before running `quit_closure`, so that
+  // the child process rendering thread is released from its synchronous IPC
+  // call before the test runner thread unblocks and starts subsequent actions.
   std::move(callback).Run();
+
+  if (frame_count_ >= target_frame_count_) {
+    base::RepeatingClosure quit_closure;
+    {
+      base::AutoLock lock(lock_);
+      quit_closure = wait_loop_quit_closure_;
+    }
+    if (quit_closure) {
+      quit_closure.Run();
+    }
+  }
+}
+
+void MockXRDeviceHookBase::SetDeviceConfig(const device::DeviceConfig& config) {
+  base::AutoLock lock(lock_);
+  config_ = config;
 }
 
 void MockXRDeviceHookBase::WaitGetDeviceConfig(
     device_test::mojom::XRTestHook::WaitGetDeviceConfigCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  device::DeviceConfig ret = {.interpupillary_distance = 0.1f};
+  device::DeviceConfig ret;
+  {
+    base::AutoLock lock(lock_);
+    ret = config_;
+  }
   std::move(callback).Run(std::move(ret));
 }
 
-void MockXRDeviceHookBase::WaitGetPresentingPose(
-    device_test::mojom::XRTestHook::WaitGetPresentingPoseCallback callback) {
+void MockXRDeviceHookBase::WaitGetFrameData(
+    device_test::mojom::XRTestHook::WaitGetFrameDataCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  std::move(callback).Run(gfx::Transform());
-}
-
-void MockXRDeviceHookBase::WaitGetMagicWindowPose(
-    device_test::mojom::XRTestHook::WaitGetMagicWindowPoseCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  std::move(callback).Run(gfx::Transform());
-}
-
-void MockXRDeviceHookBase::WaitGetControllerRoleForTrackedDeviceIndex(
-    uint32_t index,
-    device_test::mojom::XRTestHook::
-        WaitGetControllerRoleForTrackedDeviceIndexCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  device::ControllerRole role = device::ControllerRole::kControllerRoleInvalid;
+  UpdateFrameDataUnlocked();
+  auto frame_data = device_test::mojom::XRTestFrameData::New();
   {
     base::AutoLock lock(lock_);
-    auto iter = controller_data_map_.find(index);
-    if (iter != controller_data_map_.end()) {
-      role = iter->second.role;
+    if (head_pose_) {
+      frame_data->head_pose = *head_pose_;
+    }
+    frame_data->controllers.reserve(input_sources_.size());
+    for (const auto& source : input_sources_) {
+      frame_data->controllers.push_back(source->GetFrameData());
     }
   }
-
-  std::move(callback).Run(role);
-}
-
-void MockXRDeviceHookBase::WaitGetControllerData(
-    uint32_t index,
-    device_test::mojom::XRTestHook::WaitGetControllerDataCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  device::ControllerFrameData data;
-  {
-    base::AutoLock lock(lock_);
-    auto iter = controller_data_map_.find(index);
-    if (iter != controller_data_map_.end()) {
-      data = iter->second;
-    } else {
-      // Default to not being valid so that controllers aren't connected unless
-      // a test specifically enables it.
-      data =
-          CreateValidController(device::ControllerRole::kControllerRoleInvalid);
-      data.is_valid = false;
-    }
-  }
-  std::move(callback).Run(std::move(data));
+  std::move(callback).Run(std::move(frame_data));
 }
 
 void MockXRDeviceHookBase::WaitGetEventData(
@@ -190,51 +177,57 @@ void MockXRDeviceHookBase::WaitGetEventData(
   std::move(callback).Run(std::move(ret));
 }
 
-uint32_t MockXRDeviceHookBase::ConnectController(
-    const device::ControllerFrameData& initial_data) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
+MockXRInputSource& MockXRDeviceHookBase::CreateInputSource(
+    device::mojom::XRHandedness handedness,
+    bool has_hand_tracking) {
   base::AutoLock lock(lock_);
-  auto index = next_controller_id_++;
-  CHECK_LT(index, device::kMaxControllers);
-  controller_data_map_.insert_or_assign(index, initial_data);
-  return index;
+  auto source =
+      std::make_unique<MockXRInputSource>(this, handedness, has_hand_tracking);
+  MockXRInputSource* ptr = source.get();
+  input_sources_.push_back(std::move(source));
+  return *ptr;
 }
 
-void MockXRDeviceHookBase::TerminateDeviceServiceProcessForTesting() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
-  mojo::ScopedAllowSyncCallForTesting scoped_allow_sync;
-  service_test_hook_->TerminateDeviceServiceProcessForTesting();
+MockXRInputSource& MockXRDeviceHookBase::CreateMinimalGamepad(
+    device::mojom::XRHandedness handedness) {
+  auto& source = CreateInputSource(handedness);
+  source.SetSupportedButtons({device::XrButtonId::kAxisTrigger});
+  return source;
 }
 
-void MockXRDeviceHookBase::UpdateController(
-    uint32_t index,
-    const device::ControllerFrameData& updated_data) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
+void MockXRDeviceHookBase::SetHeadPose(const gfx::Transform& pose) {
   base::AutoLock lock(lock_);
-  auto iter = controller_data_map_.find(index);
-  CHECK(iter != controller_data_map_.end());
-  iter->second = updated_data;
+  head_pose_ = pose;
 }
 
-void MockXRDeviceHookBase::DisconnectController(uint32_t index) {
+void MockXRDeviceHookBase::SimulateSessionLost() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
-  base::AutoLock lock(lock_);
-  auto iter = controller_data_map_.find(index);
-  CHECK(iter != controller_data_map_.end());
-  controller_data_map_.erase(iter);
+  device_test::mojom::EventData event;
+  event.type = device_test::mojom::EventType::kSessionLost;
+  PopulateEvent(event);
 }
 
-device::ControllerFrameData MockXRDeviceHookBase::CreateValidController(
-    device::ControllerRole role) {
-  // Stateless helper may be called on any sequence.
-  device::ControllerFrameData ret;
-  // Because why shouldn't a 64 button controller exist?
-  ret.supported_buttons = UINT64_MAX;
-  std::ranges::fill(ret.axis_data, device::ControllerAxisData{});
-  ret.role = role;
-  ret.is_valid = true;
-  ret.pose_data = gfx::Transform();
-  return ret;
+void MockXRDeviceHookBase::SimulateVisibilityBlurred() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
+  device_test::mojom::EventData event;
+  event.type = device_test::mojom::EventType::kVisibilityVisibleBlurred;
+  PopulateEvent(event);
+}
+
+void MockXRDeviceHookBase::SimulateInteractionProfileChanged(
+    device::mojom::OpenXrInteractionProfileType profile) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
+  device_test::mojom::EventData event;
+  event.type = device_test::mojom::EventType::kInteractionProfileChanged;
+  event.interaction_profile = profile;
+  PopulateEvent(event);
+}
+
+void MockXRDeviceHookBase::SimulateInstanceLost() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
+  device_test::mojom::EventData event;
+  event.type = device_test::mojom::EventType::kInstanceLost;
+  PopulateEvent(event);
 }
 
 void MockXRDeviceHookBase::PopulateEvent(device_test::mojom::EventData data) {
@@ -256,7 +249,7 @@ void MockXRDeviceHookBase::SetCanCreateSession(bool can_create_session) {
 
 void MockXRDeviceHookBase::SetVisibilityMaskForTesting(
     uint32_t view_index,
-    std::optional<device::VisibilityMaskData> mask) {
+    device::mojom::XRVisibilityMaskPtr mask) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_);
   base::AutoLock lock(lock_);
   visibility_masks_[view_index] = std::move(mask);
@@ -266,11 +259,12 @@ void MockXRDeviceHookBase::WaitGetVisibilityMask(
     uint32_t view_index,
     device_test::mojom::XRTestHook::WaitGetVisibilityMaskCallback callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(mock_device_sequence_);
-  std::optional<device::VisibilityMaskData> mask;
+  device::mojom::XRVisibilityMaskPtr mask;
   {
     base::AutoLock lock(lock_);
-    if (visibility_masks_.contains(view_index)) {
-      mask = visibility_masks_[view_index];
+    if (auto it = visibility_masks_.find(view_index);
+        it != visibility_masks_.end()) {
+      mask = it->second.Clone();
     }
   }
 

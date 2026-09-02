@@ -157,28 +157,13 @@ sk_sp<SkColorSpace> GetAltImageColorSpace(const crabbyavif::avifImage& image) {
       // Same ICC as the base image, no need to specify it.
       return nullptr;
     }
-    std::unique_ptr<ColorProfile> profile = ColorProfile::Create(
+    sk_sp<skia::ColorProfile> profile = skia::ColorProfile::Make(
         UNSAFE_TODO(base::span(gain_map->altICC.data, gain_map->altICC.size)));
     if (!profile) {
       DVLOG(1) << "Failed to parse gain map ICC profile";
       return nullptr;
     }
-    const skcms_ICCProfile* icc_profile = profile->GetProfile();
-    if (icc_profile->has_CICP) {
-      color_space =
-          skia::CICPGetSkColorSpace(icc_profile->CICP.color_primaries,
-                                    icc_profile->CICP.transfer_characteristics,
-                                    icc_profile->CICP.matrix_coefficients,
-                                    icc_profile->CICP.video_full_range_flag,
-                                    /*prefer_srgb_trfn=*/true);
-    } else if (icc_profile->has_toXYZD50) {
-      // The transfer function is irrelevant for gain map tone mapping,
-      // set it to something standard in case it's not set or not
-      // supported.
-      skcms_ICCProfile with_srgb = *icc_profile;
-      skcms_SetTransferFunction(&with_srgb, skcms_sRGB_TransferFunction());
-      color_space = SkColorSpace::Make(with_srgb);
-    }
+    color_space = profile->GetSkColorSpace();
   } else if (gain_map->altColorPrimaries !=
              crabbyavif::AVIF_COLOR_PRIMARIES_UNSPECIFIED) {
     if (image.icc.size == 0 &&
@@ -870,22 +855,20 @@ bool AVIFImageDecoder::UpdateDemuxer() {
     // from the AV1 sequence header for the frames. If an ICC profile is
     // present, use it instead of the CICP color description.
     if (container->icc.size) {
-      std::unique_ptr<ColorProfile> profile = ColorProfile::Create(
+      sk_sp<skia::ColorProfile> profile = skia::ColorProfile::Make(
           UNSAFE_TODO(base::span(container->icc.data, container->icc.size)));
       if (!profile) {
         DVLOG(1) << "Failed to parse image ICC profile";
         return false;
       }
-      uint32_t data_color_space = profile->GetProfile()->data_color_space;
       const bool is_mono =
           container->yuvFormat == crabbyavif::AVIF_PIXEL_FORMAT_YUV400;
       if (is_mono) {
-        if (data_color_space != skcms_Signature_Gray &&
-            data_color_space != skcms_Signature_RGB) {
+        if (!profile->IsGray() && !profile->IsRGB()) {
           profile = nullptr;
         }
       } else {
-        if (data_color_space != skcms_Signature_RGB) {
+        if (!profile->IsRGB()) {
           profile = nullptr;
         }
       }
@@ -910,7 +893,7 @@ bool AVIFImageDecoder::UpdateDemuxer() {
 
       skcms_ICCProfile profile;
       sk_color_space->toProfile(&profile);
-      SetEmbeddedColorProfile(std::make_unique<ColorProfile>(profile));
+      SetEmbeddedColorProfile(skia::ColorProfile::Make(profile));
     }
   }
 
@@ -971,7 +954,7 @@ bool AVIFImageDecoder::UpdateDemuxer() {
       GetColorSpace(container).ToSkYUVColorSpace(container->depth,
                                                  &yuv_color_space_) &&
       // TODO(crbug.com/911246): Support color space transforms for YUV decodes.
-      !ColorTransform();
+      !NeedsDecodeTimeColorTransform();
 
   // Record bpp information only for 8-bit, color, still images that do not have
   // alpha.
@@ -1196,33 +1179,8 @@ bool AVIFImageDecoder::RenderImage(const crabbyavif::avifImage* image,
 void AVIFImageDecoder::ColorCorrectImage(int from_row,
                                          int to_row,
                                          ImageFrame* buffer) {
-  // Postprocess the image data according to the profile.
-  const ColorProfileTransform* const transform = ColorTransform();
-  if (!transform) {
-    return;
-  }
-  const auto alpha_format = (buffer->HasAlpha() && buffer->PremultiplyAlpha())
-                                ? skcms_AlphaFormat_PremulAsEncoded
-                                : skcms_AlphaFormat_Unpremul;
-  if (decode_to_half_float_) {
-    const skcms_PixelFormat color_format = skcms_PixelFormat_RGBA_hhhh;
-    for (int y = from_row; y < to_row; ++y) {
-      ImageFrame::PixelDataF16* const row = buffer->GetAddrF16(0, y);
-      const bool success = skcms_Transform(
-          row, color_format, alpha_format, transform->SrcProfile(), row,
-          color_format, alpha_format, transform->DstProfile(), Size().width());
-      DCHECK(success);
-    }
-  } else {
-    const skcms_PixelFormat color_format = XformColorFormat();
-    for (int y = from_row; y < to_row; ++y) {
-      ImageFrame::PixelData* const row = buffer->GetAddr(0, y);
-      const bool success = skcms_Transform(
-          row, color_format, alpha_format, transform->SrcProfile(), row,
-          color_format, alpha_format, transform->DstProfile(), Size().width());
-      DCHECK(success);
-    }
-  }
+  DoDecodeTimeColorTransformIfNeeded(
+      *buffer, SkIRect::MakeLTRB(0, from_row, Size().width(), to_row));
 }
 
 bool AVIFImageDecoder::GetGainmapInfoAndData(

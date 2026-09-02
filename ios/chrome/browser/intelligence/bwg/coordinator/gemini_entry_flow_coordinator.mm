@@ -6,6 +6,7 @@
 
 #import "base/notreached.h"
 #import "components/signin/public/base/signin_metrics.h"
+#import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/authentication/account_menu/coordinator/account_menu_coordinator.h"
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/ui_bundled/continuation.h"
@@ -24,6 +25,7 @@
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -45,7 +47,10 @@ signin_metrics::AccessPoint AccessPointFromGeminiEntryPoint(
       return signin_metrics::AccessPoint::kIosAppBar;
     case gemini::EntryPoint::Toolbar:
       return signin_metrics::AccessPoint::kIosGeminiButtonToolbar;
+    case gemini::EntryPoint::AIHub:
     case gemini::EntryPoint::AIHubSignInSheet:
+    case gemini::EntryPoint::OmniboxChip:
+    case gemini::EntryPoint::DirectOmniboxBadge:
       return signin_metrics::AccessPoint::kIosPageActionMenu;
     case gemini::EntryPoint::ExternalAppStoreEvent:
     case gemini::EntryPoint::AppSwitcherAISummarization:
@@ -94,8 +99,27 @@ signin_metrics::AccessPoint AccessPointFromGeminiEntryPoint(
   AuthenticationService* authService =
       AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
 
-  // If the user is already signed in, proceed to the next step.
-  if (authService->HasPrimaryIdentity()) {
+  if (!authService) {
+    [self finishWithResult:kGeminiEntryFlowResultUnknown];
+    return;
+  }
+
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(self.browser->GetProfile());
+
+  BOOL isUnverified = NO;
+  if (authService && authService->HasPrimaryIdentity() && identityManager) {
+    CoreAccountId accountId =
+        identityManager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
+    if (!accountId.empty() &&
+        identityManager->HasAccountWithRefreshTokenInPersistentErrorState(
+            accountId)) {
+      isUnverified = YES;
+    }
+  }
+
+  // If the user is signed in and verified, proceed to the next step.
+  if (authService->HasPrimaryIdentity() && !isUnverified) {
     [self evaluateEligibilityAndRoute];
     return;
   }
@@ -113,7 +137,7 @@ signin_metrics::AccessPoint AccessPointFromGeminiEntryPoint(
     return;
   }
 
-  // User is signed out, present sign-in.
+  // User is signed out or unverified, present sign-in.
   [self presentSignIn];
 }
 
@@ -149,20 +173,39 @@ signin_metrics::AccessPoint AccessPointFromGeminiEntryPoint(
 - (void)presentSignIn {
   signin_metrics::AccessPoint accessPoint =
       AccessPointFromGeminiEntryPoint(_startupState.entryPoint);
-  _signinCoordinator = [SigninCoordinator
-      signinAndHistorySyncCoordinatorWithBaseViewController:
-          self.baseViewController
-                                                    browser:self.browser
-                                               contextStyle:SigninContextStyle::
-                                                                kDefault
-                                                accessPoint:accessPoint
-                                                promoAction:
-                                                    signin_metrics::PromoAction::
-                                                        PROMO_ACTION_NO_SIGNIN_PROMO
-                                        optionalHistorySync:YES
-                                            fullscreenPromo:NO
-                                       continuationProvider:
-                                           DoNothingContinuationProvider()];
+
+  AuthenticationService* authService =
+      AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
+
+  signin_metrics::PromoAction promoAction =
+      signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO;
+  if (authService && authService->HasPrimaryIdentity()) {
+    _signinCoordinator = [SigninCoordinator
+        primaryAccountReauthCoordinatorWithBaseViewController:
+            self.baseViewController
+                                                      browser:self.browser
+                                                 contextStyle:
+                                                     SigninContextStyle::
+                                                         kDefault
+                                                  accessPoint:accessPoint
+                                                  promoAction:promoAction
+                                         continuationProvider:
+                                             DoNothingContinuationProvider()];
+  } else {
+    _signinCoordinator = [SigninCoordinator
+        signinAndHistorySyncCoordinatorWithBaseViewController:
+            self.baseViewController
+                                                      browser:self.browser
+                                                 contextStyle:
+                                                     SigninContextStyle::
+                                                         kDefault
+                                                  accessPoint:accessPoint
+                                                  promoAction:promoAction
+                                          optionalHistorySync:YES
+                                              fullscreenPromo:NO
+                                         continuationProvider:
+                                             DoNothingContinuationProvider()];
+  }
   __weak __typeof(self) weakSelf = self;
   _signinCoordinator.signinCompletion =
       ^(SigninCoordinator* coordinator, SigninCoordinatorResult result,

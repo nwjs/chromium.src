@@ -26,12 +26,13 @@
 #include "base/uuid.h"
 #include "components/autofill/core/browser/autofill_format_string.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
-#include "components/autofill/core/browser/data_model/addresses/contact_info.h"
+#include "components/autofill/core/browser/data_model/addresses/name_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/country_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/date_info.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/field_types.h"
+#include "components/autofill/core/common/is_required.h"
 
 namespace sync_pb {
 class AutofillValuableSpecifics;
@@ -39,7 +40,8 @@ class AutofillValuableSpecifics;
 
 namespace personal_context::proto {
 class Entity;
-}
+class TypedValue;
+}  // namespace personal_context::proto
 
 namespace autofill {
 
@@ -136,6 +138,15 @@ class AttributeInstance final {
   // See GetInfo() for the meaning of `field_type`.
   VerificationStatus GetVerificationStatus(
       std::optional<FieldType> field_type) const;
+
+  // Returns a TypedValue representation of the attribute if available (e.g.,
+  // country code for CountryInfo or calendar date for DateInfo).
+  // If the attribute has no typed representation or is empty/unset, returns a
+  // default-constructed TypedValue whose oneof value is not set. We return a
+  // TypedValue by value (instead of std::optional<TypedValue>) so that
+  // TypedValue can be forward-declared in this header without including the
+  // protobuf header.
+  personal_context::proto::TypedValue GetTypedValue() const;
 
   // Populates the attribute with a value for a specific `type`, according to a
   // given `app_locale`.
@@ -287,6 +298,42 @@ class EntityInstance final {
     kMaxValue = kPersonalContext,
   };
 
+  // Defines record-type-specific payloads stored within `RecordTypeData`.
+  // Specializations associate additional metadata with specific `RecordType`
+  // values (e.g., extraction sources for `kPersonalContext`), while types with
+  // no extra metadata remain empty.
+  struct LocalRecordTypePayload {
+    friend bool operator==(const LocalRecordTypePayload&,
+                           const LocalRecordTypePayload&) = default;
+  };
+  struct WalletRecordTypePayload {
+    friend bool operator==(const WalletRecordTypePayload&,
+                           const WalletRecordTypePayload&) = default;
+  };
+  struct PersonalContextRecordTypePayload {
+    // Captures the provenance of an entity (e.g., its product source and URL).
+    struct Source {
+      enum class Type {
+        kUnspecified = 0,
+        kGmail = 1,
+        kPhotos = 2,
+      };
+
+      Type type = Type::kUnspecified;
+      std::string url;
+
+      friend bool operator==(const Source&, const Source&) = default;
+    };
+
+    std::vector<Source> sources = internal::IsRequired();
+
+    friend bool operator==(const PersonalContextRecordTypePayload&,
+                           const PersonalContextRecordTypePayload&) = default;
+  };
+  using RecordTypeData = std::variant<LocalRecordTypePayload,
+                                      WalletRecordTypePayload,
+                                      PersonalContextRecordTypePayload>;
+
   // Categorizes different types of Google Wallet passes.
   enum class WalletPassType {
     // The entity is not supported as a Wallet pass (e.g., local entities, or
@@ -320,7 +367,7 @@ class EntityInstance final {
                  base::Time date_modified,
                  int64_t use_count,
                  base::Time use_date,
-                 RecordType record_type,
+                 RecordTypeData record_type_data,
                  AreAttributesReadOnly are_attributes_read_only,
                  std::string frecency_override);
 
@@ -409,7 +456,10 @@ class EntityInstance final {
   }
 
   // Returns the type of storage used for the specific entity.
-  RecordType record_type() const { return record_type_; }
+  RecordType record_type() const;
+
+  // Returns the record type payload data for the specific entity.
+  const RecordTypeData& record_type_data() const { return record_type_data_; }
 
   // Returns the ordering override for the specific entity.
   const std::string& frecency_override(
@@ -501,7 +551,7 @@ class EntityInstance final {
       attributes_;
   std::string nickname_;
   EntityMetadata metadata_;
-  RecordType record_type_;
+  RecordTypeData record_type_data_;
   AreAttributesReadOnly are_attributes_read_only_;
   std::string frecency_override_;
 };
@@ -509,6 +559,12 @@ class EntityInstance final {
 std::ostream& operator<<(std::ostream& os,
                          const EntityInstance::EntityMetadata& m);
 std::ostream& operator<<(std::ostream& os, const AttributeInstance& a);
+std::ostream& operator<<(
+    std::ostream& os,
+    const EntityInstance::PersonalContextRecordTypePayload::Source::Type& t);
+std::ostream& operator<<(
+    std::ostream& os,
+    const EntityInstance::PersonalContextRecordTypePayload::Source& s);
 std::ostream& operator<<(std::ostream& os, const EntityInstance::RecordType& t);
 std::ostream& operator<<(std::ostream& os, const EntityInstance& e);
 
@@ -546,10 +602,9 @@ constexpr EntityInstance::WalletPassType GetWalletPassType(
       return EntityInstance::WalletPassType::kPrivate;
     case EntityTypeName::kFlightReservation:
     case EntityTypeName::kVehicle:
-      return EntityInstance::WalletPassType::kPublic;
     case EntityTypeName::kOrder:
     case EntityTypeName::kShipment:
-      return EntityInstance::WalletPassType::kUnsupported;
+      return EntityInstance::WalletPassType::kPublic;
   }
 
   return EntityInstance::WalletPassType::kUnsupported;

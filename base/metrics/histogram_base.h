@@ -68,6 +68,21 @@ class BASE_EXPORT HistogramBase {
 
   static const Sample32 kSampleType_MAX;  // INT_MAX
 
+  // Flags that control histogram behavior and metadata.
+  //
+  // CRITICAL INVARIANT FOR FLAGS AND DESERIALIZATION:
+  // Histograms can be loaded from persistent memory allocators (PMA) mapped
+  // as OS-level READ_ONLY memory (e.g., `FileMetricsProvider` reading leftover
+  // .pma files during startup).
+  //
+  // Therefore, setting or clearing flags (via `SetFlags` / `ClearFlags`), as
+  // well as any operations executed during flag deserialization in
+  // `PersistentHistogramAllocator::CreateHistogram()`, MUST BE STRICTLY
+  // READ-ONLY with zero side-effect writes to backing persistent memory
+  // storage. Any write operation on a read-only PMA page will cause a SIGSEGV.
+  //
+  // Note: When adding a new flag to `Flags`, add it above `kAllFlags` and OR it
+  // into `kAllFlags`.
   enum Flags : uint16_t {
     kNoFlags = 0x0,
 
@@ -102,6 +117,11 @@ class BASE_EXPORT HistogramBase {
     // Indicates that the histogram should be collected by PUMA, and its type is
     // PUMA for Regional Capabilities.
     kPumaRcTargetedHistogramFlag = 0x80,
+
+    // A combination of all flags used in tests.
+    kAllFlags = kUmaTargetedHistogramFlag | kUmaStabilityHistogramFlag |
+                kIPCSerializationSourceFlag | kCallbackExists | kIsPersistent |
+                kPumaRcTargetedHistogramFlag,
   };
 
   // Histogram data inconsistency types.
@@ -148,6 +168,10 @@ class BASE_EXPORT HistogramBase {
 
   // Operations with Flags enum.
   int32_t flags() const { return flags_.load(std::memory_order_relaxed); }
+
+  // Sets flags for this histogram instance.
+  // Must not attempt to mutate backing persistent memory, as the instance
+  // may be backed by a read-only memory segment.
   void SetFlags(int32_t flags);
   void ClearFlags(int32_t flags);
   bool HasFlags(int32_t flags) const;
@@ -170,11 +194,11 @@ class BASE_EXPORT HistogramBase {
   virtual void AddCount(Sample32 value, int count) = 0;
 
   // Convenient functions that call Add(Sample32).
-  void AddTime(const TimeDelta& time) { AddTimeMillisecondsGranularity(time); }
-  void AddTimeMillisecondsGranularity(const TimeDelta& time);
+  void AddTime(TimeDelta time) { AddTimeMillisecondsGranularity(time); }
+  void AddTimeMillisecondsGranularity(TimeDelta time);
   // Note: AddTimeMicrosecondsGranularity() drops the report if this client
   // doesn't have a high-resolution clock.
-  void AddTimeMicrosecondsGranularity(const TimeDelta& time);
+  void AddTimeMicrosecondsGranularity(TimeDelta time);
   void AddBoolean(bool value);
 
   virtual bool AddSamples(const HistogramSamples& samples) = 0;

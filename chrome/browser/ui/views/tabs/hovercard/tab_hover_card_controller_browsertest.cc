@@ -41,16 +41,7 @@ class TabHoverCardControllerTest : public InProcessBrowserTest {
   void SetUpOnMainThread() override {
     InProcessBrowserTest::SetUpOnMainThread();
 
-    if (base::FeatureList::IsEnabled(tabs::kTabStripUnification)) {
-      auto* base_region_view = views::AsViewClass<BaseTabStripRegionView>(
-          GetBrowserView()->tab_strip_view());
-      controller_ = base_region_view->GetTabStripCollectionController()
-                        ->GetHoverCardController();
-    } else {
-      controller_ = GetBrowserView()
-                        ->horizontal_tab_strip_for_testing()
-                        ->hover_card_controller_for_testing();
-    }
+    controller_ = test::TabHoverCardTestUtil::GetHoverCardController(browser());
     g_browser_process->local_state()->SetBoolean(prefs::kHoverCardImagesEnabled,
                                                  true);
   }
@@ -66,7 +57,8 @@ class TabHoverCardControllerTest : public InProcessBrowserTest {
   HoverCardAnchorTarget* GetHoverCardAnchorTargetAt(int index) {
     bool is_vertical = GetBrowserView()->ShouldDrawVerticalTabStrip();
     views::View* tab_view =
-        GetBrowserView()->tab_strip_view()->GetTabAnchorViewAt(index);
+        GetBrowserView()->tab_strip_view()->GetTabAnchorView(
+            browser()->tab_strip_model()->GetTabAtIndex(index)->GetHandle());
 
     if (is_vertical ||
         base::FeatureList::IsEnabled(tabs::kTabStripUnification)) {

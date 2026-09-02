@@ -83,7 +83,6 @@
 
 #inputWrapper {
   background-color: var(--color-searchbox-background);
-  border: var(--cr-searchbox-border, none);
   border-radius: var(--cr-searchbox-border-radius);
   box-shadow: var(--cr-searchbox-shadow);
   display: flex;
@@ -92,6 +91,19 @@
   min-height: var(--cr-searchbox-height);
   position: relative;
   width: 100%;
+}
+
+/* Renders the border as an inset overlay to prevent expanding the outer
+ * height or shifting inner coordinates, maintaining layout alignment
+ * with Composebox. */
+#inputWrapper::after {
+  border: var(--cr-searchbox-border, none);
+  border-radius: inherit;
+  box-sizing: border-box;
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
 }
 
 :host([in-voice-search-mode]) #inputWrapper {
@@ -196,7 +208,7 @@ cr-searchbox-input::part(searchbox-input) {
 }
 
 :host(:not([use-webkit-search-icons_])) #voiceSearchButton {
-  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+  background-image: url(//resources/cr_components/searchbox/icons/mic_old.svg);
 }
 
 :host(:not([use-webkit-search-icons_])) #lensSearchButton {
@@ -204,7 +216,7 @@ cr-searchbox-input::part(searchbox-input) {
 }
 
 :host([use-webkit-search-icons_]) #voiceSearchButton {
-  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic_old.svg);
 }
 
 :host([use-webkit-search-icons_]) #lensSearchButton {
@@ -260,16 +272,8 @@ cr-searchbox-input::part(searchbox-input) {
   --cr-searchbox-border: 1px solid #DADCE0;
 }
 
-:host([is-dark]):host-context([energy-effect-enabled_]):host([ntp-realbox-next-enabled]) {
-  --cr-searchbox-border: 1px solid #4E5059;
-}
-
 :host-context([energy-effect-enabled_][energy-effect-variant_='pre-energy-effect-with-border']):host([ntp-realbox-next-enabled]) {
   --cr-searchbox-border: 1px solid #CCCFD9;
-}
-
-:host([is-dark]):host-context([energy-effect-enabled_][energy-effect-variant_='pre-energy-effect-with-border']):host([ntp-realbox-next-enabled]) {
-  --cr-searchbox-border: 1px solid #4D5263;
 }
 
 cr-searchbox-dropdown::part(dropdown-content) {
@@ -375,4 +379,12 @@ cr-searchbox-dropdown::part(dropdown-content) {
     .contextualEntrypointContainerCompact {
   box-shadow: none;
   width: auto;
+}
+
+:host-context([webui-rounded-icons]):host(:not([use-webkit-search-icons_])) #voiceSearchButton {
+  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
+}
+
+:host-context([webui-rounded-icons]):host([use-webkit-search-icons_]) #voiceSearchButton {
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/mic.svg);
 }

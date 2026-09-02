@@ -58,7 +58,6 @@ class AccountFetcherService;
 class AccountTrackerService;
 class GaiaCookieManagerService;
 class NewTabPageUI;
-class PrivacySandboxSettingsDelegate;
 
 namespace signin {
 
@@ -419,7 +418,7 @@ class IdentityManager : public KeyedService,
   // Gets all accounts on the device, including the ones from other profiles, in
   // the order provided by the system (usually the order in which the accounts
   // were added).
-  [[nodiscard]] std::vector<AccountInfo> GetAccountsOnDevice();
+  [[nodiscard]] std::vector<AccountInfo> GetAccountsOnDevice() const;
 #endif
 
   // Overrides the value of the given account capability for the account.
@@ -717,7 +716,6 @@ class IdentityManager : public KeyedService,
   // TODO(crbug.com/40183609): Delete once the private calls have been
   // removed.
   friend class ::NewTabPageUI;
-  friend class ::PrivacySandboxSettingsDelegate;
 
   // Returns the extended account info for the primary account. This function
   // does not require tokens to be loaded.

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/password_manager/password_change/change_password_form_waiter.h"
 
-#include "base/containers/adapters.h"
 #include "base/feature_list.h"
 #include "base/task/single_thread_task_runner.h"
 #include "chrome/browser/password_manager/password_change/features.h"
@@ -34,28 +33,6 @@ PasswordFormCache* GetPasswordFormCache(
   return cache;
 }
 
-bool FieldFocusable(autofill::FieldRendererId renderer_id,
-                    const autofill::FormData& form_data) {
-  const auto& fields = form_data.fields();
-  auto field = std::ranges::find(fields, renderer_id,
-                                 &autofill::FormFieldData::renderer_id);
-  if (field == fields.end()) {
-    return false;
-  }
-  return field->is_focusable();
-}
-
-bool FieldEnabled(autofill::FieldRendererId renderer_id,
-                  const autofill::FormData& form_data) {
-  const auto& fields = form_data.fields();
-  auto field = std::ranges::find(fields, renderer_id,
-                                 &autofill::FormFieldData::renderer_id);
-  if (field == fields.end()) {
-    return false;
-  }
-  return field->is_enabled() && !field->is_readonly();
-}
-
 using DiscardReason = ModelQualityLogsUploader::FormDiscardReason;
 
 std::optional<DiscardReason> GetDiscardReason(
@@ -63,6 +40,11 @@ std::optional<DiscardReason> GetDiscardReason(
   auto* parsed_form = form_manager->GetParsedObservedForm();
   if (!parsed_form) {
     return DiscardReason::kUnknown;
+  }
+
+  if (!form_manager->GetDriver() ||
+      !form_manager->GetDriver()->IsInPrimaryMainFrame()) {
+    return DiscardReason::kNotInPrimaryMainFrame;
   }
 
   // New password field must be present in a change password form.
@@ -100,6 +82,28 @@ std::optional<DiscardReason> GetDiscardReason(
 }
 
 }  // namespace
+
+bool FieldFocusable(autofill::FieldRendererId renderer_id,
+                    const autofill::FormData& form_data) {
+  const auto& fields = form_data.fields();
+  auto field = std::ranges::find(fields, renderer_id,
+                                 &autofill::FormFieldData::renderer_id);
+  if (field == fields.end()) {
+    return false;
+  }
+  return field->is_focusable();
+}
+
+bool FieldEnabled(autofill::FieldRendererId renderer_id,
+                  const autofill::FormData& form_data) {
+  const auto& fields = form_data.fields();
+  auto field = std::ranges::find(fields, renderer_id,
+                                 &autofill::FormFieldData::renderer_id);
+  if (field == fields.end()) {
+    return false;
+  }
+  return field->is_enabled() && !field->is_readonly();
+}
 
 ChangePasswordFormWaiter::Builder::Builder(
     content::WebContents* web_contents,
@@ -167,6 +171,17 @@ ChangePasswordFormWaiter::~ChangePasswordFormWaiter() {
 void ChangePasswordFormWaiter::Init() {
   model_loaded_subscription_ = {};
   if (PasswordFormCache* cache = GetPasswordFormCache(client_)) {
+    cache->AddObserver(this);
+  }
+  RecheckForms();
+
+  if (!web_contents()->IsLoading()) {
+    DidStopLoading();
+  }
+}
+
+void ChangePasswordFormWaiter::RecheckForms() {
+  if (auto* cache = GetPasswordFormCache(client_)) {
     for (const auto& manager : cache->GetFormManagers()) {
       std::optional<DiscardReason> discard_reason =
           GetDiscardReason(manager.get());
@@ -192,10 +207,17 @@ void ChangePasswordFormWaiter::Init() {
                          &ChangePasswordFormWaiter::OnPasswordFormParsed,
                          weak_ptr_factory_.GetWeakPtr())));
     }
-    cache->AddObserver(this);
   }
-  if (!web_contents()->IsLoading()) {
-    DidStopLoading();
+
+  if (base::FeatureList::IsEnabled(
+          password_change::features::
+              kRecheckFormsExponentiallyInChangePasswordFormWaiter)) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&ChangePasswordFormWaiter::RecheckForms,
+                       weak_ptr_factory_.GetWeakPtr()),
+        forms_recheck_delay_);
+    forms_recheck_delay_ *= 2;
   }
 }
 
@@ -209,12 +231,30 @@ void ChangePasswordFormWaiter::WaitForLocalMLModelAvailability() {
       model_loaded_subscription_ =
           model_handler->RegisterModelChangeCallback(base::BindRepeating(
               &ChangePasswordFormWaiter::Init, weak_ptr_factory_.GetWeakPtr()));
+      if (base::FeatureList::IsEnabled(
+              password_change::features::
+                  kTimeoutLocalMLModelDownloadInChangePasswordFormWaiter)) {
+        base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(
+                &ChangePasswordFormWaiter::OnLocalMLModelDownloadTimeout,
+                weak_ptr_factory_.GetWeakPtr()),
+            kLocalMLModelDownloadTimeout);
+      }
       return;
     }
   }
 
   // No downloading is required. Initialize waiter immediately.
   Init();
+}
+
+void ChangePasswordFormWaiter::OnLocalMLModelDownloadTimeout() {
+  // If the subscription is still valid, the model did not finish loading
+  // before the timeout expired. Proceed with initialization without waiting.
+  if (model_loaded_subscription_) {
+    Init();
+  }
 }
 
 void ChangePasswordFormWaiter::OnPasswordFormParsed(

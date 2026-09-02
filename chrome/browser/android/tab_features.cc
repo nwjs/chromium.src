@@ -20,18 +20,20 @@
 #include "chrome/browser/glic/public/widget/glic_side_panel_coordinator_desktop_android.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_helper.h"
+#include "chrome/browser/net/http_auth_cache_status.h"
 #include "chrome/browser/net/qwac_web_contents_observer.h"
 #include "chrome/browser/preloading/new_tab_page_preload/new_tab_page_preload_pipeline_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/ask_before_http_dialog_controller.h"
+#include "chrome/browser/ssl/security_state_event_observer.h"
 #include "chrome/browser/sync/sessions/sync_sessions_router_tab_helper.h"
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/contextual_search/tab_contextualization_controller.h"
 #include "chrome/browser/ui/side_panel/android/android_side_panel_enabled_fn.h"
+#include "chrome/browser/ui/side_panel/internal/android/dev/side_panel_tab_scoped_dev_feature.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
-#include "chrome/browser/ui/side_panel_container/internal/android/dev/side_panel_tab_scoped_dev_feature.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/chrome_features.h"
@@ -39,10 +41,16 @@
 #include "components/contextual_tasks/public/features.h"
 #include "components/enterprise/data_protection/features.h"
 #include "components/favicon/content/content_favicon_driver.h"
+#include "components/search/ntp_features.h"
 #include "components/security_interstitials/core/features.h"
 #include "components/tabs/public/tab_interface.h"
 #include "net/base/features.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
+#include "ui/webui/buildflags.h"
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+#include "chrome/browser/ui/customize_chrome/side_panel_controller_android.h"
+#endif
 
 namespace tabs {
 
@@ -58,6 +66,11 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
               profile),
           ChromeTranslateClient::FromWebContents(web_contents),
           favicon::ContentFaviconDriver::FromWebContents(web_contents));
+
+  http_auth_cache_status_ = std::make_unique<HttpAuthCacheStatus>(web_contents);
+
+  security_state_event_observer_ =
+      std::make_unique<SecurityStateEventObserver>(web_contents);
 
   if (base::FeatureList::IsEnabled(net::features::kVerifyQWACs)) {
     qwac_web_contents_observer_ =
@@ -137,10 +150,28 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
             .CreateInstance<glic::GlicSidePanelCoordinatorAndroid>(*tab, tab);
   }
 
-  glic::ContextualCueingHelper::MaybeCreateForWebContents(web_contents);
+  contextual_cueing_helper_ = glic::ContextualCueingHelper::MaybeCreate(tab);
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+  if (base::FeatureList::IsEnabled(ntp_features::kNtpCustomizeWebUiAndroid)) {
+    customize_chrome_side_panel_controller_ =
+        std::make_unique<customize_chrome::SidePanelControllerAndroid>(*tab);
+  }
+#endif
 }
 
 TabFeatures::~TabFeatures() = default;
+
+#if BUILDFLAG(ENABLE_WEBUI_NTP)
+customize_chrome::SidePanelController*
+TabFeatures::SetCustomizeChromeSidePanelControllerForTesting(  // IN-TEST
+    std::unique_ptr<customize_chrome::SidePanelController>
+        customize_chrome_side_panel_controller) {
+  customize_chrome_side_panel_controller_ =
+      std::move(customize_chrome_side_panel_controller);
+  return customize_chrome_side_panel_controller_.get();
+}
+#endif
 
 // static
 ui::UserDataFactoryWithOwner<TabInterface>& TabFeatures::GetUserDataFactory() {

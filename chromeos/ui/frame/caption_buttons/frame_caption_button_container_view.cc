@@ -10,7 +10,6 @@
 #include <tuple>
 
 #include "base/command_line.h"
-#include "base/compiler_specific.h"
 #include "base/i18n/rtl.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -59,6 +58,8 @@
 namespace chromeos {
 
 namespace {
+
+constexpr int kRoundedCaptionButtonSize = 16;
 
 // Duration of the animation of the position of buttons to the left of
 // |size_button_|.
@@ -292,7 +293,9 @@ FrameCaptionButtonContainerView::FrameCaptionButtonContainerView(
   AddChildViewRaw(close_button_.get());
 
   SetButtonImage(views::CAPTION_BUTTON_ICON_FLOAT,
-                 chromeos::kWindowControlFloatIcon);
+                 ::features::IsRoundedIconsEnabled()
+                     ? chromeos::kFloatLandscapeIcon
+                     : chromeos::kWindowControlFloatOldIcon);
   // TODO(hewer): Resolve this so two float icons are no longer needed.
   SetButtonImage(views::CAPTION_BUTTON_ICON_MENU, chromeos::kFloatWindowIcon);
   SetButtonImage(views::CAPTION_BUTTON_ICON_MINIMIZE,
@@ -349,7 +352,10 @@ void FrameCaptionButtonContainerView::SetButtonImage(
   for (views::FrameCaptionButton* button : buttons) {
     if (button && button->GetIcon() == icon) {
       button->SetImage(icon, views::FrameCaptionButton::Animate::kNo,
-                       icon_definition);
+                       icon_definition,
+                       ::features::IsRoundedIconsEnabled()
+                           ? std::make_optional<int>(kRoundedCaptionButtonSize)
+                           : std::nullopt);
     }
   }
 }
@@ -624,7 +630,10 @@ void FrameCaptionButtonContainerView::SetButtonIcon(
                                  : views::FrameCaptionButton::Animate::kNo;
   auto it = button_icon_map_.find(icon);
   if (it != button_icon_map_.end()) {
-    button->SetImage(icon, fcb_animate, *it->second);
+    button->SetImage(icon, fcb_animate, *it->second,
+                     ::features::IsRoundedIconsEnabled()
+                         ? std::make_optional<int>(kRoundedCaptionButtonSize)
+                         : std::nullopt);
   }
 }
 
@@ -636,7 +645,7 @@ void FrameCaptionButtonContainerView::UpdateSizeButton() {
   const gfx::VectorIcon& restore_icon =
       use_zoom_icons ? chromeos::kWindowControlDezoomIcon
       : ::features::IsRoundedIconsEnabled()
-          ? views::kChromeRestoreFilledIcon
+          ? views::kChromeRestoreIcon
           : views::kWindowControlRestoreOldIcon;
   const gfx::VectorIcon& maximize_icon =
       use_zoom_icons ? chromeos::kWindowControlZoomIcon
@@ -689,8 +698,12 @@ void FrameCaptionButtonContainerView::UpdateFloatButton() {
   const bool floated = widget_->GetNativeWindow()->GetProperty(
                            kWindowStateTypeKey) == WindowStateType::kFloated;
   SetButtonImage(views::CAPTION_BUTTON_ICON_FLOAT,
-                 floated ? chromeos::kWindowControlUnfloatIcon
-                         : chromeos::kWindowControlFloatIcon);
+                 floated ? ::features::IsRoundedIconsEnabled()
+                               ? chromeos::kUnfloatLandscapeIcon
+                               : chromeos::kWindowControlUnfloatOldIcon
+                 : ::features::IsRoundedIconsEnabled()
+                     ? chromeos::kFloatLandscapeIcon
+                     : chromeos::kWindowControlFloatOldIcon);
   float_button_->SetTooltipText(l10n_util::GetStringUTF16(
       floated ? IDS_MULTITASK_MENU_EXIT_FLOAT_BUTTON_NAME
               : IDS_MULTITASK_MENU_FLOAT_BUTTON_NAME));
@@ -861,8 +874,7 @@ FrameCaptionButtonContainerView::GetButtonClosestTo(
                                           float_button_,    close_button_};
   int min_squared_distance = INT_MAX;
   views::FrameCaptionButton* closest_button = nullptr;
-  for (size_t i = 0; i < std::size(buttons); ++i) {
-    views::FrameCaptionButton* button = UNSAFE_TODO(buttons[i]);
+  for (views::FrameCaptionButton* button : buttons) {
     if (!button || !button->GetVisible()) {
       continue;
     }

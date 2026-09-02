@@ -9,7 +9,9 @@
 #include <algorithm>
 #include <array>
 #include <iterator>
+#include <optional>
 
+#include "base/check.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/autofill_parsing_utils.h"
 #include "components/autofill/core/common/dense_set.h"
@@ -47,7 +49,11 @@ FieldCandidatePriority::FieldCandidatePriority(
     : is_name_or_high_quality_label_match(is_name_or_high_quality_label_match),
       parser_priority(GetParserPriority(parser_type)) {}
 
-FieldCandidates::FieldCandidates() = default;
+FieldCandidates::FieldCandidates(FieldType type,
+                                 MatchInfo match_info,
+                                 FieldCandidatePriority priority) {
+  AddFieldCandidate(type, std::move(match_info), std::move(priority));
+}
 
 FieldCandidates::FieldCandidates(FieldCandidates&& other) = default;
 FieldCandidates& FieldCandidates::operator=(FieldCandidates&& other) = default;
@@ -62,21 +68,17 @@ void FieldCandidates::AddFieldCandidate(FieldType type,
 }
 
 // We currently select a type with the maximum score sum.
-FieldType FieldCandidates::BestHeuristicType() const {
-  if (field_candidates_.empty()) {
-    return UNKNOWN_TYPE;
-  }
-
-  return std::ranges::max_element(field_candidates_, {},
-                                  &FieldCandidate::priority)
-      ->type;
+FieldCandidate FieldCandidates::BestHeuristicCandidate() const {
+  CHECK(!field_candidates_.empty());
+  return *std::ranges::max_element(field_candidates_, {},
+                                   &FieldCandidate::priority);
 }
 
 DenseSet<MatchAttribute> FieldCandidates::BestHeuristicTypeReason() const {
-  FieldType best_type = BestHeuristicType();
   DenseSet<MatchAttribute> attributes;
+  FieldCandidate best_candidate = BestHeuristicCandidate();
   for (const FieldCandidate& candidate : field_candidates_) {
-    if (candidate.type == best_type) {
+    if (candidate.type == best_candidate.type) {
       attributes.insert(candidate.match_info.matched_attribute ==
                                 MatchInfo::MatchAttribute::kName
                             ? MatchAttribute::kName

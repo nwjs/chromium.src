@@ -23,13 +23,14 @@ export interface SettingsRoutes {
   AI_SUGGESTIONS: Route;
   APPEARANCE: Route;
   AUTOFILL: Route;
-  AUTOFILL_AI: Route;
   BASIC: Route;
   CAPTIONS: Route;
   CLEAR_BROWSER_DATA: Route;
   COMPARE: Route;
+  CONTACT_INFO: Route;
   COOKIES: Route;
   DEFAULT_BROWSER: Route;
+  DICTATION: Route;
   DOWNLOADS: Route;
   EDIT_DICTIONARY: Route;
   FONTS: Route;
@@ -37,6 +38,8 @@ export interface SettingsRoutes {
   GEMINI_LOGIN: Route;
   GLIC_SECTION: Route;
   HISTORY_SEARCH: Route;
+  IDENTITY_DOCS: Route;
+  INLINE_CUE_MENU: Route;
   LANGUAGES: Route;
   MANAGE_PROFILE: Route;
   OFFER_WRITING_HELP: Route;
@@ -55,6 +58,7 @@ export interface SettingsRoutes {
   SEARCH_ENGINES: Route;
   SECURITY: Route;
   SECURITY_KEYS: Route;
+  SHOPPING: Route;
   SITE_SETTINGS: Route;
   SITE_SETTINGS_ADS: Route;
   SITE_SETTINGS_ALL: Route;
@@ -76,7 +80,6 @@ export interface SettingsRoutes {
   SITE_SETTINGS_HID_DEVICES: Route;
   SITE_SETTINGS_IDLE_DETECTION: Route;
   SITE_SETTINGS_IMAGES: Route;
-  SITE_SETTINGS_INLINE_CUE_MENU: Route;
   SITE_SETTINGS_KEYBOARD_LOCK: Route;
   SITE_SETTINGS_LOCAL_FONTS: Route;
   SITE_SETTINGS_LOCAL_NETWORK: Route;
@@ -115,12 +118,8 @@ export interface SettingsRoutes {
   SYNC: Route;
   SYNC_ADVANCED: Route;
   SYSTEM: Route;
+  TRAVEL: Route;
   TRIGGERED_RESET_DIALOG: Route;
-  YOUR_SAVED_INFO: Route;
-  YOUR_SAVED_INFO_CONTACT_INFO: Route;
-  YOUR_SAVED_INFO_IDENTITY_DOCS: Route;
-  YOUR_SAVED_INFO_TRAVEL: Route;
-  YOUR_SAVED_INFO_SHOPPING: Route;
   ACCOUNT: Route;
   GOOGLE_SERVICES: Route;
 
@@ -239,6 +238,8 @@ export class Router {
 
   private wasLastRouteChangePopstate_: boolean = false;
 
+  private previousRoute_: Route|null = null;
+
   private initializeRouteFromUrlCalled_: boolean = false;
 
   private routeObservers_: Set<RouteObserverMixinInterface> = new Set();
@@ -291,6 +292,7 @@ export class Router {
     this.recordMetrics(route.path);
 
     const oldRoute = this.currentRoute;
+    this.previousRoute_ = oldRoute;
     this.currentRoute = route;
     this.currentQueryParameters_ = queryParameters;
     this.wasLastRouteChangePopstate_ = isPopstate;
@@ -322,6 +324,10 @@ export class Router {
 
   getCurrentRoute(): Route {
     return this.currentRoute;
+  }
+
+  getPreviousRoute(): Route|null {
+    return this.previousRoute_;
   }
 
   getQueryParameters(): URLSearchParams {
@@ -474,6 +480,7 @@ export class Router {
   resetRouteForTesting() {
     this.initializeRouteFromUrlCalled_ = false;
     this.wasLastRouteChangePopstate_ = false;
+    this.previousRoute_ = null;
     this.currentRoute = this.routes_.BASIC;
     this.currentQueryParameters_ = new URLSearchParams();
   }

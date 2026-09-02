@@ -69,6 +69,7 @@ source_set("impl") {
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/background/glic",
     "//chrome/browser/component_updater",
+    "//chrome/browser/context_hub",
     "//chrome/browser/devtools",
     "//chrome/browser/engagement",
     "//chrome/browser/external_protocol",
@@ -96,7 +97,6 @@ source_set("impl") {
     "//chrome/browser/preloading/prefetch/prefetch_service",
     "//chrome/browser/preloading/prefetch/search_prefetch",
     "//chrome/browser/preloading/search_preload",
-    "//chrome/browser/privacy_sandbox/notice:core",
     "//chrome/browser/profiles",
     "//chrome/browser/profiles:misc",
     "//chrome/browser/profiles:profile",
@@ -194,6 +194,7 @@ source_set("impl") {
     "//components/sync_preferences/cross_device_pref_tracker/prefs",
     "//components/sync_sessions",
     "//components/ukm",
+    "//components/universal_optout",
     "//components/update_client",
     "//components/variations/service",
     "//components/visited_url_ranking/internal:internal_url_grouping",
@@ -278,7 +279,6 @@ source_set("impl") {
       "//chrome/browser/ash/net",
       "//chrome/browser/ash/performance",
       "//chrome/browser/ash/platform_keys/key_permissions",
-      "//chrome/browser/ash/plugin_vm",
       "//chrome/browser/ash/policy/core",
       "//chrome/browser/ash/policy/enrollment",
       "//chrome/browser/ash/policy/external_data/handlers",
@@ -457,6 +457,7 @@ source_set("impl") {
   if (enable_webui_ntp) {
     deps += [
       "//chrome/browser/new_tab_page",
+      "//chrome/browser/ui/webui/cr_components/most_visited",
       "//chrome/browser/ui/webui/new_tab_page",
       "//chrome/browser/ui/webui/new_tab_page:impl",
     ]
@@ -466,6 +467,7 @@ source_set("impl") {
     deps += [
       "//chrome/browser/indigo",
       "//chrome/browser/ui/read_anything:prefs",
+      "//chrome/browser/ui/views/frame:glass_frame_service",
       "//chrome/browser/ui/webui/cr_components/theme_color_picker:impl",
       "//chrome/browser/ui/webui/history",
       "//chrome/browser/ui/webui/tab_search",

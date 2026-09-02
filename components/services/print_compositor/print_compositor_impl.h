@@ -13,6 +13,7 @@
 #include "base/containers/flat_set.h"
 #include "base/containers/span.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/read_only_shared_memory_region.h"
 #include "base/memory/ref_counted_memory.h"
 #include "base/memory/scoped_refptr.h"
@@ -29,10 +30,6 @@
 #include "third_party/skia/include/core/SkTypeface.h"
 #include "ui/accessibility/ax_tree_update.h"
 
-#if BUILDFLAG(ENTERPRISE_WATERMARK)
-#include "components/enterprise/watermarking/mojom/watermark.mojom-forward.h"  // nogncheck
-#endif
-
 class SkDocument;
 struct SkDocumentPage;
 
@@ -46,8 +43,23 @@ class ClientDiscardableSharedMemoryManager;
 
 namespace printing {
 
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+class PrintWatermark;
+#endif
+
 class PrintCompositorImpl : public mojom::PrintCompositor {
  public:
+  // Interface for optional addons that extend compositor behavior to draw more
+  // content onto the page.
+  class Addon {
+   public:
+    virtual ~Addon() = default;
+
+    // Called when drawing a page to `canvas` of a given `size`. The addon may
+    // draw into `canvas` as well.
+    virtual void OnDrawPage(SkCanvas* canvas, const SkSize& size) = 0;
+  };
+
   // Creates an instance with an optional Mojo receiver (may be null) and
   // optional initialization of the runtime environment necessary for
   // compositing operations. `io_task_runner` is used for shared memory
@@ -63,6 +75,12 @@ class PrintCompositorImpl : public mojom::PrintCompositor {
   PrintCompositorImpl& operator=(const PrintCompositorImpl&) = delete;
 
   ~PrintCompositorImpl() override;
+
+  void SetAddonForTesting(std::unique_ptr<Addon> addon);
+
+#if BUILDFLAG(ENTERPRISE_WATERMARK)
+  PrintWatermark* watermark_for_testing() { return watermark_for_testing_; }
+#endif
 
   // mojom::PrintCompositor
   void NotifyUnavailableSubframe(uint64_t frame_guid) override;
@@ -80,6 +98,7 @@ class PrintCompositorImpl : public mojom::PrintCompositor {
   void CompositeDocument(
       uint64_t frame_guid,
       base::ReadOnlySharedMemoryRegion serialized_content,
+      bool is_pdf,
       const ContentToFrameMap& subframe_content_map,
       mojom::PrintCompositor::CompositeDocumentCallback callback) override;
   void PrepareToCompositeDocument(
@@ -129,12 +148,6 @@ class PrintCompositorImpl : public mojom::PrintCompositor {
       CompositePagesCallback callback);
   virtual void FinishDocumentRequest(
       FinishDocumentCompositionCallback callback);
-
-#if BUILDFLAG(ENTERPRISE_WATERMARK)
-  // Accessor for watermark block for tests
-  const watermark::mojom::WatermarkBlockPtr& watermark_block_for_testing()
-      const;
-#endif
 
  private:
   FRIEND_TEST_ALL_PREFIXES(PrintCompositorImplTest, IsReadyToComposite);
@@ -246,6 +259,7 @@ class PrintCompositorImpl : public mojom::PrintCompositor {
       uint64_t frame_guid,
       base::ReadOnlySharedMemoryRegion serialized_content,
       const ContentToFrameMap& subframe_content_ids,
+      bool is_pdf,
       CompositePagesCallback callback);
   void HandleDocumentCompletionRequest();
 
@@ -289,21 +303,16 @@ class PrintCompositorImpl : public mojom::PrintCompositor {
   // The title of the document.
   std::string title_;
 
-#if BUILDFLAG(ENTERPRISE_WATERMARK)
-  // The watermark block. The special value `nullptr` indicates that there is no
-  // watermark.
-  watermark::mojom::WatermarkBlockPtr watermark_block_;
-#endif
-};
+  // Currently, PrintCompositor supports either 0 or 1 addon, but if there is
+  // demand for multiple addons, this can be easily modified to accommodate
+  // that.
+  std::unique_ptr<Addon> addon_;
 
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
-// Draw the watermark specified by `watermark_block` using the provided canvas
-// and its size. Exposed for testing.
-void DrawEnterpriseWatermark(
-    SkCanvas* canvas,
-    SkSize size,
-    const watermark::mojom::WatermarkBlockPtr& watermark_block);
+  // Points at `addon_` if `addon_` is a PrintWatermark.
+  raw_ptr<PrintWatermark> watermark_for_testing_ = nullptr;
 #endif
+};
 
 }  // namespace printing
 

@@ -87,7 +87,6 @@ ckitagawa@chromium.org
 joenotcharles@google.com
 gjc@google.com
 koretadaniel@chromium.org
-# browsing_topics
 # chromeos_hps
 chadduffin@chromium.org
 crisrael@google.com
@@ -116,6 +115,7 @@ tbansal@chromium.org
 # compositing
 schenney@chromium.org
 jonross@chromium.org
+vmpstr@chromium.org
 # content_creation
 sebsg@chromium.org
 # content
@@ -365,8 +365,6 @@ hansberry@chromium.org
 # platform
 iby@chromium.org
 hcyang@google.com
-# plugin_vm
-# see crostini
 # power
 olivierli@chromium.org
 tby@chromium.org
@@ -430,7 +428,7 @@ xinghuilu@chromium.org
 jimmyxgong@chromium.org
 gavinwill@chromium.org
 # scheduler
-spvw@chromium.org
+spvm@chromium.org
 # search
 ender@google.com
 gangwu@chromium.org
@@ -467,13 +465,15 @@ myuu@google.com
 rsult@google.com
 # skia
 robertphillips@google.com
+# smart_card
+zgroza@chromium.org
 # software
 drubery@chromium.org
 thefrog@chromium.org
 xinghuilu@chromium.org
 # startup
 fdoray@chromium.org
-spvw@chromium.org
+spvm@chromium.org
 # storage
 leimy@chromium.org
 # subresource

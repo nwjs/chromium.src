@@ -14,7 +14,14 @@
 :host {
   -webkit-app-region: drag;
   position: relative;
+  /* Preserves 2px border width parity with omnibox-everywhere-omnibox to
+   * prevent layout shift when toggling between searchbox and composebox,
+   * and matches the -2px search-animated-glow inset. */
+  border: 2px solid transparent;
   border-radius: 28px;
+  box-sizing: border-box;
+  --composebox-cancel-button-top: var(--cr-composebox-cancel-button-top, 10px);
+  --cr-composebox-background-color: var(--color-searchbox-background);
   --input-bottom-spacing: 10px;
   --text-input-top-spacing: 10px;
   --text-input-inline-end-spacing: 80px;
@@ -31,7 +38,9 @@
 }
 
 #composebox {
-  background-color: var(--color-searchbox-background);
+  /* Transparent so search-animated-glow behind it (z-index: 1) can render
+   * the background and energy glow effect via composebox-background. */
+  background-color: transparent;
   border-radius: inherit;
   display: flex;
   flex-direction: column;
@@ -70,6 +79,11 @@
   flex-direction: row;
 }
 
+#contextEntrypoint {
+  position: relative;
+  z-index: var(--cr-composebox-context-menu-z-index, 1001);
+}
+
 #contextEntrypoint::part(entrypoint-button) {
   --cr-icon-button-size: 36px;
 }
@@ -79,10 +93,11 @@ cr-composebox-tool-chip {
 }
 
 search-animated-glow {
-  pointer-events: none;
+  border-radius: inherit;
   inset: -2px;
-  z-index: 1;
+  pointer-events: none;
   position: absolute;
+  z-index: 1;
 }
 
 #shadow-container {
@@ -97,7 +112,8 @@ search-animated-glow {
 /* Needed because composebox_submit.css sets opacity: 0.4 on #submitIcon
  * when disabled. For loomnibox, we want the submit icon to remain at
  * full opacity even when the input is empty. */
-cr-composebox-submit::part(submit-icon) {
+cr-composebox-submit::part(submit-icon),
+cr-composebox-input::part(cancel) {
   opacity: 1;
 }
 
@@ -126,62 +142,14 @@ cr-composebox-submit::part(submit) {
   gap: 12px;
 }
 
-.searchbox-icon-button-container {
-  align-items: center;
-  border-radius: 50%;
-  display: flex;
-  flex-shrink: 0;
-  height: 36px;
-  justify-content: center;
-  position: relative;
-  width: 36px;
-  z-index: 100;
-}
-
-.searchbox-icon-button-container:hover {
-  background-color: var(--color-new-tab-page-realbox-next-icon-hover);
-}
-
-.searchbox-icon-button {
-  background-color: transparent;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-size: 21px 21px;
-  border: none;
-  border-radius: 2px;
-  cursor: pointer;
-  height: 100%;
-  outline: none;
-  padding: 0;
-  pointer-events: auto;
-  position: static;
-  width: 26px;
-  z-index: 100;
-}
-
-#voiceSearchButton {
-  background-image: url(//resources/cr_components/searchbox/icons/mic.svg);
-}
-
-#lensSearchButton {
-  background-image: url(//resources/cr_components/searchbox/icons/camera.svg);
-}
-
-#profileIcon {
-  position: absolute;
-  right: 16px;
-  top: 10px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  z-index: 100;
-}
-
 /* TODO(crbug.com/532200145): Refine the selectors. New interactive elements
  * must be added to this list because the root container has
  * '-webkit-app-region: drag' enabled; otherwise, clicks will be swallowed by
  * the window drag handler. */
 cr-composebox-input::part(input),
+cr-composebox-input::part(cancel),
+cr-composebox-input::part(cancel-icon),
+cr-composebox-input::part(action-icon),
 cr-composebox-submit::part(submit),
 cr-composebox-submit::part(submit-icon),
 #context,
@@ -192,6 +160,11 @@ cr-composebox-tool-chip,
 .searchbox-icon-button,
 #voiceSearchButton,
 #lensSearchButton,
-#profileIcon {
+#screenshotMenu {
   -webkit-app-region: no-drag;
+}
+
+cr-composebox-input::part(icon-container) {
+  -webkit-app-region: drag;
+  -webkit-user-drag: none;
 }

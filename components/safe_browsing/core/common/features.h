@@ -118,6 +118,9 @@ extern const base::FeatureParam<bool>
 // Specifies whether to enable triggering on detection of a credit card form.
 extern const base::FeatureParam<bool> kCsdCreditCardFormEnableDetectionTrigger;
 
+// Enables the creation of the ClientSideDetectionService on iOS.
+BASE_DECLARE_FEATURE(kClientSideDetectionEnabledIos);
+
 // Killswitch for Llama forced trigger info redirect chain check.
 BASE_DECLARE_FEATURE(kClientSideDetectionForcedLlamaRedirectChainKillswitch);
 
@@ -409,6 +412,19 @@ extern const base::FeatureParam<std::string> kRedWarningSurveyReportTypeFilter;
 // Specifies the HaTS survey's identifier.
 extern const base::FeatureParam<std::string> kRedWarningSurveyTriggerId;
 
+// Enables HaTS surveys for Android users encountering red warnings.
+BASE_DECLARE_FEATURE(kRedWarningSurveyAndroid);
+// Specifies the HaTS survey trigger ID for general Android red warnings.
+extern const base::FeatureParam<std::string> kRedWarningSurveyAndroidTriggerId;
+// Specifies the HaTS survey trigger ID for Android red warnings when the user
+// proceeded past the warning.
+extern const base::FeatureParam<std::string>
+    kRedWarningSurveyAndroidProceedTriggerId;
+// Specifies the HaTS survey trigger ID for Android red warnings when the user
+// heeded the warning (did not proceed).
+extern const base::FeatureParam<std::string>
+    kRedWarningSurveyAndroidHeedTriggerId;
+
 // If enabled, advanced protection program users are shown relaunch to apply
 // update required.
 BASE_DECLARE_FEATURE(kRelaunchNotificationForAdvancedProtection);
@@ -469,6 +485,15 @@ BASE_DECLARE_FEATURE(kSkipImageClassificationScoringForNonPageLoadTriggers);
 
 // Controls the daily quota for the suspicious site trigger.
 BASE_DECLARE_FEATURE(kSuspiciousSiteTriggerQuotaFeature);
+
+// Enables HaTS surveys for users encountering suspicious site warnings.
+BASE_DECLARE_FEATURE(kSuspiciousSiteWarningSurvey);
+extern const base::FeatureParam<std::string>
+    kSuspiciousSiteWarningSurveyTriggerId;
+extern const base::FeatureParam<std::string>
+    kSuspiciousSiteWarningSurveyProceedTriggerId;
+extern const base::FeatureParam<std::string>
+    kSuspiciousSiteWarningSurveyHeedTriggerId;
 
 // Enables warnings on sites that Safe Browsing deems suspicious.
 BASE_DECLARE_FEATURE(kSuspiciousSiteWarnings);

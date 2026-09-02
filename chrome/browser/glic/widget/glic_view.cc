@@ -89,10 +89,23 @@ bool GlicView::CanDragEnter(content::WebContents* source,
                                       features::kGlicWebDragAndDropFileUpload));
 }
 
-void GlicView::SetWebContents(content::WebContents* web_contents) {
-  views::WebView::SetWebContents(web_contents);
-  if (web_contents) {
-    web_contents->SetDelegate(this);
+void GlicView::ContentsZoomChange(bool zoom_in) {
+  if (zoom_changed_callback_) {
+    zoom_changed_callback_.Run(zoom_in);
+  }
+}
+
+void GlicView::SetWebContents(content::WebContents* new_web_contents) {
+  // Clear the delegate on the old WebContents if this view is currently the
+  // delegate. Checks `GetDelegate() == this` to avoid clearing the delegate if
+  // another view has already taken over (e.g. during transitions between panel
+  // and floaty).
+  if (web_contents() && web_contents()->GetDelegate() == this) {
+    web_contents()->SetDelegate(nullptr);
+  }
+  views::WebView::SetWebContents(new_web_contents);
+  if (new_web_contents) {
+    new_web_contents->SetDelegate(this);
   }
 }
 

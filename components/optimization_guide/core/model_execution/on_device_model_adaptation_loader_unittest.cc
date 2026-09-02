@@ -29,7 +29,6 @@
 #include "components/optimization_guide/core/model_execution/test/fake_model_broker.h"
 #include "components/optimization_guide/core/model_execution/test/feature_config_builder.h"
 #include "components/optimization_guide/core/model_execution/test/test_on_device_model_component_state_manager.h"
-#include "components/optimization_guide/core/optimization_guide_constants.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/on_device_base_model_metadata.pb.h"
 #include "components/optimization_guide/public/mojom/model_broker.mojom-shared.h"
@@ -77,7 +76,10 @@ class OnDeviceModelAdaptationLoaderTest : public testing::Test {
   TestingPrefServiceSimple local_state_;
   OptimizationGuideLogger logger_;
   OnDeviceBaseModelSpec spec_{
-      "Test", "0.0.1", proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_HIGHEST_QUALITY};
+      .model_name = "Test",
+      .model_version = "0.0.1",
+      .selected_performance_hint =
+          proto::ON_DEVICE_MODEL_PERFORMANCE_HINT_HIGHEST_QUALITY};
   AdaptationMetadataMap metadata_;
   ModelProviderRegistry provider_{&logger_};
   AdaptationLoaderMap loaders_{

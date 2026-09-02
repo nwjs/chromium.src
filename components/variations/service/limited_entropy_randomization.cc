@@ -4,27 +4,23 @@
 
 #include "components/variations/service/limited_entropy_randomization.h"
 
-#include <math.h>
-
 #include <algorithm>
 #include <cstdint>
-#include <limits>
 
-#include "base/check_op.h"
 #include "base/debug/crash_logging.h"
 #include "base/debug/dump_without_crashing.h"
-#include "base/logging.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/numerics/checked_math.h"
-#include "base/numerics/safe_conversions.h"
 #include "base/rand_util.h"
 #include "base/version_info/version_info.h"
 #include "build/build_config.h"
 #include "components/variations/client_filterable_state.h"
 #include "components/variations/limited_layer_entropy_cost_tracker.h"
+#include "components/variations/proto/layer.pb.h"
+#include "components/variations/proto/study.pb.h"
+#include "components/variations/proto/variations_seed.pb.h"
 #include "components/variations/study_filtering.h"
 #include "components/variations/variations_layers.h"
-#include "components/variations/variations_seed_processor.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
 #define SR_CRASH_KEY "SeedRejection"
@@ -199,16 +195,19 @@ bool AppliesToClientFormFactor(const Study& study,
 
 }  // namespace
 
-double GetGoogleWebEntropyLimitInBits() {
-#if BUILDFLAG(IS_ANDROID)
-  return 21.0;
-#elif BUILDFLAG(IS_IOS) || BUILDFLAG(IS_WIN)
-  return 18.0;
-#elif BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS)
-  return 16.0;
-#else
-  return 1.0;
-#endif
+double GetMaxLimitedEntropyInBits(Study::Platform platform) {
+  switch (platform) {
+    case Study::PLATFORM_ANDROID:
+      return 21.0;
+    case Study::PLATFORM_WINDOWS:
+    case Study::PLATFORM_IOS:
+      return 18.0;
+    case Study::PLATFORM_MAC:
+    case Study::PLATFORM_CHROMEOS:
+      return 16.0;
+    default:
+      return 1.0;
+  }
 }
 
 // TODO(crbug.com/428216544): Refactor, along with variations_layers.cc, to

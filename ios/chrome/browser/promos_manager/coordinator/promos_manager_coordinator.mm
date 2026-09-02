@@ -140,8 +140,8 @@
   DCHECK(ShouldPromoManagerDisplayPromos());
   if ((self = [super initWithBaseViewController:viewController
                                         browser:browser])) {
-    CHECK(viewController, base::NotFatalUntil::M140);
-    CHECK(browser, base::NotFatalUntil::M140);
+    CHECK(viewController);
+    CHECK(browser);
     _sceneHandler = sceneHandler;
     _credentialProviderPromoCommandHandler = credentialProviderPromoHandler;
 
@@ -168,9 +168,9 @@
 }
 
 - (void)dealloc {
-  CHECK(!_mediator, base::NotFatalUntil::M140);
-  CHECK(!self.viewController, base::NotFatalUntil::M140);
-  CHECK(!self.banneredViewController, base::NotFatalUntil::M140);
+  CHECK(!_mediator);
+  CHECK(!self.viewController);
+  CHECK(!self.banneredViewController);
 }
 
 #pragma mark - Public
@@ -662,13 +662,17 @@
 - (void)registerStandardPromoAlertProviderPromos {
   ProfileIOS* profile = self.profile;
   // Post-restore sign-in promo handler.
-  _alertProviderPromos[promos_manager::Promo::PostRestoreSignInAlert] =
+  PostRestoreSignInProvider* postRestoreSignInProvider =
       [[PostRestoreSignInProvider alloc]
             initWithSyncService:SyncServiceFactory::GetForProfile(profile)
           authenticationService:AuthenticationServiceFactory::GetForProfile(
                                     profile)
                 identityManager:IdentityManagerFactory::GetForProfile(profile)
                     prefService:profile->GetPrefs()];
+  postRestoreSignInProvider.sceneHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+  _alertProviderPromos[promos_manager::Promo::PostRestoreSignInAlert] =
+      postRestoreSignInProvider;
 
   PostRestoreDefaultBrowserPromoProvider* postRestoreProvider =
       [[PostRestoreDefaultBrowserPromoProvider alloc] init];

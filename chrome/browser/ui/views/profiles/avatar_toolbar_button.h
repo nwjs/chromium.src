@@ -5,15 +5,10 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_PROFILES_AVATAR_TOOLBAR_BUTTON_H_
 #define CHROME_BROWSER_UI_VIEWS_PROFILES_AVATAR_TOOLBAR_BUTTON_H_
 
-#include "base/auto_reset.h"
 #include "base/callback_list.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/observer_list.h"
-#include "base/observer_list_types.h"
-#include "base/time/time.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_state_manager.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button_types.h"
 #include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
@@ -23,7 +18,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/events/event.h"
 
-class BrowserView;
+class BrowserWindowInterface;
 struct AccountInfo;
 class StateProvider;
 class AvatarToolbarButtonTestAccessor;
@@ -39,7 +34,7 @@ class AvatarToolbarButton : public ToolbarButton,
  public:
   using Observer = AvatarToolbarButtonInterface::Observer;
 
-  explicit AvatarToolbarButton(BrowserView* browser);
+  explicit AvatarToolbarButton(BrowserWindowInterface* browser);
   AvatarToolbarButton(const AvatarToolbarButton&) = delete;
   AvatarToolbarButton& operator=(const AvatarToolbarButton&) = delete;
   ~AvatarToolbarButton() override;

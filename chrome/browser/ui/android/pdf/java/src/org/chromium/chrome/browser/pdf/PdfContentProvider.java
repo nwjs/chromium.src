@@ -12,6 +12,8 @@ import android.database.MatrixCursor;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
+import android.system.Os;
+import android.system.OsConstants;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
@@ -95,7 +97,10 @@ public class PdfContentProvider extends ContentProvider {
             if (pfd != null) {
                 return createContentUri(tabId, filePath, pfd, fileName);
             }
-        } catch (Exception e) {
+        } catch (IOException
+                | SecurityException
+                | IllegalArgumentException
+                | IllegalStateException e) {
             Log.e(TAG, "Failed to open ParcelFileDescriptor for path: " + filePath, e);
         }
         return null;
@@ -198,7 +203,24 @@ public class PdfContentProvider extends ContentProvider {
             for (Map.Entry<String, PdfFileInfo> entry : sStreamRegistry.entrySet()) {
                 PdfFileInfo info = entry.getValue();
                 if (info.tabId.equals(tabId) && info.filePath.equals(filePath)) {
-                    return getUriForUniqueId(entry.getKey());
+                    try (ParcelFileDescriptor validationDup = info.pfd.dup()) {
+                        if (validationDup != null && validationDup.getFileDescriptor().valid()) {
+                            return getUriForUniqueId(entry.getKey());
+                        }
+                    } catch (IOException e) {
+                        Log.w(
+                                TAG,
+                                "Registered stream FD is no longer valid for Tab: %s, removing"
+                                        + " stale entry.",
+                                tabId);
+                    }
+                    sStreamRegistry.remove(entry.getKey());
+                    PostTask.postTask(
+                            TaskTraits.BEST_EFFORT_MAY_BLOCK,
+                            () -> {
+                                StreamUtil.closeQuietly(info.pfd);
+                            });
+                    break;
                 }
             }
         }
@@ -257,14 +279,8 @@ public class PdfContentProvider extends ContentProvider {
         }
     }
 
-    /**
-     * @see ContentProvider#openFile(Uri, String)
-     */
     @Override
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
-        if (mode != null && (mode.contains("w") || mode.contains("wt"))) {
-            throw new FileNotFoundException("Write mode not supported.");
-        }
         if (uri == null) {
             throw new FileNotFoundException("Cannot open an empty Uri.");
         }
@@ -276,10 +292,26 @@ public class PdfContentProvider extends ContentProvider {
 
         PdfFileInfo info = sStreamRegistry.get(uniqueId);
         if (info != null) {
+            if (info.filePath != null) {
+                try {
+                    File file = new File(info.filePath);
+                    int pfdMode =
+                            mode != null
+                                    ? ParcelFileDescriptor.parseMode(mode)
+                                    : ParcelFileDescriptor.MODE_READ_ONLY;
+                    return ParcelFileDescriptor.open(file, pfdMode);
+                } catch (IOException | IllegalArgumentException | SecurityException ignored) {
+                }
+            }
             try {
                 // Duplicate so each caller owns an independent descriptor; closing one
                 // does not invalidate descriptors held by other callers.
-                return info.pfd.dup();
+                ParcelFileDescriptor dup = info.pfd.dup();
+                try {
+                    Os.lseek(dup.getFileDescriptor(), 0, OsConstants.SEEK_SET);
+                } catch (Exception ignored) {
+                }
+                return dup;
             } catch (IOException e) {
                 throw new FileNotFoundException(
                         "Failed to duplicate file descriptor: " + e.getMessage());

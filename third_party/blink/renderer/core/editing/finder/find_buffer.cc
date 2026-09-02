@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/core/layout/layout_block_flow.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/text/unicode_utilities.h"
 #include "third_party/blink/renderer/platform/wtf/text/character_names.h"
 #include "third_party/blink/renderer/platform/wtf/text/unicode.h"
@@ -230,7 +231,9 @@ bool IsIfcWithRuby(const Node& block_ancestor) {
 
 // FindBuffer implementation.
 FindBuffer::FindBuffer(const EphemeralRangeInFlatTree& range,
-                       RubySupport ruby_support) {
+                       RubySupport ruby_support,
+                       FindOptions find_options)
+    : buffer_options_(find_options) {
   DCHECK(range.IsNotNull() && !range.IsCollapsed()) << range;
   CollectTextUntilBlockBoundary(range, ruby_support);
 }
@@ -240,13 +243,13 @@ bool FindBuffer::IsInvalidMatch(MatchResultIcu match) const {
   // replaced with the kNonCharacter, and may lead to crashes. To avoid
   // crashing, we should skip the matches that are invalid - they would have
   // either an empty position or a non-offset-in-anchor position.
-  const unsigned start_index = match.start;
+  const wtf_size_t start_index = match.start;
   PositionInFlatTree start_position =
       PositionAtStartOfCharacterAtIndex(start_index);
   if (start_position.IsNull() || !start_position.IsOffsetInAnchor())
     return true;
 
-  const unsigned end_index = match.start + match.length;
+  const wtf_size_t end_index = match.start + match.length;
   DCHECK_LE(start_index, end_index);
   PositionInFlatTree end_position =
       PositionAtEndOfCharacterAtIndex(end_index - 1);
@@ -300,7 +303,8 @@ EphemeralRangeInFlatTree FindBuffer::FindMatchInRange(
     FindBuffer buffer(
         EphemeralRangeInFlatTree(start_position, range.EndPosition()),
         options.IsRubySupported() ? RubySupport::kEnabledIfNecessary
-                                  : RubySupport::kDisabled);
+                                  : RubySupport::kDisabled,
+        options);
     FindResults match_results = buffer.FindMatches(search_text, options);
     if (!match_results.IsEmpty()) {
       if (!options.IsBackwards()) {
@@ -405,6 +409,11 @@ Node* FindBuffer::BackwardVisibleTextNode(Node& start_node) {
 
 FindResults FindBuffer::FindMatches(const String& search_text,
                                     const blink::FindOptions options) {
+  // MatchAcrossIgnoredNodes is determined by buffer construction. Checked here
+  // to catch caller mismatches.
+  DCHECK_EQ(buffer_options_.MatchAcrossIgnoredNodes(),
+            options.MatchAcrossIgnoredNodes());
+
   // We should return empty result if it's impossible to get a match (buffer is
   // empty), or when something went wrong in layout, in which case
   // |offset_mapping_| is null.
@@ -486,7 +495,7 @@ void FindBuffer::CollectTextUntilBlockBoundary(
       }
       // Replace the node with char constants so we wouldn't encounter this node
       // or its descendants later.
-      ReplaceNodeWithCharConstants(*node, buffer_);
+      ReplaceNodeWithCharConstants(*node);
       node = FlatTreeTraversal::NextSkippingChildren(*node);
       continue;
     }
@@ -529,16 +538,20 @@ void FindBuffer::CollectTextUntilBlockBoundary(
   FoldQuoteMarksAndSoftHyphens(base::span(buffer_));
 }
 
-void FindBuffer::ReplaceNodeWithCharConstants(const Node& node,
-                                              Vector<UChar>& buffer) {
+void FindBuffer::ReplaceNodeWithCharConstants(const Node& node) {
   if (std::optional<UChar> ch = CharConstantForNode(node)) {
-    buffer.push_back(*ch);
+    if (RuntimeEnabledFeatures::FindBufferMatchAcrossIgnoredNodesEnabled() &&
+        *ch == uchar::kNonCharacter &&
+        buffer_options_.MatchAcrossIgnoredNodes()) {
+      return;
+    }
+    buffer_.push_back(*ch);
   }
 }
 
 EphemeralRangeInFlatTree FindBuffer::RangeFromBufferIndex(
-    unsigned start_index,
-    unsigned end_index) const {
+    wtf_size_t start_index,
+    wtf_size_t end_index) const {
   DCHECK_LE(start_index, end_index);
   PositionInFlatTree start_position =
       PositionAtStartOfCharacterAtIndex(start_index);
@@ -548,12 +561,12 @@ EphemeralRangeInFlatTree FindBuffer::RangeFromBufferIndex(
 }
 
 const FindBuffer::BufferNodeMapping* FindBuffer::MappingForIndex(
-    unsigned index) const {
+    wtf_size_t index) const {
   // Get the first entry that starts at a position higher than offset, and
   // move back one entry.
   auto it = std::upper_bound(
       buffer_node_mappings_.begin(), buffer_node_mappings_.end(), index,
-      [](const unsigned offset, const BufferNodeMapping& entry) {
+      [](const wtf_size_t offset, const BufferNodeMapping& entry) {
         return offset < entry.offset_in_buffer;
       });
   if (it == buffer_node_mappings_.begin())
@@ -563,7 +576,7 @@ const FindBuffer::BufferNodeMapping* FindBuffer::MappingForIndex(
 }
 
 PositionInFlatTree FindBuffer::PositionAtStartOfCharacterAtIndex(
-    unsigned index) const {
+    wtf_size_t index) const {
   DCHECK_LT(index, buffer_.size());
   DCHECK(offset_mapping_);
   const BufferNodeMapping* entry = MappingForIndex(index);
@@ -574,7 +587,7 @@ PositionInFlatTree FindBuffer::PositionAtStartOfCharacterAtIndex(
 }
 
 PositionInFlatTree FindBuffer::PositionAtEndOfCharacterAtIndex(
-    unsigned index) const {
+    wtf_size_t index) const {
   DCHECK_LT(index, buffer_.size());
   DCHECK(offset_mapping_);
   const BufferNodeMapping* entry = MappingForIndex(index);
@@ -644,7 +657,7 @@ void FindBuffer::AddTextToBuffer(const Text& text_node,
       (&text_node == range.EndPosition().ComputeContainerNode())
           ? ToPositionInDomTree(range.EndPosition().ToOffsetInAnchor())
           : Position::LastPositionInNode(text_node);
-  unsigned last_unit_end = 0;
+  wtf_size_t last_unit_end = 0;
   bool first_unit = true;
   const String mapped_text = offset_mapping_->GetText();
   for (const OffsetMappingUnit& unit :

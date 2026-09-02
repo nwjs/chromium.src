@@ -14,6 +14,9 @@
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "remoting/base/buildflags.h"
 #include "remoting/base/errors.h"
+#include "remoting/base/port_range.h"
+#include "remoting/base/session_options.h"
+#include "remoting/base/session_policies.h"
 #include "remoting/base/source_location.h"
 #include "remoting/host/mojom/common.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -23,6 +26,7 @@
 #include "remoting/host/base/desktop_environment_options.h"
 #include "remoting/host/base/screen_resolution.h"
 #include "remoting/host/mojom/desktop_session.mojom.h"
+#include "remoting/host/mojom/peer_session.mojom.h"
 #include "remoting/host/mojom/remoting_host.mojom.h"
 #include "remoting/host/mojom/webrtc_types.mojom.h"
 #include "remoting/proto/audio.pb.h"
@@ -30,9 +34,12 @@
 #include "remoting/proto/event.pb.h"
 #include "remoting/proto/file_transfer.pb.h"
 #include "remoting/protocol/transport.h"
+#include "remoting/signaling/jingle_data_structures.h"
+#include "third_party/webrtc/api/candidate.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capture_options.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_capturer.h"
 #include "third_party/webrtc/modules/desktop_capture/desktop_geometry.h"
+#include "third_party/webrtc/rtc_base/socket_address.h"
 #endif  // BUILDFLAG(REMOTING_MULTI_PROCESS)
 
 namespace remoting {
@@ -795,6 +802,336 @@ TEST(RemotingMojomTraitsTest, IpcFifoBufferReader) {
   std::vector<uint8_t> read_data(4);
   EXPECT_EQ(output->Read(read_data), 4u);
   EXPECT_EQ(read_data, data);
+}
+
+#endif  // BUILDFLAG(REMOTING_MULTI_PROCESS)
+
+TEST(RemotingMojomTraitsTest, PortRangeValidAndInvalid) {
+  auto valid_input = *PortRange::Create(1000, 2000);
+  PortRange valid_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::PortRange>(
+      valid_input, valid_output));
+  EXPECT_EQ(valid_input, valid_output);
+  EXPECT_FALSE(valid_output.is_null());
+  EXPECT_EQ(valid_output.min_port(), 1000u);
+  EXPECT_EQ(valid_output.max_port(), 2000u);
+
+  PortRange null_input;
+  PortRange null_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::PortRange>(
+      null_input, null_output));
+  EXPECT_EQ(null_input, null_output);
+  EXPECT_TRUE(null_output.is_null());
+
+  // Direct deserialization of invalid mojom struct should fail.
+  auto invalid_mojom = mojom::PortRange::New(2000, 1000);
+  PortRange invalid_output;
+  EXPECT_FALSE(mojom::PortRange::Deserialize(
+      mojom::PortRange::Serialize(&invalid_mojom), &invalid_output));
+
+  auto invalid_min_zero_mojom = mojom::PortRange::New(0, 80);
+  EXPECT_FALSE(mojom::PortRange::Deserialize(
+      mojom::PortRange::Serialize(&invalid_min_zero_mojom), &invalid_output));
+
+  auto invalid_max_zero_mojom = mojom::PortRange::New(80, 0);
+  EXPECT_FALSE(mojom::PortRange::Deserialize(
+      mojom::PortRange::Serialize(&invalid_max_zero_mojom), &invalid_output));
+}
+
+TEST(RemotingMojomTraitsTest, SessionPoliciesRoundTripAndValidation) {
+  SessionPolicies input;
+  input.clipboard_size_bytes = 102400;
+  input.allow_stun_connections = false;
+  input.allow_relayed_connections = true;
+  input.host_udp_port_range = *PortRange::Create(12400, 12409);
+  input.allow_file_transfer = false;
+  input.allow_uri_forwarding = true;
+  input.maximum_session_duration = base::Minutes(60);
+  input.curtain_required = true;
+  input.host_username_match_required = false;
+  input.allow_remote_input = true;
+  input.allow_webauthn_forwarding = false;
+  input.allow_gnubby_forwarding = true;
+
+  SessionPolicies output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::SessionPolicies>(
+      input, output));
+  EXPECT_EQ(input, output);
+
+  // Test default/empty policies.
+  SessionPolicies empty_input;
+  SessionPolicies empty_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::SessionPolicies>(
+      empty_input, empty_output));
+  EXPECT_EQ(empty_input, empty_output);
+
+  // Test large (64-bit) clipboard size.
+  SessionPolicies large_clipboard_input;
+  large_clipboard_input.clipboard_size_bytes = 5ULL * 1024 * 1024 * 1024;
+  SessionPolicies large_clipboard_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::SessionPolicies>(
+      large_clipboard_input, large_clipboard_output));
+  EXPECT_EQ(large_clipboard_input, large_clipboard_output);
+}
+
+TEST(RemotingMojomTraitsTest, SessionOptionsRoundTrip) {
+  SessionOptions input;
+  input.detect_updated_region = true;
+  input.capture_video_on_dedicated_thread = false;
+#if BUILDFLAG(IS_MAC)
+  input.enable_sck_capturer = true;
+#endif
+#if BUILDFLAG(IS_WIN)
+  input.allow_dxgi_capturer = false;
+#endif
+  input.disable_udp = true;
+  input.vp9_encoder_speed = 8;
+  input.av1_active_map = false;
+  input.av1_encoder_speed = 6;
+
+  SessionOptions output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::SessionOptions>(
+      input, output));
+  EXPECT_EQ(input, output);
+
+  SessionOptions empty_input;
+  SessionOptions empty_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::SessionOptions>(
+      empty_input, empty_output));
+  EXPECT_EQ(empty_input, empty_output);
+}
+
+#if BUILDFLAG(REMOTING_MULTI_PROCESS)
+
+TEST(RemotingMojomTraitsTest, WebrtcSocketAddressRoundTrip) {
+  webrtc::SocketAddress input("192.168.1.100", 5000);
+  webrtc::SocketAddress output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::WebrtcSocketAddress>(
+      input, output));
+  EXPECT_EQ(input, output);
+
+  webrtc::SocketAddress ipv6_input("2001:db8::1", 8080);
+  webrtc::SocketAddress ipv6_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::WebrtcSocketAddress>(
+      ipv6_input, ipv6_output));
+  EXPECT_EQ(ipv6_input, ipv6_output);
+
+  webrtc::SocketAddress hostname_input("example.com", 443);
+  webrtc::SocketAddress hostname_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::WebrtcSocketAddress>(
+      hostname_input, hostname_output));
+  EXPECT_EQ(hostname_input, hostname_output);
+}
+
+class WebrtcIceCandidateTypeTest
+    : public testing::TestWithParam<webrtc::IceCandidateType> {};
+
+TEST_P(WebrtcIceCandidateTypeTest, RoundTrip) {
+  webrtc::IceCandidateType input = GetParam();
+  webrtc::IceCandidateType output;
+  ASSERT_TRUE(
+      mojo::test::SerializeAndDeserialize<mojom::WebrtcIceCandidateType>(
+          input, output));
+  EXPECT_EQ(input, output);
+}
+
+INSTANTIATE_TEST_SUITE_P(RemotingMojomTraitsTest,
+                         WebrtcIceCandidateTypeTest,
+                         testing::Values(webrtc::IceCandidateType::kHost,
+                                         webrtc::IceCandidateType::kSrflx,
+                                         webrtc::IceCandidateType::kPrflx,
+                                         webrtc::IceCandidateType::kRelay));
+
+TEST(RemotingMojomTraitsTest, WebrtcCandidateRoundTrip) {
+  webrtc::Candidate input(1, "udp", webrtc::SocketAddress("192.168.1.10", 5000),
+                          2130706431, "username", "password",
+                          webrtc::IceCandidateType::kHost, 0, "foundation", 0,
+                          0);
+  input.set_tcptype("passive");
+  input.set_related_address(webrtc::SocketAddress("10.0.0.1", 4000));
+  input.set_network_cost(10);
+
+  webrtc::Candidate output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::WebrtcCandidate>(
+      input, output));
+
+  EXPECT_EQ(input.foundation(), output.foundation());
+  EXPECT_EQ(input.component(), output.component());
+  EXPECT_EQ(input.protocol(), output.protocol());
+  EXPECT_EQ(input.priority(), output.priority());
+  EXPECT_EQ(input.address(), output.address());
+  EXPECT_EQ(input.type(), output.type());
+  EXPECT_EQ(input.tcptype(), output.tcptype());
+  EXPECT_EQ(input.related_address(), output.related_address());
+  EXPECT_EQ(input.username(), output.username());
+  EXPECT_EQ(input.password(), output.password());
+  EXPECT_EQ(input.generation(), output.generation());
+  EXPECT_EQ(input.network_id(), output.network_id());
+  EXPECT_EQ(input.network_cost(), output.network_cost());
+}
+
+class SdpTypeTest : public testing::TestWithParam<SessionDescription::Type> {};
+
+TEST_P(SdpTypeTest, RoundTrip) {
+  SessionDescription::Type input = GetParam();
+  SessionDescription::Type output;
+  ASSERT_TRUE(
+      mojo::test::SerializeAndDeserialize<mojom::SdpType>(input, output));
+  EXPECT_EQ(input, output);
+}
+
+INSTANTIATE_TEST_SUITE_P(RemotingMojomTraitsTest,
+                         SdpTypeTest,
+                         testing::Values(SessionDescription::Type::kUnspecified,
+                                         SessionDescription::Type::kOffer,
+                                         SessionDescription::Type::kAnswer));
+
+TEST(RemotingMojomTraitsTest, SessionDescriptionRoundTrip) {
+  SessionDescription input;
+  input.type = SessionDescription::Type::kOffer;
+  input.sdp = "v=0\r\no=- 12345 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\n";
+  input.signature = {0x01, 0x02, 0x03, 0x04, 0xAA, 0xBB, 0xCC};
+
+  SessionDescription output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::SessionDescription>(
+      input, output));
+
+  EXPECT_EQ(input.type, output.type);
+  EXPECT_EQ(input.sdp, output.sdp);
+  EXPECT_EQ(input.signature, output.signature);
+}
+
+TEST(RemotingMojomTraitsTest, NamedCandidateRoundTrip) {
+  webrtc::Candidate webrtc_candidate(
+      1, "udp", webrtc::SocketAddress("192.168.1.10", 5000), 2130706431, "user",
+      "pass", webrtc::IceCandidateType::kHost, 0, "found1", 0, 0);
+
+  IceTransportInfo::NamedCandidate input("audio", webrtc_candidate, 0);
+  IceTransportInfo::NamedCandidate output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::NamedCandidate>(
+      input, output));
+
+  EXPECT_EQ(input.name, output.name);
+  EXPECT_EQ(input.sdp_m_line_index, output.sdp_m_line_index);
+  EXPECT_EQ(input.candidate.foundation(), output.candidate.foundation());
+  EXPECT_EQ(input.candidate.address(), output.candidate.address());
+
+  IceTransportInfo::NamedCandidate no_mline_input("video", webrtc_candidate,
+                                                  std::nullopt);
+  IceTransportInfo::NamedCandidate no_mline_output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::NamedCandidate>(
+      no_mline_input, no_mline_output));
+  EXPECT_EQ(no_mline_input.name, no_mline_output.name);
+  EXPECT_FALSE(no_mline_output.sdp_m_line_index.has_value());
+}
+
+TEST(RemotingMojomTraitsTest, JingleTransportInfoRoundTrip) {
+  JingleTransportInfo input;
+
+  webrtc::Candidate candidate1(
+      1, "udp", webrtc::SocketAddress("192.168.1.10", 5000), 2130706431, "user",
+      "pass", webrtc::IceCandidateType::kHost, 0, "found1", 0, 0);
+  webrtc::Candidate candidate2(
+      2, "udp", webrtc::SocketAddress("1.2.3.4", 6000), 16777215, "user",
+      "pass", webrtc::IceCandidateType::kSrflx, 0, "found2", 0, 0);
+  candidate2.set_related_address(webrtc::SocketAddress("192.168.1.10", 5000));
+
+  input.candidates.emplace_back("audio", candidate1, 0);
+  input.candidates.emplace_back("video", candidate2, 1);
+
+  SessionDescription sdp;
+  sdp.type = SessionDescription::Type::kOffer;
+  sdp.sdp = "v=0\r\n";
+  sdp.signature = {0xDE, 0xAD, 0xBE, 0xEF};
+  input.session_description = sdp;
+
+  JingleTransportInfo output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::JingleTransportInfo>(
+      input, output));
+
+  ASSERT_EQ(output.candidates.size(), 2u);
+  EXPECT_EQ(output.candidates[0].name, "audio");
+  EXPECT_EQ(output.candidates[0].candidate.address(),
+            webrtc::SocketAddress("192.168.1.10", 5000));
+  EXPECT_EQ(output.candidates[1].name, "video");
+  EXPECT_EQ(output.candidates[1].candidate.type(),
+            webrtc::IceCandidateType::kSrflx);
+  EXPECT_EQ(output.candidates[1].candidate.related_address(),
+            webrtc::SocketAddress("192.168.1.10", 5000));
+  ASSERT_TRUE(output.session_description.has_value());
+  EXPECT_EQ(output.session_description->type, SessionDescription::Type::kOffer);
+  EXPECT_EQ(output.session_description->sdp, "v=0\r\n");
+  EXPECT_EQ(output.session_description->signature, sdp.signature);
+}
+
+TEST(RemotingMojomTraitsTest, WebrtcProtocolTypeRoundTrip) {
+  static constexpr webrtc::ProtocolType kTypes[] = {
+      webrtc::PROTO_UDP,    webrtc::PROTO_DTLS, webrtc::PROTO_TCP,
+      webrtc::PROTO_SSLTCP, webrtc::PROTO_TLS,
+  };
+  for (auto type : kTypes) {
+    webrtc::ProtocolType output;
+    ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::WebrtcProtocolType>(
+        type, output));
+    EXPECT_EQ(type, output);
+  }
+}
+
+TEST(RemotingMojomTraitsTest, WebrtcRelayServerConfigRoundTrip) {
+  webrtc::RelayServerConfig input;
+  input.credentials.username = "test_username";
+  input.credentials.password = "test_password";
+  input.ports.emplace_back(webrtc::SocketAddress("relay.example.com", 3478),
+                           webrtc::PROTO_UDP);
+  input.ports.emplace_back(webrtc::SocketAddress("relay.example.com", 443),
+                           webrtc::PROTO_TLS);
+
+  webrtc::RelayServerConfig output;
+  ASSERT_TRUE(
+      mojo::test::SerializeAndDeserialize<mojom::WebrtcRelayServerConfig>(
+          input, output));
+  EXPECT_EQ(input.credentials.username, output.credentials.username);
+  EXPECT_EQ(input.credentials.password, output.credentials.password);
+  ASSERT_EQ(output.ports.size(), 2u);
+  EXPECT_EQ(output.ports[0].address,
+            webrtc::SocketAddress("relay.example.com", 3478));
+  EXPECT_EQ(output.ports[0].proto, webrtc::PROTO_UDP);
+  EXPECT_EQ(output.ports[1].address,
+            webrtc::SocketAddress("relay.example.com", 443));
+  EXPECT_EQ(output.ports[1].proto, webrtc::PROTO_TLS);
+}
+
+TEST(RemotingMojomTraitsTest, IceConfigRoundTrip) {
+  protocol::IceConfig input;
+  input.expiration_time = base::Time::Now() + base::Hours(2);
+  input.max_bitrate_kbps = 2000;
+  input.stun_servers.emplace_back("stun.example.com", 19302);
+  input.turn_servers.emplace_back("turn.example.com", 3478, "turn_user",
+                                  "turn_pass", webrtc::PROTO_UDP, false);
+
+  protocol::IceConfig output;
+  ASSERT_TRUE(
+      mojo::test::SerializeAndDeserialize<mojom::IceConfig>(input, output));
+  EXPECT_EQ(input.expiration_time, output.expiration_time);
+  EXPECT_EQ(input.max_bitrate_kbps, output.max_bitrate_kbps);
+  ASSERT_EQ(output.stun_servers.size(), 1u);
+  EXPECT_EQ(output.stun_servers[0],
+            webrtc::SocketAddress("stun.example.com", 19302));
+  ASSERT_EQ(output.turn_servers.size(), 1u);
+  EXPECT_EQ(output.turn_servers[0].credentials.username, "turn_user");
+  EXPECT_EQ(output.turn_servers[0].credentials.password, "turn_pass");
+}
+
+TEST(RemotingMojomTraitsTest, PairingResponseRoundTrip) {
+  protocol::PairingResponse input;
+  input.set_client_id("test_client_id_12345");
+  input.set_shared_secret("test_shared_secret_abcde");
+
+  protocol::PairingResponse output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<mojom::PairingResponse>(
+      input, output));
+  EXPECT_EQ(input.client_id(), output.client_id());
+  EXPECT_EQ(input.shared_secret(), output.shared_secret());
 }
 
 #endif  // BUILDFLAG(REMOTING_MULTI_PROCESS)

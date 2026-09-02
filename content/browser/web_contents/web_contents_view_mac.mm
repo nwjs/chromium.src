@@ -407,6 +407,9 @@ void WebContentsViewMac::CreateView(gfx::NativeView context) {
   in_process_ns_view_bridge_ =
       std::make_unique<remote_cocoa::WebContentsNSViewBridge>(ns_view_id_,
                                                               this);
+  if (web_contents_->GetVisibility() == Visibility::HIDDEN) {
+    in_process_ns_view_bridge_->SetVisible(false);
+  }
 
   drag_dest_ = [[WebDragDest alloc] initWithWebContentsImpl:web_contents_];
   if (delegate_)
@@ -458,6 +461,13 @@ RenderWidgetHostViewBase* WebContentsViewMac::CreateViewForWidget(
                         positioned:NSWindowBelow
                         relativeTo:nil];
   [GetInProcessNSView() setNextKeyView:view_view];
+
+  // There is no NSWindow when running headless, so send the frame bounds to the
+  // view synchronously to ensure its initial screen info is accurate.
+  if (![GetInProcessNSView() window]) {
+    view->SetWindowFrameInScreen(
+        gfx::ScreenRectFromNSRect([GetInProcessNSView() frame]));
+  }
   return view;
 }
 
@@ -467,7 +477,7 @@ RenderWidgetHostViewBase* WebContentsViewMac::CreateViewForChildWidget(
       new RenderWidgetHostViewMac(render_widget_host);
 
   // If the parent RenderWidgetHostViewMac is hosted in another process, ensure
-  // that the popup window will be created created in the same process.
+  // that the popup window will be created in the same process.
   // https://crbug.com/1091179
   if (views_host_) {
     auto* remote_cocoa_application = views_host_->GetRemoteCocoaApplication();
@@ -758,6 +768,9 @@ void WebContentsViewMac::ViewsHostableAttach(
 
     remote_cocoa_application->CreateWebContentsNSView(
         ns_view_id_, std::move(stub_host), std::move(stub_ns_view_receiver));
+    if (web_contents_->GetVisibility() == Visibility::HIDDEN) {
+      remote_ns_view_->SetVisible(false);
+    }
     remote_ns_view_->SetParentNSView(views_host_->GetNSViewId());
 
     // Because this view is being displayed from a remote process, reset the

@@ -206,12 +206,14 @@ AutofillExtractionContext::AutofillExtractionContext(
     base::WeakPtr<web::WebState> web_state,
     std::optional<autofill::LocalFrameToken> frame_token,
     bool extract_autofill_credit_card_redactions,
+    bool extract_autofill_otp_redactions,
     raw_ptr<base::flat_map<std::string, uint32_t>> section_numbers)
     : web_state(std::move(web_state)),
       frame_token(std::move(frame_token)),
       section_numbers(section_numbers),
       extract_autofill_credit_card_redactions(
-          extract_autofill_credit_card_redactions) {
+          extract_autofill_credit_card_redactions),
+      extract_autofill_otp_redactions(extract_autofill_otp_redactions) {
   CHECK(section_numbers);
 }
 AutofillExtractionContext::~AutofillExtractionContext() = default;
@@ -271,8 +273,10 @@ bool ShouldRedactContent(
 
     case optimization_guide::proto::
         REDACTION_DECISION_REDACTED_HAS_BEEN_PASSWORD:
-    case optimization_guide::proto::REDACTION_DECISION_REDACTED_IS_OTP:
       return true;
+
+    case optimization_guide::proto::REDACTION_DECISION_REDACTED_IS_OTP:
+      return autofill_context.extract_autofill_otp_redactions;
 
     case optimization_guide::proto::
         REDACTION_DECISION_REDACTED_IS_SENSITIVE_PAYMENT_FIELD:

@@ -9,9 +9,14 @@ import type {ExtensionElement} from './extension.js';
 export function getHtml(this: ExtensionElement) {
   return html`<!--_html_template_start_-->
   <cr-button type="button"
+      tabindex="-1"
       ?is-menu-open="${this.trackedHighlighted}"
       title="${this.state.tooltip}"
       aria-label="${this.state.accessibleName || this.state.tooltip}"
+      draggable="${this.isDraggable()}"
+      @dragstart="${this.onDragstart}"
+      @dragend="${this.onDragend}"
+      @keydown="${this.onKeydown}"
       @click="${this.onClick_}"
       @contextmenu="${this.onContextmenu_}">
       <icon-from-table .iconHandle="${this.state.icon}"></icon-from-table>

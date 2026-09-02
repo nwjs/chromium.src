@@ -23,6 +23,7 @@ import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.native_page.NativePage;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.components.tabs.DetachReason;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.NavigationHandle;
 import org.chromium.content_public.browser.WebContents;
@@ -481,6 +482,11 @@ public interface Tab extends TabLifecycle {
      */
     void setIsPinned(boolean isPinned);
 
+    /** Returns the active alert state for this tab, or null if no alert applies. */
+    @Nullable
+    @TabAlert
+    Integer getAlertState();
+
     /** Returns the media state of the tab. */
     @MediaState
     int getMediaState();
@@ -512,9 +518,6 @@ public interface Tab extends TabLifecycle {
      * TabDragStateData}. This exists as a convenience method for plumbing the data to native.
      */
     boolean isDragging();
-
-    /** Returns whether the tab has a TabInterfaceAndroid object. */
-    boolean hasTabInterfaceAndroid();
 
     /** Returns the supplier for whether the tab is currently being used for offscreen rendering. */
     NonNullObservableSupplier<Boolean> getIsOffscreenRenderingSupplier();

@@ -11,7 +11,6 @@ import android.content.res.Resources;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
 import android.view.View;
@@ -28,7 +27,6 @@ import androidx.core.view.ViewCompat;
 import org.chromium.base.Callback;
 import org.chromium.base.ObserverList;
 import org.chromium.base.ResettersForTesting;
-import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
@@ -569,7 +567,7 @@ public class HierarchicalMenuController<T> {
         modelList.set(targetItems);
     }
 
-    /** Returns a shallow copy of {@param modelList}. */
+    /** Returns a shallow copy of {@code modelList}. */
     private ModelList shallowCopy(ModelList modelList) {
         ModelList result = new ModelList();
         for (ListItem item : modelList) {
@@ -578,7 +576,7 @@ public class HierarchicalMenuController<T> {
         return result;
     }
 
-    /** Returns whether {@param item} has a click listener. */
+    /** Returns whether {@code item} has a click listener. */
     public boolean hasClickListener(ListItem item) {
         return item.model != null
                 && item.model.containsKey(mKeyProvider.getClickListenerKey())
@@ -586,10 +584,10 @@ public class HierarchicalMenuController<T> {
     }
 
     /**
-     * Makes {@param dismissDialog} run at the end of the callback of {@param item}. If the item
+     * Makes {@code dismissDialog} run at the end of the callback of {@code item}. If the item
      * doesn't already have a click callback in its model, no click callback is added.
      *
-     * @param item The item to which we would add {@param runnable}.
+     * @param item The item to which we would add {@code runnable}.
      * @param dismissDialog The {@link Runnable} to run to dismiss the dialog.
      */
     private void addRunnableToCallback(ListItem item, Runnable dismissDialog) {
@@ -607,7 +605,7 @@ public class HierarchicalMenuController<T> {
     /**
      * Sets up the necessary callbacks for a menu item and its sub-items, recursively. This includes
      * setting hover listener for flyout menus and click listener for drill-down menus. It also
-     * attaches the {@param dismissDialog} runnable to the click handlers of terminal items.
+     * attaches the {@code dismissDialog} runnable to the click handlers of terminal items.
      *
      * @param headerModelList {@link ModelList} for unscrollable top header; null if headers scroll.
      * @param contentModelList {@link ModelList} for the scrollable content of the menu.
@@ -705,7 +703,7 @@ public class HierarchicalMenuController<T> {
     }
 
     /**
-     * Runs {@param dismissDialog} at the end of each callback, recursively (through submenu items).
+     * Runs {@code dismissDialog} at the end of each callback, recursively (through submenu items).
      * If an item doesn't already have a click callback in its model, no click callback is added.
      *
      * @param headerModelList {@link ModelList} for unscrollable top header; null if headers scroll.
@@ -716,7 +714,6 @@ public class HierarchicalMenuController<T> {
             @Nullable ModelList headerModelList,
             ModelList contentModelList,
             Runnable dismissDialog) {
-        long time = SystemClock.elapsedRealtime();
         if (headerModelList != null) {
             for (ListItem listItem : headerModelList) {
                 setupCallbacksForItem(
@@ -737,9 +734,6 @@ public class HierarchicalMenuController<T> {
                     /* levelOfHoveredItem= */ 0,
                     new ArrayList<ListItem>());
         }
-        RecordHistogram.recordTimesHistogram(
-                "ListMenuUtils.SetupCallbacksRecursively.Duration",
-                SystemClock.elapsedRealtime() - time);
     }
 
     /**
@@ -804,7 +798,7 @@ public class HierarchicalMenuController<T> {
 
         /**
          * Returns a {@link AccessibilityListObserver} that reacts to changes in {@param
-         * headerModelList and {@param contentModelList}, the are backing models for {@param view}.
+         * headerModelList and {@param contentModelList}, the are backing models for {@code view}.
          */
         public AccessibilityListObserver(
                 View parentView,

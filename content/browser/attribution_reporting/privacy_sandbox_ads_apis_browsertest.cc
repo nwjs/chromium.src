@@ -7,7 +7,6 @@
 #include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
-#include "content/browser/browsing_topics/test_util.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/common/features.h"
@@ -30,7 +29,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/mojom/browsing_topics/browsing_topics.mojom.h"
 #include "url/gurl.h"
 
 namespace content {
@@ -89,10 +87,8 @@ class PrivacySandboxAdsAPIsM1OverrideBrowserTest
   PrivacySandboxAdsAPIsM1OverrideBrowserTest() {
     feature_list_.InitWithFeatures(
         {features::kPrivacySandboxAdsAPIsM1Override,
-         network::features::kBrowsingTopics,
-         blink::features::kBrowsingTopicsDocumentAPI, blink::features::kFledge,
-         blink::features::kAdInterestGroupAPI, blink::features::kFencedFrames,
-         network::features::kSharedStorageAPI},
+         network::features::kBrowsingTopics, blink::features::kFledge,
+         blink::features::kAdInterestGroupAPI, blink::features::kFencedFrames},
         /*disabled_features=*/{});
   }
 
@@ -107,11 +103,7 @@ IN_PROC_BROWSER_TEST_F(PrivacySandboxAdsAPIsM1OverrideBrowserTest,
   EXPECT_EQ(true, EvalJs(shell(),
                          "document.featurePolicy.features().includes('"
                          "browsing-topics')"));
-  EXPECT_EQ(true, EvalJs(shell(),
-                         "document.featurePolicy.features().includes('"
-                         "join-ad-interest-group')"));
 
-  EXPECT_EQ(true, ExecJs(root(), "sharedStorage !== undefined"));
   EXPECT_EQ(true, EvalJs(shell(), "document.browsingTopics !== undefined"));
   EXPECT_EQ(true, EvalJs(shell(), "navigator.runAdAuction !== undefined"));
   EXPECT_EQ(true,
@@ -128,9 +120,8 @@ class PrivacySandboxAdsAPIsM1OverrideNoFeatureBrowserTest
     feature_list_.InitWithFeatures(
         {features::kPrivacySandboxAdsAPIsM1Override},
         {network::features::kBrowsingTopics,
-         blink::features::kBrowsingTopicsDocumentAPI,
          blink::features::kAdInterestGroupAPI, blink::features::kFledge,
-         blink::features::kFencedFrames, network::features::kSharedStorageAPI});
+         blink::features::kFencedFrames});
   }
 
  private:
@@ -144,18 +135,6 @@ IN_PROC_BROWSER_TEST_F(PrivacySandboxAdsAPIsM1OverrideNoFeatureBrowserTest,
   EXPECT_EQ(false, EvalJs(shell(),
                           "document.featurePolicy.features().includes('"
                           "browsing-topics')"));
-  EXPECT_EQ(false, EvalJs(shell(),
-                          "document.featurePolicy.features().includes('"
-                          "join-ad-interest-group')"));
-  EXPECT_EQ(false, EvalJs(shell(),
-                          "document.featurePolicy.features().includes('"
-                          "run-ad-auction')"));
-  EXPECT_EQ(false, EvalJs(shell(),
-                          "document.featurePolicy.features().includes('"
-                          "shared-storage')"));
-  EXPECT_EQ(false, EvalJs(shell(),
-                          "document.featurePolicy.features().includes('"
-                          "private-aggregation')"));
   EXPECT_TRUE(ExecJs(root(), kAddFencedFrameScript));
   EXPECT_EQ(0U, root()->child_count());
 }

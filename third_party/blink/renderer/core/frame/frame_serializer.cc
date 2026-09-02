@@ -1317,7 +1317,7 @@ function main(metadata) {
       case CSSRule::kFunctionRule:
       case CSSRule::kCustomMediaRule:
       case CSSRule::kContentsMixinRule:
-      case CSSRule::kRouteRule:
+      case CSSRule::kLocationRule:
         break;
 
       // FIXME(sesse): We can reference external resources in a @contents
@@ -1452,9 +1452,7 @@ String FrameSerializer::MarkOfTheWebDeclaration(const KURL& url) {
     builder.Append(ch);
   }
   std::string escaped_url = builder.ToString().Ascii();
-  return String::Format("saved from url=(%04d)%s",
-                        static_cast<int>(escaped_url.length()),
-                        escaped_url.c_str());
+  return Format("saved from url=({:04}){}", escaped_url.length(), escaped_url);
 }
 
 // static

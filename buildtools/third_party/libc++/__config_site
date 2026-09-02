@@ -18,7 +18,7 @@
 //    _LIBCPP_ABI_NAMESPACE to a shorter value.
 #define _LIBCPP_ABI_NAMESPACE __1
 
-//#define _LIBCPP_ABI_VERSION 2
+#define _LIBCPP_ABI_VERSION 2
 
 //#define _LIBCPP_ABI_FORCE_ITANIUM 0
 //#define _LIBCPP_ABI_FORCE_MICROSOFT 0

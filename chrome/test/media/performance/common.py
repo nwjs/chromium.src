@@ -129,7 +129,7 @@ SENDER_TERMINATE_DRIVER_CMD = {
     'win': (
         'powershell -Command "Stop-Process -Name chromedriver,chrome -Force '
         '-ErrorAction SilentlyContinue; '
-        'taskkill /F /IM chromedriver.exe /IM chrome.exe /T 2>$null; exit 0"'
+        'taskkill /F /IM chromedriver.exe /IM chrome.exe /T; exit 0"'
     ),
     'linux': (
         'pkill -f chromedriver || true; pkill -f chrome || true'
@@ -141,6 +141,7 @@ SENDER_TERMINATE_DRIVER_CMD = {
 
 
 WIN_REMOTE_TMP_DIR = 'C:/cft_temp'
+WIN_SYSTEM32_TAR = 'C:/Windows/System32/tar.exe'
 
 
 class StartProcess(AbstractContextManager):
@@ -226,7 +227,7 @@ def terminate_old_chromedriver(args):
                      SENDER_TERMINATE_DRIVER_CMD[args.sender_os],
                      blocking=True)
 
-    for _ in range(5):
+    for _ in range(15):
         result = send_ssh_command(args.sender,
                                   args.username,
                                   SENDER_CHROMEDRIVER_CHECK_CMD[args.sender_os],
@@ -610,10 +611,10 @@ def install_and_setup_chrome(args, chrome_version):
                 f"-ErrorAction SilentlyContinue; "
                 f"curl.exe -L '{chrome_url}' -o '{chrome_zip_path}'; "
                 f"curl.exe -L '{driver_url}' -o '{driver_zip_path}'; "
-                f"if (Get-Command tar.exe -ErrorAction SilentlyContinue) {{ "
+                f"if (Test-Path '{WIN_SYSTEM32_TAR}') {{ "
                 f"Set-Location '{remote_tmp_dir}'; "
-                f"tar.exe -xf '{chrome_zip_name}'; "
-                f"tar.exe -xf '{driver_zip_name}' "
+                f"& '{WIN_SYSTEM32_TAR}' -xf '{chrome_zip_name}'; "
+                f"& '{WIN_SYSTEM32_TAR}' -xf '{driver_zip_name}' "
                 f"}} else {{ "
                 f"Expand-Archive -Path '{chrome_zip_path}' "
                 f"-DestinationPath '{remote_tmp_dir}' -Force; "
@@ -807,10 +808,13 @@ def teardown_test_environment(driver, tunnel_proc, args):
             if tunnel_proc.poll() is None:
                 tunnel_proc.terminate()
                 logging.info("Terminated tunnel.")
-        elif hasattr(tunnel_proc, 'stop'):
+        elif hasattr(tunnel_proc, 'ports'):
             # Handle Crossbench platform objects.
-            tunnel_proc.stop()
-            logging.info("Stopped Crossbench platform.")
+            try:
+                tunnel_proc.ports.stop_reverse_forward(SERVER_PORT)
+                logging.info("Stopped Crossbench port forwarding.")
+            except Exception:
+                pass
 
     cleanup_command = {
         'mac': (
@@ -865,6 +869,14 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
         "mobly", "snippet_uiautomator"
     ]))
 
+    try:
+        import google.protobuf.runtime_version
+        google.protobuf.runtime_version.ValidateProtobufRuntimeVersion = (
+            lambda *args, **kwargs: None
+        )
+    except (ImportError, AttributeError):
+        pass
+
     sys.path.insert(0, os.path.join(REPO_ROOT, 'third_party', 'crossbench'))
 
     from crossbench.plt.chromeos_ssh import ChromeOsSshPlatform
@@ -887,6 +899,7 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
     # Aggressively clear any leaked sessions.
     logging.info("Purging stale Chrome processes on device...")
     cb_platform.sh("pkill", "-9", "chrome", check=False)
+    time.sleep(1)
 
     # 3. Detect remote version to find a matching local driver.
     try:
@@ -963,6 +976,19 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
     # reach the launch script (autologin.py).
     browser.UNSUPPORTED_FLAGS += ("--user-data-dir",)
 
+    def _safe_setup_window():
+        for _ in range(20):
+            try:
+                handles = browser._private_driver.window_handles
+                if handles:
+                    browser._private_driver.switch_to.window(handles[0])
+                    return
+            except Exception:
+                pass
+            time.sleep(0.5)
+
+    browser._setup_window = _safe_setup_window
+
     # 6. Start the browser with a robust session mock.
     logging.info("Starting Crossbench Browser on ChromeOS...")
     # Mocking the session/run group requirement for start()
@@ -978,6 +1004,10 @@ def setup_cros_environment(args, chrome_version, chrome_options_list):
         # browser can reach the host machine's port.
         logging.info("Setting up reverse port forwarding for port %d...",
                      SERVER_PORT)
+        try:
+            cb_platform.ports.stop_reverse_forward(SERVER_PORT)
+        except Exception:
+            pass
         cb_platform.ports.reverse_forward(
             SERVER_PORT, SERVER_PORT)
         logging.info("Final ChromeOS flags: %s", chrome_os_flags)

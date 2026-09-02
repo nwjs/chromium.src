@@ -36,6 +36,11 @@ fuzzer_test("ini_parser_fuzzer") {
 }
 grit("resources") {
   source = "common_resources.grd"
+  inputs = [
+    "apps/platform_apps/api/_api_features.json",
+    "controlled_frame/api/_api_features.json",
+    "extensions/api/_api_features.json",
+  ]
   defines = chrome_grit_defines
   output_dir = "$root_gen_dir/chrome"
   output_name = "common_resources"
@@ -57,10 +62,19 @@ buildflag_header("buildflags") {
     "ENABLE_DOWNGRADE_PROCESSING=$enable_downgrade_processing",
     "ENABLE_HANGOUT_SERVICES_EXTENSION=$enable_hangout_services_extension",
     "ENABLE_PDF_SAVE_TO_DRIVE=$enable_pdf_save_to_drive",
+    "ENABLE_SEPARATE_RENDERER_BINARY=$enable_separate_renderer_binary",
     "ENABLE_SERVICE_DISCOVERY=$enable_service_discovery",
     "ENABLE_SESSION_SERVICE=$enable_session_service",
     "ENABLE_WEBUI_CERTIFICATE_VIEWER=$enable_webui_certificate_viewer",
     "OPTIMIZE_WEBUI=$optimize_webui",
+  ]
+}
+
+source_set("readaloud_constants") {
+  sources = [ "readaloud/read_aloud_constants.h" ]
+  public_deps = [
+    "//base",
+    "//media",
   ]
 }
 
@@ -125,8 +139,6 @@ static_library("common_lib") {
     "actor/action_result.cc",
     "actor/action_result.h",
     "actor/actor_constants.h",
-    "actor/page_stability_metrics_common.cc",
-    "actor/page_stability_metrics_common.h",
     "chrome_content_client.cc",
     "chrome_content_client.h",
     "chrome_content_client_constants.cc",
@@ -150,6 +162,7 @@ static_library("common_lib") {
     "pdf_util.h",
     "pref_names_util.cc",
     "pref_names_util.h",
+    "readaloud/read_aloud_constants.h",
     "ref_counted_util.h",
     "search/instant_mojom_traits.h",
     "search/instant_types.cc",
@@ -352,7 +365,6 @@ static_library("common_lib") {
     # Non-Android.
     public_deps += [ "//chrome/common/importer" ]
     sources += [
-      "media_galleries/metadata_types.h",
       "password_manager/remote_actor_credential_sharing_policy.cc",
       "password_manager/remote_actor_credential_sharing_policy.h",
       "read_anything/read_anything_util.cc",

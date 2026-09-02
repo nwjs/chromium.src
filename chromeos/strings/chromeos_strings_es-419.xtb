@@ -1240,7 +1240,7 @@
 <translation id="6472207088655375767">OTP</translation>
 <translation id="6472979596862005515">botes</translation>
 <translation id="64778964625672495">rojo oscuro</translation>
-<translation id="6480327114083866287">Administrador: <ph name="MANAGER" /></translation>
+<translation id="6480327114083866287">Administrado por <ph name="MANAGER" /></translation>
 <translation id="6488559935020624631">Protector de pantalla exclusivo para <ph name="PRODUCT_NAME" /></translation>
 <translation id="649050271426829538">Se detuvo: se atascó el papel</translation>
 <translation id="6490861263572002431">Desplazamiento automático</translation>
@@ -1831,7 +1831,6 @@ Descarga el modelo de transcripción (hasta 100 MB) para obtener estas transcri
 <translation id="9082718469794970195">Usar este video</translation>
 <translation id="9088306295921699330">Uso actual</translation>
 <translation id="9088994563996376283">Simplificar</translation>
-<translation id="9095775724867566971">Pluginvm</translation>
 <translation id="909856219855259344">Más información sobre la opción Restablecer la fecha</translation>
 <translation id="9100765901046053179">Configuración avanzada</translation>
 <translation id="910415269708673980">Actualizar ticket para <ph name="PRINCIPAL_NAME" /></translation>

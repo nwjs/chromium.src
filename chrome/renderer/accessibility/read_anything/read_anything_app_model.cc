@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <numeric>
+#include <ranges>
 #include <stack>
 #include <string>
 #include <type_traits>
@@ -279,35 +280,40 @@ void ReadAnythingAppModel::ComputeSelectionNodeIdsForSelectionMode() {
   // The main panel selection contains content outside of the distilled
   // content. Find the selected nodes to display instead of the distilled
   // content.
-  if (!node->IsInvisibleOrIgnored() && !end->IsInvisibleOrIgnored()) {
-    // Add all ancestor ids of start node, including the start node itself.
-    for (base::queue<ui::AXNode*> ancestors =
-             node->GetAncestorsCrossingTreeBoundaryAsQueue();
-         !ancestors.empty(); ancestors.pop()) {
-      InsertIdIfNotIgnored(ancestors.front()->id(), selection_node_ids_);
-    }
+  // When text is selected on the main page, the AXSelection start (node) or
+  // end endpoints may land on container or structural nodes that are marked
+  // invisible or ignored in the accessibility tree.
+  // GetUnignoredParentForSelection and GetAncestorsCrossingTreeBoundaryAsQueue
+  // resolve ignored nodes to their unignored ancestors automatically.
+  // Do not abort if node or end is invisible or ignored so that selection
+  // across ignored container elements is handled naturally.
+  // Add all ancestor ids of start node, including the start node itself.
+  for (base::queue<ui::AXNode*> ancestors =
+           node->GetAncestorsCrossingTreeBoundaryAsQueue();
+       !ancestors.empty(); ancestors.pop()) {
+    InsertIdIfNotIgnored(ancestors.front()->id(), selection_node_ids_);
+  }
 
-    // Find the parent of the start and end nodes so we can look at nearby
-    // sibling nodes. Since the start and end nodes might be in different
-    // section of the tree, get the parents for start and end separately.
-    // Otherwise, the end selection might not render.
-    node = GetUnignoredParentForSelection(node);
-    end = GetUnignoredParentForSelection(end);
-    if (end) {
-      end = end->GetDeepestLastUnignoredDescendantCrossingTreeBoundary();
-      if (node && end) {
-        // Traverse the tree from the first sibling node to the last sibling
-        // node, inclusive. This ensures that when select-to-distill is used
-        // to distill non-distillable content (such as Gmail), text outside of
-        // the selected portion but on the same line is still distilled, even
-        // if there's special formatting.
-        // TODO(crbug.com/40802192): Consider using ax_position.h here to
-        // better manage selection.
-        for (node = node->GetFirstUnignoredChildCrossingTreeBoundary();
-             node && node->CompareTo(*end).value_or(1) <= 0;
-             node = node->GetNextUnignoredInTreeOrder()) {
-          InsertIdIfNotIgnored(node->id(), selection_node_ids_);
-        }
+  // Find the parent of the start and end nodes so we can look at nearby
+  // sibling nodes. Since the start and end nodes might be in different
+  // section of the tree, get the parents for start and end separately.
+  // Otherwise, the end selection might not render.
+  node = GetUnignoredParentForSelection(node);
+  end = GetUnignoredParentForSelection(end);
+  if (end) {
+    end = end->GetDeepestLastUnignoredDescendantCrossingTreeBoundary();
+    if (node && end) {
+      // Traverse the tree from the first sibling node to the last sibling
+      // node, inclusive. This ensures that when select-to-distill is used
+      // to distill non-distillable content (such as Gmail), text outside of
+      // the selected portion but on the same line is still distilled, even
+      // if there's special formatting.
+      // TODO(crbug.com/40802192): Consider using ax_position.h here to
+      // better manage selection.
+      for (node = node->GetFirstUnignoredChildCrossingTreeBoundary();
+           node && node->CompareTo(*end).value_or(1) <= 0;
+           node = node->GetNextUnignoredInTreeOrder()) {
+        InsertIdIfNotIgnored(node->id(), selection_node_ids_);
       }
     }
   }
@@ -553,6 +559,22 @@ void ReadAnythingAppModel::SetTreeInfoUrlInformation(
   }
 }
 
+void ReadAnythingAppModel::UpdateDistillationForDocsIfNeeded() {
+  // GetInitialDistillationMethod is sometimes called during
+  // OnActiveAXTreeIDChanged before SetTreeInfoUrlInformation has run and
+  // before the Google Docs URL is known. When the active page is later
+  // identified as Google Docs, fallback from Readability to Screen2x.
+  // Both next_distillation_method_ and current_content_distillation_method_
+  // are updated because this fallback occurs during initial page load while
+  // the UI is showing loading and no content has been rendered yet.
+  if (IsDocs() && is_readability_next_distillation_method()) {
+    set_next_distillation_method(DistillationMethod::kScreen2x);
+    set_current_content_distillation_method(DistillationMethod::kScreen2x);
+    set_requires_readability_distillation(false);
+    set_requires_distillation(true);
+  }
+}
+
 bool ReadAnythingAppModel::IsDocs() const {
   // Sometimes during an initial page load, this may be called before the
   // tree has been initialized. If this happens, IsDocs should return false
@@ -670,6 +692,10 @@ void ReadAnythingAppModel::UnserializeUpdates(const Updates& updates,
 
   ProcessGeneratedEvents(tree_id, event_generator, prev_tree_size,
                          tree->size());
+
+  if (tree_id == active_tree_id_) {
+    UpdateDistillationForDocsIfNeeded();
+  }
 }
 
 void ReadAnythingAppModel::PrepareForAXTreeUpdates(
@@ -1966,7 +1992,7 @@ void ReadAnythingAppModel::FlattenAXTree(ui::AXSerializableTree* tree) {
       children_to_push.push_back(&*it);
     }
     // Push children in reverse order for pre-order traversal.
-    for (ui::AXNode* child : base::Reversed(children_to_push)) {
+    for (ui::AXNode* child : std::views::reverse(children_to_push)) {
       stack.push(child);
     }
   }

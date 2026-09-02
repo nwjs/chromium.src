@@ -324,4 +324,51 @@ UpdateBnplPaymentInstrumentRequestDetails::operator=(
 UpdateBnplPaymentInstrumentRequestDetails::
     ~UpdateBnplPaymentInstrumentRequestDetails() = default;
 
+GetWalletReminderNoticeRequestDetails::GetWalletReminderNoticeRequestDetails() =
+    default;
+GetWalletReminderNoticeRequestDetails::GetWalletReminderNoticeRequestDetails(
+    const GetWalletReminderNoticeRequestDetails&) = default;
+GetWalletReminderNoticeRequestDetails&
+GetWalletReminderNoticeRequestDetails::operator=(
+    const GetWalletReminderNoticeRequestDetails& other) = default;
+GetWalletReminderNoticeRequestDetails::GetWalletReminderNoticeRequestDetails(
+    GetWalletReminderNoticeRequestDetails&&) = default;
+GetWalletReminderNoticeRequestDetails&
+GetWalletReminderNoticeRequestDetails::operator=(
+    GetWalletReminderNoticeRequestDetails&&) = default;
+GetWalletReminderNoticeRequestDetails::
+    ~GetWalletReminderNoticeRequestDetails() = default;
+
+GetWalletReminderNoticeResponseDetails::
+    GetWalletReminderNoticeResponseDetails() = default;
+GetWalletReminderNoticeResponseDetails::GetWalletReminderNoticeResponseDetails(
+    const GetWalletReminderNoticeResponseDetails&) = default;
+GetWalletReminderNoticeResponseDetails&
+GetWalletReminderNoticeResponseDetails::operator=(
+    const GetWalletReminderNoticeResponseDetails& other) = default;
+GetWalletReminderNoticeResponseDetails::GetWalletReminderNoticeResponseDetails(
+    GetWalletReminderNoticeResponseDetails&&) = default;
+GetWalletReminderNoticeResponseDetails&
+GetWalletReminderNoticeResponseDetails::operator=(
+    GetWalletReminderNoticeResponseDetails&&) = default;
+GetWalletReminderNoticeResponseDetails::
+    ~GetWalletReminderNoticeResponseDetails() = default;
+
+RecordLegalReminderAcknowledgmentRequestDetails::
+    RecordLegalReminderAcknowledgmentRequestDetails() = default;
+RecordLegalReminderAcknowledgmentRequestDetails::
+    RecordLegalReminderAcknowledgmentRequestDetails(
+        const RecordLegalReminderAcknowledgmentRequestDetails&) = default;
+RecordLegalReminderAcknowledgmentRequestDetails&
+RecordLegalReminderAcknowledgmentRequestDetails::operator=(
+    const RecordLegalReminderAcknowledgmentRequestDetails& other) = default;
+RecordLegalReminderAcknowledgmentRequestDetails::
+    RecordLegalReminderAcknowledgmentRequestDetails(
+        RecordLegalReminderAcknowledgmentRequestDetails&&) = default;
+RecordLegalReminderAcknowledgmentRequestDetails&
+RecordLegalReminderAcknowledgmentRequestDetails::operator=(
+    RecordLegalReminderAcknowledgmentRequestDetails&&) = default;
+RecordLegalReminderAcknowledgmentRequestDetails::
+    ~RecordLegalReminderAcknowledgmentRequestDetails() = default;
+
 }  // namespace autofill::payments

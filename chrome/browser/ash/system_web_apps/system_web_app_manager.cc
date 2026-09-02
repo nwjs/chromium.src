@@ -56,7 +56,6 @@
 #include "chrome/browser/ash/system_web_apps/apps/os_settings_web_app_info.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_system_app_delegate.h"
 #include "chrome/browser/ash/system_web_apps/apps/print_management_web_app_info.h"
-#include "chrome/browser/ash/system_web_apps/apps/print_preview_cros_system_web_app_info.h"
 #include "chrome/browser/ash/system_web_apps/apps/projector_system_web_app_info.h"
 #include "chrome/browser/ash/system_web_apps/apps/recorder_app/recorder_system_web_app_info.h"
 #include "chrome/browser/ash/system_web_apps/apps/sanitize_system_web_app_info.h"
@@ -72,7 +71,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profiles_state.h"
 #include "chrome/browser/web_applications/external_install_options.h"
-#include "chrome/browser/web_applications/manifest_update_manager.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/proto/web_app_install_state.pb.h"
@@ -135,7 +133,6 @@ SystemWebAppDelegateMap CreateSystemWebApps(Profile* profile) {
   info_vec.push_back(
       std::make_unique<vc_background_ui::VcBackgroundUISystemAppDelegate>(
           profile));
-  info_vec.push_back(std::make_unique<PrintPreviewCrosDelegate>(profile));
   info_vec.push_back(std::make_unique<RecorderSystemAppDelegate>(profile));
   info_vec.push_back(std::make_unique<BocaSystemAppDelegate>(profile));
   info_vec.push_back(std::make_unique<MallSystemAppDelegate>(profile));
@@ -858,8 +855,6 @@ bool SystemWebAppManager::CheckAndIncrementRetryAttempts() {
 void SystemWebAppManager::ConnectProviderToSystemWebAppDelegateMap(
     const SystemWebAppDelegateMap* system_web_apps_delegate_map) const {
   // TODO(crbug.com/40243506): Consider DCHECKing that provider_ is ready.
-  provider_->manifest_update_manager().SetSystemWebAppDelegateMap(
-      system_web_apps_delegate_map);
   provider_->policy_manager().SetSystemWebAppDelegateMap(
       system_web_apps_delegate_map);
 }

@@ -12,7 +12,7 @@
 #include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/rect.h"
 
-class Browser;
+class BrowserWindowInterface;
 
 namespace display {
 class Display;
@@ -64,7 +64,7 @@ class WindowSizer {
 
   WindowSizer(const WindowSizer&) = delete;
   WindowSizer& operator=(const WindowSizer&) = delete;
-  static bool GetSavedWindowBounds(Browser* browser,
+  static bool GetSavedWindowBounds(BrowserWindowInterface* browser,
                                    gfx::Rect* bounds,
                                    ui::mojom::WindowShowState* show_state);
   // Determines the position and size for a window as it is created as well
@@ -79,7 +79,7 @@ class WindowSizer {
   // the window to use.
   static bool GetBrowserWindowBoundsAndShowState(
       const gfx::Rect& specified_bounds,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       gfx::Rect* window_bounds,
       ui::mojom::WindowShowState* show_state);
 
@@ -87,7 +87,7 @@ class WindowSizer {
   static bool GetBrowserWindowBoundsAndShowState(
       std::unique_ptr<StateProvider> state_provider,
       const gfx::Rect& specified_bounds,
-      Browser* browser,
+      BrowserWindowInterface* browser,
       gfx::Rect* window_bounds,
       ui::mojom::WindowShowState* show_state);
 
@@ -103,11 +103,12 @@ class WindowSizer {
 
  protected:
   const StateProvider* state_provider() const { return state_provider_.get(); }
-  Browser* browser() { return browser_; }
-  const Browser* browser() const { return browser_; }
+  BrowserWindowInterface* browser() { return browser_; }
+  const BrowserWindowInterface* browser() const { return browser_; }
 
   // WindowSizer will use the platform's display::Screen.
-  WindowSizer(std::unique_ptr<StateProvider> state_provider, Browser* browser);
+  WindowSizer(std::unique_ptr<StateProvider> state_provider,
+              BrowserWindowInterface* browser);
   virtual ~WindowSizer();
 
   // See GetBrowserWindowBoundsAndShowState() above.
@@ -157,7 +158,8 @@ class WindowSizer {
 
   // Determine the default show state for the window - not looking at other
   // windows or at persistent information.
-  static ui::mojom::WindowShowState GetWindowDefaultShowState(Browser* browser);
+  static ui::mojom::WindowShowState GetWindowDefaultShowState(
+      const BrowserWindowInterface* browser);
 
   // Returns the target display for a new window with |bounds| in screen
   // coordinates.
@@ -171,7 +173,7 @@ class WindowSizer {
   std::unique_ptr<StateProvider> state_provider_;
 
   // Note that this browser handle might be NULL.
-  const raw_ptr<Browser> browser_;
+  const raw_ptr<BrowserWindowInterface> browser_;
 };
 
 #endif  // CHROME_BROWSER_UI_WINDOW_SIZER_WINDOW_SIZER_H_

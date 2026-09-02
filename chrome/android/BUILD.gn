@@ -4,7 +4,9 @@
 
 import("//build/config/android/config.gni")
 import("//build/config/cronet/config.gni")
+import("//build/config/gclient_args.gni")
 import("//build/toolchain/gcc_toolchain.gni")
+
 import("//chrome/android/chrome_common_shared_library.gni")
 import("//chrome/android/modules/chrome_feature_module_tmpl.gni")
 import("//components/supervised_user/buildflags.gni")
@@ -300,6 +302,18 @@ if (_is_default_toolchain) {
     ]
   }
 
+  android_library("new_tab_page_utils_java") {
+    resources_package = "org.chromium.chrome"
+    sources =
+        [ "java/src/org/chromium/chrome/browser/ntp/NewTabPageUtils.java" ]
+    deps = [
+      ":chrome_app_java_resources",
+      "//build/android:build_java",
+      "//chrome/browser/flags:java",
+      "//third_party/androidx:androidx_annotation_annotation_java",
+    ]
+  }
+
   android_library("chrome_java") {
     deps = [
       ":base_module_java",
@@ -307,6 +321,7 @@ if (_is_default_toolchain) {
       ":chrome_public_apk_template_resources",
       ":google_api_keys_java",
       ":java_overlay_resources",
+      ":new_tab_page_utils_java",
       ":screenshot_provider_java",
       ":usage_stats_proto_java",
       ":xr_java",
@@ -325,6 +340,7 @@ if (_is_default_toolchain) {
       "//base:process_launcher_java",
       "//base:service_loader_java",
       "//base:task_executor_java",
+      "//base:tristate_java",
       "//base:virtual_document_path_java",
       "//base/version_info/android:version_constants_java",
       "//cc:cc_java",
@@ -384,7 +400,6 @@ if (_is_default_toolchain) {
       "//chrome/browser/contextmenu:java",
       "//chrome/browser/contextual_tasks:java",
       "//chrome/browser/contextual_tasks:utils_java",
-      "//chrome/browser/contextual_tasks/fusebox/android:java",
       "//chrome/browser/data_sharing:factory_java",
       "//chrome/browser/data_sharing:instant_message_delegate_factory_java",
       "//chrome/browser/glic:metrics_java",
@@ -498,6 +513,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/serial/android:java",
       "//chrome/browser/settings:factory_java",
       "//chrome/browser/settings:java",
+      "//chrome/browser/settings:settings_in_tab_java",
       "//chrome/browser/share:java",
       "//chrome/browser/share/android:java_resources",
       "//chrome/browser/signin/services/android:java",
@@ -592,8 +608,6 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/messages/android:java",
       "//chrome/browser/ui/side_panel/android:factory_java",
       "//chrome/browser/ui/side_panel/android:java",
-      "//chrome/browser/ui/side_panel_container/public:factory_java",
-      "//chrome/browser/ui/side_panel_container/public:java",
       "//chrome/browser/ui/side_ui/public:factory_java",
       "//chrome/browser/ui/side_ui/public:java",
       "//chrome/browser/ui/side_ui/public:java_resources",
@@ -1002,7 +1016,6 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/webid/internal:java",
       "//chrome/browser/ui/browser_window/internal:java",
       "//chrome/browser/ui/side_panel/internal/android:java",
-      "//chrome/browser/ui/side_panel_container/internal:java",
       "//chrome/browser/ui/side_ui/internal:java",
       "//components/android_autofill/browser:java",
       "//components/autofill/android:payments_autofill_java",
@@ -1024,6 +1037,9 @@ if (_is_default_toolchain) {
     } else {
       # TODO(crbug.com/434123514): see if we can remove these stub targets.
       deps += [ "//chrome/browser/ui/android/extensions/windowing/stub:java" ]
+    }
+    if (enable_webui_ntp) {
+      deps += [ "//chrome/browser/ui/customize_chrome:java" ]
     }
   }
 
@@ -1047,6 +1063,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/metrics/metrics_reporting_state.h",
       "//chrome/browser/notifications/notification_handler.h",
       "//chrome/browser/notifications/notification_platform_bridge_android.cc",
+      "//chrome/browser/prefs/session_startup_pref.h",
     ]
   }
 
@@ -1124,7 +1141,6 @@ if (_is_default_toolchain) {
       "junit:chrome_junit_tests_org.chromium.chrome.browser.password_manager",
       "junit:chrome_junit_tests_org.chromium.chrome.browser.permissions",
       "junit:chrome_junit_tests_org.chromium.chrome.browser.price_tracking",
-      "junit:chrome_junit_tests_org.chromium.chrome.browser.privacy_sandbox",
       "junit:chrome_junit_tests_org.chromium.chrome.browser.screenshotprovider",
       "junit:chrome_junit_tests_org.chromium.chrome.browser.search_engines",
       "junit:chrome_junit_tests_org.chromium.chrome.browser.searchwidget",
@@ -1259,7 +1275,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/ui/android/whats_new:junit",
       "//chrome/browser/ui/browser_window/internal:junit",
       "//chrome/browser/ui/messages/android:junit",
-      "//chrome/browser/ui/side_panel_container/internal:junit",
+      "//chrome/browser/ui/side_panel/internal/android:junit",
       "//chrome/browser/ui/side_ui/internal:junit",
       "//chrome/browser/ui/side_ui/public:junit",
       "//chrome/browser/uid/android:junit",
@@ -1285,7 +1301,13 @@ if (_is_default_toolchain) {
     ]
 
     if (enable_extensions_core) {
-      deps += [ "//chrome/browser/ui/android/extensions:junit" ]
+      deps += [
+        "//chrome/browser/extensions/api/messaging/android:junit",
+        "//chrome/browser/ui/android/extensions:junit",
+      ]
+    }
+    if (enable_webui_ntp) {
+      deps += [ "//chrome/browser/ui/customize_chrome:java" ]
     }
   }
 
@@ -1506,6 +1528,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/android/browserservices/verification:javatests",
       "//chrome/browser/android/httpclient:javatests",
       "//chrome/browser/android/metrics:ukm_javatests",
+      "//chrome/browser/android/screenshot_protection:javatests",
       "//chrome/browser/auxiliary_search:javatests",
       "//chrome/browser/bookmarks/android:javatests",
       "//chrome/browser/collaboration:comments_javatests",
@@ -1526,7 +1549,6 @@ if (_is_default_toolchain) {
       "//chrome/browser/optimization_guide/android:javatests",
       "//chrome/browser/prefetch/android:javatests",
       "//chrome/browser/privacy_guide/android:javatests",
-      "//chrome/browser/privacy_sandbox/android:javatests",
       "//chrome/browser/quick_delete:javatests",
       "//chrome/browser/renderer_host/android:javatests",
       "//chrome/browser/safe_browsing/android:javatests",
@@ -2054,7 +2076,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/renderer_host/android:test_support",
       "//chrome/browser/sync",
       "//chrome/browser/thumbnail:test_support",
-      "//chrome/browser/ui/side_panel_container/test:test_support",
+      "//chrome/browser/ui/side_panel/test/android:integration_test_support",
       "//components/offline_pages/core/background:test_support",
       "//components/saved_tab_groups/internal:tab_group_sync_bridge",
       "//components/saved_tab_groups/public",
@@ -2161,6 +2183,7 @@ if (_is_default_toolchain) {
       ":chrome_base_module_resources",
       "$google_play_services_package:google_firebase_firebase_messaging_java",
       "//base:base_java",
+      "//base:tristate_java",
       "//chrome/browser/autofill/android:third_party_provider_java",
       "//chrome/browser/download/android:file_provider_java",
       "//chrome/browser/flags:java",
@@ -2224,8 +2247,9 @@ if (_is_default_toolchain) {
     }
 
     if (use_mlkit_for_aicore) {
-      # MLKitInitProvider must be in the base manifest, so the lib must be in
-      # the base module.
+      # The lib must be in the base module so that MlKitInitProvider is merged
+      # into the base manifest, where it is removed via tools:node="remove" (see
+      # AndroidManifest.xml) to keep MLKit off the startup critical path.
       deps += [ "//third_party/android_deps:com_google_mlkit_common_java" ]
     }
 
@@ -2435,7 +2459,7 @@ if (_is_default_toolchain) {
       "//chrome/browser/touch_to_fill/password_manager/password_generation/android/internal:javatests",
       "//chrome/browser/ui/android/digital_credentials:javatests",
       "//chrome/browser/ui/android/webid/internal:javatests",
-      "//chrome/browser/ui/side_panel_container/internal:javatests",
+      "//chrome/browser/ui/side_panel/internal/android:javatests",
       "//components/embedder_support/android:virtual_structure_javatests",
     ]
 
@@ -2451,7 +2475,7 @@ if (_is_default_toolchain) {
 
     device_data_filters = [
       "+//chrome/browser/thumbnail/generator/test/data/*",
-      "+//chrome/browser/ui/side_panel_container/test/data/*",
+      "+//chrome/browser/ui/side_panel/test/data/*",
       "+//chrome/test/data/*",
       "+//components/test/data/payments/*",
       "+//content/test/data/*",
@@ -2461,7 +2485,10 @@ if (_is_default_toolchain) {
       "-*",
     ]
 
-    data_deps = [ "//testing/buildbot/filters:chrome_public_test_apk_filters" ]
+    data_deps = [
+      "//chrome/test/data/webui/glic:generate_test_files",
+      "//testing/buildbot/filters:chrome_public_test_apk_filters",
+    ]
 
     if (enable_chrome_android_internal) {
       data_deps +=
@@ -2568,7 +2595,10 @@ if (_is_default_toolchain) {
     apk_under_test = ":chrome_public_apk"
     android_test_apk = ":chrome_smoke_test_apk"
     additional_apks = [ "//net/android:net_test_support_apk" ]
-    extra_args = _common_smoke_test_args
+    if (checkout_fuchsia) {
+      data_deps = [ "//build/fuchsia/starview:run_cuttlefish" ]
+    }
+
     if (!is_java_debug) {
       proguard_mapping_path = "$root_build_dir/apks/ChromePublic.apk.mapping"
     }
@@ -2576,6 +2606,7 @@ if (_is_default_toolchain) {
 
   instrumentation_test_runner("chrome_public_bundle_smoke_test") {
     apk_under_test = "//chrome/android:chrome_public_bundle_apks"
+
     android_test_apk = ":chrome_smoke_test_apk"
     extra_args = _common_smoke_test_args
     additional_apks = [ "//net/android:net_test_support_apk" ]
@@ -3022,7 +3053,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/chrome/browser/compositor/CompositorView.java",
       "java/src/org/chromium/chrome/browser/compositor/LayerTitleCache.java",
       "java/src/org/chromium/chrome/browser/compositor/overlay_panel/OverlayPanelContent.java",
-      "java/src/org/chromium/chrome/browser/compositor/overlays/strip/StripTabUnderlineManager.java",
+      "java/src/org/chromium/chrome/browser/compositor/overlays/strip/TabUnderlineManager.java",
       "java/src/org/chromium/chrome/browser/compositor/scene_layer/ContextualSearchSceneLayer.java",
       "java/src/org/chromium/chrome/browser/compositor/scene_layer/SolidColorSceneLayer.java",
       "java/src/org/chromium/chrome/browser/compositor/scene_layer/StaticTabSceneLayer.java",
@@ -3082,6 +3113,7 @@ if (_is_default_toolchain) {
       "java/src/org/chromium/chrome/browser/metrics/UmaSessionStats.java",
       "java/src/org/chromium/chrome/browser/metrics/VariationsSession.java",
       "java/src/org/chromium/chrome/browser/mojo/ChromeInterfaceRegistrar.java",
+      "java/src/org/chromium/chrome/browser/multiwindow/TabbedStartupWindowPolicyDelegate.java",
       "java/src/org/chromium/chrome/browser/navigation_predictor/NavigationPredictorBridge.java",
       "java/src/org/chromium/chrome/browser/notifications/ActionInfo.java",
       "java/src/org/chromium/chrome/browser/notifications/NotificationPlatformBridge.java",
@@ -3292,6 +3324,7 @@ if (_is_default_toolchain) {
       ":chrome_test_util",
       "//base/test:test_support",
       "//chrome/browser/android/metrics:ukm_utils_for_test",
+      "//chrome/browser/glic/test_support",
       "//chrome/browser/password_manager/android:test_support",
       "//chrome/browser/subresource_filter:android_test_support",
       "//chrome/browser/supervised_user:test_support",

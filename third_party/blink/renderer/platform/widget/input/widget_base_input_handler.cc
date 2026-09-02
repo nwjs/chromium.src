@@ -10,7 +10,6 @@
 #include <utility>
 
 #include "base/memory/raw_ptr.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/task/common/task_annotator.h"
 #include "base/time/time.h"
 #include "base/tracing/protos/chrome_track_event.pbzero.h"
@@ -45,65 +44,6 @@ using perfetto::protos::pbzero::TrackEvent;
 namespace blink {
 
 namespace {
-
-void LogPassiveEventListenersUma(WebInputEventResult result,
-                                 WebInputEvent::DispatchType dispatch_type) {
-  // This enum is backing a histogram. Do not remove or reorder members.
-  enum ListenerEnum {
-    PASSIVE_LISTENER_UMA_ENUM_PASSIVE,
-    PASSIVE_LISTENER_UMA_ENUM_UNCANCELABLE,
-    PASSIVE_LISTENER_UMA_ENUM_SUPPRESSED,
-    PASSIVE_LISTENER_UMA_ENUM_CANCELABLE,
-    PASSIVE_LISTENER_UMA_ENUM_CANCELABLE_AND_CANCELED,
-    PASSIVE_LISTENER_UMA_ENUM_FORCED_NON_BLOCKING_DUE_TO_FLING,
-    PASSIVE_LISTENER_UMA_ENUM_FORCED_NON_BLOCKING_DUE_TO_MAIN_THREAD_RESPONSIVENESS_DEPRECATED,
-    PASSIVE_LISTENER_UMA_ENUM_COUNT
-  };
-
-  ListenerEnum enum_value;
-  switch (dispatch_type) {
-    case WebInputEvent::DispatchType::kListenersForcedNonBlockingDueToFling:
-      enum_value = PASSIVE_LISTENER_UMA_ENUM_FORCED_NON_BLOCKING_DUE_TO_FLING;
-      break;
-    case WebInputEvent::DispatchType::kListenersNonBlockingPassive:
-      enum_value = PASSIVE_LISTENER_UMA_ENUM_PASSIVE;
-      break;
-    case WebInputEvent::DispatchType::kEventNonBlocking:
-      enum_value = PASSIVE_LISTENER_UMA_ENUM_UNCANCELABLE;
-      break;
-    case WebInputEvent::DispatchType::kBlocking:
-      if (result == WebInputEventResult::kHandledApplication)
-        enum_value = PASSIVE_LISTENER_UMA_ENUM_CANCELABLE_AND_CANCELED;
-      else if (result == WebInputEventResult::kHandledSuppressed)
-        enum_value = PASSIVE_LISTENER_UMA_ENUM_SUPPRESSED;
-      else
-        enum_value = PASSIVE_LISTENER_UMA_ENUM_CANCELABLE;
-      break;
-    default:
-      NOTREACHED();
-  }
-
-  UMA_HISTOGRAM_ENUMERATION("Event.PassiveListeners", enum_value,
-                            PASSIVE_LISTENER_UMA_ENUM_COUNT);
-}
-
-void LogAllPassiveEventListenersUma(const WebInputEvent& input_event,
-                                    WebInputEventResult result) {
-  // TODO(dtapuska): Use the input_event.timeStampSeconds as the start
-  // ideally this should be when the event was sent by the compositor to the
-  // renderer. https://crbug.com/565348.
-  if (input_event.GetType() == WebInputEvent::Type::kTouchStart ||
-      input_event.GetType() == WebInputEvent::Type::kTouchMove ||
-      input_event.GetType() == WebInputEvent::Type::kTouchEnd) {
-    const WebTouchEvent& touch = static_cast<const WebTouchEvent&>(input_event);
-
-    LogPassiveEventListenersUma(result, touch.dispatch_type);
-  } else if (input_event.GetType() == WebInputEvent::Type::kMouseWheel) {
-    LogPassiveEventListenersUma(
-        result,
-        static_cast<const WebMouseWheelEvent&>(input_event).dispatch_type);
-  }
-}
 
 WebCoalescedInputEvent GetCoalescedWebPointerEventForTouch(
     const WebPointerEvent& pointer_event,
@@ -455,8 +395,6 @@ void WidgetBaseInputHandler::HandleInputEvent(
   // |input_event| to avoid nested monitors.
   event_metrics_monitor = nullptr;
 
-  LogAllPassiveEventListenersUma(input_event, processed);
-
   // If this RawKeyDown event corresponds to a browser keyboard shortcut and
   // it's not processed by webkit, then we need to suppress the upcoming Char
   // events.
@@ -646,14 +584,16 @@ void WidgetBaseInputHandler::HandleInjectedScrollGestures(
               : cc::ScrollUpdateEventMetrics::ScrollUpdateType::kStarted,
           params.scroll_delta.y(),
           cc::EventMetrics::DispatchStage::kRendererCompositorFinished,
-          original_metrics, scroll_tracker_.scroll_begin_arrival_timestamp());
+          original_metrics, scroll_tracker_.scroll_begin_generated_timestamp(),
+          scroll_tracker_.scroll_begin_arrival_timestamp());
       scroll_tracker_.OnScrollUpdate();
     } else {
       metrics = cc::ScrollEventMetrics::CreateFromExisting(
           gesture_event->GetTypeAsUiEventType(),
           ui::ScrollInputType::kScrollbar, /*is_inertial=*/false,
           cc::EventMetrics::DispatchStage::kRendererCompositorFinished,
-          original_metrics, scroll_tracker_.scroll_begin_arrival_timestamp());
+          original_metrics, scroll_tracker_.scroll_begin_generated_timestamp(),
+          scroll_tracker_.scroll_begin_arrival_timestamp());
       if (gesture_event->GetType() ==
           WebInputEvent::Type::kGestureScrollBegin) {
         gesture_event->data.scroll_begin.scrollable_area_element_id =

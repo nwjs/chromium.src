@@ -46,7 +46,6 @@ after discussions on the right group.
       <annotation id="ambient_photo_controller"/>
       <annotation id="arc_auth_code_fetcher"/>
       <annotation id="calendar_get_events"/>
-      <annotation id="chrome_plugin_vm_api"/>
       <annotation id="chromebook_mail_api"/>
       <annotation id="customization_wallpaper_downloader"/>
       <annotation id="edu_account_login_profile_image_fetcher"/>
@@ -389,6 +388,7 @@ after discussions on the right group.
       <annotation id="actor_login_permission_service"/>
       <annotation id="fetch_email_one_time_token"/>
       <annotation id="glic_private_api_prompt_fetcher"/>
+      <annotation id="glic_selection_ask_gemini_api"/>
       <annotation id="finds_model_execution"/>
       <annotation id="device_management_enrollment"/>
       <annotation id="device_management_reporting"/>
@@ -409,6 +409,14 @@ after discussions on the right group.
       <annotation id="read_aloud_generate_text"/>
       <annotation id="read_aloud_synthesize"/>
       <annotation id="tab_context_ephemeral_key_fetch"/>
+      <annotation id="remote_actor_passbox_client"/>
+      <annotation id="remote_actor_permission_service"/>
+      <annotation id="enterprise_skills_fetcher"/>
+      <annotation id="iwa_dev_ui_update_manifest"/>
+      <annotation id="notebooks_service_create_notebook"/>
+      <annotation id="notebooks_service_create_notebook_source"/>
+      <annotation id="fetch_user_data_processing_consent"/>
+      <annotation id="device_authorization_key_fetch"/>
     </sender>
   </group>
   <group name="Admin Features">
@@ -478,12 +486,6 @@ after discussions on the right group.
       <annotation id="chrome_commerce_subscriptions_create"/>
       <annotation id="chrome_commerce_subscriptions_delete"/>
       <annotation id="chrome_commerce_subscriptions_get"/>
-    </sender>
-  </group>
-  <group name="Cookieless Ads">
-    <sender name="Aggregation Service">
-      <annotation id="aggregation_service_helper_keys"/>
-      <annotation id="aggregation_service_report"/>
     </sender>
   </group>
   <group name="Identity and Security">

@@ -30,7 +30,6 @@ class View;
 class BrowserView;
 class ExtensionsContainerViews;
 class ContentSettingImageView;
-class PageActionIconController;
 class WebAppNavigationButtonContainer;
 class WebAppToolbarButtonContainer;
 class WebAppFrameToolbarView;
@@ -81,7 +80,6 @@ class WebAppFrameToolbarView : public views::AccessiblePaneView,
   PinnedToolbarActions* GetPinnedToolbarActions() override;
   gfx::Size GetToolbarButtonSize() const override;
   views::BubbleAnchor GetDefaultExtensionDialogAnchor() override;
-  PageActionIconView* GetPageActionIconView(PageActionIconType type) override;
   page_actions::PageActionViewInterface* GetPageActionViewInterface(
       actions::ActionId action_id) override;
   AppMenuControl* GetAppMenuControl() override;
@@ -109,7 +107,6 @@ class WebAppFrameToolbarView : public views::AccessiblePaneView,
   WebAppToolbarButtonContainer* get_right_container_for_testing() {
     return right_container_;
   }
-  PageActionIconController* GetPageActionIconControllerForTesting();
 
  protected:
   // views::AccessiblePaneView:

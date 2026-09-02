@@ -45,6 +45,7 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.SCREEN_ACCEPTED;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.SCREEN_DISMISSED;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.SCREEN_SHOWN;
+import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.TABBED_HOME_SCREEN_DISMISSED;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.TOUCH_TO_FILL_AFFILIATED_LOYALTY_CARDS_SCREEN_INDEX_SELECTED;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.TOUCH_TO_FILL_ALL_LOYALTY_CARDS_SCREEN_INDEX_SELECTED;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodMediator.TOUCH_TO_FILL_BNPL_SELECT_ISSUER_NUMBER_OF_ISSUERS_SHOWN;
@@ -180,7 +181,6 @@ import org.chromium.base.ContextUtils;
 import org.chromium.base.ServiceLoaderUtil;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
@@ -220,7 +220,7 @@ import org.chromium.components.prefs.PrefChangeRegistrarJni;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.components.user_prefs.UserPrefsJni;
-import org.chromium.ui.accessibility.AccessibilityState;
+import org.chromium.ui.accessibility.AccessibilityStateTestHelper;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -240,7 +240,6 @@ import java.util.stream.StreamSupport;
  * TouchToFillPaymentMethodMediator}
  */
 @RunWith(BaseRobolectricTestRunner.class)
-@Batch(Batch.PER_CLASS)
 @EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_NEW_FOP_DISPLAY_ANDROID})
 @DisableFeatures({
     AutofillFeatures.AUTOFILL_ENABLE_SECURITY_TOUCH_EVENT_FILTERING_ANDROID,
@@ -1098,7 +1097,7 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
     public void testDoesNotRecordBnplSuggestionVisibilityHistograms() {
         // BNPL suggestion visibility metrics should not be logged when touch exploration is
         // enabled.
-        AccessibilityState.setIsTouchExplorationEnabledForTesting(true);
+        AccessibilityStateTestHelper.setIsTouchExplorationEnabledForTesting(true);
 
         for (int visibility = 0;
                 visibility <= TouchToFillBnplSuggestionVisibility.MAX_VALUE;
@@ -1124,7 +1123,7 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
                 RecordHistogram.getHistogramTotalCountForTesting(
                         TOUCH_TO_FILL_BNPL_SUGGESTION_STARTED_FULLY_VISIBLE_HISTOGRAM));
 
-        AccessibilityState.setIsTouchExplorationEnabledForTesting(false);
+        AccessibilityStateTestHelper.setIsTouchExplorationEnabledForTesting(false);
     }
 
     @Test
@@ -3389,6 +3388,14 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
         ModelList itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
         assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(1));
         assertThat(getModelsOfType(itemList, BNPL).size(), is(0));
+
+        assertModelHasCorrectAccessibilityStringIds(
+                mTouchToFillPaymentMethodModel,
+                R.string.autofill_payment_method_bottom_sheet_content_description,
+                R.string.autofill_payment_method_bottom_sheet_half_height,
+                R.string.autofill_payment_method_bottom_sheet_full_height,
+                R.string.autofill_payment_method_bottom_sheet_closed,
+                R.id.touch_to_fill_payment_method_tabbed_home_screen);
     }
 
     @Test
@@ -3435,6 +3442,89 @@ public class TouchToFillPaymentMethodControllerRobolectricTest {
         assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(1));
         assertThat(getModelsOfType(itemList, BNPL).size(), is(0));
         assertThat(getModelsOfType(itemList, BNPL_ISSUER).size(), is(0));
+    }
+
+    @Test
+    public void testOnTabSelectedPayNowNotifiesNative() {
+        mCoordinator.showPaymentMethods(
+                List.of(VISA_SUGGESTION, BNPL_SUGGESTION), new TouchToFillDisplayOptions());
+        assertThat(mTouchToFillPaymentMethodModel.get(VISIBLE), is(true));
+
+        // Select Pay Now tab
+        mCoordinator.getMediatorForTesting().onTabSelected(PAY_NOW);
+
+        verify(mDelegateMock).onUserDecisionToUseSavedCards();
+        assertThat(mTouchToFillPaymentMethodModel.get(SELECTED_TAB_INDEX), is(PAY_NOW));
+    }
+
+    @Test
+    @EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_PAY_NOW_PAY_LATER_TABS})
+    public void testPayLaterTabSelectedAmountExtractedAfterSwitchingBackToPayNow() {
+        mCoordinator.showPaymentMethods(
+                List.of(VISA_SUGGESTION, BNPL_SUGGESTION), new TouchToFillDisplayOptions());
+
+        // Select PAY_LATER tab (amount not extracted yet and shows loading screen)
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_LATER);
+        mCoordinator.showProgressScreen();
+
+        ModelList itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, PROGRESS_ICON).size(), is(1));
+        assertThat(getModelsOfType(itemList, BNPL_ISSUER).size(), is(0));
+
+        // Select PAY_NOW tab
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_NOW);
+        itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(1));
+
+        // Amount is extracted
+        mCoordinator.showBnplIssuers(List.of(BNPL_ISSUER_CONTEXT_AFFIRM_LINKED));
+
+        // Select PAY_LATER tab again -> BNPL issuers are shown
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_LATER);
+        itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, PROGRESS_ICON).size(), is(0));
+        assertThat(getModelsOfType(itemList, BNPL_ISSUER).size(), is(1));
+
+        assertEquals(1, getUserActionCount(PROGRESS_SCREEN_SHOWN));
+        assertEquals(1, getUserActionCount(ISSUER_SELECTION_SCREEN_SHOWN));
+    }
+
+    @Test
+    @EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_PAY_NOW_PAY_LATER_TABS})
+    public void testPayLaterTabSelectedAmountStillNotExtractedAfterSwitchingBackToPayNow() {
+        mCoordinator.showPaymentMethods(
+                List.of(VISA_SUGGESTION, BNPL_SUGGESTION), new TouchToFillDisplayOptions());
+
+        // Select PAY_LATER tab (amount not extracted yet and shows loading screen 1st time)
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_LATER);
+        mCoordinator.showProgressScreen();
+
+        ModelList itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, PROGRESS_ICON).size(), is(1));
+
+        // Select PAY_NOW tab
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_NOW);
+        itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, CREDIT_CARD).size(), is(1));
+
+        // Select PAY_LATER tab again (amount still not extracted and shows loading screen 2nd time)
+        mTouchToFillPaymentMethodModel.get(TAB_SELECTION_HANDLER).onResult(PAY_LATER);
+        mCoordinator.showProgressScreen();
+
+        itemList = mTouchToFillPaymentMethodModel.get(SHEET_ITEMS);
+        assertThat(getModelsOfType(itemList, PROGRESS_ICON).size(), is(1));
+        assertThat(getModelsOfType(itemList, BNPL_ISSUER).size(), is(0));
+    }
+
+    @Test
+    @EnableFeatures({AutofillFeatures.AUTOFILL_ENABLE_PAY_NOW_PAY_LATER_TABS})
+    public void testDismissTabbedHomeScreenRecordsUserAction() {
+        mCoordinator.showPaymentMethods(
+                List.of(VISA_SUGGESTION, BNPL_SUGGESTION), new TouchToFillDisplayOptions());
+
+        mTouchToFillPaymentMethodModel.get(DISMISS_HANDLER).onResult(StateChangeReason.SWIPE);
+
+        assertEquals(1, getUserActionCount(TABBED_HOME_SCREEN_DISMISSED));
     }
 
     private static List<PropertyModel> getModelsOfType(ModelList items, int type) {

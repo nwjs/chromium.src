@@ -6,19 +6,17 @@ import '../controls/collapse_radio_button.js';
 import '../controls/settings_dropdown_menu.js';
 import '../controls/settings_radio_group.js';
 import '../controls/settings_toggle_button.js';
-import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 import '/shared/settings/prefs/prefs.js';
 import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
-import '../settings_columned_section.css.js';
 import '../settings_page/settings_section.js';
-import '../settings_shared.css.js';
 
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
-import {CrSettingsPrefs} from '/shared/settings/prefs/prefs_types.js';
+import {PrefService} from '/shared/settings/prefs2/pref_service.js';
+import {PrefServiceObserverMixinLit} from '/shared/settings/prefs2/pref_service_observer_mixin_lit.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {OpenWindowProxyImpl} from 'chrome://resources/js/open_window_proxy.js';
 import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+import type {PropertyValues} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import type {SettingsCollapseRadioButtonElement} from '../controls/collapse_radio_button.js';
 import type {DropdownMenuOptionList} from '../controls/settings_dropdown_menu.js';
@@ -29,7 +27,8 @@ import {loadTimeData} from '../i18n_setup.js';
 import {NetworkPredictionOptions} from './constants.js';
 import type {CpuPerformanceInfo} from './performance_browser_proxy.js';
 import {PerformanceBrowserProxyImpl, PerformanceFeedbackCategory} from './performance_browser_proxy.js';
-import {getTemplate} from './speed_page.html.js';
+import {getCss} from './speed_page.css.js';
+import {getHtml} from './speed_page.html.js';
 
 export interface SpeedPageElement {
   $: {
@@ -40,98 +39,84 @@ export interface SpeedPageElement {
   };
 }
 
-const SpeedPageElementBase = PrefsMixin(PolymerElement);
+const SpeedPageElementBase = PrefServiceObserverMixinLit(CrLitElement);
+export const PRELOADING_PREF = 'net.network_prediction_options';
 
 export class SpeedPageElement extends SpeedPageElementBase {
   static get is() {
     return 'settings-speed-page';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      /** Valid network prediction options state. */
-      networkPredictionOptionsEnum_: {
-        type: Object,
-        value: NetworkPredictionOptions,
-      },
-
-      numericUncheckedValues_: {
-        type: Array,
-        value: () => [NetworkPredictionOptions.DISABLED],
-      },
-
-      cpuPerformanceInfo_: {
-        type: Object,
-        value: null,
-      },
-
-      cpuPerformanceModelLabel_: {
-        type: String,
-        value: '',
-      },
-
-      cpuPerformanceEnabled_: {
-        type: Boolean,
-        readOnly: true,
-        value: () => loadTimeData.getBoolean('cpuPerformanceEnabled'),
-      },
-
-      cpuPerformanceTierOptions_: {
-        type: Array,
-        readOnly: true,
-        value: () => [
-          {
-            value: -1,
-            name: loadTimeData.getString('cpuPerformanceTierDefault'),
-          },
-          {
-            value: 0,
-            name: loadTimeData.getString('cpuPerformanceTierUnknown'),
-          },
-          {
-            value: 1,
-            name: loadTimeData.getString('cpuPerformanceTierLow'),
-          },
-          {
-            value: 2,
-            name: loadTimeData.getString('cpuPerformanceTierMid'),
-          },
-          {
-            value: 3,
-            name: loadTimeData.getString('cpuPerformanceTierHigh'),
-          },
-          {
-            value: 4,
-            name: loadTimeData.getString('cpuPerformanceTierUltra'),
-          },
-        ],
-      },
+      numericUncheckedValues_: {type: Array},
+      cpuPerformanceInfo_: {type: Object},
+      cpuPerformanceModelLabel_: {type: String},
+      cpuPerformanceEnabled_: {type: Boolean},
+      cpuPerformanceTierOptions_: {type: Array},
+      preloadingStatePref_: {type: Object},
     };
   }
 
-  private declare cpuPerformanceInfo_: CpuPerformanceInfo|null;
-  private declare cpuPerformanceModelLabel_: string;
-  private declare cpuPerformanceEnabled_: boolean;
-  private declare cpuPerformanceTierOptions_: DropdownMenuOptionList;
-  declare private numericUncheckedValues_: NetworkPredictionOptions[];
+  protected accessor cpuPerformanceInfo_: CpuPerformanceInfo|null = null;
+  protected accessor cpuPerformanceModelLabel_: string = '';
+  protected accessor cpuPerformanceEnabled_: boolean =
+      loadTimeData.getBoolean('cpuPerformanceEnabled');
+  protected accessor cpuPerformanceTierOptions_: DropdownMenuOptionList = [
+    {
+      value: -1,
+      name: loadTimeData.getString('cpuPerformanceTierDefault'),
+    },
+    {
+      value: 0,
+      name: loadTimeData.getString('cpuPerformanceTierUnknown'),
+    },
+    {
+      value: 1,
+      name: loadTimeData.getString('cpuPerformanceTierLow'),
+    },
+    {
+      value: 2,
+      name: loadTimeData.getString('cpuPerformanceTierMid'),
+    },
+    {
+      value: 3,
+      name: loadTimeData.getString('cpuPerformanceTierHigh'),
+    },
+    {
+      value: 4,
+      name: loadTimeData.getString('cpuPerformanceTierUltra'),
+    },
+  ];
+  protected accessor numericUncheckedValues_: NetworkPredictionOptions[] =
+      [NetworkPredictionOptions.DISABLED];
+  private accessor preloadingStatePref_: chrome.settingsPrivate.PrefObject|
+      undefined;
 
-  override ready() {
-    super.ready();
+  override connectedCallback() {
+    super.connectedCallback();
+    this.mirrorPref(PRELOADING_PREF, 'preloadingStatePref_');
+  }
 
-    CrSettingsPrefs.initialized.then(() => {
-      const prefValue = this.getPref<NetworkPredictionOptions>(
-                                'net.network_prediction_options')
+  override firstUpdated(changedProperties: PropertyValues<this>) {
+    super.firstUpdated(changedProperties);
+    PrefService.getInstance().whenInitialized().then(() => {
+      const prefValue = PrefService.getInstance()
+                            .getPref<NetworkPredictionOptions>(PRELOADING_PREF)
                             .value;
       if (prefValue === NetworkPredictionOptions.WIFI_ONLY_DEPRECATED) {
         // The default pref value is deprecated, and is treated the same as
         // STANDARD. See chrome/browser/preloading/preloading_prefs.h.
-        this.setPrefValue(
-            'net.network_prediction_options',
-            NetworkPredictionOptions.STANDARD);
+        PrefService.getInstance().setPrefValue(
+            PRELOADING_PREF, NetworkPredictionOptions.STANDARD);
       }
     });
 
@@ -146,32 +131,50 @@ export class SpeedPageElement extends SpeedPageElementBase {
         });
   }
 
-  private isPreloadingEnabled_(value: number): boolean {
-    return value !== NetworkPredictionOptions.DISABLED;
+
+  protected isPreloadingEnabled_(): boolean {
+    if (!this.preloadingStatePref_) {
+      return false;
+    }
+    return this.preloadingStatePref_.value !==
+        NetworkPredictionOptions.DISABLED;
   }
 
-  private onPreloadingStateChange_() {
+  protected onPreloadingStateChange_() {
     // Automatic expanding is disabled so that the radio buttons are collapsed
     // initially. Because of this, radio buttons' expanded states need to be
     // updated manually.
-    this.$.preloadingExtended.updateCollapsed();
-    this.$.preloadingStandard.updateCollapsed();
+    // Defer updates to let the pref change propagate to the radio buttons
+    // first.
+    Promise.resolve().then(() => {
+      this.$.preloadingExtended.updateCollapsed();
+      this.$.preloadingStandard.updateCollapsed();
+    });
   }
 
-  private onPreloadingLearnMoreLinkClick_() {
+  protected onPreloadingSubLabelLinkClicked_() {
     OpenWindowProxyImpl.getInstance().openUrl(
         loadTimeData.getString('preloadingLearnMoreUrl'));
   }
 
-  // <if expr="_google_chrome">
-  private onSendFeedbackClick_(e: Event) {
-    e.stopPropagation();
+  protected showSendFeedbackButton_(): boolean {
+    // <if expr="_google_chrome">
+    return true;
+    // </if>
+    // <if expr="not _google_chrome">
+    return false;
+    // </if>
+  }
+
+  protected onSendFeedback_(_e: Event) {
+    // <if expr="_google_chrome">
+    _e.stopPropagation();
     PerformanceBrowserProxyImpl.getInstance().openFeedbackDialog(
         PerformanceFeedbackCategory.SPEED);
+    // </if>
   }
-  // </if>
 
-  private getCpuPerformanceNominalTierLabel_(): string {
+  protected getCpuPerformanceNominalTierLabel_(): string {
     const tierLabels = [
       loadTimeData.getString('cpuPerformanceTierUnknown'),
       loadTimeData.getString('cpuPerformanceTierLow'),

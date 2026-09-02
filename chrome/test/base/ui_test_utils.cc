@@ -41,9 +41,9 @@
 #include "chrome/browser/task_manager/providers/web_contents/web_contents_tags_manager.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
@@ -601,19 +601,26 @@ bool MaximizeAndWaitUntilUIUpdateDone(BrowserWindowInterface& browser) {
 
 FullscreenWaiter::FullscreenWaiter(BrowserWindowInterface* browser,
                                    FullscreenWaiter::Expectation expectation)
+    : FullscreenWaiter(browser->GetFeatures()
+                           .exclusive_access_manager()
+                           ->fullscreen_controller(),
+                       std::move(expectation)) {}
+
+FullscreenWaiter::FullscreenWaiter(FullscreenController* controller,
+                                   FullscreenWaiter::Expectation expectation)
     : expectation_(std::move(expectation)),
-      controller_(browser->GetFeatures()
-                      .exclusive_access_manager()
-                      ->fullscreen_controller()),
+      controller_(controller),
       // Sometimes, the wait is called on a sequeunce, e.g.
       // as a part of interactive_ui_tests's RunTestSequence.
       // To handle that case, we can process pending task posted to the
       // sequence in nested RunLoop.
       run_loop_(base::RunLoop::Type::kNestableTasksAllowed),
-      satisfied_(IsSatisfied()) {
-  subscription_ = controller_->RegisterOnFullscreenStateChanged(
-      base::BindRepeating(&FullscreenWaiter::OnFullscreenStateChanged,
-                          base::Unretained(this)));
+      satisfied_(controller_ ? IsSatisfied() : true) {
+  if (controller_) {
+    subscription_ = controller_->RegisterOnFullscreenStateChanged(
+        base::BindRepeating(&FullscreenWaiter::OnFullscreenStateChanged,
+                            base::Unretained(this)));
+  }
 }
 
 FullscreenWaiter::~FullscreenWaiter() = default;
@@ -746,12 +753,12 @@ void DeprecatedFakeActivateBrowser(BrowserWindowInterface* browser) {
   CHECK(browser);
 
   // We must deactivate the currently active browser first.
-  GetLastActiveBrowserWindowInterfaceWithAnyProfile()
-      ->GetBrowserForMigrationOnly()
+  BrowserActiveStateManager::From(
+      GetLastActiveBrowserWindowInterfaceWithAnyProfile())
       ->DidBecomeInactive();
 
   // Fake activation of the target browser.
-  browser->GetBrowserForMigrationOnly()->DidBecomeActive();
+  BrowserActiveStateManager::From(browser)->DidBecomeActive();
 }
 
 void SendToOmniboxAndSubmit(BrowserWindowInterface* browser,

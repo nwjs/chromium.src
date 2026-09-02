@@ -105,10 +105,6 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
 #endif
 
   static const webui::LocalizedString kStrings[] = {
-      {"accountStorageToggleLabel",
-       IDS_PASSWORD_MANAGER_UI_ACCOUNT_STORAGE_WITH_PASSKEYS_TOGGLE_LABEL},
-      {"accountStorageToggleSubLabel",
-       IDS_PASSWORD_MANAGER_UI_ACCOUNT_STORAGE_TOGGLE_SUB_LABEL},
       {"addPassword", IDS_PASSWORD_MANAGER_UI_ADD_PASSWORD_BUTTON},
       {"addPasswordFooter", IDS_PASSWORD_MANAGER_UI_ADD_PASSWORD_FOOTNOTE},
       {"addPasswordStoreOptionAccount",
@@ -174,6 +170,8 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
        IDS_PASSWORD_MANAGER_UI_CHANGE_PASSWORD_MANAGER_PIN},
       {"checkup", IDS_PASSWORD_MANAGER_UI_CHECKUP},
       {"checkupCanceled", IDS_PASSWORD_MANAGER_UI_CHECKUP_CANCELED},
+      {"checkupEmptyStateTrustedVaultKeyNeeded",
+       IDS_PASSWORD_MANAGER_UI_CHECKUP_EMPTY_STATE_TRUSTED_VAULT_KEY_NEEDED},
       {"checkupErrorGeneric", IDS_PASSWORD_MANAGER_UI_CHECKUP_OTHER_ERROR},
       {"checkupErrorNoPasswords", IDS_PASSWORD_MANAGER_UI_CHECKUP_NO_PASSWORDS},
       {"checkupErrorOffline", IDS_PASSWORD_MANAGER_UI_CHECKUP_OFFLINE},
@@ -488,6 +486,14 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
        IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_OPTED_IN_TITLE},
       {"trustedVaultBannerSubLabelOptedIn",
        IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_OPTED_IN_DESCRIPTION},
+      {"trustedVaultErrorDialogContinue",
+       IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_ERROR_DIALOG_CONTINUE},
+      {"trustedVaultErrorDialogDescription",
+       IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_ERROR_DIALOG_DESCRIPTION},
+      {"trustedVaultErrorDialogNotNow",
+       IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_ERROR_DIALOG_NOT_NOW},
+      {"trustedVaultErrorDialogTitle",
+       IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_ERROR_DIALOG_TITLE},
       {"tryAgain", IDS_PASSWORD_MANAGER_UI_CHECK_PASSWORDS_AFTER_ERROR},
       {"undoRemovePassword", IDS_PASSWORD_MANAGER_UI_UNDO},
       {"unmuteCompromisedPassword", IDS_PASSWORD_MANAGER_UI_UNMUTE_ISSUE},
@@ -647,6 +653,9 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
   source->AddString("emptyStateImportDevice",
                     InsertBrandedPasswordManager(
                         IDS_PASSWORD_MANAGER_UI_EMPTY_STATE_SIGNEDOUT_USERS));
+  webui::AddLocalizedString(
+      source, "emptyStateTrustedVaultKeyNeeded",
+      IDS_PASSWORD_MANAGER_UI_EMPTY_STATE_TRUSTED_VAULT_KEY_NEEDED);
 
   source->AddString(
       "importPasswordsGenericDescription",
@@ -701,6 +710,11 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       "enablePasswordManagerMojoApiPhase2",
       base::FeatureList::IsEnabled(
           password_manager::features::kEnablePasswordManagerMojoApiPhase2));
+
+  source->AddBoolean(
+      "enableTrustedVaultUnlock",
+      base::FeatureList::IsEnabled(
+          password_manager::features::kTrustedVaultDesktopUnlock));
 
   source->AddString("webuiRefresh2026", features::IsWebuiRefresh2026Enabled()
                                             ? "webui-refresh-2026"
@@ -792,8 +806,6 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordManagerUI,
                                       kOverflowMenuElementId);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordManagerUI,
                                       kSharePasswordElementId);
-DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PasswordManagerUI,
-                                      kAccountStoreToggleElementId);
 DEFINE_CLASS_CUSTOM_ELEMENT_EVENT_TYPE(PasswordManagerUI,
                                        kAddShortcutCustomEventId);
 
@@ -825,18 +837,17 @@ PasswordManagerUI::PasswordManagerUI(content::WebUI* web_ui)
                 PasswordManagerUI::kSettingsMenuItemElementId,
                 PasswordManagerUI::kAddShortcutElementId,
                 PasswordManagerUI::kSharePasswordElementId,
-                PasswordManagerUI::kAccountStoreToggleElementId,
                 PasswordManagerUI::kOverflowMenuElementId});
 }
 
 PasswordManagerUI::~PasswordManagerUI() = default;
 
 // static
-base::RefCountedMemory* PasswordManagerUI::GetFaviconResourceBytes(
+scoped_refptr<base::RefCountedMemory>
+PasswordManagerUI::GetFaviconResourceBytes(
     ui::ResourceScaleFactor scale_factor) {
-  return static_cast<base::RefCountedMemory*>(
-      ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
-          IDR_PASSWORD_MANAGER_FAVICON, scale_factor));
+  return ui::ResourceBundle::GetSharedInstance().LoadDataResourceBytesForScale(
+      IDR_PASSWORD_MANAGER_FAVICON, scale_factor);
 }
 
 WEB_UI_CONTROLLER_TYPE_IMPL(PasswordManagerUI)

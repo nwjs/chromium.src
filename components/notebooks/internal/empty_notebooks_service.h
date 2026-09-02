@@ -23,9 +23,9 @@ class EmptyNotebooksService : public NotebooksService {
   // NotebooksService:
   void AddObserver(Observer* observer) override;
   void RemoveObserver(Observer* observer) override;
+  std::optional<Notebook> GetNotebook(const NotebookId& id) const override;
+  std::vector<Notebook> GetAllNotebooks() const override;
   bool IsEmptyForTesting() const override;
-  bool IsUserEligible() const override;
-  bool IsEligibilityLoading() const override;
   base::WeakPtr<syncer::DataTypeControllerDelegate> GetSyncControllerDelegate()
       override;
 };

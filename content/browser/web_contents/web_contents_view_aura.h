@@ -161,6 +161,10 @@ class CONTENT_EXPORT WebContentsViewAura
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
                            Drop_DropZone_DelegateBlocks);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest, StartDragging);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
+                           DragEnterFilesAppCustomTypesFromWebSource);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
+                           DragEnterFilesAppCustomTypesFromWebUISource);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest, GetDropCallback_Run);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
                            DragInProgressFinishesAfterDrop);
@@ -185,7 +189,8 @@ class CONTENT_EXPORT WebContentsViewAura
       EmptyTextWithUrlInDropDataIsEmptyInOSExchangeDataGetString);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
                            RejectDragFromHiddenWebContents);
-  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest, RejectDragFromOutsideView);
+  FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
+                           ClampMouseLocationToBrowserObservedPoint);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,
                            ClampTouchLocationToBrowserObservedPoint);
   FRIEND_TEST_ALL_PREFIXES(WebContentsViewAuraTest,

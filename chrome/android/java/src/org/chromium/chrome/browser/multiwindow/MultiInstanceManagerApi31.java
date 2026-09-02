@@ -25,7 +25,6 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.TimeUtils;
 import org.chromium.base.metrics.RecordHistogram;
@@ -76,7 +75,6 @@ import org.chromium.components.messages.MessageDispatcher;
 import org.chromium.components.messages.MessageDispatcherProvider;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.ui.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -440,43 +438,33 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
                     profileType);
         }
 
-        // Search for an unassigned ID. The index is available for the assignment if:
-        // a) there is no associated task and the instance is not marked for deletion, or
-        // b) the corresponding persistent state does not exist.
-        // Prefer a over b. Pick the MRU instance if there is more than one. Type b returns 0
-        // for |readLastAccessedTime|, so can be regarded as the least favored.
+        // Search for an unassigned instance ID. An index is eligible if it has no associated task
+        // and is not marked for deletion. Unless startup policies require allocating a fresh
+        // instance ID, prefer adopting existing persisted instances in MRU order over allocating
+        // an unmapped ID.
         int id = INVALID_WINDOW_ID;
         boolean newInstanceIdAllocated = false;
         @InstanceAllocationType int allocationType = InstanceAllocationType.INVALID_INSTANCE;
-        boolean isRelaunch =
-                IntentUtils.safeGetBooleanExtra(
-                        mActivity.getIntent(), IntentHandler.EXTRA_FROM_RELAUNCH, false);
         int maxRange =
                 ChromeFeatureList.sAllocInstanceIdIncreasedDefaultRange.isEnabled()
                         ? TabWindowManager.MAX_SELECTORS_1000
                         : getMaxInstances();
-        boolean lastWindowClosedByApp =
-                MultiWindowUtils.isNewStartupWindowPolicyEnabled()
-                        && ChromeMultiInstancePersistentStore.readLastSessionExitType()
-                                == LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP;
-        if (lastWindowClosedByApp) {
-            ChromeMultiInstancePersistentStore.writeLastSessionExitType(LastSessionExitType.NORMAL);
-        }
+        boolean allocNewIdOnStartup =
+                TabbedStartupWindowPolicyDelegate.getInstance()
+                        .claimForceNewInstancePolicy(isIncognitoIntent);
 
         for (int i = 0; i < maxRange; ++i) {
             int persistedTaskId = ChromeMultiInstancePersistentStore.readTaskId(i);
             if (persistedTaskId != INVALID_TASK_ID) {
                 continue;
             }
+
             if (ChromeMultiInstancePersistentStore.readMarkedForDeletion(i)) {
                 continue;
             }
 
             boolean instanceExists = ChromeMultiInstancePersistentStore.hasInstance(i);
-            if (instanceExists && !isRelaunch && lastWindowClosedByApp) {
-                // This supports updated default id allocation / startup behavior where a newly
-                // created activity will refrain from using existing instance state and will be
-                // created as a brand-new window instead.
+            if (instanceExists && allocNewIdOnStartup) {
                 continue;
             }
 
@@ -898,8 +886,9 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
             Set<Integer> activeInstanceIds =
                     MultiWindowUtils.getPersistedInstanceIds(PersistedInstanceType.ACTIVE);
             if (!activeInstanceIds.isEmpty() && instanceIds.containsAll(activeInstanceIds)) {
-                ChromeMultiInstancePersistentStore.writeLastSessionExitType(
-                        LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP);
+                TabbedStartupWindowPolicyDelegate.getInstance()
+                        .maybeSaveWindowStateOnSessionTermination(
+                                LastSessionExitType.LAST_WINDOW_CLOSED_BY_APP);
             }
         }
         boolean shouldCloseCurrentInstance = false;
@@ -950,11 +939,21 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
             }
             assumeNonNull(mTabModelOrchestratorSupplier.get()).cleanupInstance(instanceId);
         } else {
+            // Windows closed via keyboard shortcut (ctrl+shift+w) or menu are marked for deletion
+            // only when the new startup window policy is enabled (so they are available on Recent
+            // Tabs, but excluded from MRU instance ID allocation).
+            boolean isShortcutOrMenu =
+                    source == CloseWindowAppSource.KEYBOARD_SHORTCUT
+                            || source == CloseWindowAppSource.MENU;
+            boolean markedForDeletion =
+                    !isShortcutOrMenu || MultiWindowUtils.isNewStartupWindowPolicyEnabled();
             ChromeMultiInstancePersistentStore.writeMarkedForDeletion(
-                    instanceId, /* markedForDeletion= */ true);
+                    instanceId, markedForDeletion);
             ChromeMultiInstancePersistentStore.writeIsRecoverable(instanceId, false);
             ChromeMultiInstancePersistentStore.writeClosureTime(instanceId);
-            ChromeMultiInstancePersistentStore.removeTaskId(instanceId);
+            if (markedForDeletion) {
+                ChromeMultiInstancePersistentStore.removeTaskId(instanceId);
+            }
         }
 
         // Activity#finishAndRemoveTask() is preferred for active instances because it synchronously
@@ -1035,7 +1034,9 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
      * @param source The window closure source, from {@link CloseWindowAppSource}.
      */
     private static boolean isPermanentClosureSource(@CloseWindowAppSource int source) {
-        return source != CloseWindowAppSource.WINDOW_MANAGER;
+        return source != CloseWindowAppSource.WINDOW_MANAGER
+                && source != CloseWindowAppSource.KEYBOARD_SHORTCUT
+                && source != CloseWindowAppSource.MENU;
     }
 
     private static boolean hasRestorableRegularTabs(int instanceId) {
@@ -1082,9 +1083,14 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
             ChromeMultiInstancePersistentStore.writeClosureTime(mInstanceId);
         }
         if (mActivity.isFinishing()) {
-            ChromeMultiInstancePersistentStore.writeIsRecoverable(mInstanceId, false);
-            // Notify Recent Tabs page that the instance is closing.
-            notifyInstancesClosed(Collections.singletonList(mInstanceId), isPermanentDeletion);
+            boolean isQuitInProgress = isAppQuitInProgress();
+            if (!isQuitInProgress || MultiWindowUtils.hasNoNormalTabs(mInstanceId)) {
+                ChromeMultiInstancePersistentStore.writeIsRecoverable(mInstanceId, false);
+            }
+            if (!isQuitInProgress) {
+                // Notify Recent Tabs page that the instance is closing.
+                notifyInstancesClosed(Collections.singletonList(mInstanceId), isPermanentDeletion);
+            }
         }
 
         if (mInstanceId != INVALID_WINDOW_ID) {
@@ -1108,7 +1114,11 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
     @Override
     public void onTopResumedActivityChanged(boolean isTopResumedActivity) {
         super.onTopResumedActivityChanged(isTopResumedActivity);
-        if (isTopResumedActivity) {
+        // Do not update last accessed time if the activity is finishing. This is to avoid
+        // undesirably marking a finishing activity as recently accessed in a scenario where
+        // multiple activities are finishing as a result of a bulk shutdown, so that we persist
+        // accurate instance state for the window that was truly accessed last.
+        if (isTopResumedActivity && !mActivity.isFinishing()) {
             ChromeMultiInstancePersistentStore.writeLastAccessedTime(mInstanceId);
         }
     }
@@ -1119,7 +1129,8 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
         // We persist last closed time when the activity is stopped as a fallback for when
         // #onDestroy() is not called for a finishing activity.
         ChromeMultiInstancePersistentStore.writeClosureTime(mInstanceId);
-        if (mActivity.isFinishing()) {
+        if (mActivity.isFinishing()
+                && (!isAppQuitInProgress() || MultiWindowUtils.hasNoNormalTabs(mInstanceId))) {
             ChromeMultiInstancePersistentStore.writeIsRecoverable(mInstanceId, false);
         }
     }
@@ -1288,18 +1299,18 @@ class MultiInstanceManagerApi31 extends MultiInstanceManagerImpl
         return Objects.requireNonNullElse(MultiWindowUtils.sMaxInstancesForTesting, mMaxInstances);
     }
 
+    private static boolean isAppQuitInProgress() {
+        return MultiWindowUtils.isNewStartupWindowPolicyEnabled()
+                && ChromeMultiInstancePersistentStore.readLastSessionExitType()
+                        == LastSessionExitType.QUIT;
+    }
+
     @Override
     public void showInstanceCreationLimitMessage() {
-        // TODO(crbug.com/535331238): Move this to MultiWindowUtils.java and merge with the
-        //  duplicated toast.
+        // TODO(crbug.com/527595823): Remove this helper method post-launch and call
+        // MultiWindowUtils.showInstanceCreationLimitToast directly.
         if (MultiWindowUtils.isWindowManagerDeprecated()) {
-            Toast.makeText(
-                            mActivity,
-                            mActivity.getString(
-                                    R.string.multi_instance_creation_limit_message_toast,
-                                    getMaxInstances()),
-                            Toast.LENGTH_LONG)
-                    .show();
+            MultiWindowUtils.showInstanceCreationLimitToast(mActivity);
             return;
         }
 

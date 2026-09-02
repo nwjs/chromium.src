@@ -5,6 +5,7 @@
 #include "pdf/pdfium/pdfium_page.h"
 
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -13,6 +14,7 @@
 #include "base/files/file_path.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "pdf/accessibility_structs.h"
 #include "pdf/buildflags.h"
@@ -27,6 +29,7 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "third_party/skia/include/core/SkPixmap.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rect_f.h"
 #include "ui/gfx/geometry/size_f.h"
@@ -60,7 +63,6 @@ void CompareTextRuns(const AccessibilityTextRunInfo& expected_text_run,
   EXPECT_EQ(expected_style.fill_color, actual_style.fill_color);
   EXPECT_EQ(expected_style.stroke_color, actual_style.stroke_color);
   EXPECT_EQ(expected_style.is_italic, actual_style.is_italic);
-  EXPECT_EQ(expected_style.is_bold, actual_style.is_bold);
 }
 
 // Returns the page size for a `PDFiumPage`. The caller must make sure that
@@ -701,7 +703,29 @@ TEST_P(PDFiumPageImageForOcrTest, NonImage) {
 INSTANTIATE_TEST_SUITE_P(All, PDFiumPageImageForOcrTest, testing::Bool());
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
-using PDFiumPageTextTest = PDFiumTestBase;
+class PDFiumPageTextTest : public PDFiumTestBase {
+ protected:
+  std::optional<AccessibilityTextRunInfo> GetFirstPageTextRunInfoAt(
+      const base::FilePath::CharType* pdf_name,
+      int char_index) {
+    TestClient client(/*use_skia_renderer=*/GetParam());
+    std::unique_ptr<PDFiumEngine> engine = InitializeEngine(&client, pdf_name);
+    if (!engine) {
+      return std::nullopt;
+    }
+    PDFiumPage& page = GetPDFiumPage(*engine, 0);
+    if (page.GetCharCount() <= 0) {
+      return std::nullopt;
+    }
+    return page.GetTextRunInfoAt(char_index);
+  }
+
+  std::optional<AccessibilityTextRunInfo> GetFontMatrixPDFTextRunInfo(
+      int char_index) {
+    return GetFirstPageTextRunInfoAt(FILE_PATH_LITERAL("font_matrix.pdf"),
+                                     char_index);
+  }
+};
 
 TEST_P(PDFiumPageTextTest, TextRunBounds) {
   TestClient client(/*use_skia_renderer=*/GetParam());
@@ -785,18 +809,11 @@ TEST_P(PDFiumPageTextTest, GetTextRunInfoAt) {
   int current_char_index = 0;
 
   AccessibilityTextStyleInfo expected_style_1 = {
-      "Times-Roman",
-      0,
-      AccessibilityTextRenderMode::kFill,
-      12,
-      0xff000000,
-      0xff000000,
-      false,
-      false};
+      "Times-Roman", 0,    AccessibilityTextRenderMode::kFill, 12, 0xff000000,
+      0xff000000,    false};
   AccessibilityTextStyleInfo expected_style_2 = {
-      "Helvetica", 0,          AccessibilityTextRenderMode::kFill,
-      16,          0xff000000, 0xff000000,
-      false,       false};
+      "Helvetica", 0,    AccessibilityTextRenderMode::kFill, 16, 0xff000000,
+      0xff000000,  false};
   // The links span from [7, 22], [52, 66] and [92, 108] with 16, 15 and 17
   // text run lengths respectively. There are text runs preceding and
   // succeeding them.
@@ -883,9 +900,8 @@ TEST_P(PDFiumPageTextTest, HighlightTextRunInfo) {
 
   // Highlights span across text run indices 0, 2 and 3.
   static const AccessibilityTextStyleInfo kExpectedStyle = {
-      "Helvetica", 0,          AccessibilityTextRenderMode::kFill,
-      16,          0xff000000, 0xff000000,
-      false,       false};
+      "Helvetica", 0,    AccessibilityTextRenderMode::kFill, 16, 0xff000000,
+      0xff000000,  false};
   auto expected_text_runs = std::to_array<AccessibilityTextRunInfo>(
       {{/*start_index=*/0, /*len=*/5,
         gfx::RectF(1.3333334f, 198.66667f, 46.666668f, 14.666672f),
@@ -919,6 +935,62 @@ TEST_P(PDFiumPageTextTest, HighlightTextRunInfo) {
     const auto& actual_text_run = text_run_info_result.value();
     CompareTextRuns(expected_text_run, actual_text_run);
     current_char_index += actual_text_run.len;
+  }
+}
+
+TEST_P(PDFiumPageTextTest, GetTextRunInfoAtWithHeuristicEnhancements) {
+  float font_size_disabled;
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndDisableFeature(
+        ::features::kPdfAccessibilityHeuristicEnhancements);
+    std::optional<AccessibilityTextRunInfo> text_run_info =
+        GetFontMatrixPDFTextRunInfo(0);
+    ASSERT_TRUE(text_run_info.has_value());
+    font_size_disabled = text_run_info->style.font_size;
+  }
+
+  float font_size_enabled;
+  {
+    base::test::ScopedFeatureList scoped_feature_list;
+    scoped_feature_list.InitAndEnableFeature(
+        ::features::kPdfAccessibilityHeuristicEnhancements);
+    std::optional<AccessibilityTextRunInfo> text_run_info =
+        GetFontMatrixPDFTextRunInfo(0);
+    ASSERT_TRUE(text_run_info.has_value());
+    font_size_enabled = text_run_info->style.font_size;
+  }
+
+  // For "A1", the base font size is 1.0, and the vertical scale of the matrix
+  // is 10.0.
+  // - With heuristic enhancements disabled, the nominal font size is 1.0. Since
+  //   this is <= 1.0, it triggers the fallback to the estimated character box
+  //   size, yielding ~10.667 with test fonts on Linux/ChromeOS and 12.0 with
+  //   native fonts on Mac/Windows.
+  // - With heuristic enhancements enabled, the font size is scaled by 10.0 to
+  //   equal 10.0. Since this is > 1.0, it bypasses the fallback on all
+  //   platforms.
+  float expected_font_size_disabled = UsingTestFonts() ? 10.667f : 12.0f;
+  EXPECT_NEAR(font_size_disabled, expected_font_size_disabled, 0.001f);
+  EXPECT_NEAR(font_size_enabled, 10.0f, 0.001f);
+}
+
+TEST_P(PDFiumPageTextTest, GetTextRunInfoFontWeight) {
+  // Test invalid weight (FPDFFont_GetWeight returns -1, which is mapped to 0).
+  {
+    std::optional<AccessibilityTextRunInfo> text_run_info =
+        GetFontMatrixPDFTextRunInfo(0);
+    ASSERT_TRUE(text_run_info.has_value());
+    EXPECT_EQ(text_run_info->style.font_weight, 0);
+  }
+
+  // Test valid weight.
+  {
+    constexpr int kHelveticaRunCharIndex = 12;
+    std::optional<AccessibilityTextRunInfo> text_run_info =
+        GetFontMatrixPDFTextRunInfo(kHelveticaRunCharIndex);
+    ASSERT_TRUE(text_run_info.has_value());
+    EXPECT_EQ(text_run_info->style.font_weight, 1340);
   }
 }
 

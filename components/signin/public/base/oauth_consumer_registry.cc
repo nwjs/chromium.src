@@ -125,9 +125,6 @@ constexpr char kKidManagementPrivilegedOAuth2Scope[] =
 // OAuth2 scope for access to Google Family Link Supervision Setup.
 constexpr char kKidsSupervisionSetupChildOAuth2Scope[] =
     "https://www.googleapis.com/auth/kids.supervision.setup.child";
-// OAuth2 scope for app license check.
-constexpr char kLicenseCheckOAuth2Scope[] =
-    "https://www.googleapis.com/auth/applicense.bytebot";
 // OAuth2 scope for manta.
 constexpr char kMantaOAuth2Scope[] =
     "https://www.googleapis.com/auth/mdi.aratea";
@@ -291,7 +288,6 @@ constexpr char kArcBackgroundAuthCodeFetcherName[] =
     "arc_background_auth_code_fetcher";
 constexpr char kGcmAccountTrackerName[] = "gcm_account_tracker";
 constexpr char kPolicyTokenForwarderName[] = "policy_token_forwarder";
-constexpr char kPluginVmLicenseCheckerName[] = "plugin_vm_license_checker";
 constexpr char kDrivefsAuthName[] = "drivefs_auth";
 constexpr char kNearbyPresenceServerClientName[] =
     "nearby_presence_server_client";
@@ -331,13 +327,14 @@ constexpr char kActorLoginPermissionServiceName[] =
     "actor_login_permission_service";
 constexpr char kGapisServiceName[] = "gapis_service";
 constexpr char kOneTimeTokenServiceName[] = "one_time_token_service";
-constexpr char kDrivePickerHostName[] = "drive_picker_host";
 constexpr char kMultistepFilterName[] = "multistep_filter";
 constexpr char kContextMemoryServiceName[] = "context_memory_service";
 constexpr char kSyncPreviewName[] = "chromesync_preview";
 constexpr char kNotebooksServiceName[] = "notebooks_service";
 constexpr char kRemoteActorLoginCredentialsServiceName[] =
     "remote_actor_login_credentials_service";
+constexpr char kDeviceAuthorizationRequestName[] =
+    "device_authorization_request";
 }  // namespace
 
 namespace signin {
@@ -606,10 +603,6 @@ OAuthConsumer OAuthConsumerRegistry::GetOAuthConsumerFromId(
           /*name=*/kPolicyTokenForwarderName,
           /*scopes=*/{GaiaConstants::kDeviceManagementServiceOAuth,
                       GaiaConstants::kGoogleUserInfoEmail});
-    case OAuthConsumerId::kPluginVmLicenseChecker:
-      return OAuthConsumer(
-          /*name=*/kPluginVmLicenseCheckerName,
-          /*scopes=*/{kLicenseCheckOAuth2Scope});
     case OAuthConsumerId::kDrivefsAuth:
       return OAuthConsumer(
           /*name=*/kDrivefsAuthName,
@@ -780,9 +773,7 @@ OAuthConsumer OAuthConsumerRegistry::GetOAuthConsumerFromId(
           /*name=*/kSecureGatewayServiceName,
           /*scopes=*/{GaiaConstants::kSecureGatewayOAuth2Scope});
     case OAuthConsumerId::kDrivePickerHost:
-      return OAuthConsumer(
-          /*name=*/kDrivePickerHostName,
-          /*scopes=*/{kDriveReadOnlyOAuth2Scope});
+      return GetOAuthConsumerForDrivePickerHost();
     case OAuthConsumerId::kContextMemoryService:
       return OAuthConsumer(
           /*name=*/kContextMemoryServiceName,
@@ -809,6 +800,12 @@ OAuthConsumer OAuthConsumerRegistry::GetOAuthConsumerFromId(
     case OAuthConsumerId::kTabContextContainersService:
       return OAuthConsumer(
           /*name=*/oauth_consumer_name::kTabContextContainersServiceName,
+          /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope});
+    case OAuthConsumerId::kSiteTokenProvider:
+      return GetOAuthConsumerForSiteTokenProvider();
+    case OAuthConsumerId::kDeviceAuthorizationRequest:
+      return OAuthConsumer(
+          /*name=*/kDeviceAuthorizationRequestName,
           /*scopes=*/{GaiaConstants::kChromeSyncOAuth2Scope});
   }
 }

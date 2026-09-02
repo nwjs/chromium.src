@@ -403,7 +403,6 @@ void URLLoaderFactory::CreateLoaderAndStartWithSyncClient(
       std::move(trust_token_observer), std::move(url_loader_network_observer),
       std::move(devtools_observer), std::move(device_bound_session_observer),
       std::move(accept_ch_frame_observer),
-      resource_request.shared_storage_writable_eligible,
       *context_->GetSharedResourceChecker(),
       std::move(maybe_durable_message_writer),
       std::move(provided_response_body_stream));
@@ -413,7 +412,9 @@ void URLLoaderFactory::CreateLoaderAndStartWithSyncClient(
 
 net::handles::NetworkHandle URLLoaderFactory::GetBoundNetworkForTesting()
     const {
-  return context_->url_request_context()->bound_network();
+  auto target_network =
+      params_->target_network.value_or(net::handles::kInvalidNetworkHandle);
+  return target_network;
 }
 
 mojom::DevToolsObserver* URLLoaderFactory::GetDevToolsObserver() const {

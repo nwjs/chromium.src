@@ -12,7 +12,7 @@ StubPermissionPromptDelegate::StubPermissionPromptDelegate() = default;
 StubPermissionPromptDelegate::~StubPermissionPromptDelegate() = default;
 
 const std::vector<std::unique_ptr<PermissionRequest>>&
-StubPermissionPromptDelegate::Requests() {
+StubPermissionPromptDelegate::Requests() const {
   return requests_;
 }
 
@@ -91,6 +91,15 @@ bool StubPermissionPromptDelegate::RecreateView() {
 const PermissionPrompt* StubPermissionPromptDelegate::GetCurrentPrompt() const {
   return nullptr;
 }
+
+EmbeddedPermissionPromptFlowModel*
+StubPermissionPromptDelegate::GetEmbeddedPromptFlowModel() const {
+  return nullptr;
+}
+
+void StubPermissionPromptDelegate::CalculateCurrentVariantForEmbeddedPrompt() {}
+
+void StubPermissionPromptDelegate::AdvanceOrFinalizeEmbeddedPromptFlow() {}
 
 void StubPermissionPromptDelegate::AddRequest(
     std::unique_ptr<PermissionRequest> request) {

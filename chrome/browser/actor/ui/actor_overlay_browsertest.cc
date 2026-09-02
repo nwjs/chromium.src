@@ -6,6 +6,7 @@
 #include "base/test/gtest_util.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_test_util.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -42,8 +44,8 @@ using actor::mojom::ActionResultPtr;
 using base::test::TestFuture;
 
 ActorOverlayWebView* GetActorOverlayWebView(Browser* browser) {
-  return browser->GetBrowserView()
-      .GetActiveContentsContainerView()
+  return BrowserView::GetBrowserViewForBrowser(browser)
+      ->GetActiveContentsContainerView()
       ->actor_overlay_web_view();
 }
 
@@ -107,38 +109,37 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, ControllerExistsForNormalBrowsers) {
   // Normal browser window
   Browser* const normal_browser = browser();
   ASSERT_NE(ActorUiWindowController::From(normal_browser), nullptr);
-  ASSERT_NE(ActorUiTabController::From(normal_browser->browser_window_features()
-                                           ->tab_strip_model()
-                                           ->GetActiveTab()),
-            nullptr);
+  ASSERT_NE(
+      ActorUiTabController::From(
+          normal_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
+      nullptr);
 
   // Popup window
   Browser* const popup_browser = CreateBrowserForPopup(profile);
   ASSERT_EQ(ActorUiWindowController::From(popup_browser), nullptr);
-  ASSERT_EQ(ActorUiTabController::From(popup_browser->browser_window_features()
-                                           ->tab_strip_model()
-                                           ->GetActiveTab()),
+  ASSERT_EQ(ActorUiTabController::From(
+                popup_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
             nullptr);
 
   // App window
   Browser* const app_browser = CreateBrowserForApp("test_app_name", profile);
   ASSERT_EQ(ActorUiWindowController::From(app_browser), nullptr);
-  ASSERT_EQ(ActorUiTabController::From(app_browser->browser_window_features()
-                                           ->tab_strip_model()
-                                           ->GetActiveTab()),
+  ASSERT_EQ(ActorUiTabController::From(
+                app_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
             nullptr);
 
   // Picture-in-Picture window
-  Browser* const pip_browser =
-      Browser::Create(Browser::CreateParams::CreateForPictureInPicture(
-          "test_app_name", false, profile, false));
+  BrowserWindowInterface* const pip_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams::CreateForPictureInPicture(
+          "test_app_name", /*trusted_source=*/false, profile,
+          /*user_gesture=*/false));
   ASSERT_EQ(ActorUiWindowController::From(pip_browser), nullptr);
   // Tab Interface is null for Picture-in-Picture windows, so we don't test the
   // tab controller's existence.
 
   // DevTools window
-  Browser* const devtools_browser =
-      Browser::Create(Browser::CreateParams::CreateForDevTools(profile));
+  BrowserWindowInterface* const devtools_browser = CreateBrowserWindow(
+      BrowserWindowCreateParams::CreateForDevTools(profile));
   ASSERT_EQ(ActorUiWindowController::From(devtools_browser), nullptr);
   // Tab Interface is null for DevTools windows, so we don't test the tab
   // controller's existence.
@@ -438,10 +439,10 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ActorOverlayTest, OverlayIsIgnoredByAccessibility) {
-  views::WebView* overlay_web_view = browser()
-                                         ->GetBrowserView()
-                                         .GetActiveContentsContainerView()
-                                         ->actor_overlay_web_view();
+  views::WebView* overlay_web_view =
+      BrowserView::GetBrowserViewForBrowser(browser())
+          ->GetActiveContentsContainerView()
+          ->actor_overlay_web_view();
   ASSERT_NE(overlay_web_view, nullptr);
   EXPECT_EQ(overlay_web_view->GetFocusBehavior(),
             views::View::FocusBehavior::NEVER);
@@ -885,38 +886,37 @@ IN_PROC_BROWSER_TEST_F(GlicActorDisabledTest,
   // Normal browser window
   Browser* const normal_browser = browser();
   ASSERT_EQ(ActorUiWindowController::From(normal_browser), nullptr);
-  ASSERT_EQ(ActorUiTabController::From(normal_browser->browser_window_features()
-                                           ->tab_strip_model()
-                                           ->GetActiveTab()),
-            nullptr);
+  ASSERT_EQ(
+      ActorUiTabController::From(
+          normal_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
+      nullptr);
 
   // Popup window
   Browser* const popup_browser = CreateBrowserForPopup(profile);
   ASSERT_EQ(ActorUiWindowController::From(popup_browser), nullptr);
-  ASSERT_EQ(ActorUiTabController::From(popup_browser->browser_window_features()
-                                           ->tab_strip_model()
-                                           ->GetActiveTab()),
+  ASSERT_EQ(ActorUiTabController::From(
+                popup_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
             nullptr);
 
   // App window
   Browser* const app_browser = CreateBrowserForApp("test_app_name", profile);
   ASSERT_EQ(ActorUiWindowController::From(app_browser), nullptr);
-  ASSERT_EQ(ActorUiTabController::From(app_browser->browser_window_features()
-                                           ->tab_strip_model()
-                                           ->GetActiveTab()),
+  ASSERT_EQ(ActorUiTabController::From(
+                app_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
             nullptr);
 
   // Picture-in-Picture window
-  Browser* const pip_browser =
-      Browser::Create(Browser::CreateParams::CreateForPictureInPicture(
-          "test_app_name", false, profile, false));
+  BrowserWindowInterface* const pip_browser =
+      CreateBrowserWindow(BrowserWindowCreateParams::CreateForPictureInPicture(
+          "test_app_name", /*trusted_source=*/false, profile,
+          /*user_gesture=*/false));
   ASSERT_EQ(ActorUiWindowController::From(pip_browser), nullptr);
   // Tab Interface is null for Picture-in-Picture windows, so we don't test the
   // tab controller's existence.
 
   // DevTools window
-  Browser* const devtools_browser =
-      Browser::Create(Browser::CreateParams::CreateForDevTools(profile));
+  BrowserWindowInterface* const devtools_browser = CreateBrowserWindow(
+      BrowserWindowCreateParams::CreateForDevTools(profile));
   ASSERT_EQ(ActorUiWindowController::From(devtools_browser), nullptr);
   // Tab Interface is null for DevTools windows, so we don't test the tab
   // controller's existence.

@@ -23,6 +23,7 @@
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ssl/insecure_form/insecure_form_controller_client.h"
 #include "chrome/browser/ssl/ssl_error_controller_client.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/common/chrome_features.h"
@@ -52,7 +53,6 @@
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
 #include "chrome/browser/captive_portal/captive_portal_service_factory.h"
 #include "chrome/browser/net/system_network_context_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -467,10 +467,10 @@ void ChromeSecurityBlockingPageFactory::
     BrowserWindowInterface* browser =
         ProfileBrowserCollection::GetForProfile(profile)->FindTabbedBrowser();
     // Create browser if not exists.
-    if (!browser && Browser::GetCreationStatusForProfile(profile) ==
-                        Browser::CreationStatus::kOk) {
-      Browser::CreateParams params(profile, /*user_gesture=*/true);
-      browser = Browser::Create(params);
+    if (!browser && GetBrowserWindowCreationStatusForProfile(*profile) ==
+                        BrowserWindowInterface::CreationStatus::kOk) {
+      BrowserWindowCreateParams params(profile, /*from_user_gesture=*/true);
+      browser = CreateBrowserWindow(std::move(params));
     }
 
     if (browser && browser->GetWindow()) {

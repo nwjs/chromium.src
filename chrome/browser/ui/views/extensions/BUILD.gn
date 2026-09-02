@@ -88,17 +88,9 @@ source_set("unit_tests") {
   sources = [
     "chooser_dialog_view_unittest.cc",
     "expandable_container_view_unittest.cc",
-    "extensions_menu_entry_unittest.cc",
-    "extensions_menu_item_unittest.cc",
-    "extensions_menu_main_page_view_unittest.cc",
-    "extensions_menu_site_permissions_page_view_unittest.cc",
-    "extensions_menu_view_unittest.cc",
-    "extensions_toolbar_button_unittest.cc",
-    "extensions_toolbar_desktop_unittest.cc",
-    "extensions_toolbar_unittest.cc",
-    "extensions_toolbar_unittest.h",
   ]
   deps = [
+    ":extensions_views_utils",
     "//base",
     "//base/test:test_support",
     "//chrome/browser/extensions:test_support",
@@ -106,7 +98,10 @@ source_set("unit_tests") {
     "//chrome/browser/ui",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/toolbar:test_support",
+    "//chrome/browser/ui/views:device_chooser_content_view",
     "//chrome/browser/ui/views/controls",
+    "//chrome/browser/ui/views/frame:test_with_browser_view",
+    "//chrome/browser/ui/views/permissions/chip",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/test:test_support",
     "//chrome/test/views",
@@ -127,7 +122,10 @@ source_set("unit_tests") {
 
   if (is_chromeos) {
     sources += [ "media_galleries_dialog_views_unittest.cc" ]
-    deps += [ "//chrome/browser/media_galleries:test_support" ]
+    deps += [
+      ":media_gallery_checkbox_view",
+      "//chrome/browser/media_galleries:test_support",
+    ]
   }
 }
 
@@ -135,7 +133,7 @@ source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
   sources = []
-  deps = []
+  deps = [ "//chrome/browser/ui/views/frame:test_with_browser_view" ]
 
   if (!is_android) {
     sources += [
@@ -143,12 +141,22 @@ source_set("browser_tests") {
       "extension_install_dialog_view_browsertest.cc",
       "extension_install_dialog_view_supervised_browsertest.cc",
       "extension_post_install_dialog_view_utils_browsertest.cc",
+      "extensions_menu_entry_browsertest.cc",
+      "extensions_menu_item_browsertest.cc",
+      "extensions_menu_main_page_view_browsertest.cc",
+      "extensions_menu_site_permissions_page_view_browsertest.cc",
+      "extensions_menu_view_browsertest.cc",
       "extensions_request_access_hover_card_coordinator_browsertest.cc",
+      "extensions_toolbar_browsertest.cc",
+      "extensions_toolbar_browsertest.h",
+      "extensions_toolbar_button_browsertest.cc",
+      "extensions_toolbar_desktop_browsertest.cc",
       "generic_mime_handler_chip_browsertest.cc",
       "security_dialog_tracker_browsertest.cc",
     ]
     deps += [
       ":extension_post_install_dialog_view_utils",
+      ":extensions_views_utils",
       ":security_dialog_tracker",
       ":test_support",
       "//base",
@@ -160,13 +168,17 @@ source_set("browser_tests") {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/extensions:extension_post_install_dialog",
       "//chrome/browser/ui/test:dialog",
+      "//chrome/browser/ui/toolbar:test_support",
       "//chrome/browser/ui/views/page_info",
       "//chrome/test:test_support",
+      "//chrome/test:test_support_ui",
       "//content/test:test_support",
       "//extensions:test_support",
       "//extensions/browser",
       "//extensions/browser:webstore_installer",
       "//extensions/common",
+      "//extensions/common:extension_features",
+      "//testing/gmock",
       "//testing/gtest",
       "//ui/events:test_support",
       "//ui/views",
@@ -192,6 +204,7 @@ source_set("browser_tests") {
       "media_galleries_dialog_views_browsertest.cc",
     ]
     deps += [
+      ":media_gallery_checkbox_view",
       "//chrome/browser/media_galleries:test_support",
       "//chrome/browser/ui:browser_select_file_dialog_controller",
     ]
@@ -222,6 +235,7 @@ source_set("interactive_ui_tests") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui",
     "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/browser_ui_controller",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/extensions:test_support",
     "//chrome/browser/ui/interaction",
@@ -249,4 +263,58 @@ source_set("interactive_ui_tests") {
     "//ui/views",
     "//ui/views:test_support",
   ]
+}
+
+source_set("extensions_views_utils") {
+  sources = [
+    "browser_action_drag_data.cc",
+    "browser_action_drag_data.h",
+    "chooser_dialog_view.cc",
+    "chooser_dialog_view.h",
+    "expandable_container_view.cc",
+    "expandable_container_view.h",
+    "extension_context_menu_controller.cc",
+    "extension_context_menu_controller.h",
+    "extension_keybinding_registry_views.cc",
+    "extension_keybinding_registry_views.h",
+    "extension_permissions_view.cc",
+    "extension_permissions_view.h",
+  ]
+  public_deps = [
+    "//chrome/browser/extensions",
+    "//chrome/browser/profiles:profile",
+    "//components/permissions",
+    "//components/web_modal",
+    "//content/public/browser",
+    "//ui/base",
+    "//ui/views",
+  ]
+  deps = [
+    "//chrome/browser/ui/extensions",
+    "//chrome/browser/ui/toolbar",
+    "//chrome/browser/ui/views:device_chooser_content_view",
+    "//chrome/browser/ui/views:layout_provider",
+    "//components/constrained_window",
+    "//ui/base/mojom:ui_base_types",
+    "//ui/color",
+    "//ui/events",
+  ]
+}
+
+if (is_chromeos) {
+  source_set("media_gallery_checkbox_view") {
+    public = [ "media_gallery_checkbox_view.h" ]
+    sources = [ "media_gallery_checkbox_view.cc" ]
+    public_deps = [
+      "//base",
+      "//ui/base/metadata",
+      "//ui/views",
+    ]
+    deps = [
+      "//chrome/browser/media_galleries",
+      "//chrome/browser/ui/views:layout_provider",
+      "//skia",
+      "//ui/gfx/geometry",
+    ]
+  }
 }

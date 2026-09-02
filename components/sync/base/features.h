@@ -51,6 +51,9 @@ BASE_DECLARE_FEATURE(kSyncLoyaltyCardMetadata);
 // Enables syncing Notebooks.
 BASE_DECLARE_FEATURE(kSyncNotebook);
 
+// Enables syncing history journeys.
+BASE_DECLARE_FEATURE(kSyncJourney);
+
 #if !BUILDFLAG(IS_CHROMEOS)
 // Flag that controls Uno fast-follow features which are:
 // On Android:
@@ -214,13 +217,13 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
 // as the minimum number of days between recordings.
 BASE_DECLARE_FEATURE_PARAM(int, kSyncRecordDeviceStatisticsMetricsPeriodDays);
 
-// If enabled, DeviceInfoSyncBridge uses WallClockTimer for pulse updates,
-// which is more resilient to device suspension.
-BASE_DECLARE_FEATURE(kSyncDeviceInfoUseWallClockTimer);
-
 // If enabled, validate the access token before sending the request to the
 // server.
 BASE_DECLARE_FEATURE(kSyncValidateAccessToken);
+
+// If enabled, use the access token propagated from SyncSchedulerImpl through
+// SyncCycle rather than reading from ServerConnectionManager's cache.
+BASE_DECLARE_FEATURE(kSyncUsePropagatedAccessToken);
 
 // If enabled, Sync invalidations will bypass the scheduler on Android.
 BASE_DECLARE_FEATURE(kSyncInvalidationsBypassScheduler);
@@ -256,6 +259,10 @@ BASE_DECLARE_FEATURE(kSyncFixWebSigninSessionDurationForShortLivedSessions);
 // legacy deduplication and name-based local device filtering. This affects Send
 // Tab to Self and Sharing features.
 BASE_DECLARE_FEATURE(kSyncSimplifyDeviceNaming);
+
+// If enabled alongside `kSyncSimplifyDeviceNaming`, disambiguates duplicate
+// device display names using release channel labels (e.g., "(Canary)").
+BASE_DECLARE_FEATURE(kSyncDisambiguateDeviceNamesWithChannel);
 
 // If enabled, uses the server-determined model name (marketing name) as the
 // preferred name (and fallback name) if available. This provides a more

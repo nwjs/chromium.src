@@ -8,7 +8,8 @@
 #include <optional>
 #include <string>
 
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/gfx/geometry/rect.h"
@@ -20,18 +21,19 @@ class UnownedUserDataHost;
 }  // namespace ui
 
 // Holds the creation and initial parameters of a browser window. These values
-// are seeded from Browser::CreateParams when the window is created and are
+// are seeded from BrowserWindowCreateParams when the window is created and are
 // mostly read-only afterwards (a few may be adjusted during early window
 // setup). This state is window-scoped and attached to the browser's
 // UnownedUserDataHost, so it can be reached from any holder of a
 // BrowserWindowInterface via From().
 class BrowserInitState {
  public:
-  using CreationSource = Browser::CreationSource;
+  using CreationSource = BrowserWindowCreateParams::CreationSource;
+  using ValueSpecified = BrowserWindowCreateParams::ValueSpecified;
 
   DECLARE_USER_DATA(BrowserInitState);
 
-  BrowserInitState(const Browser::CreateParams& params,
+  BrowserInitState(BrowserWindowCreateParams params,
                    ui::UnownedUserDataHost& host);
   BrowserInitState(const BrowserInitState&) = delete;
   BrowserInitState& operator=(const BrowserInitState&) = delete;
@@ -40,7 +42,12 @@ class BrowserInitState {
   static BrowserInitState* From(BrowserWindowInterface* browser);
   static const BrowserInitState* From(const BrowserWindowInterface* browser);
 
-  const Browser::CreateParams& create_params() const { return create_params_; }
+  const BrowserWindowCreateParams& create_params() const {
+    return browser_window_create_params_;
+  }
+  const BrowserWindowCreateParams& browser_window_create_params() const {
+    return browser_window_create_params_;
+  }
 
   CreationSource creation_source() const { return creation_source_; }
 
@@ -81,6 +88,10 @@ class BrowserInitState {
     return initial_vertical_tab_strip_uncollapsed_width_;
   }
 
+  std::optional<tab_groups::TabGroupId> initial_focused_tab_group_id() const {
+    return initial_focused_tab_group_id_;
+  }
+
   bool omit_from_session_restore() const { return omit_from_session_restore_; }
   bool should_trigger_session_restore() const {
     return should_trigger_session_restore_;
@@ -88,7 +99,7 @@ class BrowserInitState {
 
  private:
   // This Browser's create params.
-  const Browser::CreateParams create_params_;
+  const BrowserWindowCreateParams browser_window_create_params_;
 
   // Whether this Browser should be omitted from being saved/restored by session
   // restore.
@@ -114,6 +125,7 @@ class BrowserInitState {
 
   const std::optional<bool> initial_vertical_tab_strip_collapsed_;
   const std::optional<int> initial_vertical_tab_strip_uncollapsed_width_;
+  const std::optional<tab_groups::TabGroupId> initial_focused_tab_group_id_;
 
   ui::ScopedUnownedUserData<BrowserInitState> scoped_unowned_user_data_;
 };

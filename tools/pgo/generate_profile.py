@@ -31,6 +31,8 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import time
+import psutil
 import tempfile
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -67,8 +69,8 @@ def IsStoryFlag(flag: str):
 
 @dataclass
 class Benchmark:
-    '''Describes a benchmark and the set of arguments needed to run it.
-    '''
+    '''Describes a benchmark and the set of arguments needed to run it.'''
+
     name: str
     args: List[str]
     enable_features: List[str] = field(default_factory=list)
@@ -80,8 +82,12 @@ class Benchmark:
         # Insert story as the second argument to make it easier to understand
         # what the benchmark command is running at a glance.
         copy_args.insert(1, f'--story={story}')
-        return Benchmark(self.name, copy_args, self.enable_features.copy(),
-                         self.disable_features.copy())
+        return Benchmark(
+            self.name,
+            copy_args,
+            self.enable_features.copy(),
+            self.disable_features.copy(),
+        )
 
     def ProduceArgs(self, extra_disabled_features: Optional[List[str]] = None):
         if extra_disabled_features is None:
@@ -89,12 +95,14 @@ class Benchmark:
 
         if any(a.startswith('--extra-browser-args') for a in self.args):
             raise RuntimeError(
-                '--extra-browser-args was added to benchmark args.')
+                '--extra-browser-args was added to benchmark args.'
+            )
 
         all_disabled_features = self.disable_features + extra_disabled_features
 
-        intersect_features = set(
-            self.enable_features).intersection(all_disabled_features)
+        intersect_features = set(self.enable_features).intersection(
+            all_disabled_features
+        )
         if intersect_features:
             raise RuntimeError(
                 f'Features {intersect_features} were both enabled and disabled.'
@@ -102,17 +110,20 @@ class Benchmark:
 
         extra_browser_args = []
         if self.enable_features:
-            extra_browser_args.append('--enable-features=' +
-                                      ','.join(self.enable_features))
+            extra_browser_args.append(
+                '--enable-features=' + ','.join(self.enable_features)
+            )
         if all_disabled_features:
-            extra_browser_args.append('--disable-features=' +
-                                      ','.join(all_disabled_features))
+            extra_browser_args.append(
+                '--disable-features=' + ','.join(all_disabled_features)
+            )
 
         final_args = self.args.copy()
         if extra_browser_args:
             # No quotes around the space separated arguments is needed.
             final_args.append(
-                f'--extra-browser-args={" ".join(extra_browser_args)}')
+                f'--extra-browser-args={" ".join(extra_browser_args)}'
+            )
 
         return final_args
 
@@ -136,6 +147,7 @@ class OptionsNamespace(argparse.Namespace):
     skip_profdata: bool
     run_public_benchmarks_only: bool
     temporal_trace_length: Optional[int]
+    separate_renderer_pgo: bool
     repeats: int
     verbose: int
     quiet: int
@@ -147,48 +159,59 @@ class OptionsNamespace(argparse.Namespace):
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        epilog=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+        epilog=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     # ▼▼▼▼▼ Please update OptionsNamespace when adding or modifying args. ▼▼▼▼▼
-    parser.add_argument('-C',
-                        '--builddir',
-                        help='Path to build directory.',
-                        required=True)
     parser.add_argument(
-        '--outputdir',
-        help='Path to store final outputs, default is builddir.')
-    parser.add_argument('--profiledir',
-                        help='Path to store temporary profiles, default is '
-                        'builddir/profile.')
-    parser.add_argument('--keep-temps',
-                        action='store_true',
-                        default=False,
-                        help='Whether to keep temp files')
-    parser.add_argument('--android-browser',
-                        help='The type of android browser to test, e.g. '
-                        'android-trichrome-chrome-google-bundle.')
+        '-C', '--builddir', help='Path to build directory.', required=True
+    )
+    parser.add_argument(
+        '--outputdir', help='Path to store final outputs, default is builddir.'
+    )
+    parser.add_argument(
+        '--profiledir',
+        help='Path to store temporary profiles, default is builddir/profile.',
+    )
+    parser.add_argument(
+        '--keep-temps',
+        action='store_true',
+        default=False,
+        help='Whether to keep temp files',
+    )
+    parser.add_argument(
+        '--android-browser',
+        help='The type of android browser to test, e.g. '
+        'android-trichrome-chrome-google-bundle.',
+    )
     parser.add_argument(
         '--android-device-path',
         help='The device path to pull profiles from. By '
         'default this is /data_mirror/data_ce/null/0/<package>'
         '/cache/pgo_profiles/ but you can override it for your '
-        'device if needed. Use "auto" for dynamic detection.')
-    parser.add_argument('--skip-profdata',
-                        action='store_true',
-                        default=False,
-                        help='Only run benchmarks and skip merging profile '
-                        'data. Used for sample-based profiling for Propeller '
-                        'and BOLT')
-    parser.add_argument('--dry-run',
-                        action='store_true',
-                        default=False,
-                        help='Skip running the benchmarks.')
+        'device if needed. Use "auto" for dynamic detection.',
+    )
+    parser.add_argument(
+        '--skip-profdata',
+        action='store_true',
+        default=False,
+        help='Only run benchmarks and skip merging profile '
+        'data. Used for sample-based profiling for Propeller '
+        'and BOLT',
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        default=False,
+        help='Skip running the benchmarks.',
+    )
     parser.add_argument(
         '--run-public-benchmarks-only',
         action='store_true',
         default=False,
         help='Only run benchmarks that do not require any special access. See '
         'https://www.chromium.org/developers/telemetry/upload_to_cloud_storage/#request-access-for-google-partners '
-        'for more information.')
+        'for more information.',
+    )
     # TODO(crbug.com/479547498): Remove this option and run
     # jetstream3.crossbench by default after we finish testing.
     parser.add_argument(
@@ -196,35 +219,53 @@ def parse_args():
         '--run-js3',
         action='store_true',
         default=False,
-        help='Include JetStream 3 benchmark (using crossbench)')
+        help='Include JetStream 3 benchmark (using crossbench)',
+    )
     parser.add_argument(
         '--temporal-trace-length',
         type=int,
-        help='Add flags necessary for temporal PGO (experimental).')
+        help='Add flags necessary for temporal PGO (experimental).',
+    )
+    parser.add_argument(
+        '--separate-renderer-pgo',
+        action='store_true',
+        default=False,
+        help='Generate a separate PGO profile for the renderer binary.',
+    )
     parser.add_argument(
         '-r',
         '--repeats',
         type=int,
         default=5,
-        help='Number of times to attempt each benchmark if it fails, default 5.'
+        help=(
+            'Number of times to attempt each benchmark if it fails, default 5.'
+        ),
     )
-    parser.add_argument('-v',
-                        '--verbose',
-                        action='count',
-                        default=0,
-                        help='Increase verbosity level (repeat as needed)')
-    parser.add_argument('-q',
-                        '--quiet',
-                        action='count',
-                        default=0,
-                        help='Decrease verbosity level (passed through to '
-                        'run_benchmark.)')
-    parser.add_argument('--isolated-script-test-output',
-                        help='Output.json file that the script can write to.')
-    parser.add_argument('--isolated-script-test-perf-output',
-                        help='Deprecated and ignored, but bots pass it.')
-    parser.add_argument("--android-hostname",
-                        help="Run benchmarks with adb hostname.")
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        action='count',
+        default=0,
+        help='Increase verbosity level (repeat as needed)',
+    )
+    parser.add_argument(
+        '-q',
+        '--quiet',
+        action='count',
+        default=0,
+        help='Decrease verbosity level (passed through to run_benchmark.)',
+    )
+    parser.add_argument(
+        '--isolated-script-test-output',
+        help='Output.json file that the script can write to.',
+    )
+    parser.add_argument(
+        '--isolated-script-test-perf-output',
+        help='Deprecated and ignored, but bots pass it.',
+    )
+    parser.add_argument(
+        "--android-hostname", help="Run benchmarks with adb hostname."
+    )
     # ▲▲▲▲▲ Please update OptionsNamespace when adding or modifying args. ▲▲▲▲▲
 
     args = parser.parse_args(namespace=OptionsNamespace())
@@ -247,14 +288,19 @@ def parse_args():
                     break
             else:
                 raise ValueError(
-                    f'Unable to find {args.android_browser} settings.')
+                    f'Unable to find {args.android_browser} settings.'
+                )
             args.android_device_path = (
-                f'/data_mirror/data_ce/null/0/{package}/cache/pgo_profiles')
-            _LOGGER.info("Using default Android device path: "
-                         f"{args.android_device_path}")
+                f'/data_mirror/data_ce/null/0/{package}/cache/pgo_profiles'
+            )
+            _LOGGER.info(
+                f"Using default Android device path: {args.android_device_path}"
+            )
         else:
-            _LOGGER.info("Using provided Android device path: "
-                         f"{args.android_device_path}")
+            _LOGGER.info(
+                "Using provided Android device path: "
+                f"{args.android_device_path}"
+            )
 
     if not args.profiledir:
         args.profiledir = f'{args.builddir}/profile'
@@ -272,15 +318,15 @@ def parse_args():
 
 
 def run_profdata_merge(output_path, input_files, args: OptionsNamespace):
-    _LOGGER.info(
-        f"Merging {len(input_files)} profile files into {output_path}")
+    _LOGGER.info(f"Merging {len(input_files)} profile files into {output_path}")
     if args.temporal_trace_length:
         extra_args = [
             '--temporal-profile-max-trace-length',
-            str(args.temporal_trace_length)
+            str(args.temporal_trace_length),
         ]
         _LOGGER.debug(
-            f"Using temporal trace length: {args.temporal_trace_length}")
+            f"Using temporal trace length: {args.temporal_trace_length}"
+        )
 
     else:
         extra_args = []
@@ -324,15 +370,19 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
         # profile data too early during benchmarks which would result in
         # incomplete profraw files. See https://crbug.com/366235732.
         'SpareRendererForSitePerProcess',
-        'AndroidWarmUpSpareRendererWithTimeout'
+        'AndroidWarmUpSpareRendererWithTimeout',
     ]
 
     benchmark_args = benchmark.ProduceArgs(disabled_features)
 
-    pageset_repeat_str = (f' with pageset_repeat={benchmark.pageset_repeat}'
-                          if benchmark.pageset_repeat != 1 else '')
+    pageset_repeat_str = (
+        f' with pageset_repeat={benchmark.pageset_repeat}'
+        if benchmark.pageset_repeat != 1
+        else ''
+    )
     _LOGGER.info(
-        f"Running benchmark: {' '.join(benchmark_args)}{pageset_repeat_str}")
+        f"Running benchmark: {' '.join(benchmark_args)}{pageset_repeat_str}"
+    )
 
     # Include the first 2 args since per-story benchmarks use [name, --story=s].
     name = '_'.join(benchmark_args[:2])
@@ -343,7 +393,8 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
 
     if os.path.exists(profraw_path):
         _LOGGER.debug(
-            f"Removing existing raw profile directory: {profraw_path}")
+            f"Removing existing raw profile directory: {profraw_path}"
+        )
         shutil.rmtree(profraw_path)
     os.makedirs(profraw_path, exist_ok=True)
 
@@ -360,26 +411,37 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
 
     else:
         env['LLVM_PROFILE_FILE'] = f'{profraw_path}/default-%2m.profraw'
-        _LOGGER.debug("Set environment variable "
-                      f"LLVM_PROFILE_FILE={env['LLVM_PROFILE_FILE']}")
+        _LOGGER.debug(
+            "Set environment variable "
+            f"LLVM_PROFILE_FILE={env['LLVM_PROFILE_FILE']}"
+        )
 
     if is_crossbench:
-        cmd = ['vpython3', 'third_party/crossbench/cb.py'] + benchmark_args + [
-            '-r',
-            str(benchmark.pageset_repeat),
-            '--no-splash',
-            '--fast',
-        ]
+        cmd = (
+            ['vpython3', 'third_party/crossbench/cb.py']
+            + benchmark_args
+            + [
+                '-r',
+                str(benchmark.pageset_repeat),
+                '--no-splash',
+                '--fast',
+            ]
+        )
     else:
-        cmd = ['vpython3', 'tools/perf/run_benchmark'] + benchmark_args + [
-            f'--chromium-output-directory={args.builddir}',
-            '--assert-gpu-compositing',
-            f'--pageset-repeat={benchmark.pageset_repeat}',
-            # Abort immediately when any story fails, since a failed story fails
-            # to produce valid profdata. Fail fast and rely on repeats to get a
-            # valid profdata.
-            '--max-failures=0'
-        ]
+        cmd = (
+            ['vpython3', 'tools/perf/run_benchmark']
+            + benchmark_args
+            + [
+                f'--chromium-output-directory={args.builddir}',
+                '--assert-gpu-compositing',
+                f'--pageset-repeat={benchmark.pageset_repeat}',
+                # Abort immediately when any story fails, since a failed story
+                # fails to produce valid profdata. Fail fast and rely on repeats
+                # to get a
+                # valid profdata.
+                '--max-failures=0',
+            ]
+        )
 
     # Add N copies of verbose/quiet flag
     cmd += ['-v'] * args.verbose + ['-q'] * args.quiet
@@ -404,7 +466,8 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
             ]
 
         _LOGGER.debug(
-            f"Running benchmark on Android with command: {' '.join(cmd)}")
+            f"Running benchmark on Android with command: {' '.join(cmd)}"
+        )
     else:
         if sys.platform == 'darwin':
             exe_path = f'{args.builddir}/Chromium.app/Contents/MacOS/Chromium'
@@ -420,14 +483,56 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
             ]
 
         _LOGGER.debug(
-            f"Running benchmark locally with command: {' '.join(cmd)}")
+            f"Running benchmark locally with command: {' '.join(cmd)}"
+        )
 
     if not args.dry_run:
-        subprocess.run(cmd,
-                       check=True,
-                       shell=sys.platform == 'win32',
-                       env=env,
-                       cwd=_ROOT_DIR)
+        subprocess.run(
+            cmd,
+            check=True,
+            shell=sys.platform == 'win32',
+            env=env,
+            cwd=_ROOT_DIR,
+        )
+
+    # When using separate renderer binaries, child processes (e.g., renderers
+    # or helpers) need time to exit cleanly so that LLVM profile handlers
+    # write out all .profraw files before classification and merging begin.
+    if not args.dry_run:
+        builddir_abs = os.path.abspath(args.builddir).lower()
+        _LOGGER.info(
+            f"Waiting for all child processes in {args.builddir} to exit..."
+        )
+        max_wait_seconds = 30
+        start_time = time.time()
+        while time.time() - start_time < max_wait_seconds:
+            running_processes = []
+            for proc in psutil.process_iter(['name', 'exe', 'pid']):
+                try:
+                    exe_path = proc.info['exe']
+                    if exe_path and os.path.abspath(
+                        exe_path
+                    ).lower().startswith(builddir_abs):
+                        running_processes.append(proc.info['pid'])
+                except (
+                    psutil.NoSuchProcess,
+                    psutil.AccessDenied,
+                    psutil.ZombieProcess,
+                ):
+                    pass
+                except Exception:
+                    pass
+            if not running_processes:
+                break
+            _LOGGER.info(
+                f"Still waiting for child PIDs to exit: {running_processes}..."
+            )
+            time.sleep(1)
+        else:
+            _LOGGER.warning(
+                f"Timed out waiting for child processes to exit after "
+                f"{max_wait_seconds}s: {running_processes}"
+            )
 
     if args.skip_profdata:
         _LOGGER.info("Skipping profdata merging")
@@ -442,7 +547,37 @@ def run_benchmark(benchmark: Benchmark, args: OptionsNamespace):
     if not profraw_files:
         raise RuntimeError(f'No profraw files found in {profraw_path}')
 
-    run_profdata_merge(profdata_path, profraw_files, args)
+    if not args.separate_renderer_pgo:
+        run_profdata_merge(profdata_path, profraw_files, args)
+    else:
+        # Group profraw files by the prefix before the first '-' in their
+        # basename.
+        # e.g., 'default-12345.profraw' -> prefix 'default'
+        # e.g., 'renderer-12345.profraw' -> prefix 'renderer'
+        files_by_prefix = {}
+        for f in profraw_files:
+            filename = os.path.basename(f)
+            prefix = (
+                filename.split('-', 1)[0] if '-' in filename else filename[:-8]
+            )
+            files_by_prefix.setdefault(prefix, []).append(f)
+
+        # Process the 'default' (main browser process) files first
+        default_files = files_by_prefix.pop('default', [])
+        if default_files:
+            run_profdata_merge(profdata_path, default_files, args)
+        else:
+            raise RuntimeError(f'No browser profile files found for {name}')
+
+        # Perform one merge per remaining prefix
+        if files_by_prefix:
+            for prefix, prefix_files in files_by_prefix.items():
+                target_profdata_path = profdata_path.replace(
+                    '.profdata', f'_{prefix}.profdata'
+                )
+                run_profdata_merge(target_profdata_path, prefix_files, args)
+        else:
+            _LOGGER.warning(f'No non-default profile files found for {name}')
 
     # Test merge to prevent issues like: https://crbug.com/353702041
     with tempfile.NamedTemporaryFile() as f:
@@ -459,7 +594,7 @@ def run_benchmark_with_repeats(benchmark: Benchmark, args: OptionsNamespace):
             _LOGGER.info(f"Running benchmark attempt {idx + 1}/{args.repeats}")
 
             run_benchmark(benchmark, args)
-            _LOGGER.info(f"Benchmark succeeded on attempt {idx+1}")
+            _LOGGER.info(f"Benchmark succeeded on attempt {idx + 1}")
 
             return idx
         except (subprocess.CalledProcessError, MergeError) as e:
@@ -471,7 +606,8 @@ def run_benchmark_with_repeats(benchmark: Benchmark, args: OptionsNamespace):
             if idx < args.repeats - 1:
                 _LOGGER.warning('%s', e)
                 _LOGGER.warning(
-                    f'Retry attempt {idx + 1} for {benchmark.ProduceArgs()}')
+                    f'Retry attempt {idx + 1} for {benchmark.ProduceArgs()}'
+                )
             else:
                 _LOGGER.error(f'Failed {args.repeats} times')
                 raise e
@@ -482,15 +618,20 @@ def run_benchmark_with_repeats(benchmark: Benchmark, args: OptionsNamespace):
 
 def get_stories(benchmark: Benchmark, args: OptionsNamespace):
     _LOGGER.info(f"Getting stories for benchmark: {' '.join(benchmark.args)}")
-    print_stories_cmd = [
-        'vpython3',
-        'tools/perf/run_benchmark',
-    ] + benchmark.args + [
-        '--print-only=stories',
-        '--print-only-runnable',  # This is essential to skip filtered stories.
-        f'--browser={args.android_browser}',
-        '-vv',
-    ]
+    print_stories_cmd = (
+        [
+            'vpython3',
+            'tools/perf/run_benchmark',
+        ]
+        + benchmark.args
+        + [
+            '--print-only=stories',
+            # This is essential to skip filtered stories.
+            '--print-only-runnable',
+            f'--browser={args.android_browser}',
+            '-vv',
+        ]
+    )
     if args.android_hostname:
         print_stories_cmd += [
             "--connect-to-device-over-network",
@@ -499,10 +640,9 @@ def get_stories(benchmark: Benchmark, args: OptionsNamespace):
     _LOGGER.debug(f"Running command: {' '.join(print_stories_cmd)}")
 
     # Avoid setting check=True here since the return code is 111 for success.
-    proc = subprocess.run(print_stories_cmd,
-                          text=True,
-                          capture_output=True,
-                          cwd=_ROOT_DIR)
+    proc = subprocess.run(
+        print_stories_cmd, text=True, capture_output=True, cwd=_ROOT_DIR
+    )
 
     stories = []
     for line in proc.stdout.splitlines():
@@ -527,20 +667,69 @@ def run_benchmarks(benchmarks: List[Benchmark], args: OptionsNamespace):
     return fail_count
 
 
-def merge_profdata(profile_output_path: str, args: OptionsNamespace):
+def merge_profdata(
+    profile_output_path: str,
+    args: OptionsNamespace,
+    benchmarks: Optional[List[Benchmark]] = None,
+):
     _LOGGER.info(f"Merging all profdata files into: {profile_output_path}")
-    profdata_files = glob.glob(f'{args.profiledir}/*.profdata')
-    _LOGGER.debug(f"Found {len(profdata_files)} profdata files")
-    if not profdata_files:
-        raise RuntimeError(f'No profdata files found in {args.profiledir}')
+    all_profdata = glob.glob(f'{args.profiledir}/*.profdata')
 
-    run_profdata_merge(profile_output_path, profdata_files, args)
+    if not args.separate_renderer_pgo:
+        _LOGGER.debug(f"Found {len(all_profdata)} profdata files")
+        if not all_profdata:
+            raise RuntimeError(f'No profdata files found in {args.profiledir}')
+        run_profdata_merge(profile_output_path, all_profdata, args)
+    else:
+        benchmark_names = {b.name for b in benchmarks} if benchmarks else set()
+        default_profdata = []
+        files_by_prefix = {}
+        for f in all_profdata:
+            basename = os.path.basename(f)
+            stem = (
+                basename[: -len('.profdata')]
+                if basename.endswith('.profdata')
+                else basename
+            )
+            if stem in benchmark_names:
+                default_profdata.append(f)
+                continue
+            matched = False
+            for b_name in sorted(benchmark_names, key=len, reverse=True):
+                if stem.startswith(b_name + '_'):
+                    prefix = stem[len(b_name) + 1 :]
+                    files_by_prefix.setdefault(prefix, []).append(f)
+                    matched = True
+                    break
+            if not matched:
+                if '_' in stem:
+                    prefix = stem.split('_')[-1]
+                    files_by_prefix.setdefault(prefix, []).append(f)
+                else:
+                    default_profdata.append(f)
+
+        _LOGGER.debug(f"Found {len(default_profdata)} browser profdata files")
+        if not default_profdata:
+            raise RuntimeError(
+                f'No browser profdata files found in {args.profiledir}'
+            )
+        run_profdata_merge(profile_output_path, default_profdata, args)
+
+        for prefix, files in files_by_prefix.items():
+            _LOGGER.debug(f"Found {len(files)} {prefix} profdata files")
+            target_output_path = profile_output_path.replace(
+                '.profdata', f'_{prefix}.profdata'
+            )
+            run_profdata_merge(target_output_path, files, args)
 
     if args.temporal_trace_length:
         _LOGGER.info("Generating orderfile for temporal PGO")
         orderfile_cmd = [
-            _PROFDATA, 'order', profile_output_path, '-o',
-            f'{args.outputdir}/orderfile.txt'
+            _PROFDATA,
+            'order',
+            profile_output_path,
+            '-o',
+            f'{args.outputdir}/orderfile.txt',
         ]
         _LOGGER.debug(f"Running command: {' '.join(orderfile_cmd)}")
 
@@ -552,7 +741,8 @@ def main():
 
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
-        '%(levelname).1s %(relativeCreated)6d %(message)s')
+        '%(levelname).1s %(relativeCreated)6d %(message)s'
+    )
     handler.setFormatter(formatter)
     _LOGGER.addHandler(handler)
 
@@ -573,7 +763,8 @@ def main():
             _LOGGER.warning(f'{_PROFDATA} does not exist, downloading it')
             subprocess.run(
                 [sys.executable, _UPDATE_PY, '--package=coverage_tools'],
-                check=True)
+                check=True,
+            )
     assert os.path.exists(_PROFDATA), f'{_PROFDATA} does not exist'
 
     if os.path.exists(args.profiledir):
@@ -594,10 +785,14 @@ def main():
     if not args.run_public_benchmarks_only:
         platform = 'mobile' if args.android_browser else 'desktop'
         benchmarks.append(
-            Benchmark('system_health', [
-                f'system_health.common_{platform}',
-                '--run-abridged-story-set',
-            ]))
+            Benchmark(
+                'system_health',
+                [
+                    f'system_health.common_{platform}',
+                    '--run-abridged-story-set',
+                ],
+            )
+        )
 
         motionmark_benchmark_args = [
             f'rendering.{platform}',
@@ -610,45 +805,60 @@ def main():
         if platform == 'mobile' and '64' in args.android_browser:
             # Exercise the Skia Graphite/Dawn/Vulkan path.
             benchmarks.append(
-                Benchmark('motionmark_graphite_dawn_vk',
-                          motionmark_benchmark_args,
-                          enable_features=['SkiaGraphite']))
+                Benchmark(
+                    'motionmark_graphite_dawn_vk',
+                    motionmark_benchmark_args,
+                    enable_features=['SkiaGraphite'],
+                )
+            )
 
             # Exercise the Skia Ganesh/Vulkan path.
             benchmarks.append(
-                Benchmark('motionmark_ganesh_vk',
-                          motionmark_benchmark_args,
-                          disable_features=['SkiaGraphite']))
+                Benchmark(
+                    'motionmark_ganesh_vk',
+                    motionmark_benchmark_args,
+                    disable_features=['SkiaGraphite'],
+                )
+            )
 
             # Exercise the Skia Ganesh/GL on top of ANGLE/GLES path. This is the
             # common path used on most phones without Vulkan support.
             benchmarks.append(
-                Benchmark('motionmark_ganesh_gl',
-                          args=motionmark_benchmark_args,
-                          enable_features=['DefaultPassthroughCommandDecoder'],
-                          disable_features=[
-                              'Vulkan', 'SkiaGraphite', 'DefaultANGLEVulkan'
-                          ]))
+                Benchmark(
+                    'motionmark_ganesh_gl',
+                    args=motionmark_benchmark_args,
+                    enable_features=['DefaultPassthroughCommandDecoder'],
+                    disable_features=[
+                        'Vulkan',
+                        'SkiaGraphite',
+                        'DefaultANGLEVulkan',
+                    ],
+                )
+            )
         else:
             benchmarks.append(
-                Benchmark('motionmark', motionmark_benchmark_args))
+                Benchmark('motionmark', motionmark_benchmark_args)
+            )
 
     fail_count = run_benchmarks(benchmarks, args)
     if fail_count:
-        _LOGGER.warning(f'Of the {len(benchmarks)} benchmarks, there were '
-                        f'{fail_count} failures that were resolved by repeat '
-                        'runs.')
+        _LOGGER.warning(
+            f'Of the {len(benchmarks)} benchmarks, there were '
+            f'{fail_count} failures that were resolved by repeat '
+            'runs.'
+        )
 
     if not args.skip_profdata:
         # Bots run a separate merge step (merge_results.py) that expects profraw
         # files instead of profdata files.
         suffix = ".profraw" if args.isolated_script_test_output else ".profdata"
         profile_output_path = f'{args.outputdir}/profile{suffix}'
-        merge_profdata(profile_output_path, args)
+        merge_profdata(profile_output_path, args, benchmarks)
 
     if not args.keep_temps:
-        _LOGGER.info('Cleaning up %s, use --keep-temps to keep it.',
-                     args.profiledir)
+        _LOGGER.info(
+            'Cleaning up %s, use --keep-temps to keep it.', args.profiledir
+        )
         shutil.rmtree(args.profiledir, ignore_errors=True)
 
 

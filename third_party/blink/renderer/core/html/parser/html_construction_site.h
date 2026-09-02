@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/core/dom/parser_content_policy.h"
 #include "third_party/blink/renderer/core/html/parser/html_element_stack.h"
 #include "third_party/blink/renderer/core/html/parser/html_formatting_element_list.h"
+#include "third_party/blink/renderer/core/sanitizer/sanitizer.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
@@ -49,6 +50,7 @@ struct HTMLConstructionSiteTask {
     kInsertAlreadyParsedChild,  // Insert w/o calling begin/end parsing.
     kReparent,
     kTakeAllChildren,
+    kRemove,
   };
 
   explicit HTMLConstructionSiteTask(Operation op)
@@ -177,6 +179,11 @@ class HTMLConstructionSite final {
   void InsertHTMLBodyStartTagInBody(AtomicHTMLToken*);
 
   void Reparent(HTMLStackItem* new_parent, HTMLStackItem* child);
+  void RemoveNode(HTMLStackItem* child);
+
+  Sanitizer::Action CheckSanitizerAction(Node* node) const;
+  Sanitizer::Action SanitizeAndReturnAction(Node* node) const;
+
   // insertAlreadyParsedChild assumes that |child| has already been parsed
   // (i.e., we're just moving it around in the tree rather than parsing it for
   // the first time). That means this function doesn't call beginParsingChildren
@@ -290,12 +297,15 @@ class HTMLConstructionSite final {
   void FindFosterSite(HTMLConstructionSiteTask&);
 
   CreateElementFlags GetCreateElementFlags() const;
+  bool ShouldMarkScriptAlreadyStarted() const;
   Element* CreateElement(AtomicHTMLToken*, const AtomicString& namespace_uri);
 
   void MergeAttributesFromTokenIntoElement(AtomicHTMLToken*, Element*);
 
   void ExecuteTask(HTMLConstructionSiteTask&);
   void QueueTask(HTMLConstructionSiteTask&, bool flush_pending_text);
+  StreamingSanitizer* ActiveSanitizer(
+      Node* node_being_inserted = nullptr) const;
   void SetAttributes(Element* element, AtomicHTMLToken* token);
 
   Member<HTMLParserReentryPermit> reentry_permit_;

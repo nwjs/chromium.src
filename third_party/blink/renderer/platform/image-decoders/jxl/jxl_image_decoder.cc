@@ -14,7 +14,7 @@
 #include "third_party/blink/renderer/platform/image-decoders/image_frame.h"
 #include "third_party/blink/renderer/platform/wtf/cross_thread_functional.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
-#include "third_party/rust/jxl/v0_4/wrapper/lib.rs.h"
+#include "third_party/rust/jxl/v0_5/wrapper/lib.rs.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/core/SkTypes.h"
 
@@ -125,7 +125,7 @@ bool JXLImageDecoder::SetBasicInfo() {
   // Extract ICC color profile.
   rust::Slice<const uint8_t> icc_data = (*scanner_)->get_icc_profile();
   if (!IgnoresColorSpace() && !icc_data.empty()) {
-    auto profile = ColorProfile::Create(icc_data);
+    auto profile = skia::ColorProfile::Make(icc_data);
     if (profile) {
       SetEmbeddedColorProfile(std::move(profile));
     }

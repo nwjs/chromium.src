@@ -92,6 +92,8 @@ class Tracker;
 @end
 
 // The view controller displaying the location bar. Manages the two states of
+enum class CustomLeadingViewType;
+
 // the omnibox - the editing and the non-editing states. In the editing state,
 // the omnibox textfield is displayed; in the non-editing state, the current
 // location is displayed.
@@ -165,6 +167,19 @@ class Tracker;
 
 // Whether Lens overlay is currently visible.
 @property(nonatomic, assign) BOOL lensOverlayVisible;
+
+// The layout guide constrained to the steady view. Only available when non-text
+// only.
+@property(nonatomic, readonly) UILayoutGuide* steadyViewLayoutGuide;
+
+// Initializes the view controller, optionally configured as text-only with
+// icons.
+- (instancetype)initWithTextOnly:(BOOL)textOnly NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init;
+- (instancetype)initWithCoder:(NSCoder*)coder NS_UNAVAILABLE;
+- (instancetype)initWithNibName:(NSString*)nibNameOrNil
+                         bundle:(NSBundle*)nibBundleOrNil NS_UNAVAILABLE;
 
 // Sets the edit view to use in the editing state. This must be set before the
 // view of this view controller is initialized. This must only be called once.
@@ -246,8 +261,8 @@ class Tracker;
 // Creates a visual copy of the location bar steady view.
 - (UIView*)locationBarSteadyViewVisualCopy;
 
-// Sets the custom leading view visibility, optionally animated.
-- (void)setCustomLeadingViewVisible:(BOOL)visible animated:(BOOL)animated;
+// Sets the type of custom leading view to display in the steady view.
+- (void)setCustomLeadingViewType:(CustomLeadingViewType)type;
 
 @end
 

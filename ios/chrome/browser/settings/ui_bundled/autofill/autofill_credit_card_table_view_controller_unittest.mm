@@ -22,8 +22,8 @@
 #import "components/sync/test/test_sync_service.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/cells/autofill_credit_card_edit_item.h"
-#import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_view_controller.h"
-#import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_add_credit_card_view_controller_delegate.h"
+#import "ios/chrome/browser/settings/autofill/payments/ui/autofill_add_credit_card_view_controller.h"
+#import "ios/chrome/browser/settings/autofill/payments/ui/autofill_add_credit_card_view_controller_delegate.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/autofill_credit_card_edit_table_view_controller.h"
 #import "ios/chrome/browser/settings/ui_bundled/autofill/cells/autofill_card_item.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -283,6 +283,38 @@ TEST_F(AutofillCreditCardTableViewControllerTest, TestOneCreditCardWithCvc) {
       IDS_AUTOFILL_SETTINGS_PAGE_CVC_TAG_FOR_CREDIT_CARD_LIST_ENTRY);
   EXPECT_TRUE([item.leadingDetailText containsString:cvc_indicator])
       << "Expected to find CVC indicator in text: " << item.leadingDetailText;
+}
+
+TEST_F(AutofillCreditCardTableViewControllerTest,
+       TestGoogleWalletNoticeFooterExists_FlagEnabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      autofill::features::kAutofillEnableWalletReminderNotice);
+
+  AddCreditCard("John Doe", "378282246310005", "123");
+  CreateController();
+  CheckController();
+
+  ASSERT_EQ(4, NumberOfSections());
+  EXPECT_EQ(1, NumberOfItemsInSection(3));
+  CheckSectionFooter(
+      l10n_util::GetNSString(IDS_AUTOFILL_SETTINGS_GOOGLE_WALLET_LEGAL_NOTICE),
+      3);
+}
+
+TEST_F(AutofillCreditCardTableViewControllerTest,
+       TestGoogleWalletNoticeFooterDoesNotExist_FlagDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      autofill::features::kAutofillEnableWalletReminderNotice);
+
+  AddCreditCard("John Doe", "378282246310005", "123");
+  CreateController();
+  CheckController();
+
+  ASSERT_EQ(4, NumberOfSections());
+  EXPECT_EQ(1, NumberOfItemsInSection(3));
+  EXPECT_EQ(nil, [[controller() tableViewModel] footerForSectionIndex:3]);
 }
 
 TEST_F(AutofillCreditCardTableViewControllerTest,

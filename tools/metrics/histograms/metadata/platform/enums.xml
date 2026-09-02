@@ -728,6 +728,14 @@ metrics consent we also won't be able to send UMA metrics. -->
   <int value="7" label="Destination not exist"/>
 </enum>
 
+<enum name="MissivePermissionDeniedErrorReason">
+  <summary>
+    Defined as PermissionDeniedErrorReason in
+    src/platform2/missive/util/reporting_errors.h
+  </summary>
+  <int value="0" label="SECURE_DESTINATION_FORBIDDEN"/>
+</enum>
+
 <enum name="ModemfwdCheckForWedgedModemResult">
   <int value="0" label="Modem present"/>
   <int value="1" label="Modem present after reboot"/>
@@ -2571,6 +2579,7 @@ Full version information for the fingerprint enum values:
   <int value="160390939" label="CROS Ti50 DT 0.24.260"/>
   <int value="161297514" label="CROS Cr50 H1 0.6.350"/>
   <int value="168148402" label="CROS Ti50 0.23.112"/>
+  <int value="173798106" label="CROS Ti50 NT 0.34.311"/>
   <int value="174693565" label="CROS Ti50 DT 0.23.250"/>
   <int value="189188535" label="CROS Cr50 0.4.19"/>
   <int value="191689368" label="CROS Cr50 H1 0.5.324"/>
@@ -2737,6 +2746,7 @@ Full version information for the fingerprint enum values:
   <int value="1311411160" label="WEC 345"/>
   <int value="1318849875" label="CROS Cr50 0.6.100"/>
   <int value="1325189791" label="CROS Ti50 NT 0.33.230"/>
+  <int value="1329758986" label="CROS Ti50 DT 0.24.311"/>
   <int value="1332366315" label="CROS Cr50 0.5.151"/>
   <int value="1335300248" label="CROS Ti50 0.24.120"/>
   <int value="1338970508" label="CROS Ti50 0.24.80"/>
@@ -2835,6 +2845,7 @@ Full version information for the fingerprint enum values:
   <int value="1883956482" label="CROS Cr50 0.6.153"/>
   <int value="1884409192" label="CROS Ti50 NT 0.36.170"/>
   <int value="1884651425" label="CROS Cr50 0.5.291"/>
+  <int value="1884856508" label="CROS Cr50 H1 0.5.373"/>
   <int value="1887455524" label="CROS Cr50 0.0.21"/>
   <int value="1895760793" label="CROS Cr50 0.5.153"/>
   <int value="1897026264" label="CROS Ti50 0.24.121"/>
@@ -2862,6 +2873,7 @@ Full version information for the fingerprint enum values:
   <int value="2024714959" label="IFX 9655 rev 32 fw 4.34 build 03f2"/>
   <int value="2025600313" label="CROS Cr50 0.5.10 aka 0.5.20"/>
   <int value="2036182876" label="CROS Cr50 0.3.24"/>
+  <int value="2041139524" label="CROS Cr50 H1 0.6.390"/>
   <int value="2061474747"
       label="CROS Cr50 0.2.2 aka 0.4.4 Flags 0x10(pre-pvt)"/>
   <int value="2066296624" label="CROS Cr50 H1 0.6.323"/>
@@ -2909,7 +2921,7 @@ Full version information for the fingerprint enum values:
   <int value="16" label="UNABLE_TO_BUILD_REPORT_QUEUE"/>
   <int value="17" label="UPLOAD_CLIENT_DESTRUCTED"/>
   <int value="18" label="UPLOAD_CLIENT_NO_DBUS_RESPONSE"/>
-  <int value="19" label="MAX_VALUE"/>
+  <int value="19" label="SENDER_UNIX_USER_LOOKUP_FAILED"/>
 </enum>
 
 <enum name="WiFiPCIStatus">

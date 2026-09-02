@@ -6,12 +6,16 @@
 
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/factories/account_password_store_factory.h"
 #include "chrome/browser/password_manager/factories/profile_password_store_factory.h"
+#include "chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_service.h"
+#include "chrome/browser/password_manager/remote_actor/remote_actor_credential_sharing_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
@@ -20,18 +24,25 @@
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
 #include "components/password_manager/core/browser/password_ui_utils.h"
+#include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/base/client_tag_hash.h"
+#include "components/sync/base/data_type.h"
+#include "components/sync/protocol/password_specifics.pb.h"
 #include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/message.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -51,6 +62,12 @@ std::unique_ptr<RemoteActorSelectionDialogController> CreateDefaultDialog(
 }
 
 constexpr size_t kMaxArgumentLength = 256;
+constexpr base::TimeDelta kShareTimeToLive = base::Minutes(10);
+
+void LogResult(RemoteActorCredentialSharingResult result) {
+  base::UmaHistogramEnumeration(
+      "PasswordManager.RemoteActorCredentialSharing.Result", result);
+}
 
 }  // namespace
 DOCUMENT_USER_DATA_KEY_IMPL(RemoteActorCredentialSharingImpl);
@@ -92,7 +109,6 @@ RemoteActorCredentialSharingImpl::RemoteActorCredentialSharingImpl(
 
 RemoteActorCredentialSharingImpl::~RemoteActorCredentialSharingImpl() = default;
 
-
 void RemoteActorCredentialSharingImpl::Bind(
     mojo::PendingAssociatedReceiver<chrome::mojom::RemoteActorCredentialSharing>
         receiver) {
@@ -109,10 +125,18 @@ void RemoteActorCredentialSharingImpl::RequestAgentAuthentication(
     return;
   }
 
+  if (pending_request_) {
+    LogResult(RemoteActorCredentialSharingResult::kRequestAlreadyInProgress);
+    RespondWithError(std::move(callback));
+    return;
+  }
+
   Profile* profile =
       Profile::FromBrowserContext(render_frame_host().GetBrowserContext());
 
   if (!VerifyUserIdentityAndSyncState(profile, gaia_id)) {
+    LogResult(
+        RemoteActorCredentialSharingResult::kUserIdentityOrSyncStateInvalid);
     RespondWithError(std::move(callback));
     return;
   }
@@ -141,6 +165,12 @@ void RemoteActorCredentialSharingImpl::OnGetPasswordStoreResultsOrErrorFrom(
         sync_util::IsSyncFeatureActiveIncludingPasswords(sync_service);
 
     for (StoredCredential& login : logins) {
+      password_manager_util::GetLoginMatchType match_type =
+          password_manager_util::GetMatchType(login);
+      if (match_type != password_manager_util::GetLoginMatchType::kExact &&
+          match_type != password_manager_util::GetLoginMatchType::kAffiliated) {
+        continue;
+      }
       PasswordForm form = ToPasswordForm(std::move(login));
       if (form.IsUsingAccountStore() ||
           (form.IsUsingProfileStore() && is_sync_active)) {
@@ -161,6 +191,7 @@ void RemoteActorCredentialSharingImpl::OnAllLoginsRetrieved() {
   }
 
   if (pending_request_->credentials.empty()) {
+    LogResult(RemoteActorCredentialSharingResult::kNoPasswordsFound);
     std::move(pending_request_->callback).Run(false);
     pending_request_.reset();
     return;
@@ -169,6 +200,7 @@ void RemoteActorCredentialSharingImpl::OnAllLoginsRetrieved() {
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(&render_frame_host());
   if (!web_contents) {
+    LogResult(RemoteActorCredentialSharingResult::kOtherError);
     std::move(pending_request_->callback).Run(false);
     pending_request_.reset();
     return;
@@ -201,16 +233,48 @@ void RemoteActorCredentialSharingImpl::ProceedWithCredential(
     return;
   }
 
+  absl::Cleanup cleanup_request = [this] { pending_request_.reset(); };
+
   if (!auth_success) {
+    LogResult(RemoteActorCredentialSharingResult::kAuthenticatorFailed);
     RespondWithError(std::move(pending_request_->callback));
-    pending_request_.reset();
     return;
   }
 
-  // TODO(crbug.com/532483845): Upload selected credential to Passbox and grant
-  // permission in APS.
-  RespondWithError(std::move(pending_request_->callback));
-  pending_request_.reset();
+  Profile* profile =
+      Profile::FromBrowserContext(render_frame_host().GetBrowserContext());
+  RemoteActorCredentialSharingService* service =
+      RemoteActorCredentialSharingServiceFactory::GetForProfile(profile);
+  if (!service) {
+    LogResult(RemoteActorCredentialSharingResult::kSharingServiceUnavailable);
+    RespondWithError(std::move(pending_request_->callback));
+    return;
+  }
+
+  StoredCredential credential = FromPasswordForm(std::move(selected_form));
+  sync_pb::PasswordSpecificsData specifics_data =
+      SpecificsDataFromStoredCredential(credential);
+  std::string client_tag = GetClientTag(specifics_data);
+  std::string client_tag_hash = syncer::ClientTagHash::FromUnhashed(
+                                    syncer::DataType::PASSWORDS, client_tag)
+                                    .value();
+
+  RemoteActorCredentialSharingService::ShareParameters params;
+  params.obfuscated_gaia_id = pending_request_->gaia_id;
+  params.web_origin =
+      url::Origin::Create(
+          GURL(base::StrCat({"https://", pending_request_->domain})))
+          .Serialize();
+  params.password_client_tag_hash = client_tag_hash;
+  params.password_data = std::move(specifics_data);
+  params.time_to_live = kShareTimeToLive;
+  params.agent_oauth_client_id = pending_request_->remote_actor_id;
+
+  service->SharePassword(
+      params,
+      base::BindOnce(&RemoteActorCredentialSharingImpl::OnShareCompleted,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     std::move(pending_request_->callback)));
 }
 
 bool RemoteActorCredentialSharingImpl::ValidateRequestPreconditions(
@@ -265,8 +329,14 @@ bool RemoteActorCredentialSharingImpl::VerifyUserIdentityAndSyncState(
   }
 
   auto* sync_service = SyncServiceFactory::GetForProfile(profile);
-  if (sync_service && sync_service->GetAuthError().IsPersistentError()) {
-    return false;
+  if (sync_service) {
+    if (sync_service->GetAuthError().IsPersistentError()) {
+      return false;
+    }
+    if (sync_service->GetUserSettings()
+            ->IsTrustedVaultKeyRequiredForPreferredDataTypes()) {
+      return false;
+    }
   }
 
   return true;
@@ -278,10 +348,7 @@ void RemoteActorCredentialSharingImpl::QueryPasswordStores(
     const std::string& domain,
     const std::string& remote_actor_id,
     RequestAgentAuthenticationCallback callback) {
-  if (pending_request_) {
-    std::move(pending_request_->callback).Run(false);
-    pending_request_.reset();
-  }
+  CHECK(!pending_request_);
   dialog_controller_.reset();
 
   auto* sync_service = SyncServiceFactory::GetForProfile(profile);
@@ -310,6 +377,7 @@ void RemoteActorCredentialSharingImpl::QueryPasswordStores(
   }
 
   if (stores.empty()) {
+    LogResult(RemoteActorCredentialSharingResult::kNoSyncOrAccountStorage);
     RespondWithError(std::move(callback));
     return;
   }
@@ -340,6 +408,7 @@ void RemoteActorCredentialSharingImpl::OnDialogResult(
   }
 
   if (!selected_form) {
+    LogResult(RemoteActorCredentialSharingResult::kUserCancelledDialog);
     RespondWithError(std::move(pending_request_->callback));
     pending_request_.reset();
     return;
@@ -348,6 +417,7 @@ void RemoteActorCredentialSharingImpl::OnDialogResult(
   content::WebContents* web_contents =
       content::WebContents::FromRenderFrameHost(&render_frame_host());
   if (!web_contents) {
+    LogResult(RemoteActorCredentialSharingResult::kOtherError);
     RespondWithError(std::move(pending_request_->callback));
     pending_request_.reset();
     return;
@@ -355,6 +425,7 @@ void RemoteActorCredentialSharingImpl::OnDialogResult(
 
   auto* client = ChromePasswordManagerClient::FromWebContents(web_contents);
   if (!client) {
+    LogResult(RemoteActorCredentialSharingResult::kOtherError);
     RespondWithError(std::move(pending_request_->callback));
     pending_request_.reset();
     return;
@@ -372,17 +443,26 @@ void RemoteActorCredentialSharingImpl::OnDialogResult(
         GURL(base::StrCat({"https://", pending_request_->domain})));
     const std::u16string origin_str =
         base::UTF8ToUTF16(GetShownOrigin(domain_origin));
-    message = l10n_util::GetStringFUTF16(
-        IDS_PASSWORD_MANAGER_FILLING_REAUTH, origin_str);
+    message = l10n_util::GetStringFUTF16(IDS_PASSWORD_MANAGER_FILLING_REAUTH,
+                                         origin_str);
 #endif
     device_authenticator_->AuthenticateWithMessage(
         message,
         base::BindOnce(&RemoteActorCredentialSharingImpl::ProceedWithCredential,
-                       weak_ptr_factory_.GetWeakPtr(), std::move(*selected_form)));
+                       weak_ptr_factory_.GetWeakPtr(),
+                       std::move(*selected_form)));
     return;
   }
 
   ProceedWithCredential(std::move(*selected_form), /*auth_success=*/true);
+}
+
+void RemoteActorCredentialSharingImpl::OnShareCompleted(
+    RequestAgentAuthenticationCallback callback,
+    bool success) {
+  LogResult(success ? RemoteActorCredentialSharingResult::kSuccess
+                    : RemoteActorCredentialSharingResult::kSharingFailed);
+  std::move(callback).Run(success);
 }
 
 void RemoteActorCredentialSharingImpl::RespondWithError(

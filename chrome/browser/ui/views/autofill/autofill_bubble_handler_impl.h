@@ -28,6 +28,7 @@ class SaveCardBubbleController;
 class IbanBubbleController;
 class OmniboxAutofillBubbleController;
 class PaymentsChurnedUsersBubbleController;
+class WalletReminderNoticeBubbleController;
 enum class IbanBubbleType;
 
 class AutofillBubbleHandlerImpl : public AutofillBubbleHandler {
@@ -102,6 +103,13 @@ class AutofillBubbleHandlerImpl : public AutofillBubbleHandler {
   AutofillBubbleBase* ShowPaymentsChurnedUsersBubble(
       content::WebContents* web_contents,
       PaymentsChurnedUsersBubbleController* controller,
+      bool is_user_gesture) override;
+  AutofillBubbleBase* ShowPaymentsChurnedUsersConfirmationBubble(
+      content::WebContents* web_contents,
+      PaymentsChurnedUsersBubbleController* controller) override;
+  AutofillBubbleBase* ShowWalletReminderNoticeBubble(
+      content::WebContents* web_contents,
+      WalletReminderNoticeBubbleController* controller,
       bool is_user_gesture) override;
 
  private:

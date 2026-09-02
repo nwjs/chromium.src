@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_context.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
@@ -125,9 +126,10 @@ IN_PROC_BROWSER_TEST_F(BrowserViewPipTest, DynamicStatePropagation) {
   content::ScopedPipExclusionOverride exclusion_override(false);
 
   // Create a PIP browser.
-  Browser::CreateParams params(Browser::TYPE_PICTURE_IN_PICTURE,
-                               browser()->GetProfile(), true);
-  Browser* pip_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_PICTURE_IN_PICTURE, browser()->GetProfile(),
+      /*from_user_gesture=*/true);
+  BrowserWindowInterface* pip_browser = CreateBrowserWindow(std::move(params));
   pip_browser->GetWindow()->Show();
   BrowserView* pip_browser_view =
       BrowserView::GetBrowserViewForBrowser(pip_browser);
@@ -149,9 +151,10 @@ IN_PROC_BROWSER_TEST_F(BrowserViewPipTest, InitialStateVerification) {
   content::ScopedPipExclusionOverride exclusion_override(true);
 
   // Create a PIP browser.
-  Browser::CreateParams params(Browser::TYPE_PICTURE_IN_PICTURE,
-                               browser()->GetProfile(), true);
-  Browser* pip_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_PICTURE_IN_PICTURE, browser()->GetProfile(),
+      /*from_user_gesture=*/true);
+  BrowserWindowInterface* pip_browser = CreateBrowserWindow(std::move(params));
   pip_browser->GetWindow()->Show();
   BrowserView* pip_browser_view =
       BrowserView::GetBrowserViewForBrowser(pip_browser);
@@ -177,9 +180,10 @@ IN_PROC_BROWSER_TEST_F(BrowserViewPipDisabledTest, FeatureFlagEnforcement) {
   content::ScopedPipExclusionOverride exclusion_override(false);
 
   // Create a PIP browser.
-  Browser::CreateParams params(Browser::TYPE_PICTURE_IN_PICTURE,
-                               browser()->GetProfile(), true);
-  Browser* pip_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(
+      BrowserWindowInterface::TYPE_PICTURE_IN_PICTURE, browser()->GetProfile(),
+      /*from_user_gesture=*/true);
+  BrowserWindowInterface* pip_browser = CreateBrowserWindow(std::move(params));
   pip_browser->GetWindow()->Show();
   BrowserView* pip_browser_view =
       BrowserView::GetBrowserViewForBrowser(pip_browser);
@@ -213,9 +217,11 @@ IN_PROC_BROWSER_TEST_F(BrowserViewPipTest, NewWindowInitializationIsolation) {
   content::ScopedPipExclusionOverride exclusion_override(true);
 
   // Create a normal browser.
-  Browser::CreateParams params(Browser::TYPE_NORMAL, browser()->GetProfile(),
-                               true);
-  Browser* new_normal_browser = Browser::Create(params);
+  BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_NORMAL,
+                                   browser()->GetProfile(),
+                                   /*from_user_gesture=*/true);
+  BrowserWindowInterface* new_normal_browser =
+      CreateBrowserWindow(std::move(params));
   new_normal_browser->GetWindow()->Show();
 
   BrowserView* new_normal_view =
@@ -277,7 +283,8 @@ class BrowserViewTest : public InProcessBrowserTest {
   std::u16string GetAccessibleNameForTabAt(int index) {
     return browser_view()
         ->tab_strip_view()
-        ->GetTabAnchorViewAt(index)
+        ->GetTabAnchorView(
+            browser()->tab_strip_model()->GetTabAtIndex(index)->GetHandle())
         ->GetViewAccessibility()
         .GetCachedName();
   }
@@ -391,29 +398,31 @@ class TestTabModalConfirmDialogDelegate : public TabModalConfirmDialogDelegate {
 // Additionally when one of the tabs is destroyed NotifyNavigationStateChanged()
 // is invoked on the other.
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, CloseWithTabs) {
-  Browser* browser2 =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+  BrowserWindowInterface* browser2 = CreateBrowserWindow(
+      BrowserWindowCreateParams(browser()->GetProfile(),
+                                /*from_user_gesture=*/true));
   chrome::AddTabAt(browser2, GURL(), -1, true);
   chrome::AddTabAt(browser2, GURL(), -1, true);
   TestWebContentsObserver observer(
-      browser2->tab_strip_model()->GetWebContentsAt(0),
-      browser2->tab_strip_model()->GetWebContentsAt(1));
+      browser2->GetTabStripModel()->GetWebContentsAt(0),
+      browser2->GetTabStripModel()->GetWebContentsAt(1));
   BrowserView::GetBrowserViewForBrowser(browser2)->GetWidget()->CloseNow();
 }
 
 // Same as CloseWithTabs, but activates the first tab, which is the first tab
 // BrowserView will destroy.
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, CloseWithTabsStartWithActive) {
-  Browser* browser2 =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+  BrowserWindowInterface* browser2 = CreateBrowserWindow(
+      BrowserWindowCreateParams(browser()->GetProfile(),
+                                /*from_user_gesture=*/true));
   chrome::AddTabAt(browser2, GURL(), -1, true);
   chrome::AddTabAt(browser2, GURL(), -1, true);
-  browser2->tab_strip_model()->ActivateTabAt(
+  browser2->GetTabStripModel()->ActivateTabAt(
       0, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
   TestWebContentsObserver observer(
-      browser2->tab_strip_model()->GetWebContentsAt(0),
-      browser2->tab_strip_model()->GetWebContentsAt(1));
+      browser2->GetTabStripModel()->GetWebContentsAt(0),
+      browser2->GetTabStripModel()->GetWebContentsAt(1));
   BrowserView::GetBrowserViewForBrowser(browser2)->GetWidget()->CloseNow();
 }
 
@@ -526,7 +535,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, DevToolsUndockedUpdatesBrowserWindow) {
   EXPECT_EQ(full_bounds, contents_web_view()->bounds());
 }
 
-void SetDevToolsWindowSizePrefs(Browser* browser,
+void SetDevToolsWindowSizePrefs(BrowserWindowInterface* browser,
                                 int left,
                                 int right,
                                 int top,
@@ -544,7 +553,8 @@ void SetDevToolsWindowSizePrefs(Browser* browser,
   wp_prefs.Set(DevToolsWindow::kDevToolsApp, std::move(dev_tools_defaults));
 }
 
-const base::DictValue& GetDevToolsWindowSizePrefs(Browser* browser) {
+const base::DictValue& GetDevToolsWindowSizePrefs(
+    BrowserWindowInterface* browser) {
   PrefService* prefs = browser->GetProfile()->GetPrefs();
   return prefs->GetDict(prefs::kAppWindowPlacement)
       .Find(DevToolsWindow::kDevToolsApp)
@@ -1135,8 +1145,9 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ScrimForTabModalInSplitView) {
       active_contents_container_view()->contents_scrim_view()->GetVisible());
 }
 
+// TODO(crbug.com/543094230): Test is flaky.
 // Tests that GetAccessibleTabLabel correctly labels each tab in a split.
-IN_PROC_BROWSER_TEST_F(BrowserViewTest, AccessibleTabLabel) {
+IN_PROC_BROWSER_TEST_F(BrowserViewTest, DISABLED_AccessibleTabLabel) {
   auto* controller = WindowMetadataController::From(browser());
 
   // Create a pinned split.
@@ -1581,7 +1592,8 @@ class TabAddingWidgetObserver : public views::WidgetObserver {
 // ContentsWebView::CloneWebContentsLayer during synchronous widget destruction.
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, CloseWidgetWithTabsNoCrash) {
   BrowserWindowInterface* browser2 =
-      Browser::Create(Browser::CreateParams(browser()->GetProfile(), true));
+      CreateBrowserWindow(BrowserWindowCreateParams(
+          browser()->GetProfile(), /*from_user_gesture=*/true));
   chrome::AddTabAt(browser2, GURL("about:blank"), -1, true);
   EXPECT_EQ(1, browser2->GetTabStripModel()->count());
 

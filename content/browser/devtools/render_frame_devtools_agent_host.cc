@@ -443,9 +443,6 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
       frame_host_ ? frame_host_->devtools_frame_token()
                   : base::UnguessableToken(),
       GetIOContext(), session, /*maybe_storage_partition=*/nullptr,
-      base::BindRepeating(
-          &RenderFrameDevToolsAgentHost::UpdateResourceLoaderFactories,
-          base::Unretained(this)),
       session->GetClient());
   session->CreateAndAddHandler<protocol::FetchHandler>(
       GetIOContext(), session->GetRootSession()->GetClient(),
@@ -470,7 +467,7 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session) {
       GetId(), auto_attacher_.get(), session);
   session->CreateAndAddHandler<protocol::PreloadHandler>();
   session->CreateAndAddHandler<protocol::PageHandler>(
-      emulation_handler, browser_handler,
+      GetIOContext(), emulation_handler, browser_handler,
       session->GetClient()->AllowUnsafeOperations(),
       session->GetClient()->IsTrusted(),
       session->GetClient()->GetNavigationInitiatorOrigin(),

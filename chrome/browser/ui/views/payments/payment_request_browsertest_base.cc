@@ -157,6 +157,10 @@ void PaymentRequestBrowserTestBase::SetBrowserWindowSizeCheckEnabled() {
   is_browser_window_size_check_enabled_ = true;
 }
 
+void PaymentRequestBrowserTestBase::SetBypassUserInteractionForTesting() {
+  bypass_user_interaction_for_testing_ = true;
+}
+
 void PaymentRequestBrowserTestBase::OnCanMakePaymentCalled() {
   if (event_waiter_) {
     event_waiter_->OnEvent(DialogEvent::CAN_MAKE_PAYMENT_CALLED);
@@ -200,6 +204,14 @@ void PaymentRequestBrowserTestBase::OnAbortCalled() {
 void PaymentRequestBrowserTestBase::OnInternalError() {
   if (event_waiter_) {
     event_waiter_->OnEvent(DialogEvent::INTERNAL_ERROR);
+  }
+}
+
+void PaymentRequestBrowserTestBase::OnPaymentRequestStateInitDone(
+    PaymentRequestState* state) {
+  if (state) {
+    state->set_bypass_user_interaction_for_testing(
+        bypass_user_interaction_for_testing_);
   }
 }
 
@@ -320,6 +332,12 @@ void PaymentRequestBrowserTestBase::OnPaymentHandlerWindowOpened() {
 void PaymentRequestBrowserTestBase::OnPaymentHandlerTitleSet() {
   if (event_waiter_) {
     event_waiter_->OnEvent(DialogEvent::PAYMENT_HANDLER_TITLE_SET);
+  }
+}
+
+void PaymentRequestBrowserTestBase::OnPaymentHandlerThemeColorSet() {
+  if (event_waiter_) {
+    event_waiter_->OnEvent(DialogEvent::PAYMENT_HANDLER_THEME_COLOR_SET);
   }
 }
 
@@ -1009,6 +1027,9 @@ std::ostream& operator<<(
       break;
     case DialogEvent::PAYMENT_HANDLER_TITLE_SET:
       out << "PAYMENT_HANDLER_TITLE_SET";
+      break;
+    case DialogEvent::PAYMENT_HANDLER_THEME_COLOR_SET:
+      out << "PAYMENT_HANDLER_THEME_COLOR_SET";
       break;
     case DialogEvent::DIALOG_SIZE_CHECK_AFTER_BROWSER_RESIZE:
       out << "DIALOG_SIZE_CHECK_AFTER_BROWSER_RESIZE";

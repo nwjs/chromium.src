@@ -11,12 +11,13 @@ import chromium_src.tools.metrics.histograms.extract_histograms as extract_histo
 import chromium_src.tools.metrics.histograms.histogram_paths as histogram_paths
 import chromium_src.tools.metrics.histograms.merge_xml as merge_xml
 
-class EventBasedXmlValidation(xml_validations.UkmXmlValidation):
-  """Validations for the content of event-based Private Metrics configurations.
-  """
 
-  def __init__(self, config_xml: xml.dom.minidom.Element,
-               config_type: str) -> None:
+class EventBasedXmlValidation(xml_validations.UkmXmlValidation):
+  """Validations for the content of event-based Private Metrics configurations."""
+
+  def __init__(
+    self, config_xml: xml.dom.minidom.Element, config_type: str
+  ) -> None:
     """Attributes:
 
     config_xml: A XML minidom Element representing the root node of the config
@@ -40,25 +41,18 @@ class EventBasedXmlValidation(xml_validations.UkmXmlValidation):
           # Check if the enum is defined in enums.xml.
           if enum_name not in enums:
             errors.append(
-                "Unknown enum %s in %s metric %s:%s." %
-                (enum_name, self.config_type, event_node.getAttribute('name'),
-                 metric_node.getAttribute('name')))
+              'Unknown enum %s in %s metric %s:%s.'
+              % (
+                enum_name,
+                self.config_type,
+                event_node.getAttribute('name'),
+                metric_node.getAttribute('name'),
+              )
+            )
 
     is_success = not errors
 
     return (is_success, errors)
-
-
-class DkmXmlValidation(EventBasedXmlValidation):
-  """Validations for the content of dkm.xml."""
-
-  def __init__(self, dkm_config: xml.dom.minidom.Element) -> None:
-    """Attributes:
-
-    dkm_config: A XML minidom Element representing the root node of the DKM
-        config tree.
-    """
-    super().__init__(dkm_config, "DKM")
 
 
 class DwaXmlValidation(EventBasedXmlValidation):
@@ -70,4 +64,4 @@ class DwaXmlValidation(EventBasedXmlValidation):
     dwa_config: A XML minidom Element representing the root node of the DWA
         config tree.
     """
-    super().__init__(dwa_config, "DWA")
+    super().__init__(dwa_config, 'DWA')

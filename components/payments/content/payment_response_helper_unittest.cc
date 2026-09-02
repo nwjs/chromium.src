@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_executor.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
 #include "components/autofill/core/browser/data_manager/test_personal_data_manager.h"
@@ -22,6 +23,8 @@
 #include "components/payments/content/payment_request_spec.h"
 #include "components/payments/content/test_payment_app.h"
 #include "components/payments/core/features.h"
+#include "components/payments/core/journey_logger.h"
+#include "components/payments/core/payment_request_metrics.h"
 #include "components/payments/core/test_payment_request_delegate.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/payments/payment_request.mojom.h"
@@ -99,6 +102,9 @@ class PaymentResponseHelperTest : public testing::Test,
   base::WeakPtr<PaymentRequestDelegate> test_payment_request_delegate() {
     return test_payment_request_delegate_.GetWeakPtr();
   }
+  base::WeakPtr<JourneyLogger> journey_logger() {
+    return journey_logger_.GetWeakPtr();
+  }
 
   base::WeakPtr<PaymentResponseHelperTest> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
@@ -108,9 +114,12 @@ class PaymentResponseHelperTest : public testing::Test,
     test_app_ = std::move(test_app);
   }
 
-  bool was_payment_handler_window_interacted_with_ = false;
+  bool was_payment_handler_window_interacted_with_ = true;
+  JourneyLogger journey_logger_{ukm::kInvalidSourceId};
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      features::kPaymentRequestMandatoryPaymentAppUi};
   std::unique_ptr<PaymentRequestSpec> spec_;
   mojom::PaymentResponsePtr payment_response_;
   autofill::TestPersonalDataManager test_personal_data_manager_;
@@ -130,7 +139,7 @@ TEST_F(PaymentResponseHelperTest, GeneratePaymentResponse_SupportedMethod) {
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
   EXPECT_EQ("method-name", response()->method_name);
   EXPECT_EQ("{\"data\":\"details\"}", response()->stringified_details);
 }
@@ -153,7 +162,7 @@ TEST_F(PaymentResponseHelperTest, GeneratePaymentResponse_ShippingAddress) {
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Check that all the expected values were set.
   EXPECT_EQ("US", response()->shipping_address->country);
@@ -181,7 +190,7 @@ TEST_F(PaymentResponseHelperTest, GeneratePaymentResponse_ContactDetails_All) {
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Check that all the expected values were set.
   EXPECT_EQ("John H. Doe", response()->payer->name.value());
@@ -199,7 +208,7 @@ TEST_F(PaymentResponseHelperTest, GeneratePaymentResponse_ContactDetails_Some) {
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Check that the name was set, but not the other values.
   EXPECT_EQ("John H. Doe", response()->payer->name.value());
@@ -220,7 +229,7 @@ TEST_F(PaymentResponseHelperTest,
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Check that the phone was formatted.
   EXPECT_EQ("+15152231234", response()->payer->phone.value());
@@ -239,7 +248,7 @@ TEST_F(PaymentResponseHelperTest,
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Check that the phone was formatted.
   EXPECT_EQ("+15151231234", response()->payer->phone.value());
@@ -264,7 +273,7 @@ TEST_F(PaymentResponseHelperMandatoryUiTest,
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Since window was not interacted with and mandatory UI feature is enabled,
   // the payment response generation should be stashed/deferred (response is
@@ -289,12 +298,220 @@ TEST_F(PaymentResponseHelperMandatoryUiTest,
 
   PaymentResponseHelper helper("en-US", spec(), test_app(),
                                test_payment_request_delegate(), test_address(),
-                               test_address(), GetWeakPtr());
+                               test_address(), journey_logger(), GetWeakPtr());
 
   // Since it's a non-service worker app, the payment response generation should
   // NOT be stashed/deferred (response is not null).
   EXPECT_FALSE(response().is_null());
   EXPECT_EQ("method-name", response()->method_name);
+}
+
+TEST_F(PaymentResponseHelperMandatoryUiTest,
+       PausedResolutionOutcome_UserInteracted) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+  auto helper = std::make_unique<PaymentResponseHelper>(
+      "en-US", spec(), test_app(), test_payment_request_delegate(),
+      test_address(), test_address(), journey_logger(), GetWeakPtr());
+
+  EXPECT_TRUE(helper->is_waiting_for_user_gesture_for_testing());
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      0);
+
+  helper->OnUserInteractionCaptured();
+
+  EXPECT_FALSE(helper->is_waiting_for_user_gesture_for_testing());
+  histogram_tester.ExpectUniqueSample(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      PaymentHandlerPausedResolutionOutcome::kUserInteracted, 1);
+
+  // Simulates window closed, which resets/destroys the response helper.
+  helper.reset();
+
+  // Destruction after interaction should not record duplicate metric.
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      1);
+}
+
+TEST_F(PaymentResponseHelperMandatoryUiTest,
+       PausedResolutionOutcome_WindowClosed) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+  auto helper = std::make_unique<PaymentResponseHelper>(
+      "en-US", spec(), test_app(), test_payment_request_delegate(),
+      test_address(), test_address(), journey_logger(), GetWeakPtr());
+  EXPECT_TRUE(helper->is_waiting_for_user_gesture_for_testing());
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      0);
+
+  // Simulates window closed, which resets/destroys the response helper.
+  helper.reset();
+
+  histogram_tester.ExpectUniqueSample(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      PaymentHandlerPausedResolutionOutcome::kWindowClosed, 1);
+}
+
+TEST_F(PaymentResponseHelperMandatoryUiTest,
+       PausedResolutionOutcome_AlreadyInteracted) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = true;
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+  auto helper = std::make_unique<PaymentResponseHelper>(
+      "en-US", spec(), test_app(), test_payment_request_delegate(),
+      test_address(), test_address(), journey_logger(), GetWeakPtr());
+
+  EXPECT_FALSE(helper->is_waiting_for_user_gesture_for_testing());
+
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      0);
+}
+
+TEST_F(PaymentResponseHelperMandatoryUiTest,
+       PausedResolutionOutcome_NonServiceWorkerApp) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+  ResetTestApp(std::make_unique<TestPaymentApp>("method-name",
+                                                PaymentApp::Type::INTERNAL));
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+  auto helper = std::make_unique<PaymentResponseHelper>(
+      "en-US", spec(), test_app(), test_payment_request_delegate(),
+      test_address(), test_address(), journey_logger(), GetWeakPtr());
+
+  EXPECT_FALSE(helper->is_waiting_for_user_gesture_for_testing());
+
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "PaymentHandlerPausedResolutionOutcome",
+      0);
+}
+
+TEST_F(PaymentResponseHelperTest, RespondWithResolvedMetrics_ServiceWorkerApp) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+
+  PaymentResponseHelper helper("en-US", spec(), test_app(),
+                               test_payment_request_delegate(), test_address(),
+                               test_address(), journey_logger(), GetWeakPtr());
+
+  histogram_tester.ExpectUniqueSample(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithResolvedBeforeOpenWindow",
+      true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithResolvedBeforeUserGesture",
+      true, 1);
+}
+
+TEST_F(PaymentResponseHelperTest,
+       RespondWithResolvedMetrics_NonServiceWorkerApp) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+
+  ResetTestApp(std::make_unique<TestPaymentApp>("method-name",
+                                                PaymentApp::Type::INTERNAL));
+
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+
+  PaymentResponseHelper helper("en-US", spec(), test_app(),
+                               test_payment_request_delegate(), test_address(),
+                               test_address(), journey_logger(), GetWeakPtr());
+
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithResolvedBeforeOpenWindow",
+      0);
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithResolvedBeforeUserGesture",
+      0);
+}
+
+TEST_F(PaymentResponseHelperTest, RespondWithRejectedMetrics_ServiceWorkerApp) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+
+  ResetTestApp(std::make_unique<TestPaymentApp>(
+      "method-name", mojom::PaymentEventResponseType::PAYMENT_EVENT_REJECT));
+
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+
+  PaymentResponseHelper helper("en-US", spec(), test_app(),
+                               test_payment_request_delegate(), test_address(),
+                               test_address(), journey_logger(), GetWeakPtr());
+
+  histogram_tester.ExpectUniqueSample(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeOpenWindow",
+      true, 1);
+  histogram_tester.ExpectUniqueSample(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeUserGesture",
+      true, 1);
+}
+
+TEST_F(PaymentResponseHelperTest,
+       RespondWithRejectedMetrics_NonRejectErrorIgnored) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+
+  ResetTestApp(std::make_unique<TestPaymentApp>(
+      "method-name", mojom::PaymentEventResponseType::PAYMENT_EVENT_TIMEOUT));
+
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+
+  PaymentResponseHelper helper("en-US", spec(), test_app(),
+                               test_payment_request_delegate(), test_address(),
+                               test_address(), journey_logger(), GetWeakPtr());
+
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeOpenWindow",
+      0);
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeUserGesture",
+      0);
+}
+
+TEST_F(PaymentResponseHelperTest,
+       RespondWithRejectedMetrics_NonServiceWorkerApp) {
+  base::HistogramTester histogram_tester;
+  was_payment_handler_window_interacted_with_ = false;
+
+  ResetTestApp(std::make_unique<TestPaymentApp>(
+      "method-name", mojom::PaymentEventResponseType::PAYMENT_EVENT_REJECT,
+      PaymentApp::Type::INTERNAL));
+
+  RecreateSpecWithOptions(mojom::PaymentOptions::New());
+
+  PaymentResponseHelper helper("en-US", spec(), test_app(),
+                               test_payment_request_delegate(), test_address(),
+                               test_address(), journey_logger(), GetWeakPtr());
+
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeOpenWindow",
+      0);
+  histogram_tester.ExpectTotalCount(
+      "PaymentRequest.MandatoryPaymentAppUi."
+      "RespondWithRejectedBeforeUserGesture",
+      0);
 }
 
 }  // namespace payments

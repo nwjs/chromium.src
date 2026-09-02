@@ -30,6 +30,9 @@ extern const char kClearTokenService[];
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+extern const char kDisableSigninPromoOnAvatarPillForTesting[];
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const char kForceFreDefaultBrowserStep[];
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -286,11 +289,55 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<base::TimeDelta>
     kAccountPreviewDataPeriodicRefreshTiming;
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                           kAccountPreviewData429RateLimitDuration);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableAccountPreviewEntityPreviews);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableAccountPreviewPreferredAccount);
+// Feature parameters for quartile classification thresholds of sync data
+// counts used in preferred account heuristics. Used with
+// `kEnableAccountPreviewPreferredAccount`.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kPasswordsQ1Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kPasswordsMedianThreshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kPasswordsQ3Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kBookmarksQ1Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kBookmarksMedianThreshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kBookmarksQ3Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillQ1Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillMedianThreshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillQ3Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillWalletMetadataQ1Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillWalletMetadataMedianThreshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillWalletMetadataQ3Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(
+    base::TimeDelta,
+    kAccountPreviewPreferredAccountSingleAccountPromoFetchTimeout);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<bool> kAccountPreviewDataPersistAccounts;
+
+#if BUILDFLAG(IS_ANDROID)
+// Enables the use of 1P app account information on Android in preferred account
+// computation.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableAccountPreviewUseAppAccount);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
+                           kAccountPreviewAppAccountExpirationDuration);
+#endif
 
 #if BUILDFLAG(IS_ANDROID)
 // Whether activityless sign-in should be used for all entry points.
@@ -660,6 +707,11 @@ BASE_DECLARE_FEATURE(kNoAccountWebSignin);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kNonDefaultGaiaOriginCheck);
 
+#if BUILDFLAG(IS_ANDROID)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kOpenSystemAccountSettingsDirectly);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // It enables the pre first run desktop refresh (changes to the onboarding flow
 // prior to the core first run).
@@ -676,7 +728,7 @@ BASE_DECLARE_FEATURE(kPreFirstRunDesktopRefresh);
 // enabled (see `kPreFirstRunDesktopRefresh`, `kFirstRunDesktopRevamp`,
 // `kFirstRunDesktopRefresh` and `kFirstRunDesktopChoiceScreenRefresh` flags).
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
-bool IsPreFirstRunDesktopRefreshEnabled(bool is_in_search_engine_choice_region);
+bool IsPreFirstRunDesktopRefreshEnabled();
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -702,6 +754,10 @@ BASE_DECLARE_FEATURE(kProfilesReordering);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kReadContextualAccountCapabilities);
 #endif
+
+// Enables fetching the capability of the same name on all platforms.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kReadIsSubjectToUniversalOptOutCapability);
 
 // Enables fetching the capability of the same name on all platforms.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -772,6 +828,10 @@ BASE_DECLARE_FEATURE(kSigninWindows10DepreciationStateBypassForTesting);
 COMPONENT_EXPORT(SIGNIN_SWITCHES) bool IsSigninWindows10DepreciationState();
 
 #if BUILDFLAG(IS_ANDROID)
+// Feature to show "Sign out of Chrome" string to android desktop users.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSignOutOfChrome);
+
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSkipCheckForAccountManagementOnSignin);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -808,6 +868,9 @@ BASE_DECLARE_FEATURE(kSupportForcedSigninPolicy);
 
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kSupportWebSigninAddSession);
+
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kSwitchToIncognitoInSettings);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // This gates the new single-model approach where account bookmarks are stored
@@ -831,11 +894,6 @@ BASE_DECLARE_FEATURE(kBookmarksMigrateUiChanges);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUndoChromeOsUseConsentLevelSignin);
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-// If enabled, buttons for sign-in promos / intercepts will use consistent
-// primary - tonal button class pattern.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kUsePrimaryAndTonalButtonsForPromos);
 
 #if BUILDFLAG(IS_ANDROID)
 // Additional gate for user policy registration and download based on user

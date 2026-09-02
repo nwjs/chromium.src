@@ -12,6 +12,7 @@ import org.chromium.base.Token;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
@@ -40,7 +41,40 @@ class GroupedLayoutDelegate extends TabListLayoutDelegate {
     }
 
     @Override
-    public int getInsertionIndexOfTab(Tab tab) {
+    boolean requiresThumbnailUpdateOnDeselect() {
+        return true;
+    }
+
+    @Override
+    boolean requiresThumbnailUpdateOnSelect() {
+        return true;
+    }
+
+    @Override
+    @MediaState
+    int getMediaIndicatorState(Tab representativeTab, PropertyModel model) {
+        @MediaState int stateToReturn = representativeTab.getMediaState();
+        // Fast exit if not in a group or already at maximum priority state.
+        if (!mMediator.isTabInTabGroup(representativeTab)
+                || stateToReturn == MediaState.MAX_VALUE) {
+            return stateToReturn;
+        }
+
+        // Check all tabs in the group tosurface the highest priority media state onto the group
+        // card.
+        List<Tab> relatedTabs = mMediator.getRelatedTabsForId(representativeTab.getId());
+        for (Tab tab : relatedTabs) {
+            @MediaState int currentState = tab.getMediaState();
+            if (currentState > stateToReturn) {
+                stateToReturn = currentState;
+            }
+            if (stateToReturn == MediaState.MAX_VALUE) return stateToReturn;
+        }
+        return stateToReturn;
+    }
+
+    @Override
+    int getInsertionIndexOfTab(Tab tab) {
         if (tab == null) return TabList.INVALID_TAB_INDEX;
         int tabIndex = TabList.INVALID_TAB_INDEX;
         TabModel tabModel = mMediator.getCurrentTabModelChecked();
@@ -64,6 +98,21 @@ class GroupedLayoutDelegate extends TabListLayoutDelegate {
         // Get the position of the nth tab card ignoring any other CARD_TYPE entries present in the
         // model list outside of TAB, TAB_GROUP, and ARCHIVED_TAB_GROUP.
         return mModelList.indexOfNthTabCard(tabIndex);
+    }
+
+    @Override
+    public void didChangeTabGroupColor(Token tabGroupId, @TabGroupColorId int newColor) {
+        @Nullable Pair<Integer, Tab> indexAndTab =
+                mMediator.getIndexAndTabForTabGroupId(tabGroupId);
+        if (indexAndTab == null) return;
+        Tab tab = indexAndTab.second;
+        PropertyModel model = mModelList.get(indexAndTab.first).model;
+
+        mMediator.updateTabGroupProperties(tab, model, newColor);
+        mMediator.updateFaviconForTab(model, tab, null, null);
+        mMediator.updateDescriptionString(model);
+        mMediator.updateActionButtonDescriptionString(tab, model);
+        mMediator.updateThumbnailFetcher(model, tab.getId());
     }
 
     @Override

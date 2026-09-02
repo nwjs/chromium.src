@@ -159,7 +159,7 @@ public class MostVisitedTilesLayoutTest {
     @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288662
     public void testTilesLayoutAppearance_DisableMvtCustomization(boolean nightModeEnabled)
             throws Exception {
-        doTilesLayoutAppearanceTest(nightModeEnabled, "");
+        doTilesLayoutAppearanceTest("_v1");
     }
 
     @Test
@@ -170,11 +170,10 @@ public class MostVisitedTilesLayoutTest {
     @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288662
     public void testTilesLayoutAppearance_EnableMvtCustomization(boolean nightModeEnabled)
             throws Exception {
-        doTilesLayoutAppearanceTest(nightModeEnabled, "_with_add_new_button");
+        doTilesLayoutAppearanceTest("_with_add_new_button_v1");
     }
 
-    private void doTilesLayoutAppearanceTest(boolean nightModeEnabled, String suffix)
-            throws Exception {
+    private void doTilesLayoutAppearanceTest(String suffix) throws Exception {
         List<SiteSuggestion> siteSuggestions =
                 makeAndSetUpFakeSuggestions(FAKE_MOST_VISITED_URLS.length);
 
@@ -189,7 +188,7 @@ public class MostVisitedTilesLayoutTest {
     @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288662
     public void testModernTilesLayoutAppearance_Full_DisableMvtCustomization()
             throws IOException, InterruptedException {
-        doModernTilesLayoutAppearanceTest_Full("");
+        doModernTilesLayoutAppearanceTest_Full("_v1");
     }
 
     @Test
@@ -199,7 +198,7 @@ public class MostVisitedTilesLayoutTest {
     @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288662
     public void testModernTilesLayoutAppearance_Full_EnableMvtCustomization()
             throws IOException, InterruptedException {
-        doModernTilesLayoutAppearanceTest_Full("_with_add_new_button");
+        doModernTilesLayoutAppearanceTest_Full("_with_add_new_button_v1");
     }
 
     private void doModernTilesLayoutAppearanceTest_Full(String suffix)
@@ -251,7 +250,7 @@ public class MostVisitedTilesLayoutTest {
                             activity.getResources().getConfiguration().orientation,
                             is(ORIENTATION_PORTRAIT));
                 });
-        mRenderTestRule.render(tilesLayout, "modern_tiles_layout_two_tiles_portrait");
+        mRenderTestRule.render(tilesLayout, "modern_tiles_layout_two_tiles_portrait_v1");
 
         activity.setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         CriteriaHelper.pollUiThread(
@@ -260,7 +259,7 @@ public class MostVisitedTilesLayoutTest {
                             activity.getResources().getConfiguration().orientation,
                             is(ORIENTATION_LANDSCAPE));
                 });
-        mRenderTestRule.render(tilesLayout, "modern_tiles_layout_two_tiles_landscape");
+        mRenderTestRule.render(tilesLayout, "modern_tiles_layout_two_tiles_landscape_v1");
 
         // Reset device orientation.
         ActivityTestUtils.clearActivityOrientation(activity);
@@ -278,8 +277,8 @@ public class MostVisitedTilesLayoutTest {
 
         mLoadCompleteHelper.waitForCallback(0);
 
-        mRenderTestRule.render(tiles.getChildAt(0), "tile_modern_offline");
-        mRenderTestRule.render(tiles.getChildAt(1), "tile_modern");
+        mRenderTestRule.render(tiles.getChildAt(0), "tile_modern_offline_v1");
+        mRenderTestRule.render(tiles.getChildAt(1), "tile_modern_v1");
     }
 
     private List<SiteSuggestion> makeAndSetUpFakeSuggestions(int count) {

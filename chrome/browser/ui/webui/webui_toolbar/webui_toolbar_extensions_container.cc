@@ -7,24 +7,26 @@
 #include <optional>
 
 #include "base/callback_list.h"
+#include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/notimplemented.h"
 #include "base/numerics/checked_math.h"
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/extensions/extension_view_host.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_action_view_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/views/extensions/extension_action_delegate_desktop.h"
 #include "chrome/browser/ui/views/extensions/extensions_menu_coordinator.h"
+#include "chrome/browser/ui/views/extensions/extensions_menu_view.h"
 #include "chrome/browser/ui/webui/util/image_util.h"
 #include "chrome/browser/ui/webui/webui_toolbar/icon_table.h"
 #include "components/browser_apis/ui_controllers/toolbar/icon_handle.h"
 #include "content/public/browser/web_ui.h"
+#include "extensions/common/extension_features.h"
 #include "mojo/public/cpp/bindings/clone_traits.h"
 #include "ui/base/models/image_model_utils.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
@@ -187,7 +189,10 @@ WebUIToolbarExtensionsContainer::WebUIToolbarExtensionsContainer(
       icon_table_(icon_table),
       model_(*ToolbarActionsModel::Get(browser.GetProfile())),
       extensions_menu_coordinator_(
-          std::make_unique<ExtensionsMenuCoordinator>(&browser, this)) {
+          base::FeatureList::IsEnabled(
+              extensions_features::kExtensionsMenuAccessControl)
+              ? std::make_unique<ExtensionsMenuCoordinator>(&browser, this)
+              : nullptr) {
   CreateActions();
   observe_actions_.Observe(&model_.get());
 }
@@ -233,8 +238,11 @@ void WebUIToolbarExtensionsContainer::HideActivePopup() {
 }
 
 void WebUIToolbarExtensionsContainer::CloseExtensionsMenuIfOpen() {
-  if (extensions_menu_coordinator_->IsShowing()) {
+  if (extensions_menu_coordinator_ &&
+      extensions_menu_coordinator_->IsShowing()) {
     extensions_menu_coordinator_->Hide();
+  } else if (ExtensionsMenuView::IsShowing()) {
+    ExtensionsMenuView::Hide();
   }
 }
 
@@ -246,11 +254,22 @@ bool WebUIToolbarExtensionsContainer::ShowToolbarActionPopupForAPICall(
 }
 
 void WebUIToolbarExtensionsContainer::ToggleExtensionsMenu() {
-  if (extensions_menu_coordinator_->IsShowing()) {
+  if (extensions_menu_coordinator_ &&
+      extensions_menu_coordinator_->IsShowing()) {
     extensions_menu_coordinator_->Hide();
-  } else {
+    return;
+  } else if (ExtensionsMenuView::IsShowing()) {
+    ExtensionsMenuView::Hide();
+    return;
+  }
+
+  if (extensions_menu_coordinator_) {
     extensions_menu_coordinator_->Show(
         views::BubbleAnchor(GetExtensionsMenuButtonAnchor()), this);
+  } else {
+    ExtensionsMenuView::ShowBubble(
+        views::BubbleAnchor(GetExtensionsMenuButtonAnchor()), &browser_.get(),
+        this, this);
   }
 }
 
@@ -490,9 +509,7 @@ ui::TrackedElement* WebUIToolbarExtensionsContainer::GetExtensionAnchor(
        ui::ElementTracker::GetElementTracker()->GetAllMatchingElements(
            GetElementId(extension_id),
            views::ElementTrackerViews::GetContextForWidget(GetWidget()))) {
-    auto* webui_element = element->AsA<ui::TrackedElementWebUI>();
-    if (webui_element &&
-        webui_element->secondary_identifier() == secondary_id) {
+    if (element->GetSecondaryIdentifier() == secondary_id) {
       return element;
     }
   }

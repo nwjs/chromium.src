@@ -243,7 +243,8 @@ class PageInfo : private content_settings::CookieControlsObserver,
   void OpenConnectionHelpCenterPage(const ui::Event& event);
 
   // Handles opening the Safe Browsing help center page and records the event.
-  void OpenSafeBrowsingHelpCenterPage(const ui::Event* event = nullptr);
+  void OpenSafeBrowsingHelpCenterPage(const ui::Event* event = nullptr,
+                                      bool is_suspicious_site = false);
 
   // Notifies delegate of Suspicious Site Warning user actions.
   void OnSuspiciousSiteBackToSafety();
@@ -357,8 +358,6 @@ class PageInfo : private content_settings::CookieControlsObserver,
   // presented in a headset.
   void PresentPageFeatureInfo();
 
-  // Sets (presents) the information about ad personalization in the |ui_|.
-  void PresentAdPersonalizationData();
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
   // Records a password reuse event. If FULL_SAFE_BROWSING is defined, this

@@ -105,6 +105,8 @@ PrefetchStatus PrefetchStatusFromIneligibleReason(
       return PrefetchStatus::kPrefetchIneligibleRedirectToServiceWorker;
     case PreloadingEligibility::kBlockedByConnectionAllowlist:
       return PrefetchStatus::kPrefetchIneligibleBlockedByConnectionAllowlist;
+    case PreloadingEligibility::kCrossOrigin:
+      return PrefetchStatus::kPrefetchIneligibleCrossOrigin;
     case PreloadingEligibility::kEligible:
     default:
       // Other ineligible cases are not used in `PrefetchService`.
@@ -144,6 +146,7 @@ std::optional<PreloadingTriggeringOutcome> TriggeringOutcomeFromStatus(
     case PrefetchStatus::kPrefetchIneligibleUserHasCookies:
     case PrefetchStatus::kPrefetchIneligibleRetryAfter:
     case PrefetchStatus::kPrefetchIneligibleBlockedByConnectionAllowlist:
+    case PrefetchStatus::kPrefetchIneligibleCrossOrigin:
     case PrefetchStatus::kPrefetchNotUsedCookiesChanged:
     case PrefetchStatus::kPrefetchNotUsedProbeFailed:
     case PrefetchStatus::
@@ -196,6 +199,7 @@ bool StatusUpdateIsPossibleAfterFailure(PrefetchStatus status) {
     case PrefetchStatus::kPrefetchIneligibleUserHasCookies:
     case PrefetchStatus::kPrefetchIneligibleRetryAfter:
     case PrefetchStatus::kPrefetchIneligibleBlockedByConnectionAllowlist:
+    case PrefetchStatus::kPrefetchIneligibleCrossOrigin:
     case PrefetchStatus::kPrefetchNotUsedCookiesChanged:
     case PrefetchStatus::kPrefetchNotUsedProbeFailed:
     case PrefetchStatus::
@@ -463,9 +467,6 @@ NOINLINE void ValidateResourceRequestForPrePrefetch(
                         resource_request_for_validation.request_body);
   DUMP_WILL_BE_CHECK_EQ(resource_request_for_pre_prefetch.keepalive,
                         resource_request_for_validation.keepalive);
-  DUMP_WILL_BE_CHECK_EQ(
-      resource_request_for_pre_prefetch.shared_storage_writable_eligible,
-      resource_request_for_validation.shared_storage_writable_eligible);
   DUMP_WILL_BE_CHECK_EQ(resource_request_for_pre_prefetch.has_user_gesture,
                         resource_request_for_validation.has_user_gesture);
   DUMP_WILL_BE_CHECK_EQ(resource_request_for_pre_prefetch.enable_load_timing,
@@ -836,6 +837,7 @@ void PrefetchContainer::SetTriggeringOutcomeAndFailureReasonFromStatus(
       case PrefetchStatus::
           kPrefetchIneligibleSameSiteCrossOriginPrefetchRequiredProxy:
       case PrefetchStatus::kPrefetchIneligibleBlockedByConnectionAllowlist:
+      case PrefetchStatus::kPrefetchIneligibleCrossOrigin:
         NOTIMPLEMENTED();
     }
   }
@@ -956,6 +958,14 @@ PrefetchContainer::CreatePrePrefetchURLLoaderFactory() {
           },
           std::move(pre_prefetch_loader_),
           std::move(pre_prefetch_loader_client_receiver_), GetWeakPtr()));
+
+  if (features::kPrefetchOffTheMainThreadCheckWillCreateURLLoaderFactory
+          .Get()) {
+    // `WillCreateURLLoaderFactory` is already consulted in the PrePrefetch's
+    // URLLoaderFactory (i.e. inside `pre_prefetch_loader_`), so we don't go
+    // through `CreatePrefetchURLLoaderFactory()` here.
+    return pre_prefetch_url_loader_factory;
+  }
 
   // Currently `feature::kPrefetchOffTheMainThread` doesn't support the
   // request w/ isolated context.

@@ -35,8 +35,8 @@
 #include "url/url_constants.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #else
 static_assert(BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS));
 #include "base/functional/callback_forward.h"
@@ -121,6 +121,7 @@ void WebAuthFlow::SetClockForTesting(
 void WebAuthFlow::Start() {
   DCHECK(profile_);
   DCHECK(!profile_->IsOffTheRecord());
+  DCHECK(!profile_->ShutdownStarted());
 
   content::WebContents::CreateParams params(profile_);
   web_contents_ = content::WebContents::Create(params);
@@ -176,6 +177,14 @@ void WebAuthFlow::OnBrowserWindowInterfaceInitialized(
     return;
   }
 
+  TabModel* tab_model =
+      TabModelList::FindTabModelWithWindowSessionId(browser->GetSessionID());
+  tab_model->CreateTab(
+      TabAndroid::FromWebContents(tab_model->GetActiveWebContents()),
+      std::move(web_contents_), TabModel::kInvalidIndex,
+      TabModel::TabLaunchType::FROM_RECENT_TABS_FOREGROUND,
+      /*should_pin=*/false);
+
   if (popup_displayed_callback_for_testing_) {
     std::move(popup_displayed_callback_for_testing_).Run();
   }
@@ -194,16 +203,17 @@ bool WebAuthFlow::DisplayAuthPageInPopupWindow() {
   }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-  Browser::CreateParams browser_params(Browser::TYPE_POPUP, profile_,
-                                       user_gesture_);
+  BrowserWindowCreateParams browser_params(BrowserWindowInterface::TYPE_POPUP,
+                                           profile_, user_gesture_);
   browser_params.omit_from_session_restore = true;
   browser_params.should_trigger_session_restore = false;
   if (popup_bounds_.has_value()) {
     browser_params.initial_bounds = popup_bounds_.value();
   }
 
-  Browser* browser = Browser::Create(browser_params);
-  browser->tab_strip_model()->AddWebContents(
+  BrowserWindowInterface* browser =
+      CreateBrowserWindow(std::move(browser_params));
+  browser->GetTabStripModel()->AddWebContents(
       std::move(web_contents_), /*index=*/0,
       ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
       AddTabTypes::ADD_ACTIVE);
@@ -213,7 +223,6 @@ bool WebAuthFlow::DisplayAuthPageInPopupWindow() {
   static_assert(BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS));
   BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_POPUP,
                                    *profile_, user_gesture_);
-  params.web_contents = std::move(web_contents_);
   if (popup_bounds_.has_value()) {
     params.initial_bounds = popup_bounds_.value();
   }

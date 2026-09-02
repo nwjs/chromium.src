@@ -12,6 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/timer/timer.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_tab_controller_interface.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_delegate.h"
@@ -57,13 +58,18 @@ class SkillsUiTabController : public SkillsUiTabControllerInterface,
                   mojom::SkillsDialogType dialog_type,
                   std::unique_ptr<glic::Target> target) override;
 
-  // Invokes the skill with skill_id in sidepanel.
-  void InvokeSkill(std::string_view skill_id) override;
+  // Invokes the skill with skill_id, skill_name, skill_icon in sidepanel.
+  // skill_name and skill_icon are unused for skills v1.
+  void InvokeSkill(std::string_view skill_id,
+                   std::string_view skill_name,
+                   std::string_view skill_icon) override;
+  void SendPrompt(std::string_view prompt) override;
 
   // SkillsDialogDelegate override:
   void CloseDialog() override;
   void OnSkillSaved(const std::string& skill_id) override;
   void OnSkillDeleted(const std::string& skill_id) override;
+  BrowserWindowInterface* GetBrowserWindowInterface() override;
 
   // views::WidgetObserver override:
   void OnWidgetDestroyed(views::Widget* widget) override;
@@ -87,13 +93,15 @@ class SkillsUiTabController : public SkillsUiTabControllerInterface,
   }
 
   // Returns true if the skills dialog is currently being shown.
-  bool IsShowing() const;
+  bool IsShowing() const override;
 
  protected:
   // Helper to retrieve a skill by ID.
   virtual const skills::Skill* GetSkill(std::string_view skill_id);
   // Helper to retrieve the service on demand.
   virtual glic::GlicKeyedService* GetGlicService();
+  // Helper to retrieve the profile on demand.
+  virtual Profile* GetProfile();
 
  private:
   // Testing callback to be invoked when the dialog is closed.

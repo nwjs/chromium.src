@@ -170,6 +170,24 @@ class AURA_EXPORT WindowOcclusionTracker : public ui::LayerAnimationObserver,
     raw_ptr<Window> window_;
   };
 
+  // State transitions:
+  // - Unlocked -> Locked (Valid)
+  // - Locked -> Unlocked (Valid)
+  // - Locked -> UnlockPending (Valid)
+  // - UnlockPending -> Locked (Valid)
+  // - UnlockPending -> Unlocked (Valid)
+  // All other transitions are invalid and will cause a crash (e.g. double
+  // lock/unlock).
+  // UnlockPending is used to defer the state update notification
+  // when the state tracking is unlocked during tracking is paused.
+  // The up-to-date state will be notified when unpaused.
+  enum class LockState {
+    kUnlocked,
+    kLocked,
+    // Unlocked while paused.
+    kUnlockPending,
+  };
+
   // Holds occlusion related information for tracked windows.
   struct OcclusionData {
     // Occlusion state for a tracked window.
@@ -178,6 +196,8 @@ class AURA_EXPORT WindowOcclusionTracker : public ui::LayerAnimationObserver,
     SkRegion occluded_region;
     // A locked occlusion state.
     std::optional<Window::OcclusionState> locked_occlusion_state;
+    // State of the lock.
+    LockState lock_state = LockState::kUnlocked;
     // A locked occluded region. This is not an optional to avoid explicit
     // constructor/destructor. Use `locked_occlusion_state` if the value should
     // be used.
@@ -194,6 +214,17 @@ class AURA_EXPORT WindowOcclusionTracker : public ui::LayerAnimationObserver,
 
   // Stop tracking the occlusion state of `window`.
   void Untrack(Window* window);
+
+  // Returns the computed occlusion state of `window`. If `window` is not
+  // tracked, returns `Window::OcclusionState::UNKNOWN`.
+  Window::OcclusionState GetComputedOcclusionState(Window* window) const;
+
+  // Returns true if the occlusion state of `window` is being tracked.
+  bool IsTracking(Window* window) const;
+
+  // Force a synchronous occlusion computation. This computes occlusion even if
+  // the tracker is paused.
+  void ForceComputeOcclusion();
 
   // Compute the occlusion state and occluded region that |window| will have
   // once all bounds, transform, opacity, and visibility animations have

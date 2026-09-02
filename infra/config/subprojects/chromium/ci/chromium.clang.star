@@ -148,7 +148,10 @@ ci.builder(
             target_platform = builder_config.target_platform.LINUX,
         ),
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
+            # TODO(https://crbug.com/527836546): Flip `use_archive_path` to True
+            # then remove `archive_name_prefix`.
             archive_name_prefix = "cfi",
+            archive_path = "linux-release/cfi-linux-release",
             gs_acl = "public-read",
             gs_bucket = "chromium-browser-cfi",
         ),
@@ -1091,7 +1094,10 @@ clang_tot_linux_builder(
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
             config = "chromium",
-            apply_configs = ["clang_tot"],
+            apply_configs = [
+                "clang_tot",
+                "checkout_instrumented_libraries",
+            ],
         ),
         chromium_config = builder_config.chromium_config(
             config = "clang_tot_linux",

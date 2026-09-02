@@ -19,6 +19,7 @@
 #import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
 #import "ios/chrome/browser/shared/public/commands/help_commands.h"
 #import "ios/chrome/browser/shared/public/commands/qr_generation_commands.h"
+#import "ios/chrome/browser/shared/public/commands/send_tab_to_self_commands.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/activities/bookmark_activity.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/activities/chrome_activity.h"
@@ -44,10 +45,15 @@
 @interface ActivityServiceMediator () {
   // The custom activities created by the mediator.
   NSMutableArray<ChromeActivity*>* _activities;
+  // The user's given name used to format target device titles in Share Sheet.
+  NSString* _userGivenName;
 }
 
-@property(nonatomic, weak) id<BrowserCoordinatorCommands, FindInPageCommands>
-    handler;
+@property(nonatomic, weak) id<BrowserCoordinatorCommands> browserHandler;
+
+@property(nonatomic, weak) id<FindInPageCommands> findInPageHandler;
+
+@property(nonatomic, weak) id<SendTabToSelfCommands> sendTabToSelfHandler;
 
 @property(nonatomic, weak) id<BookmarksCommands> bookmarksHandler;
 
@@ -66,25 +72,34 @@
 
 @property(nonatomic, readonly) ReadingListBrowserAgent* readingListBrowserAgent;
 
+@property(nonatomic, assign)
+    send_tab_to_self::SendTabToSelfSyncService* sendTabToSelfSyncService;
+
 @end
 
 @implementation ActivityServiceMediator
 
 #pragma mark - Public
 
-- (instancetype)initWithHandler:
-                    (id<BrowserCoordinatorCommands, FindInPageCommands>)handler
-               bookmarksHandler:(id<BookmarksCommands>)bookmarksHandler
-                    helpHandler:(id<HelpCommands>)helpHandler
-            qrGenerationHandler:(id<QRGenerationCommands>)qrGenerationHandler
-                    prefService:(PrefService*)prefService
-                  bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
-             baseViewController:(UIViewController*)baseViewController
-                navigationAgent:(WebNavigationBrowserAgent*)navigationAgent
-        readingListBrowserAgent:
-            (ReadingListBrowserAgent*)readingListBrowserAgent {
+- (instancetype)
+      initWithBrowserHandler:(id<BrowserCoordinatorCommands>)browserHandler
+           findInPageHandler:(id<FindInPageCommands>)findInPageHandler
+        sendTabToSelfHandler:(id<SendTabToSelfCommands>)sendTabToSelfHandler
+            bookmarksHandler:(id<BookmarksCommands>)bookmarksHandler
+                 helpHandler:(id<HelpCommands>)helpHandler
+         qrGenerationHandler:(id<QRGenerationCommands>)qrGenerationHandler
+                 prefService:(PrefService*)prefService
+               bookmarkModel:(bookmarks::BookmarkModel*)bookmarkModel
+          baseViewController:(UIViewController*)baseViewController
+             navigationAgent:(WebNavigationBrowserAgent*)navigationAgent
+     readingListBrowserAgent:(ReadingListBrowserAgent*)readingListBrowserAgent
+    sendTabToSelfSyncService:
+        (send_tab_to_self::SendTabToSelfSyncService*)sendTabToSelfSyncService
+               userGivenName:(NSString*)userGivenName {
   if ((self = [super init])) {
-    _handler = handler;
+    _browserHandler = browserHandler;
+    _findInPageHandler = findInPageHandler;
+    _sendTabToSelfHandler = sendTabToSelfHandler;
     _bookmarksHandler = bookmarksHandler;
     _helpHandler = helpHandler;
     _qrGenerationHandler = qrGenerationHandler;
@@ -93,6 +108,8 @@
     _baseViewController = baseViewController;
     _navigationAgent = navigationAgent;
     _readingListBrowserAgent = readingListBrowserAgent;
+    _sendTabToSelfSyncService = sendTabToSelfSyncService;
+    _userGivenName = userGivenName;
     _activities = [[NSMutableArray alloc] init];
   }
   return self;
@@ -137,9 +154,12 @@
   ShareToData* data = dataItems.firstObject;
 
   if (data.shareURL.SchemeIsHTTPOrHTTPS()) {
-    SendTabToSelfActivity* sendTabToSelfActivity =
-        [[SendTabToSelfActivity alloc] initWithData:data handler:self.handler];
-    [applicationActivities addObject:sendTabToSelfActivity];
+    NSArray<UIActivity*>* sendTabToSelfActivities = [SendTabToSelfActivity
+        sendTabToSelfActivitiesForData:data
+                           syncService:self.sendTabToSelfSyncService
+                               handler:self.sendTabToSelfHandler
+                         userGivenName:_userGivenName];
+    [applicationActivities addObjectsFromArray:sendTabToSelfActivities];
 
     ReadingListActivity* readingListActivity =
         [[ReadingListActivity alloc] initWithURL:data.shareURL
@@ -162,7 +182,8 @@
     [applicationActivities addObject:generateQrCodeActivity];
 
     FindInPageActivity* findInPageActivity =
-        [[FindInPageActivity alloc] initWithData:data handler:self.handler];
+        [[FindInPageActivity alloc] initWithData:data
+                                         handler:self.findInPageHandler];
     [applicationActivities addObject:findInPageActivity];
 
     RequestDesktopOrMobileSiteActivity* requestActivity =
@@ -174,14 +195,15 @@
   } else if (UrlIsDownloadedFile(data.shareURL) ||
              UrlIsExternalFileReference(data.shareURL)) {
     FindInPageActivity* findInPageActivity =
-        [[FindInPageActivity alloc] initWithData:data handler:self.handler];
+        [[FindInPageActivity alloc] initWithData:data
+                                         handler:self.findInPageHandler];
     [applicationActivities addObject:findInPageActivity];
   }
 
   if (self.prefService->GetBoolean(prefs::kPrintingEnabled)) {
     PrintActivity* printActivity =
         [[PrintActivity alloc] initWithData:data
-                                    handler:self.handler
+                                    handler:self.browserHandler
                          baseViewController:self.baseViewController];
     [applicationActivities addObject:printActivity];
   }
@@ -206,7 +228,7 @@
   // the native ones.
   PrintActivity* printActivity =
       [[PrintActivity alloc] initWithImageData:data
-                                       handler:self.handler
+                                       handler:self.browserHandler
                             baseViewController:self.baseViewController];
 
   [_activities addObject:printActivity];

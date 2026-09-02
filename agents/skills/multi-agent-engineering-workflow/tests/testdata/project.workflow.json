@@ -1,0 +1,28 @@
+{
+  "task_type": "IMPLEMENTATION",
+  "active_protocol": "WORKFLOW",
+  "execution_path": "RIGOR_PATH",
+  "complexity_level": "MEDIUM",
+  "goal": "Mock goal for testing.",
+  "target_files": [
+    "testdata/file1.cc"
+  ],
+  "anti_goals": [],
+  "edge_cases": [],
+  "build_targets": [
+    "//agents/skills/multi-agent-engineering-workflow/tests/testdata:test_target"
+  ],
+  "context_resolved": true,
+  "approach_confirmed": true,
+  "ambiguity_level": "LOW",
+  "environment": {
+    "repo_type": "CHROMIUM",
+    "vcs": "JJ",
+    "harness": "JETSKI",
+    "orchestration_pattern": "CENTRALIZED",
+    "use_reclient": true,
+    "is_debug_build": true,
+    "output_directory": "out/Default",
+    "temp_directory": "agents/skills/multi-agent-engineering-workflow/.temp"
+  }
+}

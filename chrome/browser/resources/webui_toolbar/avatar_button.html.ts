@@ -13,6 +13,7 @@ export function getHtml(this: AvatarButtonElement) {
 <toolbar-chip-button id="button"
     class="${this.getButtonClass_()}"
     ?has-label="${!!this.state.text}"
+    ?outset-focus-ring="${!!this.state.text}"
     ?disabled="${!this.state.enabled}"
     ?has-border="${this.shouldPaintBorder()}"
     ?has-linear-gradient-ring="${this.state.hasLinearGradientRing}"
@@ -29,7 +30,7 @@ export function getHtml(this: AvatarButtonElement) {
     <icon-from-table slot="prefix-icon" id="icon"
         .iconHandle="${this.state.icon}"></icon-from-table>
   ` : html`
-    <cr-icon slot="prefix-icon" id="icon" icon="cr:person"></cr-icon>
+    <cr-icon slot="prefix-icon" id="icon" icon="cr:person-filled"></cr-icon>
   `}
   <span id="text" ?visible="${!!this.state.text}">
     ${this.state.text || ''}

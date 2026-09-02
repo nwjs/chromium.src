@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/memory/raw_ptr.h"
+#include "base/test/bind.h"
 #include "cc/layers/deadline_policy.h"
 #include "cc/slim/layer.h"
 #include "components/input/render_input_router.mojom.h"
@@ -14,6 +15,7 @@
 #include "components/viz/common/surfaces/local_surface_id.h"
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/mock_render_widget_host.h"
+#include "content/browser/renderer_host/mojo_render_input_router_delegate_impl.h"
 #include "content/browser/site_instance_group.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/common/features.h"
@@ -23,6 +25,7 @@
 #include "content/test/mock_render_widget_host_delegate.h"
 #include "content/test/test_render_view_host.h"
 #include "content/test/test_web_contents.h"
+#include "mojo/public/cpp/system/functions.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
@@ -1842,6 +1845,128 @@ TEST_F(RenderWidgetHostViewAndroidTest, LockUnlockPointer) {
 
   rwhva->UnlockPointer();
   EXPECT_FALSE(rwhva->IsPointerLocked());
+}
+
+// Verifies that MojoRenderInputRouterDelegateImpl rejects non-touch/non-gesture
+// input events sent over the RenderInputRouterDelegateClient mojo connection
+// and terminates the connection via ReportBadMessage (security regression
+// test).
+TEST_F(RenderWidgetHostViewAndroidTest,
+       MojoRenderInputRouterDelegateInputEventValidation) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+
+  mojo::AssociatedRemote<input::mojom::RenderInputRouterDelegateClient>
+      client_remote;
+  rwhva->host()->mojo_rir_delegate()->BindClientReceiverForTesting(
+      client_remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  std::string bad_message_error;
+  mojo::SetDefaultProcessErrorHandler(base::BindLambdaForTesting(
+      [&](const std::string& error) { bad_message_error = error; }));
+
+  // Send an unexpected kKeyDown event from the GPU process.
+  blink::WebKeyboardEvent key_event(blink::WebInputEvent::Type::kKeyDown,
+                                    blink::WebInputEvent::kNoModifiers,
+                                    base::TimeTicks::Now());
+  auto coalesced_event = std::make_unique<blink::WebCoalescedInputEvent>(
+      key_event, ui::LatencyInfo());
+
+  client_remote->NotifyObserversOfInputEvent(std::move(coalesced_event),
+                                             /*dispatched_to_renderer=*/false);
+  client_remote.FlushForTesting();
+
+  EXPECT_EQ(bad_message_error,
+            "Unexpected event type received from GPU process");
+
+  mojo::SetDefaultProcessErrorHandler(base::NullCallback());
+}
+
+// Verifies that MojoRenderInputRouterDelegateImpl rejects non-touch/non-gesture
+// input event acknowledgements sent over the RenderInputRouterDelegateClient
+// mojo connection and terminates the connection via ReportBadMessage
+// (security regression test).
+TEST_F(RenderWidgetHostViewAndroidTest,
+       MojoRenderInputRouterDelegateAckValidation) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+
+  mojo::AssociatedRemote<input::mojom::RenderInputRouterDelegateClient>
+      client_remote;
+  rwhva->host()->mojo_rir_delegate()->BindClientReceiverForTesting(
+      client_remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  std::string bad_message_error;
+  mojo::SetDefaultProcessErrorHandler(base::BindLambdaForTesting(
+      [&](const std::string& error) { bad_message_error = error; }));
+
+  // Send an unexpected kKeyDown ack from the GPU process.
+  blink::WebKeyboardEvent key_event(blink::WebInputEvent::Type::kKeyDown,
+                                    blink::WebInputEvent::kNoModifiers,
+                                    base::TimeTicks::Now());
+  auto coalesced_event = std::make_unique<blink::WebCoalescedInputEvent>(
+      key_event, ui::LatencyInfo());
+
+  client_remote->NotifyObserversOfInputEventAcks(
+      blink::mojom::InputEventResultSource::kCompositorThread,
+      blink::mojom::InputEventResultState::kConsumed,
+      std::move(coalesced_event));
+  client_remote.FlushForTesting();
+
+  EXPECT_EQ(bad_message_error,
+            "Unexpected event type received from GPU process");
+
+  mojo::SetDefaultProcessErrorHandler(base::NullCallback());
+}
+
+TEST_F(RenderWidgetHostViewAndroidTest, UpdateVisibilityWhileDetached) {
+  RenderWidgetHostViewAndroid* rwhva = render_widget_host_view_android();
+
+  // 1. Create a window and attach the parent view.
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window =
+      ui::WindowAndroid::CreateForTesting();
+  window->get()->AddChild(GetParentView());
+
+  // By default, visibility is set up and is visible (not hidden).
+  EXPECT_FALSE(rwhva->host()->IsHidden());
+
+  // 2. Hide the window. This should hide the view.
+  window->get()->OnVisibilityChanged(nullptr, false);
+  EXPECT_TRUE(rwhva->host()->IsHidden());
+
+  // 3. Detach the parent view from the window and hide the view.
+  GetParentView()->RemoveFromParent();
+  EXPECT_EQ(rwhva->GetNativeView()->GetWindowAndroid(), nullptr);
+  rwhva->Hide();
+
+  // 4. Trigger visibility update by calling ShowWithVisibility() while
+  // detached. Because it is detached (GetWindowAndroid() is null), it should
+  // bypass the window activity/visibility checks and become shown.
+  rwhva->ShowWithVisibility(PageVisibilityState::kVisible);
+  EXPECT_FALSE(rwhva->host()->IsHidden());
+
+  // 5. Re-attach to a visible window.
+  // Since we called ShowWithVisibility(), it should stay shown.
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window2 =
+      ui::WindowAndroid::CreateForTesting();
+  window2->get()->OnVisibilityChanged(nullptr, true);
+  window2->get()->AddChild(GetParentView());
+  EXPECT_EQ(rwhva->GetNativeView()->GetWindowAndroid(), window2->get());
+  EXPECT_FALSE(rwhva->host()->IsHidden());
+
+  // 6. Detach again, and verify it's still shown.
+  GetParentView()->RemoveFromParent();
+  EXPECT_EQ(rwhva->GetNativeView()->GetWindowAndroid(), nullptr);
+  EXPECT_FALSE(rwhva->host()->IsHidden());
+
+  // 7. Re-attach to a hidden window.
+  // The view should become hidden to match the window visibility.
+  std::unique_ptr<ui::WindowAndroid::ScopedWindowAndroidForTesting> window3 =
+      ui::WindowAndroid::CreateForTesting();
+  window3->get()->AddChild(GetParentView());
+  EXPECT_EQ(rwhva->GetNativeView()->GetWindowAndroid(), window3->get());
+
+  // Explicitly notify visibility change to false since it's a hidden window.
+  window3->get()->OnVisibilityChanged(nullptr, false);
+  EXPECT_TRUE(rwhva->host()->IsHidden());
 }
 
 }  // namespace content

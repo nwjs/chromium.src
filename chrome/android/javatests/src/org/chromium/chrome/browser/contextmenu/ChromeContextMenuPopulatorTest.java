@@ -85,6 +85,7 @@ import org.chromium.chrome.browser.enterprise.util.DataProtectionBridge;
 import org.chromium.chrome.browser.ephemeraltab.EphemeralTabCoordinator;
 import org.chromium.chrome.browser.firstrun.FirstRunStatus;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.gsa.GSAUtils;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.lens.LensEntryPoint;
@@ -136,6 +137,7 @@ import java.util.List;
 @DisableFeatures({
     ChromeFeatureList.LENS_OVERLAY_ANDROID,
     ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU,
+    ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
 })
 public class ChromeContextMenuPopulatorTest {
     private static final String DATA_URL = "data:encodedstringblahblah";
@@ -2942,13 +2944,18 @@ public class ChromeContextMenuPopulatorTest {
                                 .build()));
         when(mMenuModelBridge.populateModelList()).thenReturn(modelListFromBridge);
         ContextMenuParams params = getHttpLinkParams();
-        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        initializePopulator(
+                ChromeContextMenuPopulator.ContextMenuMode.NORMAL,
+                params,
+                /* shouldShowDeveloperMenu= */ true,
+                /* shouldShowViewPageSourceMenu= */ false,
+                /* supportPrint= */ true);
         List<ModelList> result = mPopulator.buildContextMenu();
-        assertEquals(2, result.size());
+        assertEquals(3, result.size());
         assertEquals(
-                "Expected the group of extension-injected items to be the last group",
+                "Expected the group of extension-injected items to come before developer group",
                 modelListFromBridge,
-                result.get(result.size() - 1));
+                result.get(result.size() - 2));
     }
 
     @Test
@@ -4014,5 +4021,108 @@ public class ChromeContextMenuPopulatorTest {
                                 ChromeContextMenuItem.Item.DOWNLOAD_VIDEO_FRAME,
                                 false)
                         .toString());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU, ChromeFeatureList.TAB_BOTTOM_SHEET})
+    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
+    public void testAskGeminiForLinkEligibleWhenFlagEnabled() {
+        // Bottom sheet (mobile) presentation: side panel disabled.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getHttpLinkParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        if (!DeviceInfo.isAutomotive()) {
+            assertTrue(mPopulator.shouldShowAskGeminiForLink());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @DisableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
+    public void testAskGeminiForLinkIneligibleWhenFlagDisabled() {
+        ContextMenuParams params = getHttpLinkParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForLink());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU)
+    @DisableFeatures({
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL,
+        ChromeFeatureList.TAB_BOTTOM_SHEET
+    })
+    public void testAskGeminiForLinkIneligibleWhenBottomSheetDisabled() {
+        // Neither side panel (desktop Android) nor bottom sheet (mobile) available.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getHttpLinkParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForLink());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL
+    })
+    public void testAskGeminiForLinkEligibleOnDesktopSidePanel() {
+        // Side panel (desktop Android) presentation.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getHttpLinkParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        if (!DeviceInfo.isAutomotive()) {
+            assertTrue(mPopulator.shouldShowAskGeminiForLink());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_page/true",
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL
+    })
+    public void testAskGeminiForPageEligibleOnDesktopSidePanel() {
+        // Side panel (desktop Android) presentation with the page param on.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getPageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        if (!DeviceInfo.isAutomotive()) {
+            assertTrue(mPopulator.shouldShowAskGeminiForPage());
+        }
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_on_page/true")
+    @DisableFeatures(ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL)
+    public void testAskGeminiForPageIneligibleOnMobile() {
+        // Page entry is desktop-Android (side panel) only.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getPageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForPage());
+    }
+
+    @Test
+    @SmallTest
+    @UiThreadTest
+    @EnableFeatures({
+        ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU,
+        ChromeFeatureList.ENABLE_ANDROID_SIDE_PANEL
+    })
+    public void testAskGeminiForPageIneligibleWhenPageParamDisabled() {
+        // Feature on but show_on_page defaults to false.
+        GlicEnabling.setEnabledForTesting(true);
+        ContextMenuParams params = getPageParams();
+        initializePopulator(ChromeContextMenuPopulator.ContextMenuMode.NORMAL, params);
+        assertFalse(mPopulator.shouldShowAskGeminiForPage());
     }
 }

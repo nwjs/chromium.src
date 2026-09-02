@@ -13,16 +13,15 @@
 #include "base/metrics/histogram_macros.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/browser_delegate/browser_delegate.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
+#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
 #include "ui/events/event_utils.h"
@@ -38,9 +37,9 @@ BrowserDelegate* GetActiveBrowser() {
   BrowserDelegate* browser =
       BrowserController::GetInstance()->GetLastUsedBrowser();
   if (!browser ||
-      !browser->GetBrowser()
-           .GetBrowserForMigrationOnly()
-           ->SupportsWindowFeature(Browser::WindowFeature::kFeatureTabStrip) ||
+      !WindowFeatureController::From(&browser->GetBrowser())
+           ->SupportsWindowFeature(
+               WindowFeatureController::WindowFeature::kFeatureTabStrip) ||
       !browser->IsActive()) {
     return nullptr;
   }
@@ -333,7 +332,7 @@ bool TabScrubber::FinishScrub(bool activate) {
 
     if (activate && highlighted_tab_ != -1) {
       Tab* tab = tab_strip_->tab_at(highlighted_tab_);
-      tab->tab_style_views()->HideHover(TabStyle::HideHoverStyle::kImmediate);
+      tab->HideHover(TabStyle::HideHoverStyle::kImmediate);
       int distance =
           std::abs(highlighted_tab_ -
                    browser_->GetBrowser().GetTabStripModel()->active_index());
@@ -428,13 +427,12 @@ void TabScrubber::UpdateHighlightedTab(Tab* new_tab, int new_index) {
 
   if (highlighted_tab_ != -1) {
     Tab* tab = tab_strip_->tab_at(highlighted_tab_);
-    tab->tab_style_views()->HideHover(TabStyle::HideHoverStyle::kImmediate);
+    tab->HideHover(TabStyle::HideHoverStyle::kImmediate);
   }
 
   if (new_index != browser_->GetBrowser().GetTabStripModel()->active_index()) {
     highlighted_tab_ = new_index;
-    new_tab->tab_style_views()->ShowHover(
-        TabStyle::ShowHoverStyle::kPronounced);
+    new_tab->ShowHover(TabStyle::ShowHoverStyle::kPronounced);
   } else {
     highlighted_tab_ = -1;
   }

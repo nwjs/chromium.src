@@ -9,7 +9,7 @@ source_set("ssl") {
   public = [
     "ask_before_http_dialog_controller.h",
     "chrome_security_blocking_page_factory.h",
-    "chrome_security_state_tab_helper.h",
+    "chrome_security_state_util.h",
     "connection_help_tab_helper.h",
     "daily_navigation_counter.h",
     "https_defaulted_callbacks.h",
@@ -25,6 +25,7 @@ source_set("ssl") {
     "sct_reporting_service_factory.h",
     "secure_origin_policy_handler.h",
     "secure_origin_prefs_observer.h",
+    "security_state_event_observer.h",
     "ssl_client_certificate_selector.h",
     "ssl_config_service_manager.h",
     "ssl_error_controller_client.h",
@@ -92,7 +93,7 @@ source_set("impl") {
   sources = [
     "ask_before_http_dialog_controller.cc",
     "chrome_security_blocking_page_factory.cc",
-    "chrome_security_state_tab_helper.cc",
+    "chrome_security_state_util.cc",
     "connection_help_tab_helper.cc",
     "daily_navigation_counter.cc",
     "https_defaulted_callbacks.cc",
@@ -108,6 +109,7 @@ source_set("impl") {
     "sct_reporting_service_factory.cc",
     "secure_origin_policy_handler.cc",
     "secure_origin_prefs_observer.cc",
+    "security_state_event_observer.cc",
     "ssl_config_service_manager.cc",
     "ssl_error_controller_client.cc",
     "stateful_ssl_host_state_delegate_factory.cc",
@@ -135,6 +137,7 @@ source_set("impl") {
     "//chrome/browser/safe_browsing:advanced_protection",
     "//chrome/browser/safe_browsing:metrics_collector",
     "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/tab_contents",
     "//chrome/browser/ui/tabs:tabs_public",
@@ -198,6 +201,7 @@ source_set("test_support") {
   ]
 
   public_deps = [
+    ":ssl",
     "//base",
     "//components/security_state/core",
     "//content/public/browser",
@@ -259,7 +263,6 @@ source_set("unit_tests") {
   sources = [
     "daily_navigation_counter_unittest.cc",
     "https_first_mode_settings_tracker_unittest.cc",
-    "security_state_tab_helper_unittest.cc",
     "ssl_config_service_manager_unittest.cc",
   ]
 
@@ -322,6 +325,7 @@ if (!is_android) {
       "//chrome/browser/interstitials:test_support",
       "//chrome/browser/policy:test_support",
       "//chrome/browser/preloading/prerender",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/ui/webui/certificate_viewer",
       "//chrome/browser/web_applications:web_applications_test_support",
@@ -369,6 +373,7 @@ if (!is_android) {
       "//base",
       "//chrome/browser/history:test_support",
       "//chrome/browser/interstitials:test_support",
+      "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/web_applications",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",
@@ -395,6 +400,7 @@ source_set("platform_browser_tests") {
     ":ssl",
     ":test_support",
     "//base",
+    "//chrome/browser/infobars",
     "//chrome/browser/interstitials:test_support",
     "//chrome/test:test_support",
     "//components/infobars/content",

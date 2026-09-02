@@ -1318,11 +1318,17 @@ class SendTabToSelfBridgeNamingTest
  public:
   SendTabToSelfBridgeNamingTest() {
     if (GetParam() == DeviceNamingMode::kSimplifiedWithoutDeduplication) {
-      scoped_feature_list_.InitAndEnableFeature(
-          syncer::kSyncSimplifyDeviceNaming);
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/{syncer::kSyncSimplifyDeviceNaming,
+                                syncer::
+                                    kSyncDisambiguateDeviceNamesWithChannel},
+          /*disabled_features=*/{});
     } else {
-      scoped_feature_list_.InitAndDisableFeature(
-          syncer::kSyncSimplifyDeviceNaming);
+      scoped_feature_list_.InitWithFeatures(
+          /*enabled_features=*/{},
+          /*disabled_features=*/{
+              syncer::kSyncSimplifyDeviceNaming,
+              syncer::kSyncDisambiguateDeviceNamesWithChannel});
     }
   }
 
@@ -1338,34 +1344,35 @@ TEST_P(SendTabToSelfBridgeNamingTest,
   const std::string kRecentGuid = "guid1";
   const std::string kOldGuid = "guid2";
   const std::string kOlderGuid = "guid3";
+  const std::string kDeviceName = "device_name";
 
   InitializeBridge();
 
   // Create multiple DeviceInfo objects with the same name but different guids.
   std::unique_ptr<syncer::DeviceInfo> recent_device =
-      CreateDevice(kRecentGuid, "device_name", clock()->Now() - base::Days(1));
+      CreateDevice(kRecentGuid, kDeviceName, clock()->Now() - base::Days(1));
   AddTestDevice(recent_device.get());
 
   std::unique_ptr<syncer::DeviceInfo> old_device =
-      CreateDevice(kOldGuid, "device_name", clock()->Now() - base::Days(3));
+      CreateDevice(kOldGuid, kDeviceName, clock()->Now() - base::Days(3));
   AddTestDevice(old_device.get());
 
   std::unique_ptr<syncer::DeviceInfo> older_device =
-      CreateDevice(kOlderGuid, "device_name", clock()->Now() - base::Days(5));
+      CreateDevice(kOlderGuid, kDeviceName, clock()->Now() - base::Days(5));
   AddTestDevice(older_device.get());
 
   if (GetParam() == DeviceNamingMode::kSimplifiedWithoutDeduplication) {
     // With kSyncSimplifyDeviceNaming enabled: all devices should be returned
     // (no deduplication). Sorted by recency.
     TargetDeviceInfo target_device_info1(
-        recent_device->client_name(), recent_device->guid(),
-        recent_device->form_factor(), recent_device->last_updated_timestamp());
+        kDeviceName, recent_device->guid(), recent_device->form_factor(),
+        recent_device->os_type(), recent_device->last_updated_timestamp());
     TargetDeviceInfo target_device_info2(
-        old_device->client_name(), old_device->guid(),
-        old_device->form_factor(), old_device->last_updated_timestamp());
+        kDeviceName, old_device->guid(), old_device->form_factor(),
+        old_device->os_type(), old_device->last_updated_timestamp());
     TargetDeviceInfo target_device_info3(
-        older_device->client_name(), older_device->guid(),
-        older_device->form_factor(), older_device->last_updated_timestamp());
+        kDeviceName, older_device->guid(), older_device->form_factor(),
+        older_device->os_type(), older_device->last_updated_timestamp());
 
     EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
                 ElementsAre(target_device_info1, target_device_info2,
@@ -1375,7 +1382,8 @@ TEST_P(SendTabToSelfBridgeNamingTest,
     // guid is returned.
     TargetDeviceInfo target_device_info(
         recent_device->client_name(), recent_device->guid(),
-        recent_device->form_factor(), recent_device->last_updated_timestamp());
+        recent_device->form_factor(), recent_device->os_type(),
+        recent_device->last_updated_timestamp());
 
     EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
                 ElementsAre(target_device_info));
@@ -1399,7 +1407,8 @@ TEST_F(SendTabToSelfBridgeTest,
 
   TargetDeviceInfo target_device_info(
       enabled_device->client_name(), enabled_device->guid(),
-      enabled_device->form_factor(), enabled_device->last_updated_timestamp());
+      enabled_device->form_factor(), enabled_device->os_type(),
+      enabled_device->last_updated_timestamp());
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(target_device_info));
@@ -1420,7 +1429,8 @@ TEST_F(SendTabToSelfBridgeTest,
 
   TargetDeviceInfo target_device_info(
       valid_device->client_name(), valid_device->guid(),
-      valid_device->form_factor(), valid_device->last_updated_timestamp());
+      valid_device->form_factor(), valid_device->os_type(),
+      valid_device->last_updated_timestamp());
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(target_device_info));
@@ -1444,7 +1454,8 @@ TEST_F(SendTabToSelfBridgeTest, GetTargetDeviceInfoSortedList_NoLocalDevice) {
 
   TargetDeviceInfo target_device_info(
       other_device->client_name(), other_device->guid(),
-      other_device->form_factor(), other_device->last_updated_timestamp());
+      other_device->form_factor(), other_device->os_type(),
+      other_device->last_updated_timestamp());
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(target_device_info));
@@ -1466,10 +1477,12 @@ TEST_F(SendTabToSelfBridgeTest,
 
   TargetDeviceInfo older_device_info(
       older_device->client_name(), older_device->guid(),
-      older_device->form_factor(), older_device->last_updated_timestamp());
+      older_device->form_factor(), older_device->os_type(),
+      older_device->last_updated_timestamp());
   TargetDeviceInfo recent_device_info(
       recent_device->client_name(), recent_device->guid(),
-      recent_device->form_factor(), recent_device->last_updated_timestamp());
+      recent_device->form_factor(), recent_device->os_type(),
+      recent_device->last_updated_timestamp());
 
   // Make sure the list has the 2 devices.
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
@@ -1495,7 +1508,7 @@ TEST_F(SendTabToSelfBridgeTest,
 
   // Make sure the list has the device.
   TargetDeviceInfo device_info(device->client_name(), device->guid(),
-                               device->form_factor(),
+                               device->form_factor(), device->os_type(),
                                device->last_updated_timestamp());
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
@@ -1509,7 +1522,7 @@ TEST_F(SendTabToSelfBridgeTest,
   // Make sure both devices are in the list.
   TargetDeviceInfo new_device_info(
       new_device->client_name(), new_device->guid(), new_device->form_factor(),
-      new_device->last_updated_timestamp());
+      new_device->os_type(), new_device->last_updated_timestamp());
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(device_info, new_device_info));
@@ -1532,10 +1545,10 @@ TEST_F(SendTabToSelfBridgeTest,
       bridge()->GetTargetDeviceInfoSortedList(),
       ElementsAre(
           TargetDeviceInfo(device1->client_name(), device1->guid(),
-                           device1->form_factor(),
+                           device1->form_factor(), device1->os_type(),
                            device1->last_updated_timestamp()),
           TargetDeviceInfo(device2_old->client_name(), device2_old->guid(),
-                           device2_old->form_factor(),
+                           device2_old->form_factor(), device2_old->os_type(),
                            device2_old->last_updated_timestamp())));
 
   // Simulate device 2 being used today.
@@ -1548,10 +1561,10 @@ TEST_F(SendTabToSelfBridgeTest,
       bridge()->GetTargetDeviceInfoSortedList(),
       ElementsAre(
           TargetDeviceInfo(device2_new->client_name(), device2_new->guid(),
-                           device2_new->form_factor(),
+                           device2_new->form_factor(), device2_new->os_type(),
                            device2_new->last_updated_timestamp()),
           TargetDeviceInfo(device1->client_name(), device1->guid(),
-                           device1->form_factor(),
+                           device1->form_factor(), device1->os_type(),
                            device1->last_updated_timestamp())));
 }
 
@@ -1744,7 +1757,8 @@ TEST_F(SendTabToSelfBridgeTest,
   open_tabs_ui_delegate()->AddForeignSession("guid", session_time);
 
   TargetDeviceInfo expected_device_info(device->client_name(), device->guid(),
-                                        device->form_factor(), session_time,
+                                        device->form_factor(),
+                                        device->os_type(), session_time,
                                         /*has_high_precision_timestamp=*/true);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
@@ -1767,13 +1781,16 @@ TEST_F(SendTabToSelfBridgeTest,
   open_tabs_ui_delegate()->AddForeignSession("guid", session_time);
 
   TargetDeviceInfo expected_device_info(device->client_name(), device->guid(),
-                                        device->form_factor(), device_time,
+                                        device->form_factor(),
+                                        device->os_type(), device_time,
                                         /*has_high_precision_timestamp=*/true);
 
   EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
               ElementsAre(expected_device_info));
 }
 
+// Tests that devices sharing a short name but differing in model name are
+// disambiguated according to the active DeviceNamingMode parameter.
 TEST_P(SendTabToSelfBridgeNamingTest,
        GetTargetDeviceInfoSortedList_ShortNameCollisionBehavior) {
   InitializeBridge();
@@ -1809,19 +1826,18 @@ TEST_P(SendTabToSelfBridgeNamingTest,
   ASSERT_EQ("Manufacturer Phone", candidates2.preferred_name_if_unique);
   AddTestDevice(device2.get());
 
-  // Short name for both should be "Manufacturer Phone" (Manufacturer
-  // capitalized). Full names should be "Manufacturer Phone model1" and
-  // "Manufacturer Phone model2".
-  std::vector<TargetDeviceInfo> list =
-      bridge()->GetTargetDeviceInfoSortedList();
-  ASSERT_EQ(2ul, list.size());
-
   if (GetParam() == DeviceNamingMode::kSimplifiedWithoutDeduplication) {
-    EXPECT_EQ("Manufacturer Phone", list[0].device_name);
-    EXPECT_EQ("Manufacturer Phone", list[1].device_name);
+    EXPECT_THAT(
+        bridge()->GetTargetDeviceInfoSortedList(),
+        ElementsAre(
+            Field(&TargetDeviceInfo::device_name, "Manufacturer Phone"),
+            Field(&TargetDeviceInfo::device_name, "Manufacturer Phone")));
   } else {
-    EXPECT_EQ("Manufacturer Phone model1", list[0].device_name);
-    EXPECT_EQ("Manufacturer Phone model2", list[1].device_name);
+    EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
+                ElementsAre(Field(&TargetDeviceInfo::device_name,
+                                  "Manufacturer Phone model1"),
+                            Field(&TargetDeviceInfo::device_name,
+                                  "Manufacturer Phone model2")));
   }
 }
 
@@ -1844,6 +1860,45 @@ TEST_F(SendTabToSelfBridgeTest,
   ASSERT_EQ(1ul, list.size());
   EXPECT_EQ("guid_recent", list[0].cache_guid);
   EXPECT_EQ(clock()->Now() - base::Days(1), list[0].last_updated_timestamp);
+}
+
+// Tests that when simplified device naming is enabled, multiple instances with
+// the same base display name are disambiguated by channel.
+TEST_P(SendTabToSelfBridgeNamingTest,
+       GetTargetDeviceInfoSortedList_DisambiguateMultipleChannels) {
+  if (GetParam() != DeviceNamingMode::kSimplifiedWithoutDeduplication) {
+    return;
+  }
+  InitializeBridge();
+
+  std::unique_ptr<syncer::DeviceInfo> device1 =
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
+          .WithGuid("guid1")
+          .WithClientName("")
+          .WithManufacturerName("Google")
+          .WithModelName("Pixel 6")
+          .WithSyncUserAgent("Mozilla/5.0 channel(stable)")
+          .WithLastUpdatedTimestamp(clock()->Now())
+          .WithSendTabToSelfReceivingEnabled(true)
+          .Build();
+  AddTestDevice(device1.get());
+
+  std::unique_ptr<syncer::DeviceInfo> device2 =
+      syncer::TestDeviceInfoBuilder(syncer::DeviceInfo::OsType::kAndroid)
+          .WithGuid("guid2")
+          .WithClientName("")
+          .WithManufacturerName("Google")
+          .WithModelName("Pixel 6")
+          .WithSyncUserAgent("Mozilla/5.0 channel(canary)")
+          .WithLastUpdatedTimestamp(clock()->Now() - base::Seconds(1))
+          .WithSendTabToSelfReceivingEnabled(true)
+          .Build();
+  AddTestDevice(device2.get());
+
+  EXPECT_THAT(bridge()->GetTargetDeviceInfoSortedList(),
+              ElementsAre(Field(&TargetDeviceInfo::device_name, "Google Phone"),
+                          Field(&TargetDeviceInfo::device_name,
+                                "Google Phone (Canary)")));
 }
 
 TEST_F(SendTabToSelfBridgeTest,

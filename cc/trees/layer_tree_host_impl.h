@@ -44,6 +44,7 @@
 #include "cc/metrics/frame_sequence_metrics.h"
 #include "cc/metrics/frame_sequence_tracker.h"
 #include "cc/metrics/frame_sequence_tracker_collection.h"
+#include "cc/metrics/scroll_jank_os_reporter.h"
 #include "cc/metrics/submit_info.h"
 #include "cc/paint/paint_worklet_job.h"
 #include "cc/scheduler/begin_frame_tracker.h"
@@ -143,7 +144,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                                     public MutatorHostDelegate,
                                     public ImageAnimationController::Delegate,
                                     public CompositorDelegateForInput,
-                                    public EventLatencyTracker {
+                                    public EventLatencyTracker,
+                                    public ScrollJankOsReporter {
  public:
   // A struct of data for a single UIResource, including the backing
   // pixels, and metadata about it.
@@ -200,6 +202,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   float CurrentTopControlsShownRatio() const override;
   float CurrentBottomControlsShownRatio() const override;
   gfx::PointF ViewportScrollOffset() const override;
+  float MaxViewportScrollOffsetY() const override;
   void DidChangeBrowserControlsPosition() override;
   void DidObserveScrollDelay(int source_frame_number,
                              base::TimeDelta scroll_delay,
@@ -542,10 +545,16 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
       const viz::BeginFrameArgs& args,
       std::vector<EventLatencyTracker::LatencyData> latencies) override;
 
+  // ScrollJankOsReporter implementation.
+  void ReportScrollJankStats(uint32_t total_frames,
+                             uint32_t janky_frames) override;
+
   // Unbounded element implementation.
   void SetUnboundedFrameSink(
       std::unique_ptr<LayerTreeFrameSink> unbounded_frame_sink,
       const viz::LocalSurfaceId& local_surface_id);
+  void SetUnboundedFrameSinkId(const viz::FrameSinkId& frame_sink_id,
+                               const viz::LocalSurfaceId& local_surface_id);
   void DismissUnboundedFrameSink();
   void SetUnboundedLocalSurfaceId(const viz::LocalSurfaceId& local_surface_id);
 
@@ -860,6 +869,10 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
 
   FrameSorter* frame_sorter_for_testing() { return &frame_sorter_; }
 
+  EventMetrics::List TakeSavedEventsMetricsForTesting() {
+    return events_metrics_manager_.TakeSavedEventsMetrics();
+  }
+
   // Returns true if the client is currently compositing synchronously.
   bool IsInSynchronousComposite() const;
 
@@ -883,6 +896,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   const LayerTreeHostImplDelegate* delegate_for_testing() const {
     return delegate_;
   }
+  LayerTreeHostImplDelegate* delegate_for_testing() { return delegate_; }
 
   void SetViewTransitionContentRect(
       uint32_t sequence_id,
@@ -1389,6 +1403,9 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   uint32_t dump_compositor_frame_end_ = 0;
 
   std::unique_ptr<UnboundedFrameSinkHandler> unbounded_frame_sink_handler_;
+
+  viz::FrameSinkId unbounded_frame_sink_id_;
+  viz::LocalSurfaceId unbounded_local_surface_id_;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

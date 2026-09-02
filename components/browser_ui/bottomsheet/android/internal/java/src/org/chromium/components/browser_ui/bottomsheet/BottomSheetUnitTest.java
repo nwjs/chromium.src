@@ -6,10 +6,12 @@ package org.chromium.components.browser_ui.bottomsheet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -23,6 +25,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.core.graphics.Insets;
@@ -44,10 +47,10 @@ import org.robolectric.annotation.Config;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
-import org.chromium.components.browser_ui.bottomsheet.BottomSheet.ShadowLayerView;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent.HeightMode;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetView.ShadowLayerView;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.KeyboardVisibilityDelegate;
 import org.chromium.ui.KeyboardVisibilityDelegate.KeyboardVisibilityListener;
@@ -124,6 +127,8 @@ public class BottomSheetUnitTest {
                 /* isLargeFormFactor= */ false);
 
         mBottomSheet.setSheetBackgroundForTesting(mSheetBackground);
+        ViewGroup.MarginLayoutParams params = new ViewGroup.MarginLayoutParams(0, 0);
+        doReturn(params).when(mShadowLayerView).getLayoutParams();
         mBottomSheet.setShadowLayerForTesting(mShadowLayerView);
     }
 
@@ -434,6 +439,110 @@ public class BottomSheetUnitTest {
         int defaultSize =
                 mActivity.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_shadow_length);
         verify(mShadowLayerView).setShadowLength(defaultSize);
+    }
+
+    @Test
+    public void testApplyLargeFormFactorBackgroundBounds() {
+        BottomSheet sheet =
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
+        mSheetContainer.removeAllViews();
+        mSheetContainer.addView(sheet);
+        sheet.setSheetContainerForTesting(mSheetContainer);
+        sheet.setToolbarHolderForTesting(mToolbarHolder);
+        sheet.setBottomSheetContentContainerForTesting(
+                sheet.findViewById(R.id.bottom_sheet_content));
+
+        sheet.init(
+                mActivity.getWindow(),
+                /* keyboardDelegate= */ mKeyboardDelegate,
+                /* alwaysFullWidth= */ false,
+                /* edgeToEdgeBottomInsetSupplier= */ () -> 0,
+                /* appHeaderHeight= */ 0,
+                /* bottomMargin= */ 0,
+                mInsetObserver,
+                /* isLargeFormFactor= */ true);
+        sheet.setSheetBackgroundForTesting(mSheetBackground);
+        sheet.setShadowLayerForTesting(mShadowLayerView);
+
+        doReturn(true).when(mSheetContent).supportsLargeFormFactor();
+
+        // Stub layout properties that would normally be inflated or measured by Android framework
+        // natively.
+        final int shadowPaddingTop = 10;
+        final int shadowPaddingBottom = 20;
+        final int shadowTop = 10;
+        final int backgroundTop = 20;
+        final int backgroundMeasuredHeight = 300;
+        final float userDragTranslationY = 100f;
+
+        doReturn(shadowPaddingTop).when(mShadowLayerView).getPaddingTop();
+        doReturn(shadowPaddingBottom).when(mShadowLayerView).getPaddingBottom();
+        doReturn(shadowTop).when(mShadowLayerView).getTop();
+        doReturn(backgroundTop).when(mSheetBackground).getTop();
+        doReturn(backgroundMeasuredHeight).when(mSheetBackground).getMeasuredHeight();
+
+        sheet.showContent(mSheetContent);
+
+        // At this point, the layout and visibility should be initialized.
+        // We will call the private method indirectly by triggering a layout pass or updating
+        // translation.
+        sheet.setSheetOffsetFromBottom(
+                userDragTranslationY, BottomSheetController.StateChangeReason.NONE);
+
+        // Evaluate exactly what boundaries the method derived:
+        // visibleHeight = min(currentOffsetPx, measuredBgHeight) = min(100, 300) = 100.
+        // backgroundBottom = backgroundTop + visibleHeight = 20 + 100 = 120.
+        // shadowBottom = shadowTop + visibleHeight + shadowPaddingTop + shadowPaddingBottom
+        //              = 10 + 100 + 10 + 20 = 140.
+        verify(mSheetBackground, atLeastOnce()).setBottom(120);
+        verify(mShadowLayerView, atLeastOnce()).setBottom(140);
+    }
+
+    @Test
+    public void testBackgroundGlowColor_LargeFormFactor() {
+        BottomSheet sheet =
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
+        mSheetContainer.removeAllViews();
+        mSheetContainer.addView(sheet);
+        sheet.setSheetContainerForTesting(mSheetContainer);
+        sheet.setToolbarHolderForTesting(mToolbarHolder);
+        sheet.setBottomSheetContentContainerForTesting(
+                sheet.findViewById(R.id.bottom_sheet_content));
+
+        sheet.init(
+                mActivity.getWindow(),
+                /* keyboardDelegate= */ mKeyboardDelegate,
+                /* alwaysFullWidth= */ false,
+                /* edgeToEdgeBottomInsetSupplier= */ () -> 0,
+                /* appHeaderHeight= */ 0,
+                /* bottomMargin= */ 0,
+                mInsetObserver,
+                /* isLargeFormFactor= */ true);
+        sheet.setSheetBackgroundForTesting(mSheetBackground);
+        sheet.setShadowLayerForTesting(mShadowLayerView);
+
+        doReturn(true).when(mSheetContent).supportsLargeFormFactor();
+
+        int expectedSize =
+                mActivity.getResources().getDimensionPixelSize(R.dimen.bottom_sheet_shadow_length);
+        doReturn(expectedSize).when(mShadowLayerView).getPaddingLeft();
+        doReturn(expectedSize).when(mShadowLayerView).getPaddingTop();
+        doReturn(expectedSize).when(mShadowLayerView).getPaddingRight();
+        doReturn(expectedSize).when(mShadowLayerView).getPaddingBottom();
+
+        sheet.showContent(mSheetContent);
+
+        verify(mShadowLayerView).setBackgroundResource(R.drawable.popup_bg_shadow_16dp);
+        ArgumentCaptor<ViewGroup.LayoutParams> captor =
+                ArgumentCaptor.forClass(ViewGroup.LayoutParams.class);
+        verify(mShadowLayerView, atLeastOnce()).setLayoutParams(captor.capture());
+        ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) captor.getValue();
+        assertEquals(-expectedSize, params.leftMargin);
+        assertEquals(-expectedSize, params.topMargin);
+        assertEquals(-expectedSize, params.rightMargin);
+        assertEquals(-expectedSize, params.bottomMargin);
     }
 
     @Test
@@ -760,7 +869,8 @@ public class BottomSheetUnitTest {
     @Test
     public void testDesktopUi_LargeFormFactorSupported() {
         BottomSheet sheet =
-                (BottomSheet) LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet, null);
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
         mSheetContainer.removeAllViews();
         mSheetContainer.addView(sheet);
         sheet.setSheetContainerForTesting(mSheetContainer);
@@ -805,9 +915,72 @@ public class BottomSheetUnitTest {
     }
 
     @Test
+    public void testLargeFormFactorUi_DimensionsClamped() {
+        BottomSheet sheet =
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
+
+        // Use a container smaller than the LFF sheet width to force clamping
+        int narrowContainerWidth = 300;
+        int shortContainerHeight = 300;
+        mSheetContainer.removeAllViews();
+        mSheetContainer.addView(sheet);
+
+        // Remeasure the container to a small size
+        mSheetContainer.measure(
+                View.MeasureSpec.makeMeasureSpec(narrowContainerWidth, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(shortContainerHeight, View.MeasureSpec.EXACTLY));
+        mSheetContainer.layout(0, 0, narrowContainerWidth, shortContainerHeight);
+
+        sheet.setSheetContainerForTesting(mSheetContainer);
+        sheet.setToolbarHolderForTesting(mToolbarHolder);
+        sheet.setBottomSheetContentContainerForTesting(
+                sheet.findViewById(R.id.bottom_sheet_content));
+        sheet.setSheetBackgroundForTesting(mSheetBackground);
+        sheet.setShadowLayerForTesting(mShadowLayerView);
+
+        sheet.init(
+                mActivity.getWindow(),
+                /* keyboardDelegate= */ mKeyboardDelegate,
+                /* alwaysFullWidth= */ false,
+                /* edgeToEdgeBottomInsetSupplier= */ () -> 0,
+                /* appHeaderHeight= */ 0,
+                /* bottomMargin= */ 0,
+                mInsetObserver,
+                /* isLargeFormFactor= */ true);
+
+        doReturn(true).when(mSheetContent).supportsLargeFormFactor();
+        doReturn(new View(mActivity)).when(mSheetContent).getContentView();
+        setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
+        sheet.showContent(mSheetContent);
+
+        int edgeGap =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.bottom_sheet_large_form_factor_edge_gap);
+        int topGap =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.bottom_sheet_desktop_bottom_margin);
+
+        assertEquals(
+                "Max width should be clamped to ensure horizontal gaps for LFF.",
+                Math.max(0, narrowContainerWidth - 2 * edgeGap),
+                sheet.getMaxSheetWidth());
+
+        sheet.setSheetState(SheetState.FULL, false);
+
+        assertEquals(
+                "Max height should be clamped to ensure a top gap for LFF.",
+                Math.max(0, shortContainerHeight - sheet.getContainerBottomMargin() - topGap),
+                (int) sheet.getCurrentOffsetPx());
+    }
+
+    @Test
     public void testLargeFormFactorUi_CloseButtonVisibility_NonModal() {
         BottomSheet sheet =
-                (BottomSheet) LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet, null);
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
         mSheetContainer.removeAllViews();
         mSheetContainer.addView(sheet);
         sheet.setSheetContainerForTesting(mSheetContainer);
@@ -844,7 +1017,8 @@ public class BottomSheetUnitTest {
     @Test
     public void testLargeFormFactorUi_CloseButtonVisibility_Modal() {
         BottomSheet sheet =
-                (BottomSheet) LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet, null);
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
         mSheetContainer.removeAllViews();
         mSheetContainer.addView(sheet);
         sheet.setSheetContainerForTesting(mSheetContainer);
@@ -908,24 +1082,26 @@ public class BottomSheetUnitTest {
         sheet.showContent(mSheetContent);
 
         View closeButton = sheet.findViewById(R.id.bottom_sheet_close_button);
-        assertEquals(
-                "Close button should never show on phones.",
-                View.GONE,
-                closeButton.getVisibility());
+        assertNull("Close button should never show on phones.", closeButton);
     }
 
     @Test
-    public void testDesktopUi_LargeFormFactorNotSupported() {
+    public void testDesktopUi_LargeFormFactorNotSupported_FallbackToMobileRendering() {
         BottomSheet sheet =
-                (BottomSheet) LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet, null);
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
         mSheetContainer.removeAllViews();
         mSheetContainer.addView(sheet);
         sheet.setSheetContainerForTesting(mSheetContainer);
         sheet.setToolbarHolderForTesting(mToolbarHolder);
         sheet.setBottomSheetContentContainerForTesting(
                 sheet.findViewById(R.id.bottom_sheet_content));
-        sheet.setSheetBackgroundForTesting(mSheetBackground);
-        sheet.setShadowLayerForTesting(mShadowLayerView);
+
+        // Use the real views found inside bottom_sheet_desktop, rather than mocks, to verify exact
+        // layout behaviors.
+        View sheetBackground = sheet.findViewById(R.id.background);
+        View shadowLayer = sheet.findViewById(R.id.shadow_layer);
+        View fallbackShadowLayer = sheet.findViewById(R.id.desktop_fallback_shadow);
 
         sheet.init(
                 mActivity.getWindow(),
@@ -938,6 +1114,7 @@ public class BottomSheetUnitTest {
                 /* isLargeFormFactor= */ true);
 
         doReturn(false).when(mSheetContent).supportsLargeFormFactor();
+        doReturn(true).when(mSheetContent).hasCustomScrimLifecycle();
         doReturn(new View(mActivity)).when(mSheetContent).getContentView();
         setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
         doReturn((float) HeightMode.DEFAULT).when(mSheetContent).getFullHeightRatio();
@@ -946,6 +1123,25 @@ public class BottomSheetUnitTest {
 
         sheet.showContent(mSheetContent);
 
+        assertEquals(
+                "Fallback shadow layer should be visible.",
+                View.VISIBLE,
+                fallbackShadowLayer.getVisibility());
+
+        assertEquals(
+                "Close button should be hidden unconditionally during fallback.",
+                View.GONE,
+                sheet.findViewById(R.id.bottom_sheet_close_button).getVisibility());
+
+        assertFalse(
+                "Background clipToOutline should be disabled to prevent clipping the layout.",
+                sheetBackground.getClipToOutline());
+
+        assertEquals(
+                "Wrapper shadow layer padding should be 0 to prevent pinching.",
+                0,
+                shadowLayer.getPaddingLeft());
+
         // Max width should not be large form factor width
         assertFalse(
                 "Max width should not be desktop width.",
@@ -953,5 +1149,123 @@ public class BottomSheetUnitTest {
                                 .getResources()
                                 .getDimensionPixelSize(R.dimen.bottom_sheet_large_form_factor_width)
                         == sheet.getMaxSheetWidth());
+    }
+
+    @Test
+    public void testTargetState_ExpandingFromPeek() {
+        BottomSheet.setSmallScreenForTesting(false);
+        doReturn(0.5f).when(mSheetContent).getHalfHeightRatio();
+        doReturn(SHEET_PEEK_HEIGHT).when(mSheetContent).getPeekHeight();
+        setupBottomSheetStrings(
+                R.string.bottom_sheet_accessibility_description,
+                R.string.bottom_sheet_accessibility_description);
+        doReturn(new View(mActivity)).when(mSheetContent).getContentView();
+        mBottomSheet.showContent(mSheetContent);
+        mBottomSheet.setSheetState(SheetState.PEEK, false);
+
+        int targetState =
+                mBottomSheet.forceScrollingStateForTesting(
+                        SHEET_PEEK_HEIGHT + 20, /* yUpwardsVelocity= */ 1.0f);
+        assertEquals(SheetState.HALF, targetState);
+    }
+
+    @Test
+    public void testToggleSheetState() {
+        BottomSheet.setSmallScreenForTesting(false);
+        doReturn((float) HeightMode.DEFAULT).when(mSheetContent).getFullHeightRatio();
+        doReturn(0.5f).when(mSheetContent).getHalfHeightRatio();
+        doReturn(SHEET_PEEK_HEIGHT).when(mSheetContent).getPeekHeight();
+
+        setupBottomSheetStrings(
+                R.string.bottom_sheet_accessibility_description,
+                R.string.bottom_sheet_accessibility_description);
+        doReturn(new View(mActivity)).when(mSheetContent).getContentView();
+
+        mBottomSheet.showContent(mSheetContent);
+
+        mBottomSheet.setSheetState(SheetState.PEEK, false);
+        assertEquals(SheetState.PEEK, mBottomSheet.getSheetState());
+
+        mBottomSheet.toggleSheetState();
+        assertEquals(SheetState.HALF, mBottomSheet.getTargetSheetState());
+        mBottomSheet.endAnimations();
+        assertEquals(SheetState.HALF, mBottomSheet.getSheetState());
+
+        mBottomSheet.toggleSheetState();
+        assertEquals(SheetState.FULL, mBottomSheet.getTargetSheetState());
+        mBottomSheet.endAnimations();
+        assertEquals(SheetState.FULL, mBottomSheet.getSheetState());
+
+        mBottomSheet.toggleSheetState();
+        assertEquals(SheetState.HALF, mBottomSheet.getTargetSheetState());
+        mBottomSheet.endAnimations();
+        assertEquals(SheetState.HALF, mBottomSheet.getSheetState());
+    }
+
+    @Test
+    public void testDesktopHandlebarConfigurationFromContent() {
+        // Initialize a Large Form Factor BottomSheet via layout XML that contains the desktop
+        // layout
+        BottomSheet sheet =
+                (BottomSheet)
+                        LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet_desktop, null);
+
+        // Inject the newly created Sheet into the testing container
+        mSheetContainer.removeAllViews();
+        mSheetContainer.addView(sheet);
+        sheet.setSheetContainerForTesting(mSheetContainer);
+        sheet.setShadowLayerForTesting(mShadowLayerView);
+        sheet.setBottomSheetContentContainerForTesting(
+                sheet.findViewById(R.id.bottom_sheet_content));
+
+        sheet.init(
+                mActivity.getWindow(),
+                /* keyboardDelegate= */ mKeyboardDelegate,
+                /* alwaysFullWidth= */ false,
+                /* edgeToEdgeBottomInsetSupplier= */ () -> 0,
+                /* appHeaderHeight= */ 0,
+                /* bottomMargin= */ 0,
+                mInsetObserver,
+                /* isLargeFormFactor= */ true); // Force LFF enabled
+
+        ImageView handlebar = sheet.getHandlebarForTesting();
+        assertNotNull(handlebar);
+        assertTrue(
+                "Handlebar should have an OnClickListener configured on desktop",
+                handlebar.hasOnClickListeners());
+        int expectedPadding =
+                mActivity
+                        .getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.bottom_sheet_handlebar_padding_vertical_desktop);
+        assertEquals(
+                "Handlebar top padding should be 8dp on desktop",
+                expectedPadding,
+                handlebar.getPaddingTop());
+        assertEquals(
+                "Handlebar bottom padding should be 8dp on desktop",
+                expectedPadding,
+                handlebar.getPaddingBottom());
+
+        // Setup Sheet Content that requests a handlebar
+        BottomSheetContent contentWithHandlebar = mock(BottomSheetContent.class);
+        doReturn(true).when(contentWithHandlebar).supportsLargeFormFactor();
+        doReturn(true).when(contentWithHandlebar).showHandlebar();
+        doReturn(new View(mActivity)).when(contentWithHandlebar).getContentView();
+
+        sheet.showContent(contentWithHandlebar);
+        assertEquals(View.VISIBLE, handlebar.getVisibility());
+        assertNotNull(
+                "Handlebar should have TYPE_HAND hover pointer icon configured on desktop",
+                handlebar.getPointerIcon());
+
+        // Setup Sheet Content that does not request a handlebar
+        BottomSheetContent contentWithoutHandlebar = mock(BottomSheetContent.class);
+        doReturn(true).when(contentWithoutHandlebar).supportsLargeFormFactor();
+        doReturn(false).when(contentWithoutHandlebar).showHandlebar();
+        doReturn(new View(mActivity)).when(contentWithoutHandlebar).getContentView();
+
+        sheet.showContent(contentWithoutHandlebar);
+        assertEquals(View.GONE, handlebar.getVisibility());
     }
 }

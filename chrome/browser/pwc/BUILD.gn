@@ -1,0 +1,103 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+
+mojom("features") {
+  sources = [ "pwc_features.mojom" ]
+}
+
+mojom("mojo_bindings") {
+  sources = [ "pwc.mojom" ]
+
+  # For the [RuntimeFeature] reference to
+  # pwc.mojom.features.kPrivilegedWebContents.
+  public_deps = [ ":features" ]
+}
+
+source_set("pwc") {
+  public = [
+    "privileged_web_contents.h",
+    "pwc_api_binder.h",
+    "pwc_component_policy.h",
+    "pwc_navigation_throttle.h",
+  ]
+
+  sources = [
+    "privileged_web_contents.cc",
+    "pwc_api_binder.cc",
+    "pwc_component_policy.cc",
+    "pwc_navigation_throttle.cc",
+  ]
+
+  public_deps = [
+    ":mojo_bindings",
+    "//base",
+    "//content/public/browser",
+    "//mojo/public/cpp/bindings",
+    "//ui/base/unowned_user_data",
+    "//url",
+  ]
+
+  deps = [
+    ":features",
+    "//chrome/browser:bad_message",
+    "//components/back_forward_cache",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "privileged_web_contents_unittest.cc",
+    "pwc_component_policy_unittest.cc",
+  ]
+
+  deps = [
+    ":features",
+    ":pwc",
+    "//base/test:test_support",
+    "//chrome/test:test_support",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = []
+
+  deps = [
+    ":features",
+    ":mojo_bindings",
+    ":pwc",
+    "//base/test:test_support",
+    "//chrome/test:test_support",
+    "//components/back_forward_cache",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//mojo/public/cpp/bindings",
+    "//net:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+
+  # These tests use desktop-only UI (Browser, InProcessBrowserTest), so they
+  # are desktop-only.
+  if (!is_android) {
+    sources += [
+      "privileged_web_contents_browsertest.cc",
+      "pwc_api_binder_browsertest.cc",
+      "pwc_navigation_throttle_browsertest.cc",
+      "pwc_security_browsertest.cc",
+    ]
+    deps += [ "//chrome/browser/ui" ]
+  }
+}

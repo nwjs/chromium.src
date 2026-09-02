@@ -26,7 +26,7 @@ import androidx.annotation.VisibleForTesting;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.components.browser_ui.widget.RoundedCornerOutlineProvider;
+import org.chromium.components.browser_ui.widget.RoundedCornerImageView;
 import org.chromium.components.browser_ui.widget.selectable_list.SelectableListUtils;
 import org.chromium.ui.listmenu.ListMenuButton;
 import org.chromium.ui.listmenu.ListMenuDelegate;
@@ -58,7 +58,7 @@ public class ImprovedBookmarkRow extends ViewLookupCachingFrameLayout
 
     private ViewGroup mContainer;
     // The start image view which is shows the favicon.
-    private ImageView mStartImageView;
+    private RoundedCornerImageView mStartImageView;
     private ImprovedBookmarkFolderView mFolderIconView;
     // Displays the title of the bookmark.
     private TextView mTitleView;
@@ -103,7 +103,8 @@ public class ImprovedBookmarkRow extends ViewLookupCachingFrameLayout
                                 : R.layout.improved_bookmark_row_layout,
                         row);
         row.onFinishInflate();
-        row.setStartImageRoundedCornerOutlineProvider(isVisual);
+        row.setStartImageRoundedCorners(isVisual);
+        row.setStartImageSize();
         return row;
     }
 
@@ -148,18 +149,32 @@ public class ImprovedBookmarkRow extends ViewLookupCachingFrameLayout
         }
     }
 
-    void setStartImageRoundedCornerOutlineProvider(boolean isVisual) {
+    void setStartImageRoundedCorners(boolean isVisual) {
         assert mStartImageView != null;
 
-        mStartImageView.setOutlineProvider(
-                new RoundedCornerOutlineProvider(
-                        getContext()
-                                .getResources()
-                                .getDimensionPixelSize(
-                                        isVisual
-                                                ? R.dimen.improved_bookmark_row_outer_corner_radius
-                                                : R.dimen.improved_bookmark_icon_radius)));
-        mStartImageView.setClipToOutline(true);
+        Resources res = getContext().getResources();
+        int dimenRes =
+                BookmarkUtils.isDesktopBookmarksLayoutEnabled()
+                        ? R.dimen.improved_bookmark_start_image_corner_radius_desktop
+                        : (isVisual
+                                ? R.dimen.improved_bookmark_row_outer_corner_radius
+                                : R.dimen.improved_bookmark_icon_radius);
+        int radius = res.getDimensionPixelSize(dimenRes);
+        mStartImageView.setRoundedCorners(radius, radius, radius, radius);
+    }
+
+    void setStartImageSize() {
+        if (BookmarkUtils.isDesktopBookmarksLayoutEnabled() && mStartImageView != null) {
+            Resources res = getContext().getResources();
+            int size =
+                    res.getDimensionPixelSize(R.dimen.improved_bookmark_start_image_size_desktop);
+            ViewGroup.LayoutParams params = mStartImageView.getLayoutParams();
+            if (params != null) {
+                params.width = size;
+                params.height = size;
+                mStartImageView.setLayoutParams(params);
+            }
+        }
     }
 
     @Override
@@ -272,7 +287,7 @@ public class ImprovedBookmarkRow extends ViewLookupCachingFrameLayout
     }
 
     void setStartAreaBackgroundColor(@ColorInt int color) {
-        mStartImageView.setBackgroundColor(color);
+        mStartImageView.setRoundedFillColor(color);
     }
 
     void setAccessoryView(@Nullable View view) {
@@ -372,7 +387,7 @@ public class ImprovedBookmarkRow extends ViewLookupCachingFrameLayout
 
     // Testing specific methods below.
 
-    public void setStartImageViewForTesting(ImageView startImageView) {
+    public void setStartImageViewForTesting(RoundedCornerImageView startImageView) {
         mStartImageView = startImageView;
     }
 

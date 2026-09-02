@@ -23,7 +23,9 @@
 #include "components/autofill/core/browser/country_type.h"
 #include "components/autofill/core/browser/data_model/addresses/address.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_structured_address_component.h"
-#include "components/autofill/core/browser/data_model/addresses/contact_info.h"
+#include "components/autofill/core/browser/data_model/addresses/company_info.h"
+#include "components/autofill/core/browser/data_model/addresses/email_info.h"
+#include "components/autofill/core/browser/data_model/addresses/name_info.h"
 #include "components/autofill/core/browser/data_model/addresses/phone_number.h"
 #include "components/autofill/core/browser/data_model/form_group.h"
 #include "components/autofill/core/browser/data_model/usage_history_information.h"
@@ -95,19 +97,26 @@ class AutofillProfile : public FormGroup {
     kMaxValue = kAccountNameEmail,
   };
 
+  // Result of merging another profile into this profile via `MergeDataFrom()`.
+  enum class ProfileMergeResult {
+    // The merge failed, either because profiles are not mergeable or
+    // because merging one of the sub-components failed. The target profile is
+    // unchanged.
+    kMergeFailed = 0,
+    // The merge succeeded and the target profile was modified.
+    kMergeSucceededWithModification = 1,
+    // The merge succeeded and the target profile was not modified.
+    kMergeSucceededWithoutModification = 2,
+    kMaxValue = kMergeSucceededWithoutModification,
+  };
+
   // These fields are, by default, the only candidates for being added to the
   // list of profile labels. Note that the call to generate labels can specify a
   // custom set of fields, in which case such set would be used instead of this
   // one.
   // TODO(crbug.com/380273791): Change this into a FieldTypeSet once the
   // priority is not decided by the order of these entries anymore.
-  static constexpr auto kDefaultDistinguishingFieldsForLabels =
-      std::to_array<FieldType>(
-          {NAME_FULL, ADDRESS_HOME_LINE1, ADDRESS_HOME_LINE2,
-           ADDRESS_HOME_DEPENDENT_LOCALITY, ADDRESS_HOME_CITY,
-           ADDRESS_HOME_STATE, ADDRESS_HOME_ZIP, ADDRESS_HOME_SORTING_CODE,
-           ADDRESS_HOME_COUNTRY, EMAIL_ADDRESS, PHONE_HOME_WHOLE_NUMBER,
-           COMPANY_NAME});
+  static base::span<const FieldType> DefaultDistinguishingFieldsForLabels();
 
   // All FieldTypes stored for an AutofillProfile in the local_addresses or
   // contact_info table (depending on the profile source) in AutofillTable.
@@ -264,11 +273,11 @@ class AutofillProfile : public FormGroup {
   // Expects that the profiles have the same guid.
   void OverwriteDataFromForLegacySync(const AutofillProfile& profile);
 
-  // Merges the data from `this` profile and the given `profile` into `this`
-  // profile. Expects that `this` and `profile` have already been deemed
-  // mergeable by an AutofillProfileComparator.
-  bool MergeDataFrom(const AutofillProfile& profile,
-                     std::string_view app_locale);
+  // Merges the data from `profile` into `this` profile if they are mergeable.
+  // Returns a `ProfileMergeResult` indicating whether the merge succeeded and
+  // whether `this` was modified. If mergeable, modifies `this` in-place.
+  [[nodiscard]] ProfileMergeResult MergeDataFrom(const AutofillProfile& profile,
+                                                 std::string_view app_locale);
 
   // Creates a differentiating label for each of the `profiles`.
   // Labels consist of the minimal differentiating combination of:

@@ -9,6 +9,7 @@
 #include "third_party/blink/renderer/platform/graphics/paint/scroll_paint_property_node.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 
 namespace blink {
 
@@ -46,8 +47,8 @@ TransformPaintPropertyNode::State::ComputeTransformChange(
                : PaintPropertyChangeType::kChangedOnlyCompositedValues;
   }
 
-  if ((direct_compositing_reasons & CompositingReason::kStickyPosition) ||
-      (direct_compositing_reasons & CompositingReason::kAnchorPosition)) {
+  if ((direct_compositing_reasons.Has(CompositingReason::kStickyPosition)) ||
+      (direct_compositing_reasons.Has(CompositingReason::kAnchorPosition))) {
     // The compositor handles sticky offset changes and anchor position
     // translation offset changes automatically.
     DCHECK(transform_and_origin.matrix.Preserves2dAxisAlignment());
@@ -246,22 +247,21 @@ std::unique_ptr<JSONObject> TransformPaintPropertyNode::ToJSON() const {
     json->SetString("renderingContextId",
                     String::HexNumber(state_.rendering_context_id));
   }
-  if (state_.direct_compositing_reasons != CompositingReason::kNone) {
-    json->SetString(
-        "directCompositingReasons",
-        CompositingReason::ToString(state_.direct_compositing_reasons));
+  if (!state_.direct_compositing_reasons.empty()) {
+    json->SetString("directCompositingReasons",
+                    blink::ToString(state_.direct_compositing_reasons));
   }
   if (state_.compositor_element_id) {
     json->SetString("compositorElementId",
                     String(state_.compositor_element_id.ToString()));
   }
   if (state_.scroll)
-    json->SetString("scroll", String::Format("%p", state_.scroll.Get()));
+    json->SetString("scroll", Format("{}", state_.scroll.Get()));
 
   if (state_.scroll_parent_scroll_translation) {
     json->SetString(
         "scroll_parent_scroll_translation",
-        String::Format("%p", state_.scroll_parent_scroll_translation.Get()));
+        Format("{}", state_.scroll_parent_scroll_translation.Get()));
   }
   return json;
 }

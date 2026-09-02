@@ -130,15 +130,24 @@ void ToolbarUIService::OnPageInitialized() {
 
 void ToolbarUIService::ShowContentSettingsBubble(
     ::toolbar_ui_api::mojom::ContentSettingImageType type,
+    bool is_pointer_interaction,
     ShowContentSettingsBubbleCallback callback) {
   if (delegate_) {
-    delegate_->ShowContentSettingsBubble(type, std::move(callback));
+    delegate_->ShowContentSettingsBubble(type, is_pointer_interaction,
+                                         std::move(callback));
   } else {
     std::move(callback).Run(base::unexpected(
         Error::New(Code::kFailedPrecondition,
                    base::StringPrintf("ToolbarUIService: cannot create bubble "
                                       "without delegate_ for type: %d",
                                       static_cast<int32_t>(type)))));
+  }
+}
+
+void ToolbarUIService::OnContentSettingImagePointerDown(
+    ::toolbar_ui_api::mojom::ContentSettingImageType type) {
+  if (delegate_) {
+    delegate_->OnContentSettingImagePointerDown(type);
   }
 }
 
@@ -366,6 +375,19 @@ void ToolbarUIService::AdjustOmniboxTextForCopy(
     std::move(callback).Run(base::unexpected(Error::New(
         Code::kFailedPrecondition,
         "ToolbarUIService: null delegate_ for AdjustOmniboxTextForCopy")));
+  }
+}
+
+void ToolbarUIService::OnPerformanceInterventionButtonClicked(
+    bool is_mouse_interaction) {
+  if (delegate_) {
+    delegate_->OnPerformanceInterventionButtonClicked(is_mouse_interaction);
+  }
+}
+
+void ToolbarUIService::OnPerformanceInterventionButtonMousePressed() {
+  if (delegate_) {
+    delegate_->OnPerformanceInterventionButtonMousePressed();
   }
 }
 }  // namespace toolbar_ui_api

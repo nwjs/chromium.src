@@ -20,13 +20,13 @@
 #include "components/prefs/pref_change_registrar.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/tabs/public/tab_group.h"
+#include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "url/gurl.h"
 
-class Browser;
 class MetricsReporter;
 class Profile;
 
@@ -45,11 +45,17 @@ using ContainerPtr = mojo::StructPtr<Container>;
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
+// LINT.IfChange(TabSearchCloseAction)
 enum class TabSearchCloseAction {
   kNoAction = 0,
-  kTabSwitch = 1,
-  kMaxValue = kTabSwitch,
+  kCloseTab = 1,
+  kOpenRecentTab = 2,
+  kSwitchTab = 3,
+  kOpenRecentTabAndCloseTab = 4,
+  kSwitchTabAndCloseTab = 5,
+  kMaxValue = kSwitchTabAndCloseTab,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/tab/enums.xml:TabSearchCloseAction)
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
@@ -61,7 +67,8 @@ enum class TabSearchRecentlyClosedToggleAction {
 
 class TabSearchPageHandler
     : public tab_search::mojom::PageHandler,
-      public tabs_api::observation::TabStripApiBatchedObserver {
+      public tabs_api::observation::TabStripApiBatchedObserver,
+      public content::WebContentsObserver {
  public:
   TabSearchPageHandler(
       mojo::PendingReceiver<tab_search::mojom::PageHandler> receiver,
@@ -94,6 +101,9 @@ class TabSearchPageHandler
   // TabStripApiBatchedObserver:
   void OnTabEvents(
       const std::vector<tabs_api::mojom::TabsEventPtr>& events) override;
+
+  // content::WebContentsObserver:
+  void OnVisibilityChanged(content::Visibility visibility) override;
 
   // Returns true if the WebContents hosting the WebUI is visible to the user
   // (in either a fully visible or partially occluded state).
@@ -189,22 +199,26 @@ class TabSearchPageHandler
   const raw_ptr<content::WebUI> web_ui_;
   const raw_ptr<Profile> profile_;
   const raw_ptr<TopChromeWebUIController> webui_controller_;
-  raw_ptr<Browser> browser_;
+  raw_ptr<BrowserWindowInterface> browser_;
   const raw_ptr<MetricsReporter> metrics_reporter_;
   std::unique_ptr<base::RetainingOneShotTimer> debounce_timer_;
   PrefChangeRegistrar pref_change_registrar_;
+
+  void LogCloseMetrics();
 
   // Tracks how many times |CloseTab()| has been evoked for the currently open
   // instance of Tab Search for logging in UMA.
   int num_tabs_closed_ = 0;
 
+  // Tracks the user action taken within the Tab Search dialog bubble.
+  TabSearchCloseAction action_ = TabSearchCloseAction::kNoAction;
+
+  // Tracks whether the bubble UI is currently showing.
+  bool bubble_showing_ = false;
+
   // Tracks whether or not we have sent the initial payload to the Tab Search
   // UI for metric collection purposes.
   bool sent_initial_payload_ = false;
-
-  // Tracks whether the user has evoked |SwitchToTab()| for metric collection
-  // purposes.
-  bool called_switch_to_tab_ = false;
 
   bool disable_last_active_time_for_testing_ = false;
 

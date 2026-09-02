@@ -11,11 +11,14 @@
 #include "base/allocator/dispatcher/dispatcher.h"
 #include "base/allocator/dispatcher/notification_data.h"
 #include "base/allocator/dispatcher/subsystem.h"
+#include "base/containers/heap_array.h"
 #include "base/debug/alias.h"
+#include "base/features.h"
 #include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
 #include "base/sampling_heap_profiler/poisson_allocation_sampler.h"
 #include "base/synchronization/waitable_event.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/threading/simple_thread.h"
 #include "build/build_config.h"
 #include "partition_alloc/shim/allocator_shim.h"
@@ -57,14 +60,16 @@ class SamplingHeapProfilerTest : public ::testing::Test {
   static int GetRunningSessionsCount() {
     SamplingHeapProfiler* p = SamplingHeapProfiler::Get();
     AutoLock lock(p->start_stop_mutex_);
-    return p->running_sessions_;
+    return p->sessions_.size();
   }
 
   static void RunStartStopLoop(SamplingHeapProfiler* profiler) {
     for (int i = 0; i < 100000; ++i) {
-      profiler->Start();
+      auto session = profiler->Start(
+          base::ByteSize(1024), SamplingHeapProfiler::Priority::kBackground);
+      ASSERT_TRUE(session.has_value());
       EXPECT_LE(1, GetRunningSessionsCount());
-      profiler->Stop();
+      profiler->Stop(*session);
     }
   }
 };
@@ -192,16 +197,17 @@ class MyThread2 : public SimpleThread {
 void CheckAllocationPattern(void (*allocate_callback)()) {
   ASSERT_FALSE(ScopedSuppressRandomnessForTesting::IsSuppressed());
   auto* profiler = SamplingHeapProfiler::Get();
-  profiler->SetSamplingInterval(10240);
   base::TimeTicks t0 = base::TimeTicks::Now();
   std::map<size_t, size_t> sums;
   const int iterations = 40;
   for (int i = 0; i < iterations; ++i) {
-    uint32_t id = profiler->Start();
+    auto session = profiler->Start(base::ByteSize(10240),
+                                   SamplingHeapProfiler::Priority::kBackground);
+    ASSERT_TRUE(session.has_value());
     allocate_callback();
     std::vector<SamplingHeapProfiler::Sample> samples =
-        profiler->GetSamples(id);
-    profiler->Stop();
+        profiler->GetSamples(session);
+    profiler->Stop(*session);
     std::map<size_t, size_t> buckets;
     for (auto& sample : samples) {
       buckets[sample.size] += sample.total;
@@ -312,14 +318,44 @@ class StartStopThread : public SimpleThread {
 TEST_F(SamplingHeapProfilerTest, StartStop) {
   auto* profiler = SamplingHeapProfiler::Get();
   EXPECT_EQ(0, GetRunningSessionsCount());
-  profiler->Start();
+
+  // Start with 1024 (Background)
+  auto session1 = profiler->Start(base::ByteSize(1024),
+                                  SamplingHeapProfiler::Priority::kBackground);
+  ASSERT_TRUE(session1.has_value());
   EXPECT_EQ(1, GetRunningSessionsCount());
-  profiler->Start();
+  EXPECT_EQ(1024u, base::PoissonAllocationSampler::Get()->SamplingInterval());
+
+  // Start with 512 (Interactive) -> should override background
+  auto session2 = profiler->Start(base::ByteSize(512),
+                                  SamplingHeapProfiler::Priority::kInteractive);
+  ASSERT_TRUE(session2.has_value());
   EXPECT_EQ(2, GetRunningSessionsCount());
-  profiler->Stop();
+  EXPECT_EQ(512u, base::PoissonAllocationSampler::Get()->SamplingInterval());
+
+  // Start with 2048 (Interactive) -> 512 is still min interactive
+  auto session3 = profiler->Start(base::ByteSize(2048),
+                                  SamplingHeapProfiler::Priority::kInteractive);
+  ASSERT_TRUE(session3.has_value());
+  EXPECT_EQ(3, GetRunningSessionsCount());
+  EXPECT_EQ(512u, base::PoissonAllocationSampler::Get()->SamplingInterval());
+
+  // Stop session2 (512 Interactive) -> min interactive becomes 2048
+  profiler->Stop(*session2);
+  EXPECT_EQ(2, GetRunningSessionsCount());
+  EXPECT_EQ(2048u, base::PoissonAllocationSampler::Get()->SamplingInterval());
+
+  // Stop session3 (2048 Interactive) -> no interactive sessions, fallback to
+  // background (1024)
+  profiler->Stop(*session3);
   EXPECT_EQ(1, GetRunningSessionsCount());
-  profiler->Stop();
+  EXPECT_EQ(1024u, base::PoissonAllocationSampler::Get()->SamplingInterval());
+
+  // Stop session1 (1024 Background) -> no sessions, should reset to default
+  profiler->Stop(*session1);
   EXPECT_EQ(0, GetRunningSessionsCount());
+  EXPECT_EQ(PoissonAllocationSampler::kDefaultSamplingIntervalBytes,
+            base::PoissonAllocationSampler::Get()->SamplingInterval());
 }
 
 // TODO(crbug.com/40711998): Test is crashing on Mac.
@@ -383,6 +419,45 @@ TEST_F(SamplingHeapProfilerTest, HookedAllocatorMuted) {
   sampler->RemoveSamplesObserver(&collector);
   EXPECT_TRUE(collector.sample_added);
   EXPECT_TRUE(collector.sample_removed);
+}
+
+// Counting resident bytes is not implemented on Fuchsia.
+#if BUILDFLAG(IS_FUCHSIA)
+#define MAYBE_GetSamplesWithResidency DISABLED_GetSamplesWithResidency
+#else
+#define MAYBE_GetSamplesWithResidency GetSamplesWithResidency
+#endif
+TEST_F(SamplingHeapProfilerTest, MAYBE_GetSamplesWithResidency) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kHeapProfilerIncludeResidency);
+
+  ScopedSuppressRandomnessForTesting suppress;
+  auto* profiler = SamplingHeapProfiler::Get();
+  auto session = profiler->Start(base::ByteSize(1024),
+                                 SamplingHeapProfiler::Priority::kBackground);
+  ASSERT_TRUE(session.has_value());
+
+  auto buffer = base::HeapArray<uint8_t>::WithSize(10000);
+  std::ranges::fill(buffer, 0u);
+  base::debug::Alias(buffer.data());
+
+  std::vector<SamplingHeapProfiler::Sample> samples =
+      profiler->GetSamples(session);
+  profiler->Stop(*session);
+  buffer = base::HeapArray<uint8_t>();
+
+  ASSERT_FALSE(samples.empty());
+  bool found = false;
+  for (const auto& sample : samples) {
+    if (sample.size == 10000) {
+      found = true;
+      ASSERT_TRUE(sample.resident_total.has_value());
+      EXPECT_GT(*sample.resident_total, 0u);
+      break;
+    }
+  }
+  EXPECT_TRUE(found);
 }
 
 }  // namespace base

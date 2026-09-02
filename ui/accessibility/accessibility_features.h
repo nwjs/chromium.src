@@ -252,6 +252,10 @@ AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForGoogleTts();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityChromeVoxJapaneseBraille);
 AX_BASE_EXPORT bool IsAccessibilityChromeVoxJapaneseBrailleEnabled();
 
+// Controls whether Google TTS automatically attempts to reconnect.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityGoogleTtsAutomaticReconnect);
+AX_BASE_EXPORT bool IsAccessibilityGoogleTtsAutomaticReconnectEnabled();
+
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -333,6 +337,11 @@ AX_BASE_EXPORT bool IsReadAnythingMenuShuffleExperimentEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadabilitySelectText);
 AX_BASE_EXPORT bool IsReadAnythingReadabilitySelectTextEnabled();
 
+// Enable the experimental playback UI for Read Anything Read Aloud.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(
+    kReadAnythingReadAloudExperimentalPlaybackUi);
+AX_BASE_EXPORT bool IsReadAnythingReadAloudExperimentalPlaybackUiEnabled();
+
 // Enable phrase highlighting in Read Anything Read Aloud.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingReadAloudPhraseHighlighting);
 AX_BASE_EXPORT bool IsReadAnythingReadAloudPhraseHighlightingEnabled();
@@ -357,11 +366,6 @@ AX_BASE_EXPORT bool IsReadAnythingLineFocusEnabled();
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kHatsReadingModeSurvey);
 AX_BASE_EXPORT bool IsHatsReadingModeSurveyEnabled();
 
-// Enable images to be distilled via algorithm. Should be disabled by
-// default.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingImagesViaAlgorithm);
-AX_BASE_EXPORT bool IsReadAnythingImagesViaAlgorithmEnabled();
-
 AX_BASE_EXPORT bool IsReadAnythingDocsIntegrationEnabled();
 
 // Enable "load more" button to show at the end of Reading Mode panel.
@@ -376,6 +380,11 @@ AX_BASE_EXPORT bool IsReadAnythingWithReadabilityEnabled();
 // Enable distillation quality evaluation for Reading Mode.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingDistillationQualityEvaluation);
 AX_BASE_EXPORT bool IsReadAnythingDistillationQualityEvaluationEnabled();
+
+// Enables unifying distillation triggers to the renderer and decoupling
+// distillation logic.
+AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAnythingDistillerRefactor);
+AX_BASE_EXPORT bool IsReadAnythingDistillerRefactorEnabled();
 
 // ScreenAI library's Main Content Extraction service is enabled.
 AX_BASE_EXPORT bool IsScreenAIMainContentExtractionEnabled();

@@ -21,12 +21,14 @@ namespace {
 const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kCctSignInPrompt,
     &switches::kCrossDeviceSignin,
+    &switches::kEnableAccountPreviewUseAppAccount,
     &switches::kEnableActivitylessSigninAllEntryPoint,
     &switches::kEnableAddSessionRedirect,
     &switches::kEnableAiSubscriptionAvatarRing,
     &switches::kEnableSeamlessSignin,
     &switches::kForceStartupSigninPromo,
     &switches::kForceHistoryOptInScreen,
+    &switches::kOpenSystemAccountSettingsDirectly,
     &switches::kSkipCheckForAccountManagementOnSignin,
     &switches::kSyncEnableBookmarksInTransportMode,
     &switches::kMakeIdentityManagerSourceOfAccounts,
@@ -35,6 +37,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kFullscreenSignInPromoUseDate,
     &switches::kSmartEmailLineBreaking,
     &switches::kSupportWebSigninAddSession,
+    &switches::kSignOutOfChrome,
     &switches::kSkipRefreshTokenCheckInIdentityManager,
     &switches::kChromeAndroidIdentitySurveyFirstRun,
     &switches::kChromeAndroidIdentitySurveyWeb,
@@ -47,6 +50,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &switches::kSigninLevelUpButton,
     &switches::kSupportForcedSigninPolicy,
     &switches::kProfileDiscOnAllPages,
+    &switches::kSwitchToIncognitoInSettings,
 };
 
 // static

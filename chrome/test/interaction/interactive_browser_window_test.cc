@@ -44,6 +44,7 @@
 #include "ui/base/interaction/interaction_test_util.h"
 #include "ui/base/interaction/interactive_test_internal.h"
 #include "ui/base/test/ui_controls.h"
+#include "ui/webui/tracked_element/tracked_element_web_ui.h"
 
 namespace {
 
@@ -685,7 +686,7 @@ ui::InteractionSequence::StepBuilder InteractiveBrowserWindowTestApi::ExecuteJs(
             std::string error_msg;
             AsInstrumentedWebContents(el)->Evaluate(full_function, &error_msg);
             if (!error_msg.empty()) {
-              LOG(ERROR) << "ExecuteJsAt() failed: " << error_msg;
+              LOG(ERROR) << "ExecuteJs() failed: " << error_msg;
               seq->FailForTesting();
             }
           },
@@ -749,6 +750,66 @@ InteractiveBrowserWindowTestApi::ExecuteJsAt(
 
 // static
 ui::InteractionSequence::StepBuilder
+InteractiveBrowserWindowTestApi::ExecuteJsAt(ElementSpecifier webui_element,
+                                             const std::string& function,
+                                             ExecuteJsMode mode) {
+  StepBuilder builder;
+  builder.SetDescription(
+      base::StringPrintf("ExecuteJsAt(\"\n%s\n\")", function.c_str()));
+  builder.SetElement(webui_element);
+  switch (mode) {
+    case ExecuteJsMode::kFireAndForget:
+      builder.SetMustRemainVisible(false);
+      builder.SetStartCallback(base::BindOnce(
+          [](std::string function, ui::InteractionSequence* seq,
+             ui::TrackedElement* el) {
+            auto* const webui_el = el->AsA<ui::TrackedElementWebUI>();
+            if (!webui_el) {
+              LOG(ERROR) << *el << " is not a TrackedElementWebUI";
+              seq->FailForTesting();
+              return;
+            }
+            WebContentsInteractionTestUtil::ExecuteAt(webui_el, function);
+          },
+          function));
+      break;
+    case ExecuteJsMode::kWaitForCompletion:
+      builder.SetStartCallback(base::BindOnce(
+          [](std::string function, ui::InteractionSequence* seq,
+             ui::TrackedElement* el) {
+            auto* const webui_el = el->AsA<ui::TrackedElementWebUI>();
+            if (!webui_el) {
+              LOG(ERROR) << *el << " is not a TrackedElementWebUI";
+              seq->FailForTesting();
+              return;
+            }
+            const auto full_function = base::StringPrintf(
+                R"(
+              (el, err) => {
+                if (err) {
+                  throw err;
+                }
+                (%s)(el);
+                return false;
+              }
+            )",
+                function.c_str());
+            std::string error_msg;
+            WebContentsInteractionTestUtil::EvaluateAt(webui_el, full_function,
+                                                       &error_msg);
+            if (!error_msg.empty()) {
+              LOG(ERROR) << "ExecuteJsAt() failed: " << error_msg;
+              seq->FailForTesting();
+            }
+          },
+          function));
+      break;
+  }
+  return builder;
+}
+
+// static
+ui::InteractionSequence::StepBuilder
 InteractiveBrowserWindowTestApi::CheckJsResult(
     ui::ElementIdentifier webcontents_id,
     const std::string& function) {
@@ -763,6 +824,13 @@ InteractiveBrowserWindowTestApi::CheckJsResultAt(
     const std::string& function) {
   return CheckJsResultAt(webcontents_id, where, function,
                          internal::IsTruthyMatcher());
+}
+
+// static
+ui::InteractionSequence::StepBuilder
+InteractiveBrowserWindowTestApi::CheckJsResultAt(ElementSpecifier webui_element,
+                                                 const std::string& function) {
+  return CheckJsResultAt(webui_element, function, internal::IsTruthyMatcher());
 }
 
 InteractiveBrowserWindowTestApi::MultiStep
@@ -879,13 +947,15 @@ InteractiveBrowserWindowTestApi::DumpWebContents(
   return std::move(
       WithElement(
           web_contents,
-          [web_contents](ui::InteractionSequence* sequence,
-                         ui::TrackedElement* el) {
+          [this, web_contents](ui::InteractionSequence* sequence,
+                               ui::TrackedElement* el) {
             std::string error_msg;
+            std::ostringstream oss;
             std::string function = base::StringPrintf(
                 "function() { %s; return dumpHtmlContent(document.body, "
-                "document.activeElement); }",
-                internal::InteractiveBrowserTestPrivate::kDumpElementsScript);
+                "document.activeElement, %s); }",
+                internal::InteractiveBrowserTestPrivate::kDumpElementsScript,
+                browser_test_impl().MakeDumpParams());
             base::Value result =
                 el->AsA<TrackedElementWebContents>()->owner()->Evaluate(
                     function, &error_msg);
@@ -908,8 +978,8 @@ InteractiveBrowserWindowTestApi::DumpWebContentsAt(
   return std::move(
       WithElement(
           web_contents,
-          [where, web_contents](ui::InteractionSequence* sequence,
-                                ui::TrackedElement* el) {
+          [this, where, web_contents](ui::InteractionSequence* sequence,
+                                      ui::TrackedElement* el) {
             std::string error_msg;
             const auto function = base::StringPrintf(
                 R"(
@@ -918,10 +988,11 @@ InteractiveBrowserWindowTestApi::DumpWebContentsAt(
                 throw err;
               }
               %s;
-              return dumpHtmlContent(el, undefined);
+              return dumpHtmlContent(el, undefined, %s);
             }
           )",
-                internal::InteractiveBrowserTestPrivate::kDumpElementsScript);
+                internal::InteractiveBrowserTestPrivate::kDumpElementsScript,
+                browser_test_impl().MakeDumpParams());
             base::Value result =
                 el->AsA<TrackedElementWebContents>()->owner()->EvaluateAt(
                     where, function, &error_msg);

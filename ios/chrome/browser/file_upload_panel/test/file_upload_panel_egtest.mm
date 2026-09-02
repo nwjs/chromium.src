@@ -139,8 +139,6 @@ std::unique_ptr<net::test_server::HttpResponse> TestPageResponse(
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  config.features_enabled.push_back(kIOSCustomFileUploadMenu);
-  config.features_enabled.push_back(kIOSChooseFromDrive);
   if ([self isRunningTest:@selector(testDriveInContextMenuWhenSignedOut)]) {
     config.features_enabled.push_back(kIOSChooseFromDriveSignedOut);
   }
@@ -170,16 +168,19 @@ std::unique_ptr<net::test_server::HttpResponse> TestPageResponse(
 }
 
 - (void)checkAndAcceptSystemDialog {
-  // Allow system permission if shown.
-  NSError* systemAlertFoundError = nil;
-  [[EarlGrey selectElementWithMatcher:grey_systemAlertViewShown()]
-      assertWithMatcher:grey_nil()
-                  error:&systemAlertFoundError];
-  if (systemAlertFoundError) {
-    NSError* acceptAlertError = nil;
-    [self grey_acceptSystemDialogWithError:&acceptAlertError];
-    GREYAssertNil(acceptAlertError, @"Error accepting system alert.\n%@",
-                  acceptAlertError);
+  // Allow system permission if shown on Springboard without using eDO calls.
+  XCUIApplication* springboardApp = [[XCUIApplication alloc]
+      initWithBundleIdentifier:@"com.apple.springboard"];
+  XCUIElement* alert = [[springboardApp
+      descendantsMatchingType:XCUIElementTypeAlert] firstMatch];
+  if ([alert waitForExistenceWithTimeout:1]) {
+    XCUIElement* allowButton = alert.buttons[@"Allow"];
+    if (![allowButton exists]) {
+      allowButton = [alert.buttons elementBoundByIndex:1];
+    }
+    if ([allowButton exists]) {
+      [allowButton tap];
+    }
   }
 }
 
@@ -349,8 +350,8 @@ std::unique_ptr<net::test_server::HttpResponse> TestPageResponse(
 
   // Wait for the alert to appear and accept it, or for the changes to complete.
   // The alert might not appear if the permission was already granted.
-  BOOL success = base::test::ios::WaitUntilConditionOrTimeout(
-      base::test::ios::kWaitForActionTimeout, ^{
+  BOOL success =
+      base::test::ios::WaitUntilConditionOrTimeout(base::Seconds(30), ^{
         if (changesPerformed) {
           return YES;
         }
@@ -835,9 +836,13 @@ std::unique_ptr<net::test_server::HttpResponse> TestPageResponse(
 
 // Tests that cancelling the file picker logs the correct metric.
 - (void)testFilePickerCancel {
-  // The file upload panel is only available on iOS 18.4+.
-  if (!base::ios::IsRunningOnOrLater(18, 4, 0)) {
-    EARL_GREY_TEST_SKIPPED(@"Test is only available for iOS 18.4+, skipping.");
+  // The file upload panel is only available on iOS 18.4+, but is failing on
+  // iOS 18.5.
+  // TODO(crbug.com/544412706): Re-enable test on iOS 18.5+.
+  if (!base::ios::IsRunningOnOrLater(18, 6, 0)) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Test is available for iOS 18.4+ but currently failing on iOS 18.5, "
+        @"skipping.");
   }
 
   GURL url = self.testServer->GetURL("/directory");
@@ -1372,10 +1377,8 @@ std::unique_ptr<net::test_server::HttpResponse> TestPageResponse(
                             timeout:30],
       @"Photo picker did not launch");
 
-  NSPredicate* imagePredicate =
-      [NSPredicate predicateWithFormat:@"label BEGINSWITH 'Photo'"];
   XCUIElementQuery* images =
-      [photosPickerApp.images matchingPredicate:imagePredicate];
+      [photosPickerApp.images matchingIdentifier:@"PXGGridLayout-Info"];
 
   if (images.count < 2) {
     // Close the picker to add the images.
@@ -1396,7 +1399,7 @@ std::unique_ptr<net::test_server::HttpResponse> TestPageResponse(
                               timeout:30],
         @"Photo picker did not launch");
 
-    images = [photosPickerApp.images matchingPredicate:imagePredicate];
+    images = [photosPickerApp.images matchingIdentifier:@"PXGGridLayout-Info"];
   }
 
   // Select multiple photos.

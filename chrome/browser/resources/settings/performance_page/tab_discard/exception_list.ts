@@ -6,34 +6,30 @@ import 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
-import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
+import 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import 'chrome://resources/cr_elements/cr_tooltip/cr_tooltip.js';
-import '../../settings_shared.css.js';
 import './exception_edit_dialog.js';
 import './exception_entry.js';
 import './exception_tabbed_add_dialog.js';
 
-import type {PrefsMixinInterface} from '/shared/settings/prefs/prefs_mixin.js';
-import {PrefsMixin} from '/shared/settings/prefs/prefs_mixin.js';
+import {PrefService} from '/shared/settings/prefs2/pref_service.js';
+import {PrefServiceObserverMixinLit} from '/shared/settings/prefs2/pref_service_observer_mixin_lit.js';
 import type {CrActionMenuElement} from 'chrome://resources/cr_elements/cr_action_menu/cr_action_menu.js';
 import type {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import type {CrCollapseElement} from 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
 import type {CrExpandButtonElement} from 'chrome://resources/cr_elements/cr_expand_button/cr_expand_button.js';
-import type {CrLazyRenderElement} from 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
+import type {CrLazyRenderLitElement} from 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render_lit.js';
 import type {CrTooltipElement} from 'chrome://resources/cr_elements/cr_tooltip/cr_tooltip.js';
-import type {ListPropertyUpdateMixinInterface} from 'chrome://resources/cr_elements/list_property_update_mixin.js';
-import {ListPropertyUpdateMixin} from 'chrome://resources/cr_elements/list_property_update_mixin.js';
 import {assert} from 'chrome://resources/js/assert.js';
-import type {DomRepeat} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
+import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
-import type {TooltipMixinInterface} from '../../tooltip_mixin.js';
-import {TooltipMixin} from '../../tooltip_mixin.js';
+import {TooltipMixinLit} from '../../tooltip_mixin_lit.js';
 import type {PerformanceMetricsProxy} from '../performance_metrics_proxy.js';
 import {MemorySaverModeExceptionListAction, PerformanceMetricsProxyImpl} from '../performance_metrics_proxy.js';
 
 import type {ExceptionEntry} from './exception_entry.js';
-import {getTemplate} from './exception_list.html.js';
+import {getCss} from './exception_list.css.js';
+import {getHtml} from './exception_list.html.js';
 import {TAB_DISCARD_EXCEPTIONS_MANAGED_PREF, TAB_DISCARD_EXCEPTIONS_PREF} from './exception_validation_mixin.js';
 
 export const TAB_DISCARD_EXCEPTIONS_OVERFLOW_SIZE: number = 5;
@@ -43,19 +39,14 @@ export interface ExceptionListElement {
     addButton: CrButtonElement,
     collapse: CrCollapseElement,
     expandButton: CrExpandButtonElement,
-    list: DomRepeat,
-    overflowList: DomRepeat,
-    menu: CrLazyRenderElement<CrActionMenuElement>,
+    menu: CrLazyRenderLitElement<CrActionMenuElement>,
     noSitesAdded: HTMLElement,
     tooltip: CrTooltipElement,
   };
 }
 
-type Constructor<T> = new (...args: any[]) => T;
 const ExceptionListElementBase =
-    TooltipMixin(ListPropertyUpdateMixin(PrefsMixin(PolymerElement))) as
-    Constructor<TooltipMixinInterface&ListPropertyUpdateMixinInterface&
-                PrefsMixinInterface&PolymerElement>;
+    TooltipMixinLit(PrefServiceObserverMixinLit(CrLitElement));
 
 export class ExceptionListElement extends
     ExceptionListElementBase {
@@ -63,112 +54,100 @@ export class ExceptionListElement extends
     return 'tab-discard-exception-list';
   }
 
-  static get template() {
-    return getTemplate();
+  static override get styles() {
+    return getCss();
   }
 
-  static get properties() {
+  override render() {
+    return getHtml.bind(this)();
+  }
+
+  static override get properties() {
     return {
-      siteList_: {
-        type: Array,
-        value: [],
-      },
-
-      overflowSiteListExpanded: {type: Boolean, value: false},
-
-      /**
-       * Rule corresponding to the last more actions menu opened. Indicates to
-       * this element and its dialog which rule to edit or if a new one should
-       * be added.
-       */
-      selectedRule_: {
-        type: String,
-        value: '',
-      },
-
-      showTabbedAddDialog_: {
-        type: Boolean,
-        value: false,
-      },
-
-      showEditDialog_: {
-        type: Boolean,
-        value: false,
-      },
-
-      tooltipText_: String,
+      siteList_: {type: Array},
+      overflowSiteListExpanded_: {type: Boolean},
+      selectedRule_: {type: String},
+      showTabbedAddDialog_: {type: Boolean},
+      showEditDialog_: {type: Boolean},
+      tooltipText_: {type: String},
     };
   }
 
-  static get observers() {
-    return [
-      `onPrefsChanged_(prefs.${TAB_DISCARD_EXCEPTIONS_PREF}.value.*,` +
-          `prefs.${TAB_DISCARD_EXCEPTIONS_MANAGED_PREF}.value.*)`,
-    ];
-  }
-
-  declare private siteList_: ExceptionEntry[];
-  declare private overflowSiteListExpanded: boolean;
-  declare private selectedRule_: string;
-  declare private showTabbedAddDialog_: boolean;
-  declare private showEditDialog_: boolean;
-  declare private tooltipText_: string;
+  protected accessor siteList_: ExceptionEntry[] = [];
+  protected accessor overflowSiteListExpanded_: boolean = false;
+  protected accessor selectedRule_: string = '';
+  protected accessor showTabbedAddDialog_: boolean = false;
+  protected accessor showEditDialog_: boolean = false;
+  protected accessor tooltipText_: string = '';
 
   private metricsProxy_: PerformanceMetricsProxy =
       PerformanceMetricsProxyImpl.getInstance();
 
-  private hasSites_(): boolean {
+  override connectedCallback() {
+    super.connectedCallback();
+    this.addPrefObserver(TAB_DISCARD_EXCEPTIONS_PREF, () => this.updateList_());
+    this.addPrefObserver(
+        TAB_DISCARD_EXCEPTIONS_MANAGED_PREF, () => this.updateList_());
+  }
+
+  protected hasSites_(): boolean {
     return this.siteList_.length > 0;
   }
 
-  private hasOverflowSites_() {
+  protected hasOverflowSites_(): boolean {
     return this.siteList_.length > TAB_DISCARD_EXCEPTIONS_OVERFLOW_SIZE;
   }
 
-  private getSiteList_() {
+  protected getSiteList_() {
     return this.siteList_.slice(-TAB_DISCARD_EXCEPTIONS_OVERFLOW_SIZE)
         .reverse();
   }
 
-  private getOverflowSiteList_() {
+  protected getOverflowSiteList_() {
     return this.siteList_.slice(0, -TAB_DISCARD_EXCEPTIONS_OVERFLOW_SIZE)
         .reverse();
   }
 
-  private onAddClick_() {
+  protected onOverflowSiteListExpandedChanged_(
+      e: CustomEvent<{value: boolean}>) {
+    this.overflowSiteListExpanded_ = e.detail.value;
+  }
+
+  protected onAddClick_() {
     assert(!this.showEditDialog_);
     this.showTabbedAddDialog_ = true;
   }
 
-  private onMenuClick_(e: CustomEvent<{target: HTMLElement, site: string}>) {
+  protected onMenuClick_(e: CustomEvent<{target: HTMLElement, site: string}>) {
     e.stopPropagation();
     this.selectedRule_ = e.detail.site;
     this.$.menu.get().showAt(e.detail.target);
   }
 
-  private onEditClick_() {
+  protected onEditClick_() {
     assert(this.selectedRule_);
     assert(!this.showTabbedAddDialog_);
     this.showEditDialog_ = true;
     this.$.menu.get().close();
   }
 
-  private onDeleteClick_() {
-    this.deletePrefDictEntry(TAB_DISCARD_EXCEPTIONS_PREF, this.selectedRule_);
+  protected onDeleteClick_() {
+    PrefService.getInstance().deletePrefDictEntry(
+        TAB_DISCARD_EXCEPTIONS_PREF, this.selectedRule_);
     this.metricsProxy_.recordExceptionListAction(
         MemorySaverModeExceptionListAction.REMOVE);
     this.$.menu.get().close();
   }
 
-  private onTabbedAddDialogClose_() {
+  protected onTabbedAddDialogClose_() {
     this.showTabbedAddDialog_ = false;
   }
 
-  private onEditDialogClose_() {
+  protected onEditDialogClose_() {
     this.showEditDialog_ = false;
   }
 
-  private onPrefsChanged_() {
+  private updateList_() {
     const newSites: ExceptionEntry[] = [];
 
     const siteToExceptionEntry =
@@ -179,8 +158,8 @@ export class ExceptionListElement extends
         });
 
     {
-      const prefObject =
-          this.getPref<string[]>(TAB_DISCARD_EXCEPTIONS_MANAGED_PREF);
+      const prefObject = PrefService.getInstance().getPref<string[]>(
+          TAB_DISCARD_EXCEPTIONS_MANAGED_PREF);
       const sites: string[] = prefObject.value;
       newSites.push(
           ...sites.map(site => siteToExceptionEntry(site, prefObject)));
@@ -188,23 +167,24 @@ export class ExceptionListElement extends
 
     {
       const prefObject =
-          this.getPref<Record<string, string>>(TAB_DISCARD_EXCEPTIONS_PREF);
+          PrefService.getInstance().getPref<Record<string, string>>(
+              TAB_DISCARD_EXCEPTIONS_PREF);
       const sites: string[] = Object.keys(prefObject.value);
       newSites.push(
           ...sites.map(site => siteToExceptionEntry(site, prefObject)));
     }
 
-    // Optimizes updates by keeping existing references and minimizes splices
-    this.updateList(
-        'siteList_', (entry: ExceptionEntry) => entry.site, newSites);
+    this.siteList_ = newSites;
   }
 
   /**
    * Need to use common tooltip since the tooltip in the entry is cut off from
    * the iron-list.
    */
-  private onShowTooltip_(e: CustomEvent<{target: HTMLElement, text: string}>) {
+  protected async onShowTooltip_(
+      e: CustomEvent<{target: HTMLElement, text: string}>) {
     this.tooltipText_ = e.detail.text;
+    await this.updateComplete;
     this.showTooltipAtTarget(this.$.tooltip, e.detail.target);
   }
 }

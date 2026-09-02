@@ -34,6 +34,7 @@ import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymen
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PaymentAppProperties.PAYMENT_APP_ICON;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PaymentAppProperties.PAYMENT_APP_NAME;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PixAccountLinkingPromptProperties.ACCEPT_BUTTON_CALLBACK;
+import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PixAccountLinkingPromptProperties.ACCOUNT_EMAIL;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PixAccountLinkingPromptProperties.DECLINE_BUTTON_CALLBACK;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PixAccountLinkingPromptProperties.DECLINE_BUTTON_TEXT_ID;
 import static org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsProperties.PixAccountLinkingPromptProperties.SETTINGS_LINK_CALLBACK;
@@ -70,6 +71,7 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.build.annotations.Initializer;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.autofill.AutofillImageFetcherFactory;
 import org.chromium.chrome.browser.autofill.AutofillUiUtils.IconSpecs;
 import org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPaymentMethodsComponent.Delegate;
@@ -83,6 +85,10 @@ import org.chromium.chrome.browser.facilitated_payments.FacilitatedPaymentsPayme
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
+import org.chromium.chrome.browser.ui.messages.snackbar.Snackbar;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager.SnackbarController;
+import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManagerProvider;
 import org.chromium.components.autofill.ImageSize;
 import org.chromium.components.autofill.ImageType;
 import org.chromium.components.autofill.payments.AccountType;
@@ -94,6 +100,7 @@ import org.chromium.components.facilitated_payments.core.ui_utils.FopSelectorAct
 import org.chromium.components.facilitated_payments.core.ui_utils.PaymentLinkFopSelectorAction;
 import org.chromium.components.facilitated_payments.core.ui_utils.UiEvent;
 import org.chromium.components.payments.ui.InputProtector;
+import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -109,7 +116,7 @@ import java.util.Set;
  * reacts to events like clicks.
  */
 @NullMarked
-class FacilitatedPaymentsPaymentMethodsMediator {
+class FacilitatedPaymentsPaymentMethodsMediator implements SnackbarController {
     static final String PIX_BANK_ACCOUNT_TRANSACTION_LIMIT = "500";
     static final int STRIKE_THRESHOLD_FOR_HARD_DECLINE = 2;
 
@@ -134,6 +141,8 @@ class FacilitatedPaymentsPaymentMethodsMediator {
     private PropertyModel mModel;
     private Delegate mDelegate;
     private Profile mProfile;
+    private @Nullable WindowAndroid mWindowAndroid;
+    private @Nullable SnackbarManager mSnackbarManager;
     private InputProtector mInputProtector = new InputProtector();
     // Used to debounce duplicate/outdated UI events. After a user has accepted/declined
     // the prompt, there is a brief period where new input events (e.g., a second tap, or
@@ -141,17 +150,65 @@ class FacilitatedPaymentsPaymentMethodsMediator {
     private boolean mActionAlreadyTaken;
 
     @Initializer
-    void initialize(Context context, PropertyModel model, Delegate delegate, Profile profile) {
+    void initialize(
+            Context context,
+            PropertyModel model,
+            Delegate delegate,
+            Profile profile,
+            @Nullable WindowAndroid windowAndroid) {
         mContext = context;
         mModel = model;
         mDelegate = delegate;
         mProfile = profile;
+        mWindowAndroid = windowAndroid;
+    }
+
+    void setSnackbarManagerForTesting(SnackbarManager snackbarManager) {
+        mSnackbarManager = snackbarManager;
     }
 
     boolean isInLandscapeMode() {
         return mContext.getResources().getConfiguration().orientation
                 == Configuration.ORIENTATION_LANDSCAPE;
     }
+
+    void showAccountLinkingFailureNotification(@FacilitatedPaymentsType int fopType) {
+        SnackbarManager snackbarManager = mSnackbarManager;
+        if (snackbarManager == null && mWindowAndroid != null) {
+            snackbarManager = SnackbarManagerProvider.from(mWindowAndroid);
+        }
+        if (snackbarManager == null) {
+            return;
+        }
+
+        int messageId;
+        int umaMetric;
+
+        switch (fopType) {
+            case FacilitatedPaymentsType.PIX:
+                messageId = R.string.pix_account_linking_error_footer_message;
+                umaMetric = Snackbar.UMA_FACILITATED_PAYMENTS_PIX_ACCOUNT_LINKING_ERROR;
+                break;
+            default:
+                assert false
+                        : "Unsupported payment type for account linking failure notification: "
+                                + fopType;
+                return;
+        }
+
+        Snackbar snackbar =
+                Snackbar.make(
+                        mContext.getString(messageId), this, Snackbar.TYPE_NOTIFICATION, umaMetric);
+        // Allow multi-line text so longer error messages for any payment type are not truncated.
+        snackbar.setDefaultLines(false);
+        snackbarManager.showSnackbar(snackbar);
+    }
+
+    @Override
+    public void onAction(@Nullable Object actionData) {}
+
+    @Override
+    public void onDismissNoAction(@Nullable Object actionData) {}
 
     void showSheetForPix(List<BankAccount> bankAccounts) {
         mInputProtector.markShowTime();
@@ -277,13 +334,14 @@ class FacilitatedPaymentsPaymentMethodsMediator {
         }
     }
 
-    void showPixAccountLinkingPrompt(int strikeCount) {
+    void showPixAccountLinkingPrompt(int strikeCount, String accountEmail) {
         // Set {@link VISIBLE_STATE} to the placeholder state which is a no-op, and then update the
         // screen to the Pix account linking prompt. Finally update {@link VISIBLE_STATE} to show
         // the new screen.
         mModel.set(VISIBLE_STATE, SWAPPING_SCREEN);
         mModel.set(SCREEN, PIX_ACCOUNT_LINKING_PROMPT);
         // Set Pix account linking prompt properties and show the prompt.
+        mModel.get(SCREEN_VIEW_MODEL).set(ACCOUNT_EMAIL, accountEmail);
         mModel.get(SCREEN_VIEW_MODEL)
                 .set(ACCEPT_BUTTON_CALLBACK, v -> mDelegate.onPixAccountLinkingPromptAccepted());
         mModel.get(SCREEN_VIEW_MODEL)

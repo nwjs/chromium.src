@@ -2,16 +2,19 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/strings/stringprintf.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_passkeys.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/skills/skills_interactive_uitest_base.h"
+#include "chrome/browser/skills/skills_ui_tab_controller_interface.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/toasts/toast_view.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_view.h"
 #include "chrome/common/chrome_features.h"
 #include "components/skills/features.h"
+#include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test.h"
 
 namespace skills {
@@ -56,10 +59,17 @@ IN_PROC_BROWSER_TEST_F(SkillsInvocationInteractiveUiTest,
       // Simulate an invocation with auto-submit.
       Do([this, skill, skill_id_ptr = &generated_skill_id]() mutable {
         skill.id = *skill_id_ptr;
+        auto mojo_skills_payload = glic::mojom::SkillsPayload::New();
+        mojo_skills_payload->skill_id = skill.id;
+        mojo_skills_payload->skill_name = skill.name;
+        mojo_skills_payload->skill_icon = skill.icon;
+        auto payload = glic::mojom::InvocationPayload::NewSkillsPayload(
+            std::move(mojo_skills_payload));
         glic::GlicInvokeOptions options(
             glic::Target(*browser()->GetActiveTabInterface()),
-            glic::mojom::InvocationSource::kSkills);
+            std::move(payload));
         options.prompts.push_back(skill.prompt);
+        // Deprecated fallbacks for coverage/backwards compatibility check
         options.skill_id = skill.id;
 
         InvokeWithAutoSubmitHelper(std::move(options));
@@ -119,6 +129,73 @@ IN_PROC_BROWSER_TEST_F(SkillsInvocationInteractiveUiTest,
       // Invoke the contextual skill and verify invocation WebUI.
       InvokeSkillDirectly(&contextual_skill.id),
       VerifyInvocationInWebUI(contextual_skill.prompt));
+}
+
+class SkillsInvocationInteractiveUiTestV2 : public SkillsInteractiveUiTestBase {
+ public:
+  SkillsInvocationInteractiveUiTestV2() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kSkillsWebViewV2Enabled);
+  }
+
+  ui::test::InteractiveTestApi::StepBuilder InvokeSkillDirectlyV2(
+      const std::string& skill_id,
+      const std::string& skill_name,
+      const std::string& skill_icon) {
+    return Do([this, skill_id, skill_name, skill_icon]() {
+      if (auto* active_tab = browser()->GetActiveTabInterface()) {
+        if (auto* tab_controller =
+                skills::SkillsUiTabControllerInterface::From(active_tab)) {
+          tab_controller->InvokeSkill(skill_id, skill_name, skill_icon);
+        }
+      }
+    });
+  }
+
+  ui::test::InteractiveTestApi::StepBuilder SendPromptDirectlyV2(
+      const std::string& prompt) {
+    return Do([this, prompt]() {
+      if (auto* active_tab = browser()->GetActiveTabInterface()) {
+        if (auto* tab_controller =
+                skills::SkillsUiTabControllerInterface::From(active_tab)) {
+          tab_controller->SendPrompt(prompt);
+        }
+      }
+    });
+  }
+
+  ui::test::InteractiveTestApi::MultiStep VerifyPromptInWebUI(
+      const std::string& expected_prompt) {
+    return Steps(Log("Verifying Glic Panel Received Prompt (V2)"),
+                 WaitForShow(glic::kGlicHostElementId),
+                 WaitForJsResult(
+                     glic::kGlicContentsElementId,
+                     base::StringPrintf(
+                         "() => {"
+                         "  const promptInput = "
+                         "document.getElementById('skillPromptInput');"
+                         "  return !!promptInput && promptInput.value === '%s';"
+                         "}",
+                         expected_prompt.c_str())));
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SkillsInvocationInteractiveUiTestV2, InvokeSkillV2) {
+  auto skill = GetMockSkill();
+  skill.id = base::Uuid::GenerateRandomV4().AsLowercaseString();
+  RunTestSequence(
+      OpenGlicAndInstrument(),
+      InvokeSkillDirectlyV2(skill.id, skill.name, skill.icon),
+      VerifyInvocationInWebUI(/*expected_prompt=*/"", skill.name, skill.icon));
+}
+
+IN_PROC_BROWSER_TEST_F(SkillsInvocationInteractiveUiTestV2, SendPromptV2) {
+  std::string test_prompt = "Test Prompt";
+  RunTestSequence(OpenGlicAndInstrument(), SendPromptDirectlyV2(test_prompt),
+                  VerifyPromptInWebUI(test_prompt));
 }
 
 }  // namespace skills

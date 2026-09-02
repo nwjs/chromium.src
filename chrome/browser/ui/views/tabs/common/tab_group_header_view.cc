@@ -160,6 +160,7 @@ TabGroupHeaderView::TabGroupHeaderView(
 
   if (editor_bubble_button_) {
     ConfigureEditorBubbleButton(editor_bubble_button_);
+    editor_bubble_button_->SetVisible(delegate_->IsGroupFocused());
   }
   editor_bubble_opened_subscription_ =
       editor_bubble_tracker_.RegisterOnBubbleOpened(base::BindRepeating(
@@ -188,7 +189,7 @@ TabGroupHeaderView::TabGroupHeaderView(
           /*adjust_height_for_width=*/false,
           views::MinimumFlexSizeRule::kScaleToZero)
           .WithOrder(2));
-  // The collapse icon should always be seen.
+  // The collapse icon should be seen when not in focus mode.
   // Let the collapse icon grow to fill the remaining available space while
   // keeping the icon trailing aligned.
   if (collapse_icon_) {
@@ -198,6 +199,7 @@ TabGroupHeaderView::TabGroupHeaderView(
         views::kFlexBehaviorKey,
         views::FlexSpecification(views::MinimumFlexSizeRule::kPreferred,
                                  views::MaximumFlexSizeRule::kPreferred));
+    collapse_icon_->SetVisible(!delegate_->IsGroupFocused());
   }
 
   sync_icon_->SetProperty(views::kMarginsKey,
@@ -263,8 +265,9 @@ gfx::Size TabGroupHeaderView::CalculatePreferredSize(
 }
 
 bool TabGroupHeaderView::OnKeyPressed(const ui::KeyEvent& event) {
-  if (event.key_code() == ui::VKEY_SPACE ||
-      event.key_code() == ui::VKEY_RETURN) {
+  if ((event.key_code() == ui::VKEY_SPACE ||
+       event.key_code() == ui::VKEY_RETURN) &&
+      !delegate_->IsGroupFocused()) {
     delegate_->ToggleCollapsedState(
         ToggleTabGroupCollapsedStateOrigin::kKeyboard);
     views::ElementTrackerViews::GetInstance()->NotifyViewActivated(
@@ -326,7 +329,8 @@ void TabGroupHeaderView::OnMouseReleased(const ui::MouseEvent& event) {
 
   bool open_editor_bubble =
       event.IsRightMouseButton() && !editor_bubble_tracker_.is_open();
-  bool toggle_collapse = event.IsLeftMouseButton();
+  bool toggle_collapse =
+      event.IsLeftMouseButton() && !delegate_->IsGroupFocused();
   if (open_editor_bubble) {
     ShowEditorBubble();
   } else if (toggle_collapse) {
@@ -347,10 +351,12 @@ void TabGroupHeaderView::OnGestureEvent(ui::GestureEvent* event) {
       break;
 
     case ui::EventType::kGestureTap:
-      delegate_->ToggleCollapsedState(
-          ToggleTabGroupCollapsedStateOrigin::kGesture);
-      views::ElementTrackerViews::GetInstance()->NotifyViewActivated(
-          kTabGroupHeaderElementId, this);
+      if (!delegate_->IsGroupFocused()) {
+        delegate_->ToggleCollapsedState(
+            ToggleTabGroupCollapsedStateOrigin::kGesture);
+        views::ElementTrackerViews::GetInstance()->NotifyViewActivated(
+            kTabGroupHeaderElementId, this);
+      }
       event->SetHandled();
       break;
 
@@ -546,10 +552,12 @@ void TabGroupHeaderView::OnDataChanged(
     // Update editor bubble button.
     if (editor_bubble_button_) {
       UpdateEditorButtonColors(editor_bubble_button_, foreground_color);
+      UpdateEditorBubbleButtonVisibility();
     }
 
     // Update collapse icon.
     if (collapse_icon_) {
+      collapse_icon_->SetVisible(!delegate_->IsGroupFocused());
       collapse_icon_->SetImage(ui::ImageModel::FromVectorIcon(
           tab_group_visual_data_.is_collapsed()
               ? features::IsRoundedIconsEnabled()
@@ -705,10 +713,9 @@ void TabGroupHeaderView::SetEditorBubbleButtonVisibilityOnHover(
   if (!editor_bubble_button_) {
     return;
   }
-  if (editor_bubble_button_) {
-    editor_bubble_button_->SetVisible(editor_bubble_tracker_.is_open() ||
-                                      is_hovered);
-  }
+  editor_bubble_button_->SetVisible(delegate_->IsGroupFocused() ||
+                                    editor_bubble_tracker_.is_open() ||
+                                    is_hovered);
 }
 
 void TabGroupHeaderView::ShowEditorBubble() {

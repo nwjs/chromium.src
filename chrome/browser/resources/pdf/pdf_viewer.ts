@@ -148,6 +148,15 @@ function hasFixedCtrlModifierOnly(e: KeyboardEvent): boolean {
   return e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey;
 }
 
+// Like hasCtrlModifierOnly(), but allow the shift modifier.
+function hasCtrlModifierMaybeWithShift(e: KeyboardEvent): boolean {
+  let metaModifier = e.metaKey;
+  // <if expr="is_macosx">
+  metaModifier = e.ctrlKey;
+  // </if>
+  return hasCtrlModifier(e) && !e.altKey && !metaModifier;
+}
+
 const LOCAL_STORAGE_SIDENAV_COLLAPSED_KEY: string = 'sidenavCollapsed';
 
 /**
@@ -563,6 +572,12 @@ export class PdfViewerElement extends PdfViewerBaseElement {
           this.maybeCreateTextAnnotation_();
         }
         return;
+      case 'v':
+        if ((e as ExtendedKeyEvent).fromPlugin && hasCtrlModifierOnly(e) &&
+            this.isInTextAnnotationMode_()) {
+          this.maybePasteTextAnnotation_();
+        }
+        return;
       // </if>
       default:
         break;
@@ -571,6 +586,21 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     // Handle toolbar related key events.
     this.handleToolbarKeyEvent_(e);
   }
+
+  // <if expr="enable_pdf_ink2">
+  private maybePasteTextAnnotation_() {
+    // Ignore paste if focus is actively on some other element like
+    // a side panel/nav or toolbar.
+    const focused = this.shadowRoot.activeElement;
+    if (!!focused && !this.$.scroller.contains(focused)) {
+      return;
+    }
+
+    const annotations = this.shadowRoot.querySelector('ink-text-annotations');
+    assert(annotations);
+    annotations.pasteAnnotation();
+  }
+  // </if>
 
   /**
    * Helper for handleKeyEvent dealing with events that control toolbars.
@@ -601,23 +631,18 @@ export class PdfViewerElement extends PdfViewerBaseElement {
         return;
       // <if expr="enable_pdf_ink2">
       case 'z':
-        // <if expr="is_macosx">
-        if (e.metaKey && !e.ctrlKey && !e.altKey) {
+      case 'Z':
+        if (hasCtrlModifierMaybeWithShift(e)) {
           if (e.shiftKey) {
             this.$.toolbar.redo();
           } else {
             this.$.toolbar.undo();
           }
         }
-        // </if>  is_macosx
-        // <if expr="not is_macosx">
-        if (hasCtrlModifierOnly(e)) {
-          this.$.toolbar.undo();
-        }
-        // </if>  not is_macosx
         return;
       // <if expr="not is_macosx">
       case 'y':
+      case 'Y':
         if (hasCtrlModifierOnly(e)) {
           this.$.toolbar.redo();
         }
@@ -673,10 +698,14 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
   // <if expr="enable_pdf_ink2">
   // Handles the annotation mode being updated from the toolbar buttons.
-  protected async onAnnotationModeUpdated_(e: CustomEvent<AnnotationMode>) {
+  protected onAnnotationModeUpdated_(e: CustomEvent<AnnotationMode>) {
+    this.setAnnotationMode_(e.detail);
+  }
+
+  private async setAnnotationMode_(newAnnotationMode: AnnotationMode):
+      Promise<void> {
     assert(this.pdfInk2Enabled_);
 
-    const newAnnotationMode = e.detail;
     if (newAnnotationMode === this.annotationMode_) {
       return;
     }
@@ -712,23 +741,28 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   private async enterPresentationMode_(): Promise<void> {
-    // <if expr="enable_pdf_ink2">
-    // Exit annotation mode if it was enabled.
-    if (this.pdfInk2Enabled_ && this.annotationMode_ !== AnnotationMode.OFF) {
-      this.restoreAnnotationMode_ = this.annotationMode_;
-      this.$.toolbar.setAnnotationMode(AnnotationMode.OFF);
-    }
-    assert(this.annotationMode_ === AnnotationMode.OFF);
-    // </if>
-
     const scroller = this.$.scroller;
 
     this.viewport.saveZoomState();
 
-    await Promise.all([
+    // Initiate `requestFullscreen()` synchronously to capture the user gesture
+    // before any asynchronous operations (such as committing text annotations
+    // when exiting text annotation mode).
+    const fullscreenPromise = Promise.all([
       eventToPromise('fullscreenchange', scroller),
       scroller.requestFullscreen(),
     ]);
+
+    // <if expr="enable_pdf_ink2">
+    // Exit annotation mode if it was enabled.
+    if (this.pdfInk2Enabled_ && this.annotationMode_ !== AnnotationMode.OFF) {
+      this.restoreAnnotationMode_ = this.annotationMode_;
+      await this.setAnnotationMode_(AnnotationMode.OFF);
+    }
+    assert(this.annotationMode_ === AnnotationMode.OFF);
+    // </if>
+
+    await fullscreenPromise;
 
     this.forceFit(FittingType.FIT_TO_HEIGHT);
 
@@ -754,17 +788,18 @@ export class PdfViewerElement extends PdfViewerBaseElement {
 
     // Set zoom back to original zoom before presentation mode.
     this.viewport.restoreZoomState();
+  }
 
-    // <if expr="enable_pdf_ink2">
-    // Enter annotation mode again if it was enabled before entering
-    // Presentation mode.
+  // <if expr="enable_pdf_ink2">
+  private async maybeRestoreAnnotationMode_(): Promise<void> {
+    // Restore annotation mode if it was previously enabled.
     if (this.restoreAnnotationMode_ !== AnnotationMode.OFF) {
-      this.$.toolbar.setAnnotationMode(this.restoreAnnotationMode_);
+      await this.setAnnotationMode_(this.restoreAnnotationMode_);
       assert(this.annotationMode_ !== AnnotationMode.OFF);
       this.restoreAnnotationMode_ = AnnotationMode.OFF;
     }
-    // </if>
   }
+  // </if> enable_pdf_ink2
 
   private focusPlugin_() {
     // Focus the embed in this frame, so the browser routes keyboard events to
@@ -783,6 +818,9 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     await eventToPromise('fullscreenchange', this.$.scroller);
 
     this.exitPresentationMode_();
+    // <if expr="enable_pdf_ink2">
+    await this.maybeRestoreAnnotationMode_();
+    // </if>
   }
 
   protected onPropertiesClick_() {
@@ -1200,6 +1238,7 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     // Show the password dialog if it is not already shown. Otherwise, respond
     // to an incorrect password.
     if (!this.showPasswordDialog_) {
+      this.hadPassword_ = true;
       this.showPasswordDialog_ = true;
       this.sendScriptingMessage({type: 'passwordPrompted'});
     } else {

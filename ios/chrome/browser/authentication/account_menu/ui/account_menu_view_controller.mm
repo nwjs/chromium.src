@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/authentication/account_menu/public/account_menu_constants.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_data_source.h"
 #import "ios/chrome/browser/authentication/account_menu/ui/account_menu_mutator.h"
+#import "ios/chrome/browser/authentication/account_menu/ui/ui_swift.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/policy/model/management_state.h"
@@ -33,6 +34,7 @@
 #import "ios/chrome/browser/signin/model/signin_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
+#import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/image_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/device_form_factor.h"
@@ -94,7 +96,8 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
 }  // namespace
 
-@interface AccountMenuViewController () <UITableViewDelegate>
+@interface AccountMenuViewController () <CentralAccountViewDelegate,
+                                         UITableViewDelegate>
 
 @property(nonatomic, strong) UITableView* tableView;
 
@@ -115,6 +118,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   BOOL _resizeReady;
   // Whether or not to hide the ellipsis menu.
   BOOL _hideEllipsisMenu;
+  UIView* _blockingOverlay;
 }
 
 - (instancetype)initWithHideEllipsisMenu:(BOOL)hideEllipsisMenu {
@@ -144,12 +148,7 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 
   tableView.translatesAutoresizingMaskIntoConstraints = NO;
   [self.view addSubview:tableView];
-  [NSLayoutConstraint activateConstraints:@[
-    [self.view.topAnchor constraintEqualToAnchor:tableView.topAnchor],
-    [self.view.bottomAnchor constraintEqualToAnchor:tableView.bottomAnchor],
-    [self.view.trailingAnchor constraintEqualToAnchor:tableView.trailingAnchor],
-    [self.view.leadingAnchor constraintEqualToAnchor:tableView.leadingAnchor],
-  ]];
+  AddSameConstraints(self.view, tableView);
   tableView.delegate = self;
   tableView.accessibilityIdentifier = kAccountMenuTableViewId;
   tableView.backgroundColor =
@@ -212,7 +211,13 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
     height = kViewControllerDefaultPreferredHeight;
   }
   CGFloat width = self.tableView.frame.size.width;
-  self.preferredContentSize = CGSize(width, height);
+  // During initial layout passes or transitions (especially in Multi-window or
+  // Split-screen mode on iPad), the table view's frame width can be 0. Setting
+  // preferredContentSize with 0 width causes unsatisfiable constraints inside
+  // UIKit's popover layout engine, leading to crashes. See crbug.com/505638993.
+  if (width > 0) {
+    self.preferredContentSize = CGSize(width, height);
+  }
 }
 
 // Creates a button for the navigation bar.
@@ -688,12 +693,35 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
   return [[UIView alloc] initWithFrame:CGRectZero];
 }
 
+#pragma mark - CentralAccountViewDelegate
+
+- (void)centralAccountViewDidTapAISubscriptionChip:(CentralAccountView*)view {
+  base::RecordAction(
+      base::UserMetricsAction("Signin_AccountMenu_SubscriptionChip"));
+}
+
 #pragma mark - AccountMenuConsumer
 
 - (void)setUserInteractionsEnabled:(BOOL)enabled {
   self.tableView.allowsSelection = enabled;
+  _identityAccountView.userInteractionEnabled = enabled;
+  self.tableView.scrollEnabled = enabled;
   _closeButton.enabled = enabled;
   _ellipsisButton.enabled = enabled;
+  self.navigationController.modalInPresentation = !enabled;
+  self.modalInPresentation = !enabled;
+  self.tableView.accessibilityElementsHidden = !enabled;
+
+  if (enabled) {
+    [_blockingOverlay removeFromSuperview];
+    _blockingOverlay = nil;
+  } else if (!_blockingOverlay) {
+    _blockingOverlay = [[UIView alloc] init];
+    _blockingOverlay.translatesAutoresizingMaskIntoConstraints = NO;
+    _blockingOverlay.backgroundColor = UIColor.clearColor;
+    [self.view addSubview:_blockingOverlay];
+    AddSameConstraints(_blockingOverlay, self.view);
+  }
 }
 
 - (void)switchingStarted {
@@ -721,16 +749,24 @@ NSString* const kCustomExpandedDetentIdentifier = @"customExpandedDetent";
 - (void)updatePrimaryAccount {
   UIImage* avatarImage = [self.dataSource primaryAccountAvatar];
   BOOL showsRing = [self.dataSource primaryAccountAvatarNeedsRing];
+  NSString* aiTierName = [self.dataSource primaryAccountAITierName];
+  UIView* subscriptionChipView = nil;
+  if (aiTierName.length > 0) {
+    subscriptionChipView =
+        [[AISubscriptionChipWrapperView alloc] initWithText:aiTierName];
+  }
 
   _identityAccountView = [[CentralAccountView alloc]
               initWithFrame:CGRectMake(0, 0, self.tableView.frame.size.width, 0)
                 avatarImage:avatarImage
             showsAITierRing:showsRing
              aiTierFullName:self.dataSource.primaryAccountAITierFullName
+       subscriptionChipView:subscriptionChipView
                        name:self.dataSource.primaryAccountUserFullName
                       email:self.dataSource.primaryAccountEmail
       managementDescription:self.dataSource.managementDescription
             useLargeMargins:NO];
+  _identityAccountView.delegate = self;
   [_identityAccountView updateTopPadding:[self navigationBarHeight]];
   self.tableView.tableHeaderView = _identityAccountView;
   [self.tableView reloadData];

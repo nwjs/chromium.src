@@ -17,6 +17,7 @@ import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.ResettersForTesting;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
@@ -44,6 +45,7 @@ import org.chromium.chrome.browser.util.AndroidTaskUtils;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.content_public.browser.WebContents;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +60,7 @@ import java.util.Set;
     private final TabReparentingDelegate mTabReparentingDelegate;
     private final Map<Activity, MultiInstanceManager> mActivityMultiInstanceManagerAssignments =
             new HashMap<>();
+    private int mInitializedTabbedActivityCount;
 
     /** Returns the singleton instance for {@link MultiInstanceOrchestrator}. */
     public static MultiInstanceOrchestrator getInstance() {
@@ -109,14 +112,20 @@ import java.util.Set;
 
     @Override
     public void onInitialize(Activity activity, MultiInstanceManager multiInstanceManager) {
+        ThreadUtils.assertOnUiThread();
         assert !mActivityMultiInstanceManagerAssignments.containsKey(activity)
                 : "A MultiInstanceManager for this Activity already exists.";
-        if (mActivityMultiInstanceManagerAssignments.isEmpty()) {
-            // Evaluate and persist crash recovery metadata when the first activity is initialized
-            // in the browser process.
-            TabbedCrashRecoveryDelegate.getInstance().initializeCrashRecoveryMetadata();
-        }
         mActivityMultiInstanceManagerAssignments.put(activity, multiInstanceManager);
+        if (activity instanceof ChromeTabbedActivity tabbedActivity) {
+            mInitializedTabbedActivityCount++;
+            if (mInitializedTabbedActivityCount == 1) {
+                // Restore any windows from a relaunch and finalize startup policy consumption
+                // before evaluating crash recovery metadata so that relaunch restoration can
+                // consume the recoverable state before non-crash cleanup occurs.
+                TabbedStartupWindowPolicyDelegate.getInstance().applyPolicy(tabbedActivity);
+                TabbedCrashRecoveryDelegate.getInstance().initializeCrashRecoveryMetadata();
+            }
+        }
     }
 
     @Override
@@ -125,10 +134,8 @@ import java.util.Set;
 
         // If a ChromeTabbedActivity has already initialized, immediate crash recovery was already
         // evaluated / handled. Do not set a pending crash recovery state.
-        for (Activity activity : mActivityMultiInstanceManagerAssignments.keySet()) {
-            if (activity instanceof ChromeTabbedActivity) {
-                return;
-            }
+        if (mInitializedTabbedActivityCount > 0) {
+            return;
         }
 
         // This means that there is no ChromeTabbedActivity to initiate crash recovery when the
@@ -431,6 +438,25 @@ import java.util.Set;
             int parentTabId,
             boolean preferNew,
             boolean isIncognito) {
+        return openUrlsInOtherWindow(
+                sourceActivity,
+                loadUrlParams,
+                /* additionalUrls= */ null,
+                parentTabId,
+                preferNew,
+                isIncognito,
+                /* openInTabGroup= */ false);
+    }
+
+    @Override
+    public boolean openUrlsInOtherWindow(
+            Activity sourceActivity,
+            LoadUrlParams loadUrlParams,
+            @Nullable List<String> additionalUrls,
+            int parentTabId,
+            boolean preferNew,
+            boolean isIncognito,
+            boolean openInTabGroup) {
         var targetActivityClass =
                 MultiWindowUtils.getInstance().getOpenInOtherWindowActivity(sourceActivity);
         if (targetActivityClass == null) return false;
@@ -442,6 +468,14 @@ import java.util.Set;
                         parentTabId,
                         isIncognito,
                         targetActivityClass);
+
+        if (additionalUrls != null && !additionalUrls.isEmpty()) {
+            intent.putExtra(IntentHandler.EXTRA_ADDITIONAL_URLS, new ArrayList<>(additionalUrls));
+            if (openInTabGroup) {
+                intent.putExtra(IntentHandler.EXTRA_OPEN_ADDITIONAL_URLS_IN_TAB_GROUP, true);
+            }
+        }
+
         if (!MultiWindowUtils.isMultiInstanceApi31Enabled()) {
             addOpenUrlInNewWindowIntentExtras(
                     sourceActivity, intent, /* isIncognitoWindow= */ false);
@@ -628,7 +662,22 @@ import java.util.Set;
 
     private void onActivityStateChange(Activity activity, @ActivityState int newState) {
         if (newState == ActivityState.DESTROYED) {
-            mActivityMultiInstanceManagerAssignments.remove(activity);
+            MultiInstanceManager removed =
+                    mActivityMultiInstanceManagerAssignments.remove(activity);
+            if (activity instanceof ChromeTabbedActivity) {
+                if (removed != null) {
+                    mInitializedTabbedActivityCount--;
+                    assert mInitializedTabbedActivityCount >= 0
+                            : "Initialized tabbed activity count cannot be negative.";
+                }
+                // Reset the startup policy reservation only if all initialized tabbed
+                // activities have drained and no in-flight activities are currently
+                // starting up, preventing races during overlapping window launches.
+                if (mInitializedTabbedActivityCount == 0
+                        && MultiWindowUtils.getRunningTabbedActivityCount() == 0) {
+                    TabbedStartupWindowPolicyDelegate.getInstance().resetPolicy();
+                }
+            }
         }
     }
 
@@ -646,5 +695,6 @@ import java.util.Set;
 
     /* package */ void clearAssignmentsForTesting() {
         mActivityMultiInstanceManagerAssignments.clear();
+        mInitializedTabbedActivityCount = 0;
     }
 }

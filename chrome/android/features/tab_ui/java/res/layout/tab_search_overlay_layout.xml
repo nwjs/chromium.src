@@ -5,6 +5,7 @@ Use of this source code is governed by a BSD-style license that can be
 found in the LICENSE file.
 -->
 
+<!-- For now, the layout direction is locked to LTR (left-anchored). -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -12,6 +13,7 @@ found in the LICENSE file.
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="horizontal"
+    android:layoutDirection="ltr"
     android:visibility="gone"
     android:background="@android:color/transparent">
 
@@ -33,15 +35,14 @@ found in the LICENSE file.
 
             <ImageButton
                 android:id="@+id/tab_search_close_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_gravity="end|top"
-                android:layout_marginTop="4dp"
-                android:layout_marginEnd="4dp"
-                android:src="@drawable/material_ic_close_24dp"
-                android:padding="8dp"
+                android:layout_width="@dimen/tab_search_close_button_size"
+                android:layout_height="@dimen/tab_search_close_button_size"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="@dimen/tab_search_close_button_margin_end"
+                android:src="@drawable/ic_tab_close_tabstrip_24dp"
+                android:padding="0dp"
                 android:scaleType="fitCenter"
-                android:background="@drawable/tile_view_highlight"
+                android:background="@drawable/tab_close_button_bg_24dp"
                 android:contentDescription="@string/close" />
         </FrameLayout>
 

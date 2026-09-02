@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "base/component_export.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/no_destructor.h"
@@ -52,6 +53,30 @@ using AtkAttributes = std::unique_ptr<AtkAttributeSet, AtkAttributeSetDeleter>;
   }
 
 namespace ui {
+
+// Chromium's official Linux sysroot predates the text-selection API added to
+// AtkDocument in ATK 2.52.
+#if defined(ATK_CHECK_VERSION) && ATK_CHECK_VERSION(2, 52, 0)
+using AtkDocumentIfaceWithTextSelections = AtkDocumentIface;
+using AtkTextSelectionCompat = AtkTextSelection;
+#else
+struct AtkDocumentIfaceWithTextSelections {
+  AtkDocumentIface parent;
+  GArray* (*get_text_selections)(AtkDocument* document);
+  gboolean (*set_text_selections)(AtkDocument* document, GArray* selections);
+};
+
+// Keep this in sync with ATK 2.52's AtkTextSelection.
+struct AtkTextSelectionCompat {
+  // RAW_PTR_EXCLUSION: This struct must match the ATK C ABI.
+  RAW_PTR_EXCLUSION AtkObject* start_object;
+  gint start_offset;
+  // RAW_PTR_EXCLUSION: This struct must match the ATK C ABI.
+  RAW_PTR_EXCLUSION AtkObject* end_object;
+  gint end_offset;
+  gboolean start_is_active;
+};
+#endif
 
 struct FindInPageResultInfo {
   raw_ptr<AtkObject> node;
@@ -149,6 +174,8 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeAuraLinux
   // AtkDocument helpers
   const gchar* GetDocumentAttributeValue(const gchar* attribute) const;
   AtkAttributeSet* GetDocumentAttributes() const;
+  GArray* GetDocumentTextSelections();
+  bool SetDocumentTextSelections(GArray* selections);
 
   // AtkHyperlink helpers
   AtkHyperlink* GetAtkHyperlink();
@@ -175,6 +202,7 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeAuraLinux
 
   // Misc helpers
   void GetFloatAttributeInGValue(ax::mojom::FloatAttribute attr, GValue* value);
+  void OnInlineTextBoxesUsed() const;
 
   // Event helpers
   void OnBusyStateChanged(bool is_busy);
@@ -426,6 +454,9 @@ class COMPONENT_EXPORT(AX_PLATFORM) AXPlatformNodeAuraLinux
 
   friend AXPlatformNode::Pointer AXPlatformNode::Create(
       AXPlatformNodeDelegate& delegate);
+
+  FRIEND_TEST_ALL_PREFIXES(AXPlatformNodeAuraLinuxTest,
+                           FindStartOfStyleWithNoStyles);
 };
 
 }  // namespace ui

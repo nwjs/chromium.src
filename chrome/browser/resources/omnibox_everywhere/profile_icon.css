@@ -9,6 +9,7 @@
 
 :host {
   display: inline-block;
+  pointer-events: none;
   position: absolute;
   right: 16px;
   top: 10px;
@@ -18,12 +19,14 @@
 #profileIcon {
   border-radius: 50%;
   height: 36px;
-  pointer-events: auto;
+  pointer-events: none;
   width: 36px;
+  -webkit-user-drag: none;
 }
 
 #profileIcon.clickable {
   cursor: pointer;
+  pointer-events: auto;
   transition: opacity 150ms ease-in-out;
 }
 
@@ -38,6 +41,7 @@
   --cr-action-menu-padding: 0;
   min-width: 330px;
   max-width: 360px;
+  pointer-events: auto;
 }
 
 #profileMenu::part(dialog) {
@@ -131,7 +135,7 @@
   height: 24px;
   margin-inline-end: 12px;
   width: 24px;
-  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/account_circle.svg);
+  -webkit-mask-image: url(//resources/cr_components/searchbox/icons/account_circle_old.svg);
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
   -webkit-mask-size: 20px 20px;
@@ -141,4 +145,10 @@
   color: var(--color-sys-on-surface, #1f1f1f);
   font-size: 14px;
   font-weight: 500;
+}
+
+:host-context([webui-rounded-icons]) {
+  .profile-card-switch-icon {
+    -webkit-mask-image: url(//resources/cr_components/searchbox/icons/account_circle.svg);
+  }
 }

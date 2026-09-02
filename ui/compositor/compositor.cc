@@ -17,6 +17,7 @@
 #include "base/dcheck_is_on.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/numerics/ranges.h"
 #include "base/observer_list.h"
 #include "base/power_monitor/power_monitor.h"
 #include "base/strings/string_number_conversions.h"
@@ -552,14 +553,6 @@ void Compositor::SetVSyncDisplayID(const int64_t display_id) {
 
   display_id_ = display_id;
 
-  display::Display display;
-  if (display::Screen::Get() &&
-      display::Screen::Get()->GetDisplayWithDisplayId(display_id, &display)) {
-    if (display.display_frequency() > 0) {
-      refresh_rate_ = display.display_frequency();
-    }
-  }
-
   if (display_private_) {
     display_private_->SetVSyncDisplayID(display_id);
   }
@@ -567,6 +560,20 @@ void Compositor::SetVSyncDisplayID(const int64_t display_id) {
 
 int64_t Compositor::display_id() const {
   return display_id_;
+}
+
+void Compositor::UpdateRefreshRate(float refresh_rate) {
+  if (refresh_rate <= 0 ||
+      base::IsApproximatelyEqual(refresh_rate_, refresh_rate,
+                                 display::Display::kRefreshRateEpsilon)) {
+    return;
+  }
+
+  refresh_rate_ = refresh_rate;
+
+  if (display_private_) {
+    display_private_->UpdateRefreshRate(refresh_rate);
+  }
 }
 
 #endif
@@ -765,9 +772,10 @@ void Compositor::IssueExternalBeginFrame(
     const viz::BeginFrameArgs& args,
     base::OnceCallback<void(const viz::BeginFrameAck&)> callback) {
   if (!external_begin_frame_controller_) {
-    // IssueExternalBeginFrame() shouldn't be called again before the previous
-    // begin frame is acknowledged.
-    DCHECK(!pending_begin_frame_args_);
+    // When wait_for_all_frame_sinks() is false, IssueExternalBeginFrame()
+    // shouldn't be called again before the previous begin frame is
+    // acknowledged.
+    DCHECK(!pending_begin_frame_args_ || !wait_for_all_frame_sinks());
     pending_begin_frame_args_.emplace(args, std::move(callback));
     return;
   }

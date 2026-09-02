@@ -34,6 +34,7 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ApplicationStatus.ActivityStateListener;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.TriState;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -116,10 +117,6 @@ import java.util.concurrent.TimeoutException;
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE)
 @EnableFeatures({ChromeFeatureList.ANDROID_TAB_SKIP_SAVE_TABS_TASK_KILLSWITCH})
 public class TabPersistentStoreTest {
-    // Test activity type that does not restore tab on cold restart.
-    // Any type other than ActivityType.TABBED works.
-    private static final @ActivityType int NO_RESTORE_TYPE = ActivityType.CUSTOM_TAB;
-
     private ChromeActivity mChromeActivity;
 
     private static final int SELECTOR_INDEX = 0;
@@ -133,7 +130,7 @@ public class TabPersistentStoreTest {
         public final String url;
         public final boolean isStandardActiveIndex;
         public final boolean isIncognitoActiveIndex;
-        public final Boolean isIncognito;
+        public final @TriState int isIncognito;
 
         /** Store information about a Tab that's been restored. */
         TabRestoredDetails(
@@ -142,7 +139,7 @@ public class TabPersistentStoreTest {
                 String url,
                 boolean isStandardActiveIndex,
                 boolean isIncognitoActiveIndex,
-                Boolean isIncognito) {
+                @TriState int isIncognito) {
             this.index = index;
             this.id = id;
             this.url = url;
@@ -156,7 +153,6 @@ public class TabPersistentStoreTest {
     static class TestTabModelSelector extends TabModelSelectorBase implements TabModelDelegate {
         final TabPersistentStoreImpl mTabPersistentStore;
         final MockTabPersistentStoreObserver mTabPersistentStoreObserver;
-        private final TabModelOrderController mTabModelOrderController;
         // Required to ensure TabContentManager is not null.
         private final TabContentManager mMockTabContentManager;
 
@@ -193,8 +189,6 @@ public class TabPersistentStoreTest {
                                     return tabPersistentStore;
                                 }
                             });
-            mTabModelOrderController = new TabModelOrderControllerImpl(this);
-            NextTabPolicySupplier nextTabPolicySupplier = () -> NextTabPolicy.HIERARCHICAL;
 
             Profile profile = profileProviderSupplier.get().getOriginalProfile();
             TabModelInternal regularTabModel = new MockTabModel(profile, null);
@@ -240,7 +234,7 @@ public class TabPersistentStoreTest {
                 String url,
                 boolean isStandardActiveIndex,
                 boolean isIncognitoActiveIndex,
-                Boolean isIncognito,
+                @TriState int isIncognito,
                 boolean fromMerge) {
             details.add(
                     new TabRestoredDetails(
@@ -1229,13 +1223,13 @@ public class TabPersistentStoreTest {
 
                     store.addTabToRestoreForTesting(
                             new TabRestoreDetails(
-                                    regularTab.tabId, 0, false, regularTab.url, false));
+                                    regularTab.tabId, 0, TriState.FALSE, regularTab.url, false));
                     store.addTabToRestoreForTesting(
                             new TabRestoreDetails(
-                                    incognitoTab.tabId, 0, true, incognitoTab.url, false));
+                                    incognitoTab.tabId, 0, TriState.TRUE, incognitoTab.url, false));
                     store.addTabToRestoreForTesting(
                             new TabRestoreDetails(
-                                    regularTab2.tabId, 1, false, regularTab2.url, false));
+                                    regularTab2.tabId, 1, TriState.FALSE, regularTab2.url, false));
 
                     store.saveState();
                     store.destroy();
@@ -1252,16 +1246,18 @@ public class TabPersistentStoreTest {
         MockTabPersistentStoreObserver otherMockObserver = testSelector.mTabPersistentStoreObserver;
 
         // Assert state on tab details restored from metadata file.
-        assertFalse(
+        assertEquals(
                 "First restored tab should be regular.",
+                TriState.FALSE,
                 otherMockObserver.details.get(0).isIncognito);
         assertEquals(
                 "Incorrect URL for first restored tab.",
                 regularTab.url,
                 otherMockObserver.details.get(0).url);
 
-        assertFalse(
+        assertEquals(
                 "Second restored tab should be regular.",
+                TriState.FALSE,
                 otherMockObserver.details.get(1).isIncognito);
         assertEquals(
                 "Incorrect URL for second restored tab.",
@@ -1593,19 +1589,18 @@ public class TabPersistentStoreTest {
 
         ArgumentCaptor<TabPersistentStoreObserver> shadowObserverCaptor = captor();
 
-        ShadowTabStoreValidator validator =
-                ThreadUtils.runOnUiThreadBlocking(
-                        () -> {
-                            return new ShadowTabStoreValidator(
-                                    ProfileManager.getLastUsedRegularProfile(),
-                                    store,
-                                    shadowStore,
-                                    recordingTabCreator,
-                                    shadowTabCreator,
-                                    migrationManager,
-                                    /* windowTag= */ "0",
-                                    "Tabbed");
-                        });
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    new ShadowTabStoreValidator(
+                            ProfileManager.getLastUsedRegularProfile(),
+                            store,
+                            shadowStore,
+                            recordingTabCreator,
+                            shadowTabCreator,
+                            migrationManager,
+                            /* windowTag= */ "0",
+                            "Tabbed");
+                });
 
         verify(shadowStore).addObserver(shadowObserverCaptor.capture());
         TabPersistentStoreObserver shadowObserver = shadowObserverCaptor.getValue();

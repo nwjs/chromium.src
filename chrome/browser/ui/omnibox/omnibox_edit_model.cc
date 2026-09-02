@@ -33,6 +33,7 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_context_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
@@ -47,6 +48,8 @@
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
+#include "components/contextual_tasks/public/features.h"
+#include "components/contextual_tasks/public/prefs.h"
 #include "components/dom_distiller/core/url_constants.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/grit/components_scaled_resources.h"
@@ -121,7 +124,6 @@
 #include "url/url_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "components/sessions/content/session_tab_helper.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/contextual_search/desktop_query_contextualizer_delegate.h"  // nogncheck
@@ -133,8 +135,9 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
-#include "components/tabs/public/tab_interface.h"
+#include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "components/tabs/public/tab_interface.h"
 #endif
 
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -179,7 +182,6 @@ void RecordAimEntrypointMetric(const std::string& name,
         value);
   }
 }
-
 
 void EmitEnteredKeywordModeHistogram(
     OmniboxEventProto::KeywordModeEntryMethod entry_method,
@@ -826,6 +828,7 @@ void OmniboxEditModel::PopulateActiveTabContext() {
   tab_attachment->tab_id = tab_handle_val;
   tab_attachment->title = base::UTF16ToUTF8(web_contents->GetTitle());
   tab_attachment->url = web_contents->GetLastCommittedURL();
+  tab_attachment->source = searchbox::mojom::TabAttachmentSource::kAutoAdded;
   context->file_infos.push_back(
       searchbox::mojom::SearchContextAttachment::NewTabAttachment(
           std::move(tab_attachment)));
@@ -877,7 +880,13 @@ void OmniboxEditModel::OpenLensSearch() {
   if (omnibox::kAskGLensChipRoute.Get()) {
     if (auto* client =
             autocomplete_controller()->autocomplete_provider_client()) {
-      client->OpenLensOverlay(/*show=*/true);
+      client->OpenLensOverlay(
+          /*show=*/true,
+          lens::LensOverlayInvocationSource::kOmniboxPopupButton);
+    }
+    if (view_) {
+      base::AutoReset<bool> tmp(&in_revert_, true);
+      view_->RevertAll();
     }
     return;
   }
@@ -1175,6 +1184,25 @@ void OmniboxEditModel::ClearKeyword() {
   }
 }
 
+void OmniboxEditModel::SetKeywordInfo(
+    KeywordState keyword_state,
+    const std::u16string& keyword,
+    const std::u16string& keyword_placeholder,
+    metrics::OmniboxEventProto::KeywordModeEntryMethod
+        keyword_mode_entry_method) {
+  // Entry should be valid iff in keyword mode.
+  CHECK_EQ(keyword_state == KeywordState::kKeyword,
+           keyword_mode_entry_method !=
+               metrics::OmniboxEventProto_KeywordModeEntryMethod_INVALID);
+  // `keyword` should be populated iff in keyword or hint mode.
+  CHECK_EQ(keyword_state == KeywordState::kNone, keyword.empty());
+
+  keyword_state_ = keyword_state;
+  keyword_ = keyword;
+  keyword_placeholder_ = keyword_placeholder;
+  keyword_mode_entry_method_ = keyword_mode_entry_method;
+}
+
 void OmniboxEditModel::ClearAdditionalText() {
   TRACE_EVENT0("omnibox", "OmniboxEditModel::ClearAdditionalText");
   if (view_) {
@@ -1381,17 +1409,7 @@ void OmniboxEditModel::OnUpOrDownPressed(bool down, bool page) {
                          : OmniboxPopupSelection::Step::kWholeLine;
 
   if (popup_view_ && popup_view_->IsSelectionPopupControlled()) {
-    const OmniboxPopupSelection old_selection = GetPopupSelection();
-    OmniboxPopupSelection new_selection = old_selection.GetNextSelection(
-        autocomplete_controller()->input(), autocomplete_controller()->result(),
-        controller_->client()->GetTemplateURLService(),
-        view_->AimButtonVisible(), direction, step);
-    // Pass through to native step if this is a keyword mode transition because
-    // the popup does not yet support keyword mode.
-    if (new_selection.state != OmniboxPopupSelection::LineState::KEYWORD_MODE) {
-      popup_view_->StepSelection(direction, step);
-      return;
-    }
+    popup_view_->StepSelection(direction, step);
   }
 
   StepPopupSelection(direction, step);
@@ -1405,17 +1423,7 @@ void OmniboxEditModel::OnTabPressed(bool shift) {
       OmniboxPopupSelection::Step::kStateOrLine;
 
   if (popup_view_ && popup_view_->IsSelectionPopupControlled()) {
-    const OmniboxPopupSelection old_selection = GetPopupSelection();
-    OmniboxPopupSelection new_selection = old_selection.GetNextSelection(
-        autocomplete_controller()->input(), autocomplete_controller()->result(),
-        controller_->client()->GetTemplateURLService(),
-        view_->AimButtonVisible(), direction, step);
-    // Pass through to native step if this is a keyword mode transition because
-    // the popup does not yet support keyword mode.
-    if (new_selection.state != OmniboxPopupSelection::LineState::KEYWORD_MODE) {
-      popup_view_->StepSelection(direction, step);
-      return;
-    }
+    popup_view_->StepSelection(direction, step);
   }
 
   StepPopupSelection(direction, step);
@@ -1977,10 +1985,12 @@ gfx::Image OmniboxEditModel::GetMatchIconIfExtension(
              : controller_->client()->GetSizedIcon(extension_icon);
 }
 
-
 void OmniboxEditModel::ResetPopupToInitialState() {
   if (!popup_view_) {
     return;
+  }
+  if (popup_view_->IsSelectionPopupControlled()) {
+    popup_view_->ResetPopupToInitialState();
   }
   size_t new_line = autocomplete_controller()->result().default_match()
                         ? 0
@@ -1992,8 +2002,6 @@ void OmniboxEditModel::ResetPopupToInitialState() {
 }
 
 OmniboxPopupSelection OmniboxEditModel::GetPopupSelection() const {
-  DCHECK(BUILDFLAG(IS_ANDROID) || popup_view_ ||
-         base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere));
   return popup_selection_;
 }
 
@@ -2001,8 +2009,6 @@ void OmniboxEditModel::SetPopupSelection(OmniboxPopupSelection new_selection,
                                          bool reset_to_default,
                                          bool force_update_ui,
                                          bool native_update) {
-  DCHECK(BUILDFLAG(IS_ANDROID) || popup_view_ ||
-         base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere));
   // Special case for updating the focus ring around the AIM button.
   if (view_) {
     view_->ApplyFocusRingToAimButton(new_selection.state ==
@@ -2087,8 +2093,6 @@ void OmniboxEditModel::SetPopupSelection(OmniboxPopupSelection new_selection,
 }
 
 bool OmniboxEditModel::IsPopupSelectionOnInitialLine() const {
-  DCHECK(BUILDFLAG(IS_ANDROID) || popup_view_ ||
-         base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere));
   size_t initial_line = autocomplete_controller()->result().default_match()
                             ? 0
                             : OmniboxPopupSelection::kNoMatch;
@@ -2097,15 +2101,10 @@ bool OmniboxEditModel::IsPopupSelectionOnInitialLine() const {
 
 bool OmniboxEditModel::IsPopupControlPresentOnMatch(
     OmniboxPopupSelection selection) const {
-  DCHECK(BUILDFLAG(IS_ANDROID) || popup_view_ ||
-         base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere));
   return selection.IsControlPresentOnMatch(autocomplete_controller()->result());
 }
 
 void OmniboxEditModel::TryDeletingPopupLine(size_t line) {
-  DCHECK(BUILDFLAG(IS_ANDROID) || popup_view_ ||
-         base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere));
-
   // When called with line == GetPopupSelection().line, we could use
   // GetInfoForCurrentText() here, but it seems better to try and delete the
   // actual selection, rather than any "in progress, not yet visible" one.
@@ -2150,8 +2149,6 @@ std::u16string OmniboxEditModel::GetPopupAccessibilityLabelForCurrentSelection(
     const std::u16string& match_text,
     bool include_positional_info,
     int* label_prefix_length) {
-  DCHECK(BUILDFLAG(IS_ANDROID) || popup_view_);
-
   size_t line = popup_selection_.line;
   DCHECK_NE(line, OmniboxPopupSelection::kNoMatch)
       << "GetPopupAccessibilityLabelForCurrentSelection should never be called "
@@ -2504,8 +2501,8 @@ void OmniboxEditModel::StepPopupSelection(
   } else if (new_selection.state ==
              OmniboxPopupSelection::LineState::KEYWORD_MODE) {
     // Prepare for keyword mode before accepting it.
-    SetPopupSelection(OmniboxPopupSelection(
-        new_selection.line, OmniboxPopupSelection::LineState::NORMAL));
+    SetPopupSelection(new_selection, /*reset_to_default=*/false,
+                      /*force_update_ui=*/false, /*native_update=*/false);
     // Note: Popup behavior currently depends on the entry method being tab.
     // This is not ideal for nuanced metrics, but it is how it has worked
     // for a long time. Consider refactoring to fix this if needed.
@@ -2630,7 +2627,13 @@ void OmniboxEditModel::OnDefaultSearchExtensionDialogDone(
   //
   // When `proceed` is kCancel, the dialog was closed without making a choice,
   // and we don't do a search.
-  if (proceed == OmniboxClient::ExtensionControlledDialogResult::kAccept) {
+  //
+  // kNoDialogShown means the confirmation turned out to be unnecessary and the
+  // user was never asked anything. The navigation we withheld must proceed
+  // exactly as originally requested.
+  if (proceed == OmniboxClient::ExtensionControlledDialogResult::kAccept ||
+      proceed ==
+          OmniboxClient::ExtensionControlledDialogResult::kNoDialogShown) {
     OpenMatch(selection, match, disposition, alternate_nav_url, pasted_text,
               match_selection_timestamp);
   } else if (proceed ==
@@ -2920,16 +2923,16 @@ void OmniboxEditModel::OpenMatch(OmniboxPopupSelection selection,
     }
   }
 
+  if (disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB && view_) {
+    base::AutoReset<bool> tmp(&in_revert_, true);
+    view_->RevertAll();  // Revert the box to its unedited state.
+  }
+
   if (action) {
     OmniboxEditModelActionClient action_client(
         *(autocomplete_controller()->autocomplete_provider_client()), *this);
     controller_->client()->ExecuteAction(
         action, disposition, match_selection_timestamp, action_client);
-  }
-
-  if (disposition != WindowOpenDisposition::NEW_BACKGROUND_TAB && view_) {
-    base::AutoReset<bool> tmp(&in_revert_, true);
-    view_->RevertAll();  // Revert the box to its unedited state.
   }
 
   if (!action) {
@@ -3176,25 +3179,6 @@ std::u16string OmniboxEditModel::GetText() const {
   }
 }
 
-void OmniboxEditModel::SetKeywordInfo(
-    KeywordState keyword_state,
-    const std::u16string& keyword,
-    const std::u16string& keyword_placeholder,
-    metrics::OmniboxEventProto::KeywordModeEntryMethod
-        keyword_mode_entry_method) {
-  // Entry should be valid iff in keyword mode.
-  CHECK_EQ(keyword_state == KeywordState::kKeyword,
-           keyword_mode_entry_method !=
-               metrics::OmniboxEventProto_KeywordModeEntryMethod_INVALID);
-  // `keyword` should be populated iff in keyword or hint mode.
-  CHECK_EQ(keyword_state == KeywordState::kNone, keyword.empty());
-
-  keyword_state_ = keyword_state;
-  keyword_ = keyword;
-  keyword_placeholder_ = keyword_placeholder;
-  keyword_mode_entry_method_ = keyword_mode_entry_method;
-}
-
 void OmniboxEditModel::RecordAiModeMetrics(const std::u16string& query,
                                            AimActivation activation) {
   const auto* triggered_feature_service =
@@ -3372,9 +3356,9 @@ OmniboxEditModel::GetOrCreateContextualSearchSessionHandle(Profile* profile) {
 
 void OmniboxEditModel::NavigateToAiModeWithContextualizer(
     const std::u16string& query_text) {
-  if (session_handle_) {
-    session_handle_.reset();
-  }
+  bool sts_active =
+      session_handle_ &&
+      session_handle_->smart_tab_sharing_active().value_or(false);
   contextual_tasks::QueryContextualizer::ContextualizeParams params;
   params.task_id = std::nullopt;
   params.query_text = base::UTF16ToUTF8(query_text);
@@ -3385,7 +3369,7 @@ void OmniboxEditModel::NavigateToAiModeWithContextualizer(
           NavigateToAiModeWithContextualizerOnContextualizationComplete,
       weak_factory_.GetWeakPtr(), query_text,
       WindowOpenDisposition::CURRENT_TAB);
-  params.enable_smart_tab_selection = false;
+  params.enable_smart_tab_selection = sts_active;
   query_contextualizer_->Contextualize(std::move(params));
 }
 
@@ -3466,8 +3450,17 @@ void OmniboxEditModel::
     new_handle = service->GetSession(session_handle->session_id(),
                                      session_handle->invocation_source());
     if (new_handle) {
+      new_handle->set_smart_tab_sharing_active(
+          session_handle->smart_tab_sharing_active());
+      new_handle->set_smart_tab_sharing_toggled_since_last_turn(
+          session_handle->smart_tab_sharing_toggled_since_last_turn());
+      new_handle->set_sts_toggled_removed_contexts(
+          session_handle->sts_toggled_removed_contexts());
       new_handle->set_submitted_context_tokens(
           session_handle->GetSubmittedContextTokens());
+      new_handle->set_persisted_tabs(session_handle->persisted_tabs());
+      new_handle->set_deselected_tabs_urls(
+          session_handle->deselected_tabs_urls());
       new_handle->CheckSearchContentSharingSettings(
           chrome_omnibox_client->profile()->GetPrefs());
     }

@@ -8,6 +8,7 @@
 
 #include "base/strings/stringprintf.h"
 #include "base/test/test_future.h"
+#include "build/build_config.h"
 #include "chrome/browser/apps/link_capturing/enable_link_capturing_infobar_delegate.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/ui/browser.h"
@@ -20,6 +21,7 @@
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_navigation_capturing_browsertest_base.h"
+#include "chrome/browser/web_applications/web_app_origin_association_manager.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -155,8 +157,16 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIntentPickerBrowserTest,
 
 // Test that the intent picker shows up for chrome://password-manager, since it
 // is installable.
+// TODO(crbug.com/545478765): Flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_DoShowIconAndBubbleOnChromePasswordManagerPage \
+  DISABLED_DoShowIconAndBubbleOnChromePasswordManagerPage
+#else
+#define MAYBE_DoShowIconAndBubbleOnChromePasswordManagerPage \
+  DoShowIconAndBubbleOnChromePasswordManagerPage
+#endif
 IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIntentPickerBrowserTest,
-                       DoShowIconAndBubbleOnChromePasswordManagerPage) {
+                       MAYBE_DoShowIconAndBubbleOnChromePasswordManagerPage) {
   GURL password_manager_url("chrome://password-manager");
   ui_test_utils::NavigateToURLWithDisposition(
       browser(), password_manager_url, WindowOpenDisposition::CURRENT_TAB,
@@ -196,12 +206,13 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIntentPickerBrowserTest,
   content::WebContents* contents =
       app_browser->tab_strip_model()->GetActiveWebContents();
   content::TitleWatcher title_watcher1(contents, u"WCO Enabled");
-  app_browser->GetBrowserView().ToggleWindowControlsOverlayEnabled(
-      test_future.GetCallback());
+  BrowserView::GetBrowserViewForBrowser(app_browser)
+      ->ToggleWindowControlsOverlayEnabled(test_future.GetCallback());
 
   ASSERT_TRUE(test_future.Wait());
   std::ignore = title_watcher1.WaitAndGetTitle();
-  ASSERT_TRUE(app_browser->GetBrowserView().IsWindowControlsOverlayEnabled());
+  ASSERT_TRUE(BrowserView::GetBrowserViewForBrowser(app_browser)
+                  ->IsWindowControlsOverlayEnabled());
 
   // Disable navigation capturing for the app_id so that the enable link
   // capturing infobar shows up.
@@ -228,8 +239,8 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIntentPickerBrowserTest,
       });
   Browser* new_app_browser = post_intent_picker_data.first;
   std::ignore = title_watcher2.WaitAndGetTitle();
-  EXPECT_FALSE(
-      new_app_browser->GetBrowserView().IsWindowControlsOverlayEnabled());
+  EXPECT_FALSE(BrowserView::GetBrowserViewForBrowser(new_app_browser)
+                   ->IsWindowControlsOverlayEnabled());
   EXPECT_TRUE(
       apps::EnableLinkCapturingInfoBarDelegate::FindInfoBar(new_contents));
 
@@ -240,8 +251,8 @@ IN_PROC_BROWSER_TEST_F(WebAppNavigationCapturingIntentPickerBrowserTest,
                                        /*include_nestable_tasks=*/true);
   apps::EnableLinkCapturingInfoBarDelegate::RemoveInfoBar(new_contents);
   std::ignore = title_watcher3.WaitAndGetTitle();
-  EXPECT_TRUE(
-      new_app_browser->GetBrowserView().IsWindowControlsOverlayEnabled());
+  EXPECT_TRUE(BrowserView::GetBrowserViewForBrowser(new_app_browser)
+                  ->IsWindowControlsOverlayEnabled());
   EXPECT_FALSE(
       apps::EnableLinkCapturingInfoBarDelegate::FindInfoBar(new_contents));
 }

@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.tabmodel;
 import org.chromium.base.Token;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.url.GURL;
@@ -94,15 +95,27 @@ public class NextTabSelectionUtil {
             }
         }
 
-        // Select the parent tab if it exists and is expanded.
+        // Select the hierarchical next tab if policy is active.
         if (closingTabs.size() == 1
                 && NextTabPolicy.HIERARCHICAL == model.getNextTabPolicySupplier().get()) {
-            Tab parentTab =
-                    findTabInAllTabModels(model, modelDelegate, closingTabs.get(0).getParentId());
-            if (parentTab != null
-                    && validNextTab(parentTab, closingTabs)
-                    && !isTabGroupCollapsed(model, parentTab)) {
-                return parentTab;
+            if (ChromeFeatureList.sTabOpenerTracking.isEnabled()) {
+                Tab hierarchicalNextTab =
+                        model.getHierarchicalNextTab(closingTabs.get(0), closingTabs);
+                if (hierarchicalNextTab != null) {
+                    return hierarchicalNextTab;
+                }
+            } else {
+                Tab parentTab =
+                        findTabInAllTabModels(
+                                model,
+                                modelDelegate,
+                                closingTabs.get(0).getParentId(),
+                                model.getCount() <= 1);
+                if (parentTab != null
+                        && validNextTab(parentTab, closingTabs)
+                        && !isTabGroupCollapsed(model, parentTab)) {
+                    return parentTab;
+                }
             }
         }
 
@@ -217,13 +230,19 @@ public class NextTabSelectionUtil {
     }
 
     private static @Nullable Tab findTabInAllTabModels(
-            TabModel model, @Nullable TabModelDelegate modelDelegate, int tabId) {
+            TabModel model,
+            @Nullable TabModelDelegate modelDelegate,
+            int tabId,
+            boolean includeOtherModels) {
         if (tabId == Tab.INVALID_TAB_ID) return null;
         if (modelDelegate != null) {
             boolean isIncognito = model.isIncognitoBranded();
             Tab tab = modelDelegate.getModel(isIncognito).getTabById(tabId);
             if (tab != null) return tab;
-            return modelDelegate.getModel(!isIncognito).getTabById(tabId);
+            if (includeOtherModels) {
+                return modelDelegate.getModel(!isIncognito).getTabById(tabId);
+            }
+            return null;
         }
         return model.getTabById(tabId);
     }

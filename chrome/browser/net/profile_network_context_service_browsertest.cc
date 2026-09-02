@@ -43,8 +43,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -947,17 +947,6 @@ class ProfileNetworkContextTrustTokensBrowsertest
 IN_PROC_BROWSER_TEST_F(ProfileNetworkContextTrustTokensBrowsertest,
                        TrustTokenBlocked) {
   ProvideRequestHandlerKeyCommitmentsToNetworkService("a.test");
-  auto* privacy_sandbox_settings =
-      PrivacySandboxSettingsFactory::GetForProfile(browser()->GetProfile());
-  auto privacy_sandbox_delegate = std::make_unique<
-      privacy_sandbox_test_util::MockPrivacySandboxSettingsDelegate>();
-  privacy_sandbox_delegate->SetUpIsPrivacySandboxRestrictedResponse(
-      /*restricted=*/false);
-  privacy_sandbox_delegate->SetUpIsIncognitoProfileResponse(
-      /*incognito=*/browser()->GetProfile()->IsIncognitoProfile());
-  privacy_sandbox_settings->SetDelegateForTesting(
-      std::move(privacy_sandbox_delegate));
-  privacy_sandbox_settings->SetAllPrivacySandboxAllowedForTesting();
   auto* host_content_settings_map =
       HostContentSettingsMapFactory::GetForProfile(browser()->GetProfile());
   Flush();
@@ -1176,7 +1165,7 @@ IN_PROC_BROWSER_TEST_F(CacheEncryptionEnabledByPolicyTest,
                   .empty());
 
   // Create a browser for the new profile and navigate to trigger cache init.
-  Browser* new_browser = CreateBrowser(&new_profile);
+  BrowserWindowInterface* new_browser = CreateBrowser(&new_profile);
   GURL url = embedded_test_server()->GetURL("/empty.html");
   ASSERT_TRUE(ui_test_utils::NavigateToURL(new_browser, url));
   content::RunAllTasksUntilIdle();

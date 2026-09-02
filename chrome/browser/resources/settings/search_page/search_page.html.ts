@@ -1,0 +1,91 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsSearchPageElement} from './search_page.js';
+
+export function getHtml(this: SettingsSearchPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-section page-title="${this.searchPageTitle_}">
+  <div route-path="default">
+    <!-- Omnibox search engine -->
+    <div class="cr-row first">
+      <div class="default-search-engine flex">
+        ${this.searchPageTitle_}
+        <div class="secondary">
+          $i18n{searchEngineChoiceEntryPointSubtitle}
+          <a href="$i18n{searchExplanationLearnMoreURL}"
+              aria-description="$i18n{opensInNewTab}"
+              aria-label="$i18n{searchExplanationLearnMoreA11yLabel}"
+              target="_blank">
+            $i18n{learnMore}
+          </a>
+        </div>
+        <div class="cr-row first">
+          <settings-search-engine-icon .engine="${this.defaultSearchEngine_}">
+          </settings-search-engine-icon>
+          <div class="search-engine-name">${this.defaultSearchEngine_?.name}</div>
+          ${this.isDefaultSearchControlledByPolicy_() ? html`
+            <cr-policy-pref-indicator
+                .pref="${this.defaultSearchProviderDataPref_}">
+            </cr-policy-pref-indicator>
+          ` : ''}
+          <cr-button id="openDialogButton"
+              @click="${this.onOpenDialogButtonClick_}"
+              ?disabled="${this.isDefaultSearchEngineEnforced_()}">
+            $i18n{searchEnginesChange}
+          </cr-button>
+        </div>
+      </div>
+      ${this.showSearchEngineListDialog_ ? html`
+        <settings-search-engine-list-dialog
+            .searchEngines="${this.searchEngines_}"
+            @close="${this.onSearchEngineListDialogClose_}"
+            @search-engine-changed="${this.onSearchEngineChanged_}">
+        </settings-search-engine-list-dialog>
+      ` : ''}
+      <cr-toast id="confirmationToast" duration="10000">
+        <div>${this.confirmationToastLabel_}</div>
+      </cr-toast>
+    </div>
+    ${this.defaultSearchProviderDataPref_?.extensionId ? html`
+      ${this.searchSettingsUpdateEnabled_ ? html`
+        <div class="cr-row">
+          <extension-controlled-message
+              class="flex"
+              extension-id="${this.defaultSearchProviderDataPref_?.extensionId}"
+              extension-name="${
+                  this.defaultSearchProviderDataPref_?.controlledByName}"
+              ?extension-can-be-disabled="${
+                  !!this.defaultSearchProviderDataPref_?.extensionCanBeDisabled}"
+              @disable-extension-click="${this.onDisableExtensionClick_}">
+          </extension-controlled-message>
+        </div>
+      ` : html`
+        <div class="cr-row continuation">
+          <extension-controlled-indicator
+              class="flex"
+              extension-id="${this.defaultSearchProviderDataPref_?.extensionId}"
+              extension-name="${
+                  this.defaultSearchProviderDataPref_?.controlledByName}"
+              ?extension-can-be-disabled="${
+                  !!this.defaultSearchProviderDataPref_?.extensionCanBeDisabled}"
+              @disable-extension-click="${this.onDisableExtensionClick_}">
+          </extension-controlled-indicator>
+        </div>
+      `}
+    ` : ''}
+
+    ${!this.searchSettingsUpdateEnabled_ ? html`
+      <!-- Manage search engines -->
+      <cr-link-row class="hr" id="enginesSubpageTrigger"
+          label="$i18n{searchEnginesManageSiteSearch}"
+          @click="${this.onManageSearchEnginesClick_}"
+          role-description="$i18n{subpageArrowRoleDescription}"></cr-link-row>
+    ` : ''}
+  </div>
+</settings-section>
+<!--_html_template_end_-->`;
+}

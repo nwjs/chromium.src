@@ -29,6 +29,7 @@ import org.robolectric.shadows.ShadowLooper;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableMonotonicObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider.ControlsPosition;
 import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
@@ -128,6 +129,16 @@ public class ToolbarProgressBarLayerTest {
                 456,
                 ((CoordinatorLayout.LayoutParams) mProgressBarContainer.getLayoutParams())
                         .getAnchorId());
+
+        // Tab sharing toolbar is visible and at bottom.
+        when(mTopControlsStacker.isLayerAtBottom(
+                        TopControlsStacker.TopControlType.TAB_SHARING_TOOLBAR))
+                .thenReturn(true);
+        mLayer.onTopControlLayerHeightChanged(0, 0);
+        assertEquals(
+                R.id.tab_sharing_toolbar_container,
+                ((CoordinatorLayout.LayoutParams) mProgressBarContainer.getLayoutParams())
+                        .getAnchorId());
     }
 
     @Test
@@ -149,11 +160,11 @@ public class ToolbarProgressBarLayerTest {
 
         mLayer.onProgressBarInfoUpdate(drawingInfo);
 
-        assertEquals(240, drawingInfo.progressBarRect.left);
-        assertEquals(340, drawingInfo.progressBarRect.right);
-        assertEquals(340, drawingInfo.progressBarBackgroundRect.left);
-        assertEquals(740, drawingInfo.progressBarBackgroundRect.right);
-        assertEquals(240, drawingInfo.progressBarStaticBackgroundRect.left);
-        assertEquals(740, drawingInfo.progressBarStaticBackgroundRect.right);
+        assertEquals(0, drawingInfo.progressBarRect.left);
+        assertEquals(100, drawingInfo.progressBarRect.right);
+        assertEquals(100, drawingInfo.progressBarBackgroundRect.left);
+        assertEquals(500, drawingInfo.progressBarBackgroundRect.right);
+        assertEquals(0, drawingInfo.progressBarStaticBackgroundRect.left);
+        assertEquals(500, drawingInfo.progressBarStaticBackgroundRect.right);
     }
 }

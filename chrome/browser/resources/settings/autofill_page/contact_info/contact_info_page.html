@@ -1,0 +1,201 @@
+  <style include="cr-shared-style settings-shared passwords-shared
+      autofill-shared">
+    #addressList .start {
+      display: flex;
+      overflow: hidden;
+    }
+
+    #addressSummary {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #noEmailsLabel {
+      padding-inline-start: var(--cr-section-indent-padding);
+    }
+
+    .dropdown-item.external-link-style {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+
+    .dropdown-item.external-link-style cr-icon {
+      --cr-icon-color: var(--cr-secondary-text-color);
+    }
+
+    .vertical-list .start {
+      display: flex;
+      align-items: center;
+    }
+
+    site-favicon {
+      margin-inline-start: 20px;
+      margin-inline-end: 16px;
+    }
+  </style>
+  <settings-subpage page-title="$i18n{contactInfoTitle}"
+      learn-more-url="$i18n{addressesAndPaymentMethodsLearnMoreURL}"
+      class="multi-card">
+    <div class="card">
+      <settings-toggle-button id="autofillProfileToggle"
+          no-extension-indicator label="$i18n{enableProfilesLabel}"
+          sub-label="$i18n{enableProfilesSublabel}"
+          pref="{{prefs.autofill.profile_enabled}}"
+          on-change="onAutofillProfileToggleChanged_">
+      </settings-toggle-button>
+      <template is="dom-if" if="[[showGmailOtpFillingToggle_]]" restamp>
+        <settings-toggle-button id="autofillOtpFillingToggle"
+            label="$i18n{enableGmailOtpFillingTitle}"
+            sub-label-with-link="$i18n{enableGmailOtpFillingDescription}"
+            on-sub-label-link-clicked="onGmailOtpFillingLinkClick_"
+            on-change="onAutofillOtpFillingToggleChanged_"
+            pref="{{prefs.autofill.gmail_otp_filling.enabled}}">
+        </settings-toggle-button>
+      </template>
+      <template is="dom-if"
+          if="[[prefs.autofill.profile_enabled.extensionId]]">
+        <div class="cr-row continuation">
+          <extension-controlled-indicator class="flex"
+              id="autofillExtensionIndicator"
+              extension-id="[[prefs.autofill.profile_enabled.extensionId]]"
+              extension-name=
+                  "[[prefs.autofill.profile_enabled.controlledByName]]"
+              extension-can-be-disabled="[[
+                  prefs.autofill.profile_enabled.extensionCanBeDisabled]]">
+          </extension-controlled-indicator>
+        </div>
+      </template>
+    </div>
+    <div class="card">
+      <div class="cr-row continuation">
+        <h2 class="flex">$i18n{addresses}</h2>
+        <cr-button id="addAddress" class="header-aligned-button"
+            on-click="onAddAddressClick_" aria-label="$i18n{addAddressTitle}"
+            disabled="[[!prefs.autofill.profile_enabled.value]]">
+          $i18n{add}
+        </cr-button>
+      </div>
+      <div class="list-frame" aria-label="$i18n{addressesTableAriaLabel}"
+          role="list">
+        <div id="addressList" class="vertical-list" role="none">
+          <template is="dom-repeat" items="[[addresses]]">
+            <div class="list-item" role="listitem">
+              <div class="start">
+                <span id="addressSummary">
+                  <span class="ellipses">
+                    [[item.metadata.summaryLabel]]
+                  </span>
+                  <span class="ellipses">
+                    [[item.metadata.summarySublabel]]
+                  </span>
+                </span>
+                <cr-icon
+                    id="address-row-icon"
+                    icon="[[getAddressIcon_(item, accountInfo_)]]"
+                    hidden$="[[!shouldShowAddressIcon_(item, accountInfo_)]]"
+                    aria-label="[[getA11yLabelForIcon_(item, accountInfo_)]]"
+                    role="img">
+                </cr-icon>
+              </div>
+              <cr-icon-button class="icon-more-vert address-menu"
+                  on-click="onAddressMenuClick_"
+                  title="[[moreActionsTitle_(item)]]">
+              </cr-icon-button>
+            </div>
+          </template>
+        </div>
+        <div id="noAddressesLabel" class="list-item"
+            hidden$="[[hasSome_(addresses)]]">
+          $i18n{noAddressesFound}
+        </div>
+      </div>
+      <cr-action-menu id="addressSharedMenu" role-description="$i18n{menu}">
+        <template is="dom-if" if="[[isGoogleProfileAddress]]" restamp>
+          <button
+              id="menuEditAddress"
+              class="dropdown-item external-link-style"
+              on-click="onMenuEditAddressClick_"
+              aria-label="$i18n{homeWorkAddressAccessiblityLabel}">
+            <span class="label">$i18n{edit}</span>
+            <cr-icon icon="cr:open-in-new" aria-hidden="true"></cr-icon>
+          </button>
+
+          <button id="menuRemoveAddress"
+              class="dropdown-item"
+              on-click="onMenuRemoveAddressClick_">
+            [[getMenuRemoveAddressLabel_(activeAddress)]]
+          </button>
+        </template>
+
+        <template is="dom-if" if="[[!isGoogleProfileAddress]]" restamp>
+          <button id="menuEditAddress" class="dropdown-item"
+              on-click="onMenuEditAddressClick_">$i18n{edit}</button>
+
+          <button id="menuRemoveAddress" class="dropdown-item"
+              on-click="onMenuRemoveAddressClick_">
+            [[getMenuRemoveAddressLabel_(activeAddress)]]
+          </button>
+        </template>
+      </cr-action-menu>
+      <template is="dom-if" if="[[showAddressDialog_]]" restamp>
+        <settings-address-edit-dialog address="[[activeAddress]]"
+            account-info="[[accountInfo_]]" on-close="onAddressDialogClose_">
+        </settings-address-edit-dialog>
+      </template>
+      <template is="dom-if" if="[[showAddressRemoveConfirmationDialog_]]"
+          restamp>
+        <settings-address-remove-confirmation-dialog
+            address="[[activeAddress]]" account-info="[[accountInfo_]]"
+            on-close="onAddressRemoveConfirmationDialogClose_">
+        </settings-address-remove-confirmation-dialog>
+      </template>
+      <template is="dom-if" if="[[showEmailRemoveConfirmationDialog_]]"
+          restamp>
+        <settings-simple-confirmation-dialog id="emailRemoveConfirmationDialog"
+            title-text="$i18n{removeVerifiedEmailPermissionTitle}"
+            body-text="[[getEmailRemoveConfirmationDescription_(
+                activeEmailIssuer_)]]"
+            confirm-text="$i18n{remove}"
+            on-close="onEmailRemoveConfirmationDialogClose_">
+        </settings-simple-confirmation-dialog>
+      </template>
+    </div>
+    <div class="card">
+      <div class="cr-row continuation">
+        <h2 class="flex">$i18n{emailVerificationSectionTitle}</h2>
+      </div>
+      <template is="dom-if" if="[[isEmailVerificationProtocolEnabled_]]">
+        <settings-toggle-button id="autofillEmailVerificationToggle"
+            no-extension-indicator label="$i18n{emailVerificationLabel}"
+            pref="{{prefs.autofill.email_verification_enabled}}">
+        </settings-toggle-button>
+        <div class="vertical-list">
+          <template is="dom-repeat" items="[[emailVerificationAddresses_]]">
+            <div class="list-item">
+              <site-favicon
+                  url="[[getIssuerSite_(
+                      item, prefs.autofill.email_verification_state.value)]]">
+              </site-favicon>
+              <div class="start">[[item]]</div>
+              <cr-icon-button class="icon-more-vert email-menu"
+                  on-click="onEmailMenuClick_">
+              </cr-icon-button>
+            </div>
+          </template>
+        </div>
+        <div id="noEmailsLabel" class="list-item"
+            hidden$="[[hasSome_(emailVerificationAddresses_)]]">
+          $i18n{emailVerificationEmptyLabel}
+        </div>
+      </template>
+      <cr-action-menu id="emailSharedMenu" role-description="$i18n{menu}">
+        <button id="menuRemoveEmail" class="dropdown-item"
+            on-click="onMenuRemoveEmailClick_">
+          $i18n{removeVerifiedEmailPermission}
+        </button>
+      </cr-action-menu>
+    </div>
+  </settings-subpage>

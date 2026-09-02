@@ -123,4 +123,9 @@ bool IsScriptMessageConversionDurationLoggingEnabled() {
       kIOSScriptMessageConversionDurationLogging);
 }
 
+BASE_FEATURE(kWebFrameTree, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kNewGeolocationPermissionDelegate,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 }  // namespace web::features

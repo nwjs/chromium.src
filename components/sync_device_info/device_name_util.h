@@ -35,11 +35,11 @@ struct DisplayNameCandidates {
   std::string fallback_full_name;
 };
 
-// TODO(crbug.com/522788942): Remove this struct once kSyncSimplifyDeviceNaming
-// is fully launched.
 struct DeviceInfoWithName {
   raw_ptr<const DeviceInfo> device;
   std::string display_name;
+
+  bool operator==(const DeviceInfoWithName& other) const = default;
 };
 
 // Returns display name candidates (primary and fallback) for `device`,
@@ -51,6 +51,14 @@ DisplayNameCandidates GetDisplayNameCandidates(const DeviceInfo* device);
 // This is a simplified version that does not perform deduplication or
 // filtering. It simply returns the preferred display name.
 std::string GetDeviceDisplayName(const DeviceInfo* device);
+
+// Returns a list of display names for the given devices.
+// When `kSyncDisambiguateDeviceNamesWithChannel` is enabled, this resolves
+// duplicate display names across `devices` and against `local_device` (if
+// provided) by appending release channel labels.
+std::vector<std::string> GetDeviceNames(
+    const std::vector<const DeviceInfo*>& devices,
+    const DeviceInfo* local_device = nullptr);
 
 // Returns a list of display names for the given devices. This handles:
 // 1. De-duplication by fallback full name: only the first occurrence in

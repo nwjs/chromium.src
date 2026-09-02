@@ -22,8 +22,7 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
         .usePecApi="${this.usePecApi_}"
         .isOblongShape="${this.isOblongShape_}"
         .contextManagementInComposeboxEnabled="${
-                                   this.contextManagementInComposeboxEnabled_}"
-        entrypoint-name="Omnibox">
+                                   this.contextManagementInComposeboxEnabled_}">
     </omnibox-everywhere-composebox>
   ` :
                                html`
@@ -35,6 +34,11 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
                                    this.contextManagementInComposeboxEnabled_}">
     </omnibox-everywhere-omnibox>
   `}
+  ${this.mostVisitedEnabled_ ? html`
+    <div id="mostVisitedContainer">
+      <cr-most-visited id="mostVisited" single-row non-editable hide-title></cr-most-visited>
+    </div>
+  ` : ''}
 </div>
 <div id="dialogAnchor"></div>
 ${this.showVoiceSearchOverlay_ ? html`

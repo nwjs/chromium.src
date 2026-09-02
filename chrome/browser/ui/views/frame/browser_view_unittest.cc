@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
@@ -145,7 +146,7 @@ TEST_F(BrowserViewTest, BrowserView) {
   EXPECT_FALSE(browser_view()->IsBookmarkBarAnimating());
 
   // Test action item creation.
-  BrowserActions* browser_actions = browser()->browser_actions();
+  BrowserActions* browser_actions = BrowserActions::From(browser());
 
   ASSERT_NE(browser_actions->root_action_item(), nullptr);
   EXPECT_GE(
@@ -195,8 +196,8 @@ namespace {
 class ScopedBrowser {
  public:
   explicit ScopedBrowser(Profile* profile) {
-    Browser::CreateParams params(profile, true);
-    browser_ = Browser::DeprecatedCreateOwnedForTesting(params);
+    BrowserWindowCreateParams params(profile, true);
+    browser_ = DeprecatedCreateOwnedBrowserWindowForTesting(std::move(params));
     browser_view_ = BrowserView::GetBrowserViewForBrowser(browser_.get());
   }
   ScopedBrowser(const ScopedBrowser&) = delete;

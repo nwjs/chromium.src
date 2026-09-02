@@ -27,7 +27,11 @@ class TabCollectionAnimatingLayoutManager
  public:
   // Controls along which axis view bounds are animated during animate-in and
   // animate-out transitions.
-  enum class AnimationAxis { kVertical, kHorizontal };
+  enum class AnimationAxis {
+    kVertical,
+    kHorizontal,
+    kHorizontalWrappingVertically,
+  };
 
   // Represents how animations should progress along the animation axis.
   enum class AnimationDirection { kStartToEnd, kEndToStart };
@@ -52,6 +56,13 @@ class TabCollectionAnimatingLayoutManager
     virtual bool ShouldSnapToTarget(const views::View& child_view) const;
     virtual bool ShouldAnimateOpacityForAddAndRemove(
         const views::View& child_view) const;
+    // If provided, this is used to calculate target layouts against the total
+    // available capacity rather than the host view's mid-animation bounds (e.g.
+    // for the horizontal unpinned container). If not provided (the default),
+    // target layout calculations fall back to using the host view's allocated
+    // bounds (e.g. for nested containers like tab groups).
+    virtual std::optional<views::SizeBound> GetAvailableMainAxisSpaceOverride()
+        const;
     virtual void OnAnimationEnded();
 
    protected:
@@ -108,6 +119,10 @@ class TabCollectionAnimatingLayoutManager
 
   const views::ProposedLayout& target_layout() const { return target_layout_; }
 
+  // Returns the target preferred size that `host_view()` will occupy once
+  // current animations complete.
+  gfx::Size GetTargetPreferredSize() const;
+
   bool is_animating() const { return animation_.is_animating(); }
 
  protected:
@@ -136,6 +151,9 @@ class TabCollectionAnimatingLayoutManager
   // Interpolates between `starting_layout_` and `target_layout_` based on
   // current `animation_` value.
   views::ProposedLayout InterpolateLayout(double value) const;
+
+  // Returns true if the animation axis is vertical or wraps vertically.
+  bool IsVerticalOrWrappingVertically() const;
 
   // Removes and destroys any views marked for deletion that are no longer
   // needed for animated effects. This is called after a new layout has been
@@ -181,10 +199,11 @@ class TabCollectionAnimatingLayoutManager
   // interpolated.
   AnimationAxis animation_axis_;
 
-  // Stores the height of the `current_layout_`. Recomputed on each call to
-  // `InterpolateLayout()`. Mutable since this is a cached artifact of
-  // calculating `current_layout_` and does not affect logical constness.
-  mutable int current_layout_content_height_ = 0;
+  // Stores the content size (height for vertical, width for horizontal) of the
+  // `current_layout_`. Recomputed on each call to `InterpolateLayout()`.
+  // Mutable since this is a cached artifact of calculating `current_layout_`
+  // and does not affect logical constness.
+  mutable int current_layout_content_size_ = 0;
 
   // True if the manager should animate its preferred size, i.e. the manager
   // will update the host's preferred size to match the layout calculated in
@@ -194,5 +213,7 @@ class TabCollectionAnimatingLayoutManager
   // avoids clipping close / fade-out animations.
   const bool animate_host_size_ = false;
 };
+
+extern const ui::ClassProperty<bool>* const kHasAnimatingLayoutManagerKey;
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_COMMON_TAB_COLLECTION_ANIMATING_LAYOUT_MANAGER_H_

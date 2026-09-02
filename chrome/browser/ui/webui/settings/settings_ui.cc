@@ -26,6 +26,8 @@
 #include "chrome/browser/compose/compose_enabling.h"
 #include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_context_service.h"
+#include "chrome/browser/dictation/dictation_keyed_service.h"
+#include "chrome/browser/dictation/features.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -65,6 +67,7 @@
 #include "chrome/browser/ui/webui/settings/accessibility_main_handler.h"
 #include "chrome/browser/ui/webui/settings/appearance_handler.h"
 #include "chrome/browser/ui/webui/settings/browser_lifetime_handler.h"
+#include "chrome/browser/ui/webui/settings/dictation_handler.h"
 #include "chrome/browser/ui/webui/settings/downloads_handler.h"
 #include "chrome/browser/ui/webui/settings/font_handler.h"
 #include "chrome/browser/ui/webui/settings/glic_handler.h"
@@ -189,6 +192,7 @@
 #else  // !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/search/background/ntp_custom_background_service_factory.h"
 #include "chrome/browser/signin/account_consistency_mode_manager.h"
+#include "chrome/browser/ui/webui/cr_components/signin/signin_utils_handler.h"
 #include "chrome/browser/ui/webui/cr_components/theme_color_picker/theme_color_picker_handler.h"
 #include "chrome/browser/ui/webui/settings/captions_handler.h"
 #include "chrome/browser/ui/webui/settings/settings_default_browser_handler.h"
@@ -253,6 +257,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   AddSettingsPageUIHandler(
       std::make_unique<ClearBrowsingDataHandler>(web_ui, profile));
   AddSettingsPageUIHandler(std::make_unique<SafetyHubHandler>(profile));
+  AddSettingsPageUIHandler(std::make_unique<DictationHandler>());
   AddSettingsPageUIHandler(std::make_unique<DownloadsHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ExtensionControlHandler>());
   AddSettingsPageUIHandler(std::make_unique<FontHandler>(profile));
@@ -423,13 +428,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           ->GetPaymentsDataManager()
           .ShouldShowBnplSettings());
 
-  html_source->AddBoolean("enableYourSavedInfoSettingsPage",
-                          base::FeatureList::IsEnabled(
-                              autofill::features::kYourSavedInfoSettingsPage));
-
-  html_source->AddBoolean("shoppingIntegrationEnabled",
-                          base::FeatureList::IsEnabled(
-                              autofill::features::kAutofillAmbientAutofill));
+  html_source->AddBoolean(
+      "shoppingIntegrationEnabled",
+      base::FeatureList::IsEnabled(
+          autofill::features::kAutofillAmbientAutofill) ||
+          base::FeatureList::IsEnabled(
+              autofill::features::kAutofillAiWalletShopping));
 
   AddSettingsPageUIHandler(std::make_unique<AboutHandler>(profile));
   AddSettingsPageUIHandler(std::make_unique<ResetSettingsHandler>(profile));
@@ -592,6 +596,11 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       autofill::MayPerformAutofillAiAction(
           autofill_client,
           autofill::AutofillAiAction::kListEntityInstancesInSettings));
+  auto* dictation_keyed_service =
+      dictation::DictationKeyedService::Get(profile);
+  bool show_dictation_control =
+      dictation_keyed_service && dictation_keyed_service->IsEnabledAndReady();
+
   std::pair<const std::string_view, bool> optimization_guide_features[] = {
       {"showComposeControl", compose_visible},
       {"showHistorySearchControl",
@@ -602,11 +611,15 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
                ->UserIsActivePasswordChangeUser()},
       {"showAiSuggestionsControl",
        base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2)},
+      {"showInlineCueMenuControl",
+       base::FeatureList::IsEnabled(features::kGlicSelectionPrompt) &&
+           glic_enablement.ShouldShowSettingsPage()},
       {"showSkillsSettingPage",
        base::FeatureList::IsEnabled(features::kSkillsEnabled)},
       {"showIndigoControl", base::FeatureList::IsEnabled(features::kIndigo)},
       {"showGoogleSearchAiModeWorkspaceControl",
        base::FeatureList::IsEnabled(features::kGoogleSearchAiModeWorkspace)},
+      {"showDictationControl", show_dictation_control},
   };
 
   html_source->AddString("aiSuggestionsHelpCenterArticleLink",
@@ -662,6 +675,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   html_source->AddBoolean(
       "searchSettingsUpdate",
       base::FeatureList::IsEnabled(switches::kSearchSettingsUpdate));
+
+  html_source->AddString(
+      "settingsRefresh2026",
+      base::FeatureList::IsEnabled(features::kSettingsRefresh2026)
+          ? "settings-refresh-2026"
+          : "");
 
 #if 0 //nwjs
   personal_context::PersonalContextEligibilityService* eligibility_service =
@@ -764,6 +783,15 @@ void SettingsUI::BindInterface(
   theme_color_picker_handler_factory_receiver_.Bind(
       std::move(pending_receiver));
 }
+
+void SettingsUI::BindInterface(
+    mojo::PendingReceiver<signin::mojom::SigninPageHandlerFactory>
+        pending_receiver) {
+  if (signin_handler_factory_receiver_.is_bound()) {
+    signin_handler_factory_receiver_.reset();
+  }
+  signin_handler_factory_receiver_.Bind(std::move(pending_receiver));
+}
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 void SettingsUI::BindInterface(
@@ -815,6 +843,14 @@ void SettingsUI::CreateThemeColorPickerHandler(
       NtpCustomBackgroundServiceFactory::GetForProfile(
           Profile::FromWebUI(web_ui())),
       web_ui()->GetWebContents());
+}
+
+void SettingsUI::CreateSigninPageHandler(
+    mojo::PendingReceiver<signin::mojom::SigninPageHandler> handler) {
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  signin_handler_ = std::make_unique<SigninUtilsHandler>(
+      std::move(handler), Profile::FromWebUI(web_ui()));
+#endif
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 

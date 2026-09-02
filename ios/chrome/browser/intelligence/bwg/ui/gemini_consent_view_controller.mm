@@ -18,7 +18,6 @@
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
-#import "url/gurl.h"
 
 namespace {
 
@@ -75,14 +74,23 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
   return GeminiFirstRunStepIdentifier::kConsent;
 }
 
-- (ButtonStackConfiguration*)buttonStackConfiguration {
-  ButtonStackConfiguration* configuration =
++ (ButtonStackConfiguration*)buttonStackConfigurationForConfiguration:
+    (GeminiConsentConfiguration*)configuration {
+  ButtonStackConfiguration* buttonConfiguration =
       [[ButtonStackConfiguration alloc] init];
-  configuration.primaryActionString =
-      l10n_util::GetNSString(IDS_IOS_BWG_CONSENT_PRIMARY_BUTTON);
-  configuration.secondaryActionString =
+  BOOL useStrictButton =
+      IsGeminiUpdatedConsentEnabled() && configuration.useStrict;
+  buttonConfiguration.primaryActionString = l10n_util::GetNSString(
+      useStrictButton ? IDS_IOS_GEMINI_CONSENT_PRIMARY_BUTTON_STRICT
+                      : IDS_IOS_BWG_CONSENT_PRIMARY_BUTTON);
+  buttonConfiguration.secondaryActionString =
       l10n_util::GetNSString(IDS_IOS_BWG_CONSENT_SECONDARY_BUTTON);
-  return configuration;
+  return buttonConfiguration;
+}
+
+- (ButtonStackConfiguration*)buttonStackConfiguration {
+  return [GeminiConsentViewController
+      buttonStackConfigurationForConfiguration:_configuration];
 }
 
 - (void)stepDidBecomeActive {
@@ -130,7 +138,10 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
   [_mainStackView addArrangedSubview:[self createAccordionView]];
 
   if (_configuration.footnote) {
-    [_mainStackView addArrangedSubview:[self createFootnoteView]];
+    UITextView* footnoteView = [GeminiUIUtils
+        createFootnoteViewWithAttributedText:_configuration.footnote];
+    footnoteView.delegate = self;
+    [_mainStackView addArrangedSubview:footnoteView];
   }
 }
 
@@ -202,74 +213,7 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
   return accordionView;
 }
 
-// Creates the footnote view.
-- (UITextView*)createFootnoteView {
-  UITextView* footNoteTextView = [[UITextView alloc] init];
-  footNoteTextView.backgroundColor = [UIColor clearColor];
-  footNoteTextView.scrollEnabled = NO;
-  footNoteTextView.editable = NO;
-  footNoteTextView.textDragInteraction.enabled = NO;
-  footNoteTextView.delegate = self;
-  footNoteTextView.textContainerInset = UIEdgeInsetsZero;
-  footNoteTextView.linkTextAttributes =
-      @{NSForegroundColorAttributeName : [UIColor colorNamed:kBlue600Color]};
-  footNoteTextView.attributedText = _configuration.footnote;
-  footNoteTextView.accessibilityIdentifier =
-      kGeminiFootNoteTextViewAccessibilityIdentifier;
-
-  return footNoteTextView;
-}
-
 #pragma mark - UITextViewDelegate
-
-// Helper to handle link actions.
-- (void)handleLinkAction:(NSString*)actionString {
-  RecordFirstRunConsentAction(IOSGeminiFirstRunAction::kLinkClick);
-  if ([actionString isEqualToString:kGeminiFirstFootnoteLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kFirstFootnoteLinkURL)];
-  } else if ([actionString isEqualToString:kGeminiSecondFootnoteLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kSecondFootnoteLinkURL)];
-  } else if ([actionString
-                 isEqualToString:kGeminiSecondBoxLinkActionManagedAccount]) {
-    [self.mutator openNewTabWithURL:GURL(kSecondBoxLinkURLManagedAccount)];
-  } else if ([actionString isEqualToString:
-                               kGeminiSecondBoxLink1ActionNonManagedAccount]) {
-    [self.mutator openNewTabWithURL:GURL(kSecondBoxLink1URLNonManagedAccount)];
-  } else if ([actionString isEqualToString:
-                               kGeminiSecondBoxLink2ActionNonManagedAccount]) {
-    [self.mutator openNewTabWithURL:GURL(kSecondBoxLink2URLNonManagedAccount)];
-  } else if ([actionString
-                 isEqualToString:kGeminiLivePrivacyNoticeLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kLivePrivacyNoticeLinkURL)];
-  } else if ([actionString isEqualToString:kGeminiLiveLearnMoreLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kLiveLearnMoreLinkURL)];
-  } else if ([actionString
-                 isEqualToString:kGeminiLivePrivacyPolicyLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kLivePrivacyPolicyLinkURL)];
-  } else if ([actionString
-                 isEqualToString:kGeminiLivePrivacyHubManagedLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kLivePrivacyHubManagedLinkURL)];
-  } else if ([actionString isEqualToString:kGeminiKoreanTermsLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kKoreanTermsFootnoteLinkURL)];
-  } else if ([actionString isEqualToString:kGeminiWatchLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kWatchLinkURL)];
-  } else if ([actionString
-                 isEqualToString:kGeminiDataGovernanceManagedLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kDataGovernanceManagedLinkURL)];
-  } else if ([actionString
-                 isEqualToString:kGeminiDataGovernanceStrictLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kDataGovernanceStrictLinkURL)];
-  } else if ([actionString isEqualToString:
-                               kGeminiDataGovernanceNormalChoicesLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kDataGovernanceNormalChoicesLinkURL)];
-  } else if ([actionString isEqualToString:
-                               kGeminiDataGovernanceNormalLocationLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kDataGovernanceNormalLocationLinkURL)];
-  } else if ([actionString
-                 isEqualToString:kGeminiConnectedServicesLinkAction]) {
-    [self.mutator openNewTabWithURL:GURL(kConnectedServicesLinkURL)];
-  }
-}
 
 // Handles tap on UITextView.
 - (UIAction*)textView:(UITextView*)textView
@@ -282,7 +226,7 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
   NSString* actionString = textItem.link.absoluteString;
   __weak __typeof(self) weakSelf = self;
   return [UIAction actionWithHandler:^(UIAction* action) {
-    [weakSelf handleLinkAction:actionString];
+    [weakSelf.mutator didTapConsentLinkWithAction:actionString];
   }];
 }
 
@@ -300,7 +244,7 @@ const CGFloat kHeaderIconSizeMultiplier = 0.55;
 #pragma mark - GeminiConsentAccordionViewDelegate
 
 - (void)accordionView:(GeminiConsentAccordionView*)view didTapLink:(NSURL*)url {
-  [self handleLinkAction:url.absoluteString];
+  [self.mutator didTapConsentLinkWithAction:url.absoluteString];
 }
 
 - (void)accordionView:(GeminiConsentAccordionView*)view

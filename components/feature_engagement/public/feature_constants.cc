@@ -131,9 +131,6 @@ BASE_FEATURE(kIPHMemorySaverModeFeature,
 BASE_FEATURE(kIPHMultistepFilterPromoFeature,
              "IPH_MultistepFilterPromo",
              base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHLiveCaptionFeature,
-             "IPH_LiveCaption",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHLensOverlayFeature,
              "IPH_LensOverlay",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -193,6 +190,9 @@ BASE_FEATURE(kIPHPdfSearchifyFeature,
 BASE_FEATURE(kIPHPdfTextAnnotationsFeature,
              "IPH_PdfTextAnnotations",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPdfTranslateBubbleFeature,
+             "IPH_PdfTranslateBubble",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPerformanceInterventionDialogFeature,
              "IPH_PerformanceInterventionDialogFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -246,6 +246,9 @@ BASE_FEATURE(kIPHSideBySidePinnableFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHSideBySideTabSwitchFeature,
              "IPH_SideBySideTabSwitchFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHSplitViewHorizontalIndirectAccessFeature,
+             "IPH_SplitViewHorizontalIndirectAccessFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHVerticalTabsExpandOnHoverFeature,
              "IPH_VerticalTabsExpandOnHoverFeature",
@@ -697,6 +700,9 @@ BASE_FEATURE(kIPHTabTearingXR,
 BASE_FEATURE(kIPHBottomToolbarTipFeature,
              "IPH_BottomToolbarTip",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHSendTabToSelfOmnibox,
+             "IPH_SendTabToSelfOmnibox",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_IOS) || BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
@@ -831,6 +837,12 @@ BASE_FEATURE(kIPHiOSPostDefaultAbandonmentPromoFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoGenericDefaultBrowserFeature,
              "IPH_iOSPromoGenericDefaultBrowser",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoSettingsCardDefaultBrowserFeature,
+             "IPH_iOSPromoSettingsCardDefaultBrowser",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoSettingsCellDefaultBrowserFeature,
+             "IPH_iOSPromoSettingsCellDefaultBrowser",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSOverflowMenuCustomizationFeature,
              "IPH_iOSOverflowMenuCustomization",
@@ -1108,6 +1120,8 @@ constinit const base::FeatureParam<std::string> kSearchPromotionExtensionId{
 constinit const base::FeatureParam<std::string> kSearchPromotionInstructionsUrl{
     &kIPHSearchPromotionFeature, "instructions_url",
     "https://www.google.com/chrome/landing/google-search-extension-edge/"};
+constinit const base::FeatureParam<std::string> kSearchPromotionMinPehVersion{
+    &kIPHSearchPromotionFeature, "min_peh_version", "153.0.8001.0"};
 #endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace feature_engagement

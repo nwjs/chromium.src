@@ -33,7 +33,6 @@ import android.os.Message;
 import android.os.SystemClock;
 import android.text.format.DateUtils;
 import android.util.TypedValue;
-import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 
@@ -60,7 +59,6 @@ import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.LayerTitleCache;
@@ -102,6 +100,7 @@ import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab.TabSelectionType;
+import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.ActionConfirmationManager;
 import org.chromium.chrome.browser.tabmodel.NextTabSelectionUtil;
@@ -125,6 +124,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetC
 import org.chromium.chrome.browser.tasks.tab_management.TabGroupListBottomSheetCoordinatorFactory;
 import org.chromium.chrome.browser.tasks.tab_management.TabHoverCardView;
 import org.chromium.chrome.browser.tasks.tab_management.TabListNotificationHandler;
+import org.chromium.chrome.browser.tasks.tab_management.TabMultiSelectHelper;
 import org.chromium.chrome.browser.tasks.tab_management.TabShareUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiUtils;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -141,6 +141,7 @@ import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.TabGroupSyncService;
 import org.chromium.components.tab_group_sync.TriggerSource;
 import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.ActivityResultTracker;
 import org.chromium.ui.base.LocalizationUtils;
@@ -197,6 +198,7 @@ public class StripLayoutHelper
 
     // Visibility Constants
     private static final float BUTTON_BACKGROUND_Y_OFFSET_DP = 3.f;
+    private static final float TAB_SEARCH_BUTTON_Y_OFFSET_DP = 2.f;
 
     // Desired spacing between new tab button and tabs when tab strip is not full.
     private static final float DESIRED_PADDING_BETWEEN_NEW_TAB_BUTTON_AND_TABS = 2.f;
@@ -233,9 +235,6 @@ public class StripLayoutHelper
     static final String NULL_TAB_HOVER_CARD_VIEW_SHOW_DELAYED_HISTOGRAM_NAME =
             "Android.TabStrip.NullTabHoverCardView.ShowDelayed";
 
-    // Hover card constants
-    @VisibleForTesting static final int MAX_HOVER_CARD_DELAY_MS = 800;
-    @VisibleForTesting static final int MIN_HOVER_CARD_DELAY_MS = 300;
     private static final int SHOW_HOVER_CARD_WITHOUT_DELAY_TIME_BUFFER = 300;
 
     // An observer that is notified of changes to a {@link TabModel} object.
@@ -413,19 +412,6 @@ public class StripLayoutHelper
                                     /* animate= */ true, /* deferAnimations= */ true);
                     assumeNonNull(pinnedAnimations);
 
-                    // Center tab favicon if pinned.
-                    float targetFaviconOffsetX = calculateTabFaviconOffsetX(stripTab);
-                    if (stripTab.getPinnedTabFaviconOffsetX() != targetFaviconOffsetX) {
-                        pinnedAnimations.add(
-                                CompositorAnimator.ofFloatProperty(
-                                        mUpdateHost.getAnimationHandler(),
-                                        stripTab,
-                                        StripLayoutTab.PINNED_TAB_FAVICON_OFFSET,
-                                        stripTab.getPinnedTabFaviconOffsetX(),
-                                        targetFaviconOffsetX,
-                                        ANIM_TAB_RESIZE_MS));
-                    }
-
                     // Animate the moving tab to the pinned boundary. Normally we animate from drawX
                     // to idealX, but if the first unpinned slot is off-screen, a newly unpinned tab
                     // would “fly” toward the strip start. To make it appear to fly into the
@@ -563,7 +549,6 @@ public class StripLayoutHelper
 
     // Layout Constants
     private final float mNewTabButtonWidth;
-    private final float mTabSearchButtonWidth;
 
     // All views are overlapped by TAB_OVERLAP_WIDTH_DP. Group titles do not need to be overlapped
     // by this much, so we offset the drawX.
@@ -583,6 +568,9 @@ public class StripLayoutHelper
     private final SettableNonNullObservableSupplier<Float> mPinnedTabsBoundarySupplier =
             ObservableSuppliers.createNonNull(0f);
 
+    // Multi-selection helper
+    private final TabMultiSelectHelper mMultiSelectHelper;
+
     // Reorder State
     private boolean mMovingGroup;
 
@@ -593,9 +581,6 @@ public class StripLayoutHelper
     // close button moves to where the closing tab's close button was, if possible.
     private @Nullable Float mClosingEndMostTabDrawX;
     private @Nullable Float mClosingEndMostTabWidth;
-
-    // Multi-selection state
-    private int mAnchorTabId = Tab.INVALID_TAB_ID;
 
     // Tab switch efficiency
     private @Nullable Long mTabScrollStartTime;
@@ -714,8 +699,8 @@ public class StripLayoutHelper
     private final List<QueuedIph> mQueuedIphList = new ArrayList<>();
 
     private final StripLayoutTabDelegate mTabDelegate;
-    private @Nullable StripTabUnderlineManager mStripTabUnderlineManager;
-    private StripTabUnderlineManager.@Nullable Observer mTabUnderlineObserver;
+    private @Nullable TabUnderlineManager mTabUnderlineManager;
+    private TabUnderlineManager.@Nullable Observer mTabUnderlineObserver;
 
     // Pinned tabs.
     private boolean mIsPinnedOnlyStripRecorded;
@@ -809,11 +794,6 @@ public class StripLayoutHelper
         mScrollDelegate = new ScrollDelegate(context);
 
         Resources res = context.getResources();
-        // Set tab search button background resource.
-        mTabSearchButtonWidth =
-                ChromeFeatureList.sTabSearchForDesktop.isEnabled()
-                        ? BUTTON_TOUCH_TARGET_SIZE_DP
-                        : 0.f;
         mTabSearchButton = createTabSearchButton(context, incognito, res);
 
         // Use toolbar menu button padding to align NTB with menu button.
@@ -883,12 +863,12 @@ public class StripLayoutHelper
         if (!mIncognito
                 && (GlicEnabling.isEnabledByFlags()
                         || ChromeFeatureList.sContextualTasks.isEnabled())) {
-            mStripTabUnderlineManager = new StripTabUnderlineManager(windowAndroid);
+            mTabUnderlineManager = new TabUnderlineManager(windowAndroid);
             mTabUnderlineObserver =
-                    new StripTabUnderlineManager.Observer() {
+                    new TabUnderlineManager.Observer() {
                         @Override
-                        public void onIndicatorStateChanged(int tabId, boolean isUnderlined) {
-                            setTabUnderline(tabId, isUnderlined);
+                        public void onIndicatorStateChanged(int tabId, boolean isActive) {
+                            setTabUnderline(tabId, isActive);
                         }
 
                         @Override
@@ -896,11 +876,12 @@ public class StripLayoutHelper
                             resetTabUnderlineAnimationCycle(tabId);
                         }
                     };
-            mStripTabUnderlineManager.addObserver(mTabUnderlineObserver);
+            mTabUnderlineManager.addObserver(mTabUnderlineObserver);
         }
 
         mIsFirstLayoutPass = true;
 
+        mMultiSelectHelper = new TabMultiSelectHelper(() -> mModel, this::selectTabById);
         mTabDelegate = new StripLayoutTabDelegate(mUpdateHost);
     }
 
@@ -942,25 +923,29 @@ public class StripLayoutHelper
             mTabStripContextMenuCoordinator.destroy();
             mTabStripContextMenuCoordinator = null;
         }
-        if (mStripTabUnderlineManager != null) {
+        if (mTabUnderlineManager != null) {
             if (mTabUnderlineObserver != null) {
-                mStripTabUnderlineManager.removeObserver(mTabUnderlineObserver);
+                mTabUnderlineManager.removeObserver(mTabUnderlineObserver);
                 mTabUnderlineObserver = null;
             }
-            mStripTabUnderlineManager.destroy();
-            mStripTabUnderlineManager = null;
+            mTabUnderlineManager.destroy();
+            mTabUnderlineManager = null;
         }
     }
 
     private TintedCompositorButton createTabSearchButton(
             Context context, boolean incognito, Resources res) {
+        float width =
+                ChromeFeatureList.sTabSearchForDesktop.isEnabled()
+                        ? BUTTON_BACKGROUND_SIZE_DP
+                        : 0.f;
         TintedCompositorButton button =
                 new TintedCompositorButton(
                         context,
                         incognito,
                         ButtonType.TAB_SEARCH,
                         /* parentView= */ null,
-                        BUTTON_BACKGROUND_SIZE_DP,
+                        width,
                         BUTTON_BACKGROUND_SIZE_DP,
                         mControlContainer::setTooltipText,
                         /* clickHandler= */ this,
@@ -980,7 +965,7 @@ public class StripLayoutHelper
         button.setBackgroundTint(context.getColorStateList(bgTintRes));
 
         button.setTint(ChromeColors.getPrimaryIconTint(context, incognito).getDefaultColor());
-        button.setDrawY(BUTTON_BACKGROUND_Y_OFFSET_DP);
+        button.setDrawY(TAB_SEARCH_BUTTON_Y_OFFSET_DP);
         button.setAccessibilityDescription(
                 res.getString(R.string.accessibility_search_loupe_tooltip_text));
         button.setVisible(ChromeFeatureList.sTabSearchForDesktop.isEnabled());
@@ -988,10 +973,10 @@ public class StripLayoutHelper
     }
 
     private void updateTabSearchButton() {
-        mTabSearchButton.setVisible(mTabSearchButtonWidth > 0.f);
+        mTabSearchButton.setVisible(mTabSearchButton.getWidth() > 0.f);
         if (mTabSearchButton.isVisible()) {
             if (LocalizationUtils.isLayoutRtl()) {
-                mTabSearchButton.setDrawX(mWidth - mRightPadding - mTabSearchButtonWidth);
+                mTabSearchButton.setDrawX(mWidth - mRightPadding - mTabSearchButton.getWidth());
             } else {
                 mTabSearchButton.setDrawX(mLeftPadding);
             }
@@ -1047,10 +1032,6 @@ public class StripLayoutHelper
      */
     public TintedCompositorButton getTabSearchButton() {
         return mTabSearchButton;
-    }
-
-    float getTabSearchButtonWidth() {
-        return mTabSearchButtonWidth;
     }
 
     /**
@@ -1153,28 +1134,56 @@ public class StripLayoutHelper
         }
     }
 
+    /**
+     * @return The gradient width of the left fade layer. When a button is visible on this side (LTR
+     *     for Tab Search button, RTL for trailing buttons), it returns the button-side gradient
+     *     width to ensure a sharper fade transition. Otherwise, it returns the standard edge fade
+     *     gradient width.
+     */
     public float getLeftFadeGradientWidth() {
-        return LocalizationUtils.isLayoutRtl()
-                ? mButtonSideFadeGradientWidth
-                : NO_BUTTON_FADE_GRADIENT_WIDTH_DP;
+        if (LocalizationUtils.isLayoutRtl()) {
+            return mButtonSideFadeGradientWidth;
+        } else {
+            return mTabSearchButton.isVisible()
+                    ? BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP
+                    : NO_BUTTON_FADE_GRADIENT_WIDTH_DP;
+        }
     }
 
+    /**
+     * @return The gradient width of the right fade layer. When a button is visible on this side
+     *     (RTL for Tab Search button, LTR for trailing buttons), it returns the button-side
+     *     gradient width to ensure a sharper fade transition. Otherwise, it returns the standard
+     *     edge fade gradient width.
+     */
     public float getRightFadeGradientWidth() {
-        return LocalizationUtils.isLayoutRtl()
-                ? NO_BUTTON_FADE_GRADIENT_WIDTH_DP
-                : mButtonSideFadeGradientWidth;
+        if (LocalizationUtils.isLayoutRtl()) {
+            return mTabSearchButton.isVisible()
+                    ? BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP
+                    : NO_BUTTON_FADE_GRADIENT_WIDTH_DP;
+        } else {
+            return mButtonSideFadeGradientWidth;
+        }
     }
 
+    /**
+     * @return The opaque width of the left fade layer. When a button is visible on this side (LTR
+     *     for Tab Search button, RTL for trailing buttons), the opaque width covers the button's
+     *     touch target and a padding buffer to prevent scrolling tabs from showing behind the
+     *     button. Otherwise, it covers the standard margin width.
+     */
     public float getLeftFadeOpaqueWidth() {
-        return LocalizationUtils.isLayoutRtl()
-                ? mLeftFadeWidth - mButtonSideFadeGradientWidth
-                : NO_BUTTON_FADE_OPAQUE_WIDTH_DP;
+        return mLeftFadeWidth - getLeftFadeGradientWidth();
     }
 
+    /**
+     * @return The opaque width of the right fade layer. When a button is visible on this side (RTL
+     *     for Tab Search button, LTR for trailing buttons), the opaque width covers the button's
+     *     touch target and a padding buffer to prevent scrolling tabs from showing behind the
+     *     button. Otherwise, it covers the standard margin width.
+     */
     public float getRightFadeOpaqueWidth() {
-        return LocalizationUtils.isLayoutRtl()
-                ? NO_BUTTON_FADE_OPAQUE_WIDTH_DP
-                : mRightFadeWidth - mButtonSideFadeGradientWidth;
+        return mRightFadeWidth - getRightFadeGradientWidth();
     }
 
     float getLeftFadeWidthForTesting() {
@@ -1264,7 +1273,12 @@ public class StripLayoutHelper
 
     private void updateMargins(boolean recalculateTabWidth) {
         // Reserve space for tab search button if it is visible at the start of the strip.
-        mReservedStartMargin = mTabSearchButton.isVisible() ? mTabSearchButtonWidth : 0.f;
+        // Subtracting 10dp from BUTTON_TOUCH_TARGET_SIZE_DP guarantees a touch target gap of
+        // exactly 6dp between the button and the first tab on both desktop and non-desktop:
+        // (BUTTON_TOUCH_TARGET_SIZE_DP - 10dp) + FOLIO_FOOT_LENGTH_DP (16dp tab start touch target
+        // inset) - BUTTON_TOUCH_TARGET_SIZE_DP = 6dp.
+        mReservedStartMargin =
+                mTabSearchButton.isVisible() ? BUTTON_TOUCH_TARGET_SIZE_DP - 10.f : 0.f;
         if (LocalizationUtils.isLayoutRtl()) {
             mLeftMargin = mReservedEndMargin + mLeftPadding;
             mRightMargin = mReservedStartMargin + mRightPadding;
@@ -1284,7 +1298,17 @@ public class StripLayoutHelper
                         ? BUTTON_FADE_GRADIENT_LONG_WIDTH_DP
                         : BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP;
 
-        float startFadeWidth = NO_BUTTON_FADE_GRADIENT_WIDTH_DP + NO_BUTTON_FADE_OPAQUE_WIDTH_DP;
+        float startFadeWidth;
+        if (mTabSearchButton.isVisible()) {
+            // BUTTON_TOUCH_TARGET_SIZE_DP represents the Tab Search button's touch target size.
+            startFadeWidth =
+                    BUTTON_TOUCH_TARGET_SIZE_DP
+                            + mButtonSideFadePadding
+                            + BUTTON_FADE_GRADIENT_SHORT_WIDTH_DP;
+        } else {
+            startFadeWidth = NO_BUTTON_FADE_GRADIENT_WIDTH_DP + NO_BUTTON_FADE_OPAQUE_WIDTH_DP;
+        }
+
         float endFadeWidth =
                 mReservedEndMargin + mButtonSideFadePadding + mButtonSideFadeGradientWidth;
         if (LocalizationUtils.isLayoutRtl()) {
@@ -1532,12 +1556,7 @@ public class StripLayoutHelper
                 if (stripTab.getIsPlaceholder()) numLeftoverPlaceholders++;
                 Tab tab = mModel.getTabById(stripTab.getTabId());
                 if (tab != null) {
-                    boolean isPinned = tab.getIsPinned();
-                    if (isPinned) {
-                        stripTab.setIsPinned(true);
-                        float targetFaviconOffsetX = calculateTabFaviconOffsetX(stripTab);
-                        stripTab.setPinnedTabFaviconOffsetX(targetFaviconOffsetX);
-                    }
+                    stripTab.setIsPinned(tab.getIsPinned());
                 }
             }
             mPinnedTabsBoundarySupplier.set(getPinnedTabsBoundary());
@@ -1569,11 +1588,11 @@ public class StripLayoutHelper
     }
 
     private void registerTabsWithUnderlineManager() {
-        if (mStripTabUnderlineManager == null || mModel == null) return;
+        if (mTabUnderlineManager == null || mModel == null) return;
         for (int i = 0; i < mModel.getCount(); i++) {
             Tab tab = mModel.getTabAt(i);
             if (tab != null) {
-                mStripTabUnderlineManager.registerTab(tab);
+                mTabUnderlineManager.registerTab(tab);
             }
         }
     }
@@ -1955,8 +1974,8 @@ public class StripLayoutHelper
             if (stripTab != null && !stripTab.isDying()) {
                 mClosingTabs.add(stripTab);
             }
-            if (mStripTabUnderlineManager != null) {
-                mStripTabUnderlineManager.unregisterTab(tab.getId());
+            if (mTabUnderlineManager != null) {
+                mTabUnderlineManager.unregisterTab(tab.getId());
             }
         }
         if (!mClosingTabs.isEmpty()) {
@@ -1972,6 +1991,23 @@ public class StripLayoutHelper
     /** Called when all tabs are closed at once. */
     public void willCloseAllTabs() {
         rebuildStripTabs(/* deferAnimations= */ false);
+    }
+
+    /**
+     * Called when a set of tabs are going to be closed.
+     *
+     * @param tabs The list of tabs being closed.
+     * @param isAllTabs Whether all tabs are closing.
+     * @param allowUndo Whether undo is allowed for this closure.
+     */
+    public void willCloseTabs(List<Tab> tabs, boolean isAllTabs, boolean allowUndo) {
+        if (isAllTabs) {
+            willCloseAllTabs();
+            return;
+        }
+        for (Tab tab : tabs) {
+            willCloseTab(tab);
+        }
     }
 
     /**
@@ -2015,8 +2051,8 @@ public class StripLayoutHelper
         Tab tab = getTabById(id);
         boolean collapsed = false;
         if (tab != null) {
-            if (mStripTabUnderlineManager != null) {
-                mStripTabUnderlineManager.registerTab(tab);
+            if (mTabUnderlineManager != null) {
+                mTabUnderlineManager.registerTab(tab);
             }
             Token tabGroupId = tab.getTabGroupId();
             updateGroupTextAndSharedState(tabGroupId);
@@ -2657,7 +2693,8 @@ public class StripLayoutHelper
                                 mModel,
                                 mBottomSheetController,
                                 /* supportsShowNewGroup= */ true,
-                                /* destroyOnHide= */ false);
+                                /* destroyOnHide= */ false,
+                                mWindowAndroid);
             }
             mTabContextMenuCoordinator =
                     TabContextMenuCoordinator.createContextMenuCoordinator(
@@ -3113,33 +3150,7 @@ public class StripLayoutHelper
 
     @VisibleForTesting
     int getHoverCardDelay(float tabWidth) {
-        // Delay is calculated as a logarithmic scale and bounded by a minimum width
-        // based on the width of a pinned tab and a maximum of the standard width.
-        //
-        //  delay (ms)
-        //           |
-        // max delay-|                                    *
-        //           |                          *
-        //           |                    *
-        //           |                *
-        //           |            *
-        //           |         *
-        //           |       *
-        //           |     *
-        //           |    *
-        // min delay-|****
-        //           |___________________________________________ tab width
-        //               |                                |
-        //       pinned tab width               standard tab width
-
-        tabWidth = MathUtils.clamp(tabWidth, MIN_TAB_WIDTH_DP, MAX_TAB_WIDTH_DP);
-        double logarithmicFraction =
-                Math.log(tabWidth - MIN_TAB_WIDTH_DP + 1.f)
-                        / Math.log(MAX_TAB_WIDTH_DP - MIN_TAB_WIDTH_DP + 1.f);
-        int scalingFactor = MAX_HOVER_CARD_DELAY_MS - MIN_HOVER_CARD_DELAY_MS;
-        int delay = (int) (logarithmicFraction * scalingFactor) + MIN_HOVER_CARD_DELAY_MS;
-
-        return delay;
+        return TabHoverCardView.getHoverCardDelay(tabWidth, MIN_TAB_WIDTH_DP, MAX_TAB_WIDTH_DP);
     }
 
     private void showTabHoverCardView(boolean isDelayedCall) {
@@ -3296,7 +3307,8 @@ public class StripLayoutHelper
         }
         // If multi-selection is active, any click on the tab strip that is not a tab should clear
         // the selection.
-        clearMultiSelection(/* clearAnchor= */ true, /* notifyObservers= */ true);
+        mMultiSelectHelper.clearMultiSelection(
+                /* clearAnchor= */ true, /* notifyObservers= */ true);
     }
 
     @Override
@@ -3433,95 +3445,19 @@ public class StripLayoutHelper
     private void handleTabClick(StripLayoutTab tab, int modifiers) {
         if (tab == null || tab.isDying() || mModel == null) return;
 
-        // Force flags are required for testing on an emulator, as key presses don't seem to be
-        // propagated to the app.
-        boolean isShiftPressed = (modifiers & KeyEvent.META_SHIFT_ON) != 0;
-        boolean isCtrlPressed = (modifiers & KeyEvent.META_CTRL_ON) != 0;
-
-        if (isShiftPressed && isCtrlPressed) {
-            handleShiftClick(tab, /* isDestructive= */ false);
-        } else if (isShiftPressed) {
-            handleShiftClick(tab, /* isDestructive= */ true);
-        } else if (isCtrlPressed) {
-            handleCtrlClick(tab);
-        } else {
+        if (!mMultiSelectHelper.handleTabClick(tab.getTabId(), modifiers)) {
             selectTab(tab);
-            clearMultiSelection(/* clearAnchor= */ true, /* notifyObservers= */ true);
         }
 
         mRenderHost.requestRender();
     }
 
-    /**
-     * Handles a Ctrl+Click event, which toggles the selection state of a single tab. If the tab is
-     * already in the multi-selection set, it is removed; otherwise, it is added. If the tab is
-     * added to the selection, it is also set as the active tab.
-     *
-     * @param clickedTab The tab that was clicked.
-     */
-    private void handleCtrlClick(StripLayoutTab clickedTab) {
-        if (clickedTab == null || clickedTab.isDying() || mModel == null) return;
-        int tabId = clickedTab.getTabId();
-        // If the tab is already multi-selected, ctrl click should unselect it.
-        if (mModel.isTabMultiSelected(tabId)) {
-            if (tabId == getSelectedTabId()) {
-                handleSelectedTabCtrlClicked(tabId);
-                return;
-            }
-            mModel.setTabsMultiSelected(Collections.singleton(tabId), false);
-        } else {
-            int oldSelectedTabId = getSelectedTabId();
-            // select clicked tab.
-            selectTab(clickedTab);
-            // When Ctrl clicked, even the previous tab gets selected.
-            mModel.setTabsMultiSelected(Set.of(tabId, oldSelectedTabId), true);
-            // Clear anchor tab.
-            mAnchorTabId = Tab.INVALID_TAB_ID;
+    private void selectTabById(int tabId) {
+        if (mModel == null) return;
+        StripLayoutTab tab = findTabById(tabId);
+        if (tab != null && !tab.isDying()) {
+            selectTab(tab);
         }
-    }
-
-    /**
-     * Handles a Shift+Click event, which selects a range of tabs from an anchor tab to the clicked
-     * tab.
-     *
-     * @param clickedTab The tab that was clicked, representing the endpoint of the range.
-     * @param isDestructive If true, any existing multi-selection is cleared before the new range is
-     *     selected. If false, the new range is added to the existing selection.
-     */
-    private void handleShiftClick(StripLayoutTab clickedTab, boolean isDestructive) {
-        if (clickedTab == null || clickedTab.isDying() || mModel == null) return;
-        if (isDestructive) {
-            clearMultiSelection(/* clearAnchor= */ false, /* notifyObservers= */ false);
-        }
-        if (mAnchorTabId == Tab.INVALID_TAB_ID) {
-            // If there's no anchor, treat the previously selected tab as anchor.
-            mAnchorTabId = getSelectedTabId();
-        }
-
-        int anchorIndex = mModel.indexOf(getTabById(mAnchorTabId));
-        int clickedIndex = mModel.indexOf(getTabById(clickedTab.getTabId()));
-
-        int startIndex = Math.min(anchorIndex, clickedIndex);
-        int endIndex = Math.max(anchorIndex, clickedIndex);
-
-        Set<Integer> selectedTabIds = new HashSet<>();
-        Set<Token> tabGroupIds = new HashSet<>();
-        if (startIndex != -1 && endIndex != -1) {
-            for (int i = startIndex; i <= endIndex; i++) {
-                int tabId = mStripTabs[i].getTabId();
-                selectedTabIds.add(tabId);
-                Tab tab = mModel.getTabById(tabId);
-                // If part of a tab group, expand the tab group.
-                if (tab == null) return;
-                Token tabGroupId = tab.getTabGroupId();
-                if (tabGroupId != null && !tabGroupIds.contains(tabGroupId) && mModel != null) {
-                    mModel.setTabGroupCollapsed(tabGroupId, false, /* animate= */ true);
-                    tabGroupIds.add(tabGroupId);
-                }
-            }
-        }
-        selectTab(clickedTab);
-        mModel.setTabsMultiSelected(/* tabIds= */ selectedTabIds, /* isSelected= */ true);
     }
 
     /**
@@ -3541,76 +3477,22 @@ public class StripLayoutHelper
     }
 
     /**
-     * Clears the entire set of multi-selected tabs.
-     *
-     * @param clearAnchor If true, the anchor tab for Shift+Click range selection is also reset.
-     */
-    private void clearMultiSelection(boolean clearAnchor, boolean notifyObservers) {
-        if (clearAnchor) {
-            // Clear anchor tab.
-            mAnchorTabId = Tab.INVALID_TAB_ID;
-        }
-        if (mModel == null) return;
-        mModel.clearMultiSelection(notifyObservers);
-    }
-
-    /**
-     * Handles the specific user action of Ctrl+clicking the currently active tab. This action
-     * deselects the active tab and transfers the active status to another tab within the existing
-     * multi-selection. The new active tab will be the leftmost tab in the current selection. if the
-     * clicked tab is the only one selected, this method does nothing to prevent a state with no
-     * active tab.
-     *
-     * @param tabId The ID of the currently active tab that was clicked.
-     */
-    private void handleSelectedTabCtrlClicked(int tabId) {
-        if (mModel == null || mModel.getMultiSelectedTabsCount() <= 1 || mStripTabs.length <= 1) {
-            // Can't deselect the only tab.
-            return;
-        }
-
-        // Find and select the new active tab, which will be the leftmost tab
-        // in the selection that isn't the one being deselected.
-        for (StripLayoutTab stripTab : mStripTabs) {
-            int id = stripTab.getTabId();
-            if (id != tabId && mModel.isTabMultiSelected(id)) {
-                selectTab(stripTab);
-                mModel.setTabsMultiSelected(Collections.singleton(tabId), false);
-                break;
-            }
-        }
-    }
-
-    /**
      * Toggles multiselection on the keyboard focused tab.
      *
      * @return Whether the multiselect action was successfully performed.
      */
     public boolean multiselectKeyboardFocusedItem() {
         @Nullable StripLayoutView focusedView = getKeyboardFocusedView();
-        if (focusedView instanceof StripLayoutTab) {
-            multiselectKeyboardFocusedItem((StripLayoutTab) focusedView);
+        if (focusedView instanceof StripLayoutTab tab) {
+            if (tab.isDying()) return false;
+            mMultiSelectHelper.multiselectKeyboardFocusedItem(tab.getTabId());
             return true;
         }
         return false;
     }
 
-    private void multiselectKeyboardFocusedItem(StripLayoutTab tab) {
-        if (tab == null || tab.isDying() || mModel == null) return;
-        int tabId = tab.getTabId();
-        // If the tab is already multi-selected, unselect it.
-        if (mModel.isTabMultiSelected(tabId)) {
-            mModel.setTabsMultiSelected(Collections.singleton(tabId), false);
-        } else {
-            int activeTabId = getSelectedTabId();
-            // When toggling multiselect, we need to add the active tab to the multi-selection set.
-            // This is an additive operation, and does not reset the selection set.
-            mModel.setTabsMultiSelected(Set.of(tabId, activeTabId), true);
-        }
-    }
-
-    public int getAnchorTabIdForTesting() {
-        return mAnchorTabId;
+    int getAnchorTabIdForTesting() {
+        return mMultiSelectHelper.getAnchorTabIdForTesting();
     }
 
     private void handleGroupTitleClick(StripLayoutGroupTitle groupTitle) {
@@ -3921,7 +3803,7 @@ public class StripLayoutHelper
                 tab.addLoadingSpinnerRotation(degrees);
                 tabHasSpinner = true;
             }
-            if (tab.getTabIndicatorStatus() == TabIndicatorStatus.DYNAMIC) {
+            if (tab.getAlertState() != null && tab.getAlertState() == TabAlert.ACTOR_ACCESSING) {
                 tab.addTabIndicatorOverlayRotation(degrees);
                 tabHasSpinner = true;
             }
@@ -3965,7 +3847,7 @@ public class StripLayoutHelper
             final int id = tab.getId();
             final StripLayoutTab oldTab = findTabById(id);
             boolean isPinned = tab.getIsPinned();
-            tabs[i] = oldTab != null ? oldTab : createStripTab(id, isPinned, tab.getMediaState());
+            tabs[i] = oldTab != null ? oldTab : createStripTab(id, isPinned, tab.getAlertState());
             setAccessibilityDescription(tabs[i], tab);
         }
 
@@ -4582,7 +4464,7 @@ public class StripLayoutHelper
                         mUpdateHost,
                         mIncognito,
                         /* isPinned= */ false,
-                        MediaState.NONE);
+                        /* alertState= */ null);
         mTabDelegate.setIsTabPlaceholder(tab, true);
 
         // TODO(crbug.com/40942588): Added placeholder a11y descriptions to prevent crash due
@@ -4596,8 +4478,10 @@ public class StripLayoutHelper
         return tab;
     }
 
+    // TODO(crbug.com/546133121): Add NONE value to Java TabAlert enum
     @VisibleForTesting
-    StripLayoutTab createStripTab(int id, boolean isPinned, @MediaState int mediaState) {
+    StripLayoutTab createStripTab(
+            int id, boolean isPinned, @Nullable @TabAlert Integer alertState) {
         // TODO: Cache these
         StripLayoutTab tab =
                 new StripLayoutTab(
@@ -4611,7 +4495,7 @@ public class StripLayoutHelper
                         mUpdateHost,
                         mIncognito,
                         isPinned,
-                        mediaState);
+                        alertState);
 
         if (isSelectedTab(id)) {
             StripLayoutTabDelegate.setTabVisibility(tab, /* isVisible= */ true);
@@ -4625,7 +4509,7 @@ public class StripLayoutHelper
     private void pushPropertiesToPlaceholder(StripLayoutTab placeholderTab, @Nullable Tab tab) {
         if (tab == null) return;
         placeholderTab.setTabId(tab.getId());
-        placeholderTab.setMediaState(tab.getMediaState());
+        placeholderTab.setAlertState(tab.getAlertState());
         mTabDelegate.setIsTabPlaceholder(placeholderTab, false);
         setAccessibilityDescription(placeholderTab, tab);
     }
@@ -5453,6 +5337,11 @@ public class StripLayoutHelper
         return mWidth;
     }
 
+    /** Returns the margin reserved at the start of the strip. */
+    float getReservedStartMarginForTesting() {
+        return mReservedStartMargin;
+    }
+
     /**
      * @param isPinned Whether the tab has been pinned.
      * @return The width of a tab.
@@ -5582,7 +5471,7 @@ public class StripLayoutHelper
                         stripTab.getNotificationBubbleShown(),
                         isHidden,
                         stripTab.getIsMultiSelected(),
-                        stripTab.getMediaState());
+                        TabUtils.getMediaStateForAlert(stripTab.getAlertState()));
 
         if (!stripTab.needsAccessibilityDescriptionUpdate(title, resId)) {
             // The resulting accessibility description would be the same as the current description,
@@ -5974,20 +5863,18 @@ public class StripLayoutHelper
         return isPinned ? getNumLivePinnedTabs() : mStripTabs.length;
     }
 
-    public void onMediaStateChanged(Tab tab, @MediaState int mediaState) {
+    /**
+     * Updates the alert state of a {@link StripLayoutTab} and its accessibility description.
+     *
+     * @param tab The {@link Tab} whose alert state changed.
+     * @param alertState The {@link TabAlert} state of the tab.
+     */
+    public void onAlertStateChanged(Tab tab, @Nullable @TabAlert Integer alertState) {
         StripLayoutTab stripLayoutTab = findTabById(tab.getId());
         // This state may get reset after the tab has already closed, so ignore if null.
         if (stripLayoutTab == null) return;
-        stripLayoutTab.setMediaState(mediaState);
+        stripLayoutTab.setAlertState(alertState);
         setAccessibilityDescription(stripLayoutTab, tab);
-    }
-
-    public void onActuationStateChanged(int tabId, @TabIndicatorStatus int status) {
-        StripLayoutTab stripLayoutTab = findTabById(tabId);
-        if (stripLayoutTab == null) return;
-        stripLayoutTab.setTabIndicatorStatus(status);
-        // TODO(crbug.com/498337661): Polish accessibility strings
-        setAccessibilityDescription(stripLayoutTab, getTabById(tabId));
     }
 
     private boolean isViewDraggingInProgress() {
@@ -6027,20 +5914,12 @@ public class StripLayoutHelper
         return null;
     }
 
-    private float calculateTabFaviconOffsetX(StripLayoutTab stripTab) {
-        if (!stripTab.getIsPinned()) {
-            return 0.f;
-        }
-        return ((getCachedTabWidth(true) - stripTab.getFaviconSize()) / 2.f
-                - stripTab.getFaviconPadding());
-    }
-
     void startDragAndDropTabForTesting(StripLayoutTab clickedTab, PointF dragStartPointF) {
         startReorderMode(
                 dragStartPointF.x, dragStartPointF.y, clickedTab, ReorderType.START_DRAG_DROP);
     }
 
-    @Nullable StripTabUnderlineManager getStripTabUnderlineManagerForTesting() {
-        return mStripTabUnderlineManager;
+    @Nullable TabUnderlineManager getTabUnderlineManagerForTesting() {
+        return mTabUnderlineManager;
     }
 }

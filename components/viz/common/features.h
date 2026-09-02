@@ -22,8 +22,6 @@ namespace features {
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidDumpForBadCompositedUiState);
 #endif  // BUILDFLAG(IS_ANDROID)
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
-    kBackForwardTransitionsSameDocSharedImage);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBufferQueuePerRenderPass);
 
 // On Windows, this may interact badly with partial delegation and kBufferQueue,
@@ -96,6 +94,7 @@ VIZ_COMMON_EXPORT extern const base::FeatureParam<int>
 #if BUILDFLAG(IS_MAC)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kVSyncAlignedPresentationForScrolling);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kVSyncAlignedPresentation);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDisplayRefreshRateForTimer);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<std::string> kTargetForVSync;
 VIZ_COMMON_EXPORT extern const char kTargetForVSyncAllFrames[];
 VIZ_COMMON_EXPORT extern const char kTargetForVSyncAnimation[];
@@ -115,8 +114,18 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFScrollNoRendererMain);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableADPFAsyncSetThreads);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kSelectFutureFrameDeadline);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAllowMultipleSwapsPerVsync);
+
+enum class FrameDeadlineDeciderSequenceStrategy {
+  kPresentationDeltaLocking = 0,
+  kOsPreferredDeltaLocking = 1,
+  kMaxValue = kOsPreferredDeltaLocking,
+};
+
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseAndroidCustomFrameDeadlines);
+VIZ_COMMON_EXPORT extern const base::FeatureParam<
+    FrameDeadlineDeciderSequenceStrategy>
+    kAndroidCustomFrameDeadlineSequenceStrategy;
 VIZ_COMMON_EXPORT extern const base::FeatureParam<int>
     kAndroidCustomFrameDeadlinePresentationOffset;
 VIZ_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
@@ -161,7 +170,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kNoCompositorFrameAcks);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<int>
     kNumberPendingFramesUntilThrottle;
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kDisplaySchedulerAsClient);
-VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kFlingSchedulingImprovements);
 
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kRpdqFilterLookupOptimizations);
 
@@ -169,7 +177,6 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBypassOutdatedSurfaceActivation);
 
 VIZ_COMMON_EXPORT int DrawQuadSplitLimit();
 VIZ_COMMON_EXPORT bool IsRenderPassDrawQuadCullingOptimizationEnabled();
-VIZ_COMMON_EXPORT bool IsBackForwardTransitionsSameDocSharedImageEnabled();
 VIZ_COMMON_EXPORT bool IsDelegatedCompositingEnabled();
 VIZ_COMMON_EXPORT bool IsVizDirectCompositorThreadIpcNonRootEnabled();
 VIZ_COMMON_EXPORT bool IsVizDirectCompositorThreadIpcFrameSinkManagerEnabled();

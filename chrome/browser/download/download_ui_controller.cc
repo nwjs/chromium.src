@@ -15,10 +15,10 @@
 #include "chrome/browser/download/bubble/download_bubble_utils.h"
 #include "chrome/browser/download/download_item_model.h"
 #include "chrome/browser/download/download_stats.h"
+#include "chrome/browser/ssl/chrome_security_state_util.h"
 #include "chrome/common/pref_names.h"
 #include "components/download/public/common/download_item.h"
 #include "components/prefs/pref_service.h"
-#include "components/security_state/content/security_state_tab_helper.h"
 #include "components/security_state/core/security_state.h"
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/web_contents.h"
@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/download/bubble/download_toolbar_ui_controller.h"
+#include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "extensions/browser/extension_util.h"
 #endif
 
@@ -200,13 +201,10 @@ void DownloadUIController::OnDownloadCreated(content::DownloadManager* manager,
   if (web_contents && (item->IsSavePackageDownload() ||
                        (web_contents->GetURL() != item->GetOriginalUrl() &&
                         web_contents->GetURL() != item->GetURL()))) {
-    auto* security_state_tab_helper =
-        SecurityStateTabHelper::FromWebContents(web_contents);
-    if (security_state_tab_helper) {
-      UMA_HISTOGRAM_ENUMERATION("Security.SecurityLevel.DownloadStarted",
-                                security_state_tab_helper->GetSecurityLevel(),
-                                security_state::SECURITY_LEVEL_COUNT);
-    }
+    UMA_HISTOGRAM_ENUMERATION(
+        "Security.SecurityLevel.DownloadStarted",
+        chrome_security_state::GetSecurityLevel(web_contents),
+        security_state::SECURITY_LEVEL_COUNT);
   }
 
   if (web_contents) {
@@ -282,13 +280,14 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
     BrowserWindowInterface* browser =
         GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
             web_contents);
-    // If the download occurs in a new tab, and it's not a save page
-    // download (started before initial navigation completed) close it.
-    // Avoid calling CloseContents if the tab is not in this browser's tab strip
-    // model; this can happen if the download was initiated by something
+    // If the download occurs in a new tab (or web app window), and it's not a
+    // save page download (started before initial navigation completed) close
+    // it. Avoid calling CloseContents if the tab is not in this browser's tab
+    // strip model; this can happen if the download was initiated by something
     // internal to Chrome, such as by the app list.
     if (browser && web_contents->GetController().IsInitialNavigation() &&
-        browser->GetTabStripModel()->count() > 1 &&
+        (browser->GetTabStripModel()->count() > 1 ||
+         web_app::AppBrowserController::IsWebApp(browser)) &&
         browser->GetTabStripModel()->GetIndexOfWebContents(web_contents) !=
             TabStripModel::kNoTab &&
         !item->IsSavePackageDownload()) {

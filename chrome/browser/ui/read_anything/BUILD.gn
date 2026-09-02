@@ -65,6 +65,7 @@ source_set("read_anything") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui/webui_browser:headers",
     "//chrome/common",
+    "//chrome/common/read_anything:mojo_bindings",
     "//content/public/browser",
     "//ui/base",
     "//ui/views",
@@ -78,6 +79,7 @@ source_set("read_anything") {
     "//chrome/browser/extensions",
     "//chrome/browser/language",
     "//chrome/browser/profiles",
+    "//chrome/browser/translate",
     "//chrome/browser/ui:accelerator_utils_headers",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui:view_ids",
@@ -103,7 +105,6 @@ source_set("browser_tests") {
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
 
   sources = [
-    "immersive_read_anything_browsertest.cc",
     "read_anything_controller_browsertest.cc",
     "read_anything_entry_point_controller_browsertest.cc",
     "read_anything_omnibox_controller_browsertest.cc",

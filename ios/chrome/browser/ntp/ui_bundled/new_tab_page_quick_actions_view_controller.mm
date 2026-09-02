@@ -28,13 +28,15 @@ namespace {
 const CGFloat kButtonStackViewSpacing = 8.0;
 
 // The height for the quick actions button row.
-const CGFloat kQuickActionsHeight = 44.0;
+constexpr CGFloat kQuickActionsHeight = 44.0;
+constexpr CGFloat kQuickActionsHeightUICleanup = 50.0;
 
 // The border radius for a quick action button.
 const CGFloat kButtonCornerRadius = 24.0;
 
-// The sise of the quick actions symbols.
-const CGFloat kSymbolPointSize = 18.0;
+// The size of the quick actions symbols.
+constexpr CGFloat kSymbolPointSize = 18.0;
+constexpr CGFloat kSymbolPointSizeUICleanup = 14.0;
 
 // The maximum font size for the quick actions button.
 const CGFloat kMaximumFontSize = 20.0;
@@ -44,10 +46,14 @@ NSString* const kFakeboxMatchingBackgroundColor =
     @"fake_omnibox_bottom_gradient_color";
 
 // Returns the color needed for the background of the button.
-UIColor* ButtonBackgroundColor(NewTabPageColorPalette* colorPalette) {
-  // All other treatments use the same color as the fakebox.
-  return colorPalette ? colorPalette.omniboxColor
-                      : [UIColor colorNamed:kFakeboxMatchingBackgroundColor];
+UIColor* ButtonBackgroundColor(NewTabPageColorPalette* color_palette) {
+  if (color_palette) {
+    return color_palette.omniboxColor;
+  }
+  if (IsNewTabPageUICleanupEnabled()) {
+    return [UIColor colorNamed:kNTPQuickActionChipColor];
+  }
+  return [UIColor colorNamed:kFakeboxMatchingBackgroundColor];
 }
 
 }  // namespace
@@ -63,9 +69,12 @@ UIColor* ButtonBackgroundColor(NewTabPageColorPalette* colorPalette) {
   [self.view addSubview:_buttonStackView];
 
   AddSameConstraints(_buttonStackView, self.view);
-  [NSLayoutConstraint
-      activateConstraints:@[ [_buttonStackView.heightAnchor
-                              constraintEqualToConstant:kQuickActionsHeight] ]];
+  [NSLayoutConstraint activateConstraints:@[
+    [_buttonStackView.heightAnchor
+        constraintEqualToConstant:IsNewTabPageUICleanupEnabled()
+                                      ? kQuickActionsHeightUICleanup
+                                      : kQuickActionsHeight]
+  ]];
   if (IsAimEnabledInNtp()) {
     _aimButton =
         [self createButtonWithSymbol:SymbolMagnifyingglassSpark
@@ -93,7 +102,10 @@ UIColor* ButtonBackgroundColor(NewTabPageColorPalette* colorPalette) {
 }
 
 - (CGSize)preferredContentSize {
-  return CGSizeMake(super.preferredContentSize.width, kQuickActionsHeight);
+  return CGSizeMake(super.preferredContentSize.width,
+                    IsNewTabPageUICleanupEnabled()
+                        ? kQuickActionsHeightUICleanup
+                        : kQuickActionsHeight);
 }
 
 #pragma mark - Private
@@ -128,7 +140,9 @@ UIColor* ButtonBackgroundColor(NewTabPageColorPalette* colorPalette) {
   configuration.background.backgroundColor = ButtonBackgroundColor(nil);
   configuration.background.cornerRadius = kButtonCornerRadius;
   configuration.baseForegroundColor = [UIColor colorNamed:kGrey700Color];
-  UIImage* icon = SymbolWithPointSize(symbol, kSymbolPointSize);
+  UIImage* icon = SymbolWithPointSize(symbol, IsNewTabPageUICleanupEnabled()
+                                                  ? kSymbolPointSizeUICleanup
+                                                  : kSymbolPointSize);
   configuration.image = MakeSymbolMonochrome(icon);
 
   if (title) {

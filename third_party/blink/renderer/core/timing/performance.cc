@@ -585,6 +585,7 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
     // Performance entries. They are not retrievable through Performance
     // interface.
     case PerformanceEntry::kMarkConditional:
+    case PerformanceEntry::kMeasureConditional:
       break;
 
     case PerformanceEntry::kInvalid:
@@ -642,7 +643,8 @@ void Performance::AddResourceTiming(mojom::blink::ResourceTimingInfoPtr info,
   ExecutionContext* context = GetExecutionContext();
   auto* entry = MakeGarbageCollected<PerformanceResourceTiming>(
       std::move(info), initiator_type, time_origin_,
-      cross_origin_isolated_capability_, context, NavigationId());
+      cross_origin_isolated_capability_, context,
+      NavigationId().web_exposed_id);
   NotifyObserversOfEntry(*entry);
   // https://w3c.github.io/resource-timing/#dfn-add-a-performanceresourcetiming-entry
   if (CanAddResourceTimingEntry() &&
@@ -834,7 +836,8 @@ void Performance::AddLongTaskTiming(base::TimeTicks start_time,
       static_cast<int>(MonotonicTimeToDOMHighResTimeStamp(end_time) -
                        dom_high_res_start_time),
       name, container_type, container_src, container_id, container_name,
-      DynamicTo<LocalDOMWindow>(execution_context), NavigationId());
+      DynamicTo<LocalDOMWindow>(execution_context),
+      NavigationId().web_exposed_id);
   if (longtask_buffer_.size() < kDefaultLongTaskBufferSize) {
     InsertEntryIntoSortedBuffer(longtask_buffer_, *entry);
   } else {
@@ -857,7 +860,8 @@ void Performance::AddBackForwardCacheRestoration(
       MonotonicTimeToDOMHighResTimeStamp(start_time),
       MonotonicTimeToDOMHighResTimeStamp(pageshow_start_time),
       MonotonicTimeToDOMHighResTimeStamp(pageshow_end_time),
-      DynamicTo<LocalDOMWindow>(GetExecutionContext()), NavigationId());
+      DynamicTo<LocalDOMWindow>(GetExecutionContext()),
+      NavigationId().web_exposed_id);
   if (back_forward_cache_restoration_buffer_.size() <
       back_forward_cache_restoration_buffer_size_limit_) {
     InsertEntryIntoSortedBuffer(back_forward_cache_restoration_buffer_, *entry);
@@ -1191,7 +1195,7 @@ PerformanceMeasure* Performance::MeasureWithDetail(
     ExceptionState& exception_state) {
   PerformanceMeasure* performance_measure = GetUserTiming().Measure(
       script_state, measure_name, start, duration, end, detail, exception_state,
-      LocalDOMWindow::From(script_state), NavigationId());
+      LocalDOMWindow::From(script_state), NavigationId().web_exposed_id);
   if (performance_measure)
     NotifyObserversOfEntry(*performance_measure);
   return performance_measure;
@@ -1203,6 +1207,11 @@ void Performance::clearMeasures(const AtomicString& measure_name) {
 
 void Performance::markConditional(ScriptState* script_state,
                                   const AtomicString& mark_name) {}
+
+void Performance::measureConditional(ScriptState* script_state,
+                                     const AtomicString& measure_name,
+                                     const AtomicString& start_mark,
+                                     const AtomicString& end_mark) {}
 
 void Performance::RegisterPerformanceObserver(PerformanceObserver& observer) {
   observer_filter_options_ |= observer.FilterOptions();
@@ -1363,7 +1372,7 @@ void Performance::AddPaintTiming(PerformancePaintTiming::PaintType type,
                                  const DOMPaintTimingInfo& paint_timing_info) {
   PerformancePaintTiming* entry = MakeGarbageCollected<PerformancePaintTiming>(
       type, paint_timing_info, DynamicTo<LocalDOMWindow>(GetExecutionContext()),
-      NavigationId());
+      NavigationId().web_exposed_id);
   DCHECK((type == PerformancePaintTiming::PaintType::kFirstPaint) ||
          (type == PerformancePaintTiming::PaintType::kFirstContentfulPaint));
 

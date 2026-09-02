@@ -8,12 +8,20 @@
 //     {{module.path}}
 //
 
-private static let mojoPrefix = "{{module.namespace}}."
+private let mojoPrefix = "{{module.namespace}}."
 
 ///
 /// Interfaces
 ///
 {% include "interfaces.tmpl" %}
+
+{%- if structs or response_structs %}
+
+///
+/// Structs
+///
+{% include "structs.tmpl" %}
+{%- endif %}
 
 {%- if arrays %}
 
@@ -21,6 +29,31 @@ private static let mojoPrefix = "{{module.namespace}}."
 /// Arrays
 ///
 {% include "arrays.tmpl" %}
+{%- endif %}
+
+{%- if maps %}
+
+///
+/// Maps
+///
+{% include "maps.tmpl" %}
+{%- endif %}
+
+{%- if enums %}
+
+///
+/// Enumerations
+///
+{% include "enumerations.tmpl" %}
+{%- endif %}
+
+{%- if unions %}
+
+///
+/// Unions
+///
+{% include "unions.tmpl" %}
+
 {%- endif %}
 
 ///

@@ -11,7 +11,9 @@
 #include <utility>
 
 #include "base/compiler_specific.h"
+#include "base/containers/extend.h"
 #include "base/containers/span.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/numerics/byte_conversions.h"
@@ -34,7 +36,6 @@
 #include "device/fido/ctap_get_assertion_request.h"
 #include "device/fido/ctap_make_credential_request.h"
 #include "device/fido/device_response_converter.h"
-#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/large_blob.h"
 #include "device/fido/opaque_attestation_statement.h"
 #include "device/fido/pin.h"
@@ -87,7 +88,7 @@ uint8_t GetSupportedPermissionsMask(const VirtualCtap2Device::Config& config) {
 std::vector<uint8_t> ConstructResponse(CtapDeviceResponseCode response_code,
                                        base::span<const uint8_t> data) {
   std::vector<uint8_t> response{base::strict_cast<uint8_t>(response_code)};
-  fido_parsing_utils::Append(&response, data);
+  base::Extend(response, data);
   return response;
 }
 
@@ -182,9 +183,8 @@ std::vector<uint8_t> ConstructSignatureBuffer(
     const AuthenticatorData& authenticator_data,
     base::span<const uint8_t, kClientDataHashLength> client_data_hash) {
   std::vector<uint8_t> signature_buffer;
-  fido_parsing_utils::Append(&signature_buffer,
-                             authenticator_data.SerializeToByteArray());
-  fido_parsing_utils::Append(&signature_buffer, client_data_hash);
+  base::Extend(signature_buffer, authenticator_data.SerializeToByteArray());
+  base::Extend(signature_buffer, client_data_hash);
   return signature_buffer;
 }
 
@@ -201,7 +201,7 @@ std::vector<uint8_t> ConstructMakeCredentialResponse(
   if (!signature.empty()) {
     cbor::Value::MapValue attestation_map;
     attestation_map.emplace("alg", -7);
-    attestation_map.emplace("sig", fido_parsing_utils::Materialize(signature));
+    attestation_map.emplace("sig", base::ToVector(signature));
 
     if (attestation_certificate) {
       cbor::Value::ArrayValue certificate_chain;
@@ -1809,8 +1809,7 @@ std::optional<CtapDeviceResponseCode> VirtualCtap2Device::OnGetAssertion(
 
     if (include_credential) {
       assertion.credential = PublicKeyCredentialDescriptor(
-          CredentialType::kPublicKey,
-          fido_parsing_utils::Materialize(registration.first));
+          CredentialType::kPublicKey, base::ToVector(registration.first));
     }
 
     if (registration.second->is_resident &&
@@ -2930,9 +2929,8 @@ AttestedCredentialData VirtualCtap2Device::ConstructAttestedCredentialData(
        !mutable_state()->non_zero_aaguid_with_self_attestation)) {
     aaguid = kZeroAaguid;
   }
-  return AttestedCredentialData(aaguid, sha256_length,
-                                fido_parsing_utils::Materialize(key_handle),
-                                std::move(public_key));
+  return AttestedCredentialData(
+      aaguid, sha256_length, base::ToVector(key_handle), std::move(public_key));
 }
 
 size_t VirtualCtap2Device::remaining_resident_credentials() const {

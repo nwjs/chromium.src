@@ -5,10 +5,14 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import android.content.Context;
+import android.content.res.Configuration;
+import android.graphics.Color;
 import android.view.View;
 
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.bookmarks.BookmarkModel.BookmarkDeleteObserver;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -47,7 +51,8 @@ public class BookmarkToolbarCoordinator {
             BooleanSupplier incognitoEnabledSupplier,
             BookmarkManagerOpener bookmarkManagerOpener,
             SnackbarManager snackbarManager,
-            View nextFocusableView) {
+            View nextFocusableView,
+            @Nullable BookmarkDeleteObserver bookmarkDeleteObserver) {
         mToolbar =
                 (BookmarkToolbar)
                         selectableListLayout.initializeToolbar(
@@ -58,6 +63,16 @@ public class BookmarkToolbarCoordinator {
                                 R.id.selection_mode_menu_group,
                                 null,
                                 isDialogUi);
+        mToolbar.setNormalBackgroundColor(Color.TRANSPARENT);
+        if (BookmarkUtils.isDesktopBookmarksLayoutEnabled()) {
+            mToolbar.setTitleMarginStart(
+                    context.getResources()
+                            .getDimensionPixelSize(
+                                    R.dimen.bookmark_desktop_toolbar_title_margin_start));
+        }
+
+        updateToolbarPadding(context);
+
         mToolbar.initializeSearchView(
                 searchDelegate, R.string.bookmark_toolbar_search, R.id.search_menu_id);
 
@@ -82,9 +97,31 @@ public class BookmarkToolbarCoordinator {
                 incognitoEnabledSupplier,
                 bookmarkManagerOpener,
                 snackbarManager,
-                Clipboard.getInstance());
+                Clipboard.getInstance(),
+                bookmarkDeleteObserver);
 
         PropertyModelChangeProcessor.create(mModel, mToolbar, BookmarkToolbarViewBinder::bind);
+    }
+
+    public void onConfigurationChanged(Configuration newConfig) {
+        updateToolbarPadding(mToolbar.getContext());
+    }
+
+    private void updateToolbarPadding(Context context) {
+        if (!BookmarkUtils.isDesktopBookmarksLayoutEnabled()) {
+            return;
+        }
+        int padding =
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.bookmark_desktop_content_padding);
+        int paddingStartOffset =
+                context.getResources()
+                        .getDimensionPixelSize(R.dimen.toolbar_wide_display_start_offset);
+        int expectedStart = padding + paddingStartOffset;
+        if (mToolbar.getPaddingStart() != expectedStart || mToolbar.getPaddingEnd() != padding) {
+            mToolbar.setPaddingRelative(
+                    expectedStart, mToolbar.getPaddingTop(), padding, mToolbar.getPaddingBottom());
+        }
     }
 
     // Testing methods

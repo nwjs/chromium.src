@@ -283,19 +283,6 @@ class ComputedStyle final : public ComputedStyleBase {
   friend class css_longhand::WebkitTextFillColor;
   friend class css_longhand::WebkitTextStrokeColor;
   friend class css_shorthand::TextDecoration;
-  // Access to *WidthInternal(). This is needed to access the *-width property
-  // before the "treat as zero if style is none" logic is applied. For example,
-  // if `BorderLeftStyle` is 'none', `BorderLeftWidth` will resolve to 0, but
-  // `BorderLeftWidthInternal` will return the actual computed width regardless
-  // of style.
-  friend class css_longhand::BorderBottomWidth;
-  friend class css_longhand::BorderLeftWidth;
-  friend class css_longhand::BorderRightWidth;
-  friend class css_longhand::BorderTopWidth;
-  friend class css_longhand::ColumnRuleWidth;
-  friend class css_longhand::OutlineWidth;
-  friend class ComputedStylePropertyMap;
-  friend class LengthPropertyFunctions;
   // Access to private Appearance() and HasAppearance().
   friend class LayoutTheme;
   friend class StyleAdjuster;
@@ -364,9 +351,6 @@ class ComputedStyle final : public ComputedStyleBase {
 
   static const ComputedStyle* NullifyEnsured(const ComputedStyle* style) {
     if (!style) {
-      return nullptr;
-    }
-    if (style->IsEnsuredOutsideFlatTree()) {
       return nullptr;
     }
     if (style->IsEnsuredInDisplayNone()) {
@@ -604,16 +588,16 @@ class ComputedStyle final : public ComputedStyleBase {
 
   // Border width properties.
   int BorderTopWidth() const {
-    return BorderWidth(BorderTopStyle(), BorderTopWidthInternal());
+    return BorderWidth(BorderTopStyle(), SpecifiedBorderTopWidth());
   }
   int BorderBottomWidth() const {
-    return BorderWidth(BorderBottomStyle(), BorderBottomWidthInternal());
+    return BorderWidth(BorderBottomStyle(), SpecifiedBorderBottomWidth());
   }
   int BorderLeftWidth() const {
-    return BorderWidth(BorderLeftStyle(), BorderLeftWidthInternal());
+    return BorderWidth(BorderLeftStyle(), SpecifiedBorderLeftWidth());
   }
   int BorderRightWidth() const {
-    return BorderWidth(BorderRightStyle(), BorderRightWidthInternal());
+    return BorderWidth(BorderRightStyle(), SpecifiedBorderRightWidth());
   }
 
   // clip-path
@@ -624,36 +608,6 @@ class ComputedStyle final : public ComputedStyleBase {
     // to reduce the cost of these expensive indirections by placing a bit
     // in more easily accessible memory.
     return HasClipPath() ? ClipPathInternal().Get() : nullptr;
-  }
-
-  // column-rule-width
-  GapDataList<int> ColumnRuleWidth() const {
-    // The legacy version of 'column-rule-width' behaved such that if
-    // 'column-rule-style' was not visible, we'd treat the width as 0. We will
-    // continue to apply this rule for 'column-rule-width' if a single value is
-    // provided for 'column-rule-width' and 'column-rule-style' for backwards
-    // compat. However, if one of the properties is a list of values, we will
-    // return the true computed value of the width as specified by the author
-    // (per CSSWG resolution [1]).
-    //
-    // [1]: https://github.com/w3c/csswg-drafts/issues/11494
-    const GapDataList<EBorderStyle> rule_style = ColumnRuleStyle();
-    bool is_legacy_column_rule_behavior =
-        rule_style.HasSingleValue() &&
-        ColumnRuleWidthInternal().HasSingleValue() &&
-        !BorderStyleIsVisible(rule_style.GetLegacyValue());
-    if (!RuntimeEnabledFeatures::
-            DecoupleResolvedColumnRuleWidthFromStyleEnabled() &&
-        is_legacy_column_rule_behavior) {
-      return GapDataList<int>(0);
-    }
-
-    return ColumnRuleWidthInternal();
-  }
-
-  // row-rule-width
-  const GapDataList<int>& RowRuleWidth() const {
-    return RowRuleWidthInternal();
   }
 
   // content
@@ -700,22 +654,12 @@ class ComputedStyle final : public ComputedStyleBase {
         other.OutlineStyle() == EBorderStyle::kNone) {
       return true;
     }
-    return OutlineWidthInternal() == other.OutlineWidthInternal() &&
+    return OutlineWidth() == other.OutlineWidth() &&
            ResolvedColor(OutlineColor()) ==
                other.ResolvedColor(other.OutlineColor()) &&
            OutlineStyle() == other.OutlineStyle() &&
            OutlineOffset() == other.OutlineOffset() &&
            OutlineStyleIsAuto() == other.OutlineStyleIsAuto();
-  }
-
-  // outline-width
-  int OutlineWidth() const {
-    if (!RuntimeEnabledFeatures::
-            DecoupleResolvedColumnRuleWidthFromStyleEnabled() &&
-        OutlineStyle() == EBorderStyle::kNone) {
-      return 0;
-    }
-    return OutlineWidthInternal();
   }
 
   // For history and compatibility reasons, we draw outline:auto (for focus
@@ -1510,20 +1454,20 @@ class ComputedStyle final : public ComputedStyleBase {
 
     return BorderSideVisuallyEqual(BorderTopColor(), o.BorderTopColor(),
                                    BorderTopStyle(), o.BorderTopStyle(),
-                                   BorderTopWidthInternal(),
-                                   o.BorderTopWidthInternal()) &&
+                                   SpecifiedBorderTopWidth(),
+                                   o.SpecifiedBorderTopWidth()) &&
            BorderSideVisuallyEqual(BorderRightColor(), o.BorderRightColor(),
                                    BorderRightStyle(), o.BorderRightStyle(),
-                                   BorderRightWidthInternal(),
-                                   o.BorderRightWidthInternal()) &&
+                                   SpecifiedBorderRightWidth(),
+                                   o.SpecifiedBorderRightWidth()) &&
            BorderSideVisuallyEqual(BorderBottomColor(), o.BorderBottomColor(),
                                    BorderBottomStyle(), o.BorderBottomStyle(),
-                                   BorderBottomWidthInternal(),
-                                   o.BorderBottomWidthInternal()) &&
+                                   SpecifiedBorderBottomWidth(),
+                                   o.SpecifiedBorderBottomWidth()) &&
            BorderSideVisuallyEqual(BorderLeftColor(), o.BorderLeftColor(),
                                    BorderLeftStyle(), o.BorderLeftStyle(),
-                                   BorderLeftWidthInternal(),
-                                   o.BorderLeftWidthInternal()) &&
+                                   SpecifiedBorderLeftWidth(),
+                                   o.SpecifiedBorderLeftWidth()) &&
            BorderImage() == o.BorderImage() &&
            base::ValuesEquivalent(BorderShape(), o.BorderShape());
   }
@@ -1692,11 +1636,13 @@ class ComputedStyle final : public ComputedStyleBase {
   // the LayoutObject is ineligible for the given containment type. See
   // |LayoutObject::IsEligibleForSizeContainment| and similar functions.
 
-  static unsigned EffectiveContainment(unsigned contain,
-                                       unsigned container_type,
-                                       EContentVisibility content_visibility,
-                                       bool skips_contents,
-                                       bool has_size_containment_for_vt_scope) {
+  static unsigned EffectiveContainment(
+      unsigned contain,
+      unsigned container_type,
+      EContentVisibility content_visibility,
+      bool skips_contents,
+      bool has_size_containment_for_vt_scope,
+      EOverscrollContainerType overscroll_container_type) {
     unsigned effective = contain;
 
     if (container_type & kContainerTypeInlineSize) {
@@ -1720,6 +1666,15 @@ class ComputedStyle final : public ComputedStyleBase {
                                ScopedViewTransitionSizeContainmentEnabled())) {
       effective |= kContainsSize;
     }
+    if (overscroll_container_type != EOverscrollContainerType::kNone) {
+      // TODO(crbug.com/467112943): Layout containment is currently forced to
+      // ensure that the container of the overscroll areas actually contains
+      // the overscroll areas. However, requiring layout containment is
+      // overly restrictive to the child content that can be used within
+      // the scroller. We should remove this requirement while ensuring they are
+      // layout children of the container element.
+      effective |= kContainsLayout;
+    }
 
     return effective;
   }
@@ -1729,7 +1684,8 @@ class ComputedStyle final : public ComputedStyleBase {
         Contain(), ContainerType(), ContentVisibility(), SkipsContents(),
         HasSizeContainmentForViewTransitionScope() &&
             RuntimeEnabledFeatures::
-                ScopedViewTransitionSizeContainmentEnabled());
+                ScopedViewTransitionSizeContainmentEnabled(),
+        EffectiveOverscrollContainerType());
   }
 
   bool ContainsStyle() const { return EffectiveContainment() & kContainsStyle; }
@@ -2562,9 +2518,6 @@ class ComputedStyle final : public ComputedStyleBase {
         pseudo == kPseudoIdScrollButtonBlockEnd) {
       return HasPseudoElementStyle(kPseudoIdScrollButton);
     }
-    if (pseudo == kPseudoIdOverscrollAreaParent) {
-      return IsInternalOverscrollArea();
-    }
     if (!HasPseudoElementStyle(pseudo)) {
       return false;
     }
@@ -2678,11 +2631,24 @@ class ComputedStyle final : public ComputedStyleBase {
 
   bool HasBaseEffectiveAppearance() const;
 
-  bool IsInternalOverscrollArea() const {
-    return InternalOverscrollArea() != EInternalOverscrollArea::kNone;
+  EOverscrollContainerType EffectiveOverscrollContainerType() const {
+    if (InternalOverscrollContainer() == EInternalOverscrollContainer::kNone) {
+      return EOverscrollContainerType::kNone;
+    }
+    return OverscrollContainerType();
   }
+
+  bool IsContentMovingOverscrollContainer() const {
+    EOverscrollContainerType type = EffectiveOverscrollContainerType();
+    return type == EOverscrollContainerType::kAuto ||
+           type == EOverscrollContainerType::kPush;
+  }
+
   bool IsInternalOverscrollPositionAuto() const {
     return InternalOverscrollPosition() == EInternalOverscrollPosition::kAuto;
+  }
+  bool IsUnboundedElementActive() const {
+    return InternalUnbounded() == EInternalUnbounded::kActive;
   }
 
  private:
@@ -3080,19 +3046,19 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   // border-*-width
   int BorderTopWidth() const {
     return ComputedStyle::BorderWidth(BorderTopStyle(),
-                                      BorderTopWidthInternal());
+                                      SpecifiedBorderTopWidth());
   }
   int BorderBottomWidth() const {
     return ComputedStyle::BorderWidth(BorderBottomStyle(),
-                                      BorderBottomWidthInternal());
+                                      SpecifiedBorderBottomWidth());
   }
   int BorderLeftWidth() const {
     return ComputedStyle::BorderWidth(BorderLeftStyle(),
-                                      BorderLeftWidthInternal());
+                                      SpecifiedBorderLeftWidth());
   }
   int BorderRightWidth() const {
     return ComputedStyle::BorderWidth(BorderRightStyle(),
-                                      BorderRightWidthInternal());
+                                      SpecifiedBorderRightWidth());
   }
 
   // border-image-*
@@ -3227,7 +3193,8 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
         Contain(), ContainerType(), ContentVisibility(), SkipsContents(),
         HasSizeContainmentForViewTransitionScope() &&
             RuntimeEnabledFeatures::
-                ScopedViewTransitionSizeContainmentEnabled());
+                ScopedViewTransitionSizeContainmentEnabled(),
+        EffectiveOverscrollContainerType());
     return ComputedStyle::ShouldApplyAnyContainment(element, GetDisplayStyle(),
                                                     effective_containment);
   }
@@ -3438,6 +3405,14 @@ class ComputedStyleBuilder final : public ComputedStyleBuilderBase {
   bool ScrollsOverflow() const {
     return ComputedStyle::ScrollsOverflow(OverflowX()) ||
            ComputedStyle::ScrollsOverflow(OverflowY());
+  }
+
+  // overscroll
+  EOverscrollContainerType EffectiveOverscrollContainerType() const {
+    if (InternalOverscrollContainer() == EInternalOverscrollContainer::kNone) {
+      return EOverscrollContainerType::kNone;
+    }
+    return OverscrollContainerType();
   }
 
   // padding-*
