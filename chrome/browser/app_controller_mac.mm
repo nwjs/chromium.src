@@ -2220,7 +2220,6 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     item.enabled = [self validateUserInterfaceItem:item];
     [dockMenu addItem:item];
   }
-#endif
 
   if (isolated_mode_enabled) {
     titleStr = l10n_util::GetNSStringWithFixup(IDS_NEW_ISOLATED_WINDOW_MAC);
@@ -2232,6 +2231,7 @@ class AppControllerProfileObserver : public ProfileAttributesStorage::Observer,
     item.enabled = [self validateUserInterfaceItem:item];
     [dockMenu addItem:item];
   }
+#endif
 
   return dockMenu;
 }

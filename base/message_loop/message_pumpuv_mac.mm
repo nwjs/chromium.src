@@ -244,7 +244,7 @@ void MessagePumpUVNSRunLoop::PreWaitObserverHook() {
 }
 
 MessagePumpUVNSRunLoop::MessagePumpUVNSRunLoop()
-    : MessagePumpCFRunLoopBase(0x1 /*kCommonModeMask*/), keep_running_(true) {
+    : MessagePumpCFRunLoopBase(), keep_running_(true) {
   CFRunLoopSourceContext source_context = CFRunLoopSourceContext();
   source_context.perform = NoOp;
   quit_source_ = CFRunLoopSourceCreate(NULL,  // allocator
